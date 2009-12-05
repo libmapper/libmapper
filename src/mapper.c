@@ -417,3 +417,18 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
     return 0;
 }
 
+int mapper_method_add(mapper_method *head, const char *path, const char *types)
+{
+}
+
+int mapper_method_remove(mapper_method *head, const char *path, const char *types)
+{
+}
+
+int mapper_method_list_free(mapper_method *head)
+{
+}
+
+int mapper_method_list_count(mapper_method head)
+{
+}

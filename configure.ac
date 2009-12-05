@@ -36,6 +36,8 @@ AM_SANITY_CHECK
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
+AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_FUNC([inet_ntoa])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

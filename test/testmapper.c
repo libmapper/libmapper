@@ -3,6 +3,9 @@
 #include <mapper.h>
 #include <stdio.h>
 
+#include <unistd.h>
+#include <arpa/inet.h>
+
 mapper_admin my_admin = NULL;
 
 void dump_input_methods(mapper_admin admin)
@@ -21,7 +24,7 @@ void dump_input_methods(mapper_admin admin)
 
 int test()
 {
-    int i, error=0, wait;
+    int error=0, wait;
 
     if (!mapper_admin_init()) {
         printf("Error initializing mapper admin subsystem.\n");
