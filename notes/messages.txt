@@ -1,0 +1,93 @@
+
+Messages exchanged by the mapper
+================================
+
+Discovery (Device)
+------------------
+
+on: /device/who
+
+respond: /registered <name> @class <deviceClass> @IP <ip> @port <port> @inputs <n> @outputs <n>
+
+controller: /device/registered /tstick/1 @inputs 1 @outputs 52 @class /tstick @IP 192.168.0.3 @port 8001
+
+synth: /device/registered /granul8/1 @inputs 80 @outputs 0 @class /granul8 @IP 192.168.0.4 @port 8000
+
+Device Connections (Router)
+---------------------------
+
+on: /link /tstick/1 /granul8/1
+
+respond: /linked /tstick/1 /granul8/1
+
+on: /unlink /tstick/1 /granul8/1
+
+respond: /unlinked /tstick/1 /granul8/1
+
+Signal Connections (Router)
+---------------------------
+
+on: /connect /tstick/1/raw/pressure/1 /granul8/1/gain @scaling expression @expression x*10 @clipping minimum 0
+
+respond:  /connected /tstick/1/raw/pressure/1 /granul8/1/gain
+
+example: /properties /tstick/1/raw/pressure/1 /granul8/1/gain @scaling expression
+
+example: /properties /tstick/1/raw/pressure/1 /granul8/1/gain @expression x*10
+
+example: /properties /tstick/1/raw/pressure/1 /granul8/1/gain @clipping minimum 0
+
+on: /disconnect /tstick/1/raw/pressure/1 /granul8/1/gain
+
+respond: /disconnected /tstick/1/raw/pressure/1 /granul8/1/gain
+
+Connection Properties (Router)
+------------------------------
+
+on: /connection/properties/get /tstick/1/raw/pressure/1 /granul8/1/gain
+
+on: /connection/modify /tstick/1/raw/pressure/1 /granul8/1/gain <desired properties, @scaling...>
+
+respond: /connection/properties /tstick/1/raw/pressure/1 /granul8/1/gain <@scaling...>
+
+Namespace (Device)
+------------------
+
+on: /tstick/namespace/get
+
+respond: /tstick/namespace/output /tstick/raw/piezo @type i @min 0 @max 255 @units na
+
+Router
+------
+
+on: /router/connections
+
+respond: /router/connected <input> <output> <mapping properties>
+
+Unknown messages
+----------------
+
+/add
+/available
+/clear
+/cleared
+/connections/get
+/default
+/delete
+/device/logout
+/display
+/dump
+/filter
+/length
+/links/get
+/load
+/lookup
+../namespace/numInputs <i>
+../namespace/numOutputs <i>
+/prefix
+/probe
+remove/
+/request
+/request b 1 2000
+/save
+/view

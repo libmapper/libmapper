@@ -1,0 +1,162 @@
+
+device:
+  root_name (string)
+  name (string) = $root_name/$(unique name)
+  class (string)
+  numInputs (integer) = $(length inputs)
+  numOutputs (integer) = $(length outputs)
+  inputs (signal list)
+  outputs (signal list)
+
+signal:
+  name (string)
+  type (type_id)
+  minimum (value $units)
+  maximum (value $units)
+  units (unit_id)
+
+unit_id:
+  na
+  normalized = (range 0 1)
+  degrees = (range 0 360)
+  radians = (range 0 pi*2) = degrees*pi/180
+  volts = voltage
+  ohms
+  amps = amperes
+  decimeters = dm = meters/10
+  centimeters = cm = meters/100
+  millimeters = mm = meters/1000
+  meters
+  inches
+  feet = 12*inches
+
+type_id:
+  f
+  i
+  array = type_id[integer]
+
+on /$name/namespace/get
+  <- send ( (map (/$name/namespace/input  /$name/$signal <@type $type> <@min $min> <@max $max> <@units $units>) inputs)
+          : (map (/$name/namespace/output /$name/$signal <@type $type> <@min $min> <@max $max> <@units $units>) outputs) )
+
+on /link <$name1> <$name2>
+  <- send /linked <$name1> <$name2>
+
+on /unlink <$name1> <$name2>
+  <- send /unlinked <$name1> <$name2>
+
+NOTE: certain values of some properties can imply that other properties must be known
+
+property:
+  expression = $exp
+  scaling = 'expression' -> required expression
+  clipping 'minimum' $operation
+  clipping 'maximum' $operation
+
+on /connect <$in> <$out> [property list]
+  <- send /connected <$in> <$out>
+
+
+dot.admin
+=========
+
+admin bus
+---------
+
+multicast_send group 224.0.1.3 port 7570
+multicast_recv group 224.0.1.3 port 7570
+
+devices
+-------
+
+route /who /registered
+
+/registered -> store in local coll
+
+/who -> answer if name and port are allocated
+
+answer /who -> /registered <name> @class <deviceClass> @IP <ip> @port <port>
+                                  @inputs <n> @outputs <n>
+
+where <name> is <basename>/<id>
+
+loadbang -> random wait ((rand 1000) + 500) -> del 4000
+
+random wait -> dot.namealloc group 224.0.1.3 port 7571
+            -> dot.portalloc group 224.0.1.3 port 7572 starting at 4000
+            -> get local IP address based on chosen local NIC
+
+
+link-unlink
+-----------
+
+route /link /unlink /connect /disconnect /connection/modify
+      /connection/properties/get /disconnected /connected
+
+/link, /unlink, /disconnected, /connected -> #0-from_admin
+
+/connect -> link & connect -> delays /connect by 300 ms, sends /link for known devices (in #0-device_coll) -> #0-from_admin
+
+/disconnect -> squeuedlim 50 -> #0-from_admin
+
+/connection/modify -> /modify -> #0-from_admin
+
+/connection/properties/get -> /properties/get -> #0-from_admin
+
+
+local input
+-----------
+
+#0-from_admin -> link-unlink -> thispatcher, mappingcoll
+
+link-unlink: route /link /unlink /links/get
+
+/link -> store in #0-linked, create dot.router -> thispatcher
+
+/unlink -> remove from #0-linked, delete dot.route -> thispatcher
+
+/links/get -> dump #0-linked -> #0-to_admin
+
+mappingcoll: route /connections/get /clear /load /save /view /length
+                   /disconnect /connect /modify /properties/default
+                   /properties/get /lookup
+
+/connections/get -> dump #0-mapped -> /connected -> #0-to_admin
+
+;; note: do load, save, view only apply to mapper GUI?
+/clear -> clear #0-mapped, /cleared -> #0-to_admin
+
+/load -> read #0-mapped
+
+/save -> write #0-mapped
+
+/view -> open #0-mapped
+
+/length -> length #0-mapped -> ?
+
+/disconnect -> remove from #0-mapped -> /disconnected -> #0-to_admin
+
+/connect -> add to #0-mapped -> /connected -> #0-to_admin
+
+/modify -> set property value -> if master_mode -> /connection/properties
+
+/properties/default -> ?
+
+/properties/get -> /connection/properties
+
+properties are: @clipMax, @clipMin, @repetition, @expression, @range, @scaling
+
+/lookup -> route /source /destination /index -> dump source, destination, index from #0-mapped -> ?
+
+
+device definition
+-----------------
+
+#0-from_admin -> route /namespace/get
+
+/namespace/get -> ../namespace/numInputs, ../namespace/numOutputs,
+                  dump #0-inputNamespace -> /input,
+                  dump #0-outputNamespace -> /output
+
+from user -> route add input, add output, add both ->
+             store #0-inputNamespace, store #0-outputNamespace
