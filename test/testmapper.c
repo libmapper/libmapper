@@ -8,7 +8,7 @@
 
 mapper_admin my_admin = NULL;
 
-int test()
+int test_admin()
 {
     int error=0, wait;
 
@@ -47,15 +47,34 @@ int test()
     return error;
 }
 
+int test_controller()
+{
+    mapper_device md = md_new("tester");
+    if (!md) goto error;
+    printf("Mapper device created.\n");
+
+    md_free(md);
+    return 0;
+
+  error:
+    if (md) md_free(md);
+    return 1;
+}
+
 int main()
 {
-    int result = test();
+    int result = test_admin();
     if (result) {
         printf("Test FAILED.\n");
         return 1;
     }
-    else {
-        printf("Test PASSED.\n");
-        return 0;
+
+    result = test_controller();
+    if (result) {
+        printf("Test FAILED.\n");
+        return 1;
     }
+
+    printf("Test PASSED.\n");
+    return 0;
 }

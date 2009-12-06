@@ -12,6 +12,7 @@
 #endif
 
 #include "mapper_internal.h"
+#include "types_internal.h"
 #include "config.h"
 #include <mapper/mapper.h>
 /*! Debug tracer */
@@ -86,7 +87,8 @@ static struct in_addr get_interface_addr(const char *ifname)
  *  device is allocated.
  *  \return A newly initialized mapper admin structure.
  */
-mapper_admin mapper_admin_new(char *identifier, mapper_device_type_t type,
+mapper_admin mapper_admin_new(const char *identifier,
+                              mapper_device_type_t type,
                               int initial_port)
 {
     mapper_admin admin = malloc(sizeof(mapper_admin_t));

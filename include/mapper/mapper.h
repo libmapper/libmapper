@@ -1,6 +1,8 @@
 
-#ifndef __MAPPER2_H__
-#define __MAPPER2_H__
+#ifndef __MAPPER_H__
+#define __MAPPER_H__
+
+#include <mapper/mapper_types.h>
 
 /*** Signals ***/
 
@@ -31,9 +33,6 @@ typedef struct _mapper_signal
 
 /*** Devices ***/
 
-//! An internal structure defining a mapper device.
-typedef struct _mapper_device *mapper_device;
-
 //! Allocate and initialize a mapper device.
 mapper_device md_new(const char *name_prefix);
 
@@ -48,4 +47,4 @@ void md_register_input(mapper_device device,
 void md_register_output(mapper_device device,
                         mapper_signal signal);
 
-#endif // __MAPPER2_H__
+#endif // __MAPPER_H__
