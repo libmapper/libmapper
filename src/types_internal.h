@@ -43,9 +43,17 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Device ****/
 
+struct _mapper_signal;
+
 typedef struct _mapper_device {
     char *name_prefix;
     mapper_admin admin;
+    struct _mapper_signal **inputs;
+    struct _mapper_signal **outputs;
+    int n_inputs;
+    int n_outputs;
+    int n_alloc_inputs;
+    int n_alloc_outputs;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__

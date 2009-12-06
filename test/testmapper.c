@@ -2,6 +2,7 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <math.h>
 
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -49,15 +50,30 @@ int test_admin()
 
 int test_controller()
 {
-    mapper_device md = md_new("tester");
+    mapper_device md = mdev_new("tester", 9000);
     if (!md) goto error;
     printf("Mapper device created.\n");
 
-    md_free(md);
+    mapper_signal sig =
+        msig_float(1, "/testsig", 0, INFINITY, INFINITY, 0);
+
+    sig =
+        msig_float(1, 0, 0, INFINITY, INFINITY, 0);
+
+    mdev_register_output(md, sig);
+
+    printf("Output signal /testsig registered.\n");
+
+    printf("Number of outputs: %d\n", mdev_num_outputs(md));
+
+    printf("Polling device..\n");
+    mdev_poll(md, 5000);
+
+    mdev_free(md);
     return 0;
 
   error:
-    if (md) md_free(md);
+    if (md) mdev_free(md);
     return 1;
 }
 

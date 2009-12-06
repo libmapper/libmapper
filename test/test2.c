@@ -3,13 +3,13 @@
 
 int main()
 {
-    mapper_device md = md_new("tester");
+    mapper_device md = mdev_new("tester", 0);
     if (!md) {
         printf("Error allocating tester device.\n");
         return 1;
     }
 
-    md_free(md);
+    mdev_free(md);
     printf("Tester device freed.\n");
     return 0;
 }
