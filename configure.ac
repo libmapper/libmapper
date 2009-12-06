@@ -37,7 +37,9 @@ AM_SANITY_CHECK
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
-AC_CHECK_FUNC([inet_ntoa])
+AC_CHECK_FUNC([inet_ntoa],[],[AC_ERROR([This is not a POSIX system!])])
+AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
+              [AC_ERROR([This is not a POSIX system!])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

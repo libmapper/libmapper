@@ -12,6 +12,7 @@
 #endif
 
 #include "mapper_internal.h"
+#include "config.h"
 #include <mapper/mapper.h>
 /*! Debug tracer */
 #ifdef DEBUG
@@ -29,12 +30,12 @@ static void trace(char *fmt, ...) {}
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
-#ifdef POSIX
+#ifdef HAVE_GETTIMEOFDAY
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (double)tv.tv_sec + tv.tv_usec / 1000000.0;
 #else
-    return 0;
+    #error No timing method known on this platform.
 #endif
 }
 
