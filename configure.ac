@@ -17,7 +17,7 @@ AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
 # age to 0.
 SO_VERSION=1:0:0
 
-AC_CONFIG_SRCDIR([src/mapper.c])
+AC_CONFIG_SRCDIR([src/device.c])
 AC_CONFIG_HEADERS([src/config.h])
 
 AM_INIT_AUTOMAKE([foreign])

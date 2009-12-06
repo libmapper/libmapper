@@ -1,5 +1,4 @@
 
-#include <mapper.h>
 #include <lo/lo.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,7 +13,6 @@
 
 #include "mapper_internal.h"
 #include <mapper/mapper.h>
-
 /*! Debug tracer */
 #ifdef DEBUG
 static void trace(char *fmt, ...)
@@ -75,11 +73,6 @@ static struct in_addr get_interface_addr(const char *ifname)
     }
 
     return error;
-}
-
-/*! Initialized the mapper admin subsystem. This should only be called once. */
-int mapper_admin_init()
-{
 }
 
 /*! Allocate and initialize a new admin structure.
@@ -145,8 +138,6 @@ mapper_admin mapper_admin_new(char *identifier, mapper_device_type_t type,
     admin->port.locked = 0;
     admin->port.collision_count = -1;
     admin->port.count_time = get_current_time();
-    admin->input_head = 0;
-    admin->output_head = 0;
     admin->registered = 0;
 
     /* Add methods for admin bus.  Only add methods needed for
@@ -178,9 +169,6 @@ void mapper_admin_free(mapper_admin admin)
 
     if (admin->admin_addr)
         lo_address_free(admin->admin_addr);
-
-    mapper_method_list_free(&admin->input_head);
-    mapper_method_list_free(&admin->output_head);
 
     free(admin);
 }
@@ -287,22 +275,6 @@ static void on_collision(mapper_admin_allocated_t *resource)
     resource->count_time = get_current_time();
 }
 
-/*! Inform the admin of an incoming message this device accepts. */
-int mapper_admin_input_add(mapper_admin admin, const char *path, const char *types)
-    { return mapper_method_add(&admin->input_head, path, types); }
-
-/*! Inform the admin that an incoming message is no longer accepted by this device. */
-int mapper_admin_input_remove(mapper_admin admin, const char *path, const char *types)
-    { return mapper_method_remove(&admin->input_head, path, types); }
-
-/*! Inform the admin of an outgoing message this device can send. */
-int mapper_admin_output_add(mapper_admin admin, const char *path, const char *types)
-    { return mapper_method_add(&admin->output_head, path, types); }
-
-/*! Inform the admin that an outgoing message is no longer sent by this device. */
-int mapper_admin_output_remove(mapper_admin admin, const char *path, const char *types)
-    { return mapper_method_remove(&admin->output_head, path, types); }
-
 /**********************************/
 /* Internal OSC message handlers. */
 /**********************************/
@@ -322,14 +294,19 @@ static int handler_device_who(const char *path, const char *types, lo_arg **argv
             "@class", admin->identifier,
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
+#if 1
+            "@inputs", 0, "@outputs", 0);
+#else
             "@inputs", mapper_method_list_count(admin->input_head),
             "@outputs", mapper_method_list_count(admin->output_head));
+#endif
 }
 
 /*! Respond to /namespace/get by enumerating all supported inputs and outputs. */
 static int handler_id_n_namespace_get(const char *path, const char *types, lo_arg **argv,
                                       int argc, lo_message msg, void *user_data)
 {
+#if 0
     mapper_admin admin = (mapper_admin)user_data;
     char name[256], response[256], method[256];
     mapper_method node;
@@ -357,6 +334,7 @@ static int handler_id_n_namespace_get(const char *path, const char *types, lo_ar
         lo_send(admin->admin_addr, response, "ssssisi", method, "@type", node->types, "@min", 0, "@max", 0);
         node = node->next;
     }
+#endif
 }
 
 static int handler_device_alloc_port(const char *path, const char *types, lo_arg **argv,
@@ -418,51 +396,4 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
         on_collision(&admin->ordinal);
 
     return 0;
-}
-
-int mapper_method_add(mapper_method *head, const char *path, const char *types)
-{
-}
-
-int mapper_method_remove(mapper_method *head, const char *path, const char *types)
-{
-}
-
-int mapper_method_list_free(mapper_method *head)
-{
-}
-
-int mapper_method_list_count(mapper_method head)
-{
-}
-
-
-/*** Mapper2 ***/
-
-//! Allocate and initialize a mapper device.
-mapper_device md_new(const char *name_prefix)
-{
-    mapper_device md =
-        (mapper_device)calloc(1, sizeof(mapper_device));
-    md->name_prefix = strdup(name_prefix);
-    return md;
-}
-
-//! Free resources used by a mapper device.
-void md_free(mapper_device device)
-{
-    if (device)
-        free(device);
-}
-
-//! Register a signal with a mapper device.
-void md_register_input(mapper_device device,
-                       mapper_signal signal)
-{
-}
-
-//! Unregister a signal with a mapper device.
-void md_register_output(mapper_device device,
-                        mapper_signal signal)
-{
 }
