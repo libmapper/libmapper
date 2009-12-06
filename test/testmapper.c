@@ -57,9 +57,6 @@ int test_controller()
     mapper_signal sig =
         msig_float(1, "/testsig", 0, INFINITY, INFINITY, 0);
 
-    sig =
-        msig_float(1, 0, 0, INFINITY, INFINITY, 0);
-
     mdev_register_output(md, sig);
 
     printf("Output signal /testsig registered.\n");
