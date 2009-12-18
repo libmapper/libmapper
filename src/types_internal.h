@@ -43,8 +43,11 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
+/*! The router structure is a linked list of routers each associated
+ *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
     lo_address addr; //<! Sending address.
+    struct _mapper_router *next;
 } *mapper_router;
 
 /**** Device ****/

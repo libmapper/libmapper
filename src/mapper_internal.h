@@ -26,4 +26,20 @@ void mapper_admin_name_announce(mapper_admin admin);
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
 
+void mdev_add_router(mapper_device md, mapper_router rt);
+
+void mdev_remove_router(mapper_device md, mapper_router rt);
+
+/***** Router *****/
+
+mapper_router router_new(const char *host, int port);
+
+void router_free(mapper_router router);
+
+void router_send_signal(mapper_router router, mapper_signal sig,
+                        mapper_signal_value_t *value);
+
+void router_receive_signal(mapper_router router, mapper_signal sig,
+                           mapper_signal_value_t *value);
+
 #endif // __MAPPER_INTERNAL_H__

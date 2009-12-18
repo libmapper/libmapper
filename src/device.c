@@ -53,32 +53,28 @@ static void grow_ptr_array(void** array, int length, int *size)
     *array = realloc(*array, sizeof(void*)*(*size));
 }
 
-//! Register a signal with a mapper device.
+//! Register an input signal with a mapper device.
 void mdev_register_input(mapper_device md,
-                       mapper_signal sig)
+                         mapper_signal sig)
 {
     md->n_inputs ++;
     grow_ptr_array(&md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
 
-    mapper_signal s = calloc(1, sizeof(struct _mapper_signal));
-    md->inputs[md->n_inputs-1] = s;
-    s->device = md;
-    memcpy(s, sig, sizeof(struct _mapper_signal));
+    md->inputs[md->n_inputs-1] = sig;
+    sig->device = md;
 }
 
-//! Unregister a signal with a mapper md.
+//! Register an output signal with a mapper device.
 void mdev_register_output(mapper_device md,
-                        mapper_signal sig)
+                          mapper_signal sig)
 {
     md->n_outputs ++;
     grow_ptr_array(&md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
 
-    mapper_signal s = calloc(1, sizeof(struct _mapper_signal));
-    md->outputs[md->n_outputs-1] = s;
-    s->device = md;
-    memcpy(s, sig, sizeof(struct _mapper_signal));
+    md->outputs[md->n_outputs-1] = sig;
+    sig->device = md;
 }
 
 int mdev_num_inputs(mapper_device md)
@@ -100,30 +96,28 @@ void mdev_poll(mapper_device md, int block_ms)
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value)
 {
-    // TODO: pass value to each router
+    mapper_router r = md->routers;
+    while (r) {
+        router_receive_signal(r, sig, value);
+        r = r->next;
+    }
 }
 
-#if 0
-// TOOD: use this code for router
-int mdev_send_signal(mapper_device md, mapper_signal sig)
+void mdev_add_router(mapper_device md, mapper_router rt)
 {
-    int i;
-    lo_message m;
-    if (!md->addr) return 1;
-    m = lo_message_new();
-    if (!m) return 1;
-    for (i=0; i<sig->length; i++) {
-        switch (sig->type) {
-        case 'f':
-            lo_message_add(m, "f", sig->current_value[i].f);
-            break;
-        case 'i':
-            lo_message_add(m, "i", sig->current_value[i].i32);
+    mapper_router *r = &md->routers;
+    rt->next = *r;
+    *r = rt;
+}
+
+void mdev_remove_router(mapper_device md, mapper_router rt)
+{
+    mapper_router *r = &md->routers;
+    while (*r) {
+        if (*r == rt) {
+            *r = rt->next;
             break;
         }
+        *r = &(*r)->next;
     }
-    lo_send_message(md->addr, sig->name, m);
-    lo_message_free(m);
-    return 0;
 }
-#endif

@@ -48,5 +48,3 @@ void msig_update(mapper_signal sig, mapper_signal_value_t *value)
 {
     mdev_route_signal(sig->device, sig, value);
 }
-
-// TODO: free signal

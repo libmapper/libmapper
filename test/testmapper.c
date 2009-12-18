@@ -63,12 +63,22 @@ int test_controller()
 
     printf("Number of outputs: %d\n", mdev_num_outputs(md));
 
+    const char *host = "localhost";
+    int port = 9000;
+    mapper_router rt = router_new(host, port);
+    mdev_add_router(md, rt);
+    printf("Router to %s:%d added.\n", host, port);
+
     printf("Polling device..\n");
     int i;
     for (i=0; i<10; i++) {
         mdev_poll(md, 500);
+        printf("Updating signal %s to %f\n", sig->name, (i*1.0f));
         msig_update_scalar(sig, (mval)(i*1.0f));
     }
+
+    mdev_remove_router(md, rt);
+    printf("Router removed.\n");
 
     mdev_free(md);
     return 0;
