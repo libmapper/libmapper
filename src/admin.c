@@ -46,6 +46,12 @@ static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, 
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
 
+/* Internal LibLo error handler */
+static void handler_error(int num, const char *msg, const char *where)
+{
+    printf("liblo server error %d in path %s: %s\n", num, where, msg);
+}
+
 /* Functions for handling the resource allocation scheme.  If
  * check_collisions() returns 1, the resource in question should be
  * announced on the admin bus. */
@@ -122,7 +128,7 @@ mapper_admin mapper_admin_new(const char *identifier,
     lo_address_set_ttl(admin->admin_addr, 1);
 
     /* Open server for multicast group 224.0.1.3, port 7570 */
-    admin->admin_server = lo_server_new_multicast("224.0.1.3", "7570", NULL);
+    admin->admin_server = lo_server_new_multicast("224.0.1.3", "7570", handler_error);
     if (!admin->admin_server) {
         free(admin->identifier);
         lo_address_free(admin->admin_addr);
