@@ -41,6 +41,12 @@ typedef struct
 typedef mapper_admin_t *mapper_admin;
 
 
+/**** Router ****/
+
+typedef struct _mapper_router {
+    lo_address addr; //<! Sending address.
+} *mapper_router;
+
 /**** Device ****/
 
 struct _mapper_signal;
@@ -54,6 +60,7 @@ typedef struct _mapper_device {
     int n_outputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
+    mapper_router *routers;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__

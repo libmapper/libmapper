@@ -39,4 +39,14 @@ mapper_signal msig_float(int length, const char *name,
     return sig;
 }
 
+void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value)
+{
+    mdev_route_signal(sig->device, sig, &value);
+}
+
+void msig_update(mapper_signal sig, mapper_signal_value_t *value)
+{
+    mdev_route_signal(sig->device, sig, value);
+}
+
 // TODO: free signal

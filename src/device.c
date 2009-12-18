@@ -63,6 +63,7 @@ void mdev_register_input(mapper_device md,
 
     mapper_signal s = calloc(1, sizeof(struct _mapper_signal));
     md->inputs[md->n_inputs-1] = s;
+    s->device = md;
     memcpy(s, sig, sizeof(struct _mapper_signal));
 }
 
@@ -76,6 +77,7 @@ void mdev_register_output(mapper_device md,
 
     mapper_signal s = calloc(1, sizeof(struct _mapper_signal));
     md->outputs[md->n_outputs-1] = s;
+    s->device = md;
     memcpy(s, sig, sizeof(struct _mapper_signal));
 }
 
@@ -94,4 +96,33 @@ void mdev_poll(mapper_device md, int block_ms)
     mapper_admin_poll(md->admin);
 }
 
+void mdev_route_signal(mapper_device md, mapper_signal sig,
+                       mapper_signal_value_t *value)
+{
+    // TODO: pass value to each router
+}
 
+#if 0
+// TOOD: use this code for router
+int mdev_send_signal(mapper_device md, mapper_signal sig)
+{
+    int i;
+    lo_message m;
+    if (!md->addr) return 1;
+    m = lo_message_new();
+    if (!m) return 1;
+    for (i=0; i<sig->length; i++) {
+        switch (sig->type) {
+        case 'f':
+            lo_message_add(m, "f", sig->current_value[i].f);
+            break;
+        case 'i':
+            lo_message_add(m, "i", sig->current_value[i].i32);
+            break;
+        }
+    }
+    lo_send_message(md->addr, sig->name, m);
+    lo_message_free(m);
+    return 0;
+}
+#endif
