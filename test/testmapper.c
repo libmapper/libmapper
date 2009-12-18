@@ -64,7 +64,11 @@ int test_controller()
     printf("Number of outputs: %d\n", mdev_num_outputs(md));
 
     printf("Polling device..\n");
-    mdev_poll(md, 5000);
+    int i;
+    for (i=0; i<10; i++) {
+        mdev_poll(md, 500);
+        msig_update_scalar(sig, (mval)(i*1.0f));
+    }
 
     mdev_free(md);
     return 0;
