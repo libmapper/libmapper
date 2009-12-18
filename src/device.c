@@ -94,6 +94,7 @@ int mdev_num_outputs(mapper_device md)
 void mdev_poll(mapper_device md, int block_ms)
 {
     mapper_admin_poll(md->admin);
+    usleep(block_ms*1000);
 }
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
