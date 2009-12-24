@@ -4,10 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-
-#ifdef POSIX
-#include <time.h>
-#endif
+#include <unistd.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -58,7 +55,7 @@ void mdev_register_input(mapper_device md,
                          mapper_signal sig)
 {
     md->n_inputs ++;
-    grow_ptr_array(&md->inputs, md->n_inputs,
+    grow_ptr_array((void**)&md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
 
     md->inputs[md->n_inputs-1] = sig;
@@ -70,7 +67,7 @@ void mdev_register_output(mapper_device md,
                           mapper_signal sig)
 {
     md->n_outputs ++;
-    grow_ptr_array(&md->outputs, md->n_outputs,
+    grow_ptr_array((void**)&md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
 
     md->outputs[md->n_outputs-1] = sig;

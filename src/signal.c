@@ -21,12 +21,13 @@ mapper_signal msig_float(int length, const char *name,
     sig->name = strdup(name);
     if (unit)
         sig->unit = strdup(unit);
-    sig->value = value;
+    sig->value = (mapper_signal_value_t*)value;
 
     if (minimum != INFINITY
         && minimum != -INFINITY)
     {
-        sig->minimum = (float*)malloc(sizeof(mapper_signal_value_t));
+        sig->minimum = (mapper_signal_value_t*)
+            malloc(sizeof(mapper_signal_value_t));
         sig->minimum->f = minimum;
     }
 

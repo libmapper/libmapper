@@ -6,10 +6,7 @@
 #include <stdarg.h>
 #include <ifaddrs.h>
 #include <arpa/inet.h>
-
-#ifdef POSIX
-#include <time.h>
-#endif
+#include <sys/time.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -222,7 +219,7 @@ void mapper_admin_poll(mapper_admin admin)
  */
 void mapper_admin_port_announce(mapper_admin admin)
 {
-    printf("announcing port\n");
+    trace("announcing port\n");
     lo_send(admin->admin_addr, "/device/alloc/port", "is", admin->port.value, admin->identifier);
 }
 
@@ -232,7 +229,7 @@ void mapper_admin_port_announce(mapper_admin admin)
 void mapper_admin_name_announce(mapper_admin admin)
 {
     char name[256];
-    printf("announcing name\n");
+    trace("announcing name\n");
     snprintf(name, 256, "/%s/%d", admin->identifier, admin->ordinal.value);
     lo_send(admin->admin_addr, "/device/alloc/name", "ss", name, "libmapper");
 }
@@ -280,7 +277,7 @@ static void on_collision(mapper_admin_allocated_t *resource)
 
     /* Count port collisions. */
     resource->collision_count ++;
-    printf("%d collision_count = %d\n", resource->value, resource->collision_count);
+    trace("%d collision_count = %d\n", resource->value, resource->collision_count);
     resource->count_time = get_current_time();
 }
 
@@ -303,12 +300,13 @@ static int handler_device_who(const char *path, const char *types, lo_arg **argv
             "@class", admin->identifier,
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
-#if 1
+#if 1 // TODO
             "@inputs", 0, "@outputs", 0);
 #else
             "@inputs", mapper_method_list_count(admin->input_head),
             "@outputs", mapper_method_list_count(admin->output_head));
 #endif
+    return 0;
 }
 
 /*! Respond to /namespace/get by enumerating all supported inputs and outputs. */
@@ -344,6 +342,7 @@ static int handler_id_n_namespace_get(const char *path, const char *types, lo_ar
         node = node->next;
     }
 #endif
+    return 0;
 }
 
 static int handler_device_alloc_port(const char *path, const char *types, lo_arg **argv,
@@ -367,7 +366,7 @@ static int handler_device_alloc_port(const char *path, const char *types, lo_arg
     if (argc > 1 && (types[1]=='s' || types[1]=='S'))
         announced_id = &argv[1]->s;
 
-    printf("got /device/alloc/port %d %s\n", announced_port, announced_id);
+    trace("got /device/alloc/port %d %s\n", announced_port, announced_id);
 
     /* Process port collisions. */
     if (announced_port == admin->port.value)
@@ -398,7 +397,7 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
     while (*s != '/' && *s++) {}
     announced_ordinal = atoi(++s);
 
-    printf("got /device/alloc/name %d %s\n", announced_ordinal, announced_name);
+    trace("got /device/alloc/name %d %s\n", announced_ordinal, announced_name);
 
     /* Process ordinal collisions. */
     if (announced_ordinal == admin->ordinal.value)
