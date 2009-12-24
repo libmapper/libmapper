@@ -66,6 +66,7 @@ AC_ARG_ENABLE(swig,
    swig_enabled=$enableval)
 
 if test x$swig_enabled = xyes; then
+   AC_DEFINE(Py_PYCONFIG_H,[],[Defined here to avoid conflicts with pyconfig.h])
    AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
    AC_PROG_SWIG(1.3.36)
    SWIG_PYTHON
