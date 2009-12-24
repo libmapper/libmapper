@@ -32,14 +32,14 @@ void mdev_remove_router(mapper_device md, mapper_router rt);
 
 /***** Router *****/
 
-mapper_router router_new(const char *host, int port);
+mapper_router mapper_router_new(const char *host, int port);
 
-void router_free(mapper_router router);
+void mapper_router_free(mapper_router router);
 
-void router_send_signal(mapper_router router, mapper_signal sig,
-                        mapper_signal_value_t *value);
+void mapper_router_send_signal(mapper_router router, mapper_signal sig,
+                               mapper_signal_value_t *value);
 
-void router_receive_signal(mapper_router router, mapper_signal sig,
-                           mapper_signal_value_t *value);
+void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
+                                  mapper_signal_value_t *value);
 
 #endif // __MAPPER_INTERNAL_H__

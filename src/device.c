@@ -98,7 +98,7 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
 {
     mapper_router r = md->routers;
     while (r) {
-        router_receive_signal(r, sig, value);
+        mapper_router_receive_signal(r, sig, value);
         r = r->next;
     }
 }
