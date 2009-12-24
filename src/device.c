@@ -118,6 +118,6 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
             *r = rt->next;
             break;
         }
-        *r = &(*r)->next;
+        r = &(*r)->next;
     }
 }

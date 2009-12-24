@@ -63,7 +63,7 @@ typedef struct _mapper_device {
     int n_outputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
-    mapper_router *routers;
+    mapper_router routers;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__
