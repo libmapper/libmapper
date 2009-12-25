@@ -24,8 +24,8 @@ typedef struct _mapper_signal
 {
     char type;  //!< The type of this signal, specified as an OSC type character.
     int length; //!< Length of the signal vector, or 1 for scalars.
-    char *name; //!< The name of this signal, an OSC path.  Must start with '/'.
-    char *unit; //!< The unit of this signal, or NULL for N/A.
+    const char *name; //!< The name of this signal, an OSC path.  Must start with '/'.
+    const char *unit; //!< The unit of this signal, or NULL for N/A.
     mapper_signal_value_t *minimum; //!< The minimum of this signal, or NULL for no minimum.
     mapper_signal_value_t *maximum; //!< The maximum of this signal, or NULL for no maximum.
     mapper_signal_value_t *value;   //!< An optional pointer to a C variable containing the actual vector.

@@ -57,7 +57,7 @@ typedef mapper_admin_t *mapper_admin;
 /* TODO: Add transformation types, coefficients, expression
  * interpreter, clipping, etc. */
 typedef struct _mapper_mapping {
-    char *name;                           //<! Destination name (OSC path).
+    const char *name;                     //<! Destination name (OSC path).
     struct _mapper_mapping *next;         //<! Next mapping in the list.
 } *mapper_mapping;
 
@@ -82,7 +82,7 @@ typedef struct _mapper_router {
 /**** Device ****/
 
 typedef struct _mapper_device {
-    char *name_prefix;
+    const char *name_prefix;
     mapper_admin admin;
     struct _mapper_signal **inputs;
     struct _mapper_signal **outputs;
