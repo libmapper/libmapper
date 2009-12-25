@@ -42,4 +42,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
 
+void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
+                               const char *name);
+
 #endif // __MAPPER_INTERNAL_H__
