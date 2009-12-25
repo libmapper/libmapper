@@ -4,6 +4,15 @@
 
 #include <lo/lo_lowlevel.h>
 
+/**** Defined in mapper.h ****/
+
+/* Types defined here replace opaque prototypes in mapper.h, thus we
+ * cannot include it here.  Instead we include some prototypes here.
+ * Typedefs cannot be repeated, therefore they are refered to by
+ * struct name. */
+
+struct _mapper_signal;
+
 
 /**** Admin bus ****/
 
@@ -43,16 +52,34 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
+/*! The mapping structure is a linked list of mappings for a given
+ *  signal.  Each signal can be associated with multiple outputs. */
+/* TODO: Add transformation types, coefficients, expression
+ * interpreter, clipping, etc. */
+typedef struct _mapper_mapping {
+    char *name;                           //<! Destination name (OSC path).
+    struct _mapper_mapping *next;         //<! Next mapping in the list.
+} *mapper_mapping;
+
+/*! The signal mapping is a linked list containing a signal and a list
+ *  of mappings.  For each router, there is one per signal of the
+ *  associated device.  TODO: This should be replaced with a more
+ *  efficient approach such as a hash table or search tree. */
+typedef struct _mapper_signal_mapping {
+    struct _mapper_signal *signal;         //<! The associated signal.
+    mapper_mapping mapping;                //<! The first mapping for this signal.
+    struct _mapper_signal_mapping *next;   //<! The next signal mapping in the list.
+} *mapper_signal_mapping;
+
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    lo_address addr; //<! Sending address.
-    struct _mapper_router *next;
+    lo_address addr;                      //<! Sending address.
+    struct _mapper_router *next;          //<! Next router in the list.
+    mapper_signal_mapping mappings;       //<! The list of mappings for each signal.
 } *mapper_router;
 
 /**** Device ****/
-
-struct _mapper_signal;
 
 typedef struct _mapper_device {
     char *name_prefix;
