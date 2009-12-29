@@ -60,13 +60,13 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 {
     switch (sig->type) {
     case 'f':
-        lo_message_add_float(m, sig->minimum->f);
+        lo_message_add_float(m, value->f);
         break;
     case 'd':
-        lo_message_add_double(m, sig->minimum->d);
+        lo_message_add_double(m, value->d);
         break;
     case 'i':
-        lo_message_add_int32(m, sig->minimum->i32);
+        lo_message_add_int32(m, value->i32);
         break;
     default:
         // Unknown signal type
