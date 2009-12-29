@@ -1,5 +1,5 @@
 
-bin_PROGRAMS = testadmin testsend testrecv
+noinst_PROGRAMS = testadmin testsend testrecv
 
 testadmin_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testadmin_SOURCES = testadmin.c
