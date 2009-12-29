@@ -10,7 +10,9 @@
 
 mapper_signal msig_float(int length, const char *name,
                          const char *unit, float minimum,
-                         float maximum, float *value)
+                         float maximum, float *value,
+                         mapper_signal_handler *handler,
+                         void *user_data)
 {
     mapper_signal sig =
         (mapper_signal)calloc(1, sizeof(struct _mapper_signal));
@@ -37,6 +39,9 @@ mapper_signal msig_float(int length, const char *name,
         sig->maximum = malloc(sizeof(mapper_signal_value_t));
         sig->maximum->f = maximum;
     }
+
+    sig->handler = handler;
+    sig->user_data = user_data;
     return sig;
 }
 

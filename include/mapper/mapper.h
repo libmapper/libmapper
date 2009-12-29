@@ -17,6 +17,11 @@ typedef union _mapper_signal_value
     int i32;
 } mapper_signal_value_t, mval;
 
+/*! A signal handler function can be called whenever a signal value
+ *  changes. */
+typedef void mapper_signal_handler(mapper_device mdev,
+                                   mapper_signal_value_t *v);
+
 /*! A signal is defined as a vector of values, along with some
  *  metadata. */
 
@@ -30,6 +35,8 @@ typedef struct _mapper_signal
     mapper_signal_value_t *maximum; //!< The maximum of this signal, or NULL for no maximum.
     mapper_signal_value_t *value;   //!< An optional pointer to a C variable containing the actual vector.
     mapper_device device; //!< The device associated with this signal.
+    mapper_signal_handler *handler; //!< An optional function to be called when the signal value changes.
+    void *user_data;
 } *mapper_signal;
 
 /*! Fill out a signal structure for a floating point scalar. */
@@ -45,7 +52,9 @@ typedef struct _mapper_signal
  */
 mapper_signal msig_float(int length, const char *name,
                          const char *unit, float minimum,
-                         float maximum, float *value);
+                         float maximum, float *value,
+                         mapper_signal_handler *handler,
+                         void *user_data);
 
 /*! Update the value of a signal.
  *  This is a scalar equivalent to msig_update(), for when passing by
