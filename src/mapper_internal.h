@@ -51,6 +51,11 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
                                const char *name);
 
+/**** Signals ****/
+
+void mval_add_to_message(lo_message m, mapper_signal sig,
+                         mapper_signal_value_t *value);
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

@@ -54,3 +54,23 @@ void msig_update(mapper_signal sig, mapper_signal_value_t *value)
 {
     mdev_route_signal(sig->device, sig, value);
 }
+
+void mval_add_to_message(lo_message m, mapper_signal sig,
+                         mapper_signal_value_t *value)
+{
+    switch (sig->type) {
+    case 'f':
+        lo_message_add_float(m, sig->minimum->f);
+        break;
+    case 'd':
+        lo_message_add_double(m, sig->minimum->d);
+        break;
+    case 'i':
+        lo_message_add_int32(m, sig->minimum->i32);
+        break;
+    default:
+        // Unknown signal type
+        assert(0);
+        break;
+    }
+}

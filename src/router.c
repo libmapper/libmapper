@@ -78,16 +78,10 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     if (!router->addr) return;
     m = lo_message_new();
     if (!m) return;
-    for (i=0; i<sig->length; i++) {
-        switch (sig->type) {
-        case 'f':
-            lo_message_add(m, "f", value[i].f);
-            break;
-        case 'i':
-            lo_message_add(m, "i", value[i].i32);
-            break;
-        }
-    }
+
+    for (i=0; i<sig->length; i++)
+        mval_add_to_message(m, sig, &value[i]);
+
     lo_send_message(router->addr, sig->name, m);
     lo_message_free(m);
     return;

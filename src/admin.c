@@ -293,12 +293,8 @@ static int handler_device_who(const char *path, const char *types, lo_arg **argv
             "@class", admin->identifier,
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
-#if 1 // TODO
-            "@inputs", 0, "@outputs", 0);
-#else
-            "@inputs", mapper_method_list_count(admin->input_head),
-            "@outputs", mapper_method_list_count(admin->output_head));
-#endif
+            "@inputs", mdev_num_inputs(admin->device),
+            "@outputs", mdev_num_outputs(admin->device));
     return 0;
 }
 
@@ -306,35 +302,71 @@ static int handler_device_who(const char *path, const char *types, lo_arg **argv
 static int handler_id_n_namespace_get(const char *path, const char *types, lo_arg **argv,
                                       int argc, lo_message msg, void *user_data)
 {
-#if 0
     mapper_admin admin = (mapper_admin)user_data;
-    char name[256], response[256], method[256];
-    mapper_method node;
+    mapper_device md = admin->device;
+    char name[1024], response[1024], method[1024], type[2]={0,0};
+    int i;
 
-    snprintf(name, 256, "/%s/%d", admin->identifier, admin->ordinal.value);
+    snprintf(name, 1024, "/%s/%d", admin->identifier, admin->ordinal.value);
 
-    node = admin->input_head;
     strcpy(response, name);
     strcat(response, "/namespace/input");
+    for (i=0; i < md->n_inputs; i++)
+    {
+        mapper_signal sig = md->inputs[i];
+        lo_message m = lo_message_new();
 
-    while (node) {
         strcpy(method, name);
-        strcat(method, node->path);
-        lo_send(admin->admin_addr, response, "ssssisi", method, "@type", node->types, "@min", 0, "@max", 0);
-        node = node->next;
+        strcat(method, sig->name);
+        lo_message_add_string(m, method);
+
+        lo_message_add_string(m, "@type");
+        type[0] = sig->type;
+        lo_message_add_string(m, type);
+
+        if (sig->minimum) {
+            lo_message_add_string(m, "@min");
+            mval_add_to_message(m, sig, sig->minimum);
+        }
+
+        if (sig->maximum) {
+            lo_message_add_string(m, "@max");
+            mval_add_to_message(m, sig, sig->maximum);
+        }
+
+        lo_send_message(admin->admin_addr, response, m);
+        lo_message_free(m);
     }
 
-    node = admin->output_head;
     strcpy(response, name);
     strcat(response, "/namespace/output");
+    for (i=0; i < md->n_outputs; i++)
+    {
+        mapper_signal sig = md->outputs[i];
+        lo_message m = lo_message_new();
 
-    while (node) {
         strcpy(method, name);
-        strcat(method, node->path);
-        lo_send(admin->admin_addr, response, "ssssisi", method, "@type", node->types, "@min", 0, "@max", 0);
-        node = node->next;
+        strcat(method, sig->name);
+        lo_message_add_string(m, method);
+
+        lo_message_add_string(m, "@type");
+        type[0] = sig->type;
+        lo_message_add_string(m, type);
+
+        if (sig->minimum) {
+            lo_message_add_string(m, "@min");
+            mval_add_to_message(m, sig, sig->minimum);
+        }
+
+        if (sig->maximum) {
+            lo_message_add_string(m, "@max");
+            mval_add_to_message(m, sig, sig->maximum);
+        }
+
+        lo_send_message(admin->admin_addr, response, m);
+        lo_message_free(m);
     }
-#endif
+
     return 0;
 }
 
