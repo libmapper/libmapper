@@ -64,7 +64,13 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 #include <stdio.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
 #else
+static void trace(...) {};
+#endif
+#else
+#ifdef __GNUC__
 #define trace(...) {}
+#else
+static void trace(...) {};
 #endif
 #endif
 
