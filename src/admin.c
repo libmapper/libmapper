@@ -12,18 +12,6 @@
 #include "types_internal.h"
 #include "config.h"
 #include <mapper/mapper.h>
-/*! Debug tracer */
-#ifdef DEBUG
-static void trace(char *fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    vprintf(fmt, va);
-    va_end(va);
-}
-#else
-static void trace(char *fmt, ...) {}
-#endif
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -91,6 +79,7 @@ static struct in_addr get_interface_addr(const char *ifname)
  *  \return A newly initialized mapper admin structure.
  */
 mapper_admin mapper_admin_new(const char *identifier,
+                              mapper_device device,
                               mapper_device_type_t type,
                               int initial_port)
 {
@@ -145,6 +134,7 @@ mapper_admin mapper_admin_new(const char *identifier,
     admin->port.collision_count = -1;
     admin->port.count_time = get_current_time();
     admin->registered = 0;
+    admin->device = device;
 
     /* Add methods for admin bus.  Only add methods needed for
      * allocation here. Further methods are added when the device is
@@ -245,8 +235,11 @@ static int check_collisions(mapper_admin admin,
 
     timediff = get_current_time() - resource->count_time;
 
-    if (timediff >= 2.0)
+    if (timediff >= 2.0) {
         resource->locked = 1;
+        if (resource->on_lock)
+            resource->on_lock(admin->device, resource);
+    }
 
     else
         /* If port collisions were found within 500 milliseconds of the

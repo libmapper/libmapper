@@ -13,6 +13,10 @@
 
 struct _mapper_signal;
 
+/* Forward declarations for this file. */
+
+struct _mapper_admin_allocated_t;
+struct _mapper_device;
 
 /**** Admin bus ****/
 
@@ -24,12 +28,17 @@ typedef enum {
     MAPPER_DEVICE_MAPPER
 } mapper_device_type_t;
 
+/*! Function to call when an allocated resource is locked. */
+typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
+                                           struct _mapper_admin_allocated_t *resource);
+
 /*! Allocated resources */
-typedef struct {
+typedef struct _mapper_admin_allocated_t {
     unsigned int value;            //<! The resource to be allocated.
     unsigned int collision_count;  //<! The number of collisions detected for this resource.
     double count_time;             //<! The last time at which the collision count was updated.
     int locked;                    //<! Whether or not the value has been locked in (i.e., allocated).
+    mapper_admin_resource_on_lock *on_lock; //! Function to call when resource becomes locked.
 } mapper_admin_allocated_t;
 
 /*! A structure that keeps information about a device. */
@@ -44,6 +53,7 @@ typedef struct
     char                     interface[16]; //<! The name of the network interface for receiving messages.
     struct in_addr           interface_ip;  //<! The IP address of interface.
     int                      registered;    //<! Non-zero if this device has been registered.
+    struct _mapper_device   *device;        //! Device that this admin is in charge of.
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -91,6 +101,11 @@ typedef struct _mapper_device {
     int n_alloc_inputs;
     int n_alloc_outputs;
     mapper_router routers;
+
+    /*! Server used to handle incoming messages.  NULL until at least
+     *  one input has been registered and the incoming port has been
+     *  allocated. */
+    lo_server server;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__
