@@ -44,6 +44,9 @@ void mdev_free(mapper_device md)
     }
 }
 
+#ifdef __GNUC__ // when gcc inlines this with O2 or O3, it causes a crash. bug?
+__attribute__((noinline))
+#endif
 static void grow_ptr_array(void** array, int length, int *size)
 {
     if (*size < length && !*size)
