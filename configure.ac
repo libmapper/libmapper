@@ -52,6 +52,10 @@ AM_PROG_CC_C_O
 AC_PROG_CC_C99
 
 # Check options
+AC_ARG_ENABLE(debug,
+   [AS_HELP_STRING([--enable-debug],[compile with debug flags])],
+   enable_debug=yes)
+
 AC_ARG_ENABLE(tests,
    [  --disable-tests         don't build test programs.],,
    enable_tests=yes)
@@ -93,6 +97,11 @@ if test "x$SWIG" = x || test "x$swig_enabled" = xno; then
    SWIG=
 fi
 
+# Debug mode
+AS_IF([test x$enable_debug = xyes],
+      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG"],
+      [CFLAGS="$CFLAGS -DNDEBUG"])
+
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
@@ -112,3 +121,9 @@ AC_CONFIG_FILES([
     libmapper.pc
 ])
 AC_OUTPUT
+
+# Messages to user.
+echo
+AS_IF([test x$enable_debug = xyes],
+      [echo "Debug flags enabled."])
+echo
