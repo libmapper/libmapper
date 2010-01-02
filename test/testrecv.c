@@ -36,13 +36,24 @@ int test_recv()
 
     printf("Number of inputs: %d\n", mdev_num_inputs(md));
 
-    printf("Polling device..\n");
+    printf("Waiting for port/ordinal allocation..\n");
     int i;
+    char signame[1024];
     for (i=0; i<10; i++) {
-        if (md->admin->port.locked && md->admin->ordinal.locked) {
-            lo_send(a, "/synth/1/mapped1", "f", (float)i);
-            sent++;
-        }
+        mdev_poll(md, 500);
+        if (msig_full_name(sig, signame, 1024))
+            break;
+        usleep(500*1000);
+    }
+    if (i>=10) {
+        printf("Timed out waiting for signal name.\n");
+        goto error;
+    }
+
+    printf("Polling device..\n");
+    for (i=0; i<10; i++) {
+        lo_send(a, signame, "f", (float)i);
+        sent++;
         mdev_poll(md, 500);
     }
 
