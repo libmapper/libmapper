@@ -179,7 +179,10 @@ void mapper_admin_free(mapper_admin admin)
  */
 void mapper_admin_poll(mapper_admin admin)
 {
-    lo_server_recv_noblock(admin->admin_server, 0);
+    int count=0;
+    while (count < 10
+           && lo_server_recv_noblock(admin->admin_server, 0))
+        { count ++; }
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */
