@@ -33,8 +33,8 @@ void mdev_remove_router(mapper_device md, mapper_router rt);
 
 void mdev_start_server(mapper_device mdev);
 
-void mdev_on_port(mapper_device md,
-                  mapper_admin_allocated_t *resource);
+void mdev_on_port_and_ordinal(mapper_device md,
+                              mapper_admin_allocated_t *resource);
 
 int mdev_name(mapper_device md, char *name, int len);
 

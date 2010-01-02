@@ -30,7 +30,8 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
         return NULL;
     }
 
-    md->admin->port.on_lock = mdev_on_port;
+    md->admin->port.on_lock = mdev_on_port_and_ordinal;
+    md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
     return md;
 }
 
@@ -139,11 +140,18 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     }
 }
 
-void mdev_on_port(mapper_device md,
-                  mapper_admin_allocated_t *resource)
+/*! Called when once when the port is allocated and again when the
+ *  ordinal is allocated, or vice-versa.  Must start server when both
+ *  have been allocated. (No point starting it earlier since we won't
+ *  be able to register any handlers. */
+void mdev_on_port_and_ordinal(mapper_device md,
+                              mapper_admin_allocated_t *resource)
 {
-    trace("device '%s' acknowledged port allocation for %d\n",
-          md->name_prefix, resource->value);
+    if (!(md->admin->ordinal.locked && md->admin->port.locked))
+        return;
+
+    trace("device '%s.%d' acknowledged port and ordinal allocation for %d\n",
+          md->name_prefix, md->admin->ordinal.value, md->admin->port.value);
 
     mdev_start_server(md);
 }
@@ -212,12 +220,14 @@ void mdev_start_server(mapper_device md)
             for (j=0; j<md->inputs[i]->length; j++)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;
-            msig_full_name(md->inputs[i], signame, 1024);
-            lo_server_add_method(md->server,
-                                 signame,
-                                 type,
-                                 handler_signal,
-                                 (void*)(md->inputs[i]));
+            if (!msig_full_name(md->inputs[i], signame, 1024))
+                { trace("couldn't get signal name.\n"); }
+            else
+                lo_server_add_method(md->server,
+                                     signame,
+                                     type,
+                                     handler_signal,
+                                     (void*)(md->inputs[i]));
         }
         free(type);
     }
@@ -235,5 +245,5 @@ int mdev_name(mapper_device md, char *name, int len)
                      md->admin->ordinal.value);
     }
     if (r < 0) return 0;
-        return r;
+    return r;
 }

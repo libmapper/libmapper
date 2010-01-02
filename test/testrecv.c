@@ -39,8 +39,8 @@ int test_recv()
     printf("Polling device..\n");
     int i;
     for (i=0; i<10; i++) {
-        if (md->admin->port.locked) {
-            lo_send(a, "/mapped1", "f", (float)i);
+        if (md->admin->port.locked && md->admin->ordinal.locked) {
+            lo_send(a, "/synth/1/mapped1", "f", (float)i);
             sent++;
         }
         mdev_poll(md, 500);
