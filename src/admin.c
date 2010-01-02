@@ -57,6 +57,11 @@ static struct in_addr get_interface_addr(const char *ifname)
     ifap = ifaphead;
     while (ifap) {
         struct sockaddr_in *sa = (struct sockaddr_in*)ifap->ifa_addr;
+        if (!sa) {
+            trace("ifap->ifa_addr = 0, unknown condition.\n");
+            ifap = ifap->ifa_next;
+            continue;
+        }
         if (sa->sin_family == AF_INET
             && strcmp(ifap->ifa_name, ifname)==0 )
         {
