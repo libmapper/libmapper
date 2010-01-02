@@ -36,6 +36,8 @@ void mdev_start_server(mapper_device mdev);
 void mdev_on_port(mapper_device md,
                   mapper_admin_allocated_t *resource);
 
+int mdev_name(mapper_device md, char *name, int len);
+
 /***** Router *****/
 
 mapper_router mapper_router_new(const char *host, int port);

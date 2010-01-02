@@ -70,6 +70,15 @@ void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value);
  *  \param value A pointer to a new value for this signal. */
 void msig_update(mapper_signal sig, mapper_signal_value_t *value);
 
+/*! Get the full OSC name of a signal, including device name
+ *  prefix.
+ *  \param sig The signal value to query.
+ *  \param name A string to accept the name.
+ *  \param len The length of string pointed to by name.
+ *  \return The number of characters used, or 0 if error.  Note that
+ *          in some cases the name may not be available. */
+int msig_full_name(mapper_signal sig, char *name, int len);
+
 /*** Devices ***/
 
 //! Allocate and initialize a mapper device.

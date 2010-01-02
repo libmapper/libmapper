@@ -74,3 +74,18 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
         break;
     }
 }
+
+int msig_full_name(mapper_signal sig, char *name, int len)
+{
+    int r = mdev_name(sig->device, name, len);
+    if (!r) return 0;
+
+    if (r < len)
+        r += (strncat(name+r, sig->name, len-r) - (name+r));
+
+    if (r < len)
+        return r;
+
+    // it's an error if there wasn't enough space
+    return 0;
+}

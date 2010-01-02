@@ -194,6 +194,7 @@ void mdev_start_server(mapper_device md)
     {
         int i,j;
         char port[16], *type = 0;
+        char signame[1024];
 
         sprintf(port, "%d", md->admin->port.value);
         md->server = lo_server_new(port, liblo_error_handler);
@@ -211,12 +212,28 @@ void mdev_start_server(mapper_device md)
             for (j=0; j<md->inputs[i]->length; j++)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;
+            msig_full_name(md->inputs[i], signame, 1024);
             lo_server_add_method(md->server,
-                                 md->inputs[i]->name,
+                                 signame,
                                  type,
                                  handler_signal,
                                  (void*)(md->inputs[i]));
         }
         free(type);
     }
+}
+
+int mdev_name(mapper_device md, char *name, int len)
+{
+    int r=0;
+
+    if (md->admin
+        && md->admin->ordinal.locked)
+    {
+        r = snprintf(name, len, "/%s/%d",
+                     md->name_prefix,
+                     md->admin->ordinal.value);
+    }
+    if (r < 0) return 0;
+        return r;
 }
