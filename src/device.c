@@ -24,6 +24,12 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
                                  md,
                                  MAPPER_DEVICE_SYNTH,
                                  initial_port);
+
+    if (!md->admin) {
+        mdev_free(md);
+        return NULL;
+    }
+
     md->admin->port.on_lock = mdev_on_port;
     return md;
 }
@@ -33,13 +39,16 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        mapper_admin_free(md->admin);
+        if (md->admin)
+            mapper_admin_free(md->admin);
         for (i=0; i<md->n_inputs; i++)
             free(md->inputs[i]);
-        free(md->inputs);
+        if (md->inputs)
+            free(md->inputs);
         for (i=0; i<md->n_outputs; i++)
             free(md->outputs[i]);
-        free(md->outputs);
+        if (md->outputs)
+            free(md->outputs);
         free(md);
     }
 }
