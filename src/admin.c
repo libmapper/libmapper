@@ -105,6 +105,9 @@ mapper_admin mapper_admin_new(const char *identifier,
                 break;
             }
         }
+        if (i>=num) {
+            trace("no interface found\n");
+        }
     }
 
     /* Open address for multicast group 224.0.1.3, port 7570 */
