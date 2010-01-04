@@ -34,26 +34,26 @@ typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
 
 /*! Allocated resources */
 typedef struct _mapper_admin_allocated_t {
-    unsigned int value;            //<! The resource to be allocated.
-    unsigned int collision_count;  //<! The number of collisions detected for this resource.
-    double count_time;             //<! The last time at which the collision count was updated.
-    int locked;                    //<! Whether or not the value has been locked in (i.e., allocated).
-    mapper_admin_resource_on_lock *on_lock; //! Function to call when resource becomes locked.
+    unsigned int value;            //!< The resource to be allocated.
+    unsigned int collision_count;  //!< The number of collisions detected for this resource.
+    double count_time;             //!< The last time at which the collision count was updated.
+    int locked;                    //!< Whether or not the value has been locked in (i.e., allocated).
+    mapper_admin_resource_on_lock *on_lock; //!< Function to call when resource becomes locked.
 } mapper_admin_allocated_t;
 
 /*! A structure that keeps information about a device. */
 typedef struct
 {
-    char*                    identifier;    //<! The identifier for this device.
-    mapper_admin_allocated_t ordinal;       //<! The unique ordinal for this device.
-    mapper_device_type_t     device_type;   //<! The type of this device.
-    mapper_admin_allocated_t port;          //<! This device's UDP port number.
-    lo_server_thread         admin_server;  //<! LibLo server thread for the admin bus.
-    lo_address               admin_addr;    //<! LibLo address for the admin bus.
-    char                     interface[16]; //<! The name of the network interface for receiving messages.
-    struct in_addr           interface_ip;  //<! The IP address of interface.
-    int                      registered;    //<! Non-zero if this device has been registered.
-    struct _mapper_device   *device;        //! Device that this admin is in charge of.
+    char*                    identifier;    //!< The identifier for this device.
+    mapper_admin_allocated_t ordinal;       //!< The unique ordinal for this device.
+    mapper_device_type_t     device_type;   //!< The type of this device.
+    mapper_admin_allocated_t port;          //!< This device's UDP port number.
+    lo_server_thread         admin_server;  //!< LibLo server thread for the admin bus.
+    lo_address               admin_addr;    //!< LibLo address for the admin bus.
+    char                     interface[16]; //!< The name of the network interface for receiving messages.
+    struct in_addr           interface_ip;  //!< The IP address of interface.
+    int                      registered;    //!< Non-zero if this device has been registered.
+    struct _mapper_device   *device;        //!< Device that this admin is in charge of.
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -67,8 +67,8 @@ typedef mapper_admin_t *mapper_admin;
 /* TODO: Add transformation types, coefficients, expression
  * interpreter, clipping, etc. */
 typedef struct _mapper_mapping {
-    const char *name;                     //<! Destination name (OSC path).
-    struct _mapper_mapping *next;         //<! Next mapping in the list.
+    const char *name;                     //!< Destination name (OSC path).
+    struct _mapper_mapping *next;         //!< Next mapping in the list.
 } *mapper_mapping;
 
 /*! The signal mapping is a linked list containing a signal and a list
@@ -76,17 +76,17 @@ typedef struct _mapper_mapping {
  *  associated device.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
 typedef struct _mapper_signal_mapping {
-    struct _mapper_signal *signal;         //<! The associated signal.
-    mapper_mapping mapping;                //<! The first mapping for this signal.
-    struct _mapper_signal_mapping *next;   //<! The next signal mapping in the list.
+    struct _mapper_signal *signal;         //!< The associated signal.
+    mapper_mapping mapping;                //!< The first mapping for this signal.
+    struct _mapper_signal_mapping *next;   //!< The next signal mapping in the list.
 } *mapper_signal_mapping;
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    lo_address addr;                      //<! Sending address.
-    struct _mapper_router *next;          //<! Next router in the list.
-    mapper_signal_mapping mappings;       //<! The list of mappings for each signal.
+    lo_address addr;                      //!< Sending address.
+    struct _mapper_router *next;          //!< Next router in the list.
+    mapper_signal_mapping mappings;       //!< The list of mappings for each signal.
 } *mapper_router;
 
 /**** Device ****/
