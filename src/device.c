@@ -247,3 +247,16 @@ int mdev_name(mapper_device md, char *name, int len)
     if (r < 0) return 0;
     return r;
 }
+
+int mdev_ready(mapper_device device)
+{
+    if (!device)
+        return 0;
+
+    if (device->admin->port.locked
+        && device->admin->ordinal.locked)
+    {
+        return 1;
+    }
+    return 0;
+}

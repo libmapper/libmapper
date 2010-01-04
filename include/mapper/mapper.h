@@ -114,4 +114,10 @@ void mdev_poll(mapper_device md, int block_ms);
  *  \return zero if the signal was sent, non-zero otherwise. */
 int mdev_send_signal(mapper_device device, mapper_signal sig);
 
+/*! Detect whether a device is completely initialized.
+ *  \return Non-zero if device is completely initialized, i.e., has an
+ *  allocated receiving port and unique network name.  Zero
+ *  otherwise. */
+int mdev_ready(mapper_device device);
+
 #endif // __MAPPER_H__
