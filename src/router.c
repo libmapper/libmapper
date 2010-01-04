@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <lo/lo.h>
 
@@ -36,6 +37,8 @@ void mapper_router_free(mapper_router router)
                     mapper_mapping m = sm->mapping;
                     while (m) {
                         mapper_mapping tmp = m->next;
+                        if (tmp->name)
+                            free(tmp->name);
                         free(m);
                         m = tmp;
                      }
@@ -64,8 +67,11 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
     while (m)
     {
         struct _mapper_signal signal = *sig;
+        mapper_signal_value_t sigval = *value;
         signal.name = m->name;
-        mapper_router_send_signal(router, &signal, value);
+        if (sm->mapping->order_input == 1)
+            sigval.f *= sm->mapping->coef_input[0];
+        mapper_router_send_signal(router, &signal, &sigval);
         m = m->next;
     }
 }
@@ -88,12 +94,8 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 }
 
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                               const char *name)
+                               mapper_mapping mapping)
 {
-    mapper_mapping mapping =
-        calloc(1,sizeof(struct _mapper_mapping));
-    mapping->name = name;
-
     // find signal in signal mapping list
     mapper_signal_mapping sm = router->mappings;
     while (sm && sm->signal != sig)
@@ -111,4 +113,28 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     // add new mapping to this signal's list
     mapping->next = sm->mapping;
     sm->mapping = mapping;
+}
+
+void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name)
+{
+    mapper_mapping mapping =
+        calloc(1,sizeof(struct _mapper_mapping));
+
+    mapping->name = strdup(name);
+
+    mapper_router_add_mapping(router, sig, mapping);
+}
+
+void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name, mapper_signal_value_t scale)
+{
+    mapper_mapping mapping =
+        calloc(1,sizeof(struct _mapper_mapping));
+
+    mapping->name = strdup(name);
+    mapping->coef_input[0] = scale.f;
+    mapping->order_input = 1;
+
+    mapper_router_add_mapping(router, sig, mapping);
 }

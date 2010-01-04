@@ -28,8 +28,8 @@ int test_controller()
     mdev_add_router(md, rt);
     printf("Router to %s:%d added.\n", host, port);
 
-    mapper_router_add_mapping(rt, sig, "/mapped1");
-    mapper_router_add_mapping(rt, sig, "/mapped2");
+    mapper_router_add_direct_mapping(rt, sig, "/mapped1");
+    mapper_router_add_direct_mapping(rt, sig, "/mapped2");
 
     printf("Polling device..\n");
     int i;

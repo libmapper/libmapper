@@ -62,13 +62,29 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
+/*! Describes what happens when the clipping boundaries are
+ *  exceeded. */
+typedef enum _mapper_clipping_type
+{
+    CT_LIMIT,     //!< Value is limited to the boundary.  This is the default.
+    CT_REFLECT,   //!< Value continues in opposite direction.
+    CT_ROTATE,    //!< Value appears as offset at the opposite boundary.
+} mapper_clipping_type;
+
 /*! The mapping structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple outputs. */
-/* TODO: Add transformation types, coefficients, expression
- * interpreter, clipping, etc. */
+/* TODO: expression interpreter */
 typedef struct _mapper_mapping {
-    const char *name;                     //!< Destination name (OSC path).
+    char *name;                           //!< Destination name (OSC path).
     struct _mapper_mapping *next;         //!< Next mapping in the list.
+    int order_input;                      //!< Order of the input side of the difference equation.
+                                          //!< Maximum of 5 for now.
+    int order_output;                     //!< Order of the output side of the difference equation.
+                                          //!< Usually not less than 1.  Maximum of 5 for now.
+    int coef_input[5];                    //!< Coefficients for the input polynomial.
+    int coef_output[5];                   //!< Coefficients for the output polynomial.
+    mapper_clipping_type clip_upper;      //!< Operation for exceeded upper boundary.
+    mapper_clipping_type clip_lower;      //!< Operation for exceeded lower boundary.
 } *mapper_mapping;
 
 /*! The signal mapping is a linked list containing a signal and a list

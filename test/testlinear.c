@@ -110,7 +110,8 @@ int setup_router()
 
     printf("Mapping signal %s -> %s\n",
            signame_out, signame_in);
-    mapper_router_add_mapping(router, sendsig, signame_in);
+    mapper_router_add_linear_mapping(router, sendsig, signame_in,
+                                     (mapper_signal_value_t)10.0f);
     return 0;
 }
 
@@ -133,11 +134,11 @@ void loop()
     int i;
     for (i=0; i<10; i++) {
         mdev_poll(sender, 0);
-        mdev_poll(receiver, 0);
         printf("Updating signal %s to %f\n", sendsig->name, (i*1.0f));
         msig_update_scalar(sendsig, (mval)(i*1.0f));
         sent ++;
         usleep(250*1000);
+        mdev_poll(receiver, 0);
     }
 }
 

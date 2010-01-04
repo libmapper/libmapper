@@ -51,7 +51,13 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
 
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                               const char *name);
+                               mapper_mapping mapping);
+
+void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name);
+
+void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name, mapper_signal_value_t scale);
 
 /**** Signals ****/
 
