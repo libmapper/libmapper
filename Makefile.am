@@ -1,4 +1,4 @@
-SUBDIRS = src include test # @DOXYGEN@
+SUBDIRS = src include test @DOXYGEN@
 
 EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 

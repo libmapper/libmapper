@@ -118,6 +118,8 @@ AC_CONFIG_FILES([
     src/Makefile
     include/Makefile
     test/Makefile
+    doc/Makefile
+    doc/libmapper.doxyfile
     libmapper.pc
 ])
 AC_OUTPUT
