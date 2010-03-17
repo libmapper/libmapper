@@ -136,8 +136,7 @@ mapping administration - multicast group 224.0.1.3 port 7570
 			if (<src_parameter_name> exists)
 			{
 				create mapping connection
-				SEND: "/connected /my_name/<src_parameter_name> /<other_device>/<dest_parameter_name>"
-				SEND: "/connection/properties /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none/mute/clamp/wrap/fold> @clipMax <none/mute/clamp/wrap/fold>"
+				SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none/mute/clamp/wrap/fold> @clipMax <none/mute/clamp/wrap/fold>"
 			}
 			break
 		CASE: "/disconnect /my_name/<parameter_name> /<other_device>/<parameter_name>"
@@ -153,12 +152,12 @@ mapping administration - multicast group 224.0.1.3 port 7570
 			}
 			break
 *		CASE: "/connection/properties/get /my_name/<parameter_name> /<other_device/<parameter_name>"
-			SEND: "/connection/properties /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
+			SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
 			break
 		
 		CASE: "/connection/modify /my_name/<parameter_name> /<other_device>/<parameter_name> [connection properties]"
 			alter mapping connection per received properties
-			SEND: "/connection/properties /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
+			SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
 			break
 	}
 }
