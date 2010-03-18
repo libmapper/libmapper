@@ -139,6 +139,9 @@ mapping administration - multicast group 224.0.1.3 port 7570
 				SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none/mute/clamp/wrap/fold> @clipMax <none/mute/clamp/wrap/fold>"
 			}
 			break
+**		CASE: "/connected /<other_device>/<src_parameter_name> /my_name/<dest_parameter_name> [optional properties: @scaling, @range, @expression, @clipMin, @clipMax @canAlias]"
+			create feedback mapping connection
+			break
 		CASE: "/disconnect /my_name/<parameter_name> /<other_device>/<parameter_name>"
 			destroy mapping connection
 			SEND: "/disconnected /my_name/<parameter_name> /<other_device>/<parameter_name>"
