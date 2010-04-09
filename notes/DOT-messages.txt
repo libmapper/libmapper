@@ -82,6 +82,8 @@ mapping administration - multicast group 224.0.1.3 port 7570
 {
 	once port and name are established
 		SEND: "/who"
+	when destroyed
+		SEND: "/logout <my_name>"
 
 	switch (received OSC)
 	{
