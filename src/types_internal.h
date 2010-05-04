@@ -81,8 +81,11 @@ typedef struct _mapper_mapping {
                                           //!< Maximum of 5 for now.
     int order_output;                     //!< Order of the output side of the difference equation.
                                           //!< Usually not less than 1.  Maximum of 5 for now.
-    int coef_input[5];                    //!< Coefficients for the input polynomial.
-    int coef_output[5];                   //!< Coefficients for the output polynomial.
+    float coef_input[5];                  //!< Coefficients for the input polynomial.
+    float coef_output[5];                 //!< Coefficients for the output polynomial.
+    float history_input[5];               //!< History of input.
+    float history_output[5];              //!< History of output.
+    int history_pos;                      //!< Position in history ring buffers.
     mapper_clipping_type clip_upper;      //!< Operation for exceeded upper boundary.
     mapper_clipping_type clip_lower;      //!< Operation for exceeded lower boundary.
 } *mapper_mapping;

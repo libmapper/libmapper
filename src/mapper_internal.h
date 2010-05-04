@@ -64,6 +64,12 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
 
+/**** Mappings ****/
+
+void mapper_mapping_perform(mapper_mapping mapping,
+                            mapper_signal_value_t *from_value,
+                            mapper_signal_value_t *to_value);
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

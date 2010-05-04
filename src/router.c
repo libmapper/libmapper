@@ -66,12 +66,11 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
     mapper_mapping m = sm->mapping;
     while (m)
     {
-        struct _mapper_signal signal = *sig;
-        mapper_signal_value_t sigval = *value;
+        struct _mapper_signal signal = *sig; 
         signal.name = m->name;
-        if (sm->mapping->order_input == 1)
-            sigval.f *= sm->mapping->coef_input[0];
-        mapper_router_send_signal(router, &signal, &sigval);
+        mapper_signal_value_t v;
+        mapper_mapping_perform(m, value, &v);
+        mapper_router_send_signal(router, &signal, &v);
         m = m->next;
     }
 }
