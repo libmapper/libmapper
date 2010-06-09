@@ -10,7 +10,7 @@ name_allocation - multicast group 224.0.1.3 port 7571
 		SEND: "/name/probe <tentative_name>"
 	}
 	
-	for (got_name==0)
+	while (got_name==0)
 	{
 		if ((receive "/name/registered <name>" AND (<name> == <tentative_name>))
 		{
@@ -24,7 +24,7 @@ name_allocation - multicast group 224.0.1.3 port 7571
 			got_name = 1
 		}
 	}
-	if (<ordinal>==1)
+	if (<ordinal>==1)			// become name request server for <class>
 		switch (received OSC)
 		{
 			CASE: "/name/registered <class>.<ordinal>"
@@ -49,7 +49,7 @@ port_allocation - multicast group 224.0.1.3 port 7572
 	if ((receive "/port/available <tentative_port> <number>") AND (<number> == <ID>))
 		SEND: "/port/probe <tentative_port>"
 	
-	for (got_port==0)
+	while (got_port==0)
 	{
 		if ((receive "/port/registered <port>") AND (<port> == <tentative_port>))
 		{
@@ -63,7 +63,7 @@ port_allocation - multicast group 224.0.1.3 port 7572
 			got_port = 1
 		}
 	}
-	if <my_port> = starting port
+	if <my_port> = starting port	// become port request server
 	{
 		switch (received OSC)
 		{
@@ -101,7 +101,14 @@ mapping administration - multicast group 224.0.1.3 port 7570
 			for (parameters)
 				SEND: "/my_name/namespace/<input/output> /<parameter_name> @type <dataType> @units <units> @minimum <minimum> @maximum <maximum>"
 			break
-			
+		CASE: "/my_name/namespace/input/get"
+			for (input parameters)
+				SEND: "/my_name/namespace/input /<parameter_name> @type <dataType> @units <units> @minimum <minimum> @maximum <maximum>"
+			break
+		CASE: "/my_name/namespace/output/get"
+			for (output parameters)
+				SEND: "/my_name/namespace/output /<parameter_name> @type <dataType> @units <units> @minimum <minimum> @maximum <maximum>"
+			break
 		CASE: "/link /my_name /<other_device>"
 			if (not already linked)
 			{
