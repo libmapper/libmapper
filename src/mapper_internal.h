@@ -59,6 +59,9 @@ void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
                                       const char *name, mapper_signal_value_t scale);
 
+void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
+					  const char *name);
+
 /**** Signals ****/
 
 void mval_add_to_message(lo_message m, mapper_signal sig,

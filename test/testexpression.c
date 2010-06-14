@@ -1,6 +1,9 @@
+
 #include "../src/operations.h"
 #include "../src/expression.h"
 #include "../src/mapper_internal.h"
+
+
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
@@ -111,8 +114,7 @@ int setup_router()
 
     printf("Mapping signal %s -> %s\n",
            signame_out, signame_in);
-    mapper_router_add_linear_mapping(router, sendsig, signame_in,
-                                     (mapper_signal_value_t)10.0f);
+    mapper_router_add_expression_mapping(router, sendsig, signame_in);
     return 0;
 }
 

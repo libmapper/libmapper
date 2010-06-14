@@ -3,6 +3,8 @@
 #define __MAPPER_TYPES_H__
 
 #include <lo/lo_lowlevel.h>
+#include "operations.h"
+#include "expression.h"
 
 /**** Defined in mapper.h ****/
 
@@ -71,24 +73,39 @@ typedef enum _mapper_clipping_type
     CT_ROTATE,    //!< Value appears as offset at the opposite boundary.
 } mapper_clipping_type;
 
+
+
+typedef enum _mapper_mapping_type
+{
+    BYPASS, //!< Direct mapping
+    LINEAR, //!< Linear mapping
+    EXPRESSION, //!< Expression mapping
+} mapper_mapping_type;
+
 /*! The mapping structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple outputs. */
-/* TODO: expression interpreter */
+
 typedef struct _mapper_mapping {
-    char *name;                           //!< Destination name (OSC path).
-    struct _mapper_mapping *next;         //!< Next mapping in the list.
-    int order_input;                      //!< Order of the input side of the difference equation.
-                                          //!< Maximum of 5 for now.
-    int order_output;                     //!< Order of the output side of the difference equation.
-                                          //!< Usually not less than 1.  Maximum of 5 for now.
-    float coef_input[5];                  //!< Coefficients for the input polynomial.
-    float coef_output[5];                 //!< Coefficients for the output polynomial.
-    float history_input[5];               //!< History of input.
-    float history_output[5];              //!< History of output.
-    int history_pos;                      //!< Position in history ring buffers.
-    mapper_clipping_type clip_upper;      //!< Operation for exceeded upper boundary.
-    mapper_clipping_type clip_lower;      //!< Operation for exceeded lower boundary.
+    char *name;                              //!< Destination name (OSC path).
+    struct _mapper_mapping *next;            //!< Next mapping in the list.
+    int order_input;                         //!< Order of the input side of the difference equation.
+                                             //!< Maximum of MAX_HISTORY_ORDER.
+    int order_output;                        //!< Order of the output side of the difference equation.
+                                             //!< Usually not less than 1.  Maximum of MAX_HISTORY_ORDER.
+    float coef_input[MAX_HISTORY_ORDER];     //!< Coefficients for the input polynomial.
+    float coef_output[MAX_HISTORY_ORDER];    //!< Coefficients for the output polynomial.
+    float history_input[MAX_HISTORY_ORDER];  //!< History of input.
+    float history_output[MAX_HISTORY_ORDER]; //!< History of output.
+    int history_pos;                         //!< Position in history ring buffers.
+    mapper_clipping_type clip_upper;         //!< Operation for exceeded upper boundary.
+    mapper_clipping_type clip_lower;         //!< Operation for exceeded lower boundary.
+
+    mapper_mapping_type type;                //!< Bypass, linear, or expression mapping
+    Tree *expr_tree;                         //!< Tree representing the mapping expression
 } *mapper_mapping;
+
+/*******************************/
+
 
 /*! The signal mapping is a linked list containing a signal and a list
  *  of mappings.  For each router, there is one per signal of the

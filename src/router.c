@@ -7,7 +7,11 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+#include "operations.h"
+#include "expression.h"
 #include <mapper/mapper.h>
+
+void get_expr_Tree (Tree *T);
 
 mapper_router mapper_router_new(const char *host, int port)
 {
@@ -120,6 +124,7 @@ void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
+    mapping->type=BYPASS;
     mapping->name = strdup(name);
 
     mapper_router_add_mapping(router, sig, mapping);
@@ -131,9 +136,26 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
+    mapping->type=LINEAR;
     mapping->name = strdup(name);
     mapping->coef_input[0] = scale.f;
     mapping->order_input = 1;
+
+    mapper_router_add_mapping(router, sig, mapping);
+}
+
+void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name)
+{
+    mapper_mapping mapping =
+        calloc(1,sizeof(struct _mapper_mapping));
+
+    mapping->type=EXPRESSION;
+    mapping->name = strdup(name);
+
+    Tree *T=NewTree();
+    get_expr_Tree(T);
+    mapping->expr_tree=T;
 
     mapper_router_add_mapping(router, sig, mapping);
 }
