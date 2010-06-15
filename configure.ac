@@ -61,8 +61,8 @@ AC_ARG_ENABLE(tests,
    enable_tests=yes)
 
 AC_ARG_ENABLE(docs,
-   [  --disable-docs          don't build the documentation.],
-   enable_docs=)
+   [  --disable-docs          don't build the documentation.],,
+   enable_docs=yes)
 
 swig_enabled=yes
 AC_ARG_ENABLE(swig,
@@ -72,35 +72,48 @@ AC_ARG_ENABLE(swig,
 if test x$swig_enabled = xyes; then
    AC_DEFINE(Py_PYCONFIG_H,[],[Defined here to avoid conflicts with pyconfig.h])
    AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
-   AC_PROG_SWIG(1.3.36)
+   if test x$have_python = xyes; then
+      AC_PROG_SWIG(1.3.36)
 
    # Note: Python distutils thinks libssl and libcrypto are
    # dependencies but the necessary symlinks for these libraries are
    # not installed in the non-dev packages on Debian/Ubuntu.
    # Therefore AC_PYTHON_DEVEL (called from SWIG_PYTHON) will fail
    # even though we don't need these libraries ourselves.  The
-   # solution is to either not use SWIG_PYTHON or to require the
-   # user to install the libssl-dev and libcrypto++-dev packages.  We
+   # solution is to either not use SWIG_PYTHON or to require the user
+   # to install the libssl-dev and libcrypto++-dev packages.  We
    # choose the latter, since the former means doing a lot more work
    # checking Python compatibility manually.  This seems to not be an
    # issue on OS X.
 
-   PYLIBS=$($PYTHON -c "import distutils.sysconfig; \
-                        conf = distutils.sysconfig.get_config_var; \
-                        print (conf('LOCALMODLIBS') + ' ' + conf('LIBS'))")
-   if ( echo $PYLIBS | grep -q -e ssl -e crypto ); then
-     echo ----------
-     echo "If you see a Python failure here, try installing libssl and"
-     echo "libcrypto development packages.  This is a work-around for"
-     echo "a known Python packaging bug on some systems."
-     echo ----------
+      PYLIBS=$($PYTHON -c "import distutils.sysconfig; \
+                           conf = distutils.sysconfig.get_config_var; \
+                           print (conf('LOCALMODLIBS') + ' ' + conf('LIBS'))")
+     if ( echo $PYLIBS | grep -q -e ssl -e crypto ); then
+       echo ----------
+       echo "If you see a Python failure here, try installing libssl and"
+       echo "libcrypto development packages.  This is a work-around for"
+       echo "a known Python packaging bug on some systems."
+       echo ----------
+     fi
+     SWIG_PYTHON
+   else
+     swig_enabled=no
+     swig_explain="(Python not found.)"
    fi
-   SWIG_PYTHON
 fi
 
 # Doxygen
-AC_CHECK_PROG([DOXYGEN], [doxygen], [doc], [])
-AC_SUBST(DOXYGEN)
+if test x$enable_docs = xyes; then
+  AC_CHECK_PROG([DOXYGEN], [doxygen], [doc], [])
+  AC_SUBST(DOXYGEN)
+  if test x$DOXYGEN = x; then
+    enable_docs=no
+    docs_explain="(Doxygen not found.)"
+  fi
+fi
+
+# pkg-config
 PKG_PROG_PKG_CONFIG
 
 # Check for liblo
@@ -129,12 +142,6 @@ AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$SWIG" != x)
 
-if test "x$DOXYGEN" = x; then
-   enable_docs=no
-else
-   enable_docs=yes
-fi
-
 AC_CONFIG_FILES([
     Makefile
     src/Makefile
@@ -148,6 +155,11 @@ AC_OUTPUT
 
 # Messages to user.
 echo
+echo libmapper configured:
+echo --------------------------------------------------
+echo "building documention...   " $enable_docs $docs_explain
+echo "building tests...         " $enable_tests
+echo "building SWIG bindings... " $swig_enabled $swig_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
-echo
+echo --------------------------------------------------
