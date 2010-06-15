@@ -73,6 +73,28 @@ if test x$swig_enabled = xyes; then
    AC_DEFINE(Py_PYCONFIG_H,[],[Defined here to avoid conflicts with pyconfig.h])
    AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
    AC_PROG_SWIG(1.3.36)
+
+   # Note: Python distutils thinks libssl and libcrypto are
+   # dependencies but the necessary symlinks for these libraries are
+   # not installed in the non-dev packages on Debian/Ubuntu.
+   # Therefore AC_PYTHON_DEVEL (called from SWIG_PYTHON) will fail
+   # even though we don't need these libraries ourselves.  The
+   # solution is to either not use SWIG_PYTHON or to require the
+   # user to install the libssl-dev and libcrypto++-dev packages.  We
+   # choose the latter, since the former means doing a lot more work
+   # checking Python compatibility manually.  This seems to not be an
+   # issue on OS X.
+
+   PYLIBS=$($PYTHON -c "import distutils.sysconfig; \
+                        conf = distutils.sysconfig.get_config_var; \
+                        print (conf('LOCALMODLIBS') + ' ' + conf('LIBS'))")
+   if ( echo $PYLIBS | grep -q -e ssl -e crypto ); then
+     echo ----------
+     echo "If you see a Python failure here, try installing libssl and"
+     echo "libcrypto development packages.  This is a work-around for"
+     echo "a known Python packaging bug on some systems."
+     echo ----------
+   fi
    SWIG_PYTHON
 fi
 
