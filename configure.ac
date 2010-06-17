@@ -72,36 +72,25 @@ AC_ARG_ENABLE(swig,
    swig_enabled=$enableval)
 
 if test x$swig_enabled = xyes; then
-   AC_DEFINE(Py_PYCONFIG_H,[],[Defined here to avoid conflicts with pyconfig.h])
-   AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
-   if test x$have_python = xyes; then
-      AC_PROG_SWIG(1.3.36)
-
-   # Note: Python distutils thinks libssl and libcrypto are
-   # dependencies but the necessary symlinks for these libraries are
-   # not installed in the non-dev packages on Debian/Ubuntu.
-   # Therefore AC_PYTHON_DEVEL (called from SWIG_PYTHON) will fail
-   # even though we don't need these libraries ourselves.  The
-   # solution is to either not use SWIG_PYTHON or to require the user
-   # to install the libssl-dev and libcrypto++-dev packages.  We
-   # choose the latter, since the former means doing a lot more work
-   # checking Python compatibility manually.  This seems to not be an
-   # issue on OS X.
-
-      PYLIBS=$($PYTHON -c "import distutils.sysconfig; \
-                           conf = distutils.sysconfig.get_config_var; \
-                           print (conf('LOCALMODLIBS') + ' ' + conf('LIBS'))")
-     if ( echo $PYLIBS | grep -q -e ssl -e crypto ); then
-       echo ----------
-       echo "If you see a Python failure here, try installing libssl and"
-       echo "libcrypto development packages.  This is a work-around for"
-       echo "a known Python packaging bug on some systems."
-       echo ----------
-     fi
-     SWIG_PYTHON
-   else
+   AC_CHECK_PROG([SWIG], [swig], [swig])
+   if test x$SWIG = x; then
      swig_enabled=no
-     swig_explain="(Python not found.)"
+     swig_explain="(swig not found)"
+   else
+     AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
+     if test x$have_python = xyes; then
+       AC_CHECK_PROG([PYCONFIG], [python-config], [python-config])
+       if test x$PYCONFIG = x; then
+         swig_enabled=no
+         swig_explain="(python-config not found)"
+       else
+         PYCFLAGS=$(python-config --cflags)
+         PYLIBS=$(python-config --libs)
+       fi
+     else
+       swig_enabled=no
+       swig_explain="(python not found)"
+     fi
    fi
 fi
 
@@ -111,7 +100,7 @@ if test x$enable_docs = xyes; then
   AC_SUBST(DOXYGEN)
   if test x$DOXYGEN = x; then
     enable_docs=no
-    docs_explain="(Doxygen not found.)"
+    docs_explain="(doxygen not found.)"
   fi
 fi
 
@@ -130,10 +119,6 @@ AS_IF([test x$with_liblo != xno],[
   AC_SUBST(LIBLO,liblo)
 ])
 
-if test "x$SWIG" = x || test "x$swig_enabled" = xno; then
-   SWIG=
-fi
-
 # Debug mode
 AS_IF([test x$enable_debug = xyes],
       [CFLAGS="-g -O0 -Wall -Werror -DDEBUG"],
@@ -142,7 +127,7 @@ AS_IF([test x$enable_debug = xyes],
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
-AM_CONDITIONAL(HAVE_SWIG, test "x$SWIG" != x)
+AM_CONDITIONAL(HAVE_SWIG, test "x$swig_enabled" = xyes)
 
 AC_CONFIG_FILES([
     Makefile
