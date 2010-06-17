@@ -1,4 +1,4 @@
-AC_PREREQ(2.63)
+AC_PREREQ(2.61)
 
 AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
 
@@ -47,9 +47,11 @@ AC_TYPE_SIZE_T
 
 # Checks for programs.
 AC_PROG_CC
-LT_INIT
 AM_PROG_CC_C_O
 AC_PROG_CC_C99
+
+# libtool
+AM_PROG_LIBTOOL
 
 # Check options
 AC_ARG_ENABLE(debug,
