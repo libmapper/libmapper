@@ -25,7 +25,7 @@ int test_controller()
 
     const char *host = "localhost";
     int port = 9000;
-    mapper_router rt = mapper_router_new(host, port);
+    mapper_router rt = mapper_router_new(host, port,"TARGET");
     mdev_add_router(md, rt);
     printf("Router to %s:%d added.\n", host, port);
 

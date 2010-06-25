@@ -40,7 +40,7 @@ int mdev_name(mapper_device md, char *name, int len);
 
 /***** Router *****/
 
-mapper_router mapper_router_new(const char *host, int port);
+mapper_router mapper_router_new(const char *host, int port, char *name);
 
 void mapper_router_free(mapper_router router);
 

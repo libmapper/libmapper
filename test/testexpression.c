@@ -96,7 +96,7 @@ void cleanup_receiver()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(host, recvport);
+    router = mapper_router_new(host, recvport,"/testrcv");
     mdev_add_router(sender, router);
     printf("Router to %s:%d added.\n", host, recvport);
 

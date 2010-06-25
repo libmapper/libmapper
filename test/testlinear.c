@@ -93,7 +93,7 @@ void cleanup_receiver()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(host, recvport);
+    router = mapper_router_new(host, recvport,"testrecv");
     mdev_add_router(sender, router);
     printf("Router to %s:%d added.\n", host, recvport);
 
@@ -113,20 +113,28 @@ int setup_router()
            signame_out, signame_in);
     mapper_router_add_linear_mapping(router, sendsig, signame_in,
                                      (mapper_signal_value_t)10.0f);
-    return 0;
+
+    
+	return 0;
 }
 
 void wait_ready()
 {
+
     int count = 0;
     while (count++ < 10
            && !(   mdev_ready(sender)
                 && mdev_ready(receiver)))
-    {
-        mdev_poll(sender, 0);
-        mdev_poll(receiver, 0);
-        usleep(500*1000);
+    {   
+	printf("\n\nWAIT_READY %d\n",count); 
+    	printf("SENDER\n");
+	mdev_poll(sender, 0);
+	printf("RECEIVER\n");       
+	mdev_poll(receiver, 0);       
+	usleep(500*1000);
     }
+
+
 }
 
 void loop()

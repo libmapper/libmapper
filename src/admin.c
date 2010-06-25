@@ -26,10 +26,18 @@ static double get_current_time()
 }
 
 /* Internal message handler prototypes. */
-static int handler_device_who(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_who(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_registered(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_id_n_namespace_input_get(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_id_n_namespace_output_get(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_link(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_param_connect(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_param_connect_to(const char*, const char*, lo_arg **, int, lo_message, void*);
+
+
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -42,7 +50,7 @@ static void handler_error(int num, const char *msg, const char *where)
  * announced on the admin bus. */
 static int check_collisions(mapper_admin admin,
                             mapper_admin_allocated_t *resource);
-static void on_collision(mapper_admin_allocated_t *resource);
+static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin, int type);
 
 /*! Local function to get the IP address of a network interface. */
 static struct in_addr get_interface_addr(const char *ifname)
@@ -147,8 +155,8 @@ mapper_admin mapper_admin_new(const char *identifier,
     /* Add methods for admin bus.  Only add methods needed for
      * allocation here. Further methods are added when the device is
      * registered. */
-    lo_server_add_method(admin->admin_server, "/device/alloc/port", NULL, handler_device_alloc_port, admin);
-    lo_server_add_method(admin->admin_server, "/device/alloc/name", NULL, handler_device_alloc_name, admin);
+    lo_server_add_method(admin->admin_server, "/port/probe", NULL, handler_device_alloc_port, admin);
+    lo_server_add_method(admin->admin_server, "/name/probe", NULL, handler_device_alloc_name, admin);
 
     /* Announce port and name to admin bus. */
     mapper_admin_port_announce(admin);
@@ -182,10 +190,15 @@ void mapper_admin_free(mapper_admin admin)
  */
 void mapper_admin_poll(mapper_admin admin)
 {
-    int count=0;
-    while (count < 10
-           && lo_server_recv_noblock(admin->admin_server, 0))
-        { count ++; }
+
+    
+int count=0;
+
+    while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0))
+        { 
+			count++;
+		}
+
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */
@@ -206,13 +219,31 @@ void mapper_admin_poll(mapper_admin admin)
     if (!admin->registered && admin->port.locked && admin->ordinal.locked)
     {
         char namespaceget[256];
-        lo_server_add_method(admin->admin_server, "/device/who", "", handler_device_who, admin);
-
-        snprintf(namespaceget, 256, "/%s/%d/namespace/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, "/who", "", handler_who, admin);
+		lo_server_add_method(admin->admin_server, "/registered", "ssssisssisisiiiiiiii", handler_registered, admin);
+        
+		snprintf(namespaceget, 256, "/%s.%d/namespace/get", admin->identifier, admin->ordinal.value);
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_get, admin);
+		
+		snprintf(namespaceget, 256, "/%s.%d/namespace/input/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_input_get, admin);
 
-        admin->registered = 1;
+		snprintf(namespaceget, 256, "/%s.%d/namespace/output/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_output_get, admin);
+	
+		snprintf(namespaceget, 256, "/%s.%d/info/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, namespaceget, "", handler_who, admin);
+
+        lo_server_add_method(admin->admin_server, "/link", "ss", handler_device_link, admin);
+ 		lo_server_add_method(admin->admin_server, "/connect", NULL, handler_param_connect, admin);
+        lo_server_add_method(admin->admin_server, "/connect_to", NULL, handler_param_connect_to, admin);
+
+        /*admin->registered = 1; a mettre plutot dans le handler de registered et ensuite l'utiliser comme condition ?*/
+		int send=lo_send(admin->admin_addr,"/who", "" );
+		printf("ENVOI DE WHO %s\n",send==-1?"ECHEC":"REUSSI");
+
     }
+
 }
 
 /*! Announce the device's current port on the admin bus to enable the
@@ -220,8 +251,10 @@ void mapper_admin_poll(mapper_admin admin)
  */
 void mapper_admin_port_announce(mapper_admin admin)
 {
-    trace("announcing port\n");
-    lo_send(admin->admin_addr, "/device/alloc/port", "is", admin->port.value, admin->identifier);
+    trace("probing port\n");
+
+    lo_send(admin->admin_addr, "/port/probe", "i", admin->port.value);
+
 }
 
 /*! Announce the device's current name on the admin bus to enable the
@@ -230,14 +263,17 @@ void mapper_admin_port_announce(mapper_admin admin)
 void mapper_admin_name_announce(mapper_admin admin)
 {
     char name[256];
-    trace("announcing name\n");
-    snprintf(name, 256, "/%s/%d", admin->identifier, admin->ordinal.value);
-    lo_send(admin->admin_addr, "/device/alloc/name", "ss", name, "libmapper");
+    trace("probing name\n");
+    /*printf("identifier : %s ordinal : %d\n",admin->identifier, admin->ordinal.value);*/
+    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
+    
+    lo_send(admin->admin_addr,"/name/probe", "s", name);
+
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
 static int check_collisions(mapper_admin admin,
-                            mapper_admin_allocated_t *resource)
+                            mapper_admin_allocated_t *resource )
 {
     double timediff;
 
@@ -274,43 +310,113 @@ static int check_collisions(mapper_admin admin,
     return 0;
 }
 
-static void on_collision(mapper_admin_allocated_t *resource)
-{
-    if (resource->locked)
-        return;
+static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin, int type)
+	{
+		char name[256];
+    		snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
+    		
+		if (resource->locked) 
+			{
+				if (type==0)/*resource=port*/
+					{
+         	 				lo_send(admin->admin_addr,"/port/registered", "i",admin->port.value );
+					}
+				else if (type==1)/*resource=ordinal*/
+					{
+         	  				lo_send(admin->admin_addr,"/name/registered", "s", name );
+					}
+				
+				return;
+			}
+		
 
-    /* Count port collisions. */
-    resource->collision_count ++;
-    trace("%d collision_count = %d\n", resource->value, resource->collision_count);
-    resource->count_time = get_current_time();
-}
+		/* Count port collisions. */
+    		resource->collision_count ++;
+    		trace("%d collision_count = %d\n", resource->value, resource->collision_count);
+    		resource->count_time = get_current_time();
+	}	
 
 /**********************************/
 /* Internal OSC message handlers. */
 /**********************************/
 
-/*! Respond to /device/who by announcing the current port. */
-static int handler_device_who(const char *path, const char *types, lo_arg **argv,
+/*! Respond to /who by announcing the current port. */
+static int handler_who(const char *path, const char *types, lo_arg **argv,
                               int argc, lo_message msg, void *user_data)
 {
+
     mapper_admin admin = (mapper_admin)user_data;
     char name[256];
 
-    snprintf(name, 256, "/%s/%d", admin->identifier, admin->ordinal.value);
+    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
 
     lo_send(admin->admin_addr,
-            "/device/registered", "ssssssisisi",
+            "/registered", "ssssisssisisiiiiiiii",
             name,
-            "@class", admin->identifier,
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
-            "@inputs", mdev_num_inputs(admin->device),
-            "@outputs", mdev_num_outputs(admin->device));
+			"@canAlias", "no",/*******ALIAS*****************/
+            "@numInputs", mdev_num_inputs(admin->device),
+            "@numOutputs", mdev_num_outputs(admin->device)/*)*/
+			,"@hash",0,0,0,0,0,0,0,0);
+    /*********************************************************************************************/
+			
+		if(!(*((mapper_admin) user_data)).registered)
+			{
+
+				strcpy((*((mapper_admin) user_data)).regist_info.full_name,name);
+				strcpy((*((mapper_admin) user_data)).regist_info.host,inet_ntoa(admin->interface_ip));
+    			(*((mapper_admin) user_data)).regist_info.port=admin->port.value;
+				strcpy((*((mapper_admin) user_data)).regist_info.canAlias,"no");/***********ALIAS**************/
+    			
+				printf("LOCAL %s : Registered host : %s Registered port : %d\n", (*((mapper_admin) user_data)).regist_info.full_name ,(*((mapper_admin) user_data)).regist_info.host,(*((mapper_admin)user_data)).regist_info.port);
+				LOCAL_DEVICES.admin[LOCAL_DEVICES.num]=(*((mapper_admin) user_data));
+				printf("LOCAL DEVICE no %d !\n",LOCAL_DEVICES.num);
+				LOCAL_DEVICES.num++;
+				(*((mapper_admin) user_data)).registered=1;
+			
+			}
     return 0;
 }
 
-/*! Respond to /namespace/get by enumerating all supported inputs and outputs. */
-static int handler_id_n_namespace_get(const char *path, const char *types, lo_arg **argv,
+
+/*! Register information about port and host for the device */
+static int handler_registered(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+	int i;
+    int f=1;
+    char registered_name[1024];
+     
+	printf("HANDLER REGISTERED\n");         	
+            
+    if (argc < 1)
+        return 0;
+
+    if (types[0]!='s' && types[0]!='S')
+        return 0;
+
+    strcpy(registered_name, &argv[0]->s);
+    
+	for(i=0; i<REGIST_DEVICES_INFO.num;i++)
+		f*=strcmp(registered_name, REGIST_DEVICES_INFO.regist_info[i].full_name); 
+
+	if(f!=0)
+		{
+			strcpy(REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].full_name,registered_name);
+			strcpy(REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].host,&argv[2]->s);
+			REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].port=argv[4]->i;
+			strcpy(REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].canAlias,&argv[6]->s);
+			printf("DEVICE %s no %d REGISTERED : name=%s, host=%s, port=%d, canAlias=%s\n",registered_name,REGIST_DEVICES_INFO.num,REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].full_name,REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].host,REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].port,REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].canAlias);
+			REGIST_DEVICES_INFO.num++;
+		}
+
+    return 0;
+}
+
+
+/*! Respond to /namespace/input/get by enumerating all supported inputs*/
+static int handler_id_n_namespace_input_get(const char *path, const char *types, lo_arg **argv,
                                       int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin)user_data;
@@ -318,36 +424,52 @@ static int handler_id_n_namespace_get(const char *path, const char *types, lo_ar
     char name[1024], response[1024], method[1024], type[2]={0,0};
     int i;
 
-    snprintf(name, 1024, "/%s/%d", admin->identifier, admin->ordinal.value);
+    snprintf(name, 1024, "/%s.%d", admin->identifier, admin->ordinal.value);
 
     strcpy(response, name);
     strcat(response, "/namespace/input");
     for (i=0; i < md->n_inputs; i++)
-    {
-        mapper_signal sig = md->inputs[i];
-        lo_message m = lo_message_new();
+    	{
+        	mapper_signal sig = md->inputs[i];
+        	lo_message m = lo_message_new();
 
-        strcpy(method, name);
-        strcat(method, sig->name);
-        lo_message_add_string(m, method);
+        	/*strcpy(method, name);                          DO NOT SEND THE FULL NAME /device/signame !!!
+        	strcat(method, sig->name);*/
 
-        lo_message_add_string(m, "@type");
-        type[0] = sig->type;
-        lo_message_add_string(m, type);
+			strcpy(method, sig->name);
+        	lo_message_add_string(m, method);
 
-        if (sig->minimum) {
-            lo_message_add_string(m, "@min");
-            mval_add_to_message(m, sig, sig->minimum);
-        }
+        	lo_message_add_string(m, "@type");
+        	type[0] = sig->type;
+        	lo_message_add_string(m, type);
 
-        if (sig->maximum) {
-            lo_message_add_string(m, "@max");
-            mval_add_to_message(m, sig, sig->maximum);
-        }
+        	if (sig->minimum) {
+            	lo_message_add_string(m, "@min");
+            	mval_add_to_message(m, sig, sig->minimum);
+        	}
 
-        lo_send_message(admin->admin_addr, response, m);
-        lo_message_free(m);
+        	if (sig->maximum) {
+            	lo_message_add_string(m, "@max");
+            	mval_add_to_message(m, sig, sig->maximum);
+	        }
+
+    	    lo_send_message(admin->admin_addr, response, m);
+    	    lo_message_free(m);
     }
+
+    return 0;
+}
+
+/*! Respond to /namespace/output/get by enumerating all supported outputs*/
+static int handler_id_n_namespace_output_get(const char *path, const char *types, lo_arg **argv,
+                                      int argc, lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin)user_data;
+    mapper_device md = admin->device;
+    char name[1024], response[1024], method[1024], type[2]={0,0};
+    int i;
+
+    snprintf(name, 1024, "/%s.%d", admin->identifier, admin->ordinal.value);
 
     strcpy(response, name);
     strcat(response, "/namespace/output");
@@ -356,8 +478,10 @@ static int handler_id_n_namespace_get(const char *path, const char *types, lo_ar
         mapper_signal sig = md->outputs[i];
         lo_message m = lo_message_new();
 
-        strcpy(method, name);
-        strcat(method, sig->name);
+        /*strcpy(method, name);
+        strcat(method, sig->name);*/                /*DO NOT SEND THE FULL NAME /device/signame !!!*/
+
+		strcpy(method, sig->name);
         lo_message_add_string(m, method);
 
         lo_message_add_string(m, "@type");
@@ -381,13 +505,25 @@ static int handler_id_n_namespace_get(const char *path, const char *types, lo_ar
     return 0;
 }
 
+/*! Respond to /namespace/get by enumerating all supported inputs and outputs*/
+static int handler_id_n_namespace_get(const char *path, const char *types, lo_arg **argv,
+                                      int argc, lo_message msg, void *user_data)
+{
+
+handler_id_n_namespace_input_get(path, types, argv, argc,msg, user_data);
+handler_id_n_namespace_output_get(path, types, argv, argc,msg, user_data);
+
+return 0;
+
+}
+
 static int handler_device_alloc_port(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    
 
     unsigned int  announced_port = 0;
-    char         *announced_id   = 0;  // Note: not doing anything with this right now
 
     if (argc < 1)
         return 0;
@@ -399,14 +535,11 @@ static int handler_device_alloc_port(const char *path, const char *types, lo_arg
     else
         return 0;
 
-    if (argc > 1 && (types[1]=='s' || types[1]=='S'))
-        announced_id = &argv[1]->s;
-
-    trace("got /device/alloc/port %d %s\n", announced_port, announced_id);
+    trace("got /port/probe %d \n", announced_port);
 
     /* Process port collisions. */
     if (announced_port == admin->port.value)
-        on_collision(&admin->port);
+        on_collision(&admin->port, admin, 0);
 
     return 0;
 }
@@ -415,6 +548,7 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
                                      int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    	
 
     char         *announced_name = 0, *s;
     unsigned int  announced_ordinal = 0;
@@ -427,17 +561,206 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
 
     announced_name = &argv[0]->s;
 
-    /* Parse the ordinal from the complete name which is in the format: /<name>/<n> */
+    /* Parse the ordinal from the complete name which is in the format: /<name>.<n> */
     s = announced_name;
     if (*s++ != '/') return 0;
-    while (*s != '/' && *s++) {}
+    while (*s != '.' && *s++) {}
     announced_ordinal = atoi(++s);
 
-    trace("got /device/alloc/name %d %s\n", announced_ordinal, announced_name);
+    trace("got /name/probe %s\n", announced_name);
 
     /* Process ordinal collisions. */
     if (announced_ordinal == admin->ordinal.value)
-        on_collision(&admin->ordinal);
+        on_collision(&admin->ordinal, admin, 1);
+
+    return 0;
+}
+
+
+static int handler_device_link(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+
+	printf("\n\nHANDLER LINK\n");
+    /*mapper_admin admin = (mapper_admin) user_data;            (*((mapper_admin) user_data)).   */
+    /*mapper_device md = admin->device;*/
+    
+	int i;
+    char device_name[1024], sender_name[1024], target_name[1024], tmp_target_name[1024], host_adress[1024];
+	int recvport;    
+	mapper_router router = 0;
+
+    /*int recvport = (*((mapper_admin) user_data)).regist_info.port;
+	strcpy(host_adress, (*((mapper_admin) user_data)).regist_info.host);*/                          
+
+    if (argc < 1)
+        return 0;
+
+    if (types[0]!='s' && types[0]!='S'&& types[1]!='s' && types[1]!='S')
+        return 0;
+
+ 
+    snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+    strcpy(sender_name,&argv[0]->s);
+    strcpy(target_name,&argv[1]->s);
+
+
+    trace("got /link %s %s\n", sender_name, target_name);
+	printf("%s GOT /link %s %s\n", device_name, sender_name, target_name);
+    
+    if ( strcmp(device_name,sender_name)==0 )
+		{
+			/*******************************************************************************************************************/
+			for (i=0; i<REGIST_DEVICES_INFO.num; i++)
+    		{
+				
+				strcpy(tmp_target_name,REGIST_DEVICES_INFO.regist_info[i].full_name);
+				printf("PASSAGE %d DANS REGIST : REGARDE %s\n", i,tmp_target_name); 
+				if (strcmp (target_name, tmp_target_name)==0)
+					{
+						recvport=REGIST_DEVICES_INFO.regist_info[i].port;
+						strcpy(host_adress, REGIST_DEVICES_INFO.regist_info[i].host);
+						printf("OK ! host=%s port=%d\n", host_adress, recvport);
+					}
+			}
+			/*******************************************************************************************************************/
+
+	   		router = mapper_router_new(host_adress, recvport, target_name);
+   		    mdev_add_router((*((mapper_admin) user_data)).device, router);
+			printf("Router to %s : %d added.\n", host_adress,recvport);
+			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );
+			/*printf("/linked %s %s\n", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );*/		
+	
+		}
+
+    else if ( strcmp(device_name,target_name)==0 )
+		{	/****************************************************************************/
+			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", sender_name, target_name );
+    		/*************************************************************************/
+		}
+
+  
+
+    return 0;
+}
+
+
+static int handler_param_connect_to(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+
+	printf("\n\nHANDLER CONNECT TO\n");
+    /*mapper_admin admin = (mapper_admin) user_data;*/
+    /*mapper_device md = admin->device;*/
+    int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
+    mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
+    int i=0;
+	int c=1;
+	int f1=0,f2=0;
+
+    char sig_name[1024], src_param_name[1024], target_param_name[1024],target_device_name[1024];
+
+    if (argc < 1)
+        return 0;
+
+    if (types[0]!='s' && types[0]!='S' && types[1]!='s' && types[1]!='S')
+        return 0;
+
+    strcpy(src_param_name,&argv[0]->s);
+    strcpy(target_param_name, &argv[1]->s);
+	while (target_param_name[c]!='/')
+		c++;
+	strncpy(target_device_name, target_param_name,c);
+	target_device_name[c]='\0';
+
+    trace("got /connect_to %s %s\n", src_param_name, target_param_name);
+	printf("GOT /connect_to %s %s, j'ai %d outputs\n", src_param_name, target_param_name, md_num_outputs);
+
+
+    while (i<md_num_outputs && f1==0)
+    	{
+
+			msig_full_name(md_outputs[i],sig_name,256); 
+			printf("signal etudie : %s ...\n",sig_name);
+			
+    
+    		if ( strcmp(sig_name,src_param_name)==0 )
+				{		
+ 		   			printf("Mapping signal %s -> %s...\n",sig_name, target_param_name);
+
+
+    				while ( (*((mapper_admin) user_data)).device->routers && f2==0 ) /*A REVOIR*/
+						{
+							if ( strcmp ( (*((mapper_admin) user_data)).device->routers->target_name , target_device_name ) == 0 )
+								f2=1;
+							else (*((mapper_admin) user_data)).device->routers=(*((mapper_admin) user_data)).device->routers->next;
+							
+						}
+
+					if (f2==1)
+						{
+ 		   					/*mapper_router_add_linear_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
+								target_param_name,(mapper_signal_value_t)10.0f);*/
+							mapper_router_add_expression_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
+								target_param_name);
+							lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "ss", sig_name, target_param_name );	
+							
+						}
+					else printf("AUCUN ROUTER N'EXISTE !!!!!\n");
+					f1=1;
+				}
+
+    		else i++;
+		}
+
+
+    return 0;
+}
+
+
+static int handler_param_connect(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+
+	printf("\n\nHANDLER CONNECT\n");
+    /*mapper_admin admin = (mapper_admin) user_data;*/
+    /*mapper_device md = admin->device;*/
+    int md_num_inputs=(*((mapper_admin) user_data)).device->n_inputs;
+    mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
+    int i=0;
+	int f=0;
+
+    char sig_name[1024], src_param_name[1024], target_param_name[1024];
+
+    if (argc < 1)
+        return 0;
+
+    if (types[0]!='s' && types[0]!='S' && types[1]!='s' && types[1]!='S')
+        return 0;
+
+    strcpy(src_param_name,&argv[0]->s);
+    strcpy(target_param_name, &argv[1]->s);
+
+    trace("got /connect %s %s\n", src_param_name, target_param_name);
+	printf("GOT /connect %s %s\n",src_param_name, target_param_name);
+
+
+	while (i<md_num_inputs && f==0)
+    	{
+
+			msig_full_name(md_inputs[i],sig_name,256); 
+			printf("signal etudie : %s ...\n",sig_name);
+    
+    		if ( strcmp(sig_name,target_param_name)==0 )
+				{		
+						printf("SEND /connect_to %s %s\n", src_param_name, sig_name );
+						lo_send((*((mapper_admin) user_data)).admin_addr,"/connect_to", "ss", src_param_name, sig_name );
+						f=1;
+				}
+
+    		else i++;
+		}
+  
 
     return 0;
 }

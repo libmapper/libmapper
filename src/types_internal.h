@@ -19,7 +19,7 @@ struct _mapper_signal;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
-
+struct _mapper_register_information;
 /**** Admin bus ****/
 
 /*! Types of devices supported by the admin bus. */
@@ -43,23 +43,60 @@ typedef struct _mapper_admin_allocated_t {
     mapper_admin_resource_on_lock *on_lock; //!< Function to call when resource becomes locked.
 } mapper_admin_allocated_t;
 
+
+/*! A structure that keeps information sent by /registered*/
+typedef struct _mapper_admin_registered_info {
+    char full_name[256];
+	char host[256];
+	int port;
+	char canAlias[256];
+} mapper_admin_registered_info;
+
+
+
 /*! A structure that keeps information about a device. */
 typedef struct
 {
-    char*                    identifier;    //!< The identifier for this device.
-    mapper_admin_allocated_t ordinal;       //!< The unique ordinal for this device.
-    mapper_device_type_t     device_type;   //!< The type of this device.
-    mapper_admin_allocated_t port;          //!< This device's UDP port number.
-    lo_server_thread         admin_server;  //!< LibLo server thread for the admin bus.
-    lo_address               admin_addr;    //!< LibLo address for the admin bus.
-    char                     interface[16]; //!< The name of the network interface for receiving messages.
-    struct in_addr           interface_ip;  //!< The IP address of interface.
-    int                      registered;    //!< Non-zero if this device has been registered.
-    struct _mapper_device   *device;        //!< Device that this admin is in charge of.
+    char*                    			identifier;    //!< The identifier for this device.
+    mapper_admin_allocated_t 			ordinal;       //!< The unique ordinal for this device.
+    mapper_device_type_t     			device_type;   //!< The type of this device.
+    mapper_admin_allocated_t 			port;          //!< This device's UDP port number.
+    lo_server_thread         			admin_server;  //!< LibLo server thread for the admin bus.
+    lo_address               			admin_addr;    //!< LibLo address for the admin bus.
+    char                     			interface[16]; //!< The name of the network interface for receiving messages.
+    struct in_addr           			interface_ip;  //!< The IP address of interface.
+    int                      			registered;    //!< Non-zero if this device has been registered.
+    struct _mapper_device   		 	*device;       //!< Device that this admin is in charge of.
+    struct _mapper_admin_registered_info regist_info;  //!< Registered port and host 
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
 typedef mapper_admin_t *mapper_admin;
+
+
+/*******************************************************************************************************************************************/
+/*! A global structure that contains all the local devices*/
+typedef struct
+	{
+ 		mapper_admin_t *admin;
+		int num;
+	} mapper_local_devices;
+
+extern mapper_local_devices LOCAL_DEVICES;
+
+
+/*! A global structure that contains the regist_info of all the registered devices*/
+typedef struct
+	{
+ 		mapper_admin_registered_info *regist_info;
+		int num;
+	} mapper_regist_devices;
+
+extern mapper_regist_devices REGIST_DEVICES_INFO;
+/***************************************************************************************************************************************/
+
+
+
 
 
 /**** Router ****/
@@ -119,7 +156,8 @@ typedef struct _mapper_signal_mapping {
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_router {
+typedef struct _mapper_router {             
+	char target_name[256];                //!< Name given by the name of target
     lo_address addr;                      //!< Sending address.
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_mapping mappings;       //!< The list of mappings for each signal.

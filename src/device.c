@@ -11,6 +11,10 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+
+mapper_local_devices LOCAL_DEVICES={NULL, 0};
+mapper_regist_devices REGIST_DEVICES_INFO={NULL, 0};
+
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port)
 {
@@ -32,6 +36,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
 
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
+    md->routers=0;
     return md;
 }
 
@@ -103,8 +108,9 @@ int mdev_num_outputs(mapper_device md)
 }
 
 void mdev_poll(mapper_device md, int block_ms)
-{
+{   
     mapper_admin_poll(md->admin);
+
     if (md->server)
         lo_server_recv_noblock(md->server, block_ms);
     else
@@ -167,7 +173,9 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 {
     mapper_signal sig = (mapper_signal)user_data;
     mapper_device md = sig->device;
-    if (!md) { trace("error, sig->device==0\n"); return 0; }
+	
+
+    if (!md) { trace("error, sig->device==0\n");printf("error, sig->device==0\n"); return 0; }
 
     if (sig->handler) {
         int i;
@@ -196,7 +204,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
 void mdev_start_server(mapper_device md)
 {
-    if (md->n_inputs > 0
+    
+	if (md->n_inputs > 0
         && md->admin->port.locked
         && !md->server)
     {
@@ -210,6 +219,7 @@ void mdev_start_server(mapper_device md)
         if (md->server) {
             trace("device '%s' opened server on port %d\n",
                   md->name_prefix, md->admin->port.value);
+
         } else {
             trace("error opening server on port %d for device '%s'\n",
                   md->admin->port.value, md->name_prefix);
@@ -221,10 +231,10 @@ void mdev_start_server(mapper_device md)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;
             if (!msig_full_name(md->inputs[i], signame, 1024))
-                { trace("couldn't get signal name.\n"); }
+                { trace("couldn't get signal name.\n"); printf("couldn't get signal name.\n");}
             else
                 lo_server_add_method(md->server,
-                                     signame,
+                                     /*signame*/md->inputs[i]->name,
                                      type,
                                      handler_signal,
                                      (void*)(md->inputs[i]));
@@ -240,7 +250,7 @@ int mdev_name(mapper_device md, char *name, int len)
     if (md->admin
         && md->admin->ordinal.locked)
     {
-        r = snprintf(name, len, "/%s/%d",
+        r = snprintf(name, len, "/%s.%d",
                      md->name_prefix,
                      md->admin->ordinal.value);
     }
