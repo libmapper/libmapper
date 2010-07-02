@@ -139,7 +139,7 @@ mapping administration - multicast group 224.0.1.3 port 7570
 		CASE: "/connect /<other_device>/<src_parameter_name> /my_name/<dest_parameter_name> [optional properties: @scaling, @range, @expression, @clipMin, @clipMax]"
 			if (<dest_parameter_name> exists)
 				create feedback mapping connection
-				SEND: "/connect_to /<other_device>/<src_parameter_name> /my_name/<dest_parameter_name>"
+				SEND: "/connect_to /<other_device>/<src_parameter_name> /my_name/<dest_parameter_name> @type <my_type> @range <my_range>"
 			break
 		CASE: "/connect_to /my_name/<src_parameter_name> /<other_device>/<dest_parameter_name> [optional properties: @scaling, @range, @expression, @clipMin, @clipMax @canAlias]"
 			if (<src_parameter_name> exists)
@@ -156,11 +156,10 @@ mapping administration - multicast group 224.0.1.3 port 7570
 			SEND: "/disconnected /my_name/<parameter_name> /<other_device>/<parameter_name>"
 			break
 
-*		CASE: "/my_name/connections/get"
+		CASE: "/my_name/connections/get"
 			for (connections)
 			{
-				SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name>"
-				SEND: "/connection/properties /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
+				SEND: "/connected /my_name/<parameter_name> /<other_device>/<parameter_name> @scaling <bypass|mute|linear|expression|calibrate> @range <source_min> <source_max> <dest_min> <dest_max> @expression <expression> @clipMin <none|mute|clamp|wrap|fold> @clipMax <none|mute|clamp|wrap|fold>"
 			}
 			break
 *		CASE: "/connection/properties/get /my_name/<parameter_name> /<other_device/<parameter_name>"
