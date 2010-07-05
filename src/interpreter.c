@@ -5,12 +5,12 @@
 #include "operations.h"
 #include "expression.h"
 
-void get_expr_Tree(Tree *T)
+void get_expr_Tree(Tree *T, /**/char *s/**/)
 {
 
 
 
-    char s[SIZE];
+    /*char s[SIZE];*/
     char **parsed_expr=NULL;
     int expr_length;
     float result;
@@ -19,18 +19,24 @@ void get_expr_Tree(Tree *T)
 
 	while (err!=NO_ERR)
         {
+			printf("ENTRE DANS WHILE GET...\n");
             err=NO_ERR;
-            printf("\n----------------------------------------------------------\n");
+            /*printf("\n----------------------------------------------------------\n");
             printf("Available operators, functions, variables and constants :\n+ - * / ^\nexp log log10 sqrt cos sin tan abs floor round ceil\nx, x[-1],... y, y[-1],... Maximum history order = %d \nPi\n", MAX_HISTORY_ORDER);
             printf("----------------------------------------------------------\n");
             printf("Expression : ");
             fflush(stdout);
-            get_typed_string(s, &err);
+            get_typed_string(s, &err);*/
 
             if (s!=NULL && err==NO_ERR)
                 {
                     /*Removes spaces*/
                     remove_spaces(s);
+					
+					/**/
+					if (s[0]=='y' && s[1]=='=')
+						s=sub_string(s,2, strlen(s)-1);/**/
+					
                     if (strlen(s) > 0)
                         {
                             /*Parses the expression*/

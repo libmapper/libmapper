@@ -34,9 +34,10 @@ static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, 
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_unlink(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect_to(const char*, const char*, lo_arg **, int, lo_message, void*);
-
+static int handler_param_disconnect(const char*, const char*, lo_arg **, int, lo_message, void*);
 
 
 /* Internal LibLo error handler */
@@ -235,8 +236,11 @@ int count=0;
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_who, admin);
 
         lo_server_add_method(admin->admin_server, "/link", "ss", handler_device_link, admin);
+		lo_server_add_method(admin->admin_server, "/unlink", "ss", handler_device_unlink, admin);
+
  		lo_server_add_method(admin->admin_server, "/connect", NULL, handler_param_connect, admin);
         lo_server_add_method(admin->admin_server, "/connect_to", NULL, handler_param_connect_to, admin);
+		lo_server_add_method(admin->admin_server, "/disconnect", NULL, handler_param_disconnect, admin);
 
         /*admin->registered = 1; a mettre plutot dans le handler de registered et ensuite l'utiliser comme condition ?*/
 		int send=lo_send(admin->admin_addr,"/who", "" );
@@ -355,7 +359,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
             name,
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
-			"@canAlias", "no",/*******ALIAS*****************/
+			"@canAlias", "no",/*******ALIAS*************/
             "@numInputs", mdev_num_inputs(admin->device),
             "@numOutputs", mdev_num_outputs(admin->device)/*)*/
 			,"@hash",0,0,0,0,0,0,0,0);
@@ -370,9 +374,10 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 				strcpy((*((mapper_admin) user_data)).regist_info.canAlias,"no");/***********ALIAS**************/
     			
 				printf("LOCAL %s : Registered host : %s Registered port : %d\n", (*((mapper_admin) user_data)).regist_info.full_name ,(*((mapper_admin) user_data)).regist_info.host,(*((mapper_admin)user_data)).regist_info.port);
-				LOCAL_DEVICES.admin[LOCAL_DEVICES.num]=(*((mapper_admin) user_data));
-				printf("LOCAL DEVICE no %d !\n",LOCAL_DEVICES.num);
-				LOCAL_DEVICES.num++;
+				/*LOCAL_DEVICES.admin[LOCAL_DEVICES.num]=(*((mapper_admin) user_data));
+				LOCAL_DEVICES.num++;*/
+				mdev_add_LOCAL_DEVICES((mapper_admin)user_data);
+				printf("NEW LOCAL DEVICES : %s !\n",LOCAL_DEVICES->admin->identifier);
 				(*((mapper_admin) user_data)).registered=1;
 			
 			}
@@ -388,7 +393,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
     int f=1;
     char registered_name[1024];
      
-	printf("HANDLER REGISTERED\n");         	
+	/*printf("HANDLER REGISTERED\n");*/         	
             
     if (argc < 1)
         return 0;
@@ -581,7 +586,7 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
                                      int argc, lo_message msg, void *user_data)
 {
 
-	printf("\n\nHANDLER LINK\n");
+	/*printf("\n\nHANDLER LINK\n");*/
     /*mapper_admin admin = (mapper_admin) user_data;            (*((mapper_admin) user_data)).   */
     /*mapper_device md = admin->device;*/
     
@@ -627,6 +632,7 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
 
 	   		router = mapper_router_new(host_adress, recvport, target_name);
    		    mdev_add_router((*((mapper_admin) user_data)).device, router);
+			(*((mapper_admin) user_data)).device->num_routers++;
 			printf("Router to %s : %d added.\n", host_adress,recvport);
 			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );
 			/*printf("/linked %s %s\n", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );*/		
@@ -644,14 +650,273 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
     return 0;
 }
 
+static int handler_device_unlink(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+    
+	int f=0;
+    char device_name[1024], sender_name[1024], target_name[1024];    
+	mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router=md->routers;                    
+
+    if (argc < 1)
+        return 0;
+
+    if (types[0]!='s' && types[0]!='S'&& types[1]!='s' && types[1]!='S')
+        return 0;
+
+    snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+    strcpy(sender_name,&argv[0]->s);
+    strcpy(target_name,&argv[1]->s);
+
+
+    trace("got /unlink %s %s\n", sender_name, target_name);
+	printf("%s GOT /unlink %s %s\n", device_name, sender_name, target_name);
+
+    
+    if ( strcmp(device_name,sender_name)==0 )
+		{
+			printf("MOI %s CHERCHE PARMI MES ROUTEURS... %s\n",device_name, target_name);
+			while ( router!=NULL && f==0 ) 
+				{
+					if ( strcmp (router->target_name , target_name ) == 0 )
+						{								
+							printf("TROUVE LE ROUTEUR %s !!! JE VAIS LE SUPPRIMER...\n",target_name);
+							/*(*((mapper_admin) user_data)).device->routers=*/mdev_remove_router( /*(*((mapper_admin) user_data)).device*/md, router);
+							(*((mapper_admin) user_data)).device->num_routers--;							
+							printf("JE L'AI SUPPRIME !!!!!\n");
+							/*mapper_router_free(router);*/
+							f=1;
+							printf("F FLAGUE A 1\n");
+						}
+					else router = router->next;
+				}
+	
+			if (f==1)
+				{
+					printf("J'AI VU QUE F=1\n");
+					lo_send((*((mapper_admin) user_data)).admin_addr,"/unlinked", "ss", device_name, target_name );	
+					printf("%s SENT : /unlinked %s %s\n", device_name, sender_name, target_name );
+				}
+			else printf("ERROR UNLINK PAS TROUVE ROUTER...\n");
+		}
+
+    else if ( strcmp(device_name,target_name)==0 )
+		{
+			/*lo_send((*((mapper_admin) user_data)).admin_addr,"/unlinked", "ss", sender_name, target_name );*/
+		}
+
+  
+
+    return 0;
+}
+
+
 
 static int handler_param_connect_to(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
 
-	printf("\n\nHANDLER CONNECT TO\n");
-    /*mapper_admin admin = (mapper_admin) user_data;*/
-    /*mapper_device md = admin->device;*/
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router=md->routers;
+
+    int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
+    mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
+
+    int i=0;
+	int c=1;
+	int j=2;
+	int f1=0,f2=0;
+
+    char sig_name[1024], src_param_name[1024], target_param_name[1024],target_device_name[1024];
+
+	char src_type,dest_type;
+	float dest_range_min,dest_range_max,src_range_min,src_range_max;
+	char scaling[1024],clipMin[1024],clipMax[1024];	
+	char *expression;
+
+	expression=strdup("y =2 *x");
+
+    if (argc < 2)
+        return 0;
+	/*printf("il y a %d arguments a connect_to\n", argc);
+	for (int k=0; k<argc;k++)
+		{
+			printf("type argument %d : %c \n", k, types[k]);
+		}*/
+
+    if ( (types[0]!='s' && types[0]!='S') || (types[1]!='s' && types[1]!='S') || (strcmp(&argv[2]->s,"@type")!=0) || (types[3]!='c' && types[3]!='s' && types[3]!='S') )
+        return 0;
+
+    strcpy(src_param_name,&argv[0]->s);
+    strcpy(target_param_name, &argv[1]->s);
+	while (target_param_name[c]!='/')
+		c++;
+	strncpy(target_device_name, target_param_name,c);
+	target_device_name[c]='\0';
+		
+	/*******************************************???????**************************************************/
+	
+	if( argc>4 )
+		{
+				
+			trace("got /connect_to %s %s @type %c+ OPTIONS\n", src_param_name, target_param_name, dest_type);
+			printf("GOT /connect_to %s %s @type %c+ OPTIONS\n", src_param_name, target_param_name, dest_type);
+
+			while(j<argc)
+				{
+					if (types[j]!='s' && types[j]!='S')
+						{
+							printf("syntaxe message incorrecte\n");
+							return 0;
+						}
+
+					else if(strcmp(&argv[j]->s,"@scaling")==0)
+						{
+							strcpy(scaling,&argv[j+1]->s);
+							j+=2;
+						}
+
+					else if(strcmp(&argv[j]->s,"@range")==0)
+						{
+							dest_range_min=argv[j+1]->f;
+							dest_range_max=argv[j+2]->f;
+							j+=3;
+						}
+
+					else if(strcmp(&argv[j]->s,"@expression")==0)
+						{
+							strcpy(expression,&argv[j+1]->s);
+							j+=2;
+						}
+
+					else if(strcmp(&argv[j]->s,"@clipMin")==0)
+						{
+							strcpy(clipMin,&argv[j+1]->s);
+							j+=2;
+						}			
+
+					else if(strcmp(&argv[j]->s,"@clipMax")==0)
+						{
+							strcpy(clipMax,&argv[j+1]->s);
+							j+=2;
+						}			
+				
+				}
+								
+		}
+
+	else
+		{
+			trace("got /connect_to %s %s @type %c\n", src_param_name, target_param_name, dest_type);
+			printf("GOT /connect_to %s %s @type %c\n", src_param_name, target_param_name,dest_type);
+			dest_range_min=0;
+			dest_range_max=1;
+			strcpy(clipMin,"none");
+			strcpy(clipMax,"none");
+		}
+ 
+/************************************************************************************************************************************************/
+
+    while (i<md_num_outputs && f1==0)
+    	{
+
+			msig_full_name(md_outputs[i],sig_name,256); 
+			printf("signal etudie : %s ...\n",sig_name);
+			
+    		
+    		if ( strcmp(sig_name,src_param_name)==0 )
+				{		
+
+ 		   			printf("Mapping signal %s -> %s...\n",sig_name, target_param_name);
+					src_type=md_outputs[i]->type;
+					src_range_min=md_outputs[i]->minimum->f;
+					src_range_max=md_outputs[i]->maximum->f;
+
+					if (argc==2)
+						strcpy(scaling,"bypass");
+					if (argc >2)
+						{
+							if (strcmp(&argv[2]->s,"@type")==0)							
+								dest_type=argv[3]->c;
+
+							if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
+								strcpy(scaling,"linear");
+							else strcpy(scaling,"bypass");
+						}
+
+					
+    				while ( router!=NULL && f2==0 ) 
+						{
+							printf("COMPARE LE ROUTEUR %s...\n",router->target_name);	
+							if ( strcmp ( router->target_name , target_device_name ) == 0 )
+								f2=1;
+							else router=router->next;
+							
+						}
+
+					if (f2==1)
+						{
+							printf("ROUTER %s CORRESPONDANT !!\n",router->target_name);
+
+							if (strcmp(scaling,"bypass")==0)
+								{	
+									printf("SCALING=BYPASS\n");
+									expression=strdup("y=x");
+									mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name);
+								}
+							else if (strcmp(scaling,"linear")==0)
+								{	
+									printf("SCALING=LINEAR\n");
+									if (src_range_min==src_range_max)
+										{
+											/*free(expression);*/
+											sprintf(expression,"y=%f",src_range_min);
+										}
+									else
+										{	
+											printf("CAS GENERAL CAS LINEAR\n");
+											free(expression);		
+											printf("%f %f %f %f\n",src_range_min,src_range_max,dest_range_min,dest_range_max);
+											expression=malloc(100*sizeof(char));									
+											snprintf(expression,100,"y=(x-%f)*%f+%f",
+												src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);
+											printf("OK EXPRESSION MODIFIEE : %s \n",expression);	
+										}							
+									mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name/**/,expression/**/) ;	
+								}
+
+						    else if (strcmp(scaling,"expression")==0)
+								mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name/**/,expression/**/) ;	
+						 	
+
+							(*((mapper_admin) user_data)).device->num_mappings_out++;
+							lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
+								sig_name, target_param_name, 
+								"@scaling",scaling,
+								"@range",src_range_min,src_range_max,dest_range_min,dest_range_max,
+								"@expression",expression,
+								"@clipMin",clipMin,
+								"@clipMax",clipMax);		
+						}
+					else printf("AUCUN ROUTER N'EXISTE !!!!!\n");
+					f1=1;
+				}
+
+    		else i++;
+		}
+
+
+    return 0;
+}
+
+static int handler_param_disconnect(const char *path, const char *types, lo_arg **argv,
+                                     int argc, lo_message msg, void *user_data)
+{
+
+	
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
     int i=0;
@@ -673,8 +938,8 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 	strncpy(target_device_name, target_param_name,c);
 	target_device_name[c]='\0';
 
-    trace("got /connect_to %s %s\n", src_param_name, target_param_name);
-	printf("GOT /connect_to %s %s, j'ai %d outputs\n", src_param_name, target_param_name, md_num_outputs);
+    trace("got /disconnect %s %s\n", src_param_name, target_param_name);
+	printf("GOT /disconnect %s %s\n", src_param_name, target_param_name);
 
 
     while (i<md_num_outputs && f1==0)
@@ -686,10 +951,10 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
     
     		if ( strcmp(sig_name,src_param_name)==0 )
 				{		
- 		   			printf("Mapping signal %s -> %s...\n",sig_name, target_param_name);
+ 		   			printf("disconnecting signal %s -> %s...\n",sig_name, target_param_name);
 
 
-    				while ( (*((mapper_admin) user_data)).device->routers && f2==0 ) /*A REVOIR*/
+    				while ( (*((mapper_admin) user_data)).device->routers!=NULL && f2==0 )
 						{
 							if ( strcmp ( (*((mapper_admin) user_data)).device->routers->target_name , target_device_name ) == 0 )
 								f2=1;
@@ -699,11 +964,11 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 
 					if (f2==1)
 						{
- 		   					/*mapper_router_add_linear_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
-								target_param_name,(mapper_signal_value_t)10.0f);*/
-							mapper_router_add_expression_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
-								target_param_name);
-							lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "ss", sig_name, target_param_name );	
+ 		   				
+							mapper_router_remove_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
+								target_param_name) ;
+							(*((mapper_admin) user_data)).device->num_mappings_out--;
+							lo_send((*((mapper_admin) user_data)).admin_addr,"/disconnected", "ss", sig_name, target_param_name );	
 							
 						}
 					else printf("AUCUN ROUTER N'EXISTE !!!!!\n");
@@ -717,22 +982,22 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
     return 0;
 }
 
-
 static int handler_param_connect(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
 
-	printf("\n\nHANDLER CONNECT\n");
+	/*printf("\n\nHANDLER CONNECT\n");*/
     /*mapper_admin admin = (mapper_admin) user_data;*/
     /*mapper_device md = admin->device;*/
     int md_num_inputs=(*((mapper_admin) user_data)).device->n_inputs;
     mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
     int i=0;
+	int j=2;
 	int f=0;
 
     char sig_name[1024], src_param_name[1024], target_param_name[1024];
 
-    if (argc < 1)
+    if (argc < 2)
         return 0;
 
     if (types[0]!='s' && types[0]!='S' && types[1]!='s' && types[1]!='S')
@@ -753,8 +1018,44 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
     
     		if ( strcmp(sig_name,target_param_name)==0 )
 				{		
-						printf("SEND /connect_to %s %s\n", src_param_name, sig_name );
-						lo_send((*((mapper_admin) user_data)).admin_addr,"/connect_to", "ss", src_param_name, sig_name );
+						lo_message m=lo_message_new();
+						lo_message_add(m,"sssc",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
+						/*If options added to the connect message*/
+						if(argc>2)
+							{
+								
+								while(j<argc)
+									{
+										switch (types[j])
+											{
+												case ('s'): case ('S'): 
+												lo_message_add(m, types[j], (char *)&argv[j]->s);
+												break;												
+
+												case ('i'): case ('h'): 
+												lo_message_add(m, types[j], (int)argv[j]->i);
+												break;
+
+												case ('f'): 
+												lo_message_add(m, types[j], (float)argv[j]->f);
+												break;
+												
+												default:
+												printf("Unknown message type %c\n",types[j]);
+											}
+									
+										j++;
+									}
+								
+								printf("SEND /connect_to %s %s @type %c + OPTIONS\n", src_param_name, sig_name,(md_inputs[i]->type));
+							}						
+						/*No options added to the connect message*/
+						else
+							{
+								printf("SEND /connect_to %s %s @type %c\n", src_param_name, sig_name,(md_inputs[i]->type) );
+							}
+						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_to",m);
+						lo_message_free(m);
 						f=1;
 				}
 

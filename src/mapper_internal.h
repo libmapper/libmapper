@@ -23,13 +23,14 @@ void mapper_admin_port_announce(mapper_admin admin);
 void mapper_admin_name_announce(mapper_admin admin);
 
 /***** Device *****/
+void mdev_add_LOCAL_DEVICES(mapper_admin_t *admin);
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
-void mdev_remove_router(mapper_device md, mapper_router rt);
+ /*mapper_router*/ void mdev_remove_router(mapper_device md, mapper_router rt /*,char *target_name*/);
 
 void mdev_start_server(mapper_device mdev);
 
@@ -53,6 +54,8 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
                                mapper_mapping mapping);
 
+void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char *dest_name);
+
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
                                       const char *name);
 
@@ -60,7 +63,7 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
                                       const char *name, mapper_signal_value_t scale);
 
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
-					  const char *name);
+					  const char *name/**/,char * expr/**/);
 
 /**** Signals ****/
 

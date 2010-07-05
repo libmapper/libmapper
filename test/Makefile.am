@@ -1,5 +1,5 @@
 
-noinst_PROGRAMS = test_unlinked_unconnected
+noinst_PROGRAMS = test
 
 testadmin_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -24,3 +24,8 @@ testexpression_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LI
 test_unlinked_unconnected_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 test_unlinked_unconnected_SOURCES = test_unlinked_unconnected.c
 test_unlinked_unconnected_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+
+test_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+test_SOURCES = test.c
+test_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+

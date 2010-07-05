@@ -76,15 +76,28 @@ typedef mapper_admin_t *mapper_admin;
 
 /*******************************************************************************************************************************************/
 /*! A global structure that contains all the local devices*/
-typedef struct
+/*typedef struct 
 	{
  		mapper_admin_t *admin;
 		int num;
 	} mapper_local_devices;
 
-extern mapper_local_devices LOCAL_DEVICES;
+extern mapper_local_devices LOCAL_DEVICES;*/
 
 
+
+typedef struct mapper_admins mapper_admins;
+struct mapper_admins
+	{
+ 		mapper_admin admin;
+		struct mapper_admins *next;
+	};
+typedef mapper_admins *list_admins;
+
+extern list_admins LOCAL_DEVICES;
+
+
+/**************************************/
 /*! A global structure that contains the regist_info of all the registered devices*/
 typedef struct
 	{
@@ -93,6 +106,16 @@ typedef struct
 	} mapper_regist_devices;
 
 extern mapper_regist_devices REGIST_DEVICES_INFO;
+
+typedef struct mapper_registered_infos mapper_registered_infos;
+struct mapper_registered_infos
+	{
+ 		mapper_admin_registered_info *regist_info;
+		struct mapper_registered_infos *next;
+	};
+typedef mapper_registered_infos *list_regist_info;
+
+extern list_regist_info REGIST_DEVICES_INFO2;
 /***************************************************************************************************************************************/
 
 
@@ -157,7 +180,7 @@ typedef struct _mapper_signal_mapping {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {             
-	char target_name[256];                //!< Name given by the name of target
+	const char *target_name;                //!< Name given by the name of target
     lo_address addr;                      //!< Sending address.
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_mapping mappings;       //!< The list of mappings for each signal.
@@ -180,6 +203,8 @@ typedef struct _mapper_device {
      *  one input has been registered and the incoming port has been
      *  allocated. */
     lo_server server;
+	int num_routers;
+	int num_mappings_out;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__
