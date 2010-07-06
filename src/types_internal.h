@@ -140,6 +140,7 @@ typedef enum _mapper_mapping_type
     BYPASS, //!< Direct mapping
     LINEAR, //!< Linear mapping
     EXPRESSION, //!< Expression mapping
+	MUTE, //!< Mute mapping
 } mapper_mapping_type;
 
 /*! The mapping structure is a linked list of mappings for a given
@@ -159,8 +160,11 @@ typedef struct _mapper_mapping {
     int history_pos;                         //!< Position in history ring buffers.
     mapper_clipping_type clip_upper;         //!< Operation for exceeded upper boundary.
     mapper_clipping_type clip_lower;         //!< Operation for exceeded lower boundary.
-
-    mapper_mapping_type type;                //!< Bypass, linear, or expression mapping
+	
+	float range[4];							 //!< {src_min ; src_max ; dest_min ; dest_max}
+	char *expression;
+	    
+	mapper_mapping_type type;                //!< Bypass, linear, expression, or mute mapping
     Tree *expr_tree;                         //!< Tree representing the mapping expression
 } *mapper_mapping;
 

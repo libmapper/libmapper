@@ -178,12 +178,17 @@ void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char 
 	mapper_mapping *m=&(*sm)->mapping;
 	while (*m)
 		{
+			printf("Mapping a supprimer : %s, mapping comparé %s\n",(*m)->name,dest_name);
 			if (strcmp((*m)->name,dest_name)==0)
 				{
+					printf("OK !\n");
 					*m=(*m)->next;
 					break;
 				}
+			m = &(*m)->next;
 		}
+
+}
 
 
 	/*mapper_router *r = &md->routers;
@@ -198,48 +203,75 @@ void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char 
     	}*/
 
 
-}
-/*******************************************************************************************************************************************/
+
 
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name)
+                                      const char *name, float src_min, float src_max, float dest_min, float dest_max)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
     mapping->type=BYPASS;
     mapping->name = strdup(name);
+	mapping->expression = strdup("y=x");
+	mapping->range[0]=src_min;
+	mapping->range[1]=src_max;
+	mapping->range[2]=dest_min;
+	mapping->range[3]=dest_max;
 
     mapper_router_add_mapping(router, sig, mapping);
 }
 
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, mapper_signal_value_t scale)
+                                      const char *name, /*mapper_signal_value_t scale,*/ char *expr, float src_min, float src_max, float dest_min, float dest_max)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
     mapping->type=LINEAR;
     mapping->name = strdup(name);
-    mapping->coef_input[0] = scale.f;
+
+	mapping->expression = strdup(expr);
+	mapping->range[0]=src_min;
+	mapping->range[1]=src_max;
+	mapping->range[2]=dest_min;
+	mapping->range[3]=dest_max;
+
+    Tree *T=NewTree();
+    get_expr_Tree(T, expr);
+    mapping->expr_tree=T;
+
+		
+
+    /*mapping->coef_input[0] = scale.f;
     mapping->order_input = 1;
+
+	mapping->expression = strdup(expression);
+	mapping->range[0]=src_min;
+	mapping->range[1]=src_max;
+	mapping->range[2]=dest_min;
+	mapping->range[3]=dest_max;*/
+
 
     mapper_router_add_mapping(router, sig, mapping);
 }
 
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name/**/, char *expr/**/)
+                                      const char *name, char *expr, float src_min, float src_max, float dest_min, float dest_max)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
     mapping->type=EXPRESSION;
     mapping->name = strdup(name);
+	mapping->expression = strdup(expr);
+	mapping->range[0]=src_min;
+	mapping->range[1]=src_max;
+	mapping->range[2]=dest_min;
+	mapping->range[3]=dest_max;
 
     Tree *T=NewTree();
-	printf("VA ENTRER DANS GET EXPRESSION TREE...\n");
-    get_expr_Tree(T, /**/expr/**/);
-	printf("... SORTIE DE GET EXPRESSION TREE\n");
+    get_expr_Tree(T, expr);
     mapping->expr_tree=T;
 
     mapper_router_add_mapping(router, sig, mapping);

@@ -30,7 +30,7 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
- /*mapper_router*/ void mdev_remove_router(mapper_device md, mapper_router rt /*,char *target_name*/);
+void mdev_remove_router(mapper_device md, mapper_router rt);
 
 void mdev_start_server(mapper_device mdev);
 
@@ -57,13 +57,13 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
 void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char *dest_name);
 
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name);
+                                      const char *name,float src_min, float src_max, float dest_min, float dest_max);
 
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, mapper_signal_value_t scale);
+                                    const char *name, /*mapper_signal_value_t scale,*/ char * expr,float src_min, float src_max, float dest_min, float dest_max);
 
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
-					  const char *name/**/,char * expr/**/);
+					  const char *name,char * expr,float src_min, float src_max, float dest_min, float dest_max);
 
 /**** Signals ****/
 

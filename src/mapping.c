@@ -17,22 +17,23 @@ void mapper_mapping_perform(mapper_mapping mapping,
     p=mapping->history_pos;
     mapping->history_input[p] = from_value->f;
 
-    if( mapping->type==BYPASS || mapping->type==LINEAR)
+    if( mapping->type==BYPASS /*|| mapping->type==LINEAR*/)
     	{
-			for (i=0; i < mapping->order_input; i++)
+			/*for (i=0; i < mapping->order_input; i++)
 	  		v = mapping->history_input[(p+i)%5] * mapping->coef_input[i];
 
 			for (i=0; i < mapping->order_output; i++)
-	  		v = mapping->history_output[(p+i)%5] * mapping->coef_output[i];
-
+	  		v = mapping->history_output[(p+i)%5] * mapping->coef_output[i];*/
+			
+			v=mapping->history_input[p];
 			mapping->history_output[p] = v;
 
 			--p;
-			if (p < 0) p = MAX_HISTORY_ORDER;
+			if (p < 0) p = MAX_HISTORY_ORDER-1;/*-1 ??*/
       	}
 
     
-	else if (mapping->type==EXPRESSION)
+	else if (mapping->type==EXPRESSION || mapping->type==LINEAR)
       	{
 			v=EvalTree(mapping->expr_tree, mapping->history_input, mapping->history_output, p, &err);
 			mapping->history_output[p] = v;
