@@ -154,6 +154,7 @@ Operator CEIL={17,arity_1, PRIOR_FUNCTION, Ceil, NULL};
 
 
 
+/*! This function is called when the output value of the sender is updated and returns the value sent to the receiver*/
 float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos, error *err) {
 
 float valueL, valueR;

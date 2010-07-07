@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-void copy_list_admins(list_admins src, list_admins dest);
 
 mapper_device sender = 0;
 mapper_device receiver = 0;
@@ -21,7 +20,7 @@ int sendport = 9001;
 int sent = 0;
 int received = 0;
 
-
+/*! Creation of a local sender*/
 int setup_sender()
 {
     sender = mdev_new("testsend", sendport);
@@ -29,7 +28,7 @@ int setup_sender()
     printf("Sender created.\n");
 
     sendsig =
-        msig_float(1, "/outsig", 0, /**/0/**/, /**/1/**/, 0, 0, 0);
+        msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
 
     mdev_register_output(sender, sendsig);
 
@@ -59,13 +58,11 @@ void cleanup_sender()
 
 void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
 {
-
-    printf("--------------------------------HANDLER UPDATE-------------------------------------\n");
-    printf("handler: Got %f\n", (*v).f);
-	printf("-----------------------------------------------------------------------------------\n");    
+    printf("--> Reveiver got %f\n", (*v).f); 
 	received++;
 }
 
+/*! Creation of a local receiver*/
 int setup_receiver()
 {
     receiver = mdev_new("testrecv", recvport);
@@ -100,9 +97,7 @@ void cleanup_receiver()
 void wait_local_devices()
 {
  
- printf("Waiting for local devices... ");
  int count = 0;
- /*while (count++ < 15  && !(   mdev_ready(sender) && mdev_ready(receiver)) && ! (sender->admin->registered==1 && receiver->admin->registered==1) ) */
     
  while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver) && sender->admin->registered==1 && receiver->admin->registered==1) )
 		{   
@@ -112,45 +107,40 @@ void wait_local_devices()
 			usleep(500*1000);
     	}
 
+list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
+printf("INITIAL REGISTERED DEVICES :\n");
+while(tmp_regist_dev_info != NULL)
+	{   
+		printf("%s, %s, %i, %s\n", tmp_regist_dev_info->regist_info->full_name, tmp_regist_dev_info->regist_info->host, 																					tmp_regist_dev_info->regist_info->port, tmp_regist_dev_info->regist_info->canAlias); 
+		tmp_regist_dev_info=tmp_regist_dev_info->next;
+	}
 
 }
 
 void loop()
 {
 	printf("-------------------- GO ! --------------------\n");
-    int i=0,j=0;
-	int f;
-	/*int j;*/
+    int i=0;
 	mapper_device tmp_device=0;
 	list_admins tmp_local_devices =0;
     
 	while (i>=0) 
 		{
-			/*for(j=0;j<LOCAL_DEVICES.num;j++)
-				{
-					mdev_poll(LOCAL_DEVICES.admin[j].device,0);
-			}*/
-
+			
 			tmp_local_devices=LOCAL_DEVICES;
 			while(tmp_local_devices != NULL)
-				{   f=0;
+				{
 					tmp_device=tmp_local_devices->admin->device;
-					printf("\n\n--POLLING 1-- %s\n",tmp_local_devices->admin->identifier);
 					mdev_poll(tmp_device,0);
 
 					if (tmp_device->num_routers>0)
-						{
-									f=1;	
-									printf("LE NOM DU ROUTER DE TETE EST %s\n", tmp_device->routers->target_name);
+						{	
 									if (tmp_device->num_mappings_out>0)
 										{		
-											printf("MAPPED\n");
-	        								msig_update_scalar(tmp_device->outputs[0], (mval)(i*1.0f));
+	        								msig_update_scalar(tmp_device->outputs[0], (mval)((i%10)*1.0f));
+											printf("%s value updated to %d -->\n",tmp_device->admin->identifier,i%10);
 										}
-									else printf("NO MAPPING FOR THIS ROUTER SENDER\n");
 						}
-					if (f==0) 
-						printf("THIS DEVICE IS A RECEIVER OR AN UNLINKED SENDER\n");
 					tmp_local_devices=tmp_local_devices->next;
 				}
 
@@ -160,26 +150,16 @@ void loop()
 			while(tmp_local_devices!=NULL)
 				{
 					tmp_device=tmp_local_devices->admin->device;
-					printf("\n\n--POLLING 2-- %s\n",tmp_local_devices->admin->identifier);
 					mdev_poll(tmp_device,0);
 					tmp_local_devices=tmp_local_devices->next;
 				}
-			
-			/*for(j=0;j<LOCAL_DEVICES.num;j++)
-				{
-					mdev_poll(LOCAL_DEVICES.admin[j].device,0);
-				}*/
-			
+					
 			i++;
     	}
 }
 
 int main()
-{
-	
-	 /*LOCAL_DEVICES.admin=malloc(100*sizeof(mapper_admin_t));*/
-	 REGIST_DEVICES_INFO.regist_info=malloc(200*sizeof(mapper_admin_registered_info));
-	
+{	
 	int result=0;
 
     if (setup_receiver()) {
@@ -198,18 +178,8 @@ int main()
 
     loop();
 
-    /*if (sent != received) {
-        printf("Not all sent messages were received.\n");
-        printf("Updated value %d time%s, but received %d of them.\n",
-               sent, sent==1?"":"s", received);
-        result = 1;
-    }*/
-
-
   done:
     cleanup_receiver();
     cleanup_sender();
-	/*free(LOCAL_DEVICES.admin);*/
-    /*printf("Test %s.\n", result?"FAILED":"PASSED");*/
     return result;
 }

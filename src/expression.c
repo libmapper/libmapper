@@ -8,6 +8,7 @@
 #include "expression.h"
 
 
+/*! Get the expression string from the terminal, only for debug use*/
 void get_typed_string(char *s, error *err){
 
     int i=0;
@@ -34,6 +35,7 @@ void get_typed_string(char *s, error *err){
 
 }
 
+/*! Remove spaces in a string*/
 void remove_spaces(char *s){
 
     char *buffer=NULL;
@@ -53,6 +55,7 @@ void remove_spaces(char *s){
 
 }
 
+/*! Get the substring between two positions in a string */
 char *sub_string (const char *s, unsigned int start, unsigned int end){
    char *new_s=NULL;
 
@@ -96,6 +99,7 @@ char *sub_string (const char *s, unsigned int start, unsigned int end){
    return new_s;
 }
 
+/*! Tell if a character has to be seen as a separator by the parser*/
 int is_separator(char c){
 	int ret;
 
@@ -116,6 +120,7 @@ int is_separator(char c){
 	return ret;
 }
 
+/*! Parse the string and separate the terms in an array*/
 char **parse_string (char *s, int *l){
 
    char **tab=(char**) malloc(strlen(s)*strlen(s)*sizeof(char));
@@ -205,6 +210,7 @@ if (T!=NULL)
 return new_T;
 }
 
+/*! Convert a string to an operator_type object*/
 Operator string_to_operator(char *s,operator_type type, error *err){
 
 Operator oper=EVAL;
@@ -306,6 +312,7 @@ else if (type==eval)
 return oper;
 }
 
+/*! Get the history order from a string, x[..] or y[..]*/
 int find_history_order (char * s, error *err) {
 
 int o=0;
@@ -336,9 +343,8 @@ if (o>=0 || (int)fabs(o)>MAX_HISTORY_ORDER-1)
 else return o;
 }
 
+/*! Construct the expression tree using the different priorities of the operators and functions */
 void ConstructTree(Tree *T, char ** expr, int t1, int t2, error *err) {
-
-
 int i=t1;
 /* positionv : position of the last operand in the expression */
 int positionv=t1;
@@ -466,7 +472,7 @@ while(i<t2+1)
                     }
 
 
-                        /* If the "parenthesis depth" has decreased or if the priority of tmp_oper is lower than the current lowest one operat=tmp_oper*/
+                        /* If the "parenthesis depth" has decreased or if the priority of tmp_oper is lower than the current lowest one, operat=tmp_oper*/
                         if ( (parenth_order<prev_parenth_order) || ((parenth_order==prev_parenth_order)&&(curr_prior>tmp_oper.prior)) )
                             {
                                 position=i;

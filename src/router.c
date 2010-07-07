@@ -11,7 +11,7 @@
 #include "expression.h"
 #include <mapper/mapper.h>
 
-void get_expr_Tree (Tree *T/**/,char *expr/**/);
+void get_expr_Tree (Tree *T,char *expr);
 
 mapper_router mapper_router_new(const char *host, int port, char *name)
 {
@@ -73,7 +73,6 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 			return;
 		}
 
-
     // for each mapping, construct a mapped signal and send it
     mapper_mapping m = sm->mapping;
 	int c=1;
@@ -85,30 +84,21 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         c=1;
 		i=0;
 
-		/*signal.name = m->name;*/  
-		printf("RECEIVE : MAPPING NAME 1 = %s\n", m->name);  
-		/**************************************************************************************************************************/
-		/*int c=1;
-		int i=0;
-		char *name;*/
+		/* The mapping name is the full name of the destination signal (/<device>/<param>) and we just need here the /<param> name to create the new signal*/
 		name=strdup(m->name);
-		while ((/*signal.*/name)[c]!='/' && c<strlen(/*signal.*/name))
+		while ((name)[c]!='/' && c<strlen(name))
 			c++;
-		if (c<strlen(/*signal.*/name) && c>1)
+		if (c<strlen(name) && c>1)
 			{
-				while ((/*signal.*/name)[c+i]!='\0')
+				while ((name)[c+i]!='\0')
 					{				
-						name[i]=(/*signal.*/name)[c+i];
+						name[i]=(name)[c+i];
 						i++;
-						printf("c+i= %d name en construction : %s\n", c+i, name);
 					}
-				/*name[c+i]='\0';*/
-				printf("c+i : %d name fin construction : %s\n",c+i, name);
 				signal.name=strndup(name,i);
 				free(name);
 			}
-		/**************************************************************************************************************************/
-		printf("RECEIVE : SIGNAL NAME 2 = %s\n", signal.name);       
+
 		mapper_signal_value_t v;
         mapper_mapping_perform(m, value, &v);
         mapper_router_send_signal(router, &signal, &v);
@@ -122,22 +112,17 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 
     int i;
     lo_message m;
-    if (!router->addr) 
-		{	
-			return;
-		}
+    if (!router->addr) 	
+		return;
 
     m = lo_message_new();
-    if (!m) return;
+    if (!m) 
+		return;
 
-    for (i=0; i<sig->length; i++) {
-    mval_add_to_message(m, sig, &value[i]);
-	printf("%f bien ajouté au message\n", value->f);}
-
-	int send;
-    /***********************************************************/send=lo_send_message(router->addr, sig->name, m);/**********************************************************/
-
-	printf("%s\n\n",send==-1?"ECHEC ENVOI MESSAGE":"SUCCES ENVOI MESSAGE");
+    for (i=0; i<sig->length; i++)
+   	 	mval_add_to_message(m, sig, &value[i]);
+	
+    int send=lo_send_message(router->addr, sig->name, m);
     lo_message_free(m);
     return;
 }
@@ -164,7 +149,6 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     sm->mapping = mapping;
 }
 
-/*****************************************************************************************************************************************/
 
 void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char *dest_name)
 {
@@ -178,10 +162,8 @@ void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char 
 	mapper_mapping *m=&(*sm)->mapping;
 	while (*m)
 		{
-			printf("Mapping a supprimer : %s, mapping comparé %s\n",(*m)->name,dest_name);
 			if (strcmp((*m)->name,dest_name)==0)
 				{
-					printf("OK !\n");
 					*m=(*m)->next;
 					break;
 				}
@@ -189,20 +171,6 @@ void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char 
 		}
 
 }
-
-
-	/*mapper_router *r = &md->routers;
-    while (*r) 
-		{
-	        if (*r == rt) 
-				{
-            		*r = rt->next;
-            		break;
-        		}
-        	r = &(*r)->next;
-    	}*/
-
-
 
 
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
@@ -239,9 +207,7 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 
     Tree *T=NewTree();
     get_expr_Tree(T, expr);
-    mapping->expr_tree=T;
-
-		
+    mapping->expr_tree=T;		
 
     /*mapping->coef_input[0] = scale.f;
     mapping->order_input = 1;

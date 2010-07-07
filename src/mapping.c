@@ -29,7 +29,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
 			mapping->history_output[p] = v;
 
 			--p;
-			if (p < 0) p = MAX_HISTORY_ORDER-1;/*-1 ??*/
+			if (p < 0) p = MAX_HISTORY_ORDER;
       	}
 
     

@@ -5,15 +5,17 @@
 #include <stdlib.h>
 
 
+/*! Type of an operator*/
 typedef enum {
 
-delimiter,
-arity_1,
-arity_2,
-eval
+delimiter,   //<! Parenthesis and end of string or end of line symbols
+arity_1,	 //<! Operator or function with one argument
+arity_2,	 //<! Operator or function with two arguments
+eval		 //<! Variable, history value, or numeric value
 
 } operator_type;
 
+/*! Priority of an operator, used to construct the expression tree */
 typedef enum {
 
 PRIOR_PLUS_MINUS=1,
@@ -33,7 +35,7 @@ float Mult(float a, float b);
 float Div(float a, float b);
 float Pow(float a, float b);
 float Opp(float x);
-float Sin(float x);
+float Sin(float x); 
 float Cos(float x);
 float Tan(float x);
 float Abs(float x);
@@ -50,20 +52,31 @@ float Min(float x, float y);
 
 typedef float Operand;
 
+/*! Type of the operator nodes in the expression tree*/
 typedef struct Operator{
-short id;
-operator_type type;
-operator_priority prior;
-float (*function1)(float);
-float (*function2)(float, float);
+short id;                         //<! Identifier
+operator_type type;				  //<! Operator type : delimiter, arity 1, arity 2 or evaluation
+operator_priority prior;		  //<! Priority
+float (*function1)(float);		  //<! Pointer to the evaluation function (if type arity_1)
+float (*function2)(float, float); //<! Pointer to the evaluation function (if type arity_2)
 } Operator;
 
 
+/*! Operator used for the evaluation of a numeric value */
 extern Operator EVAL;
+
+/*! Operator used for the evaluation of the variable x */
 extern Operator VARX;
+
+/*! Operator used for the evaluation of the variable y */
 extern Operator VARY;
+
+/*! Operator used for the evaluation of a previous value of the variable x */
 extern Operator VARX_HISTORY;
+
+/*! Operator used for the evaluation of a previous value of the variable y */
 extern Operator VARY_HISTORY;
+
 extern Operator TIMES;
 extern Operator DIV;
 extern Operator POW;

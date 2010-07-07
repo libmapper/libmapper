@@ -29,10 +29,11 @@ char **parse_string (char *s, int *l);
 Operator string_to_operator(char *s,operator_type type, error *err);
 int find_history_order (char * s, error *err);
 
+/*! Structure used by the LINEAR and EXPRESSION mapping type to represent the expression of the mapping*/
 typedef struct Tree{
-  Operand num;
-  Operator oper;
-  struct Tree *left,*right;
+  Operand num;     				//<!Numerical node
+  Operator oper;				//<!Operator node : operator, function, parenthesis, variable, history value
+  struct Tree *left,*right;			
 } Tree;
 
 

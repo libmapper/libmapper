@@ -12,11 +12,38 @@
 #include <mapper/mapper.h>
 
 
-/*mapper_local_devices LOCAL_DEVICES={NULL, 0};*/
-mapper_regist_devices REGIST_DEVICES_INFO={NULL, 0};
 
+/*mapper_regist_devices REGIST_DEVICES_INFO={NULL, 0};*/
+
+/*!Initialization of the global list of local devices*/
 list_admins LOCAL_DEVICES=NULL;
+/*!Initialization of the global list of local devices*/
 list_regist_info REGIST_DEVICES_INFO2=NULL;
+
+/*! Add a new local device to the global list of local devices */
+void mdev_add_LOCAL_DEVICES(mapper_admin admin)
+{
+    mapper_admins *new = malloc(sizeof(mapper_admins)); 
+    (*new).admin = admin;
+    (*new).next = LOCAL_DEVICES;
+	LOCAL_DEVICES=new;
+}
+
+/*! Add the information got by the /registered message to the global list of registered devices information */
+void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias)
+{
+    mapper_registered_infos *new = malloc(sizeof(mapper_registered_infos));
+	mapper_admin_registered_info *new_info = malloc(sizeof(mapper_admin_registered_info));
+
+	(*new_info).full_name = strdup(full_name) ;
+	(*new_info).host = strdup(host) ;
+	(*new_info).port = port;
+	(*new_info).canAlias = strdup(canAlias); 
+ 
+    (*new).regist_info = new_info;
+    (*new).next = REGIST_DEVICES_INFO2;
+	REGIST_DEVICES_INFO2=new;
+}
 
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port)
@@ -44,21 +71,6 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
 	md->num_mappings_out=0;
     return md;
 }
-
-void mdev_add_LOCAL_DEVICES(mapper_admin admin)
-{
-    /* On crée un nouvel élément */
-    mapper_admins *new = malloc(sizeof(mapper_admins));
- 
-    /* On assigne la valeur au nouvel élément */
-    (*new).admin = admin;
- 
-    /* On assigne l'adresse de l'élément suivant au nouvel élément */
-    (*new).next = LOCAL_DEVICES;
-	LOCAL_DEVICES=new;
-
-}
-
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device md)
@@ -154,37 +166,6 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     *r = rt;
 }
 
-/*mapper_router mdev_remove_router(mapper_device md, char *target_name)
-{
-	printf("JE RENTRE DANS REMOVE avec l'ordre de supprimer %s\n", target_name);
-
-    if(md->routers == NULL)
-        {    
-			printf("1 ROUTEUR DE TETE = NULL\n");
-			return NULL;
-		}
- 
-   else if( strcmp(md->routers->target_name,target_name)==0)
-    {
-		printf("2 ROUTEUR DE TETE = %s\n",md->routers->target_name);
-		printf("JE VAIS SUPPRIMER LE ROUTER %s !!!\n", md->routers->target_name);
-        mapper_router tmp = md->routers->next;
-        mapper_router_free(md->routers);
-		md->routers=tmp;
-        return md->routers; <------ PROVISOIRE mdev_remove_router(md, target_name);
-    }
-    else
-    {
-		printf("3 ROUTEUR DE TETE = %s\n",md->routers->target_name);
-		mapper_device tmp = md;
-		tmp->routers=md->routers->next;
-        md->routers->next = mdev_remove_router(tmp, target_name);
-        return md->routers;
-    }
-
-}*/
-
-
 void mdev_remove_router(mapper_device md, mapper_router rt)
   {
     mapper_router *r = &md->routers;
@@ -196,10 +177,6 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         r = &(*r)->next;
     }
 }
-
-
-
-
 
 /*! Called when once when the port is allocated and again when the
  *  ordinal is allocated, or vice-versa.  Must start server when both
@@ -289,7 +266,7 @@ void mdev_start_server(mapper_device md)
                 { trace("couldn't get signal name.\n"); printf("couldn't get signal name.\n");}
             else
                 lo_server_add_method(md->server,
-                                     /*signame*/md->inputs[i]->name,
+                                     md->inputs[i]->name,
                                      type,
                                      handler_signal,
                                      (void*)(md->inputs[i]));
