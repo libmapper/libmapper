@@ -19,7 +19,7 @@ struct _mapper_signal;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
-struct _mapper_register_information;
+
 /**** Admin bus ****/
 
 /*! Types of devices supported by the admin bus. */
@@ -44,15 +44,6 @@ typedef struct _mapper_admin_allocated_t {
 } mapper_admin_allocated_t;
 
 
-/*! A structure that keeps information sent by /registered*/
-typedef struct _mapper_admin_registered_info {
-    char *full_name;
-	char *host;
-	int port;
-	char *canAlias;
-} mapper_admin_registered_info;
-
-
 /*! A structure that keeps information about a device. */
 typedef struct
 {
@@ -66,46 +57,10 @@ typedef struct
     struct in_addr           			interface_ip;  //!< The IP address of interface.
     int                      			registered;    //!< Non-zero if this device has been registered.
     struct _mapper_device   		 	*device;       //!< Device that this admin is in charge of.
-    struct _mapper_admin_registered_info regist_info;  //!< Registered name, port, host, and canAlias 
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
 typedef mapper_admin_t *mapper_admin;
-
-
-typedef struct mapper_admins mapper_admins;
-struct mapper_admins
-	{
- 		mapper_admin admin;
-		struct mapper_admins *next;
-	};
-typedef mapper_admins *list_admins;
-/*! A global structure that contains all the local devices*/
-extern list_admins LOCAL_DEVICES;
-
-
-
-typedef struct mapper_registered_infos mapper_registered_infos;
-struct mapper_registered_infos
-	{
- 		mapper_admin_registered_info *regist_info;
-		struct mapper_registered_infos *next;
-	};
-typedef mapper_registered_infos *list_regist_info;
-/*! A global structure that contains the regist_info of all the registered devices*/
-extern list_regist_info REGIST_DEVICES_INFO2;
-
-
-/*typedef struct
-	{
- 		mapper_admin_registered_info *regist_info;
-		int num;
-	} mapper_regist_devices;
-
-extern mapper_regist_devices REGIST_DEVICES_INFO;*/
-
-
-
 
 
 /**** Router ****/

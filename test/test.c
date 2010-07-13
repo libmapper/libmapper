@@ -58,7 +58,7 @@ void cleanup_sender()
 
 void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
 {
-    printf("--> Reveiver got %f\n", (*v).f); 
+    printf("--> Receiver got %f\n\n", (*v).f); 
 	received++;
 }
 
@@ -99,7 +99,7 @@ void wait_local_devices()
  
  int count = 0;
     
- while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver) && sender->admin->registered==1 && receiver->admin->registered==1) )
+ while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver)) )
 		{   
 			mdev_poll(sender, 0);       
 			mdev_poll(receiver, 0);       
@@ -121,13 +121,13 @@ void loop()
 {
 	printf("-------------------- GO ! --------------------\n");
     int i=0;
-	mapper_device tmp_device=0;
-	list_admins tmp_local_devices =0;
+	/*mapper_device tmp_device=0;
+	list_admins tmp_local_devices =0;*/
     
 	while (i>=0) 
 		{
 			
-			tmp_local_devices=LOCAL_DEVICES;
+			/*tmp_local_devices=LOCAL_DEVICES;
 			while(tmp_local_devices != NULL)
 				{
 					tmp_device=tmp_local_devices->admin->device;
@@ -143,17 +143,26 @@ void loop()
 						}
 					tmp_local_devices=tmp_local_devices->next;
 				}
-
 	        usleep(500*1000);
 
+		
 			tmp_local_devices=LOCAL_DEVICES;
 			while(tmp_local_devices!=NULL)
 				{
 					tmp_device=tmp_local_devices->admin->device;
 					mdev_poll(tmp_device,0);
 					tmp_local_devices=tmp_local_devices->next;
+				}*/
+
+			mdev_poll(sender, 0);
+			if (sender->num_mappings_out>0)
+				{		
+	        		msig_update_scalar(sender->outputs[0], (mval)((i%10)*1.0f));
+					printf("sender value updated to %d -->\n",i%10);
 				}
-					
+        	usleep(500*1000);
+        	mdev_poll(receiver, 0);				
+			
 			i++;
     	}
 }

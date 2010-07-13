@@ -31,9 +31,9 @@ int find_history_order (char * s, error *err);
 
 /*! Structure used by the LINEAR and EXPRESSION mapping type to represent the expression of the mapping*/
 typedef struct Tree{
-  Operand num;     				//<!Numerical node
-  Operator oper;				//<!Operator node : operator, function, parenthesis, variable, history value
-  struct Tree *left,*right;			
+  Operand num;     				//!<Numerical node
+  Operator oper;				//!<Operator node : operator, function, parenthesis, variable, history value
+  struct Tree *left,*right;		
 } Tree;
 
 

@@ -8,10 +8,10 @@
 /*! Type of an operator*/
 typedef enum {
 
-delimiter,   //<! Parenthesis and end of string or end of line symbols
-arity_1,	 //<! Operator or function with one argument
-arity_2,	 //<! Operator or function with two arguments
-eval		 //<! Variable, history value, or numeric value
+delimiter,   //!< Parenthesis and end of string or end of line symbols
+arity_1,	 //!< Operator or function with one argument
+arity_2,	 //!< Operator or function with two arguments
+eval		 //!< Variable, history value, or numeric value
 
 } operator_type;
 
@@ -54,11 +54,11 @@ typedef float Operand;
 
 /*! Type of the operator nodes in the expression tree*/
 typedef struct Operator{
-short id;                         //<! Identifier
-operator_type type;				  //<! Operator type : delimiter, arity 1, arity 2 or evaluation
-operator_priority prior;		  //<! Priority
-float (*function1)(float);		  //<! Pointer to the evaluation function (if type arity_1)
-float (*function2)(float, float); //<! Pointer to the evaluation function (if type arity_2)
+short id;                         //!< Identifier
+operator_type type;				  //!< Operator type : delimiter, arity 1, arity 2 or evaluation
+operator_priority prior;		  //!< Priority
+float (*function1)(float);		  //!< Pointer to the evaluation function (if type arity_1)
+float (*function2)(float, float); //!< Pointer to the evaluation function (if type arity_2)
 } Operator;
 
 

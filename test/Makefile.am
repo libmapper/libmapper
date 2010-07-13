@@ -28,4 +28,3 @@ test_unlinked_unconnected_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la
 test_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 test_SOURCES = test.c
 test_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
-

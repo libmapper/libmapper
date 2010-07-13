@@ -9,13 +9,14 @@ void mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value)
 {
-    int i, p;
+    int p;
     float v;
     error err=NO_ERR;
 
 
     p=mapping->history_pos;
     mapping->history_input[p] = from_value->f;
+	v=mapping->history_input[p];
 
     if( mapping->type==BYPASS /*|| mapping->type==LINEAR*/)
     	{
@@ -25,7 +26,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
 			for (i=0; i < mapping->order_output; i++)
 	  		v = mapping->history_output[(p+i)%5] * mapping->coef_output[i];*/
 			
-			v=mapping->history_input[p];
+			/*v=mapping->history_input[p];*/
 			mapping->history_output[p] = v;
 
 			--p;

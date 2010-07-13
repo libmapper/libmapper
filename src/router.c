@@ -11,7 +11,7 @@
 #include "expression.h"
 #include <mapper/mapper.h>
 
-void get_expr_Tree (Tree *T,char *expr);
+/*void*/ int get_expr_Tree (Tree *T,char *expr);
 
 mapper_router mapper_router_new(const char *host, int port, char *name)
 {
@@ -150,26 +150,17 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
 }
 
 
-void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char *dest_name)
+void mapper_router_remove_mapping(mapper_signal_mapping sm, mapper_mapping mapping)
 {
 
-    mapper_signal_mapping *sm = &router->mappings;
-    while (*sm && (*sm)->signal != sig)
-        sm = &(*sm)->next;
-
-    if (!sm) return;
-
-	mapper_mapping *m=&(*sm)->mapping;
-	while (*m)
-		{
-			if (strcmp((*m)->name,dest_name)==0)
-				{
-					*m=(*m)->next;
-					break;
-				}
-			m = &(*m)->next;
-		}
-
+    mapper_mapping *m = &sm->mapping;
+    while (*m) {
+        if (*m == mapping) {
+            *m = mapping->next;
+            break;
+        }
+        m = &(*m)->next;
+    }
 }
 
 
@@ -206,7 +197,11 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 	mapping->range[3]=dest_max;
 
     Tree *T=NewTree();
-    get_expr_Tree(T, expr);
+
+    int success_tree=get_expr_Tree(T, expr);
+	if (!success_tree)
+		return;
+		
     mapping->expr_tree=T;		
 
     /*mapping->coef_input[0] = scale.f;

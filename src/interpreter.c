@@ -5,8 +5,8 @@
 #include "operations.h"
 #include "expression.h"
 
-/*! Get the expression tree from a expression string*/
-void get_expr_Tree(Tree *T,char *s)
+/*! Get the expression tree from the expression string*/
+/*void*/ int get_expr_Tree(Tree *T,char *s)
 {
 	/*The commented parts are for debug use, to get the string from the terminal*/
 
@@ -19,7 +19,6 @@ void get_expr_Tree(Tree *T,char *s)
 
 	while (err!=NO_ERR)
         {
-			printf("ENTRE DANS WHILE GET...\n");
             err=NO_ERR;
 			
 			/*printf("\n----------------------------------------------------------\n");
@@ -46,12 +45,15 @@ void get_expr_Tree(Tree *T,char *s)
                                     /*Construct the tree*/
                                     ConstructTree( T, parsed_expr, 0, expr_length-1, &err);
                                     free(*parsed_expr);
+									if (err!=NO_ERR)
+										return 0;
                                 }
 
                             else
                                 {
                                     err=ERR_PARSER;
                                     perror("Parser error\n");
+									return 0;
                                 }
                         }
 
@@ -59,6 +61,7 @@ void get_expr_Tree(Tree *T,char *s)
                         {
                             err=ERR_EMPTY_EXPR;
                             perror("Empty expression\n");
+							return 0;
                         }
                 }
 
@@ -66,10 +69,11 @@ void get_expr_Tree(Tree *T,char *s)
                 {
                     err=ERR_GET_STRING;
                     perror("Impossible to get the string\n");
+					return 0;
                 }
 
         }
 
 
-	return;
+	return 1 /**/;
 }

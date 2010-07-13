@@ -13,21 +13,8 @@
 
 
 
-/*mapper_regist_devices REGIST_DEVICES_INFO={NULL, 0};*/
-
-/*!Initialization of the global list of local devices*/
-list_admins LOCAL_DEVICES=NULL;
 /*!Initialization of the global list of local devices*/
 list_regist_info REGIST_DEVICES_INFO2=NULL;
-
-/*! Add a new local device to the global list of local devices */
-void mdev_add_LOCAL_DEVICES(mapper_admin admin)
-{
-    mapper_admins *new = malloc(sizeof(mapper_admins)); 
-    (*new).admin = admin;
-    (*new).next = LOCAL_DEVICES;
-	LOCAL_DEVICES=new;
-}
 
 /*! Add the information got by the /registered message to the global list of registered devices information */
 void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias)
@@ -296,7 +283,7 @@ int mdev_ready(mapper_device device)
         return 0;
 
     if (device->admin->port.locked
-        && device->admin->ordinal.locked)
+        && device->admin->ordinal.locked && device->admin->registered)
     {
         return 1;
     }

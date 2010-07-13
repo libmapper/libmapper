@@ -23,7 +23,7 @@ void mapper_admin_port_announce(mapper_admin admin);
 void mapper_admin_name_announce(mapper_admin admin);
 
 /***** Device *****/
-void mdev_add_LOCAL_DEVICES(mapper_admin_t *admin);
+void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias);
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
@@ -54,7 +54,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
                                mapper_mapping mapping);
 
-void mapper_router_remove_mapping(mapper_router router, mapper_signal sig, char *dest_name);
+void mapper_router_remove_mapping(mapper_signal_mapping sm, mapper_mapping mapping);
 
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
                                       const char *name,float src_min, float src_max, float dest_min, float dest_max);

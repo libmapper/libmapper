@@ -8,4 +8,4 @@ Description: A library for mapping controllers and synthesizers.
 Requires: @LIBLO@
 Version: @VERSION@
 Libs: -L${libdir} -lmapper-@MAJOR_VERSION@
-Cflags: -I${includedir}/mapper/mapper-@MAJOR_VERSION@
+Cflags: -I${includedir}/mapper-@MAJOR_VERSION@

@@ -13,7 +13,7 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
-void get_expr_Tree(Tree *T, char *s);
+/*void*/int get_expr_Tree(Tree *T, char *s);
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -368,15 +368,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 		/* If the device who received this message is not yet registered, it is added to the global LOCAL_DEVICES list  */
 		if(!(*((mapper_admin) user_data)).registered)
 			{
-
-				(*((mapper_admin) user_data)).regist_info.full_name=strdup(name);
-				(*((mapper_admin) user_data)).regist_info.host=strdup(inet_ntoa(admin->interface_ip));
-    			(*((mapper_admin) user_data)).regist_info.port=admin->port.value;
-				(*((mapper_admin) user_data)).regist_info.canAlias=strdup("no"); /*TODO : OSC aliases*/
-				mdev_add_LOCAL_DEVICES((mapper_admin)user_data);
 				(*((mapper_admin) user_data)).registered=1;
-				printf("NEW LOCAL DEVICE %s\nHost : %s Port : %d\n\n", (*((mapper_admin) user_data)).regist_info.full_name ,
-											(*((mapper_admin) user_data)).regist_info.host,(*((mapper_admin)user_data)).regist_info.port);
+				printf("NEW LOCAL DEVICE : %s\n",name);
 			}
     return 0;
 }
@@ -386,7 +379,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 static int handler_registered(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
-	int i;
     int f=1;
     char registered_name[1024];      
             
@@ -397,26 +389,10 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
         return 0;
 
     strcpy(registered_name, &argv[0]->s);
-    
-
-	/*for(i=0; i<REGIST_DEVICES_INFO.num;i++)
-		f*=strcmp(registered_name, REGIST_DEVICES_INFO.regist_info[i].full_name); 
-
-	if(f!=0)
-		{
-			REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].full_name=strdup(registered_name);
-			REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].host=strdup(&argv[2]->s);
-			REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].port=argv[4]->i;
-			REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].canAlias=strdup(&argv[6]->s);
-			printf("DEVICE %s no %d REGISTERED : name=%s, host=%s, port=%d, canAlias=%s\n",registered_name,REGIST_DEVICES_INFO.num,
-				REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].full_name,
-				REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].host,
-				REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].port,
-				REGIST_DEVICES_INFO.regist_info[REGIST_DEVICES_INFO.num].canAlias);
-			REGIST_DEVICES_INFO.num++;
-		}*/
 
 	list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
+
+	/*Search if the device is already registered in the global list*/
 	while(tmp_regist_dev_info != NULL && f!=0)
 		{   
 			f*=strcmp(registered_name, tmp_regist_dev_info->regist_info->full_name); 
@@ -593,7 +569,6 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
                                      int argc, lo_message msg, void *user_data)
 {
     
-	int i;
     char device_name[1024], sender_name[1024], target_name[1024], tmp_target_name[1024], host_adress[1024];
 	int recvport;    
 	mapper_router router = 0;
@@ -613,20 +588,6 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
 	/* If the device who received the message is the sender in the /link message... */
     if ( strcmp(device_name,sender_name)==0 )
 		{
-			/*******************************************************************************************************************
-			for (i=0; i<REGIST_DEVICES_INFO.num; i++)
-    		{
-				
-				strcpy(tmp_target_name,REGIST_DEVICES_INFO.regist_info[i].full_name);
-				printf("PASSAGE %d DANS REGIST : REGARDE %s\n", i,tmp_target_name); 
-				if (strcmp (target_name, tmp_target_name)==0)
-					{
-						recvport=REGIST_DEVICES_INFO.regist_info[i].port;
-						strcpy(host_adress, REGIST_DEVICES_INFO.regist_info[i].host);
-						printf("OK ! host=%s port=%d\n", host_adress, recvport);
-					}
-			}
-			******************************************************************************************************************/
 			
 			list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
 			/* Search the receiver among the registered device to get the port and the host to create the router*/
@@ -996,7 +957,11 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 												          m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
 											DeleteTree(m->expr_tree);
 											Tree *T=NewTree();
-											get_expr_Tree(T, m->expression);
+										    int success_tree=get_expr_Tree(T, m->expression);
+											
+											if (!success_tree)
+												return 0;
+			
 											m->expr_tree=T;
 											/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","linear","@expression",m->expression );*/
 										}
@@ -1013,12 +978,21 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 							/* Modify expression */
 							else if ( strcmp (modif_prop,"@scaling expression @expression")==0  )
 								{		
-									free(m->expression);
-									m->expression=strdup(&argv[3]->s);
-									DeleteTree(m->expr_tree);
+									char received_expr[1024];									
+									strcpy(received_expr,&argv[3]->s);
 									Tree *T=NewTree();
-									get_expr_Tree(T, m->expression);
-									m->expr_tree=T;
+									int success_tree=get_expr_Tree(T, received_expr);									
+									
+									if (success_tree)
+										{
+											free(m->expression);
+											m->expression=strdup(&argv[3]->s);
+											DeleteTree(m->expr_tree);
+											m->expr_tree=T;		
+										}
+									
+									/*get_expr_Tree(T, m->expression);*/
+									/*m->expr_tree=T;*/
 									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ss","@scaling expression @expression",m->expression );*/
 								}	
 
@@ -1046,7 +1020,10 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 																  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
 											DeleteTree(m->expr_tree);
 											Tree *T=NewTree();
-											get_expr_Tree(T, m->expression);
+										    int success_tree=get_expr_Tree(T, m->expression);
+											if (!success_tree)
+												return 0;
+											/*get_expr_Tree(T, m->expression);*/
 											m->expr_tree=T;
 										}
 									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","sffff",@range, m->range[0],m->range[1],m->range[2],m->range[3]);*/
@@ -1069,7 +1046,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected",.... );*/
 								}	
 							
-							/***********************TEMPORARY, then only send the modifications********************/	
+							/***********************TEMPORARY, then only send the modified parameters********************/	
 
 							switch (m->type)
 								{
@@ -1114,7 +1091,10 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
                                      int argc, lo_message msg, void *user_data)
 {
 
-	
+	mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router=md->routers;	
+
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 	int i=0,c=1,f1=0,f2=0;
@@ -1145,23 +1125,40 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
 			/* If this signal exists ... */    
     		if ( strcmp(sig_name,src_param_name)==0 )
 				{		
+
 					/* Searches the router linking to the receiver */ 		   		
-    				while ( (*((mapper_admin) user_data)).device->routers!=NULL && f2==0 )
+    				while ( router!=NULL && f2==0 )
 						{
-							if ( strcmp ( (*((mapper_admin) user_data)).device->routers->target_name , target_device_name ) == 0 )
+							if ( strcmp ( router->target_name , target_device_name ) == 0 )
 								f2=1;
-							else (*((mapper_admin) user_data)).device->routers=(*((mapper_admin) user_data)).device->routers->next;
+							else router=router->next;
 							
 						}
+				
 					/* If this router exists ...*/
 					if (f2==1)
 						{
+							/* Search the mapping corresponding to this connection */
+ 		   					mapper_signal_mapping sm = router->mappings;
+    						while (sm && sm->signal != md_outputs[i])
+        						sm = sm->next;
+    						if (!sm) return 0;
+							
+							mapper_mapping m=sm->mapping;
+							while (m && strcmp(m->name,target_param_name)!=0)
+								{
+									m = m->next;
+								}
+							if (!m) return 0;
+
  		   					/*The mapping is removed */
-							mapper_router_remove_mapping(((*((mapper_admin) user_data)).device->routers), (*((mapper_admin) user_data)).device->outputs[i],
-																																				target_param_name) ;
+							mapper_router_remove_mapping(sm,m);
 							(*((mapper_admin) user_data)).device->num_mappings_out--;
 							lo_send((*((mapper_admin) user_data)).admin_addr,"/disconnected", "ss", sig_name, target_param_name );	
 						}
+					else return 0;
+
+
 					f1=1;
 				}
 
@@ -1173,7 +1170,7 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
 }
 
 
-/*! When received by the destination, send a connect_to message to the source*/
+/*! When the /connect message is received by the destination device, send a connect_to message to the source device*/
 static int handler_param_connect(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
