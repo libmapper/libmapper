@@ -107,7 +107,7 @@ do
 	echo "Running autoheader..."
 	autoheader
       fi
-      if test -z "$NO_GIT" && test -d .git; then
+      if test -z "$NO_GIT" && git branch; then
           echo "Generating ChangeLog using git ..."
           git log >ChangeLog
       else
