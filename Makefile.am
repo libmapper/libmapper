@@ -5,6 +5,9 @@ EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 libmapper-@MAJOR_VERSION@.pc: libmapper.pc
 	@if ! [ -e $@ ]; then ln -v $< $@; fi
 
+clean-local:
+	-rm -rf libmapper-@MAJOR_VERSION@.pc
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libmapper-@MAJOR_VERSION@.pc
 
