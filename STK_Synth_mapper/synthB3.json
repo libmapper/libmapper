@@ -1,0 +1,147 @@
+{
+    "mapping": {
+        "fileversion": "dot-1",
+        "sources": [
+            {
+                "id": "s0",
+                "device": "tbox.1",
+                "parameter": "body/hand/finger/combination"
+            },
+            {
+                "id": "s1",
+                "device": "tbox.1",
+                "parameter": "body/hand/finger/combination"
+            },
+            {
+                "id": "s2",
+                "device": "tbox.1",
+                "parameter": "body/hand/finger/combination"
+            },
+            {
+                "id": "s3",
+                "device": "tbox.1",
+                "parameter": "body/hand/finger/combination"
+            },
+            {
+                "id": "s4",
+                "device": "tbox.1",
+                "parameter": "body/hand/right/finger/pinky/integrated"
+            },
+            {
+                "id": "s5",
+                "device": "tbox.1",
+                "parameter": "ultrasound/3"
+            },
+            {
+                "id": "s6",
+                "device": "tbox.1",
+                "parameter": "ultrasound/2/speed"
+            },
+            {
+                "id": "s7",
+                "device": "tbox.1",
+                "parameter": "ultrasound/2"
+            }
+        ],
+        "destinations": [
+            {
+                "id": "d0",
+                "device": "synth_chords.1",
+                "parameter": "note_third"
+            },
+            {
+                "id": "d1",
+                "device": "synth_chords.1",
+                "parameter": "note_seventh"
+            },
+            {
+                "id": "d2",
+                "device": "synth_chords.1",
+                "parameter": "note_fond"
+            },
+            {
+                "id": "d3",
+                "device": "synth_chords.1",
+                "parameter": "note_fifth"
+            },
+            {
+                "id": "d4",
+                "device": "synth_chords.1",
+                "parameter": "feedback_gain"
+            },
+            {
+                "id": "d5",
+                "device": "synth_chords.1",
+                "parameter": "gain"
+            },
+            {
+                "id": "d6",
+                "device": "synth_chords.1",
+                "parameter": "LFO_speed"
+            },
+            {
+                "id": "d7",
+                "device": "synth_chords.1",
+                "parameter": "LFO_depth"
+            }
+        ],
+        "connections": [
+            {
+                "scaling": "bypass",
+                "range": "0 255 0 128",
+                "expression": "d0=s0",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "bypass",
+                "range": "0 255 0 128",
+                "expression": "d1=s1",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "bypass",
+                "range": "0 255 0 128",
+                "expression": "d2=s2",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "bypass",
+                "range": "0 255 0 128",
+                "expression": "d3=s3",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "linear",
+                "range": "0 1 0 128",
+                "expression": "d4=(s4-0.)*128.+0.",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "bypass",
+                "range": "0 128 0 70",
+                "expression": "d5=s5",
+                "clipMin": "none",
+                "clipMax": "clamp"
+            },
+            {
+                "scaling": "linear",
+                "range": "-1 1 0 128",
+                "expression": "d6=(s6+1.)*64.+0.",
+                "clipMin": "none",
+                "clipMax": "none"
+            },
+            {
+                "scaling": "bypass",
+                "range": "0 1 0 0",
+                "expression": "d7=s7",
+                "clipMin": "none",
+                "clipMax": "none"
+            }
+        ]
+    }
+}
