@@ -69,9 +69,11 @@ typedef mapper_admin_t *mapper_admin;
  *  exceeded. */
 typedef enum _mapper_clipping_type
 {
-    CT_LIMIT,     //!< Value is limited to the boundary.  This is the default.
-    CT_REFLECT,   //!< Value continues in opposite direction.
-    CT_ROTATE,    //!< Value appears as offset at the opposite boundary.
+	CT_NONE,	  //!< Value is passed through unchanged. This is the default.
+	CT_MUTE,	  //!< Value is muted.
+    CT_CLAMP,     //!< Value is limited to the boundary.
+    CT_FOLD,	  //!< Value continues in opposite direction.
+    CT_WRAP,      //!< Value appears as modulus offset at the opposite boundary.
 } mapper_clipping_type;
 
 
