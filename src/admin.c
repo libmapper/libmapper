@@ -36,6 +36,7 @@ static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, 
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_link_to(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_unlink(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect_to(const char*, const char*, lo_arg **, int, lo_message, void*);
@@ -223,7 +224,7 @@ int count=0;
     {
         char namespaceget[256];
         lo_server_add_method(admin->admin_server, "/who", "", handler_who, admin);
-		lo_server_add_method(admin->admin_server, "/registered", "ssssisssisisiiiiiiii", handler_registered, admin);
+		lo_server_add_method(admin->admin_server, "/registered", NULL, handler_registered, admin);
         
 		snprintf(namespaceget, 256, "/%s.%d/namespace/get", admin->identifier, admin->ordinal.value);
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_get, admin);
@@ -238,12 +239,13 @@ int count=0;
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_who, admin);
 
         lo_server_add_method(admin->admin_server, "/link", "ss", handler_device_link, admin);
+		lo_server_add_method(admin->admin_server, "/link_to", "sssssiss", handler_device_link_to, admin);
 		lo_server_add_method(admin->admin_server, "/unlink", "ss", handler_device_unlink, admin);
 
  		lo_server_add_method(admin->admin_server, "/connect", NULL, handler_param_connect, admin);
         lo_server_add_method(admin->admin_server, "/connect_to", NULL, handler_param_connect_to, admin);
 		lo_server_add_method(admin->admin_server, "/connection/modify", NULL, handler_param_connection_modify, admin);
-		lo_server_add_method(admin->admin_server, "/disconnect", NULL, handler_param_disconnect, admin);
+		lo_server_add_method(admin->admin_server, "/disconnect", "ss", handler_param_disconnect, admin);
 
 		int send=lo_send(admin->admin_addr,"/who", "" );
     }
@@ -362,8 +364,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
             "@port", admin->port.value,
 			"@canAlias", "no",/*TODO : OSC aliases*/
             "@numInputs", mdev_num_inputs(admin->device),
-            "@numOutputs", mdev_num_outputs(admin->device)
-			,"@hash",0,0,0,0,0,0,0,0);
+            "@numOutputs", mdev_num_outputs(admin->device),
+			"@hash",0,0,0,0,0,0,0,0);
   		
 		/* If the device who received this message is not yet registered, it is added to the global LOCAL_DEVICES list  */
 		if(!(*((mapper_admin) user_data)).registered)
@@ -379,7 +381,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 static int handler_registered(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
-    int f=1;
+/*    int f=1;
     char registered_name[1024];      
             
     if (argc < 1)
@@ -393,7 +395,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
 	list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
 
 	/*Search if the device is already registered in the global list*/
-	while(tmp_regist_dev_info != NULL && f!=0)
+/*	while(tmp_regist_dev_info != NULL && f!=0)
 		{   
 			f*=strcmp(registered_name, tmp_regist_dev_info->regist_info->full_name); 
 			tmp_regist_dev_info=tmp_regist_dev_info->next;
@@ -404,7 +406,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
 			mdev_add_REGIST_DEVICES_INFO( registered_name, &argv[2]->s,	argv[4]->i, &argv[6]->s);
 			printf("NEW REGISTERED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n",registered_name, &argv[2]->s,argv[4]->i, &argv[6]->s);
 		}
-
+*/
     return 0;
 }
 
@@ -569,9 +571,7 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
                                      int argc, lo_message msg, void *user_data)
 {
     
-    char device_name[1024], sender_name[1024], target_name[1024], tmp_target_name[1024], host_adress[1024];
-	int recvport;    
-	mapper_router router = 0;
+    char device_name[1024], sender_name[1024], target_name[1024];
 
     if (argc < 2)
         return 0;
@@ -584,42 +584,102 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
     strcpy(target_name,&argv[1]->s);
 
     trace("got /link %s %s\n", sender_name, target_name);
-    
+	
+	/* If the device who received the message is the target in the /link message... */
+	if ( strcmp(device_name,target_name)==0 )
+		{
+			lo_send((*((mapper_admin) user_data)).admin_addr,"/link_to", "sssssiss", 
+			sender_name,
+			target_name,
+			"@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
+            "@port", (*((mapper_admin) user_data)).port.value,
+			"@canAlias", "no" );
+		}
+    return 0;
+}
+
+/*! Link two devices... continued*/
+static int handler_device_link_to(const char *path, const char *types, lo_arg **argv,
+							   int argc, lo_message msg, void *user_data)
+{	
+	char device_name[1024], sender_name[1024], target_name[1024], host_address[1024], can_alias[1024];
+	int recvport, f=1, j=2;    
+	mapper_router router = 0;
+	
+    if (argc < 2)
+        return 0;
+	
+    if (types[0]!='s' && types[0]!='S' && types[1]!='s' && types[1]!='S')
+        return 0;
+	
+    snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+    strcpy(sender_name,&argv[0]->s);
+    strcpy(target_name,&argv[1]->s);
+	
+	printf("got /link_to %s %s\n", sender_name, target_name);
+	printf("argc = %d\n", argc);
+	
+	/* Parse the options list*/			
+	while((argc - j) >= 2)
+	{
+		if (types[j]!='s' && types[j]!='S')
+		{
+			printf("syntaxe message incorrecte\n");
+			return 0;
+		}
+		
+		else if(strcmp(&argv[j]->s,"@IP")==0)
+		{
+			strcpy(host_address,&argv[j+1]->s);
+			printf("IP = %s\n", host_address);
+			j+=2;
+		}
+		
+		else if(strcmp(&argv[j]->s,"@port")==0)
+		{
+			recvport = argv[j+1]->i;
+			printf("port = %i\n", recvport);
+			j+=2;
+		}
+		
+		else if(strcmp(&argv[j]->s,"@canAlias")==0)
+		{
+			strcpy(can_alias,&argv[j+1]->s);
+			printf("canAlias = %s\n", can_alias);
+			j+=2;
+		}						
+
+	}
+	
+	printf("Waypoint 2\n");
+    trace("got /link_to %s %s\n", sender_name, target_name);
+	
 	/* If the device who received the message is the sender in the /link message... */
     if ( strcmp(device_name,sender_name)==0 )
+	{
+		list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
+		
+		/*Search if the device is already linked*/
+		while(tmp_regist_dev_info != NULL && f!=0)
+		{   
+			f*=strcmp(target_name, tmp_regist_dev_info->regist_info->full_name); 
+			tmp_regist_dev_info=tmp_regist_dev_info->next;
+		}
+		
+		if(f!=0)
 		{
-			
-			list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
-			/* Search the receiver among the registered device to get the port and the host to create the router*/
-			while (tmp_regist_dev_info!=NULL)
-	    		{				
-					strcpy(tmp_target_name,tmp_regist_dev_info->regist_info->full_name);
-					if (strcmp (target_name, tmp_target_name)==0)
-						{
-							recvport=tmp_regist_dev_info->regist_info->port;
-							strcpy(host_adress, tmp_regist_dev_info->regist_info->host);
-						}
-					tmp_regist_dev_info=tmp_regist_dev_info->next;
-				}
-			
-
+			mdev_add_REGIST_DEVICES_INFO( target_name, host_address, recvport, can_alias);
+			printf("NEW LINKED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n", target_name, host_address, recvport, can_alias);
+		
 			/* Creation of a new router added to the sender*/
-	   		router = mapper_router_new(host_adress, recvport, target_name);
-   		    mdev_add_router((*((mapper_admin) user_data)).device, router);
+			router = mapper_router_new(host_address, recvport, target_name);
+			mdev_add_router((*((mapper_admin) user_data)).device, router);
 			(*((mapper_admin) user_data)).device->num_routers++;
-			printf("Router to %s : %d added.\n", host_adress,recvport);
-			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );	
-	
+			printf("Router to %s : %d added.\n", host_address,recvport);
+			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );
 		}
-
-    else if ( strcmp(device_name,target_name)==0 )
-		{	
-			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", sender_name, target_name );
-		}
-
-  
-
-    return 0;
+	}
+	return 0;
 }
 
 /*! Unlink two devices*/
@@ -1190,7 +1250,9 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
     strcpy(src_param_name,&argv[0]->s);
     strcpy(target_param_name, &argv[1]->s);
 
-    trace("got /connect %s %s\n", src_param_name, target_param_name);
+    printf("got /connect %s %s\n", src_param_name, target_param_name);
+	
+	//printf("path = %s\n", &path);
 
 	while (i<md_num_inputs && f==0)
     	{
@@ -1199,34 +1261,39 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
     
     		if ( strcmp(sig_name,target_param_name)==0 )
 				{		
-						lo_message m=lo_message_new();
-						lo_message_add(m,"sssc",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
-						/*If options added to the connect message*/
-						if(argc>2)
-							{
-								while(j<argc)
-									{
-										switch (types[j])
-											{
-												case ('s'): case ('S'): 
-												lo_message_add(m, types[j], (char *)&argv[j]->s);
-												break;												
+					lo_message m=lo_message_new();
+					lo_message_add(m,"sssc",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
+					/*If options added to the connect message*/
+					if(argc>2)
+						{
+							while(j<argc)
+								{
+									switch (types[j])
+										{
+											case ('s'): case ('S'): 
+											lo_message_add(m, types[j], (char *)&argv[j]->s);
+											break;												
 
-												case ('i'): case ('h'): 
-												lo_message_add(m, types[j], (int)argv[j]->i);
-												break;
+											case ('i'): case ('h'): 
+											lo_message_add(m, types[j], (int)argv[j]->i);
+											break;
 
-												case ('f'): 
-												lo_message_add(m, types[j], (float)argv[j]->f);
-												break;
-												
-												default:
-												printf("Unknown message type %c\n",types[j]);
-											}
-									
-										j++;
-									}
-							}						
+											case ('f'): 
+											lo_message_add(m, types[j], (float)argv[j]->f);
+											break;
+											
+											default:
+											printf("Unknown message type %c\n",types[j]);
+										}
+								
+									j++;
+								}
+						}
+					else 
+						{
+							/*Add default connection info: type, range*/
+						}
+
 						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_to",m);
 						lo_message_free(m);
 						f=1;
