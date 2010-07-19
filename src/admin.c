@@ -617,7 +617,6 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
     strcpy(target_name,&argv[1]->s);
 	
 	printf("got /link_to %s %s\n", sender_name, target_name);
-	printf("argc = %d\n", argc);
 	
 	/* Parse the options list*/			
 	while((argc - j) >= 2)
@@ -631,27 +630,23 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 		else if(strcmp(&argv[j]->s,"@IP")==0)
 		{
 			strcpy(host_address,&argv[j+1]->s);
-			printf("IP = %s\n", host_address);
 			j+=2;
 		}
 		
 		else if(strcmp(&argv[j]->s,"@port")==0)
 		{
 			recvport = argv[j+1]->i;
-			printf("port = %i\n", recvport);
 			j+=2;
 		}
 		
 		else if(strcmp(&argv[j]->s,"@canAlias")==0)
 		{
 			strcpy(can_alias,&argv[j+1]->s);
-			printf("canAlias = %s\n", can_alias);
 			j+=2;
 		}						
 
 	}
 	
-	printf("Waypoint 2\n");
     trace("got /link_to %s %s\n", sender_name, target_name);
 	
 	/* If the device who received the message is the sender in the /link message... */
@@ -1239,20 +1234,22 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
     mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
     int i=0,j=2,f=0;
 
-    char sig_name[1024], src_param_name[1024], target_param_name[1024];
+    char device_name[1024], sig_name[1024], src_param_name[1024], target_param_name[1024];
 
     if (argc < 2)
         return 0;
 
     if (types[0]!='s' && types[0]!='S' && types[1]!='s' && types[1]!='S')
         return 0;
+	
+	snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
 
     strcpy(src_param_name,&argv[0]->s);
     strcpy(target_param_name, &argv[1]->s);
 
     printf("got /connect %s %s\n", src_param_name, target_param_name);
 	
-	//printf("path = %s\n", &path);
+	//should check OSC pattern here instead of checking parameter name matches!
 
 	while (i<md_num_inputs && f==0)
     	{
