@@ -1229,12 +1229,12 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
 static int handler_param_connect(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
-
+	
     int md_num_inputs=(*((mapper_admin) user_data)).device->n_inputs;
     mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
     int i=0,j=2,f=0;
 
-    char device_name[1024], sig_name[1024], src_param_name[1024], target_param_name[1024];
+    char device_name[1024], sig_name[1024], src_param_name[1024], target_param_name[1024], target_device_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1246,59 +1246,65 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 
     strcpy(src_param_name,&argv[0]->s);
     strcpy(target_param_name, &argv[1]->s);
+	strcpy(target_device_name, &argv[1]->s);
+	strtok(target_device_name, "/");
 
     printf("got /connect %s %s\n", src_param_name, target_param_name);
 	
-	//should check OSC pattern here instead of checking parameter name matches!
+	// check OSC pattern match
+	if (strcmp(device_name, target_device_name)==0) {
+		printf("target param is %s\n", target_param_name);
 
-	while (i<md_num_inputs && f==0)
-    	{
+		while (i<md_num_inputs && f==0)
+			{
+				
+				//TO DO - This is inefficient: we only need to check param names, not full param names
+				msig_full_name(md_inputs[i],sig_name,256);
+		
+				if ( strcmp(sig_name,target_param_name)==0 )
+					{		
+						lo_message m=lo_message_new();
+						lo_message_add(m,"ssss",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
+						//lo_message_add(m,"ssss",src_param_name,target_param_name,"@type","f");
+						/*If options added to the connect message*/
+						if(argc>2)
+							{
+								while(j<argc)
+									{
+										switch (types[j])
+											{
+												case ('s'): case ('S'): 
+												lo_message_add(m, types[j], (char *)&argv[j]->s);
+												break;												
 
-			msig_full_name(md_inputs[i],sig_name,256);
-    
-    		if ( strcmp(sig_name,target_param_name)==0 )
-				{		
-					lo_message m=lo_message_new();
-					lo_message_add(m,"sssc",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
-					/*If options added to the connect message*/
-					if(argc>2)
-						{
-							while(j<argc)
-								{
-									switch (types[j])
-										{
-											case ('s'): case ('S'): 
-											lo_message_add(m, types[j], (char *)&argv[j]->s);
-											break;												
+												case ('i'): case ('h'): 
+												lo_message_add(m, types[j], (int)argv[j]->i);
+												break;
 
-											case ('i'): case ('h'): 
-											lo_message_add(m, types[j], (int)argv[j]->i);
-											break;
-
-											case ('f'): 
-											lo_message_add(m, types[j], (float)argv[j]->f);
-											break;
-											
-											default:
-											printf("Unknown message type %c\n",types[j]);
-										}
-								
-									j++;
-								}
-						}
-					else 
-						{
-							/*Add default connection info: type, range*/
-						}
+												case ('f'): 
+												lo_message_add(m, types[j], (float)argv[j]->f);
+												break;
+												
+												default:
+												printf("Unknown message type %c\n",types[j]);
+											}
+									
+										j++;
+									}
+							}
+						else 
+							{
+								/*Add default connection info: type, range*/
+							}
 
 						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_to",m);
 						lo_message_free(m);
 						f=1;
-				}
+					}
 
-    		else i++;
-		}
-  
+				else i++;
+			}
+	}
 
     return 0;
 }
