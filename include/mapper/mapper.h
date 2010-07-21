@@ -75,7 +75,7 @@ typedef struct _mapper_signal
  *               implicitly reflects, or 0 for none.
  *  
  */
-mapper_signal msig_float(int length, const char *name,
+mapper_signal msig_float(char type, int length, const char *name,
                          const char *unit, float minimum,
                          float maximum, float *value,
                          mapper_signal_handler *handler,

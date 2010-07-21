@@ -8,7 +8,7 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mapper_signal msig_float(int length, const char *name,
+mapper_signal msig_float(char type, int length, const char *name,
                          const char *unit, float minimum,
                          float maximum, float *value,
                          mapper_signal_handler *handler,

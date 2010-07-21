@@ -200,20 +200,20 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         int i;
         sv = realloc(sv, sizeof(mapper_signal_value_t)*sig->length);
         switch (sig->type) {
-        case 'f':
-            for (i=0; i < sig->length; i++)
-                sv[i].f = argv[i]->f;
-            break;
-        case 'd':
-            for (i=0; i < sig->length; i++)
-                sv[i].d = argv[i]->d;
-            break;
-        case 'i':
-            for (i=0; i < sig->length; i++)
-                sv[i].i32 = argv[i]->i;
-            break;
-        default:
-            assert(0);
+			case 'f':
+				for (i=0; i < sig->length; i++)
+					sv[i].f = argv[i]->f;
+				break;
+			case 'd':
+				for (i=0; i < sig->length; i++)
+					sv[i].d = argv[i]->d;
+				break;
+			case 'i':
+				for (i=0; i < sig->length; i++)
+					sv[i].i32 = argv[i]->i;
+				break;
+			default:
+				assert(0);
         }
         sig->handler(md, sv);
     }
