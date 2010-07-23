@@ -393,7 +393,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
     strcpy(registered_name, &argv[0]->s);
 
 	list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
-
+*/
 	/*Search if the device is already registered in the global list*/
 /*	while(tmp_regist_dev_info != NULL && f!=0)
 		{   
@@ -1262,9 +1262,10 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 				msig_full_name(md_inputs[i],sig_name,256);
 		
 				if ( strcmp(sig_name,target_param_name)==0 )
-					{		
+					{
+						printf("info: %s\n", md_inputs->type);
 						lo_message m=lo_message_new();
-						lo_message_add(m,"ssss",src_param_name,target_param_name,"@type",(md_inputs[i]->type));
+						lo_message_add(m,"ss",src_param_name,target_param_name);
 						//lo_message_add(m,"ssss",src_param_name,target_param_name,"@type","f");
 						/*If options added to the connect message*/
 						if(argc>2)
@@ -1295,9 +1296,19 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 						else 
 							{
 								/*Add default connection info: type, range*/
+								/*if (md_inputs[i]->type == 'i') {
+									lo_message_add(m, "sssii", "@type", "i", "@range", (int)md_inputs[i]->minimum, (int)md_inputs[i]->maximum);
+								}
+								else if (md_inputs[i]->type == 'f') {
+									lo_message_add(m, "sssff", "@type", "f", "@range", (float)md_inputs[i]->minimum, (float)md_inputs[i]->maximum);
+								}
+								else {*/
+									//lo_message_add(m, "ss", "@type", (char *)md_inputs[i]->type);
+								/*}*/
+
 							}
 
-						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_to",m);
+						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_tooo",m);
 						lo_message_free(m);
 						f=1;
 					}
