@@ -742,12 +742,12 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 
-	int i=0,c=1,j=2,f1=0,f2=0,recvport;
+	int i=0,c=1,j=2,f1=0,f2=0,recvport=-1,range_update=0;
 
-    char device_name[1024], sig_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024], clipMin[1024], clipMax[1024], host_address[1024], can_alias[1024];	
+    char device_name[1024], sig_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "bypass", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024], can_alias[1024];	
 	char *expression;
 	char src_type,dest_type;
-	float dest_range_min = 0, dest_range_max = 1, src_range_min = 0, src_range_max = 1;	
+	float dest_range_min = 0, dest_range_max = 1, src_range_min, src_range_max;	
 
     if (argc < 2)
         return 0;
@@ -769,7 +769,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 		strcpy(target_param_name, &argv[1]->s);
 		strcpy(target_device_name, &argv[1]->s);
 		strtok(target_device_name, "/");
-		
+				
 		/* If options are added to the /connect_to message... */
 		if( argc>2 )
 			{
@@ -805,6 +805,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 								src_range_max=argv[j+2]->f;
 								dest_range_min=argv[j+3]->f;
 								dest_range_max=argv[j+4]->f;
+								range_update=1;
 								j+=5;
 							}
 
@@ -840,7 +841,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 						
 						else if(strcmp(&argv[j]->s,"@canAlias")==0)
 							{
-								strcpy(clipMax,&argv[j+1]->s);
+								strcpy(can_alias,&argv[j+1]->s);
 								j+=2;
 							}
 						
@@ -857,10 +858,6 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 			{
 				trace("got /connect_to %s %s\n", src_param_name, target_param_name);
 				printf("got /connect_to %s %s\n", src_param_name, target_param_name);
-				dest_range_min=0;
-				dest_range_max=1;
-				strcpy(clipMin,"none");
-				strcpy(clipMax,"none");
 			}
 	 
 		/* Searches the source signal among the outputs of the device*/
@@ -875,12 +872,11 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 						printf("signal exists: %s\n", sig_name);
 
 						src_type=md_outputs[i]->type;
-						src_range_min=md_outputs[i]->minimum->f;
-						src_range_max=md_outputs[i]->maximum->f;
+						if (!range_update) {
+							src_range_min=md_outputs[i]->minimum->f;
+							src_range_max=md_outputs[i]->maximum->f;
+						}
 						
-						/* If the type is not given, the default scaling type is bypass*/
-						if (argc==2)
-							strcpy(scaling,"bypass");
 						/* If source and destination are float or int, the default scaling type is linear*/
 						if (argc >2)
 							{
@@ -900,10 +896,21 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 								else router=router->next;	
 							}
 						
+						/* If the router doesn't exist yet */
+						if (f2==0)
+						{
+							if (host_address!=NULL && recvport!=-1) {
+								//TO DO: create routed using supplied host and port info
+								//TO DO: send /linked message
+							} else {
+								//TO DO: send /link message to start process - should also cache /connect_to message for completion after link???
+							}
+
+						}
+						
 						/* When this router exists...*/
-						if (f2==1)
+						else
 							{
-								printf("scaling = %s\n", scaling);
 								if (strcmp(scaling,"bypass")==0)
 								/* Creation of a direct mapping */	
 									{	
@@ -920,6 +927,8 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 												expression=malloc(100*sizeof(char));											
 												snprintf(expression,100,"y=%f",src_range_min);
 											}
+										else if (src_range_min==dest_range_min && src_range_max==dest_range_max)
+											expression=strdup("y=x");
 										else
 											{	
 												free(expression);		
@@ -947,7 +956,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 									"@ranges",src_range_min,src_range_max,dest_range_min,dest_range_max,
 									"@expression",expression,
 									"@clipMin",clipMin,
-									"@clipMax",clipMax);		
+									"@clipMax",clipMax);
 							}
 						f1=1;
 					}
@@ -955,7 +964,6 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 				else i++;
 			}
 	}
-
     return 0;
 }
 
@@ -973,7 +981,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 
 	int i=0,c=1,f1=0,f2=0;
 
-    char sig_name[1024], src_param_name[1024], target_param_name[1024],target_device_name[1024],modif_prop[1024];
+    char device_name[1024], sig_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024],target_device_name[1024],modif_prop[1024];
 	char mapping_type[1024];	
 
     if (argc < 3)
@@ -981,202 +989,190 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 	
     if ( (types[0]!='s' && types[0]!='S') || (types[1]!='s' && types[1]!='S') || (types[2]!='s' && types[2]!='S')  )
         return 0;
+	
+	snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+	
+	strcpy(src_device_name, &argv[0]->s);
+	strtok(src_device_name, "/");
+	
+	/* Check OSC pattern match */
+	if (strcmp(device_name, src_device_name)==0) {
 
-    strcpy(src_param_name,&argv[0]->s);
-    strcpy(target_param_name, &argv[1]->s);
-	strcpy(modif_prop, &argv[2]->s);
+		strcpy(src_param_name,&argv[0]->s);
+		strcpy(target_param_name, &argv[1]->s);
+		strcpy(modif_prop, &argv[2]->s);
 
-	while (target_param_name[c]!='/')
-		c++;
-	strncpy(target_device_name, target_param_name,c);
-	target_device_name[c]='\0';
+		while (target_param_name[c]!='/')
+			c++;
+		strncpy(target_device_name, target_param_name,c);
+		target_device_name[c]='\0';
 
 	
-	/* Search the source signal among the outputs of the device */
-	while (i<md_num_outputs && f1==0)
-    	{
+		/* Search the source signal among the outputs of the device */
+		while (i<md_num_outputs && f1==0) {
 
 			msig_full_name(md_outputs[i],sig_name,256); 
-			
+				
 			/* If this signal exists...*/
-		 	if ( strcmp(sig_name,src_param_name)==0 )
-				{	
-					/* Search the router linking to the receiver */
-					while ( router!=NULL && f2==0 )
-						{
-							if ( strcmp ( router->target_name , target_device_name ) == 0 )
-								f2=1;
-							else router=router->next;
-						}
-					/* If this router exists ...*/
-					if (f2==1)
-						{
-
-							/* Search the mapping corresponding to this connection */
- 		   					mapper_signal_mapping sm = router->mappings;
-    						while (sm && sm->signal != md_outputs[i])
-        						sm = sm->next;
-    						if (!sm) return 0;
-							
-							mapper_mapping m=sm->mapping;
-							while (m && strcmp(m->name,target_param_name)!=0)
-								{
-									m = m->next;
-								}
-							if (!m) return 0;
-						
-
-							/* Modify scaling */
-							if(strcmp(modif_prop,"@scaling")==0)
-								{
-									char scaling[1024];		
-									strcpy(scaling,&argv[3]->s);
-									
-									/* Expression type */
-									if ( strcmp(scaling, "expression")==0 )
-										{
-											m->type=EXPRESSION;				
-											/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","expression","@expression",m->expression );*/
-										}		
-								
-								
-									/* Linear type */
-									else if(strcmp(scaling,"linear")==0)
-										{
-											m->type=LINEAR;
-											/*The expression has to be modified to fit the range*/
-											free(m->expression);		
-											m->expression=malloc(256*sizeof(char));							
-											snprintf(m->expression,256,"y=(x-%f)*%f+%f",
-												          m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
-											DeleteTree(m->expr_tree);
-											Tree *T=NewTree();
-										    int success_tree=get_expr_Tree(T, m->expression);
-											
-											if (!success_tree)
-												return 0;
-			
-											m->expr_tree=T;
-											/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","linear","@expression",m->expression );*/
-										}
-								
-									/* Bypass type */
-									else if(strcmp(scaling,"bypass")==0)
-										{
-											m->type=BYPASS;		
-											m->expression=strdup("y=x");	
-											/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","linear","@expression",m->expression );*/			
-										}
-								}
-							
-							/* Modify expression */
-							else if ( strcmp (modif_prop,"@scaling expression @expression")==0  )
-								{		
-									char received_expr[1024];									
-									strcpy(received_expr,&argv[3]->s);
-									Tree *T=NewTree();
-									int success_tree=get_expr_Tree(T, received_expr);									
-									
-									if (success_tree)
-										{
-											free(m->expression);
-											m->expression=strdup(&argv[3]->s);
-											DeleteTree(m->expr_tree);
-											m->expr_tree=T;		
-										}
-									
-									/*get_expr_Tree(T, m->expression);*/
-									/*m->expr_tree=T;*/
-									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ss","@scaling expression @expression",m->expression );*/
-								}	
-
-							/* Modify range */
-							else if(strcmp(modif_prop,"@range")==0)
-								{
-									int k=3;
-									while ( types[k]!='f' && types[k]!='i' &&  k<=6)
-											k++;
-													
-									if (types[k]=='f')
-										m->range[k-3]=(float)(argv[k]->f);
-						
-
-									else if (types[k]=='i')
-										m->range[k-3]=(float)(argv[k]->i);
-
-										
-									if(m->type==LINEAR)
-										{
-											/* The expression has to be modified to fit the new range*/				
-											free(m->expression);	
-											m->expression=malloc(256*sizeof(char));									
-											snprintf(m->expression,256,"y=(x-%f)*%f+%f",
-																  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
-											DeleteTree(m->expr_tree);
-											Tree *T=NewTree();
-										    int success_tree=get_expr_Tree(T, m->expression);
-											if (!success_tree)
-												return 0;
-											/*get_expr_Tree(T, m->expression);*/
-											m->expr_tree=T;
-										}
-									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","sffff",@range, m->range[0],m->range[1],m->range[2],m->range[3]);*/
-										
-								}
-								
-							else if(strcmp(modif_prop,"@clipMin")==0)
-								{
-									char clipMin[1024];
-									strcpy(clipMin,&argv[3]->s);
-									/*TODO*/
-									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected",.... );*/
-								}			
-
-							else if(strcmp(modif_prop,"@clipMax")==0)
-								{
-									char clipMax[1024];
-									strcpy(clipMax,&argv[3]->s);
-									/*TODO*/
-									/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected",.... );*/
-								}	
-							
-							/***********************TEMPORARY, then only send the modified parameters********************/	
-
-							switch (m->type)
-								{
-									case EXPRESSION :
-									strcpy(mapping_type,"expression");
-									break;
-
-									case LINEAR :
-									strcpy(mapping_type,"linear");
-									break;
-
-									case BYPASS :
-									strcpy(mapping_type,"bypass");
-									break;
-
-									default :
-									break;
-									
-								}						
-
-							lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
-								sig_name, target_param_name, 
-								"@scaling",mapping_type,
-								"@range",m->range[0],m->range[1],m->range[2],m->range[3],
-								"@expression",m->expression,
-								"@clipMin","none",
-								"@clipMax","none");
-							/******************************************************************************************/
-								
-						}
-					f1=1;
+			if ( strcmp(sig_name,src_param_name)==0 ) {
+				
+				/* Search the router linking to the receiver */
+				while ( router!=NULL && f2==0 ) {
+					if ( strcmp ( router->target_name , target_device_name ) == 0 )
+						f2=1;
+					else router=router->next;
 				}
+				
+				/* If this router exists ...*/
+				if (f2==1) {
 
-    		else i++;
+					/* Search the mapping corresponding to this connection */
+					mapper_signal_mapping sm = router->mappings;
+					while (sm && sm->signal != md_outputs[i])
+						sm = sm->next;
+					if (!sm) return 0;
+					
+					mapper_mapping m=sm->mapping;
+					while (m && strcmp(m->name,target_param_name)!=0) {
+						m = m->next;
+					}
+					if (!m) return 0;
+					
+					/* Modify scaling */
+					if(strcmp(modif_prop,"@scaling")==0) {
+						char scaling[1024];		
+						strcpy(scaling,&argv[3]->s);
+						
+						/* Expression type */
+						if ( strcmp(scaling, "expression")==0 ) {
+							m->type=EXPRESSION;				
+							/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","expression","@expression",m->expression );*/
+						}		
+							
+						/* Linear type */
+						else if(strcmp(scaling,"linear")==0) {
+							m->type=LINEAR;
+							/*The expression has to be modified to fit the range*/
+							free(m->expression);		
+							m->expression=malloc(256*sizeof(char));							
+							snprintf(m->expression,256,"y=(x-%f)*%f+%f",
+										  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
+							DeleteTree(m->expr_tree);
+							Tree *T=NewTree();
+							int success_tree=get_expr_Tree(T, m->expression);
+							
+							if (!success_tree)
+								return 0;
+
+							m->expr_tree=T;
+							/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","linear","@expression",m->expression );*/
+						}
+							
+						/* Bypass type */
+						else if(strcmp(scaling,"bypass")==0) {
+							m->type=BYPASS;		
+							m->expression=strdup("y=x");	
+							/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ssss","@scaling","linear","@expression",m->expression );*/			
+						}
+					}
+							
+					/* Modify expression */
+					else if ( strcmp (modif_prop,"@scaling expression @expression")==0 ) {		
+						char received_expr[1024];									
+						strcpy(received_expr,&argv[3]->s);
+						Tree *T=NewTree();
+						int success_tree=get_expr_Tree(T, received_expr);									
+						
+						if (success_tree) {
+							free(m->expression);
+							m->expression=strdup(&argv[3]->s);
+							DeleteTree(m->expr_tree);
+							m->expr_tree=T;		
+						}
+						
+						/*get_expr_Tree(T, m->expression);*/
+						/*m->expr_tree=T;*/
+						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","ss","@scaling expression @expression",m->expression );*/
+					}	
+
+					/* Modify range */
+					else if(strcmp(modif_prop,"@range")==0) {
+						int k=3;
+						while ( types[k]!='f' && types[k]!='i' &&  k<=6)
+								k++;
+										
+						if (types[k]=='f')
+							m->range[k-3]=(float)(argv[k]->f);
+
+						else if (types[k]=='i')
+							m->range[k-3]=(float)(argv[k]->i);
+							
+						if(m->type==LINEAR) {
+							/* The expression has to be modified to fit the new range*/				
+							free(m->expression);	
+							m->expression=malloc(256*sizeof(char));									
+							snprintf(m->expression,256,"y=(x-%f)*%f+%f",
+												  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
+							DeleteTree(m->expr_tree);
+							Tree *T=NewTree();
+							int success_tree=get_expr_Tree(T, m->expression);
+							if (!success_tree)
+								return 0;
+							/*get_expr_Tree(T, m->expression);*/
+							m->expr_tree=T;
+						}
+						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","sffff",@range, m->range[0],m->range[1],m->range[2],m->range[3]);*/
+					}
+								
+					else if(strcmp(modif_prop,"@clipMin")==0) {
+						char clipMin[1024];
+						strcpy(clipMin,&argv[3]->s);
+						/*TODO*/
+						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected",.... );*/
+					}	
+
+					else if(strcmp(modif_prop,"@clipMax")==0) {
+						char clipMax[1024];
+						strcpy(clipMax,&argv[3]->s);
+						/*TODO*/
+						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected",.... );*/
+					}
+						
+					/***********************TEMPORARY, then only send the modified parameters********************/	
+
+					switch (m->type) {
+						case EXPRESSION :
+						strcpy(mapping_type,"expression");
+						break;
+
+						case LINEAR :
+						strcpy(mapping_type,"linear");
+						break;
+
+						case BYPASS :
+						strcpy(mapping_type,"bypass");
+						break;
+
+						default :
+						break;
+						
+					}						
+
+					lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
+						sig_name, target_param_name, 
+						"@scaling",mapping_type,
+						"@range",m->range[0],m->range[1],m->range[2],m->range[3],
+						"@expression",m->expression,
+						"@clipMin","none",
+						"@clipMax","none");
+					/******************************************************************************************/
+							
+				}
+				f1=1;
+			}
+			else i++;
 		}
-
+	}
     return 0;
 }
 
@@ -1193,7 +1189,7 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 	int i=0,c=1,f1=0,f2=0;
 
-    char sig_name[1024], src_param_name[1024], target_param_name[1024],target_device_name[1024];
+    char sig_name[1024], src_param_name[1024], target_param_name[1024], target_device_name[1024];
 
     if (argc < 2)
         return 0;
