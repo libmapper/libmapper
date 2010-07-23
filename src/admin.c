@@ -381,32 +381,33 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 static int handler_registered(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
-/*    int f=1;
+    int f=1;
     char registered_name[1024];      
-            
-    if (argc < 1)
-        return 0;
+	if(0) {		//change to test whether device is GUI
+		if (argc < 1)
+			return 0;
 
-    if (types[0]!='s' && types[0]!='S')
-        return 0;
+		if (types[0]!='s' && types[0]!='S')
+			return 0;
 
-    strcpy(registered_name, &argv[0]->s);
+		strcpy(registered_name, &argv[0]->s);
 
-	list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
-*/
-	/*Search if the device is already registered in the global list*/
-/*	while(tmp_regist_dev_info != NULL && f!=0)
-		{   
-			f*=strcmp(registered_name, tmp_regist_dev_info->regist_info->full_name); 
-			tmp_regist_dev_info=tmp_regist_dev_info->next;
-		}
+		list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
 
-	if(f!=0)
-		{
-			mdev_add_REGIST_DEVICES_INFO( registered_name, &argv[2]->s,	argv[4]->i, &argv[6]->s);
-			printf("NEW REGISTERED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n",registered_name, &argv[2]->s,argv[4]->i, &argv[6]->s);
-		}
-*/
+		/*Search if the device is already registered in the global list*/
+		while(tmp_regist_dev_info != NULL && f!=0)
+			{   
+				f*=strcmp(registered_name, tmp_regist_dev_info->regist_info->full_name); 
+				tmp_regist_dev_info=tmp_regist_dev_info->next;
+			}
+
+		if(f!=0)
+			{
+				mdev_add_REGIST_DEVICES_INFO( registered_name, &argv[2]->s,	argv[4]->i, &argv[6]->s);
+				printf("NEW REGISTERED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n",registered_name, &argv[2]->s,argv[4]->i, &argv[6]->s);
+			}
+	}
+
     return 0;
 }
 
@@ -652,18 +653,16 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 	/* If the device who received the message is the sender in the /link message... */
     if ( strcmp(device_name,sender_name)==0 )
 	{
-		list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
 		
 		/*Search if the device is already linked*/
-		while(tmp_regist_dev_info != NULL && f!=0)
-		{   
-			f*=strcmp(target_name, tmp_regist_dev_info->regist_info->full_name); 
-			tmp_regist_dev_info=tmp_regist_dev_info->next;
+		while ( router!=NULL && f==0 ) 
+		{
+			f*=strcmp(router->target_name , target_name );
+			router = router->next;
 		}
 		
 		if(f!=0)
 		{
-			mdev_add_REGIST_DEVICES_INFO( target_name, host_address, recvport, can_alias);
 			printf("NEW LINKED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n", target_name, host_address, recvport, can_alias);
 		
 			/* Creation of a new router added to the sender*/
@@ -743,179 +742,219 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 
-	int i=0,c=1,j=2,f1=0,f2=0;
+	int i=0,c=1,j=2,f1=0,f2=0,recvport;
 
-    char sig_name[1024], src_param_name[1024], target_param_name[1024],target_device_name[1024],scaling[1024],clipMin[1024],clipMax[1024];	
+    char device_name[1024], sig_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024], clipMin[1024], clipMax[1024], host_address[1024], can_alias[1024];	
 	char *expression;
 	char src_type,dest_type;
-	float dest_range_min,dest_range_max,src_range_min,src_range_max;	
-
+	float dest_range_min = 0, dest_range_max = 1, src_range_min = 0, src_range_max = 1;	
 
     if (argc < 2)
         return 0;
 
-    if ( (types[0]!='s' && types[0]!='S') || (types[1]!='s' && types[1]!='S') || (strcmp(&argv[2]->s,"@type")!=0) || (types[3]!='c' && types[3]!='s' && types[3]!='S') )
-        return 0;
-
-    strcpy(src_param_name,&argv[0]->s);
-    strcpy(target_param_name, &argv[1]->s);
-	while (target_param_name[c]!='/')
-		c++;
-	strncpy(target_device_name, target_param_name,c);
-	target_device_name[c]='\0';
+    //if ( (types[0]!='s' && types[0]!='S') || (types[1]!='s' && types[1]!='S') || (strcmp(&argv[2]->s,"@type")!=0) || (types[3]!='c' && types[3]!='s' && types[3]!='S') )
+    //    return 0;
+	
+	snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+	
+	strcpy(src_device_name, &argv[0]->s);
+	strtok(src_device_name, "/");
+	
+	/* Check OSC pattern match */
+	if (strcmp(device_name, src_device_name)==0) {
 		
-	
-	
-	/* If options are added to the /connect_to message... */
-	if( argc>4 )
-		{
+		printf("source device is %s\n", device_name);
+
+		strcpy(src_param_name,&argv[0]->s);
+		strcpy(target_param_name, &argv[1]->s);
+		strcpy(target_device_name, &argv[1]->s);
+		strtok(target_device_name, "/");
+		
+		/* If options are added to the /connect_to message... */
+		if( argc>2 )
+			{
+					
+				trace("got /connect_to %s %s+ OPTIONS\n", src_param_name, target_param_name);
+				printf("got /connect_to %s %s+ OPTIONS\n", src_param_name, target_param_name);
 				
-			trace("got /connect_to %s %s @type %c+ OPTIONS\n", src_param_name, target_param_name, dest_type);
-			
-			/* Parse the options list*/			
-			while(j<argc)
-				{
-					if (types[j]!='s' && types[j]!='S')
-						{
-							printf("syntaxe message incorrecte\n");
-							return 0;
-						}
+				/* Parse the options list*/			
+				while(j<argc)
+					{
+						if (types[j]!='s' && types[j]!='S')
+							{
+								printf("syntaxe message incorrecte\n");
+								return 0;
+							}
 
-					else if(strcmp(&argv[j]->s,"@scaling")==0)
-						{
-							strcpy(scaling,&argv[j+1]->s);
-							j+=2;
-						}
+						else if(strcmp(&argv[j]->s,"@scaling")==0)
+							{
+								strcpy(scaling,&argv[j+1]->s);
+								j+=2;
+							}
 
-					else if(strcmp(&argv[j]->s,"@range")==0)
-						{
-							dest_range_min=argv[j+1]->f;
-							dest_range_max=argv[j+2]->f;
-							j+=3;
-						}
+						else if(strcmp(&argv[j]->s,"@range")==0)
+							{
+								dest_range_min=argv[j+1]->f;
+								dest_range_max=argv[j+2]->f;
+								j+=3;
+							}
+						
+						else if(strcmp(&argv[j]->s,"@ranges")==0)
+							{
+								src_range_min=argv[j+1]->f;
+								src_range_max=argv[j+2]->f;
+								dest_range_min=argv[j+3]->f;
+								dest_range_max=argv[j+4]->f;
+								j+=5;
+							}
 
-					else if(strcmp(&argv[j]->s,"@expression")==0)
-						{
-							strcpy(expression,&argv[j+1]->s);
-							j+=2;
-						}
+						else if(strcmp(&argv[j]->s,"@expression")==0)
+							{
+								strcpy(expression,&argv[j+1]->s);
+								j+=2;
+							}
 
-					else if(strcmp(&argv[j]->s,"@clipMin")==0)
-						{
-							strcpy(clipMin,&argv[j+1]->s);
-							j+=2;
-						}			
+						else if(strcmp(&argv[j]->s,"@clipMin")==0)
+							{
+								strcpy(clipMin,&argv[j+1]->s);
+								j+=2;
+							}			
 
-					else if(strcmp(&argv[j]->s,"@clipMax")==0)
-						{
-							strcpy(clipMax,&argv[j+1]->s);
-							j+=2;
-						}			
+						else if(strcmp(&argv[j]->s,"@clipMax")==0)
+							{
+								strcpy(clipMax,&argv[j+1]->s);
+								j+=2;
+							}
+						
+						else if(strcmp(&argv[j]->s,"@IP")==0)
+							{
+								strcpy(host_address,&argv[j+1]->s);
+								j+=2;
+							}
+						
+						else if(strcmp(&argv[j]->s,"@port")==0)
+							{
+								recvport=argv[j+1]->i;
+								j+=2;
+							}
+						
+						else if(strcmp(&argv[j]->s,"@canAlias")==0)
+							{
+								strcpy(clipMax,&argv[j+1]->s);
+								j+=2;
+							}
+						
+						else if(strcmp(&argv[j]->s,"@type")==0)
+							{
+								dest_type=argv[j+1]->c;
+								j+=2;
+							}
+					}
+			}
+
+		/* If no options*/
+		else
+			{
+				trace("got /connect_to %s %s\n", src_param_name, target_param_name);
+				printf("got /connect_to %s %s\n", src_param_name, target_param_name);
+				dest_range_min=0;
+				dest_range_max=1;
+				strcpy(clipMin,"none");
+				strcpy(clipMax,"none");
+			}
+	 
+		/* Searches the source signal among the outputs of the device*/
+		while (i<md_num_outputs && f1==0)
+			{
+
+				msig_full_name(md_outputs[i],sig_name,256); 
 				
-				}
+				/* If the signal exists ... */
+				if ( strcmp(sig_name,src_param_name)==0 )
+					{
+						printf("signal exists: %s\n", sig_name);
+
+						src_type=md_outputs[i]->type;
+						src_range_min=md_outputs[i]->minimum->f;
+						src_range_max=md_outputs[i]->maximum->f;
+						
+						/* If the type is not given, the default scaling type is bypass*/
+						if (argc==2)
+							strcpy(scaling,"bypass");
+						/* If source and destination are float or int, the default scaling type is linear*/
+						if (argc >2)
+							{
+								if (strcmp(&argv[2]->s,"@type")==0)							
+									dest_type=argv[3]->c;
+
+								if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
+									strcpy(scaling,"linear");
+								else strcpy(scaling,"bypass");
+							}
+
+						/* Search the router linking to the receiver*/
+						while ( router!=NULL && f2==0 ) 
+							{	
+								if ( strcmp ( router->target_name , target_device_name ) == 0 )
+									f2=1;
+								else router=router->next;	
+							}
+						
+						/* When this router exists...*/
+						if (f2==1)
+							{
+								printf("scaling = %s\n", scaling);
+								if (strcmp(scaling,"bypass")==0)
+								/* Creation of a direct mapping */	
+									{	
+										expression=strdup("y=x");
+										mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
+										printf("Mapping %s -> %s OK\n",sig_name, target_param_name);
+									}
+								else if (strcmp(scaling,"linear")==0)
+								/* Creation of a linear mapping */
+									{	
+										if (src_range_min==src_range_max)
+											{
+												free(expression);
+												expression=malloc(100*sizeof(char));											
+												snprintf(expression,100,"y=%f",src_range_min);
+											}
+										else
+											{	
+												free(expression);		
+												expression=malloc(100*sizeof(char));									
+												snprintf(expression,100,"y=(x-%f)*%f+%f",
+													src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);	
+											}							
+										mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
+										printf("Mapping %s -> %s OK\n",sig_name, target_param_name);	
+									}
+
+								else if (strcmp(scaling,"expression")==0)
+								/* Creation of an expression mapping */
+									{
+										mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name, expression,
+																										 src_range_min, src_range_max, dest_range_min, dest_range_max) ;
+										printf("Mapping %s -> %s OK\n",sig_name, target_param_name);
+									}	
 								
-		}
 
-	/* If no options*/
-	else
-		{
-			trace("got /connect_to %s %s @type %c\n", src_param_name, target_param_name, dest_type);
-			dest_range_min=0;
-			dest_range_max=1;
-			strcpy(clipMin,"none");
-			strcpy(clipMax,"none");
-		}
- 
-	/* Searches the source signal among the outputs of the device*/
-    while (i<md_num_outputs && f1==0)
-    	{
+								(*((mapper_admin) user_data)).device->num_mappings_out++;
+								lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
+									sig_name, target_param_name, 
+									"@scaling",scaling,
+									"@ranges",src_range_min,src_range_max,dest_range_min,dest_range_max,
+									"@expression",expression,
+									"@clipMin",clipMin,
+									"@clipMax",clipMax);		
+							}
+						f1=1;
+					}
 
-			msig_full_name(md_outputs[i],sig_name,256); 
-    		
-			/* When the signal exists ... */
-    		if ( strcmp(sig_name,src_param_name)==0 )
-				{		
-
-					src_type=md_outputs[i]->type;
-					src_range_min=md_outputs[i]->minimum->f;
-					src_range_max=md_outputs[i]->maximum->f;
-					
-					/* If the type is not given, the default scaling type is bypass*/
-					if (argc==2)
-						strcpy(scaling,"bypass");
-					/* When source and destination are float or int, the default scaling type is linear*/
-					if (argc >2)
-						{
-							if (strcmp(&argv[2]->s,"@type")==0)							
-								dest_type=argv[3]->c;
-
-							if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
-								strcpy(scaling,"linear");
-							else strcpy(scaling,"bypass");
-						}
-
-					/* Search the router linking to the receiver*/
-    				while ( router!=NULL && f2==0 ) 
-						{	
-							if ( strcmp ( router->target_name , target_device_name ) == 0 )
-								f2=1;
-							else router=router->next;	
-						}
-					
-					/* When this router exists...*/
-					if (f2==1)
-						{
-							if (strcmp(scaling,"bypass")==0)
-							/* Creation of a direct mapping */	
-								{	
-									expression=strdup("y=x");
-									mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name, src_range_min, src_range_max, 																																				dest_range_min, dest_range_max);
-									printf("Mapping %s -> %s OK\n",sig_name, target_param_name);
-								}
-							else if (strcmp(scaling,"linear")==0)
-							/* Creation of a linear mapping */
-								{	
-									if (src_range_min==src_range_max)
-										{
-											free(expression);
-											expression=malloc(100*sizeof(char));											
-											snprintf(expression,100,"y=%f",src_range_min);
-										}
-									else
-										{	
-											free(expression);		
-											expression=malloc(100*sizeof(char));									
-											snprintf(expression,100,"y=(x-%f)*%f+%f",
-												src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);	
-										}							
-									mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name,expression, src_range_min, 																															src_range_max, dest_range_min, dest_range_max) ;
-									printf("Mapping %s -> %s OK\n",sig_name, target_param_name);	
-								}
-
-						    else if (strcmp(scaling,"expression")==0)
-							/* Creation of an expression mapping */
-								{
-									mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i],target_param_name, expression,
-																									 src_range_min, src_range_max, dest_range_min, dest_range_max) ;
-									printf("Mapping %s -> %s OK\n",sig_name, target_param_name);
-								}	
-						 	
-
-							(*((mapper_admin) user_data)).device->num_mappings_out++;
-							lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
-								sig_name, target_param_name, 
-								"@scaling",scaling,
-								"@range",src_range_min,src_range_max,dest_range_min,dest_range_max,
-								"@expression",expression,
-								"@clipMin",clipMin,
-								"@clipMax",clipMax);		
-						}
-					f1=1;
-				}
-
-    		else i++;
-		}
-
+				else i++;
+			}
+	}
 
     return 0;
 }
@@ -1229,12 +1268,13 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
 static int handler_param_connect(const char *path, const char *types, lo_arg **argv,
                                      int argc, lo_message msg, void *user_data)
 {
+	mapper_admin admin = (mapper_admin) user_data;
 	
     int md_num_inputs=(*((mapper_admin) user_data)).device->n_inputs;
     mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
     int i=0,j=2,f=0;
 
-    char device_name[1024], sig_name[1024], src_param_name[1024], target_param_name[1024], target_device_name[1024];
+    char device_name[1024], sig_name[1024], src_param_name[1024], target_param_name[1024], target_device_name[1024], temp_type[2];
 
     if (argc < 2)
         return 0;
@@ -1262,8 +1302,7 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 				msig_full_name(md_inputs[i],sig_name,256);
 		
 				if ( strcmp(sig_name,target_param_name)==0 )
-					{
-						printf("info: %s\n", md_inputs->type);
+					{		
 						lo_message m=lo_message_new();
 						lo_message_add(m,"ss",src_param_name,target_param_name);
 						//lo_message_add(m,"ssss",src_param_name,target_param_name,"@type","f");
@@ -1296,19 +1335,20 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 						else 
 							{
 								/*Add default connection info: type, range*/
-								/*if (md_inputs[i]->type == 'i') {
-									lo_message_add(m, "sssii", "@type", "i", "@range", (int)md_inputs[i]->minimum, (int)md_inputs[i]->maximum);
-								}
-								else if (md_inputs[i]->type == 'f') {
-									lo_message_add(m, "sssff", "@type", "f", "@range", (float)md_inputs[i]->minimum, (float)md_inputs[i]->maximum);
-								}
-								else {*/
-									//lo_message_add(m, "ss", "@type", (char *)md_inputs[i]->type);
-								/*}*/
-
+								temp_type[0] = md_inputs[i]->type;
+								temp_type[1] = '\0';
+								lo_message_add(m, "sssissss", 
+											   "@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
+											   "@port", (*((mapper_admin) user_data)).port.value,
+											   "@canAlias", "no",
+											   "@type", temp_type);
+								if(temp_type[0] == 'f')
+									lo_message_add(m, "sff", "@range", md_inputs[i]->minimum->f, md_inputs[i]->maximum->f);
+								else if(temp_type[0] == 'i')
+									lo_message_add(m, "sii", "@range", md_inputs[i]->minimum->i32, md_inputs[i]->maximum->i32);
 							}
 
-						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_tooo",m);
+						lo_send_message((*((mapper_admin) user_data)).admin_addr,"/connect_to",m);
 						lo_message_free(m);
 						f=1;
 					}
