@@ -83,9 +83,11 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         struct _mapper_signal signal = *sig; 
         c=1;
 		i=0;
+		
+		signal.name=strdup(m->name);
 
 		/* The mapping name is the full name of the destination signal (/<device>/<param>) and we just need here the /<param> name to create the new signal*/
-		name=strdup(m->name);
+		/*name=strdup(m->name);
 		while ((name)[c]!='/' && c<strlen(name))
 			c++;
 		if (c<strlen(name) && c>1)
@@ -97,7 +99,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 					}
 				signal.name=strndup(name,i);
 				free(name);
-			}
+			}*/
 
 		mapper_signal_value_t v;
         mapper_mapping_perform(m, value, &v);
