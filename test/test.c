@@ -28,7 +28,7 @@ int setup_sender()
     printf("Sender created.\n");
 
     sendsig =
-        msig_float('f', 1, "/outsig", 0, 0, 1, 0, 0, 0);
+        msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
 
     mdev_register_output(sender, sendsig);
 
@@ -70,7 +70,7 @@ int setup_receiver()
     printf("Receiver created.\n");
 
     recvsig =
-        msig_float('f', 1, "/insig", 0, 0, 1, 0, insig_handler, 0);
+        msig_float(1, "/insig", 0, 0, 1, 0, insig_handler, 0);
 
     mdev_register_input(receiver, recvsig);
 
