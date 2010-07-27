@@ -83,6 +83,7 @@ typedef enum _mapper_mapping_type
     BYPASS, //!< Direct mapping
     LINEAR, //!< Linear mapping
     EXPRESSION, //!< Expression mapping
+	CALIBRATE,	//!< Calibrate to input
 	MUTE, //!< Mute mapping
 } mapper_mapping_type;
 
@@ -105,9 +106,11 @@ typedef struct _mapper_mapping {
     mapper_clipping_type clip_lower;         //!< Operation for exceeded lower boundary.
 	
 	float range[4];							 //!< {src_min ; src_max ; dest_min ; dest_max}
+	int rewrite;							 //!< Need to overwrite src_min and src_max?
 	char *expression;
 	    
-	mapper_mapping_type type;                //!< Bypass, linear, or expression mapping
+	mapper_mapping_type type;                //!< Bypass, linear, calibrate, or expression mapping
+	int muted;								 //!< 1 to mute mapping connection, 0 to unmute
     Tree *expr_tree;                         //!< Tree representing the mapping expression
 } *mapper_mapping;
 

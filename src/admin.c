@@ -923,7 +923,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 										mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
 										printf("Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
 									}
-								else if (strcmp(scaling,"linear")==0)
+								else if ((strcmp(scaling,"linear")==0) || (strcmp(scaling,"calibrate")==0))
 								/* Creation of a linear mapping */
 									{	
 										if (src_range_min==src_range_max)
@@ -938,10 +938,13 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 											{	
 												free(expression);		
 												expression=malloc(100*sizeof(char));									
-												snprintf(expression,100,"y=(x-%f)*%f+%f",
+												snprintf(expression,100,"y=(x-%g)*%g+%g",
 													src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);	
-											}							
-										mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
+											}
+										if (strcmp(scaling,"calibrate") == 0)
+											mapper_router_add_calibrate_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
+										else
+											mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
 										printf("Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);	
 									}
 
@@ -1049,12 +1052,17 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 						}		
 							
 						/* Linear type */
-						else if(strcmp(scaling,"linear")==0) {
-							m->type=LINEAR;
+						else if((strcmp(scaling,"linear")==0) || (strcmp(scaling, "calibrate")==0)) {
+							if(strcmp(scaling, "calibrate")==0) {
+								m->type=CALIBRATE;
+								m->rewrite=1;
+							}
+							else
+								m->type=LINEAR;
 							/*The expression has to be modified to fit the range*/
 							free(m->expression);		
 							m->expression=malloc(256*sizeof(char));							
-							snprintf(m->expression,256,"y=(x-%f)*%f+%f",
+							snprintf(m->expression,256,"y=(x-%g)*%g+%g",
 										  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
 							DeleteTree(m->expr_tree);
 							Tree *T=NewTree();
@@ -1106,11 +1114,11 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 						else if (types[k]=='i')
 							m->range[k-3]=(float)(argv[k]->i);
 							
-						if(m->type==LINEAR) {
+						if(m->type==LINEAR || m->type==CALIBRATE) {
 							/* The expression has to be modified to fit the new range*/				
 							free(m->expression);	
 							m->expression=malloc(256*sizeof(char));									
-							snprintf(m->expression,256,"y=(x-%f)*%f+%f",
+							snprintf(m->expression,256,"y=(x-%g)*%g+%g",
 												  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
 							DeleteTree(m->expr_tree);
 							Tree *T=NewTree();
@@ -1151,6 +1159,10 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 						case BYPASS :
 						strcpy(mapping_type,"bypass");
 						break;
+							
+						case CALIBRATE :
+							strcpy(mapping_type,"calibrate");
+							break;
 
 						default :
 						break;

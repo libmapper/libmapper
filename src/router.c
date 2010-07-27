@@ -219,6 +219,43 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
     mapper_router_add_mapping(router, sig, mapping);
 }
 
+void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name, /*mapper_signal_value_t scale,*/ char *expr, float src_min, float src_max, float dest_min, float dest_max)
+{
+    mapper_mapping mapping =
+	calloc(1,sizeof(struct _mapper_mapping));
+	
+    mapping->type=CALIBRATE;
+    mapping->name = strdup(name);
+	
+	mapping->expression = strdup(expr);
+	mapping->range[0]=src_min;
+	mapping->range[1]=src_max;
+	mapping->range[2]=dest_min;
+	mapping->range[3]=dest_max;
+	mapping->rewrite=1;
+	
+    Tree *T=NewTree();
+	
+    int success_tree=get_expr_Tree(T, expr);
+	if (!success_tree)
+		return;
+	
+    mapping->expr_tree=T;		
+	
+    /*mapping->coef_input[0] = scale.f;
+	 mapping->order_input = 1;
+	 
+	 mapping->expression = strdup(expression);
+	 mapping->range[0]=src_min;
+	 mapping->range[1]=src_max;
+	 mapping->range[2]=dest_min;
+	 mapping->range[3]=dest_max;*/
+	
+	
+    mapper_router_add_mapping(router, sig, mapping);
+}
+
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
                                       const char *name, char *expr, float src_min, float src_max, float dest_min, float dest_max)
 {
