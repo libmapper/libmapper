@@ -1,0 +1,21 @@
+GUI - multicast group 224.0.1.3 port 7570
+{
+	on load:
+		SEND: "/who"
+	switch (received OSC)
+	{
+		CASE: "/registered <device_name> [optional properties: @numInputs @numOutputs @IP @port @canAlias]"
+			store name, IP, and port for reference
+			break
+		CASE: "/<device_name>/namespace/<input/output> /<device_name>.ID/<parameter_name> [optional properties: @type, @units, @min, @max]"
+			break
+		CASE: "/linked /<device1_name> /<device2_name>"
+			break;
+		CASE: "/unlinked /<device1_name> /<device2_name>"
+			break;
+		CASE: "/connected /<device1_name>/<parameter_name> /device2_name/<parameter_name> [optional properties: @scaling, @range, @expression, @clipMin, @clipMax @canAlias]"
+			break
+		CASE: "/disconnected /<device1_name>/<parameter_name> /device2_name/<parameter_name>"
+			break
+	}
+}
