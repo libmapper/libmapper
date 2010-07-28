@@ -12,3 +12,5 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libmapper-@MAJOR_VERSION@.pc
 
 dist_doc_DATA = README COPYING ChangeLog NEWS
+
+ACLOCAL_AMFLAGS = -I m4

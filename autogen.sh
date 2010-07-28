@@ -3,6 +3,7 @@
 
 srcdir=`dirname $0`
 test -z "$srcdir" && srcdir=.
+ACLOCAL_FLAGS="$ACLOCAL_FLAGS -I m4"
 
 DIE=0
 
