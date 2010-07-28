@@ -1104,15 +1104,33 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 
 					/* Modify range */
 					else if(strcmp(modif_prop,"@range")==0) {
-						int k=3;
-						while ( types[k]!='f' && types[k]!='i' &&  k<=6)
-								k++;
-										
-						if (types[k]=='f')
-							m->range[k-3]=(float)(argv[k]->f);
+						char invert[1024];									
+						strcpy(invert,&argv[3]->s);
+						if(strcmp(invert,"invert") == 0) {
+							printf("invert message\n");
+							strcpy(invert,&argv[4]->s);
+							if(strcmp(invert,"input") == 0) {
+								float temp = m->range[0];
+								m->range[0] = m->range[1];
+								m->range[1] = temp;
+							}
+							else if(strcmp(invert,"output") == 0) {
+								float temp = m->range[2];
+								m->range[2] = m->range[3];
+								m->range[3] = temp;
+							}
+						}
+						else {
+							int k=3;
+							while ( types[k]!='f' && types[k]!='i' &&  k<=6)
+									k++;
+											
+							if (types[k]=='f')
+								m->range[k-3]=(float)(argv[k]->f);
 
-						else if (types[k]=='i')
-							m->range[k-3]=(float)(argv[k]->i);
+							else if (types[k]=='i')
+								m->range[k-3]=(float)(argv[k]->i);
+						}
 							
 						if(m->type==LINEAR || m->type==CALIBRATE) {
 							/* The expression has to be modified to fit the new range*/				
