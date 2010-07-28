@@ -808,10 +808,22 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 						
 						else if(strcmp(&argv[j]->s,"@range")==0)
 							{
-								src_range_min=argv[j+1]->f;
-								src_range_max=argv[j+2]->f;
-								dest_range_min=argv[j+3]->f;
-								dest_range_max=argv[j+4]->f;
+								if (types[j+1] == 'i')
+									src_range_min=(float)argv[j+1]->i;
+								else if (types[j+1] == 'f')
+									src_range_min=argv[j+1]->f;
+								if (types[j+2] == 'i')
+									src_range_max=(float)argv[j+2]->i;
+								else if (types[j+2] == 'f')
+									src_range_max=argv[j+2]->f;
+								if (types[j+3] == 'i')
+									dest_range_min=(float)argv[j+3]->i;
+								else if (types[j+3] == 'f')
+									dest_range_min=argv[j+3]->f;
+								if (types[j+4] == 'i')
+									dest_range_max=(float)argv[j+4]->i;
+								else if (types[j+4] == 'f')
+									dest_range_max=argv[j+4]->f;
 								range_update=1;
 								j+=5;
 							}
@@ -921,7 +933,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 									{	
 										expression=strdup("y=x");
 										mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
-										printf("Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
+										printf("Bypass Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
 									}
 								else if ((strcmp(scaling,"linear")==0) || (strcmp(scaling,"calibrate")==0))
 								/* Creation of a linear mapping */
@@ -945,7 +957,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 											mapper_router_add_calibrate_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
 										else
 											mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
-										printf("Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);	
+										printf("Linear Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);	
 									}
 
 								else if (strcmp(scaling,"expression")==0)
@@ -953,7 +965,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 									{
 										mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, expression,
 																										 src_range_min, src_range_max, dest_range_min, dest_range_max) ;
-										printf("Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
+										printf("Expression Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
 									}	
 								
 
@@ -1304,8 +1316,6 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 
 	strcpy(target_device_name, &argv[1]->s);
 	strtok(target_device_name, "/");
-
-    printf("got /connect %s %s\n", src_param_name, target_param_name);
 	
 	// check OSC pattern match
 	if (strcmp(device_name, target_device_name)==0) {
@@ -1313,27 +1323,35 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 		strcpy(src_device_name, &argv[0]->s);
 		strtok(src_device_name, "/");
 		strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
+		
+		//printf("got /connect %s%s %s%s\n", src_param_name, target_param_name);
 
 		while (i<md_num_inputs && f==0) {
 		
 			if ( strcmp(md_inputs[i]->name, target_param_name)==0 ) {		
 				lo_message m=lo_message_new();
 				lo_message_add(m,"ss",strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name));
-			
+				
+				/*Add device connection info*/
+				lo_message_add(m, "sssiss", 
+							   "@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
+							   "@port", (*((mapper_admin) user_data)).port.value,
+							   "@canAlias", "no");
+							
 				/*If options added to the connect message*/
 				if(argc>2) {
 					while(j<argc) {
 						switch (types[j]) {
-							case ('s'): case ('S'): 
-							lo_message_add(m, types[j], (char *)&argv[j]->s);
+							case ('s'): /*case ('S'): */
+							lo_message_add(m, "s", (char *)&argv[j]->s);
 							break;												
 
-							case ('i'): case ('h'): 
-							lo_message_add(m, types[j], (int)argv[j]->i);
+							case ('i'): /*case ('h'): */
+							lo_message_add(m, "i", argv[j]->i);
 							break;
 
 							case ('f'): 
-							lo_message_add(m, types[j], (float)argv[j]->f);
+							lo_message_add(m, "f", argv[j]->f);
 							break;
 							
 							default:
@@ -1346,11 +1364,7 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 					/*Add default connection info: type, range*/
 					temp_type[0] = md_inputs[i]->type;
 					temp_type[1] = '\0';
-					lo_message_add(m, "sssissss", 
-								   "@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
-								   "@port", (*((mapper_admin) user_data)).port.value,
-								   "@canAlias", "no",
-								   "@type", temp_type);
+					lo_message_add(m, "ss", "@type", temp_type);
 					if(temp_type[0] == 'f')
 						lo_message_add(m, "sfsf", "@min", md_inputs[i]->minimum->f, "@max", md_inputs[i]->maximum->f);
 					else if(temp_type[0] == 'i')

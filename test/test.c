@@ -15,7 +15,7 @@ mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
 int recvport = 9000;
-int sendport = 9001;
+int sendport = 9000;
 
 int sent = 0;
 int received = 0;
