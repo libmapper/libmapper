@@ -745,7 +745,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 
 	int i=0,c=1,j=2,f1=0,f2=0,recvport=-1,range_update=0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "bypass", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024], can_alias[1024];	
+    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024], can_alias[1024];	
 	char *expression;
 	char src_type,dest_type;
 	float dest_range_min = 0, dest_range_max = 1, src_range_min, src_range_max;	
@@ -870,6 +870,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 								j+=2;
 							}
 					}
+				printf("parsed properties\n");
 			}
 
 		/* If no options*/
@@ -893,17 +894,12 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 							src_range_min=md_outputs[i]->minimum->f;
 							src_range_max=md_outputs[i]->maximum->f;
 						}
-						
-						/* If source and destination are float or int, the default scaling type is linear*/
-						if (argc >2)
-							{
-								if (strcmp(&argv[2]->s,"@type")==0)							
-									dest_type=argv[3]->c;
-
-								if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
-									strcpy(scaling,"linear");
-								else strcpy(scaling,"bypass");
-							}
+						if (strcmp(scaling,"dummy") == 0){
+							/* If source and destination are float or int, the default scaling type is linear*/
+							if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
+								strcpy(scaling,"linear");
+							else strcpy(scaling,"bypass");
+						}
 
 						/* Search the router linking to the receiver*/
 						while ( router!=NULL && f2==0 ) 
@@ -928,10 +924,11 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 						/* When this router exists...*/
 						else
 							{
+								printf("scaling type is %s\n", scaling);
 								if (strcmp(scaling,"bypass")==0)
 								/* Creation of a direct mapping */	
 									{	
-										expression=strdup("y=x");
+										expression=strdup("y=x"); /*CHANGE: bypass should not overwrite expression!*/
 										mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
 										printf("Bypass Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
 									}
@@ -966,8 +963,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 										mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, expression,
 																										 src_range_min, src_range_max, dest_range_min, dest_range_max) ;
 										printf("Expression Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
-									}	
-								
+									}
 
 								(*((mapper_admin) user_data)).device->num_mappings_out++;
 								lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 

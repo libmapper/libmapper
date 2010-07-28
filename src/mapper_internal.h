@@ -62,6 +62,9 @@ void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
                                     const char *name, /*mapper_signal_value_t scale,*/ char * expr,float src_min, float src_max, float dest_min, float dest_max);
 
+void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
+									  const char *name, /*mapper_signal_value_t scale,*/ char * expr,float src_min, float src_max, float dest_min, float dest_max);
+
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
 					  const char *name,char * expr,float src_min, float src_max, float dest_min, float dest_max);
 
