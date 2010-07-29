@@ -36,6 +36,7 @@ static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, 
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_links_get(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link_to(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_unlink(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect(const char*, const char*, lo_arg **, int, lo_message, void*);
@@ -237,6 +238,11 @@ int count=0;
 	
 		snprintf(namespaceget, 256, "/%s.%d/info/get", admin->identifier, admin->ordinal.value);
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_who, admin);
+		
+		char linksget[256];
+		snprintf(linksget, 256, "/%s.%d/links/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, linksget, "", handler_device_links_get, admin);
+        lo_server_add_method(admin->admin_server, "/*/links/get", "", handler_device_links_get, admin);
 
         lo_server_add_method(admin->admin_server, "/link", "ss", handler_device_link, admin);
 		lo_server_add_method(admin->admin_server, "/link_to", "sssssiss", handler_device_link_to, admin);
@@ -605,8 +611,10 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 							   int argc, lo_message msg, void *user_data)
 {	
 	char device_name[1024], sender_name[1024], target_name[1024], host_address[1024], can_alias[1024];
-	int recvport, f=1, j=2;    
-	mapper_router router = 0;
+	int recvport, f=1, j=2;
+	mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router = md->routers;
 	
     if (argc < 2)
         return 0;
@@ -662,7 +670,7 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 			router = router->next;
 		}
 		
-		if(f!=0)
+		if(f!=0) /*! Should we also send /linked message in response to duplicate link requests?*/
 		{
 			printf("NEW LINKED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n", target_name, host_address, recvport, can_alias);
 		
@@ -673,6 +681,28 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 			printf("Router to %s : %d added.\n", host_address,recvport);
 			lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, ((*((mapper_admin) user_data)).device->routers->target_name) );
 		}
+	}
+	return 0;
+}
+
+/*! Report existing links to the network */
+static int handler_device_links_get(const char *path, const char *types, lo_arg **argv,
+								  int argc, lo_message msg, void *user_data)
+{
+	char device_name[1024];
+	mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router = md->routers;
+	
+	snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+	
+	trace("got /%s/links/get\n", device_name);
+	
+	/*Search through linked devices */
+	while ( router!=NULL ) 
+	{
+		lo_send((*((mapper_admin) user_data)).admin_addr,"/linked", "ss", device_name, router->target_name );
+		router = router->next;
 	}
 	return 0;
 }
