@@ -4,10 +4,12 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
+#include <lo/lo.h>
 
 #include <unistd.h>
 #include <arpa/inet.h>
 
+int automate = 1;
 
 mapper_device sender = 0;
 mapper_device receiver = 0;
@@ -123,6 +125,28 @@ void loop()
     int i=0;
 	/*mapper_device tmp_device=0;
 	list_admins tmp_local_devices =0;*/
+	
+	if(automate) {
+		char sender_name[1024], receiver_name[1024];
+		
+		printf("%s.%d\n", sender->admin->identifier, sender->admin->ordinal.value);
+		printf("%s.%d\n", receiver->admin->identifier, receiver->admin->ordinal.value);
+		
+		snprintf(sender_name, 256, "/%s.%d", sender->admin->identifier, sender->admin->ordinal.value);
+		snprintf(receiver_name, 256, "/%s.%d", receiver->admin->identifier, receiver->admin->ordinal.value);
+		
+		lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
+		lo_address_set_ttl(a, 1);
+		
+		lo_send(a, "/link", "ss", sender_name, receiver_name);
+		
+		snprintf(sender_name, 256, "/%s.%d/%s", sender->admin->identifier, sender->admin->ordinal.value, "outsig");
+		snprintf(receiver_name, 256, "/%s.%d/%s", receiver->admin->identifier, receiver->admin->ordinal.value, "insig");
+		
+		lo_send(a, "/connect", "ss", sender_name, receiver_name);
+		
+		lo_address_free(a);
+	}
     
 	while (i>=0) 
 		{
@@ -160,11 +184,12 @@ void loop()
 	        		msig_update_scalar(sender->outputs[0], (mval)((i%10)*1.0f));
 					printf("sender value updated to %d -->\n",i%10);
 				}
+
         	usleep(500*1000);
         	mdev_poll(receiver, 0);				
 			
 			i++;
-    	}
+    	}		
 }
 
 int main()
