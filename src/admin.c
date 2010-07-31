@@ -36,13 +36,15 @@ static int handler_id_n_namespace_get(const char*, const char*, lo_arg **, int, 
 static int handler_device_alloc_port(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_alloc_name(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link(const char*, const char*, lo_arg **, int, lo_message, void*);
-static int handler_device_links_get(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_link_to(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_device_unlink(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_links_get(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connect_to(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_connection_modify(const char*, const char*, lo_arg **, int, lo_message, void*);
 static int handler_param_disconnect(const char*, const char*, lo_arg **, int, lo_message, void*);
+static int handler_device_connections_get(const char*, const char*, lo_arg **, int, lo_message, void*);
+
 
 
 /* Internal LibLo error handler */
@@ -247,6 +249,10 @@ int count=0;
         lo_server_add_method(admin->admin_server, "/link", "ss", handler_device_link, admin);
 		lo_server_add_method(admin->admin_server, "/link_to", "sssssiss", handler_device_link_to, admin);
 		lo_server_add_method(admin->admin_server, "/unlink", "ss", handler_device_unlink, admin);
+		
+		char connectionsget[256];
+		snprintf(connectionsget, 256, "/%s.%d/connections/get", admin->identifier, admin->ordinal.value);
+        lo_server_add_method(admin->admin_server, connectionsget, "", handler_device_connections_get, admin);
 
  		lo_server_add_method(admin->admin_server, "/connect", NULL, handler_param_connect, admin);
         lo_server_add_method(admin->admin_server, "/connect_to", NULL, handler_param_connect_to, admin);
@@ -1405,4 +1411,50 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 		}
 	}
     return 0;
+}
+
+/*! Report existing connections to the network */
+static int handler_device_connections_get(const char *path, const char *types, lo_arg **argv,
+									int argc, lo_message msg, void *user_data)
+{
+	char device_name[1024];
+	int i=0;
+	mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+	mapper_router router = md->routers;
+	
+	int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
+    mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
+	
+	snprintf(device_name, 256, "/%s.%d", (*((mapper_admin) user_data)).identifier, (*((mapper_admin) user_data)).ordinal.value);
+		
+	/*Search through linked devices */
+	/*while ( router!=NULL ) 
+	{
+		mapper_signal_mapping sm = router->mappings;
+		while (sm!=NULL) {
+			mapper_mapping m = sm->mapping;
+			lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "ss", strcat(device_name, sm->signal), strcat(router->target_name, m->name) );
+			sm = sm->next;
+		}
+		router = router->next;
+	}*/
+	
+	while (i<md_num_outputs) {	
+			
+		/* Searches the router linking to the receiver */ 		   		
+		while ( router!=NULL) {
+			mapper_signal_mapping sm = router->mappings;
+			while (sm!=NULL) {
+				mapper_mapping m = sm->mapping;
+				lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "ss", strcat(device_name, md_outputs[i]->name), strcat(router->target_name, m->name) );
+				sm = sm->next;
+			}
+			router=router->next;
+		}
+		i++;
+	}
+	
+		
+	return 0;
 }
