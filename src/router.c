@@ -166,37 +166,38 @@ void mapper_router_remove_mapping(mapper_signal_mapping sm, mapper_mapping mappi
 }
 
 
-void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, float src_min, float src_max, float dest_min, float dest_max)
+void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig, const char *name)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
-    mapping->type=BYPASS;
+    mapping->type = BYPASS;
     mapping->name = strdup(name);
 	mapping->expression = strdup("y=x");
-	mapping->range[0]=src_min;
-	mapping->range[1]=src_max;
-	mapping->range[2]=dest_min;
-	mapping->range[3]=dest_max;
+	mapping->use_range = 0;
 
     mapper_router_add_mapping(router, sig, mapping);
 }
 
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, /*mapper_signal_value_t scale,*/ char *expr, float src_min, float src_max, float dest_min, float dest_max)
+                                      const char *name, float src_min, float src_max, float dest_min, float dest_max)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
 
     mapping->type=LINEAR;
     mapping->name = strdup(name);
+	
+	free(mapping->expression);		
+	mapping->expression=malloc(256*sizeof(char));
+	snprintf(mapping->expression, 256, "y=(x-%g)*%g+%g",
+			 src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);
 
-	mapping->expression = strdup(expr);
-	mapping->range[0]=src_min;
-	mapping->range[1]=src_max;
-	mapping->range[2]=dest_min;
-	mapping->range[3]=dest_max;
+	mapping->range[0] = src_min;
+	mapping->range[1] = src_max;
+	mapping->range[2] = dest_min;
+	mapping->range[3] = dest_max;
+	mapping->use_range = 1;
 
     Tree *T=NewTree();
 
@@ -220,20 +221,18 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 }
 
 void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, /*mapper_signal_value_t scale,*/ char *expr, float src_min, float src_max, float dest_min, float dest_max)
+                                      const char *name, float dest_min, float dest_max)
 {
     mapper_mapping mapping =
 	calloc(1,sizeof(struct _mapper_mapping));
 	
-    mapping->type=CALIBRATE;
+    mapping->type = CALIBRATE;
     mapping->name = strdup(name);
 	
-	mapping->expression = strdup(expr);
-	mapping->range[0]=src_min;
-	mapping->range[1]=src_max;
-	mapping->range[2]=dest_min;
-	mapping->range[3]=dest_max;
-	mapping->rewrite=1;
+	mapping->range[2] = dest_min;
+	mapping->range[3] = dest_max;
+	mapping->use_range = 0;
+	mapping->rewrite = 1;
 	
     Tree *T=NewTree();
 	
@@ -257,7 +256,7 @@ void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig
 }
 
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
-                                      const char *name, char *expr, float src_min, float src_max, float dest_min, float dest_max)
+                                      const char *name, char *expr)
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
@@ -265,10 +264,7 @@ void mapper_router_add_expression_mapping(mapper_router router, mapper_signal si
     mapping->type=EXPRESSION;
     mapping->name = strdup(name);
 	mapping->expression = strdup(expr);
-	mapping->range[0]=src_min;
-	mapping->range[1]=src_max;
-	mapping->range[2]=dest_min;
-	mapping->range[3]=dest_max;
+	mapping->use_range = 0;
 
     Tree *T=NewTree();
     get_expr_Tree(T, expr);

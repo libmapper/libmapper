@@ -261,7 +261,6 @@ int count=0;
 
 		int send=lo_send(admin->admin_addr,"/who", "" );
     }
-
 }
 
 /*! Announce the device's current port on the admin bus to enable the
@@ -781,9 +780,9 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 
 	int i=0,c=1,j=2,f1=0,f2=0,recvport=-1,range_update=0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024], can_alias[1024];	
+    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024];	
 	char *expression;
-	char src_type,dest_type;
+	char src_type, dest_type;
 	float dest_range_min = 0, dest_range_max = 1, src_range_min, src_range_max;	
 
     if (argc < 2)
@@ -809,212 +808,174 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 		strcpy(target_param_name, &argv[1]->s + strlen(target_device_name));
 				
 		/* If options are added to the /connect_to message... */
-		if( argc>2 )
-			{
+		if( argc>2 ) {
 					
-				trace("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
-				printf("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
+			trace("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
+			printf("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
+			
+			/* Parse the options list*/			
+			while(j<argc) {
+				if (types[j]!='s' && types[j]!='S') {
+					printf("syntaxe message incorrecte\n");
+					return 0;
+				}
+
+				else if(strcmp(&argv[j]->s,"@scaling")==0) {
+					strcpy(scaling,&argv[j+1]->s);
+					j+=2;
+				}
+
+				else if(strcmp(&argv[j]->s,"@min")==0) {
+					dest_range_min=argv[j+1]->f;
+					j+=2;
+				}
 				
-				/* Parse the options list*/			
-				while(j<argc)
-					{
-						if (types[j]!='s' && types[j]!='S')
-							{
-								printf("syntaxe message incorrecte\n");
-								return 0;
-							}
+				else if(strcmp(&argv[j]->s,"@max")==0) {
+					dest_range_max=argv[j+1]->f;
+					j+=2;
+				}
+				
+				else if(strcmp(&argv[j]->s,"@range")==0) {
+					if (types[j+1] == 'i')
+						src_range_min=(float)argv[j+1]->i;
+					else if (types[j+1] == 'f')
+						src_range_min=argv[j+1]->f;
+					if (types[j+2] == 'i')
+						src_range_max=(float)argv[j+2]->i;
+					else if (types[j+2] == 'f')
+						src_range_max=argv[j+2]->f;
+					if (types[j+3] == 'i')
+						dest_range_min=(float)argv[j+3]->i;
+					else if (types[j+3] == 'f')
+						dest_range_min=argv[j+3]->f;
+					if (types[j+4] == 'i')
+						dest_range_max=(float)argv[j+4]->i;
+					else if (types[j+4] == 'f')
+						dest_range_max=argv[j+4]->f;
+					range_update=1;
+					j+=5;
+				}
 
-						else if(strcmp(&argv[j]->s,"@scaling")==0)
-							{
-								strcpy(scaling,&argv[j+1]->s);
-								j+=2;
-							}
+				else if(strcmp(&argv[j]->s,"@expression")==0) {
+					strcpy(expression,&argv[j+1]->s);
+					j+=2;
+				}
 
-						else if(strcmp(&argv[j]->s,"@min")==0)
-							{
-								dest_range_min=argv[j+1]->f;
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@max")==0)
-							{
-								dest_range_max=argv[j+1]->f;
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@range")==0)
-							{
-								if (types[j+1] == 'i')
-									src_range_min=(float)argv[j+1]->i;
-								else if (types[j+1] == 'f')
-									src_range_min=argv[j+1]->f;
-								if (types[j+2] == 'i')
-									src_range_max=(float)argv[j+2]->i;
-								else if (types[j+2] == 'f')
-									src_range_max=argv[j+2]->f;
-								if (types[j+3] == 'i')
-									dest_range_min=(float)argv[j+3]->i;
-								else if (types[j+3] == 'f')
-									dest_range_min=argv[j+3]->f;
-								if (types[j+4] == 'i')
-									dest_range_max=(float)argv[j+4]->i;
-								else if (types[j+4] == 'f')
-									dest_range_max=argv[j+4]->f;
-								range_update=1;
-								j+=5;
-							}
+				else if(strcmp(&argv[j]->s,"@clipMin")==0) {
+					strcpy(clipMin,&argv[j+1]->s);
+					j+=2;
+				}			
 
-						else if(strcmp(&argv[j]->s,"@expression")==0)
-							{
-								strcpy(expression,&argv[j+1]->s);
-								j+=2;
-							}
-
-						else if(strcmp(&argv[j]->s,"@clipMin")==0)
-							{
-								strcpy(clipMin,&argv[j+1]->s);
-								j+=2;
-							}			
-
-						else if(strcmp(&argv[j]->s,"@clipMax")==0)
-							{
-								strcpy(clipMax,&argv[j+1]->s);
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@IP")==0)
-							{
-								strcpy(host_address,&argv[j+1]->s);
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@port")==0)
-							{
-								recvport=argv[j+1]->i;
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@canAlias")==0)
-							{
-								strcpy(can_alias,&argv[j+1]->s);
-								j+=2;
-							}
-						
-						else if(strcmp(&argv[j]->s,"@type")==0)
-							{
-								dest_type=argv[j+1]->c;
-								j+=2;
-							}
-					}
-				printf("parsed properties\n");
+				else if(strcmp(&argv[j]->s,"@clipMax")==0) {
+					strcpy(clipMax,&argv[j+1]->s);
+					j+=2;
+				}
+				
+				else if(strcmp(&argv[j]->s,"@IP")==0) {
+					strcpy(host_address,&argv[j+1]->s);
+					j+=2;
+				}
+				
+				else if(strcmp(&argv[j]->s,"@port")==0) {
+					recvport=argv[j+1]->i;
+					j+=2;
+				}
+				
+				else if(strcmp(&argv[j]->s,"@type")==0) {
+					dest_type=argv[j+1]->c;
+					j+=2;
+				}
 			}
+			printf("parsed properties\n");
+		}
 
 		/* If no options*/
-		else
-			{
-				trace("got /connect_to %s%s %s%s\n", src_device_name, src_param_name, target_device_name, target_param_name);
-				printf("got /connect_to %s%s %s%s\n", src_device_name, src_param_name, target_device_name, target_param_name);
-			}
+		else {
+			trace("got /connect_to %s%s %s%s\n", src_device_name, src_param_name, target_device_name, target_param_name);
+			printf("got /connect_to %s%s %s%s\n", src_device_name, src_param_name, target_device_name, target_param_name);
+		}
 	 
 		/* Searches the source signal among the outputs of the device*/
-		while (i<md_num_outputs && f1==0)
-			{
+		while (i<md_num_outputs && f1==0) {
 				
-				/* If the signal exists ... */
-				if ( strcmp(md_outputs[i]->name,src_param_name)==0 )
-					{
-						printf("signal exists: %s\n", md_outputs[i]->name);
+			/* If the signal exists ... */
+			if ( strcmp(md_outputs[i]->name,src_param_name)==0 ) {
+					printf("signal exists: %s\n", md_outputs[i]->name);
 
-						src_type=md_outputs[i]->type;
-						if (!range_update) {
-							src_range_min=md_outputs[i]->minimum->f;
-							src_range_max=md_outputs[i]->maximum->f;
-						}
-						if (strcmp(scaling,"dummy") == 0){
-							/* If source and destination are float or int, the default scaling type is linear*/
-							if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') )
-								strcpy(scaling,"linear");
-							else strcpy(scaling,"bypass");
-						}
+				src_type=md_outputs[i]->type;
+				if (!range_update) {
+					src_range_min=md_outputs[i]->minimum->f;
+					src_range_max=md_outputs[i]->maximum->f;
+				}
 
-						/* Search the router linking to the receiver*/
-						while ( router!=NULL && f2==0 ) 
-							{	
-								if ( strcmp ( router->target_name , target_device_name ) == 0 )
-									f2=1;
-								else router=router->next;	
-							}
-						
-						/* If the router doesn't exist yet */
-						if (f2==0)
-						{
-							if (host_address!=NULL && recvport!=-1) {
-								//TO DO: create routed using supplied host and port info
-								//TO DO: send /linked message
-							} else {
-								//TO DO: send /link message to start process - should also cache /connect_to message for completion after link???
-							}
+				/* If source and destination are float or int, the default scaling type is linear */
+				if ( ( src_type=='i'|| src_type=='f') && ( dest_type=='i'|| dest_type=='f') ) {
+					if (strcmp(scaling,"dummy") == 0)
+						strcpy(scaling,"linear");
+				}
+				/* Do not allow linear, calibrate, or expression connections unless types are 'i' or 'f' */
+				else strcpy(scaling,"bypass");
 
-						}
-						
-						/* When this router exists...*/
-						else
-							{
-								printf("scaling type is %s\n", scaling);
-								if (strcmp(scaling,"bypass")==0)
-								/* Creation of a direct mapping */	
-									{	
-										expression=strdup("y=x"); /*CHANGE: bypass should not overwrite expression!*/
-										mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
-										printf("Bypass Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
-									}
-								else if ((strcmp(scaling,"linear")==0) || (strcmp(scaling,"calibrate")==0))
-								/* Creation of a linear mapping */
-									{	
-										if (src_range_min==src_range_max)
-											{
-												free(expression);
-												expression=malloc(100*sizeof(char));											
-												snprintf(expression,100,"y=%f",src_range_min);
-											}
-										else if (src_range_min==dest_range_min && src_range_max==dest_range_max)
-											expression=strdup("y=x");
-										else
-											{	
-												free(expression);		
-												expression=malloc(100*sizeof(char));									
-												snprintf(expression,100,"y=(x-%g)*%g+%g",
-													src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);	
-											}
-										if (strcmp(scaling,"calibrate") == 0)
-											mapper_router_add_calibrate_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
-										else
-											mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name,expression, src_range_min, src_range_max, dest_range_min, dest_range_max);
-										printf("Linear Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);	
-									}
-
-								else if (strcmp(scaling,"expression")==0)
-								/* Creation of an expression mapping */
-									{
-										mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, expression,
-																										 src_range_min, src_range_max, dest_range_min, dest_range_max) ;
-										printf("Expression Mapping %s%s -> %s%s OK\n",src_device_name, src_param_name, target_device_name, target_param_name);
-									}
-
-								(*((mapper_admin) user_data)).device->num_mappings_out++;
-								lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
-									strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name), 
-									"@scaling",scaling,
-									"@range",src_range_min,src_range_max,dest_range_min,dest_range_max,
-									"@expression",expression,
-									"@clipMin",clipMin,
-									"@clipMax",clipMax);
-							}
-						f1=1;
+				/* Search the router linking to the receiver*/
+				while ( router!=NULL && f2==0 ) {	
+					if ( strcmp ( router->target_name , target_device_name ) == 0 )
+						f2=1;
+					else router=router->next;	
+				}
+				
+				/* If the router doesn't exist yet */
+				if (f2==0) {
+					if (host_address!=NULL && recvport!=-1) {
+						//TO DO: create routed using supplied host and port info
+						//TO DO: send /linked message
+					} else {
+						//TO DO: send /link message to start process - should also cache /connect_to message for completion after link???
 					}
+				}
+					
+				/* If this router exists...*/
+				else {
+					printf("scaling type is %s\n", scaling);
+					if (strcmp(scaling,"bypass")==0) {
+						/* Creation of a direct mapping */	
+						mapper_router_add_direct_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name);
+						// pass ranges and expression if available
+						printf("Bypass Mapping %s%s -> %s%s OK\n", src_device_name, src_param_name, target_device_name, target_param_name);
+					}
+					else if ((strcmp(scaling,"linear")==0)) {
+						/* Creation of a linear mapping */
+						mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, src_range_min, src_range_max, dest_range_min, dest_range_max);
+						// retrieve or calculate expression for /connected message
+						printf("Linear Mapping %s%s -> %s%s OK\n", src_device_name, src_param_name, target_device_name, target_param_name);	
+					}
+					else if ((strcmp(scaling,"calibrate")==0)) {
+						/* Creation of a calibrate mapping */
+						mapper_router_add_calibrate_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, dest_range_min, dest_range_max);
+						//generate expression for /connected message?
+						printf("Linear Calibrate %s%s -> %s%s OK\n", src_device_name, src_param_name, target_device_name, target_param_name);
+					}
+					else if (strcmp(scaling,"expression")==0) {
+						/* Creation of an expression mapping */
+						mapper_router_add_expression_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, expression);
+						//pass ranges if available
+						printf("Expression Mapping %s%s -> %s%s OK\n", src_device_name, src_param_name, target_device_name, target_param_name);
+					}
+					
+					/* Add clipping! */
 
-				else i++;
+					(*((mapper_admin) user_data)).device->num_mappings_out++;
+					lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
+						strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name), 
+						"@scaling",scaling,
+						"@range",src_range_min,src_range_max,dest_range_min,dest_range_max,
+						"@expression",expression,
+						"@clipMin",clipMin,
+						"@clipMax",clipMax);
+				}
+				f1=1;
 			}
+			else i++;
+		}
 	}
     return 0;
 }

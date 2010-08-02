@@ -107,6 +107,7 @@ typedef struct _mapper_mapping {
 	
 	float range[4];							 //!< {src_min ; src_max ; dest_min ; dest_max}
 	int rewrite;							 //!< Need to overwrite src_min and src_max?
+	int use_ranges;							 //!< Safe to use the range array
 	char *expression;
 	    
 	mapper_mapping_type type;                //!< Bypass, linear, calibrate, or expression mapping
@@ -129,6 +130,7 @@ typedef struct _mapper_signal_mapping {
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {             
 	const char *target_name;                //!< Router name given by the target name.
+	mapper_device device;
     lo_address addr;                      //!< Sending address.
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_mapping mappings;       //!< The list of mappings for each signal.
