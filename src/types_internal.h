@@ -14,6 +14,7 @@
  * struct name. */
 
 struct _mapper_signal;
+struct _mapper_admin;
 
 /* Forward declarations for this file. */
 
@@ -34,6 +35,9 @@ typedef enum {
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
                                            struct _mapper_admin_allocated_t *resource);
 
+/*! Function to call when an allocated resource encounters a collision. */
+typedef void mapper_admin_resource_on_collision(struct _mapper_admin *admin);
+
 /*! Allocated resources */
 typedef struct _mapper_admin_allocated_t {
     unsigned int value;            //!< The resource to be allocated.
@@ -41,11 +45,12 @@ typedef struct _mapper_admin_allocated_t {
     double count_time;             //!< The last time at which the collision count was updated.
     int locked;                    //!< Whether or not the value has been locked in (i.e., allocated).
     mapper_admin_resource_on_lock *on_lock; //!< Function to call when resource becomes locked.
+    mapper_admin_resource_on_collision *on_collision; //!< Function to call when resource collision occurs.
 } mapper_admin_allocated_t;
 
 
 /*! A structure that keeps information about a device. */
-typedef struct
+typedef struct _mapper_admin
 {
     char*                    			identifier;    //!< The identifier for this device.
     mapper_admin_allocated_t 			ordinal;       //!< The unique ordinal for this device.
@@ -139,7 +144,11 @@ typedef struct _mapper_router {
 /**** Device ****/
 
 typedef struct _mapper_device {
+    /*! Prefix for the name of this device.  It gets a unique ordinal
+     *  appended to it to differentiate from other devices of the same
+     *  name. */
     const char *name_prefix;
+
     mapper_admin admin;
     struct _mapper_signal **inputs;
     struct _mapper_signal **outputs;

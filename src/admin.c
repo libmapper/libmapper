@@ -55,7 +55,7 @@ static void handler_error(int num, const char *msg, const char *where)
 
 /* Functions for handling the resource allocation scheme.  If
  * check_collisions() returns 1, the resource in question should be
- * announced on the admin bus. */
+ * probed on the admin bus. */
 static int check_collisions(mapper_admin admin,
                             mapper_admin_allocated_t *resource);
 static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin, int type);
@@ -153,10 +153,12 @@ mapper_admin mapper_admin_new(const char *identifier,
     admin->ordinal.locked = 0;
     admin->ordinal.collision_count = -1;
     admin->ordinal.count_time = get_current_time();
+    admin->ordinal.on_collision = mapper_admin_name_registered;
     admin->port.value = initial_port;
     admin->port.locked = 0;
     admin->port.collision_count = -1;
     admin->port.count_time = get_current_time();
+    admin->port.on_collision = mapper_admin_port_registered;
     admin->registered = 0;
     admin->device = device;
 
@@ -166,9 +168,9 @@ mapper_admin mapper_admin_new(const char *identifier,
     lo_server_add_method(admin->admin_server, "/port/probe", NULL, handler_device_alloc_port, admin);
     lo_server_add_method(admin->admin_server, "/name/probe", NULL, handler_device_alloc_name, admin);
 
-    /* Announce port and name to admin bus. */
-    mapper_admin_port_announce(admin);
-    mapper_admin_name_announce(admin);
+    /* Probe potential port and name to admin bus. */
+    mapper_admin_port_probe(admin);
+    mapper_admin_name_probe(admin);
 
     return admin;
 }
@@ -211,15 +213,15 @@ int count=0;
      * the port is locked it won't change. */
     if (!admin->port.locked)
         if (check_collisions(admin, &admin->port))
-            /* If the port has changed, re-announce the new port. */
-            mapper_admin_port_announce(admin);
+            /* If the port has changed, re-probe the new potential port. */
+            mapper_admin_port_probe(admin);
 
     /* If the ordinal is not yet locked, process collision timing.
      * Once the ordinal is locked it won't change. */
     if (!admin->ordinal.locked)
         if (check_collisions(admin, &admin->ordinal))
-            /* If the ordinal has changed, re-announce the new name. */
-            mapper_admin_name_announce(admin);
+            /* If the ordinal has changed, re-probe the new name. */
+            mapper_admin_name_probe(admin);
 
     /* If we are ready to register the device, add the needed message
      * handlers. */
@@ -263,28 +265,44 @@ int count=0;
     }
 }
 
-/*! Announce the device's current port on the admin bus to enable the
- *  allocation protocol.
+/*! Probe the admin bus to see if a device's proposed port is already
+ *  taken.
  */
-void mapper_admin_port_announce(mapper_admin admin)
+void mapper_admin_port_probe(mapper_admin admin)
 {
     trace("probing port\n");
 
     lo_send(admin->admin_addr, "/port/probe", "i", admin->port.value);
-
 }
 
-/*! Announce the device's current name on the admin bus to enable the
- *  allocation protocol.
+/*! Probe the admin bus to see if a device's proposed name.ordinal is
+ *  already taken.
  */
-void mapper_admin_name_announce(mapper_admin admin)
+void mapper_admin_name_probe(mapper_admin admin)
 {
     char name[256];
     trace("probing name\n");
     snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
     
     lo_send(admin->admin_addr,"/name/probe", "s", name);
+}
 
+/*! Announce on the admin bus a device's registered port. */
+void mapper_admin_port_registered(mapper_admin admin)
+{
+    if (admin->port.locked)
+        lo_send(admin->admin_addr,"/port/registered", "i",admin->port.value );
+}
+
+/*! Announce on the admin bus a device's registered name.ordinal. */
+void mapper_admin_name_registered(mapper_admin admin)
+{
+    if (admin->ordinal.locked)
+    {
+        char name[256];
+        snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
+        lo_send(admin->admin_addr,"/name/registered", "s", name );
+    }
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
@@ -306,7 +324,7 @@ static int check_collisions(mapper_admin admin,
 
     else
         /* If port collisions were found within 500 milliseconds of the
-         * last announcement, try a new random port. */
+         * last probe, try a new random port. */
         if (timediff >= 0.5 && resource->collision_count > 0)
         {
             /* Otherwise, add a random number based on the number of
@@ -319,7 +337,7 @@ static int check_collisions(mapper_admin admin,
             resource->collision_count = -1;
             resource->count_time = get_current_time();
 
-            /* Indicate that we need to re-announce the new value. */
+            /* Indicate that we need to re-probe the new value. */
             return 1;
         }
     
@@ -327,32 +345,18 @@ static int check_collisions(mapper_admin admin,
 }
 
 static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin, int type)
-	{
-		char name[256];
-    		snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
-    		
-		if (resource->locked) 
-			{
-				/*If resource=port*/
-				if (type==0)
-					{
-         	 				lo_send(admin->admin_addr,"/port/registered", "i",admin->port.value );
-					}
-				/*If resource=ordinal*/
-				else if (type==1)
-					{
-         	  				lo_send(admin->admin_addr,"/name/registered", "s", name );
-					}
-				
-				return;
-			}
-		
+{
+    char name[256];
+    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
 
-		/* Count port collisions. */
-    		resource->collision_count ++;
-    		trace("%d collision_count = %d\n", resource->value, resource->collision_count);
-    		resource->count_time = get_current_time();
-	}	
+    if (resource->locked && resource->on_collision)
+        resource->on_collision(admin);
+
+    /* Count port collisions. */
+    resource->collision_count ++;
+    trace("%d collision_count = %d\n", resource->value, resource->collision_count);
+    resource->count_time = get_current_time();
+}
 
 /**********************************/
 /* Internal OSC message handlers. */
@@ -525,22 +529,22 @@ static int handler_device_alloc_port(const char *path, const char *types, lo_arg
     mapper_admin admin = (mapper_admin) user_data;
     
 
-    unsigned int  announced_port = 0;
+    unsigned int  probed_port = 0;
 
     if (argc < 1)
         return 0;
 
     if (types[0]=='i')
-        announced_port = argv[0]->i;
+        probed_port = argv[0]->i;
     else if (types[0]=='f')
-        announced_port = (unsigned int)argv[0]->f;
+        probed_port = (unsigned int)argv[0]->f;
     else
         return 0;
 
-    trace("got /port/probe %d \n", announced_port);
+    trace("got /port/probe %d \n", probed_port);
 
     /* Process port collisions. */
-    if (announced_port == admin->port.value)
+    if (probed_port == admin->port.value)
         on_collision(&admin->port, admin, 0);
 
     return 0;
@@ -552,8 +556,8 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
     mapper_admin admin = (mapper_admin) user_data;
     	
 
-    char         *announced_name = 0, *s;
-    unsigned int  announced_ordinal = 0;
+    char         *probed_name = 0, *s;
+    unsigned int  probed_ordinal = 0;
 
     if (argc < 1)
         return 0;
@@ -561,19 +565,19 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
     if (types[0]!='s' && types[0]!='S')
         return 0;
 
-    announced_name = &argv[0]->s;
+    probed_name = &argv[0]->s;
 
     /* Parse the ordinal from the complete name which is in the format: /<name>.<n> */
-    s = announced_name;
+    s = probed_name;
     if (*s++ != '/') return 0;
     while (*s != '.' && *s++) {}
-    announced_ordinal = atoi(++s);
+    probed_ordinal = atoi(++s);
 
-    trace("got /name/probe %s\n", announced_name);
+    trace("got /name/probe %s\n", probed_name);
 
     /* Process ordinal collisions. */
 	//TO DO: The collision should be calculated separately per-device-name
-    if (announced_ordinal == admin->ordinal.value)
+    if (probed_ordinal == admin->ordinal.value)
         on_collision(&admin->ordinal, admin, 1);
 
     return 0;

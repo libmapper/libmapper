@@ -18,9 +18,13 @@ void mapper_admin_free(mapper_admin admin);
 
 void mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_port_announce(mapper_admin admin);
+void mapper_admin_port_registered(mapper_admin admin);
 
-void mapper_admin_name_announce(mapper_admin admin);
+void mapper_admin_name_registered(mapper_admin admin);
+
+void mapper_admin_port_probe(mapper_admin admin);
+
+void mapper_admin_name_probe(mapper_admin admin);
 
 /***** Device *****/
 void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias);
