@@ -68,6 +68,9 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
 
 void mapper_router_remove_mapping(mapper_signal_mapping sm, mapper_mapping mapping);
 
+mapper_mapping mapper_router_add_blank_mapping(mapper_router router, mapper_signal sig,
+                                      const char *name);
+
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
                                       const char *name);
 
