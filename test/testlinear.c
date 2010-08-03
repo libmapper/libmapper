@@ -93,7 +93,7 @@ void cleanup_receiver()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(host, recvport,"testrecv");
+    router = mapper_router_new(sender, host, recvport,"testrecv");
     mdev_add_router(sender, router);
     printf("Router to %s:%d added.\n", host, recvport);
 
@@ -112,7 +112,7 @@ int setup_router()
     printf("Mapping signal %s -> %s\n",
            signame_out, signame_in);
     mapper_router_add_linear_mapping(router, sendsig, signame_in,
-                                     (mapper_signal_value_t)10.0f);
+                                     0.0f, 1.0f, -10.0f, 10.0f);
 
     
 	return 0;

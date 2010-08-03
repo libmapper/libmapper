@@ -1,5 +1,6 @@
 
-noinst_PROGRAMS = test
+noinst_PROGRAMS = test testadmin testsend testrecv testexpression	\
+                  testlinear
 
 testadmin_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -20,10 +21,6 @@ testlinear_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 testexpression_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testexpression_SOURCES = testexpression.c
 testexpression_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
-
-test_unlinked_unconnected_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
-test_unlinked_unconnected_SOURCES = test_unlinked_unconnected.c
-test_unlinked_unconnected_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 test_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 test_SOURCES = test.c
