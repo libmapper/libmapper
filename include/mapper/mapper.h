@@ -145,4 +145,17 @@ int mdev_send_signal(mapper_device device, mapper_signal sig);
  *  otherwise. */
 int mdev_ready(mapper_device device);
 
+/*! Return a string indicating the device's full name, if it is
+ *  registered.  The returned string must not be externally modified.
+ *  \param device The device to query.
+ *  \return String containing the device's full name, or zero if it is
+ *  not available. */
+const char *mdev_name(mapper_device device);
+
+/*! Return the port used by a device to receive signals, if available.
+ *  \param device The device to query.
+ *  \return An integer indicating the device's port, or zero if it is
+ *  not available. */
+unsigned int mdev_port(mapper_device device);
+
 #endif // __MAPPER_H__

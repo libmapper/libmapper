@@ -52,7 +52,8 @@ typedef struct _mapper_admin_allocated_t {
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin
 {
-    char*                    			identifier;    //!< The identifier for this device.
+    char*                    			identifier;    //!< The identifier (prefix) for this device.
+    char*                    			name;          //!< The full name for this device, or zero.
     mapper_admin_allocated_t 			ordinal;       //!< The unique ordinal for this device.
     mapper_device_type_t     			device_type;   //!< The type of this device.
     mapper_admin_allocated_t 			port;          //!< This device's UDP port number.

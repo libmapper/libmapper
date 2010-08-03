@@ -77,15 +77,17 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 
 int msig_full_name(mapper_signal sig, char *name, int len)
 {
-    int r = mdev_name(sig->device, name, len);
-    if (!r) return 0;
+    const char *mdname = mdev_name(sig->device);
+    if (!mdname)
+        return 0;
 
-    if (r < len)
-        r += (strncat(name+r, sig->name, len-r) - (name+r));
+    int mdlen = strlen(mdname);
+    if (mdlen >= len)
+        return 0;
+    if ((mdlen + strlen(sig->name)) > len)
+        return 0;
 
-    if (r < len)
-        return r;
-
-    // it's an error if there wasn't enough space
-    return 0;
+    strncpy(name, mdname, mdlen);
+    strncat(name, sig->name, len);
+    return strlen(name);
 }

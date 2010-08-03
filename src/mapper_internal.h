@@ -26,6 +26,14 @@ void mapper_admin_port_probe(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);
 
+/* A macro allow tracing bad usage of this function. */
+#define mapper_admin_name(admin)                        \
+    _real_mapper_admin_name(admin, __FILE__, __LINE__)
+
+/* The real function, don't call directly. */
+const char* _real_mapper_admin_name(mapper_admin admin,
+                                    const char *file, unsigned int line);
+
 /***** Device *****/
 void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias);
 
@@ -41,7 +49,7 @@ void mdev_start_server(mapper_device mdev);
 void mdev_on_port_and_ordinal(mapper_device md,
                               mapper_admin_allocated_t *resource);
 
-int mdev_name(mapper_device md, char *name, int len);
+const char* mdev_name(mapper_device md);
 
 /***** Router *****/
 

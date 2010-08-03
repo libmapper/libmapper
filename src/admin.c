@@ -186,6 +186,9 @@ void mapper_admin_free(mapper_admin admin)
     if (admin->identifier)
         free(admin->identifier);
 
+    if (admin->name)
+        free(admin->name);
+
     if (admin->admin_server)
         lo_server_free(admin->admin_server);
 
@@ -231,20 +234,20 @@ int count=0;
         lo_server_add_method(admin->admin_server, "/who", "", handler_who, admin);
 		lo_server_add_method(admin->admin_server, "/registered", NULL, handler_registered, admin);
         
-		snprintf(namespaceget, 256, "/%s.%d/namespace/get", admin->identifier, admin->ordinal.value);
+		snprintf(namespaceget, 256, "/%s/namespace/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_get, admin);
 		
-		snprintf(namespaceget, 256, "/%s.%d/namespace/input/get", admin->identifier, admin->ordinal.value);
+		snprintf(namespaceget, 256, "/%s/namespace/input/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_input_get, admin);
 
-		snprintf(namespaceget, 256, "/%s.%d/namespace/output/get", admin->identifier, admin->ordinal.value);
+		snprintf(namespaceget, 256, "/%s/namespace/output/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_id_n_namespace_output_get, admin);
 	
-		snprintf(namespaceget, 256, "/%s.%d/info/get", admin->identifier, admin->ordinal.value);
+		snprintf(namespaceget, 256, "/%s/info/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "", handler_who, admin);
 		
 		char linksget[256];
-		snprintf(linksget, 256, "/%s.%d/links/get", admin->identifier, admin->ordinal.value);
+		snprintf(linksget, 256, "/%s/links/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, linksget, "", handler_device_links_get, admin);
         lo_server_add_method(admin->admin_server, "/*/links/get", "", handler_device_links_get, admin);
 
@@ -253,7 +256,7 @@ int count=0;
 		lo_server_add_method(admin->admin_server, "/unlink", "ss", handler_device_unlink, admin);
 		
 		char connectionsget[256];
-		snprintf(connectionsget, 256, "/%s.%d/connections/get", admin->identifier, admin->ordinal.value);
+		snprintf(connectionsget, 256, "/%s/connections/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, connectionsget, "", handler_device_connections_get, admin);
 
  		lo_server_add_method(admin->admin_server, "/connect", NULL, handler_param_connect, admin);
@@ -280,6 +283,9 @@ void mapper_admin_port_probe(mapper_admin admin)
  */
 void mapper_admin_name_probe(mapper_admin admin)
 {
+    /* Note: mapper_admin_name() would refuse here since the
+     * ordinal is not yet locked, so we have to build it manually at
+     * this point. */
     char name[256];
     trace("probing name\n");
     snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
@@ -298,11 +304,31 @@ void mapper_admin_port_registered(mapper_admin admin)
 void mapper_admin_name_registered(mapper_admin admin)
 {
     if (admin->ordinal.locked)
-    {
-        char name[256];
-        snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
-        lo_send(admin->admin_addr,"/name/registered", "s", name );
+        lo_send(admin->admin_addr,"/name/registered", "s", mapper_admin_name(admin));
+}
+
+const char* _real_mapper_admin_name(mapper_admin admin,
+                                    const char *file, unsigned int line)
+{
+    if (!admin->ordinal.locked) {
+        /* Since this function is intended to be used internally in a
+         * fairly liberal manner, we want to trace any situations
+         * where returning 0 might cause a problem.  The external call
+         * to this function, mdev_full_name(), has been special-cased
+         * to allow this. */
+        trace("mapper_admin_name() returning 0 at %s:%d.\n", file, line);
+        return 0;
     }
+
+    if (admin->name)
+        return admin->name;
+
+    unsigned int len = strlen(admin->identifier)+6;
+    admin->name = (char *)malloc(len);
+    admin->name[0] = 0;
+    snprintf(admin->name, len, "/%s.%d", admin->identifier, admin->ordinal.value);
+
+    return admin->name;
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
@@ -346,9 +372,6 @@ static int check_collisions(mapper_admin admin,
 
 static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin, int type)
 {
-    char name[256];
-    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
-
     if (resource->locked && resource->on_collision)
         resource->on_collision(admin);
 
@@ -366,15 +389,11 @@ static void on_collision(mapper_admin_allocated_t *resource, mapper_admin admin,
 static int handler_who(const char *path, const char *types, lo_arg **argv,
                               int argc, lo_message msg, void *user_data)
 {
-
     mapper_admin admin = (mapper_admin)user_data;
-    char name[256];
-
-    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
 
     lo_send(admin->admin_addr,
             "/registered", "ssssisssisisiiiiiiii",
-            name,
+            mapper_admin_name(admin),
             "@IP", inet_ntoa(admin->interface_ip),
             "@port", admin->port.value,
 			"@canAlias", "no",/*TODO : OSC aliases*/
@@ -386,7 +405,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 		if(!(*((mapper_admin) user_data)).registered)
 			{
 				(*((mapper_admin) user_data)).registered=1;
-				printf("NEW LOCAL DEVICE : %s\n",name);
+				printf("NEW LOCAL DEVICE : %s\n", mapper_admin_name(admin));
 			}
     return 0;
 }
@@ -433,13 +452,11 @@ static int handler_id_n_namespace_input_get(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin)user_data;
     mapper_device md = admin->device;
-    char name[1024], response[1024], method[1024], type[2]={0,0};
+    char response[1024], method[1024], type[2]={0,0};
     int i;
 
-    snprintf(name, 1024, "/%s.%d", admin->identifier, admin->ordinal.value);
+    snprintf(response, 1024, "/%s/namespace/input", mapper_admin_name(admin));
 
-    strcpy(response, name);
-    strcat(response, "/namespace/input");
     for (i=0; i < md->n_inputs; i++)
     	{
         	mapper_signal sig = md->inputs[i];
@@ -475,13 +492,11 @@ static int handler_id_n_namespace_output_get(const char *path, const char *types
 {
     mapper_admin admin = (mapper_admin)user_data;
     mapper_device md = admin->device;
-    char name[1024], response[1024], method[1024], type[2]={0,0};
+    char response[1024], method[1024], type[2]={0,0};
     int i;
 
-    snprintf(name, 1024, "/%s.%d", admin->identifier, admin->ordinal.value);
+    snprintf(response, 1024, "/%s/namespace/output", mapper_admin_name(admin));
 
-    strcpy(response, name);
-    strcat(response, "/namespace/output");
     for (i=0; i < md->n_outputs; i++)
     {
         mapper_signal sig = md->outputs[i];

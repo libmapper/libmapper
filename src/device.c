@@ -237,7 +237,7 @@ void mdev_start_server(mapper_device md)
 
         if (md->server) {
             trace("device '%s' opened server on port %d\n",
-                  md->name_prefix, md->admin->port.value);
+                  mapper_admin_name(md->admin), md->admin->port.value);
 
         } else {
             trace("error opening server on port %d for device '%s'\n",
@@ -249,32 +249,34 @@ void mdev_start_server(mapper_device md)
             for (j=0; j<md->inputs[i]->length; j++)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;
-            if (!msig_full_name(md->inputs[i], signame, 1024))
-                { trace("couldn't get signal name.\n"); printf("couldn't get signal name.\n");}
-            else
-                lo_server_add_method(md->server,
-                                     md->inputs[i]->name,
-                                     type,
-                                     handler_signal,
-                                     (void*)(md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->name,
+                                 type,
+                                 handler_signal,
+                                 (void*)(md->inputs[i]));
         }
         free(type);
     }
 }
 
-int mdev_name(mapper_device md, char *name, int len)
+const char* mdev_name(mapper_device md)
 {
-    int r=0;
+    /* Hand this off to the admin struct, where the name may be
+     * cached. However: manually checking ordinal.locked here so that
+     * we can safely trace bad usage when mapper_admin_full_name is
+     * called inappropriately. */
+    if (md->admin->ordinal.locked)
+        return mapper_admin_name(md->admin);
+    else
+        return 0;
+}
 
-    if (md->admin
-        && md->admin->ordinal.locked)
-    {
-        r = snprintf(name, len, "/%s.%d",
-                     md->name_prefix,
-                     md->admin->ordinal.value);
-    }
-    if (r < 0) return 0;
-    return r;
+unsigned int mdev_port(mapper_device md)
+{
+    if (md->admin->port.locked)
+        return md->admin->port.value;
+    else
+        return 0;
 }
 
 int mdev_ready(mapper_device device)
