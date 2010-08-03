@@ -782,7 +782,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 	int i=0,c=1,j=2,f1=0,f2=0,recvport=-1,range_update=0;
 
     char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024];	
-	char *expression;
+	char *expression=0;
 	char src_type, dest_type;
 	float dest_range_min = 0, dest_range_max = 1, src_range_min, src_range_max;	
 
@@ -969,13 +969,27 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 					/* Add clipping! */
 
 					//(*((mapper_admin) user_data)).device->num_mappings_out++;
-					lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
-						strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name), 
-						"@scaling",scaling,
-						"@range",src_range_min,src_range_max,dest_range_min,dest_range_max,
-						"@expression",expression,
-						"@clipMin",clipMin,
-						"@clipMax",clipMax);
+                    if (expression)
+                        lo_send((*((mapper_admin) user_data)).admin_addr,
+                                "/connected", "sssssffffssssss", 
+                                strcat(src_device_name, src_param_name),
+                                strcat(target_device_name, target_param_name), 
+                                "@scaling",scaling,
+                                "@range",src_range_min,src_range_max,
+                                dest_range_min,dest_range_max,
+                                "@expression",expression,
+                                "@clipMin",clipMin,
+                                "@clipMax",clipMax);
+                    else
+                        lo_send((*((mapper_admin) user_data)).admin_addr,
+                                "/connected", "sssssffffssss", 
+                                strcat(src_device_name, src_param_name),
+                                strcat(target_device_name, target_param_name), 
+                                "@scaling",scaling,
+                                "@range",src_range_min,src_range_max,
+                                dest_range_min,dest_range_max,
+                                "@clipMin",clipMin,
+                                "@clipMax",clipMax);
 				}
 				f1=1;
 			}
@@ -1331,7 +1345,7 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 				lo_message_add(m,"ss",strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name));
 				
 				/*Add device connection info*/
-				lo_message_add(m, "sssiss", 
+				lo_message_add(m, "sssi", 
 							   "@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
 							   "@port", (*((mapper_admin) user_data)).port.value);
 							
