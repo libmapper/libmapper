@@ -597,6 +597,7 @@ static int handler_device_link(const char *path, const char *types, lo_arg **arg
     strcpy(target_name,&argv[1]->s);
 
     trace("got /link %s %s\n", sender_name, target_name);
+	printf("got /link %s %s\n", sender_name, target_name);
 	
 	/* If the device who received the message is the target in the /link message... */
 	if ( strcmp(device_name,target_name)==0 )
@@ -680,7 +681,7 @@ static int handler_device_link_to(const char *path, const char *types, lo_arg **
 			printf("NEW LINKED DEVICE %s\nHost : %s, Port : %d, canAlias : %s\n\n", target_name, host_address, recvport, can_alias);
 		
 			/* Creation of a new router added to the sender*/
-			router = mapper_router_new(host_address, recvport, target_name);
+			router = mapper_router_new((*((mapper_admin) user_data)).device, host_address, recvport, target_name);
 			mdev_add_router((*((mapper_admin) user_data)).device, router);
 			(*((mapper_admin) user_data)).device->num_routers++;
 			printf("Router to %s : %d added.\n", host_address,recvport);
@@ -811,13 +812,12 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 		if( argc>2 ) {
 					
 			trace("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
-			printf("got /connect_to %s%s %s%s+ OPTIONS\n", src_device_name, src_param_name, target_device_name, target_param_name);
+			printf("got /connect_to %s%s %s%s + %d arguments\n", src_device_name, src_param_name, target_device_name, target_param_name, argc);
 			
 			/* Parse the options list*/			
 			while(j<argc) {
 				if (types[j]!='s' && types[j]!='S') {
-					printf("syntaxe message incorrecte\n");
-					return 0;
+					j++;
 				}
 
 				else if(strcmp(&argv[j]->s,"@scaling")==0) {
@@ -885,6 +885,10 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 					dest_type=argv[j+1]->c;
 					j+=2;
 				}
+				else {
+					j++;
+				}
+
 			}
 			printf("parsed properties\n");
 		}
@@ -925,6 +929,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 				
 				/* If the router doesn't exist yet */
 				if (f2==0) {
+					printf("devices are not linked!");
 					if (host_address!=NULL && recvport!=-1) {
 						//TO DO: create routed using supplied host and port info
 						//TO DO: send /linked message
@@ -963,7 +968,7 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 					
 					/* Add clipping! */
 
-					(*((mapper_admin) user_data)).device->num_mappings_out++;
+					//(*((mapper_admin) user_data)).device->num_mappings_out++;
 					lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
 						strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name), 
 						"@scaling",scaling,
@@ -1328,8 +1333,7 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 				/*Add device connection info*/
 				lo_message_add(m, "sssiss", 
 							   "@IP", inet_ntoa((*((mapper_admin) user_data)).interface_ip),
-							   "@port", (*((mapper_admin) user_data)).port.value,
-							   "@canAlias", "no");
+							   "@port", (*((mapper_admin) user_data)).port.value);
 							
 				/*If options added to the connect message*/
 				if(argc>2) {

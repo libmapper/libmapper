@@ -13,13 +13,14 @@
 
 /*void*/ int get_expr_Tree (Tree *T,char *expr);
 
-mapper_router mapper_router_new(const char *host, int port, char *name)
+mapper_router mapper_router_new(mapper_device device, const char *host, int port, char *name)
 {
     char str[16];
     mapper_router router = calloc(1,sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->addr = lo_address_new(host, str);
 	router->target_name=strdup(name);
+	router->device = device;
 
     if (!router->addr) {
         mapper_router_free(router);
@@ -86,21 +87,6 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 		
 		signal.name=strdup(m->name);
 
-		/* The mapping name is the full name of the destination signal (/<device>/<param>) and we just need here the /<param> name to create the new signal*/
-		/*name=strdup(m->name);
-		while ((name)[c]!='/' && c<strlen(name))
-			c++;
-		if (c<strlen(name) && c>1)
-			{
-				while ((name)[c+i]!='\0')
-					{				
-						name[i]=(name)[c+i];
-						i++;
-					}
-				signal.name=strndup(name,i);
-				free(name);
-			}*/
-
 		mapper_signal_value_t v;
         mapper_mapping_perform(m, value, &v);
         mapper_router_send_signal(router, &signal, &v);
@@ -149,6 +135,8 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     // add new mapping to this signal's list
     mapping->next = sm->mapping;
     sm->mapping = mapping;
+	
+	router->device->num_mappings_out++;
 }
 
 
@@ -170,13 +158,19 @@ void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig, c
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
+	char src_name[1024], dest_name[1024];
 
     mapping->type = BYPASS;
     mapping->name = strdup(name);
 	mapping->expression = strdup("y=x");
-	mapping->use_range = 0;
+	mapping->use_ranges = 0;
 
     mapper_router_add_mapping(router, sig, mapping);
+	
+	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
+	snprintf(dest_name, 256, "%s%s", router->target_name, name);
+	
+	lo_send(router->device->admin->admin_addr,"/connecteddd", "ssss", src_name, dest_name, "@scaling", "bypass");
 }
 
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
@@ -184,6 +178,7 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
+	char src_name[1024], dest_name[1024];
 
     mapping->type=LINEAR;
     mapping->name = strdup(name);
@@ -191,17 +186,17 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 	free(mapping->expression);		
 	mapping->expression=malloc(256*sizeof(char));
 	snprintf(mapping->expression, 256, "y=(x-%g)*%g+%g",
-			 src_range_min,(dest_range_max-dest_range_min)/(src_range_max-src_range_min),dest_range_min);
+			 src_min,(dest_max-dest_min)/(src_max-src_min),dest_min);
 
 	mapping->range[0] = src_min;
 	mapping->range[1] = src_max;
 	mapping->range[2] = dest_min;
 	mapping->range[3] = dest_max;
-	mapping->use_range = 1;
+	mapping->use_ranges = 1;
 
     Tree *T=NewTree();
 
-    int success_tree=get_expr_Tree(T, expr);
+    int success_tree=get_expr_Tree(T, mapping->expression);
 	if (!success_tree)
 		return;
 		
@@ -218,6 +213,11 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 
 
     mapper_router_add_mapping(router, sig, mapping);
+	
+	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
+	snprintf(dest_name, 256, "%s%s", router->target_name, name);
+	
+	lo_send(router->device->admin->admin_addr,"/connecteddd", "ssss", src_name, dest_name, "@scaling", "linear");
 }
 
 void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
@@ -231,16 +231,8 @@ void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig
 	
 	mapping->range[2] = dest_min;
 	mapping->range[3] = dest_max;
-	mapping->use_range = 0;
+	mapping->use_ranges = 0;
 	mapping->rewrite = 1;
-	
-    Tree *T=NewTree();
-	
-    int success_tree=get_expr_Tree(T, expr);
-	if (!success_tree)
-		return;
-	
-    mapping->expr_tree=T;		
 	
     /*mapping->coef_input[0] = scale.f;
 	 mapping->order_input = 1;
@@ -264,7 +256,7 @@ void mapper_router_add_expression_mapping(mapper_router router, mapper_signal si
     mapping->type=EXPRESSION;
     mapping->name = strdup(name);
 	mapping->expression = strdup(expr);
-	mapping->use_range = 0;
+	mapping->use_ranges = 0;
 
     Tree *T=NewTree();
     get_expr_Tree(T, expr);
@@ -272,3 +264,5 @@ void mapper_router_add_expression_mapping(mapper_router router, mapper_signal si
 
     mapper_router_add_mapping(router, sig, mapping);
 }
+
+/* void mapper_router_add_custom_mapping(mapper_router router, mapper_signal sig, const char *name, int argc, something **argv*/
