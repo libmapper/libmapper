@@ -62,7 +62,6 @@ void mapper_router_free(mapper_router router)
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value)
 {
-
     // find this signal in list of mappings
     mapper_signal_mapping sm = router->mappings;
     while (sm && sm->signal != sig)
@@ -97,7 +96,6 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 void mapper_router_send_signal(mapper_router router, mapper_signal sig,
                                mapper_signal_value_t *value)
 {
-
     int i;
     lo_message m;
     if (!router->addr) 	
@@ -139,20 +137,35 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
 	router->device->num_mappings_out++;
 }
 
-
-void mapper_router_remove_mapping(mapper_signal_mapping sm, mapper_mapping mapping)
+void mapper_router_remove_mapping(/*mapper_router router,*/ mapper_signal_mapping sm, mapper_mapping mapping)
 {
 
     mapper_mapping *m = &sm->mapping;
     while (*m) {
         if (*m == mapping) {
             *m = mapping->next;
+			//lo_send(router->device->admin->admin_addr,"/disconnected", "ss", strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name) );
+			//router->device->num_mappings_out--;
             break;
         }
         m = &(*m)->next;
     }
 }
 
+mapper_mapping mapper_router_add_blank_mapping(mapper_router router, mapper_signal sig, const char *name)
+{
+    mapper_mapping mapping =
+	calloc(1,sizeof(struct _mapper_mapping));
+	
+	// Some default values?
+    mapping->type = BYPASS;
+    mapping->name = strdup(name);
+	mapping->expression = strdup("y=x");
+	mapping->use_ranges = 0;
+	
+    mapper_router_add_mapping(router, sig, mapping);
+	return mapping;
+}
 
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig, const char *name)
 {
@@ -170,7 +183,7 @@ void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig, c
 	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
 	snprintf(dest_name, 256, "%s%s", router->target_name, name);
 	
-	lo_send(router->device->admin->admin_addr,"/connecteddd", "ssss", src_name, dest_name, "@scaling", "bypass");
+	lo_send(router->device->admin->admin_addr,"/connected", "ssss", src_name, dest_name, "@scaling", "bypass");
 }
 
 void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
@@ -217,7 +230,7 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
 	snprintf(dest_name, 256, "%s%s", router->target_name, name);
 	
-	lo_send(router->device->admin->admin_addr,"/connecteddd", "ssss", src_name, dest_name, "@scaling", "linear");
+	lo_send(router->device->admin->admin_addr,"/connected", "sssssssffff", src_name, dest_name, "@scaling", "linear", "@expression", mapping->expression, "@range", src_min, src_max, dest_min, dest_max);
 }
 
 void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
@@ -225,9 +238,14 @@ void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig
 {
     mapper_mapping mapping =
 	calloc(1,sizeof(struct _mapper_mapping));
+	char src_name[1024], dest_name[1024];
 	
     mapping->type = CALIBRATE;
     mapping->name = strdup(name);
+	
+	free(mapping->expression);		
+	mapping->expression=malloc(256*sizeof(char));
+	snprintf(mapping->expression, 256, "y=%g", dest_min);
 	
 	mapping->range[2] = dest_min;
 	mapping->range[3] = dest_max;
@@ -245,6 +263,11 @@ void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig
 	
 	
     mapper_router_add_mapping(router, sig, mapping);
+	
+	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
+	snprintf(dest_name, 256, "%s%s", router->target_name, name);
+	
+	lo_send(router->device->admin->admin_addr,"/connected", "sssssssssff", src_name, dest_name, "@scaling", "calibrate", "@expression", mapping->expression, "@range", "-", "-", dest_min, dest_max);
 }
 
 void mapper_router_add_expression_mapping(mapper_router router, mapper_signal sig,
@@ -252,6 +275,7 @@ void mapper_router_add_expression_mapping(mapper_router router, mapper_signal si
 {
     mapper_mapping mapping =
         calloc(1,sizeof(struct _mapper_mapping));
+	char src_name[1024], dest_name[1024];
 
     mapping->type=EXPRESSION;
     mapping->name = strdup(name);
@@ -263,6 +287,9 @@ void mapper_router_add_expression_mapping(mapper_router router, mapper_signal si
     mapping->expr_tree=T;
 
     mapper_router_add_mapping(router, sig, mapping);
+	
+	snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier, router->device->admin->ordinal.value, sig->name);
+	snprintf(dest_name, 256, "%s%s", router->target_name, name);
+	
+	lo_send(router->device->admin->admin_addr,"/connected", "ssssss", src_name, dest_name, "@scaling", "expression", "@expression", mapping->expression);
 }
-
-/* void mapper_router_add_custom_mapping(mapper_router router, mapper_signal sig, const char *name, int argc, something **argv*/
