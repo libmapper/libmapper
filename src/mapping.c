@@ -44,40 +44,58 @@ void mapper_mapping_perform(mapper_mapping mapping,
       	}
 	
 	else if (mapping->type==CALIBRATE) {
-		if(mapping->rewrite) {	/* If calibration mode has just taken effect, first data sample sets source min and max */
-			mapping->range[0] = from_value->f;
-			mapping->range[1] = from_value->f;
-			mapping->rewrite = 0;
-			changed = 1;
-		} else {
-			if(from_value->f < mapping->range[0]) {
-				mapping->range[0] = from_value->f;
-				changed = 1;
-			}
-			if(from_value->f > mapping->range[1]) {
-				mapping->range[1] = from_value->f;
-				changed = 1;
-			}
-		}
-		
-		if(changed) {
-			// Need to arrange to send an admin bus message stating new ranges and expression
-			// The expression has to be modified to fit the range
-			if (mapping->range[0]==mapping->range[1])
-			{
-				free(mapping->expression);
-				mapping->expression=malloc(100*sizeof(char));											
-				snprintf(mapping->expression,100,"y=%f",mapping->range[0]);
-			}
-			else if (mapping->range[0]==mapping->range[2] && mapping->range[1]==mapping->range[3])
-				snprintf(mapping->expression,100,"y=x");
-			else {
-				free(mapping->expression);		
-				mapping->expression=malloc(256*sizeof(char));							
-				snprintf(mapping->expression,256,"y=(x-%g)*%g+%g",
-						 mapping->range[0],(mapping->range[3]-mapping->range[2])/(mapping->range[1]-mapping->range[0]),mapping->range[2]);
-			}
-			
+        /* If calibration mode has just taken effect, first data
+         * sample sets source min and max */
+        if(mapping->range.rewrite) {
+            mapping->range.src_min = from_value->f;
+            mapping->range.src_max = from_value->f;
+            mapping->range.known |= RANGE_SRC_MIN | RANGE_SRC_MAX;
+            mapping->range.rewrite = 0;
+            changed = 1;
+        } else {
+            if(from_value->f < mapping->range.src_min) {
+                mapping->range.src_min = from_value->f;
+                mapping->range.known |= RANGE_SRC_MIN;
+                changed = 1;
+            }
+            if(from_value->f > mapping->range.src_max) {
+                mapping->range.src_max = from_value->f;
+                mapping->range.known |= RANGE_SRC_MAX;
+                changed = 1;
+            }
+        }
+
+        if(changed) {
+            /* Need to arrange to send an admin bus message stating
+             * new ranges and expression.  The expression has to be
+             * modified to fit the range. */
+            if (mapping->range.src_min == mapping->range.src_max)
+            {
+                free(mapping->expression);
+                mapping->expression=malloc(100*sizeof(char));
+                snprintf(mapping->expression,100, "y=%f",
+                         mapping->range.src_min);
+            }
+            else if (mapping->range.known == RANGE_KNOWN
+                     && mapping->range.src_min == mapping->range.dest_min
+                     && mapping->range.src_max == mapping->range.dest_max)
+                snprintf(mapping->expression,100,"y=x");
+
+            else if (mapping->range.known == RANGE_KNOWN) {
+                float scale = (mapping->range.dest_min
+                               - mapping->range.dest_max)
+                    / (mapping->range.src_min - mapping->range.src_max);
+                float offset =
+                    (mapping->range.dest_max*mapping->range.src_min
+                     - mapping->range.dest_min*mapping->range.src_max)
+                    / (mapping->range.src_min - mapping->range.src_max);
+
+                free(mapping->expression);
+                mapping->expression=malloc(256*sizeof(char));
+                snprintf(mapping->expression, 256, "y=x*%g+%g",
+                         scale, offset);
+            }
+
 			DeleteTree(mapping->expr_tree);
 			Tree *T=NewTree();
 			int success_tree=get_expr_Tree(T, mapping->expression);

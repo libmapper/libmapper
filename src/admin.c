@@ -877,21 +877,21 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 					}
 					else if(strcmp(&argv[j]->s,"@range")==0) {
 						if (types[j+1] == 'i')
-							m->range[0]=(float)argv[j+1]->i;
+							m->range.src_min=(float)argv[j+1]->i;
 						else if (types[j+1] == 'f')
-							m->range[0]=argv[j+1]->f;
+							m->range.src_min=argv[j+1]->f;
 						if (types[j+2] == 'i')
-							m->range[1]=(float)argv[j+2]->i;
+							m->range.src_max=(float)argv[j+2]->i;
 						else if (types[j+2] == 'f')
-							m->range[1]=argv[j+2]->f;
+							m->range.src_max=argv[j+2]->f;
 						if (types[j+3] == 'i')
-							m->range[2]=(float)argv[j+3]->i;
+							m->range.dest_min=(float)argv[j+3]->i;
 						else if (types[j+3] == 'f')
-							m->range[2]=argv[j+3]->f;
+							m->range.dest_min=argv[j+3]->f;
 						if (types[j+4] == 'i')
-							m->range[3]=(float)argv[j+4]->i;
+							m->range.dest_max=(float)argv[j+4]->i;
 						else if (types[j+4] == 'f')
-							m->range[3]=argv[j+4]->f;
+							m->range.dest_max=argv[j+4]->f;
 						range_update += 4;
 						j+=5;
 					}
@@ -1020,7 +1020,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 						else if((strcmp(scaling,"linear")==0) || (strcmp(scaling, "calibrate")==0)) {
 							if(strcmp(scaling, "calibrate")==0) {
 								m->type=CALIBRATE;
-								m->rewrite=1;
+								m->range.rewrite=1;
 							}
 							else
 								m->type=LINEAR;
@@ -1028,7 +1028,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 							free(m->expression);		
 							m->expression=malloc(256*sizeof(char));							
 							snprintf(m->expression,256,"y=(x-%g)*%g+%g",
-										  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
+										  m->range.src_min,(m->range.dest_max-m->range.dest_min)/(m->range.src_max-m->range.src_min),m->range.dest_min);
 							DeleteTree(m->expr_tree);
 							Tree *T=NewTree();
 							int success_tree=get_expr_Tree(T, m->expression);
@@ -1075,26 +1075,36 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 							printf("invert message\n");
 							strcpy(invert,&argv[4]->s);
 							if(strcmp(invert,"input") == 0) {
-								float temp = m->range[0];
-								m->range[0] = m->range[1];
-								m->range[1] = temp;
+								float temp = m->range.src_min;
+								m->range.src_min = m->range.src_max;
+								m->range.src_max = temp;
 							}
 							else if(strcmp(invert,"output") == 0) {
-								float temp = m->range[2];
-								m->range[2] = m->range[3];
-								m->range[3] = temp;
+								float temp = m->range.dest_min;
+								m->range.dest_min = m->range.dest_max;
+								m->range.dest_max = temp;
 							}
 						}
 						else {
-							int k=3;
-							while ( types[k]!='f' && types[k]!='i' &&  k<=6)
-									k++;
-											
-							if (types[k]=='f')
-								m->range[k-3]=(float)(argv[k]->f);
+                            switch (types[3]) {
+                            case 'f': m->range.src_min = argv[3]->f; break;
+                            case 'i': m->range.src_min = argv[3]->i; break;
+                            }
 
-							else if (types[k]=='i')
-								m->range[k-3]=(float)(argv[k]->i);
+                            switch (types[4]) {
+                            case 'f': m->range.src_max = argv[4]->f; break;
+                            case 'i': m->range.src_max = argv[4]->i; break;
+                            }
+
+                            switch (types[5]) {
+                            case 'f': m->range.dest_min = argv[5]->f; break;
+                            case 'i': m->range.dest_min = argv[5]->i; break;
+                            }
+
+                            switch (types[6]) {
+                            case 'f': m->range.dest_max = argv[6]->f; break;
+                            case 'i': m->range.dest_max = argv[6]->i; break;
+                            }
 						}
 							
 						if(m->type==LINEAR || m->type==CALIBRATE) {
@@ -1102,7 +1112,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 							free(m->expression);	
 							m->expression=malloc(256*sizeof(char));									
 							snprintf(m->expression,256,"y=(x-%g)*%g+%g",
-												  m->range[0],(m->range[3]-m->range[2])/(m->range[1]-m->range[0]),m->range[2]);
+												  m->range.src_min,(m->range.dest_max-m->range.dest_min)/(m->range.src_max-m->range.src_min),m->range.dest_min);
 							DeleteTree(m->expr_tree);
 							Tree *T=NewTree();
 							int success_tree=get_expr_Tree(T, m->expression);
@@ -1111,7 +1121,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 							/*get_expr_Tree(T, m->expression);*/
 							m->expr_tree=T;
 						}
-						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","sffff",@range, m->range[0],m->range[1],m->range[2],m->range[3]);*/
+						/*lo_send((*((mapper_admin) user_data)).admin_addr,"/connected","sffff",@range, m->range.src_min,m->range.src_max,m->range.dest_min,m->range.dest_max);*/
 					}
 								
 					else if(strcmp(modif_prop,"@clipMin")==0) {
@@ -1155,7 +1165,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
 					lo_send((*((mapper_admin) user_data)).admin_addr,"/connected", "sssssffffssssss", 
 						strcat(src_device_name, src_param_name), strcat(target_device_name, target_param_name), 
 						"@scaling",mapping_type,
-						"@range",m->range[0],m->range[1],m->range[2],m->range[3],
+						"@range",m->range.src_min,m->range.src_max,m->range.dest_min,m->range.dest_max,
 						"@expression",m->expression,
 						"@clipMin","none",
 						"@clipMax","none");
