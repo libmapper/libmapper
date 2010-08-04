@@ -23,14 +23,6 @@ struct _mapper_device;
 
 /**** Admin bus ****/
 
-/*! Types of devices supported by the admin bus. */
-typedef enum {
-    MAPPER_DEVICE_CONTROLLER,
-    MAPPER_DEVICE_SYNTH,
-    MAPPER_DEVICE_ROUTER,
-    MAPPER_DEVICE_MAPPER
-} mapper_device_type_t;
-
 /*! Function to call when an allocated resource is locked. */
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
                                            struct _mapper_admin_allocated_t *resource);
@@ -55,7 +47,6 @@ typedef struct _mapper_admin
     char*                    			identifier;    //!< The identifier (prefix) for this device.
     char*                    			name;          //!< The full name for this device, or zero.
     mapper_admin_allocated_t 			ordinal;       //!< The unique ordinal for this device.
-    mapper_device_type_t     			device_type;   //!< The type of this device.
     mapper_admin_allocated_t 			port;          //!< This device's UDP port number.
     lo_server_thread         			admin_server;  //!< LibLo server thread for the admin bus.
     lo_address               			admin_addr;    //!< LibLo address for the admin bus.

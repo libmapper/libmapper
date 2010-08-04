@@ -41,10 +41,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
     mapper_device md =
         (mapper_device)calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
-    md->admin = mapper_admin_new(name_prefix,
-                                 md,
-                                 MAPPER_DEVICE_SYNTH,
-                                 initial_port);
+    md->admin = mapper_admin_new(name_prefix, md, initial_port);
 
     if (!md->admin) {
         mdev_free(md);

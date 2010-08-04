@@ -11,7 +11,6 @@
 
 mapper_admin mapper_admin_new(const char *identifier,
                               mapper_device device,
-                              mapper_device_type_t type,
                               int initial_port);
 
 void mapper_admin_free(mapper_admin admin);

@@ -99,7 +99,6 @@ static struct in_addr get_interface_addr(const char *ifname)
  */
 mapper_admin mapper_admin_new(const char *identifier,
                               mapper_device device,
-                              mapper_device_type_t type,
                               int initial_port)
 {
     mapper_admin admin = malloc(sizeof(mapper_admin_t));
@@ -146,7 +145,6 @@ mapper_admin mapper_admin_new(const char *identifier,
 
     /* Initialize data structures */
     admin->identifier = strdup(identifier);
-    admin->device_type = type;
     admin->ordinal.value = 1;
     admin->ordinal.locked = 0;
     admin->ordinal.collision_count = -1;
