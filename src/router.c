@@ -194,11 +194,14 @@ void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
 
     mapping->type=LINEAR;
     mapping->name = strdup(name);
-	
-	free(mapping->expression);		
+
+    float scale = (dest_min - dest_max) / (src_min - src_max);
+    float offset = (dest_max*src_min - dest_min*src_max) / (src_min - src_max);
+
+	free(mapping->expression);
 	mapping->expression=malloc(256*sizeof(char));
-	snprintf(mapping->expression, 256, "y=(x-%g)*%g+%g",
-			 src_min,(dest_max-dest_min)/(src_max-src_min),dest_min);
+	snprintf(mapping->expression, 256, "y=x*%g+%g",
+             scale, offset);
 
 	mapping->range[0] = src_min;
 	mapping->range[1] = src_max;
