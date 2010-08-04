@@ -583,8 +583,10 @@ static int handler_device_alloc_name(const char *path, const char *types, lo_arg
     trace("got /name/probe %s\n", probed_name);
 
     /* Process ordinal collisions. */
-	//TO DO: The collision should be calculated separately per-device-name
-    if (probed_ordinal == admin->ordinal.value)
+	//The collision should be calculated separately per-device-name
+	strtok(probed_name, ".");
+	probed_name++;
+    if ((strcmp(probed_name, admin->identifier) == 0) && (probed_ordinal == admin->ordinal.value))
         on_collision(&admin->ordinal, admin, 1);
 
     return 0;
