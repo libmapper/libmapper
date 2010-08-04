@@ -73,8 +73,16 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router, mapper_sign
 void mapper_router_add_direct_mapping(mapper_router router, mapper_signal sig,
                                       const char *name);
 
-void mapper_router_add_linear_mapping(mapper_router router, mapper_signal sig,
-                                    const char *name, float src_min, float src_max, float dest_min, float dest_max);
+void mapper_router_add_linear_range_mapping(mapper_router router,
+                                            mapper_signal sig,
+                                            const char *name,
+                                            float src_min, float src_max,
+                                            float dest_min, float dest_max);
+
+void mapper_router_add_linear_scale_mapping(mapper_router router,
+                                            mapper_signal sig,
+                                            const char *name,
+                                            float scale, float offset);
 
 void mapper_router_add_calibrate_mapping(mapper_router router, mapper_signal sig,
 									  const char *name, float dest_min, float dest_max);

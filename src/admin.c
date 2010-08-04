@@ -925,8 +925,11 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
 				if (strcmp(scaling, "dummy") == 0) {
 					if ((range_update == 2) && (md_outputs[i]->type=='i'|| md_outputs[i]->type=='f') && (dest_type=='i'|| dest_type=='f')) {
 						// If destination range was provided and types are 'i' or 'f', default to linear mapping
-						mapper_router_add_linear_mapping(router, (*((mapper_admin) user_data)).device->outputs[i], target_param_name, 
-														 md_outputs[i]->minimum->f, md_outputs[i]->maximum->f, dest_range_min, dest_range_max);
+                        mapper_router_add_linear_range_mapping(
+                            router, admin->device->outputs[i],
+                            target_param_name, md_outputs[i]->minimum->f,
+                            md_outputs[i]->maximum->f,
+                            dest_range_min, dest_range_max);
 					}
 					else {
 						// Otherwise default to direct mapping
