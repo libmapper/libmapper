@@ -83,7 +83,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
 			int success_tree=get_expr_Tree(T, mapping->expression);
 			
 			if (!success_tree)
-				return 0;
+				return;
 			
 			mapping->expr_tree=T;
 		}

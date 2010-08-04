@@ -230,7 +230,6 @@ void mdev_start_server(mapper_device md)
     {
         int i,j;
         char port[16], *type = 0;
-        char signame[1024];
 
         sprintf(port, "%d", md->admin->port.value);
         md->server = lo_server_new(port, liblo_error_handler);

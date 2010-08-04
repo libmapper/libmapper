@@ -13,7 +13,6 @@
     /*char s[SIZE];*/
     char **parsed_expr=NULL;
     int expr_length;
-    float result;
     error err=ERR_EMPTY_EXPR;
 
 
@@ -33,6 +32,7 @@
                     /*Remove spaces*/
                     remove_spaces(s);
 					
+
 					if (s[0]=='y' && s[1]=='=')
 						s=sub_string(s,2, strlen(s)-1);
 					

@@ -77,7 +77,6 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
     mapper_mapping m = sm->mapping;
 	int c=1;
 	int i=0;
-	char *name;
     while (m)
     {
         struct _mapper_signal signal = *sig; 
@@ -108,7 +107,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     for (i=0; i<sig->length; i++)
    	 	mval_add_to_message(m, sig, &value[i]);
 	
-    int send=lo_send_message(router->addr, sig->name, m);
+    lo_send_message(router->addr, sig->name, m);
     lo_message_free(m);
     return;
 }

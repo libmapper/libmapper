@@ -13,8 +13,6 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
-/*void*/int get_expr_Tree(Tree *T, char *s);
-
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -264,7 +262,7 @@ int count=0;
 		lo_server_add_method(admin->admin_server, "/connection/modify", NULL, handler_param_connection_modify, admin);
 		lo_server_add_method(admin->admin_server, "/disconnect", "ss", handler_param_disconnect, admin);
 
-		int send=lo_send(admin->admin_addr,"/who", "" );
+		lo_send(admin->admin_addr,"/who", "" );
     }
 }
 
@@ -780,10 +778,9 @@ static int handler_param_connect_to(const char *path, const char *types, lo_arg 
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 
-	int i=0,c=1,j=2,f1=0,f2=0,recvport=-1,range_update=0;
+	int i=0,j=2,f1=0,f2=0,recvport=-1,range_update=0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", clipMin[1024] = "none", clipMax[1024] = "none", host_address[1024];	
-	char *expression;
+    char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], scaling[1024] = "dummy", host_address[1024];	
 	char dest_type;
 	float dest_range_min = 0, dest_range_max = 1;	
 
@@ -957,7 +954,7 @@ static int handler_param_connection_modify(const char *path, const char *types, 
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
 
-	int i=0,c=1,f1=0,f2=0;
+	int i=0,f1=0,f2=0;
 
     char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024],target_device_name[1024],modif_prop[1024];
 	char mapping_type[1024];	
@@ -1186,7 +1183,7 @@ static int handler_param_disconnect(const char *path, const char *types, lo_arg 
 
     int md_num_outputs=(*((mapper_admin) user_data)).device->n_outputs;
     mapper_signal *md_outputs=(*((mapper_admin) user_data)).device->outputs;
-	int i=0,c=1,f1=0,f2=0;
+	int i=0,f1=0,f2=0;
 
     char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024];
 
@@ -1256,8 +1253,8 @@ static int handler_param_connect(const char *path, const char *types, lo_arg **a
 {
 	mapper_admin admin = (mapper_admin) user_data;
 	
-    int md_num_inputs=(*((mapper_admin) user_data)).device->n_inputs;
-    mapper_signal *md_inputs=(*((mapper_admin) user_data)).device->inputs;
+    int md_num_inputs=admin->device->n_inputs;
+    mapper_signal *md_inputs=admin->device->inputs;
     int i=0,j=2,f=0;
 
     char device_name[1024], src_param_name[1024], src_device_name[1024], target_param_name[1024], target_device_name[1024], temp_type[2];
