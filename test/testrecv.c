@@ -10,8 +10,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-int sent=0;
-int received=0;
+int sent = 0;
+int received = 0;
 
 void handler(mapper_device mdev, mapper_signal_value_t *v)
 {
@@ -22,10 +22,14 @@ void handler(mapper_device mdev, mapper_signal_value_t *v)
 int test_recv()
 {
     lo_address a = lo_address_new("localhost", "9000");
-    if (!a) { printf("Error creating lo_address for test.\n"); return 1; }
+    if (!a) {
+        printf("Error creating lo_address for test.\n");
+        return 1;
+    }
 
     mapper_device md = mdev_new("synth", 9000);
-    if (!md) goto error;
+    if (!md)
+        goto error;
     printf("Mapper device created.\n");
 
     mapper_signal sig =
@@ -40,31 +44,30 @@ int test_recv()
     printf("Waiting for port/ordinal allocation..\n");
     int i;
     char signame[1024];
-    for (i=0; i<10; i++) {
+    for (i = 0; i < 10; i++) {
         mdev_poll(md, 500);
         if (msig_full_name(sig, signame, 1024))
             break;
-        usleep(500*1000);
+        usleep(500 * 1000);
     }
-    if (i>=10) {
+    if (i >= 10) {
         printf("Timed out waiting for signal name.\n");
         goto error;
     }
 
     printf("Polling device..\n");
-    for (i=0; i<10; i++) {
-        lo_send(a, signame, "f", (float)i);
+    for (i = 0; i < 10; i++) {
+        lo_send(a, signame, "f", (float) i);
         sent++;
         mdev_poll(md, 500);
     }
 
-    if (sent!=received) {
+    if (sent != received) {
         printf("Not all sent values were received.\n");
-        printf("Sent %d values, but %d received.\n",
-               sent, received);
+        printf("Sent %d values, but %d received.\n", sent, received);
         goto error;
     }
-    if (sent==0) {
+    if (sent == 0) {
         printf("Unable to send any values.\n");
         goto error;
     }
@@ -75,7 +78,8 @@ int test_recv()
     return 0;
 
   error:
-    if (md) mdev_free(md);
+    if (md)
+        mdev_free(md);
     lo_address_free(a);
     return 1;
 }

@@ -1,10 +1,10 @@
-// -*- mode:c++; indent-tabs-mode:nil; c-basic-offset:4; compile-command:"scons -DQ debug=1" -*-
 
 #include <mapper.h>
 #include <stdlib.h>
 #include <string.h>
 
-int mapper_method_add(mapper_method *head, const char *path, const char *types)
+int mapper_method_add(mapper_method *head, const char *path,
+                      const char *types)
 {
     /* Allocate new structure */
     mapper_method method = malloc(sizeof(mapper_method_t));
@@ -27,13 +27,12 @@ int mapper_method_add(mapper_method *head, const char *path, const char *types)
     method->next = NULL;
 
     if (*head) {
-        /* Find end of list */
-        /* Check if same method has been previously added while we're at it */
+        /* Find end of list.  Check if same method has been previously
+         * added while we're at it */
         mapper_method node = *head;
         while (node->next) {
-            if (   strcmp(node->path, path)==0
-                && strcmp(node->types, types)==0)
-            {
+            if (strcmp(node->path, path) == 0
+                && strcmp(node->types, types) == 0) {
                 free(method->path);
                 free(method->types);
                 free(method);
@@ -42,32 +41,31 @@ int mapper_method_add(mapper_method *head, const char *path, const char *types)
             node = node->next;
         }
 
-        if (   strcmp(node->path, path)==0
-            && strcmp(node->types, types)==0)
-        {
+        if (strcmp(node->path, path) == 0
+            && strcmp(node->types, types) == 0) {
             free(method->path);
             free(method->types);
             free(method);
             return 0;
         }
         node->next = method;
-    }
-    else {
+    } else {
         *head = method;
     }
 
     return 1;
 }
 
-int mapper_method_remove(mapper_method *head, const char *path, const char *types)
+int mapper_method_remove(mapper_method *head, const char *path,
+                         const char *types)
 {
     if (*head) {
         /* Find specified method */
         mapper_method node = *head;
         mapper_method *prev = head;
         while (node) {
-            if (   strcmp(node->path, path)==0
-                && strcmp(node->types, types)==0 )
+            if (strcmp(node->path, path) == 0
+                && strcmp(node->types, types) == 0)
                 break;
             prev = &node->next;
             node = node->next;
@@ -78,11 +76,9 @@ int mapper_method_remove(mapper_method *head, const char *path, const char *type
             free(node->path);
             free(node->types);
             free(node);
-        }
-        else
+        } else
             return 0;
-    }
-    else {
+    } else {
         return 0;
     }
 }
@@ -107,7 +103,7 @@ int mapper_method_list_count(mapper_method head)
     int count = 0;
 
     while (node) {
-        count ++;
+        count++;
         node = node->next;
     }
 

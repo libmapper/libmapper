@@ -5,25 +5,28 @@
 #include <mapper/mapper_types.h>
 
 
-/*** Global list that keeps information about the devices on the network ***/
+/*** Global list that keeps information about the devices on the
+   * network ***/
 
-/*! A structure that keeps information sent by /registered*/
+/*! A structure that keeps information sent by /registered. */
 typedef struct _mapper_admin_registered_info {
     char *full_name;
-	char *host;
-	int port;
-	char *canAlias;
+    char *host;
+    int port;
+    char *canAlias;
 } mapper_admin_registered_info;
 
-/*! Linked list of regist_info. Only one object : the global list REGIST_DEVICES_INFO2*/
+/*! Linked list of regist_info. Only one object : the global list
+ *  REGIST_DEVICES_INFO2. */
 typedef struct mapper_registered_infos mapper_registered_infos;
-struct mapper_registered_infos
-	{
- 		mapper_admin_registered_info *regist_info;
-		struct mapper_registered_infos *next;
-	};
+struct mapper_registered_infos {
+    mapper_admin_registered_info *regist_info;
+    struct mapper_registered_infos *next;
+};
 typedef mapper_registered_infos *list_regist_info;
-/*! A global list that contains the regist_info of all the registered devices*/
+
+/*! A global list that contains the regist_info of all the registered
+ *  devices. */
 extern list_regist_info REGIST_DEVICES_INFO2;
 
 
@@ -32,11 +35,10 @@ extern list_regist_info REGIST_DEVICES_INFO2;
 /*** Signals ***/
 
 /*! A signal value may be one of several different types, so we use a
- union to represent this.  The appropriate selection from this union
- is determined by the mapper_signal::type variable. */
+ *  union to represent this.  The appropriate selection from this
+ *  union is determined by the mapper_signal::type variable. */
 
-typedef union _mapper_signal_value
-{
+typedef union _mapper_signal_value {
     float f;
     double d;
     int i32;
@@ -50,17 +52,39 @@ typedef void mapper_signal_handler(mapper_device mdev,
 /*! A signal is defined as a vector of values, along with some
  *  metadata. */
 
-typedef struct _mapper_signal
-{
-    char type;  //!< The type of this signal, specified as an OSC type character.
-    int length; //!< Length of the signal vector, or 1 for scalars.
-    const char *name; //!< The name of this signal, an OSC path.  Must start with '/'.
-    const char *unit; //!< The unit of this signal, or NULL for N/A.
-    mapper_signal_value_t *minimum; //!< The minimum of this signal, or NULL for no minimum.
-    mapper_signal_value_t *maximum; //!< The maximum of this signal, or NULL for no maximum.
-    mapper_signal_value_t *value;   //!< An optional pointer to a C variable containing the actual vector.
-    mapper_device device; //!< The device associated with this signal.
-    mapper_signal_handler *handler; //!< An optional function to be called when the signal value changes.
+typedef struct _mapper_signal {
+
+    /*! The type of this signal, specified as an OSC type
+     *  character. */
+    char type;
+
+    /*! Length of the signal vector, or 1 for scalars. */
+    int length;
+
+    /*! The name of this signal, an OSC path.  Must start with '/'. */
+    const char *name;
+
+    /*! The unit of this signal, or NULL for N/A. */
+    const char *unit;
+
+    /*! The minimum of this signal, or NULL for no minimum. */
+    mapper_signal_value_t *minimum;
+
+    /*! The maximum of this signal, or NULL for no maximum. */
+    mapper_signal_value_t *maximum;
+
+    /*! An optional pointer to a C variable containing the actual
+     *  vector. */
+    mapper_signal_value_t *value;
+
+    /*! The device associated with this signal. */
+    mapper_device device;
+
+    /*! An optional function to be called when the signal value
+     *  changes. */
+    mapper_signal_handler *handler;
+
+    /*! A pointer available for passing user context. */
     void *user_data;
 } *mapper_signal;
 
@@ -70,7 +94,8 @@ typedef struct _mapper_signal
  *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum The minimum possible value, or INFINITY for none.
  *  \param maximum The maximum possible value, or INFINITY for none.
- *  \param handler the function to be called when the value af the signel is updated.
+ *  \param handler the function to be called when the value of the
+ *                 signel is updated.
  *  \param value The address of a float value (or array) this signal
  *               implicitly reflects, or 0 for none.
  *  
@@ -78,8 +103,7 @@ typedef struct _mapper_signal
 mapper_signal msig_float(int length, const char *name,
                          const char *unit, float minimum,
                          float maximum, float *value,
-                         mapper_signal_handler *handler,
-                         void *user_data);
+                         mapper_signal_handler *handler, void *user_data);
 
 /*! Update the value of a signal.
  *  This is a scalar equivalent to msig_update(), for when passing by
@@ -113,12 +137,10 @@ mapper_device mdev_new(const char *name_prefix, int initial_port);
 void mdev_free(mapper_device device);
 
 //! Register a signal with a mapper device.
-void mdev_register_input(mapper_device device,
-                       mapper_signal signal);
+void mdev_register_input(mapper_device device, mapper_signal signal);
 
 //! Unregister a signal with a mapper device.
-void mdev_register_output(mapper_device device,
-                        mapper_signal signal);
+void mdev_register_output(mapper_device device, mapper_signal signal);
 
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device device);

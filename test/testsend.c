@@ -11,7 +11,8 @@
 int test_controller()
 {
     mapper_device md = mdev_new("tester", 9000);
-    if (!md) goto error;
+    if (!md)
+        goto error;
     printf("Mapper device created.\n");
 
     mapper_signal sig =
@@ -25,7 +26,7 @@ int test_controller()
 
     const char *host = "localhost";
     int port = 9000;
-    mapper_router rt = mapper_router_new(md, host, port,"TARGET");
+    mapper_router rt = mapper_router_new(md, host, port, "TARGET");
     mdev_add_router(md, rt);
     printf("Router to %s:%d added.\n", host, port);
 
@@ -34,10 +35,10 @@ int test_controller()
 
     printf("Polling device..\n");
     int i;
-    for (i=0; i<10; i++) {
+    for (i = 0; i < 10; i++) {
         mdev_poll(md, 500);
-        printf("Updating signal %s to %f\n", sig->name, (i*1.0f));
-        msig_update_scalar(sig, (mval)(i*1.0f));
+        printf("Updating signal %s to %f\n", sig->name, (i * 1.0f));
+        msig_update_scalar(sig, (mval) (i * 1.0f));
     }
 
     mdev_remove_router(md, rt);
@@ -47,7 +48,8 @@ int test_controller()
     return 0;
 
   error:
-    if (md) mdev_free(md);
+    if (md)
+        mdev_free(md);
     return 1;
 }
 

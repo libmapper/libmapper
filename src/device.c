@@ -13,23 +13,26 @@
 
 
 
-/*!Initialization of the global list of local devices*/
-list_regist_info REGIST_DEVICES_INFO2=NULL;
+/*! Initialization of the global list of local devices. */
+list_regist_info REGIST_DEVICES_INFO2 = NULL;
 
-/*! Add the information got by the /registered message to the global list of registered devices information */
-void mdev_add_REGIST_DEVICES_INFO( char *full_name, char *host,	int port, char *canAlias)
+/*! Add the information got by the /registered message to the global
+ *  list of registered devices information */
+void mdev_add_REGIST_DEVICES_INFO(char *full_name, char *host, int port,
+                                  char *canAlias)
 {
     mapper_registered_infos *new = malloc(sizeof(mapper_registered_infos));
-	mapper_admin_registered_info *new_info = malloc(sizeof(mapper_admin_registered_info));
+    mapper_admin_registered_info *new_info =
+        malloc(sizeof(mapper_admin_registered_info));
 
-	(*new_info).full_name = strdup(full_name) ;
-	(*new_info).host = strdup(host) ;
-	(*new_info).port = port;
-	(*new_info).canAlias = strdup(canAlias); 
- 
+    (*new_info).full_name = strdup(full_name);
+    (*new_info).host = strdup(host);
+    (*new_info).port = port;
+    (*new_info).canAlias = strdup(canAlias);
+
     (*new).regist_info = new_info;
     (*new).next = REGIST_DEVICES_INFO2;
-	REGIST_DEVICES_INFO2=new;
+    REGIST_DEVICES_INFO2 = new;
 }
 
 //! Allocate and initialize a mapper device.
@@ -39,7 +42,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
         initial_port = 9000;
 
     mapper_device md =
-        (mapper_device)calloc(1, sizeof(struct _mapper_device));
+        (mapper_device) calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
     md->admin = mapper_admin_new(name_prefix, md, initial_port);
 
@@ -50,9 +53,9 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
 
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
-    md->routers=0;
-	md->num_routers=0;
-	md->num_mappings_out=0;
+    md->routers = 0;
+    md->num_routers = 0;
+    md->num_mappings_out = 0;
     return md;
 }
 
@@ -63,11 +66,11 @@ void mdev_free(mapper_device md)
     if (md) {
         if (md->admin)
             mapper_admin_free(md->admin);
-        for (i=0; i<md->n_inputs; i++)
+        for (i = 0; i < md->n_inputs; i++)
             free(md->inputs[i]);
         if (md->inputs)
             free(md->inputs);
-        for (i=0; i<md->n_outputs; i++)
+        for (i = 0; i < md->n_outputs; i++)
             free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
@@ -75,41 +78,40 @@ void mdev_free(mapper_device md)
     }
 }
 
-#ifdef __GNUC__ // when gcc inlines this with O2 or O3, it causes a crash. bug?
-__attribute__((noinline))
+#ifdef __GNUC__
+// when gcc inlines this with O2 or O3, it causes a crash. bug?
+__attribute__ ((noinline))
 #endif
-static void grow_ptr_array(void** array, int length, int *size)
+static void grow_ptr_array(void **array, int length, int *size)
 {
     if (*size < length && !*size)
-        (*size) ++;
+        (*size)++;
     while (*size < length)
         (*size) *= 2;
-    *array = realloc(*array, sizeof(void*)*(*size));
+    *array = realloc(*array, sizeof(void *) * (*size));
 }
 
 //! Register an input signal with a mapper device.
-void mdev_register_input(mapper_device md,
-                         mapper_signal sig)
+void mdev_register_input(mapper_device md, mapper_signal sig)
 {
-    md->n_inputs ++;
-    grow_ptr_array((void**)&md->inputs, md->n_inputs,
+    md->n_inputs++;
+    grow_ptr_array((void **) &md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
 
-    md->inputs[md->n_inputs-1] = sig;
+    md->inputs[md->n_inputs - 1] = sig;
     sig->device = md;
 
     mdev_start_server(md);
 }
 
 //! Register an output signal with a mapper device.
-void mdev_register_output(mapper_device md,
-                          mapper_signal sig)
+void mdev_register_output(mapper_device md, mapper_signal sig)
 {
-    md->n_outputs ++;
-    grow_ptr_array((void**)&md->outputs, md->n_outputs,
+    md->n_outputs++;
+    grow_ptr_array((void **) &md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
 
-    md->outputs[md->n_outputs-1] = sig;
+    md->outputs[md->n_outputs - 1] = sig;
     sig->device = md;
 }
 
@@ -124,13 +126,13 @@ int mdev_num_outputs(mapper_device md)
 }
 
 void mdev_poll(mapper_device md, int block_ms)
-{   
+{
     mapper_admin_poll(md->admin);
 
     if (md->server)
         lo_server_recv_noblock(md->server, block_ms);
     else
-        usleep(block_ms*1000);
+        usleep(block_ms * 1000);
 }
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
@@ -151,7 +153,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
-  {
+{
     mapper_router *r = &md->routers;
     while (*r) {
         if (*r == rt) {
@@ -172,8 +174,9 @@ void mdev_on_port_and_ordinal(mapper_device md,
     if (!(md->admin->ordinal.locked && md->admin->port.locked))
         return;
 
-    trace("device '%s.%d' acknowledged port and ordinal allocation for %d\n",
-          md->name_prefix, md->admin->ordinal.value, md->admin->port.value);
+    trace
+        ("device '%s.%d' acknowledged port and ordinal allocation for %d\n",
+         md->name_prefix, md->admin->ordinal.value, md->admin->port.value);
 
     mdev_start_server(md);
 }
@@ -184,33 +187,38 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
 }
 
 static mapper_signal_value_t *sv = 0;
-static int handler_signal(const char *path, const char *types, lo_arg **argv,
-                          int argc, lo_message msg, void *user_data)
+static int handler_signal(const char *path, const char *types,
+                          lo_arg **argv, int argc, lo_message msg,
+                          void *user_data)
 {
-    mapper_signal sig = (mapper_signal)user_data;
+    mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-	
 
-    if (!md) { trace("error, sig->device==0\n");printf("error, sig->device==0\n"); return 0; }
+
+    if (!md) {
+        trace("error, sig->device==0\n");
+        printf("error, sig->device==0\n");
+        return 0;
+    }
 
     if (sig->handler) {
         int i;
-        sv = realloc(sv, sizeof(mapper_signal_value_t)*sig->length);
+        sv = realloc(sv, sizeof(mapper_signal_value_t) * sig->length);
         switch (sig->type) {
-			case 'f':
-				for (i=0; i < sig->length; i++)
-					sv[i].f = argv[i]->f;
-				break;
-			case 'd':
-				for (i=0; i < sig->length; i++)
-					sv[i].d = argv[i]->d;
-				break;
-			case 'i':
-				for (i=0; i < sig->length; i++)
-					sv[i].i32 = argv[i]->i;
-				break;
-			default:
-				assert(0);
+        case 'f':
+            for (i = 0; i < sig->length; i++)
+                sv[i].f = argv[i]->f;
+            break;
+        case 'd':
+            for (i = 0; i < sig->length; i++)
+                sv[i].d = argv[i]->d;
+            break;
+        case 'i':
+            for (i = 0; i < sig->length; i++)
+                sv[i].i32 = argv[i]->i;
+            break;
+        default:
+            assert(0);
         }
         sig->handler(md, sv);
     }
@@ -220,12 +228,9 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
 void mdev_start_server(mapper_device md)
 {
-    
-	if (md->n_inputs > 0
-        && md->admin->port.locked
-        && !md->server)
-    {
-        int i,j;
+
+    if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
+        int i, j;
         char port[16], *type = 0;
 
         sprintf(port, "%d", md->admin->port.value);
@@ -240,22 +245,21 @@ void mdev_start_server(mapper_device md)
                   md->admin->port.value, md->name_prefix);
         }
 
-        for (i=0; i<md->n_inputs; i++) {
-            type = realloc(type, md->inputs[i]->length+1);
-            for (j=0; j<md->inputs[i]->length; j++)
+        for (i = 0; i < md->n_inputs; i++) {
+            type = realloc(type, md->inputs[i]->length + 1);
+            for (j = 0; j < md->inputs[i]->length; j++)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->name,
                                  type,
-                                 handler_signal,
-                                 (void*)(md->inputs[i]));
+                                 handler_signal, (void *) (md->inputs[i]));
         }
         free(type);
     }
 }
 
-const char* mdev_name(mapper_device md)
+const char *mdev_name(mapper_device md)
 {
     /* Hand this off to the admin struct, where the name may be
      * cached. However: manually checking ordinal.locked here so that
@@ -281,8 +285,7 @@ int mdev_ready(mapper_device device)
         return 0;
 
     if (device->admin->port.locked
-        && device->admin->ordinal.locked && device->admin->registered)
-    {
+        && device->admin->ordinal.locked && device->admin->registered) {
         return 1;
     }
     return 0;

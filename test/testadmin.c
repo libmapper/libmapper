@@ -12,11 +12,10 @@ mapper_admin my_admin = NULL;
 
 int test_admin()
 {
-    int error=0, wait;
+    int error = 0, wait;
 
     my_admin = mapper_admin_new("tester", 0, 8000);
-    if (!my_admin)
-    {
+    if (!my_admin) {
         printf("Error creating admin structure.\n");
         return 1;
     }
@@ -25,9 +24,7 @@ int test_admin()
     printf("Found interface %s has IP %s\n", my_admin->interface,
            inet_ntoa(my_admin->interface_ip));
 
-    while (    !my_admin->port.locked
-            || !my_admin->ordinal.locked )
-    {
+    while (!my_admin->port.locked || !my_admin->ordinal.locked) {
         usleep(10000);
         mapper_admin_poll(my_admin);
     }
@@ -37,8 +34,7 @@ int test_admin()
 
     printf("Delaying for 5 seconds..\n");
     wait = 500;
-    while (wait-- >= 0)
-    {
+    while (wait-- >= 0) {
         usleep(10000);
         mapper_admin_poll(my_admin);
     }

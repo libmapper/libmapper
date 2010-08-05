@@ -22,15 +22,15 @@ int sendport = 9000;
 int sent = 0;
 int received = 0;
 
-/*! Creation of a local sender*/
+/*! Creation of a local sender. */
 int setup_sender()
 {
     sender = mdev_new("testsend", sendport);
-    if (!sender) goto error;
+    if (!sender)
+        goto error;
     printf("Sender created.\n");
 
-    sendsig =
-        msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
+    sendsig = msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
 
     mdev_register_output(sender, sendsig);
 
@@ -60,19 +60,19 @@ void cleanup_sender()
 
 void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
 {
-    printf("--> Receiver got %f\n\n", (*v).f); 
-	received++;
+    printf("--> Receiver got %f\n\n", (*v).f);
+    received++;
 }
 
-/*! Creation of a local receiver*/
+/*! Creation of a local receiver. */
 int setup_receiver()
 {
     receiver = mdev_new("testrecv", recvport);
-    if (!receiver) goto error;
+    if (!receiver)
+        goto error;
     printf("Receiver created.\n");
 
-    recvsig =
-        msig_float(1, "/insig", 0, 0, 1, 0, insig_handler, 0);
+    recvsig = msig_float(1, "/insig", 0, 0, 1, 0, insig_handler, 0);
 
     mdev_register_input(receiver, recvsig);
 
@@ -98,100 +98,101 @@ void cleanup_receiver()
 
 void wait_local_devices()
 {
- 
- int count = 0;
-    
- while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver)) )
-		{   
-			mdev_poll(sender, 0);       
-			mdev_poll(receiver, 0);       
 
-			usleep(500*1000);
-    	}
+    int count = 0;
 
-list_regist_info tmp_regist_dev_info=REGIST_DEVICES_INFO2;
-printf("INITIAL REGISTERED DEVICES :\n");
-while(tmp_regist_dev_info != NULL)
-	{   
-		printf("%s, %s, %i, %s\n", tmp_regist_dev_info->regist_info->full_name, tmp_regist_dev_info->regist_info->host, 																					tmp_regist_dev_info->regist_info->port, tmp_regist_dev_info->regist_info->canAlias); 
-		tmp_regist_dev_info=tmp_regist_dev_info->next;
-	}
+    while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver))) {
+        mdev_poll(sender, 0);
+        mdev_poll(receiver, 0);
+
+        usleep(500 * 1000);
+    }
+
+    list_regist_info tmp_regist_dev_info = REGIST_DEVICES_INFO2;
+    printf("INITIAL REGISTERED DEVICES :\n");
+    while (tmp_regist_dev_info != NULL) {
+        printf("%s, %s, %i, %s\n",
+               tmp_regist_dev_info->regist_info->full_name,
+               tmp_regist_dev_info->regist_info->host,
+               tmp_regist_dev_info->regist_info->port,
+               tmp_regist_dev_info->regist_info->canAlias);
+        tmp_regist_dev_info = tmp_regist_dev_info->next;
+    }
 
 }
 
 void loop()
 {
-	printf("-------------------- GO ! --------------------\n");
-    int i=0;
-	/*mapper_device tmp_device=0;
-	list_admins tmp_local_devices =0;*/
-	
-	if(automate) {
+    printf("-------------------- GO ! --------------------\n");
+    int i = 0;
+    /*mapper_device tmp_device=0;
+       list_admins tmp_local_devices =0; */
+
+    if (automate) {
         char sender_name[1024], receiver_name[1024];
 
-		printf("%s\n", mdev_name(sender));
-		printf("%s\n", mdev_name(receiver));
-		
-		lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-		lo_address_set_ttl(a, 1);
+        printf("%s\n", mdev_name(sender));
+        printf("%s\n", mdev_name(receiver));
 
-		lo_send(a, "/link", "ss", mdev_name(sender), mdev_name(receiver));
+        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
+        lo_address_set_ttl(a, 1);
+
+        lo_send(a, "/link", "ss", mdev_name(sender), mdev_name(receiver));
 
         msig_full_name(sendsig, sender_name, 1024);
         msig_full_name(recvsig, receiver_name, 1024);
 
         lo_send(a, "/connect", "ss", sender_name, receiver_name);
 
-		lo_address_free(a);
-	}
-    
-	while (i>=0) 
-		{
-			
-			/*tmp_local_devices=LOCAL_DEVICES;
-			while(tmp_local_devices != NULL)
-				{
-					tmp_device=tmp_local_devices->admin->device;
-					mdev_poll(tmp_device,0);
+        lo_address_free(a);
+    }
 
-					if (tmp_device->num_routers>0)
-						{	
-									if (tmp_device->num_mappings_out>0)
-										{		
-	        								msig_update_scalar(tmp_device->outputs[0], (mval)((i%10)*1.0f));
-											printf("%s value updated to %d -->\n",tmp_device->admin->identifier,i%10);
-										}
-						}
-					tmp_local_devices=tmp_local_devices->next;
-				}
-	        usleep(500*1000);
+    while (i >= 0) {
 
-		
-			tmp_local_devices=LOCAL_DEVICES;
-			while(tmp_local_devices!=NULL)
-				{
-					tmp_device=tmp_local_devices->admin->device;
-					mdev_poll(tmp_device,0);
-					tmp_local_devices=tmp_local_devices->next;
-				}*/
+        /*tmp_local_devices=LOCAL_DEVICES;
+           while(tmp_local_devices != NULL)
+           {
+           tmp_device=tmp_local_devices->admin->device;
+           mdev_poll(tmp_device,0);
 
-			mdev_poll(sender, 0);
-			if (sender->num_mappings_out>0)
-				{		
-	        		msig_update_scalar(sender->outputs[0], (mval)((i%10)*1.0f));
-					printf("sender value updated to %d -->\n",i%10);
-				}
+           if (tmp_device->num_routers>0)
+           {    
+           if (tmp_device->num_mappings_out>0)
+           {            
+           msig_update_scalar(tmp_device->outputs[0], (mval)((i%10)*1.0f));
+           printf("%s value updated to %d -->\n",tmp_device->admin->identifier,i%10);
+           }
+           }
+           tmp_local_devices=tmp_local_devices->next;
+           }
+           usleep(500*1000);
 
-        	usleep(500*1000);
-        	mdev_poll(receiver, 0);				
-			
-			i++;
-    	}		
+
+           tmp_local_devices=LOCAL_DEVICES;
+           while(tmp_local_devices!=NULL)
+           {
+           tmp_device=tmp_local_devices->admin->device;
+           mdev_poll(tmp_device,0);
+           tmp_local_devices=tmp_local_devices->next;
+           } */
+
+        mdev_poll(sender, 0);
+        if (sender->num_mappings_out > 0) {
+            msig_update_scalar(sender->outputs[0],
+                               (mval) ((i % 10) * 1.0f));
+            printf("sender value updated to %d -->\n", i % 10);
+        }
+
+        usleep(500 * 1000);
+        mdev_poll(receiver, 0);
+
+        i++;
+    }
 }
 
 int main()
-{	
-	int result=0;
+{
+    int result = 0;
 
     if (setup_receiver()) {
         printf("Error initializing receiver.\n");

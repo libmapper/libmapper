@@ -25,35 +25,52 @@ struct _mapper_device;
 
 /*! Function to call when an allocated resource is locked. */
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
-                                           struct _mapper_admin_allocated_t *resource);
+                                           struct _mapper_admin_allocated_t
+                                           *resource);
 
 /*! Function to call when an allocated resource encounters a collision. */
-typedef void mapper_admin_resource_on_collision(struct _mapper_admin *admin);
+typedef void mapper_admin_resource_on_collision(struct _mapper_admin
+                                                *admin);
 
 /*! Allocated resources */
 typedef struct _mapper_admin_allocated_t {
-    unsigned int value;            //!< The resource to be allocated.
-    unsigned int collision_count;  //!< The number of collisions detected for this resource.
-    double count_time;             //!< The last time at which the collision count was updated.
-    int locked;                    //!< Whether or not the value has been locked in (i.e., allocated).
-    mapper_admin_resource_on_lock *on_lock; //!< Function to call when resource becomes locked.
-    mapper_admin_resource_on_collision *on_collision; //!< Function to call when resource collision occurs.
+    unsigned int value;           //!< The resource to be allocated.
+    unsigned int collision_count; /*!< The number of collisions
+                                   *   detected for this resource. */
+    double count_time;            /*!< The last time at which the
+                                   * collision count was updated. */
+    int locked;                   /*!< Whether or not the value has
+                                   *   been locked in (allocated). */
+
+    //!< Function to call when resource becomes locked.
+    mapper_admin_resource_on_lock *on_lock;
+
+   //! Function to call when resource collision occurs.
+    mapper_admin_resource_on_collision *on_collision;
 } mapper_admin_allocated_t;
 
 
 /*! A structure that keeps information about a device. */
-typedef struct _mapper_admin
-{
-    char*                    			identifier;    //!< The identifier (prefix) for this device.
-    char*                    			name;          //!< The full name for this device, or zero.
-    mapper_admin_allocated_t 			ordinal;       //!< The unique ordinal for this device.
-    mapper_admin_allocated_t 			port;          //!< This device's UDP port number.
-    lo_server_thread         			admin_server;  //!< LibLo server thread for the admin bus.
-    lo_address               			admin_addr;    //!< LibLo address for the admin bus.
-    char                     			interface[16]; //!< The name of the network interface for receiving messages.
-    struct in_addr           			interface_ip;  //!< The IP address of interface.
-    int                      			registered;    //!< Non-zero if this device has been registered.
-    struct _mapper_device   		 	*device;       //!< Device that this admin is in charge of.
+typedef struct _mapper_admin {
+    char *identifier;                 /*!< The identifier (prefix) for
+                                       *   this device. */
+    char *name;                       /*!< The full name for this
+                                       *   device, or zero. */
+    mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
+                                       *   device. */
+    mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
+    lo_server_thread admin_server;    /*!< LibLo server thread for the
+                                       *   admin bus. */
+    lo_address admin_addr;            /*!< LibLo address for the admin
+                                       *   bus. */
+    char interface[16];               /*!< The name of the network
+                                       *   interface for receiving
+                                       *   messages. */
+    struct in_addr interface_ip;      /*!< The IP address of interface. */
+    int registered;                   /*!< Non-zero if this device has
+                                       *   been registered. */
+    struct _mapper_device *device;    /*!< Device that this admin is
+                                       *   in charge of. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -64,24 +81,24 @@ typedef mapper_admin_t *mapper_admin;
 
 /*! Describes what happens when the clipping boundaries are
  *  exceeded. */
-typedef enum _mapper_clipping_type
-{
-	CT_NONE,	  //!< Value is passed through unchanged. This is the default.
-	CT_MUTE,	  //!< Value is muted.
-    CT_CLAMP,     //!< Value is limited to the boundary.
-    CT_FOLD,	  //!< Value continues in opposite direction.
-    CT_WRAP,      //!< Value appears as modulus offset at the opposite boundary.
+typedef enum _mapper_clipping_type {
+    CT_NONE,    /*!< Value is passed through unchanged. This is the
+                 *   default. */
+    CT_MUTE,    //!< Value is muted.
+    CT_CLAMP,   //!< Value is limited to the boundary.
+    CT_FOLD,    //!< Value continues in opposite direction.
+    CT_WRAP,    /*!< Value appears as modulus offset at the opposite
+                 *   boundary. */
 } mapper_clipping_type;
 
 
 
-typedef enum _mapper_mapping_type
-{
-    BYPASS, //!< Direct mapping
-    LINEAR, //!< Linear mapping
-    EXPRESSION, //!< Expression mapping
-	CALIBRATE,	//!< Calibrate to input
-	MUTE, //!< Mute mapping
+typedef enum _mapper_mapping_type {
+    BYPASS,                     //!< Direct mapping
+    LINEAR,                     //!< Linear mapping
+    EXPRESSION,                 //!< Expression mapping
+    CALIBRATE,                  //!< Calibrate to input
+    MUTE,                       //!< Mute mapping
 } mapper_mapping_type;
 
 
@@ -95,38 +112,51 @@ typedef enum _mapper_mapping_type
 #define RANGE_KNOWN    0x0F
 
 typedef struct _mapper_mapping_range {
-    float src_min;  //!< Source minimum.
-    float src_max;  //!< Source maximum.
-    float dest_min; //!< Destination minimum.
-    float dest_max; //!< Destination maximum.
-    int known;      //!< Bitfield identifying known range extremities.
-    int rewrite;    //!< Need to overwrite src_min and src_max?
+    float src_min;              //!< Source minimum.
+    float src_max;              //!< Source maximum.
+    float dest_min;             //!< Destination minimum.
+    float dest_max;             //!< Destination maximum.
+    int known;                  /*!< Bitfield identifying known range
+                                 *   extremities. */
+    int rewrite;                //!< Need to overwrite src_min and src_max?
 } mapper_mapping_range_t;
 
 /*! The mapping structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple outputs. */
 
 typedef struct _mapper_mapping {
-    char *name;                              //!< Destination name (OSC path).
-    struct _mapper_mapping *next;            //!< Next mapping in the list.
-    int order_input;                         //!< Order of the input side of the difference equation.
-                                             //!< Maximum of MAX_HISTORY_ORDER.
-    int order_output;                        //!< Order of the output side of the difference equation.
-                                             //!< Usually not less than 1.  Maximum of MAX_HISTORY_ORDER.
-    float coef_input[MAX_HISTORY_ORDER];     //!< Coefficients for the input polynomial.
-    float coef_output[MAX_HISTORY_ORDER];    //!< Coefficients for the output polynomial.
+    char *name;                     //!< Destination name (OSC path).
+    struct _mapper_mapping *next;   //!< Next mapping in the list.
+    int order_input;                /*!< Order of the input side of
+                                     *   the difference equation. */
+    int order_output;               /*!< Order of the output side of
+                                     *   the difference equation. */
+
+    /*! Coefficients for the input polynomial. */
+    float coef_input[MAX_HISTORY_ORDER];
+
+    /*! Coefficients for the output polynomial. */
+    float coef_output[MAX_HISTORY_ORDER];
+
     float history_input[MAX_HISTORY_ORDER];  //!< History of input.
     float history_output[MAX_HISTORY_ORDER]; //!< History of output.
-    int history_pos;                         //!< Position in history ring buffers.
-    mapper_clipping_type clip_upper;         //!< Operation for exceeded upper boundary.
-    mapper_clipping_type clip_lower;         //!< Operation for exceeded lower boundary.
 
-	mapper_mapping_range_t range;            //!< Range information.
-	char *expression;
-	    
-	mapper_mapping_type type;                //!< Bypass, linear, calibrate, or expression mapping
-	int muted;								 //!< 1 to mute mapping connection, 0 to unmute
-    Tree *expr_tree;                         //!< Tree representing the mapping expression
+    int history_pos;                  /*!< Position in history ring
+                                       *   buffers. */
+    mapper_clipping_type clip_upper;  /*!< Operation for exceeded
+                                       *   upper boundary. */
+    mapper_clipping_type clip_lower;  /*!< Operation for exceeded
+                                       *   lower boundary. */
+
+    mapper_mapping_range_t range;     //!< Range information.
+    char *expression;
+
+    mapper_mapping_type type;   /*!< Bypass, linear, calibrate, or
+                                 *   expression mapping */
+    int muted;                  /*!< 1 to mute mapping connection, 0
+                                 *   to unmute */
+    Tree *expr_tree;            /*!< Tree representing the mapping
+                                 *   expression */
 } *mapper_mapping;
 
 
@@ -135,19 +165,24 @@ typedef struct _mapper_mapping {
  *  associated device.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
 typedef struct _mapper_signal_mapping {
-    struct _mapper_signal *signal;         //!< The associated signal.
-    mapper_mapping mapping;                //!< The first mapping for this signal.
-    struct _mapper_signal_mapping *next;   //!< The next signal mapping in the list.
+    struct _mapper_signal *signal;       //!< The associated signal.
+    mapper_mapping mapping;              /*!< The first mapping for
+                                          *   this signal. */
+    struct _mapper_signal_mapping *next; /*!< The next signal mapping
+                                          *   in the list. */
 } *mapper_signal_mapping;
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_router {             
-	const char *target_name;                //!< Router name given by the target name.
-	struct _mapper_device *device;			//!< The device associated with this router
-    lo_address addr;                      //!< Sending address.
-    struct _mapper_router *next;          //!< Next router in the list.
-    mapper_signal_mapping mappings;       //!< The list of mappings for each signal.
+typedef struct _mapper_router {
+    const char *target_name;        /*!< Router name given by the
+                                     *   target name. */
+    struct _mapper_device *device;  /*!< The device associated with
+                                     *   this router */
+    lo_address addr;                //!< Sending address.
+    struct _mapper_router *next;    //!< Next router in the list.
+    mapper_signal_mapping mappings; /*!< The list of mappings for each
+                                     *   signal. */
 } *mapper_router;
 
 /**** Device ****/
@@ -171,8 +206,8 @@ typedef struct _mapper_device {
      *  one input has been registered and the incoming port has been
      *  allocated. */
     lo_server server;
-	int num_routers;
-	int num_mappings_out;
+    int num_routers;
+    int num_mappings_out;
 } *mapper_device;
 
 #endif // __MAPPER_TYPES_H__
