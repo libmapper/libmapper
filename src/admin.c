@@ -165,6 +165,7 @@ mapper_admin mapper_admin_new(const char *identifier,
 
     /* Initialize data structures */
     admin->identifier = strdup(identifier);
+    admin->name = 0;
     admin->ordinal.value = 1;
     admin->ordinal.locked = 0;
     admin->ordinal.collision_count = -1;
