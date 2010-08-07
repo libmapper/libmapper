@@ -11,30 +11,6 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-
-
-/*! Initialization of the global list of local devices. */
-list_regist_info REGIST_DEVICES_INFO2 = NULL;
-
-/*! Add the information got by the /registered message to the global
- *  list of registered devices information */
-void mdev_add_REGIST_DEVICES_INFO(char *full_name, char *host, int port,
-                                  char *canAlias)
-{
-    mapper_registered_infos *new = malloc(sizeof(mapper_registered_infos));
-    mapper_admin_registered_info *new_info =
-        malloc(sizeof(mapper_admin_registered_info));
-
-    (*new_info).full_name = strdup(full_name);
-    (*new_info).host = strdup(host);
-    (*new_info).port = port;
-    (*new_info).canAlias = strdup(canAlias);
-
-    (*new).regist_info = new_info;
-    (*new).next = REGIST_DEVICES_INFO2;
-    REGIST_DEVICES_INFO2 = new;
-}
-
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port)
 {

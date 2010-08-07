@@ -4,34 +4,6 @@
 
 #include <mapper/mapper_types.h>
 
-
-/*** Global list that keeps information about the devices on the
-   * network ***/
-
-/*! A structure that keeps information sent by /registered. */
-typedef struct _mapper_admin_registered_info {
-    char *full_name;
-    char *host;
-    int port;
-    char *canAlias;
-} mapper_admin_registered_info;
-
-/*! Linked list of regist_info. Only one object : the global list
- *  REGIST_DEVICES_INFO2. */
-typedef struct mapper_registered_infos mapper_registered_infos;
-struct mapper_registered_infos {
-    mapper_admin_registered_info *regist_info;
-    struct mapper_registered_infos *next;
-};
-typedef mapper_registered_infos *list_regist_info;
-
-/*! A global list that contains the regist_info of all the registered
- *  devices. */
-extern list_regist_info REGIST_DEVICES_INFO2;
-
-
-
-
 /*** Signals ***/
 
 /*! A signal value may be one of several different types, so we use a

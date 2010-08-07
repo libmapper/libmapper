@@ -108,17 +108,7 @@ void wait_local_devices()
         usleep(500 * 1000);
     }
 
-    list_regist_info tmp_regist_dev_info = REGIST_DEVICES_INFO2;
-    printf("INITIAL REGISTERED DEVICES :\n");
-    while (tmp_regist_dev_info != NULL) {
-        printf("%s, %s, %i, %s\n",
-               tmp_regist_dev_info->regist_info->full_name,
-               tmp_regist_dev_info->regist_info->host,
-               tmp_regist_dev_info->regist_info->port,
-               tmp_regist_dev_info->regist_info->canAlias);
-        tmp_regist_dev_info = tmp_regist_dev_info->next;
-    }
-
+    mapper_db_dump();
 }
 
 void loop()

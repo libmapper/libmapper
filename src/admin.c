@@ -457,8 +457,6 @@ static int handler_registered(const char *path, const char *types,
                               lo_arg **argv, int argc, lo_message msg,
                               void *user_data)
 {
-    int f = 1;
-    char registered_name[1024];
     if (0) {                    //change to test whether device is GUI
         if (argc < 1)
             return 0;
@@ -466,25 +464,12 @@ static int handler_registered(const char *path, const char *types,
         if (types[0] != 's' && types[0] != 'S')
             return 0;
 
-        strcpy(registered_name, &argv[0]->s);
-
-        list_regist_info tmp_regist_dev_info = REGIST_DEVICES_INFO2;
-
-        /* Search if the device is already registered in the global
-         * list */
-        while (tmp_regist_dev_info != NULL && f != 0) {
-            f *= strcmp(registered_name,
-                        tmp_regist_dev_info->regist_info->full_name);
-            tmp_regist_dev_info = tmp_regist_dev_info->next;
-        }
-
-        if (f != 0) {
-            mdev_add_REGIST_DEVICES_INFO(registered_name, &argv[2]->s,
-                                         argv[4]->i, &argv[6]->s);
-            printf("NEW REGISTERED DEVICE %s\nHost : %s, Port : %d, "
-                   "canAlias : %s\n\n",
-                   registered_name, &argv[2]->s, argv[4]->i, &argv[6]->s);
-        }
+        // TODO: pick up these parameters more intelligently
+        // TODO: modify the record if it already exists
+        mapper_db_add(&argv[0]->s,  // name
+                      &argv[2]->s,  // host
+                      argv[4]->i,   // port
+                      &argv[6]->s); // canAlias
     }
 
     return 0;

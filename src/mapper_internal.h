@@ -33,8 +33,6 @@ const char *_real_mapper_admin_name(mapper_admin admin,
                                     const char *file, unsigned int line);
 
 /***** Device *****/
-void mdev_add_REGIST_DEVICES_INFO(char *full_name, char *host, int port,
-                                  char *canAlias);
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
@@ -109,6 +107,28 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 void mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
+
+/**** Local device database ****/
+
+/*! Add a device information instance to the local database. If it is
+ *  already in the database, it is not added.
+ *  \param full_name  The name of the device.
+ *  \param host       The device's network host.
+ *  \param port       The device's network port.
+ *  \param canAlias   Boolean indicating the device's ability to alias
+ *                    addresses.
+ *  \return           Non-zero if device was added to the database, or
+ *                    zero if it was already present. */
+int mapper_db_add(char *full_name, char *host, int port, char *canAlias);
+
+/*! Dump device information database to the screen.  Useful for
+ *  debugging, only works when compiled in debug mode. */
+void mapper_db_dump();
+
+/*! Find information for a registered device.
+ *  \param name Name of the device to find in the database.
+ *  \return Information about the device, or zero if not found. */
+mapper_db_registered mapper_db_find(char *name);
 
 /**** Debug macros ****/
 
