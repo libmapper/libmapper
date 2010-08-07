@@ -82,7 +82,7 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     if ((mdlen + strlen(sig->name)) > len)
         return 0;
 
-    strncpy(name, mdname, mdlen);
+    strncpy(name, mdname, len);
     strncat(name, sig->name, len);
     return strlen(name);
 }
