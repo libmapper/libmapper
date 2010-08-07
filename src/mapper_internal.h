@@ -130,6 +130,25 @@ void mapper_db_dump();
  *  \return Information about the device, or zero if not found. */
 mapper_db_registered mapper_db_find(char *name);
 
+/**** Messages ****/
+
+/*! Parse a message based on an OSC path and parameters.
+ *  \param msg    Structure to receive parameter info.
+ *  \param path   String containing message address.
+ *  \param types  String containing message parameter types.
+ *  \param argc   Number of arguments in the argv array.
+ *  \param argv   Vector of lo_arg structures.
+ *  \return       Non-zero indicates error in parsing. */
+int mapper_msg_parse_params(mapper_message_t *msg,
+                            const char *path, const char *types,
+                            int argc, lo_arg **argv);
+
+/*! Look up the value of a message parameter by symbolic idenfier.
+ *  \param msg    Structure containing parameter info.
+ *  \return       Pointer to lo_arg, or zero if not found. */
+lo_arg** mapper_msg_get_param(mapper_message_t *msg,
+                              mapper_msg_param_t param);
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

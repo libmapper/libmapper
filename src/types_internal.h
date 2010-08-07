@@ -21,6 +21,10 @@ struct _mapper_admin;
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
 
+/**** Constants ****/
+
+#define MAX_ARGS 32
+
 /**** Admin bus ****/
 
 /*! Function to call when an allocated resource is locked. */
@@ -220,5 +224,41 @@ typedef struct _mapper_db_registered {
     char *canAlias;
     struct _mapper_db_registered *next;
 } *mapper_db_registered;
+
+/**** Messages ****/
+
+/*! Symbolic representation of recognized @-parameters. */
+typedef enum {
+    AT_IP,
+    AT_PORT,
+    AT_CANALIAS,
+    AT_NUMINPUTS,
+    AT_NUMOUTPUTS,
+    AT_HASH,
+    AT_TYPE,
+    AT_MIN,
+    AT_MAX,
+    AT_SCALING,
+    AT_EXPRESSION,
+    AT_CLIPMIN,
+    AT_CLIPMAX,
+    AT_RANGE,
+    N_AT_PARAMS
+} mapper_msg_param_t;
+
+extern const char* mapper_msg_param_strings[];
+
+/*! Queriable representation of a parameterized message parsed from an
+ *  incoming OSC message. Does not contain a copy of data, so only
+ *  valid for the duration of the message handler. */
+typedef struct _mapper_message
+{
+    const char *path;                    //!< OSC address.
+    mapper_msg_param_t params[MAX_ARGS]; //!< Array of parameter symbols.
+    lo_arg **values[MAX_ARGS];           //!< Array of parameter values.
+    int n_pairs;                         /*!< Number of items in
+                                          *   params and values
+                                          *   arrays. */
+} mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__
