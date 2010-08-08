@@ -21,10 +21,6 @@ struct _mapper_admin;
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
 
-/**** Constants ****/
-
-#define MAX_ARGS 32
-
 /**** Admin bus ****/
 
 /*! Function to call when an allocated resource is locked. */
@@ -253,12 +249,8 @@ extern const char* mapper_msg_param_strings[];
  *  valid for the duration of the message handler. */
 typedef struct _mapper_message
 {
-    const char *path;                    //!< OSC address.
-    mapper_msg_param_t params[MAX_ARGS]; //!< Array of parameter symbols.
-    lo_arg **values[MAX_ARGS];           //!< Array of parameter values.
-    int n_pairs;                         /*!< Number of items in
-                                          *   params and values
-                                          *   arrays. */
+    const char *path;             //!< OSC address.
+    lo_arg **values[N_AT_PARAMS]; //!< Array of parameter values.
 } mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__

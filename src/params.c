@@ -26,20 +26,16 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                             const char *path, const char *types,
                             int argc, lo_arg **argv)
 {
+    int i, j;
+
     /* Sanity check: complain loudly and quit string if number of
      * strings and params doesn't match up. */
     die_unless(sizeof(mapper_msg_param_strings)/sizeof(const char*)
                == N_AT_PARAMS,
                "libmapper ERROR: wrong number of known parameters\n");
 
-    int i, j, n=0;
+    memset(msg, 0, sizeof(mapper_message_t));
     msg->path = path;
-    msg->n_pairs = 0;
-
-    if (argc > MAX_ARGS) {
-        trace("message %s, too many args.\n", path);
-        return 1;
-    }
 
     for (i=0; i<argc; i++) {
         if (types[i]!='s') {
@@ -63,13 +59,11 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             return 1;
         }
 
-        msg->params[n] = j;
-
         /* special case: range has 4 float or int parameters */
         // TODO: handle 'invert' and '-'
         if (j==AT_RANGE) {
             int k;
-            msg->values[n] = &argv[i+1];
+            msg->values[j] = &argv[i+1];
             for (k=0; k<4; k++) {
                 i++;
                 if (i >= argc) {
@@ -89,15 +83,13 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             }
         }
         else {
-            msg->values[n] = &argv[++i];
+            msg->values[j] = &argv[++i];
             if (i >= argc) {
                 trace("message %s, not enough parameters for %s\n",
                       path, &argv[i-1]->s);
                 return 1;
             }
         }
-
-        msg->n_pairs = ++n;
     }
     return 0;
 }
@@ -105,11 +97,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param)
 {
-    int n;
-    for (n=0; n<msg->n_pairs; n++)
-    {
-        if (msg->params[n] == param)
-            return msg->values[n];
-    }
-    return 0;
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter in mapper_msg_get_param()\n");
+    return msg->values[param];
 }
