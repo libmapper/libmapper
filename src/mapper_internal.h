@@ -32,6 +32,20 @@ void mapper_admin_name_probe(mapper_admin admin);
 const char *_real_mapper_admin_name(mapper_admin admin,
                                     const char *file, unsigned int line);
 
+/*! Macro for calling message-sending function. */
+#define mapper_admin_send_osc(...)                  \
+    _real_mapper_admin_send_osc(__VA_ARGS__, N_AT_PARAMS)
+
+/*! Message-sending function, not to be called directly. */
+void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
+                                 const char *types, ...);
+
+/*! Message-sending function which appends a parameter list at the end. */
+void mapper_admin_send_osc_with_params(mapper_admin admin,
+                                       mapper_message_t *params,
+                                       const char *path,
+                                       const char *types, ...);
+
 /***** Device *****/
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,
@@ -148,6 +162,14 @@ int mapper_msg_parse_params(mapper_message_t *msg,
  *  \return       Pointer to lo_arg, or zero if not found. */
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param);
+
+/*! Prepare a lo_message for sending based on a vararg list of
+ *  parameter pairs. */
+void mapper_msg_prepare_varargs(lo_message m, va_list aq);
+
+/*! Prepare a lo_message for sending based on a set of parameters. */
+void mapper_msg_prepare_params(lo_message m,
+                               mapper_message_t *params);
 
 /**** Debug macros ****/
 

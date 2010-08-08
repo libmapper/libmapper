@@ -104,3 +104,153 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                "error, unknown parameter in mapper_msg_get_param()\n");
     return msg->values[param];
 }
+
+void mapper_msg_prepare_varargs(lo_message m, va_list aq)
+{
+    char *s;
+    int i;
+    float f;
+    char t[] = " ";
+    mapper_signal sig;
+    mapper_msg_param_t pa = va_arg(aq, int);
+
+    while (pa != N_AT_PARAMS)
+    {
+        /* if parameter is -1, it means to skip this entry */
+        if (pa == -1) {
+            pa = va_arg(aq, int);
+            pa = va_arg(aq, int);
+            continue;
+        }
+
+#ifdef DEBUG
+        if (pa >= 0 && pa < N_AT_PARAMS)
+#endif
+            lo_message_add_string(m, mapper_msg_param_strings[pa]);
+
+        switch (pa) {
+        case AT_IP:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
+        case AT_PORT:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
+        case AT_CANALIAS:
+            i = va_arg(aq, int);
+            if (i)
+                lo_message_add_string(m, "yes");
+            else
+                lo_message_add_string(m, "no");
+            break;
+        case AT_NUMINPUTS:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
+        case AT_NUMOUTPUTS:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
+        case AT_HASH:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
+        case AT_TYPE:
+            i = va_arg(aq, int);
+            t[0] = (char)i;
+            lo_message_add_string(m, t);
+            break;
+        case AT_MIN:
+            sig = va_arg(aq, mapper_signal);
+            mval_add_to_message(m, sig, sig->minimum);
+            break;
+        case AT_MAX:
+            sig = va_arg(aq, mapper_signal);
+            mval_add_to_message(m, sig, sig->maximum);
+            break;
+        case AT_SCALING:
+            // TODO: enumerate scaling types
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
+        case AT_EXPRESSION:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
+        case AT_CLIPMIN:
+            // TODO: enumerate clipping types
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
+        case AT_CLIPMAX:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
+        case AT_RANGE:
+            f = va_arg(aq, double);
+            lo_message_add_float(m, f);
+            f = va_arg(aq, double);
+            lo_message_add_float(m, f);
+            f = va_arg(aq, double);
+            lo_message_add_float(m, f);
+            f = va_arg(aq, double);
+            lo_message_add_float(m, f);
+            break;
+        default:
+            die_unless(0, "unknown parameter %d\n", pa);
+        }
+        pa = va_arg(aq, int);
+    }
+}
+
+/* helper for mapper_msg_prepare_params() */
+static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
+{
+    switch (type) {
+    case 'i':
+        lo_message_add_int32(m, a->i);
+        break;
+    case 'f':
+        lo_message_add_float(m, a->f);
+        break;
+    case 's':
+        lo_message_add_string(m, &a->s);
+        break;
+    }
+}
+
+void mapper_msg_prepare_params(lo_message m,
+                               mapper_message_t *msg)
+{
+    mapper_msg_param_t pa = 0;
+
+    for (pa = 0; pa < N_AT_PARAMS; pa++)
+    {
+        if (!msg->values[pa])
+            continue;
+
+        lo_arg *a = *msg->values[pa];
+        if (!a)
+            continue;
+
+        lo_message_add_string(m, mapper_msg_param_strings[pa]);
+        switch (pa) {
+        case AT_CANALIAS:
+            if (a->i)
+                lo_message_add_string(m, "yes");
+            else
+                lo_message_add_string(m, "no");
+            break;
+        case AT_RANGE:
+            msg_add_lo_arg(m, msg->types[pa][0], msg->values[pa][0]);
+            msg_add_lo_arg(m, msg->types[pa][1], msg->values[pa][1]);
+            msg_add_lo_arg(m, msg->types[pa][2], msg->values[pa][2]);
+            msg_add_lo_arg(m, msg->types[pa][3], msg->values[pa][3]);
+            break;
+        default:
+            msg_add_lo_arg(m, *msg->types[pa], a);
+            break;
+        }
+    }
+}

@@ -423,6 +423,68 @@ static void on_collision(mapper_admin_allocated_t *resource,
     resource->count_time = get_current_time();
 }
 
+void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
+                                 const char *types, ...)
+{
+    char namedpath[1024];
+    snprintf(namedpath, 1024, path, mapper_admin_name(admin));
+
+    char t[]=" ";
+
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+
+    va_list aq;
+    va_start(aq, types);
+
+    while (types && *types) {
+        t[0] = types[0];
+        switch (t[0]) {
+        case 'i': lo_message_add(m, t, va_arg(aq, int)); break;
+        case 's': lo_message_add(m, t, va_arg(aq, char*)); break;
+        case 'f': lo_message_add(m, t, va_arg(aq, double)); break;
+        default:
+            die_unless(0, "message %s, unknown type '%c'\n",
+                       path, t[0]);
+        }
+        types++;
+    }
+
+    mapper_msg_prepare_varargs(m, aq);
+
+    va_end(aq);
+
+    lo_send_message(admin->admin_addr, namedpath, m);
+    lo_message_free(m);
+}
+
+void mapper_admin_send_osc_with_params(mapper_admin admin,
+                                       mapper_message_t *params,
+                                       const char *path,
+                                       const char *types, ...)
+{
+    char namedpath[1024];
+    snprintf(namedpath, 1024, path, mapper_admin_name(admin));
+
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+
+    va_list aq;
+    va_start(aq, types);
+    lo_message_add_varargs(m, types, aq);
+
+    mapper_msg_prepare_params(m, params);
+
+    lo_send_message(admin->admin_addr, namedpath, m);
+    lo_message_free(m);
+}
+
 /**********************************/
 /* Internal OSC message handlers. */
 /**********************************/
@@ -433,14 +495,14 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 {
     mapper_admin admin = (mapper_admin) user_data;
 
-    lo_send(admin->admin_addr, "/registered", "ssssisssisisiiiiiiii",
-            mapper_admin_name(admin),
-            "@IP", inet_ntoa(admin->interface_ip),
-            "@port", admin->port.value,
-            "@canAlias", "no",   /*TODO : OSC aliases */
-            "@numInputs", mdev_num_inputs(admin->device),
-            "@numOutputs", mdev_num_outputs(admin->device),
-            "@hash", 0, 0, 0, 0, 0, 0, 0, 0);
+    mapper_admin_send_osc(
+        admin, "/registered", "s", mapper_admin_name(admin),
+        AT_IP, inet_ntoa(admin->interface_ip),
+        AT_PORT, admin->port.value,
+        AT_CANALIAS, 0,
+        AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+        AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+        AT_HASH, 0);
 
     /* If the device who received this message is not yet registered,
      * it is added to the global LOCAL_DEVICES list.  */
@@ -486,35 +548,15 @@ static int handler_id_n_namespace_input_get(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    char response[1024], method[1024], type[2] = { 0, 0 };
     int i;
-
-    snprintf(response, 1024, "/%s/namespace/input",
-             mapper_admin_name(admin));
 
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
-        lo_message m = lo_message_new();
-
-        strcpy(method, sig->name);
-        lo_message_add_string(m, method);
-
-        lo_message_add_string(m, "@type");
-        type[0] = sig->type;
-        lo_message_add_string(m, type);
-
-        if (sig->minimum) {
-            lo_message_add_string(m, "@min");
-            mval_add_to_message(m, sig, sig->minimum);
-        }
-
-        if (sig->maximum) {
-            lo_message_add_string(m, "@max");
-            mval_add_to_message(m, sig, sig->maximum);
-        }
-
-        lo_send_message(admin->admin_addr, response, m);
-        lo_message_free(m);
+        mapper_admin_send_osc(
+            admin, "%s/namespace/input", "s", sig->name,
+            AT_TYPE, sig->type,
+            sig->minimum ? AT_MIN : -1, sig,
+            sig->maximum ? AT_MAX : -1, sig);
     }
 
     return 0;
@@ -530,35 +572,15 @@ static int handler_id_n_namespace_output_get(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    char response[1024], method[1024], type[2] = { 0, 0 };
     int i;
-
-    snprintf(response, 1024, "/%s/namespace/output",
-             mapper_admin_name(admin));
 
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
-        lo_message m = lo_message_new();
-
-        strcpy(method, sig->name);
-        lo_message_add_string(m, method);
-
-        lo_message_add_string(m, "@type");
-        type[0] = sig->type;
-        lo_message_add_string(m, type);
-
-        if (sig->minimum) {
-            lo_message_add_string(m, "@min");
-            mval_add_to_message(m, sig, sig->minimum);
-        }
-
-        if (sig->maximum) {
-            lo_message_add_string(m, "@max");
-            mval_add_to_message(m, sig, sig->maximum);
-        }
-
-        lo_send_message(admin->admin_addr, response, m);
-        lo_message_free(m);
+        mapper_admin_send_osc(
+            admin, "%s/namespace/output", "s", sig->name,
+            AT_TYPE, sig->type,
+            sig->minimum ? AT_MIN : -1, sig,
+            sig->maximum ? AT_MAX : -1, sig);
     }
 
     return 0;
@@ -653,7 +675,7 @@ static int handler_device_link(const char *path, const char *types,
                                lo_arg **argv, int argc, lo_message msg,
                                void *user_data)
 {
-
+    mapper_admin admin = (mapper_admin) user_data;
     char device_name[1024], sender_name[1024], target_name[1024];
 
     if (argc < 2)
@@ -675,11 +697,11 @@ static int handler_device_link(const char *path, const char *types,
     /* If the device who received the message is the target in the
      * /link message... */
     if (strcmp(device_name, target_name) == 0) {
-        lo_send((*((mapper_admin) user_data)).admin_addr, "/link_to",
-                "sssssiss", sender_name, target_name, "@IP",
-                inet_ntoa((*((mapper_admin) user_data)).interface_ip),
-                "@port", (*((mapper_admin) user_data)).port.value,
-                "@canAlias", "no");
+        mapper_admin_send_osc(
+            admin, "/link_to", "ss", sender_name, target_name,
+            AT_IP, inet_ntoa(admin->interface_ip),
+            AT_PORT, admin->port.value,
+            AT_CANALIAS, 0);
     }
     return 0;
 }
@@ -760,10 +782,9 @@ static int handler_device_link_to(const char *path, const char *types,
             mdev_add_router((*((mapper_admin) user_data)).device, router);
             (*((mapper_admin) user_data)).device->num_routers++;
             printf("Router to %s : %d added.\n", host_address, recvport);
-            lo_send((*((mapper_admin) user_data)).admin_addr, "/linked",
-                    "ss", device_name,
-                    ((*((mapper_admin) user_data)).device->routers->
-                     target_name));
+
+            mapper_admin_send_osc(admin, "/linked", "ss", device_name,
+                                  admin->device->routers->target_name);
         }
     }
     return 0;
@@ -787,8 +808,8 @@ static int handler_device_links_get(const char *path, const char *types,
 
     /*Search through linked devices */
     while (router != NULL) {
-        lo_send((*((mapper_admin) user_data)).admin_addr, "/linked", "ss",
-                device_name, router->target_name);
+        mapper_admin_send_osc(admin, "/linked", "ss", device_name,
+                              router->target_name);
         router = router->next;
     }
     return 0;
@@ -836,8 +857,8 @@ static int handler_device_unlink(const char *path, const char *types,
         }
 
         if (f == 1)
-            lo_send((*((mapper_admin) user_data)).admin_addr, "/unlinked",
-                    "ss", device_name, target_name);
+            mapper_admin_send_osc(admin, "/unlinked", "ss",
+                                  device_name, target_name);
     }
 
     else if (strcmp(device_name, target_name) == 0) {
@@ -1332,16 +1353,17 @@ static int handler_param_connection_modify(const char *path,
 
                     }
 
-                    lo_send((*((mapper_admin) user_data)).admin_addr,
-                            "/connected", "sssssffffssssss",
-                            strcat(src_device_name, src_param_name),
-                            strcat(target_device_name, target_param_name),
-                            "@scaling", mapping_type, "@range",
-                            m->range.src_min, m->range.src_max,
+                    mapper_admin_send_osc(
+                        admin, "/connected", "ss",
+                        strcat(src_device_name, src_param_name),
+                        strcat(target_device_name, target_param_name),
+                        AT_SCALING, mapping_type,
+                        AT_RANGE, 
+                            m->range.src_min,  m->range.src_max,
                             m->range.dest_min, m->range.dest_max,
-                            "@expression", m->expression,
-                            "@clipMin", "none",
-                            "@clipMax", "none");
+                        AT_EXPRESSION, m->expression,
+                        AT_CLIPMIN, "none",
+                        AT_CLIPMAX, "none");
                 }
                 f1 = 1;
             } else
@@ -1448,10 +1470,10 @@ static int handler_param_connect(const char *path, const char *types,
 
     int md_num_inputs = admin->device->n_inputs;
     mapper_signal *md_inputs = admin->device->inputs;
-    int i = 0, j = 2, f = 0;
+    int i = 0, f = 0;
 
     char device_name[1024], src_param_name[1024], src_device_name[1024],
-        target_param_name[1024], target_device_name[1024], temp_type[2];
+        target_param_name[1024], target_device_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1481,58 +1503,27 @@ static int handler_param_connect(const char *path, const char *types,
         while (i < md_num_inputs && f == 0) {
 
             if (strcmp(md_inputs[i]->name, target_param_name) == 0) {
-                lo_message m = lo_message_new();
-                lo_message_add(m, "ss",
-                               strcat(src_device_name, src_param_name),
-                               strcat(target_device_name,
-                                      target_param_name));
-
-                /*Add device connection info */
-                /*lo_message_add(m, "sssi", "@IP",
-                   inet_ntoa((*((mapper_admin)
-                   user_data)).interface_ip), "@port",
-                   (*((mapper_admin) user_data)).port.value); */
-
-                /*If options added to the connect message */
-                if (argc > 2) {
-                    while (j < argc) {
-                        switch (types[j]) {
-                        case ('s'):    /*case ('S'): */
-                            lo_message_add(m, "s", (char *) &argv[j]->s);
-                            break;
-
-                        case ('i'):    /*case ('h'): */
-                            lo_message_add(m, "i", argv[j]->i);
-                            break;
-
-                        case ('f'):
-                            lo_message_add(m, "f", argv[j]->f);
-                            break;
-
-                        default:
-                            printf("Unknown message type %c\n", types[j]);
-                        }
-                        j++;
-                    }
-                } else {
-                    /*Add default connection info: type, range */
-                    temp_type[0] = md_inputs[i]->type;
-                    temp_type[1] = '\0';
-                    lo_message_add(m, "ss", "@type", temp_type);
-                    if (temp_type[0] == 'f')
-                        lo_message_add(m, "sfsf", "@min",
-                                       md_inputs[i]->minimum->f, "@max",
-                                       md_inputs[i]->maximum->f);
-                    else if (temp_type[0] == 'i')
-                        lo_message_add(m, "sisi", "@min",
-                                       md_inputs[i]->minimum->i32, "@max",
-                                       md_inputs[i]->maximum->i32);
-                }
-
-                lo_send_message((*((mapper_admin) user_data)).admin_addr,
-                                "/connect_to", m);
-                lo_message_free(m);
                 f = 1;
+                if (argc <= 2) {
+                    // use some default arguments related to the signal
+                    mapper_admin_send_osc(
+                        admin, "/connect_to", "ss",
+                        strcat(src_device_name, src_param_name),
+                        strcat(target_device_name, target_param_name),
+                        AT_TYPE, md_inputs[i]->type,
+                        md_inputs[i]->minimum ? AT_MIN : -1, md_inputs[i],
+                        md_inputs[i]->maximum ? AT_MAX : -1, md_inputs[i]);
+                } else {
+                    // add the remaining arguments from /connect
+                    mapper_message_t params;
+                    if (mapper_msg_parse_params(&params, path, &types[2],
+                                                argc-2, &argv[2]))
+                        break;
+                    mapper_admin_send_osc_with_params(
+                        admin, &params, "/connect_to", "ss",
+                        strcat(src_device_name, src_param_name),
+                        strcat(target_device_name, target_param_name));
+                }
             } else
                 i++;
         }
@@ -1569,8 +1560,8 @@ static int handler_device_connections_get(const char *path,
                 mapper_mapping m = sm->mapping;
                 snprintf(target_name, 256, "%s%s", router->target_name,
                          m->name);
-                lo_send((*((mapper_admin) user_data)).admin_addr,
-                        "/connected", "ss", src_name, target_name);
+                mapper_admin_send_osc(admin, "/connected", "ss",
+                                      src_name, target_name);
                 sm = sm->next;
             }
             router = router->next;
