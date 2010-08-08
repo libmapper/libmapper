@@ -63,6 +63,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
         // TODO: handle 'invert' and '-'
         if (j==AT_RANGE) {
             int k;
+            msg->types[j] = &types[i+1];
             msg->values[j] = &argv[i+1];
             for (k=0; k<4; k++) {
                 i++;
@@ -83,7 +84,9 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             }
         }
         else {
-            msg->values[j] = &argv[++i];
+            i++;
+            msg->types[j] = &types[i];
+            msg->values[j] = &argv[i];
             if (i >= argc) {
                 trace("message %s, not enough parameters for %s\n",
                       path, &argv[i-1]->s);

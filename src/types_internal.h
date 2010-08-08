@@ -249,8 +249,9 @@ extern const char* mapper_msg_param_strings[];
  *  valid for the duration of the message handler. */
 typedef struct _mapper_message
 {
-    const char *path;             //!< OSC address.
-    lo_arg **values[N_AT_PARAMS]; //!< Array of parameter values.
+    const char *path;               //!< OSC address.
+    lo_arg **values[N_AT_PARAMS];   //!< Array of parameter values.
+    const char *types[N_AT_PARAMS]; //!< Array of types for each value.
 } mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__
