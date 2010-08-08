@@ -28,14 +28,9 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 {
     /* Sanity check: complain loudly and quit string if number of
      * strings and params doesn't match up. */
-    #ifdef DEBUG
-    if (sizeof(mapper_msg_param_strings)/sizeof(const char*)
-        != N_AT_PARAMS)
-    {
-        trace("libmapper ERROR: wrong number of known parameters\n");
-        exit(1);
-    }
-    #endif
+    die_unless(sizeof(mapper_msg_param_strings)/sizeof(const char*)
+               == N_AT_PARAMS,
+               "libmapper ERROR: wrong number of known parameters\n");
 
     int i, j, n=0;
     msg->path = path;

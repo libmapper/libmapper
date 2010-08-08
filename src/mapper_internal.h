@@ -155,19 +155,24 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
 #ifdef DEBUG
 #ifdef __GNUC__
 #include <stdio.h>
+#include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
+#define die_unless(a, ...) { if (!(a)) { printf("-- " __VA_ARGS__); assert(a); } }
 #else
 static void trace(...)
 {
 };
+static void die_unless(...) {};
 #endif
 #else
 #ifdef __GNUC__
 #define trace(...) {}
+#define die_unless(...) {}
 #else
 static void trace(...)
 {
 };
+static void die_unless(...) {};
 #endif
 #endif
 
