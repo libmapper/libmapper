@@ -253,28 +253,28 @@ void mapper_admin_poll(mapper_admin admin)
         lo_server_add_method(admin->admin_server, "/registered", NULL,
                              handler_registered, admin);
 
-        snprintf(namespaceget, 256, "/%s/namespace/get",
+        snprintf(namespaceget, 256, "%s/namespace/get",
                  mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "",
                              handler_id_n_namespace_get, admin);
 
-        snprintf(namespaceget, 256, "/%s/namespace/input/get",
+        snprintf(namespaceget, 256, "%s/namespace/input/get",
                  mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "",
                              handler_id_n_namespace_input_get, admin);
 
-        snprintf(namespaceget, 256, "/%s/namespace/output/get",
+        snprintf(namespaceget, 256, "%s/namespace/output/get",
                  mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "",
                              handler_id_n_namespace_output_get, admin);
 
-        snprintf(namespaceget, 256, "/%s/info/get",
+        snprintf(namespaceget, 256, "%s/info/get",
                  mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, namespaceget, "",
                              handler_who, admin);
 
         char linksget[256];
-        snprintf(linksget, 256, "/%s/links/get", mapper_admin_name(admin));
+        snprintf(linksget, 256, "%s/links/get", mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, linksget, "",
                              handler_device_links_get, admin);
         lo_server_add_method(admin->admin_server, "/*/links/get", "",
@@ -288,7 +288,7 @@ void mapper_admin_poll(mapper_admin admin)
                              handler_device_unlink, admin);
 
         char connectionsget[256];
-        snprintf(connectionsget, 256, "/%s/connections/get",
+        snprintf(connectionsget, 256, "%s/connections/get",
                  mapper_admin_name(admin));
         lo_server_add_method(admin->admin_server, connectionsget, "",
                              handler_device_connections_get, admin);
