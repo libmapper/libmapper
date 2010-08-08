@@ -63,7 +63,26 @@ static int handler_device_connections_get(const char *, const char *,
                                           lo_arg **, int, lo_message,
                                           void *);
 
-
+/* Handler <-> Message relationships */
+static struct { char* path; char *types; lo_method_handler h; }
+    handlers[] = {
+{"/who",                    "",         handler_who},
+{"/registered",             NULL,       handler_registered},
+{"%s/namespace/get",        "",         handler_id_n_namespace_get},
+{"%s/namespace/input/get",  "",         handler_id_n_namespace_input_get},
+{"%s/namespace/output/get", "",         handler_id_n_namespace_output_get},
+{"%s/info/get",             "",         handler_who},
+{"%s/links/get",            "",         handler_device_links_get},
+{"/link",                   "ss",       handler_device_link},
+{"/link_to",                "sssssiss", handler_device_link_to},
+{"/unlink",                 "ss",       handler_device_unlink},
+{"%s/connections/get",      "",         handler_device_connections_get},
+{"/connect",                NULL,       handler_param_connect},
+{"/connect_to",             NULL,       handler_param_connect_to},
+{"/connection/modify",      NULL,       handler_param_connection_modify},
+{"/disconnect",             "ss",       handler_param_disconnect},
+};
+const int N_HANDLERS = sizeof(handlers)/sizeof(handlers[0]);
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -247,60 +266,16 @@ void mapper_admin_poll(mapper_admin admin)
     /* If we are ready to register the device, add the needed message
      * handlers. */
     if (!admin->registered && admin->port.locked && admin->ordinal.locked) {
-        char namespaceget[256];
-        lo_server_add_method(admin->admin_server, "/who", "", handler_who,
-                             admin);
-        lo_server_add_method(admin->admin_server, "/registered", NULL,
-                             handler_registered, admin);
-
-        snprintf(namespaceget, 256, "%s/namespace/get",
-                 mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, namespaceget, "",
-                             handler_id_n_namespace_get, admin);
-
-        snprintf(namespaceget, 256, "%s/namespace/input/get",
-                 mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, namespaceget, "",
-                             handler_id_n_namespace_input_get, admin);
-
-        snprintf(namespaceget, 256, "%s/namespace/output/get",
-                 mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, namespaceget, "",
-                             handler_id_n_namespace_output_get, admin);
-
-        snprintf(namespaceget, 256, "%s/info/get",
-                 mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, namespaceget, "",
-                             handler_who, admin);
-
-        char linksget[256];
-        snprintf(linksget, 256, "%s/links/get", mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, linksget, "",
-                             handler_device_links_get, admin);
-        lo_server_add_method(admin->admin_server, "/*/links/get", "",
-                             handler_device_links_get, admin);
-
-        lo_server_add_method(admin->admin_server, "/link", "ss",
-                             handler_device_link, admin);
-        lo_server_add_method(admin->admin_server, "/link_to", "sssssiss",
-                             handler_device_link_to, admin);
-        lo_server_add_method(admin->admin_server, "/unlink", "ss",
-                             handler_device_unlink, admin);
-
-        char connectionsget[256];
-        snprintf(connectionsget, 256, "%s/connections/get",
-                 mapper_admin_name(admin));
-        lo_server_add_method(admin->admin_server, connectionsget, "",
-                             handler_device_connections_get, admin);
-
-        lo_server_add_method(admin->admin_server, "/connect", NULL,
-                             handler_param_connect, admin);
-        lo_server_add_method(admin->admin_server, "/connect_to", NULL,
-                             handler_param_connect_to, admin);
-        lo_server_add_method(admin->admin_server, "/connection/modify",
-                             NULL, handler_param_connection_modify, admin);
-        lo_server_add_method(admin->admin_server, "/disconnect", "ss",
-                             handler_param_disconnect, admin);
+        int i;
+        for (i=0; i < N_HANDLERS; i++)
+        {
+            char fullpath[256];
+            snprintf(fullpath, 256, handlers[i].path,
+                     mapper_admin_name(admin));
+            lo_server_add_method(admin->admin_server, fullpath,
+                                 handlers[i].types, handlers[i].h,
+                                 admin);
+        }
 
         lo_send(admin->admin_addr, "/who", "");
     }
