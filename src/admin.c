@@ -277,6 +277,7 @@ void mapper_admin_poll(mapper_admin admin)
                                  admin);
         }
 
+        admin->registered = 1;
         mapper_admin_send_osc(admin, "/who", "");
     }
 }
@@ -485,12 +486,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_HASH, 0);
 
-    /* If the device who received this message is not yet registered,
-     * it is added to the global LOCAL_DEVICES list.  */
-    if (!(*((mapper_admin) user_data)).registered) {
-        (*((mapper_admin) user_data)).registered = 1;
-        printf("NEW LOCAL DEVICE : %s\n", mapper_admin_name(admin));
-    }
     return 0;
 }
 

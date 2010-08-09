@@ -260,9 +260,5 @@ int mdev_ready(mapper_device device)
     if (!device)
         return 0;
 
-    if (device->admin->port.locked
-        && device->admin->ordinal.locked && device->admin->registered) {
-        return 1;
-    }
-    return 0;
+    return device->admin->registered;
 }
