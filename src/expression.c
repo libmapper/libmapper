@@ -110,7 +110,7 @@ int is_separator(char c)
 /*! Parse the string and separate the terms in an array. */
 char **parse_string(char *s, int *l)
 {
-    char **tab = (char **) malloc(strlen(s) * strlen(s) * sizeof(char));
+    char **tab = (char **) malloc((strlen(s)+1) * sizeof(char*));
     int i_s = 0;
     int i_prev_separator = -1;
     int i_tab = 0;
