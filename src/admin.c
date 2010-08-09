@@ -719,12 +719,13 @@ static int handler_device_link_to(const char *path, const char *types,
                                   lo_arg **argv, int argc, lo_message msg,
                                   void *user_data)
 {
-    char device_name[1024], sender_name[1024], target_name[1024],
-        host_address[1024], can_alias[1024] = "no";
-    int recvport, f = 1, j = 2;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
+
+    const char *sender_name, *target_name, *host=0, *canAlias=0;
+    int port;
+    mapper_message_t params;
 
     if (argc < 2)
         return 0;
@@ -733,66 +734,60 @@ static int handler_device_link_to(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-    strcpy(sender_name, &argv[0]->s);
-    strcpy(target_name, &argv[1]->s);
+    sender_name = &argv[0]->s;
+    target_name = &argv[1]->s;
+
+    if (strcmp(sender_name, mapper_admin_name(admin)))
+    {
+        trace("ignoring /link_to %s %s\n",
+              sender_name, target_name);
+        return 0;
+    }
 
     trace("got /link_to %s %s\n", sender_name, target_name);
 
-    /* Parse the options list */
-    while ((argc - j) >= 2) {
-        if (types[j] != 's' && types[j] != 'S') {
-            j++;
-        }
-
-        else if (strcmp(&argv[j]->s, "@IP") == 0) {
-            strcpy(host_address, &argv[j + 1]->s);
-            j += 2;
-        }
-
-        else if (strcmp(&argv[j]->s, "@port") == 0) {
-            recvport = argv[j + 1]->i;
-            j += 2;
-        }
-
-        else if (strcmp(&argv[j]->s, "@canAlias") == 0) {
-            strcpy(can_alias, &argv[j + 1]->s);
-            j += 2;
-        } else {
-            j++;
-        }
+    // Discover whether the device is already linked.
+    while (router) {
+        if (strcmp(router->target_name, target_name)==0)
+            break;
+        router = router->next;
     }
 
-    /* If the device who received the message is the sender in the
-     * /link message... */
-    if (strcmp(device_name, sender_name) == 0) {
-        /*Search if the device is already linked */
-        while (router != NULL && f == 0) {
-            f *= strcmp(router->target_name, target_name);
-            router = router->next;
-        }
+    if (router)
+        // Already linked, nothing to do.
+        return 0;
 
-        if (f != 0) {           /*! Should we also send /linked
-                                 *  message in response to duplicate
-                                 *  link requests? */
-            trace("NEW LINKED DEVICE %s\nHost : %s, Port : %d, "
-                   "canAlias : %s\n\n",
-                   target_name, host_address, recvport, can_alias);
+    // Parse the message.
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+        return 0;
 
-            /* Creation of a new router added to the sender */
-            router =
-                mapper_router_new((*((mapper_admin) user_data)).device,
-                                  host_address, recvport, target_name);
-            mdev_add_router((*((mapper_admin) user_data)).device, router);
-            (*((mapper_admin) user_data)).device->num_routers++;
-            trace("Router to %s : %d added.\n", host_address, recvport);
-
-            mapper_admin_send_osc(admin, "/linked", "ss", device_name,
-                                  admin->device->routers->target_name);
-        }
+    // Check the results.
+    host = mapper_msg_get_param_if_string(&params, AT_IP);
+    if (!host) {
+        trace("can't perform /link_to, host unknown\n");
+        return 0;
     }
+
+    if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
+        trace("can't perform /link_to, port unknown\n");
+        return 0;
+    }
+
+    canAlias = mapper_msg_get_param_if_string(&params, AT_CANALIAS);
+
+    // Creation of a new router added to the sender.
+    router = mapper_router_new(md, host, port, target_name);
+    mdev_add_router(md, router);
+    md->num_routers ++;
+
+    // Announce the result.
+    mapper_admin_send_osc(admin, "/linked", "ss",
+                          mapper_admin_name(admin), target_name);
+
+    trace("new router to %s -> host: %s, port: %d, canAlias: %s\n",
+          target_name, host, port, canAlias ? canAlias : "no");
+
     return 0;
 }
 

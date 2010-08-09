@@ -65,7 +65,7 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, char *name);
+                                int port, const char *name);
 
 void mapper_router_free(mapper_router router);
 
@@ -153,6 +153,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 
 /*! Look up the value of a message parameter by symbolic identifier.
  *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
  *  \return       Pointer to lo_arg, or zero if not found. */
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param);
@@ -163,10 +164,37 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
  *  function to ensure it only processes the apriori expected number
  *  of parameters.  (e.g., @range has 4 parameters.)
  *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
  *  \return       String containing type of each parameter argument.
  */
 const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param);
+
+/*! Helper to get a direct parameter value only if it's a string.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \return       A string containing the parameter value or zero if
+ *                not found. */
+const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
+                                           mapper_msg_param_t param);
+
+/*! Helper to get a direct parameter value only if it's an int.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \param value  Location of int to receive value.
+ *  \return       Zero if not found, otherwise non-zero. */
+int mapper_msg_get_param_if_int(mapper_message_t *msg,
+                                mapper_msg_param_t param,
+                                int *value);
+
+/*! Helper to get a direct parameter value only if it's a float.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \param value  Location of float to receive value.
+ *  \return       Zero if not found, otherwise non-zero. */
+int mapper_msg_get_param_if_float(mapper_message_t *msg,
+                                  mapper_msg_param_t param,
+                                  float *value);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */

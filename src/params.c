@@ -101,7 +101,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param)
 {
     die_unless(param >= 0 && param < N_AT_PARAMS,
-               "error, unknown parameter in mapper_msg_get_param()\n");
+               "error, unknown parameter\n");
     return msg->values[param];
 }
 
@@ -109,8 +109,68 @@ const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param)
 {
     die_unless(param >= 0 && param < N_AT_PARAMS,
-               "error, unknown parameter in mapper_msg_get_param()\n");
+               "error, unknown parameter\n");
     return msg->types[param];
+}
+
+const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
+                                           mapper_msg_param_t param)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !(*a)) return 0;
+
+    const char *t = mapper_msg_get_type(msg, param);
+    if (!t) return 0;
+
+    if (t[0] != 's' && t[0] != 'S')
+        return 0;
+
+    return &(*a)->s;
+}
+
+int mapper_msg_get_param_if_int(mapper_message_t *msg,
+                                mapper_msg_param_t param,
+                                int *value)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+    die_unless(value!=0, "bad pointer");
+
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !(*a)) return 1;
+
+    const char *t = mapper_msg_get_type(msg, param);
+    if (!t) return 1;
+
+    if (t[0] != 'i')
+        return 1;
+
+    *value = (*a)->i;
+    return 0;
+}
+
+int mapper_msg_get_param_if_float(mapper_message_t *msg,
+                                  mapper_msg_param_t param,
+                                  float *value)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+    die_unless(value!=0, "bad pointer");
+
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !(*a)) return 1;
+
+    const char *t = mapper_msg_get_type(msg, param);
+    if (!t) return 1;
+
+    if (t[0] != 'f')
+        return 1;
+
+    *value = (*a)->f;
+    return 0;
 }
 
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
