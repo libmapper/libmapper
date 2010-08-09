@@ -120,14 +120,14 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     float f;
     char t[] = " ";
     mapper_signal sig;
-    mapper_msg_param_t pa = va_arg(aq, int);
+    mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
 
     while (pa != N_AT_PARAMS)
     {
         /* if parameter is -1, it means to skip this entry */
         if (pa == -1) {
-            pa = va_arg(aq, int);
-            pa = va_arg(aq, int);
+            pa = (mapper_msg_param_t) va_arg(aq, int);
+            pa = (mapper_msg_param_t) va_arg(aq, int);
             continue;
         }
 
@@ -208,7 +208,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         default:
             die_unless(0, "unknown parameter %d\n", pa);
         }
-        pa = va_arg(aq, int);
+        pa = (mapper_msg_param_t) va_arg(aq, int);
     }
 }
 
@@ -231,9 +231,9 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *msg)
 {
-    mapper_msg_param_t pa = 0;
+    mapper_msg_param_t pa = (mapper_msg_param_t) 0;
 
-    for (pa = 0; pa < N_AT_PARAMS; pa++)
+    for (pa = (mapper_msg_param_t) 0; pa < N_AT_PARAMS; pa = (mapper_msg_param_t) (pa + 1))
     {
         if (!msg->values[pa])
             continue;
