@@ -72,7 +72,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
              * modified to fit the range. */
             if (mapping->range.src_min == mapping->range.src_max) {
                 free(mapping->expression);
-                mapping->expression = malloc(100 * sizeof(char));
+                mapping->expression = (char*) malloc(100 * sizeof(char));
                 snprintf(mapping->expression, 100, "y=%f",
                          mapping->range.src_min);
             } else if (mapping->range.known == RANGE_KNOWN
@@ -91,7 +91,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
                     / (mapping->range.src_min - mapping->range.src_max);
 
                 free(mapping->expression);
-                mapping->expression = malloc(256 * sizeof(char));
+                mapping->expression = (char*) malloc(256 * sizeof(char));
                 snprintf(mapping->expression, 256, "y=x*%g+%g",
                          scale, offset);
             }

@@ -139,7 +139,7 @@ static struct in_addr get_interface_addr(const char *ifname)
 mapper_admin mapper_admin_new(const char *identifier,
                               mapper_device device, int initial_port)
 {
-    mapper_admin admin = malloc(sizeof(mapper_admin_t));
+    mapper_admin admin = (mapper_admin)malloc(sizeof(mapper_admin_t));
     if (!admin)
         return NULL;
 
@@ -1147,7 +1147,7 @@ static int handler_param_connection_modify(const char *path,
                             /* The expression has to be modified to fit
                              * the range */
                             free(m->expression);
-                            m->expression = malloc(256 * sizeof(char));
+                            m->expression = (char*)malloc(256 * sizeof(char));
                             snprintf(m->expression, 256, "y=(x-%g)*%g+%g",
                                      m->range.src_min,
                                      (m->range.dest_max -
@@ -1262,7 +1262,7 @@ static int handler_param_connection_modify(const char *path,
                             /* The expression has to be modified to
                              * fit the new range */
                             free(m->expression);
-                            m->expression = malloc(256 * sizeof(char));
+                            m->expression = (char*)malloc(256 * sizeof(char));
                             snprintf(m->expression, 256, "y=(x-%g)*%g+%g",
                                      m->range.src_min,
                                      (m->range.dest_max -

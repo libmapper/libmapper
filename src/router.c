@@ -15,7 +15,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int port, char *name)
 {
     char str[16];
-    mapper_router router = calloc(1, sizeof(struct _mapper_router));
+    mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->addr = lo_address_new(host, str);
     router->target_name = strdup(name);
@@ -152,7 +152,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
                                                mapper_signal sig,
                                                const char *name)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
     // Some default values?
     mapping->type = BYPASS;
@@ -167,7 +167,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
 void mapper_router_add_direct_mapping(mapper_router router,
                                       mapper_signal sig, const char *name)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
     mapping->type = BYPASS;
@@ -191,7 +191,7 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
                                             float src_min, float src_max,
                                             float dest_min, float dest_max)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
     mapping->type = LINEAR;
@@ -202,7 +202,7 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
         (dest_max * src_min - dest_min * src_max) / (src_min - src_max);
 
     free(mapping->expression);
-    mapping->expression = malloc(256 * sizeof(char));
+    mapping->expression = (char*) malloc(256 * sizeof(char));
     snprintf(mapping->expression, 256, "y=x*%g+%g", scale, offset);
 
     mapping->range.src_min = src_min;
@@ -246,14 +246,14 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
                                             const char *name,
                                             float scale, float offset)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
     mapping->type = LINEAR;
     mapping->name = strdup(name);
 
     free(mapping->expression);
-    mapping->expression = malloc(256 * sizeof(char));
+    mapping->expression = (char*) malloc(256 * sizeof(char));
     snprintf(mapping->expression, 256, "y=x*%g+%g", scale, offset);
 
     mapping->range.known = 0;
@@ -282,14 +282,14 @@ void mapper_router_add_calibrate_mapping(mapper_router router,
                                          const char *name, float dest_min,
                                          float dest_max)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
     mapping->type = CALIBRATE;
     mapping->name = strdup(name);
 
     free(mapping->expression);
-    mapping->expression = malloc(256 * sizeof(char));
+    mapping->expression = (char*) malloc(256 * sizeof(char));
     snprintf(mapping->expression, 256, "y=%g", dest_min);
 
     mapping->range.dest_min = dest_min;
@@ -322,7 +322,7 @@ void mapper_router_add_expression_mapping(mapper_router router,
                                           mapper_signal sig,
                                           const char *name, char *expr)
 {
-    mapper_mapping mapping = calloc(1, sizeof(struct _mapper_mapping));
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
     mapping->type = EXPRESSION;

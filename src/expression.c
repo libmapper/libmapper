@@ -35,7 +35,7 @@ void remove_spaces(char *s)
     char *buffer = NULL;
     int i, j = 0;
     char c;
-    buffer = malloc(strlen(s) + 1);
+    buffer = (char*) malloc(strlen(s) + 1);
     for (i = 0; (c = s[i]) != '\0'; i++)
         if (!isspace(c))
             buffer[j++] = c;
@@ -50,7 +50,7 @@ char *sub_string(const char *s, unsigned int start, unsigned int end)
 {
     char *new_s = NULL;
     if (s != NULL && start < end) {
-        new_s = malloc(sizeof(char) * (end - start + 2));
+        new_s = (char*) malloc(sizeof(char) * (end - start + 2));
         if (new_s != NULL) {
             int i;
             for (i = start; i <= end; i++) {
@@ -66,7 +66,7 @@ char *sub_string(const char *s, unsigned int start, unsigned int end)
     }
 
     else if (s != NULL && start == end) {
-        new_s = malloc(2 * sizeof(char));
+        new_s = (char*) malloc(2 * sizeof(char));
         if (new_s != NULL) {
             new_s[0] = s[start];
             new_s[1] = '\0';
@@ -282,7 +282,7 @@ int find_history_order(char *s, error *err)
 {
     int o = 0;
     char *buffer = NULL;
-    buffer = malloc(strlen(s) * sizeof(char));
+    buffer = (char*) malloc(strlen(s) * sizeof(char));
     if (s[1] == '[' && s[strlen(s) - 1] == ']') {
         buffer = sub_string(s, 2, strlen(s) - 1);
         o = atoi(buffer);

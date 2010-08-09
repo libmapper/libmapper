@@ -179,7 +179,7 @@ static int handler_signal(const char *path, const char *types,
 
     if (sig->handler) {
         int i;
-        sv = realloc(sv, sizeof(mapper_signal_value_t) * sig->length);
+        sv = (mapper_signal_value_t*) realloc(sv, sizeof(mapper_signal_value_t) * sig->length);
         switch (sig->type) {
         case 'f':
             for (i = 0; i < sig->length; i++)
@@ -222,7 +222,7 @@ void mdev_start_server(mapper_device md)
         }
 
         for (i = 0; i < md->n_inputs; i++) {
-            type = realloc(type, md->inputs[i]->length + 1);
+            type = (char*) realloc(type, md->inputs[i]->length + 1);
             for (j = 0; j < md->inputs[i]->length; j++)
                 type[j] = md->inputs[i]->type;
             type[j] = 0;

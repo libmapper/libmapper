@@ -31,7 +31,7 @@ mapper_signal msig_float(int length, const char *name,
     }
 
     if (maximum != INFINITY && maximum != -INFINITY) {
-        sig->maximum = malloc(sizeof(mapper_signal_value_t));
+        sig->maximum = (mapper_signal_value_t*) malloc(sizeof(mapper_signal_value_t));
         sig->maximum->f = maximum;
     }
 
