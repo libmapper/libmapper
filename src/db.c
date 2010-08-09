@@ -4,11 +4,11 @@
 #include "mapper_internal.h"
 
 /*! Initialization of the global list of local devices. */
-mapper_db_registered g_db_registered = NULL;
+mapper_db_device g_db_registered_devices = NULL;
 
 /*! Update information about a given device record based on message
  *  parameters. */
-static void update_device_record_params(mapper_db_registered reg,
+static void update_device_record_params(mapper_db_device reg,
                                         const char *name,
                                         mapper_message_t *params)
 {
@@ -21,9 +21,9 @@ static void update_device_record_params(mapper_db_registered reg,
     lo_arg **a_canAlias = mapper_msg_get_param(params, AT_CANALIAS);
     const char *t_canAlias = mapper_msg_get_type(params, AT_CANALIAS);
 
-    if (!reg->full_name || strcmp(reg->full_name, name)) {
-        reg->full_name = (char*) realloc(reg->full_name, strlen(name));
-        strcpy(reg->full_name, name);
+    if (!reg->name || strcmp(reg->name, name)) {
+        reg->name = (char*) realloc(reg->name, strlen(name));
+        strcpy(reg->name, name);
     }
 
     if (a_host && t_host[0]=='s') {
@@ -41,16 +41,16 @@ static void update_device_record_params(mapper_db_registered reg,
 int mapper_db_add_or_update_params(const char *name,
                                    mapper_message_t *params)
 {
-    mapper_db_registered reg = mapper_db_find(name);
+    mapper_db_device reg = mapper_db_find_device_by_name(name);
     int rc = 0;
 
     if (!reg) {
-        reg = (mapper_db_registered)malloc(sizeof(*reg));
+        reg = (mapper_db_device)malloc(sizeof(*reg));
         memset(reg, 0, sizeof(*reg));
         rc = 1;
 
-        reg->next = g_db_registered;
-        g_db_registered = reg;
+        reg->next = g_db_registered_devices;
+        g_db_registered_devices = reg;
     }
 
     if (reg)
@@ -59,11 +59,11 @@ int mapper_db_add_or_update_params(const char *name,
     return rc;
 }
 
-mapper_db_registered mapper_db_find(const char *name)
+mapper_db_device mapper_db_find_device_by_name(const char *name)
 {
-    mapper_db_registered reg = g_db_registered;
+    mapper_db_device reg = g_db_registered_devices;
     while (reg) {
-        if (strcmp(reg->full_name, name)==0)
+        if (strcmp(reg->name, name)==0)
             return reg;
         reg = reg->next;
     }
@@ -72,11 +72,11 @@ mapper_db_registered mapper_db_find(const char *name)
 
 void mapper_db_dump()
 {
-    mapper_db_registered reg = g_db_registered;
+    mapper_db_device reg = g_db_registered_devices;
     trace("Registered devices:\n");
     while (reg) {
         trace("  name=%s, host=%s, port=%d, canAlias=%d\n",
-              reg->full_name, reg->host,
+              reg->name, reg->host,
               reg->port, reg->canAlias);
         reg = reg->next;
     }

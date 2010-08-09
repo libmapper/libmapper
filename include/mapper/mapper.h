@@ -152,4 +152,22 @@ const char *mdev_name(mapper_device device);
  *  not available. */
 unsigned int mdev_port(mapper_device device);
 
+/**** Local device database ****/
+
+/*! A record that keeps information about a device on the network. */
+typedef struct _mapper_db_device {
+    char *name;   //!< Device name.
+    char *host;   //!< Device network host name.
+    int port;     //!< Device network port.
+    int canAlias; //!< True if the device can handle OSC aliasing.
+
+    /*! Pointer to the next item in the list, or zero if none. */
+    struct _mapper_db_device *next;
+} *mapper_db_device;
+
+/*! Find information for a registered device.
+ *  \param name  Name of the device to find in the database.
+ *  \return      Information about the device, or zero if not found. */
+mapper_db_device mapper_db_find_device_by_name(const char *name);
+
 #endif // __MAPPER_H__

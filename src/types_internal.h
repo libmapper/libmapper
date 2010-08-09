@@ -210,17 +210,6 @@ typedef struct _mapper_device {
     int num_mappings_out;
 } *mapper_device;
 
-/**** Local device database ****/
-
-/*! A structure that keeps information sent by /registered. */
-typedef struct _mapper_db_registered {
-    char *full_name;
-    char *host;
-    int port;
-    int canAlias;
-    struct _mapper_db_registered *next;
-} *mapper_db_registered;
-
 /**** Messages ****/
 
 /*! Symbolic representation of recognized @-parameters. */

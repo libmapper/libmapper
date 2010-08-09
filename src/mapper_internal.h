@@ -138,11 +138,6 @@ int mapper_db_add_or_update_params(const char *name,
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();
 
-/*! Find information for a registered device.
- *  \param name Name of the device to find in the database.
- *  \return Information about the device, or zero if not found. */
-mapper_db_registered mapper_db_find(const char *name);
-
 /**** Messages ****/
 
 /*! Parse a message based on an OSC path and parameters.
