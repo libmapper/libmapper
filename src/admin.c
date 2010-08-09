@@ -495,20 +495,19 @@ static int handler_registered(const char *path, const char *types,
                               lo_arg **argv, int argc, lo_message msg,
                               void *user_data)
 {
-    if (0) {                    //change to test whether device is GUI
-        if (argc < 1)
-            return 0;
+    if (argc < 1)
+        return 0;
 
-        if (types[0] != 's' && types[0] != 'S')
-            return 0;
+    if (types[0] != 's' && types[0] != 'S')
+        return 0;
 
-        // TODO: pick up these parameters more intelligently
-        // TODO: modify the record if it already exists
-        mapper_db_add(&argv[0]->s,  // name
-                      &argv[2]->s,  // host
-                      argv[4]->i,   // port
-                      &argv[6]->s); // canAlias
-    }
+    const char *name = &argv[0]->s;
+
+    mapper_message_t params;
+    mapper_msg_parse_params(&params, path, &types[1],
+                            argc-1, &argv[1]);
+
+    mapper_db_add_or_update_params(name, &params);
 
     return 0;
 }

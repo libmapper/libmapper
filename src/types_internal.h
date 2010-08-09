@@ -217,7 +217,7 @@ typedef struct _mapper_db_registered {
     char *full_name;
     char *host;
     int port;
-    char *canAlias;
+    int canAlias;
     struct _mapper_db_registered *next;
 } *mapper_db_registered;
 

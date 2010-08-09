@@ -105,6 +105,14 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
     return msg->values[param];
 }
 
+const char* mapper_msg_get_type(mapper_message_t *msg,
+                                mapper_msg_param_t param)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter in mapper_msg_get_param()\n");
+    return msg->types[param];
+}
+
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;

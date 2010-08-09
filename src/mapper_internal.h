@@ -124,16 +124,15 @@ void mapper_mapping_perform(mapper_mapping mapping,
 
 /**** Local device database ****/
 
-/*! Add a device information instance to the local database. If it is
- *  already in the database, it is not added.
- *  \param full_name  The name of the device.
- *  \param host       The device's network host.
- *  \param port       The device's network port.
- *  \param canAlias   Boolean indicating the device's ability to alias
- *                    addresses.
- *  \return           Non-zero if device was added to the database, or
- *                    zero if it was already present. */
-int mapper_db_add(char *full_name, char *host, int port, char *canAlias);
+/*! Add or update an entry in the device database using parsed message
+ *  parameters.
+ *  \param name   The name of the device.
+ *  \param params The parsed message parameters containing new device
+ *                information.
+ *  \return       Non-zero if device was added to the database, or
+ *                zero if it was already present. */
+int mapper_db_add_or_update_params(const char *name,
+                                   mapper_message_t *params);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
@@ -142,7 +141,7 @@ void mapper_db_dump();
 /*! Find information for a registered device.
  *  \param name Name of the device to find in the database.
  *  \return Information about the device, or zero if not found. */
-mapper_db_registered mapper_db_find(char *name);
+mapper_db_registered mapper_db_find(const char *name);
 
 /**** Messages ****/
 
@@ -157,11 +156,22 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                             const char *path, const char *types,
                             int argc, lo_arg **argv);
 
-/*! Look up the value of a message parameter by symbolic idenfier.
+/*! Look up the value of a message parameter by symbolic identifier.
  *  \param msg    Structure containing parameter info.
  *  \return       Pointer to lo_arg, or zero if not found. */
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param);
+
+/*! Look up the type of a message parameter by symbolic identifier.
+ *  Note that it's possible the returned type string will be longer
+ *  than the actual contents pointed to; it is up to the usage of this
+ *  function to ensure it only processes the apriori expected number
+ *  of parameters.  (e.g., @range has 4 parameters.)
+ *  \param msg    Structure containing parameter info.
+ *  \return       String containing type of each parameter argument.
+ */
+const char* mapper_msg_get_type(mapper_message_t *msg,
+                                mapper_msg_param_t param);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
