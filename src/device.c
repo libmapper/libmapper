@@ -159,7 +159,8 @@ void mdev_on_port_and_ordinal(mapper_device md,
 
 static void liblo_error_handler(int num, const char *msg, const char *path)
 {
-    printf("liblo server error %d in path %s: %s\n", num, path, msg);
+    printf("[libmapper] liblo server error %d in path %s: %s\n",
+           num, path, msg);
 }
 
 static mapper_signal_value_t *sv = 0;
@@ -173,7 +174,6 @@ static int handler_signal(const char *path, const char *types,
 
     if (!md) {
         trace("error, sig->device==0\n");
-        printf("error, sig->device==0\n");
         return 0;
     }
 

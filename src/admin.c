@@ -102,7 +102,8 @@ const int N_HANDLERS = sizeof(handlers)/sizeof(handlers[0]);
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
 {
-    printf("liblo server error %d in path %s: %s\n", num, where, msg);
+    printf("[libmapper] liblo server error %d in path %s: %s\n",
+           num, where, msg);
 }
 
 /* Functions for handling the resource allocation scheme.  If
@@ -700,7 +701,6 @@ static int handler_device_link(const char *path, const char *types,
     strcpy(target_name, &argv[1]->s);
 
     trace("got /link %s %s\n", sender_name, target_name);
-    printf("got /link %s %s\n", sender_name, target_name);
 
     /* If the device who received the message is the target in the
      * /link message... */
@@ -739,7 +739,7 @@ static int handler_device_link_to(const char *path, const char *types,
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 
-    printf("got /link_to %s %s\n", sender_name, target_name);
+    trace("got /link_to %s %s\n", sender_name, target_name);
 
     /* Parse the options list */
     while ((argc - j) >= 2) {
@@ -765,8 +765,6 @@ static int handler_device_link_to(const char *path, const char *types,
         }
     }
 
-    printf("got /link_to %s %s\n", sender_name, target_name);
-
     /* If the device who received the message is the sender in the
      * /link message... */
     if (strcmp(device_name, sender_name) == 0) {
@@ -779,7 +777,7 @@ static int handler_device_link_to(const char *path, const char *types,
         if (f != 0) {           /*! Should we also send /linked
                                  *  message in response to duplicate
                                  *  link requests? */
-            printf("NEW LINKED DEVICE %s\nHost : %s, Port : %d, "
+            trace("NEW LINKED DEVICE %s\nHost : %s, Port : %d, "
                    "canAlias : %s\n\n",
                    target_name, host_address, recvport, can_alias);
 
@@ -789,7 +787,7 @@ static int handler_device_link_to(const char *path, const char *types,
                                   host_address, recvport, target_name);
             mdev_add_router((*((mapper_admin) user_data)).device, router);
             (*((mapper_admin) user_data)).device->num_routers++;
-            printf("Router to %s : %d added.\n", host_address, recvport);
+            trace("Router to %s : %d added.\n", host_address, recvport);
 
             mapper_admin_send_osc(admin, "/linked", "ss", device_name,
                                   admin->device->routers->target_name);
@@ -1042,18 +1040,15 @@ static int handler_param_connect_to(const char *path, const char *types,
         strcpy(target_param_name,
                &argv[1]->s + strlen(target_device_name));
 
-        trace("got /connect_to %s%s %s%s+ %d arguments\n", src_device_name,
+        trace("got /connect_to %s%s %s%s + %d arguments\n", src_device_name,
               src_param_name, target_device_name, target_param_name, argc);
-        printf("got /connect_to %s%s %s%s + %d arguments\n",
-               src_device_name, src_param_name, target_device_name,
-               target_param_name, argc);
 
         /* Searches the source signal among the outputs of the device */
         while (i < md_num_outputs && f1 == 0) {
 
             /* If the signal exists ... */
             if (strcmp(md_outputs[i]->name, src_param_name) == 0) {
-                printf("signal exists: %s\n", md_outputs[i]->name);
+                trace("signal exists: %s\n", md_outputs[i]->name);
 
                 /* Search the router linking to the receiver */
                 while (router != NULL && f2 == 0) {
@@ -1070,7 +1065,7 @@ static int handler_param_connect_to(const char *path, const char *types,
 
         /* If the router doesn't exist yet */
         if (f2 == 0) {
-            printf("devices are not linked!");
+            trace("devices are not linked!");
             if (host_address != NULL && recvport != -1) {
                 //TO DO: create routed using supplied host and port info
                 //TO DO: send /linked message
@@ -1384,7 +1379,7 @@ static int handler_param_connection_modify(const char *path,
                         char invert[1024];
                         strcpy(invert, &argv[3]->s);
                         if (strcmp(invert, "invert") == 0) {
-                            printf("invert message\n");
+                            trace("invert message\n");
                             strcpy(invert, &argv[4]->s);
                             if (strcmp(invert, "input") == 0) {
                                 float temp = m->range.src_min;
