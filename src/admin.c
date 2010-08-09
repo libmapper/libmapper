@@ -277,7 +277,7 @@ void mapper_admin_poll(mapper_admin admin)
                                  admin);
         }
 
-        lo_send(admin->admin_addr, "/who", "");
+        mapper_admin_send_osc(admin, "/who", "");
     }
 }
 
@@ -288,6 +288,8 @@ void mapper_admin_port_probe(mapper_admin admin)
 {
     trace("probing port\n");
 
+    /* We don't use mapper_admin_send_osc() here because the name is
+     * not yet established and it would trigger a warning. */
     lo_send(admin->admin_addr, "/port/probe", "i", admin->port.value);
 }
 
@@ -303,6 +305,8 @@ void mapper_admin_name_probe(mapper_admin admin)
     trace("probing name\n");
     snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
 
+    /* For the same reason, we can't use mapper_admin_send_osc()
+     * here. */
     lo_send(admin->admin_addr, "/name/probe", "s", name);
 }
 
@@ -310,16 +314,18 @@ void mapper_admin_name_probe(mapper_admin admin)
 void mapper_admin_port_registered(mapper_admin admin)
 {
     if (admin->port.locked)
-        lo_send(admin->admin_addr, "/port/registered", "i",
-                admin->port.value);
+        /* Name not yet registered, so we can't use
+         * mapper_admin_send_osc() here. */
+        lo_send(admin->admin_addr, "/port/registered",
+                "i", admin->port.value);
 }
 
 /*! Announce on the admin bus a device's registered name.ordinal. */
 void mapper_admin_name_registered(mapper_admin admin)
 {
     if (admin->ordinal.locked)
-        lo_send(admin->admin_addr, "/name/registered", "s",
-                mapper_admin_name(admin));
+        mapper_admin_send_osc(admin, "/name/registered",
+                              "s", mapper_admin_name(admin));
 }
 
 const char *_real_mapper_admin_name(mapper_admin admin,
