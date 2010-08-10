@@ -1,6 +1,9 @@
-
 #ifndef __MAPPER_H__
 #define __MAPPER_H__
+
+#ifdef _cplusplus
+extern "C" {
+#endif
 
 #include <mapper/mapper_types.h>
 
@@ -154,12 +157,20 @@ unsigned int mdev_port(mapper_device device);
 
 /**** Local device database ****/
 
+typedef struct _user_data_structure {
+  bool is_new;
+  
+  struct _mapper_db_device *next_new_device;
+
+} *user_data_structure;
+
 /*! A record that keeps information about a device on the network. */
 typedef struct _mapper_db_device {
     char *name;   //!< Device name.
     char *host;   //!< Device network host name.
     int port;     //!< Device network port.
     int canAlias; //!< True if the device can handle OSC aliasing.
+    void* user_data; //!< User modifiable data.
 
     /*! Pointer to the next item in the list, or zero if none. */
     struct _mapper_db_device *next;
@@ -202,5 +213,9 @@ void mapper_db_add_device_callback(device_callback_func *f, void *user);
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_device_callback(device_callback_func *f, void *user);
+
+#ifdef _cplusplus
+}
+#endif
 
 #endif // __MAPPER_H__
