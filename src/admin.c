@@ -222,6 +222,10 @@ mapper_admin mapper_admin_new(const char *identifier,
     lo_server_add_method(admin->admin_server, "/name/probe", NULL,
                          handler_device_alloc_name, admin);
 
+    /* Resource allocation algorithm needs a seeded random number
+     * generator. */
+    srand(((unsigned int)(get_current_time()*1000000.0))%100000);
+
     /* Probe potential port and name to admin bus. */
     mapper_admin_port_probe(admin);
     mapper_admin_name_probe(admin);
@@ -395,8 +399,7 @@ static int check_collisions(mapper_admin admin,
     if (timediff >= 0.5 && resource->collision_count > 0) {
         /* Otherwise, add a random number based on the number of
          * collisions. */
-        resource->value += (int) (((double) rand()) / RAND_MAX
-                                  * (resource->collision_count + 1));
+        resource->value += rand() % (resource->collision_count + 1);
 
         /* Prepare for causing new port collisions. */
 
