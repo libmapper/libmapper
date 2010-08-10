@@ -221,6 +221,7 @@ void mdev_start_server(mapper_device md)
         } else {
             trace("error opening server on port %d for device '%s'\n",
                   md->admin->port.value, md->name_prefix);
+            return;
         }
 
         for (i = 0; i < md->n_inputs; i++) {
