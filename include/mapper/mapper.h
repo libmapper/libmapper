@@ -157,13 +157,6 @@ unsigned int mdev_port(mapper_device device);
 
 /**** Local device database ****/
 
-typedef struct _user_data_structure {
-  bool is_new;
-  
-  struct _mapper_db_device *next_new_device;
-
-} *user_data_structure;
-
 /*! A record that keeps information about a device on the network. */
 typedef struct _mapper_db_device {
     char *name;   //!< Device name.
