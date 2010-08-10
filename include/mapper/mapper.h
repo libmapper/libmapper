@@ -170,4 +170,37 @@ typedef struct _mapper_db_device {
  *  \return      Information about the device, or zero if not found. */
 mapper_db_device mapper_db_find_device_by_name(const char *name);
 
+/*! The set of possible actions on a database record, used to inform
+ *  callbacks of what is happening to a record. */
+typedef enum {
+    MDB_MODIFY,
+    MDB_NEW,
+    MDB_REMOVE,
+} mapper_db_action_t;
+
+/*! A callback function prototype for when a device record is added or
+ *  updated in the database. Such a function is passed in to
+ *  mapper_db_add_device_callback().
+ *  \param record  Pointer to the device record.
+ *  \param action  A value of mapper_db_action_t indicating what
+ *                 is happening to the database record.
+ *  \param user    The user context pointer registered with this
+ *                 callback. */
+typedef void device_callback_func(mapper_db_device record,
+                                  mapper_db_action_t action,
+                                  void *user);
+
+/*! Register a callback for when a device record is added or updated
+ *  in the database.
+ *  \param cb   Callback function.
+ *  \param user A user-defined pointer to be passed to the callback
+ *              for context . */
+void mapper_db_add_device_callback(device_callback_func *f, void *user);
+
+/*! Remove a device record callback from the database service.
+ *  \param cb   Callback function.
+ *  \param user The user context pointer that was originally specified
+ *              when adding the callback. */
+void mapper_db_remove_device_callback(device_callback_func *f, void *user);
+
 #endif // __MAPPER_H__

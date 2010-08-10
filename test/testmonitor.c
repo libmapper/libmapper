@@ -73,6 +73,23 @@ void loop()
     }
 }
 
+void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
+{
+    printf("Device %s ", dev->name);
+    switch (a) {
+    case MDB_NEW:
+        printf("added.\n");
+        break;
+    case MDB_MODIFY:
+        printf("modified.\n");
+        break;
+    case MDB_REMOVE:
+        printf("removed.\n");
+        break;
+    }
+    sleep(1);
+}
+
 void ctrlc(int sig)
 {
     done = 1;
@@ -90,11 +107,14 @@ int main()
         goto done;
     }
 
+    mapper_db_add_device_callback(on_device, 0);
+
     wait_local_devices();
 
     loop();
 
   done:
+    mapper_db_remove_device_callback(on_device, 0);
     cleanup_dummy_device();
     return result;
 }
