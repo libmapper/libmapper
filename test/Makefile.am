@@ -1,35 +1,38 @@
 
+TEST_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+TEST_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+
 noinst_PROGRAMS = test testadmin testsend testrecv testexpression	\
                   testlinear testparams testmonitor
 
-testadmin_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
-testadmin_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testadmin_LDADD = $(TEST_LDADD)
 
-testsend_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testsend_CFLAGS = $(TEST_CFLAGS)
 testsend_SOURCES = testsend.c
-testsend_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testsend_LDADD = $(TEST_LDADD)
 
-testrecv_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testrecv_CFLAGS = $(TEST_CFLAGS)
 testrecv_SOURCES = testrecv.c
-testrecv_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testrecv_LDADD = $(TEST_LDADD)
 
-testlinear_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testlinear_CFLAGS = $(TEST_CFLAGS)
 testlinear_SOURCES = testlinear.c
-testlinear_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testlinear_LDADD = $(TEST_LDADD)
 
-testexpression_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testexpression_CFLAGS = $(TEST_CFLAGS)
 testexpression_SOURCES = testexpression.c
-testexpression_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testexpression_LDADD = $(TEST_LDADD)
 
-testparams_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testparams_CFLAGS = $(TEST_CFLAGS)
 testparams_SOURCES = testparams.c
-testparams_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testparams_LDADD = $(TEST_LDADD)
 
-testmonitor_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testmonitor_CFLAGS = $(TEST_CFLAGS)
 testmonitor_SOURCES = testmonitor.c
-testmonitor_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+testmonitor_LDADD = $(TEST_LDADD)
 
-test_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
-test_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+test_LDADD = $(TEST_LDADD)
