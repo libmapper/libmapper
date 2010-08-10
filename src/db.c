@@ -22,12 +22,14 @@ static void update_device_record_params(mapper_db_device reg,
     const char *t_canAlias = mapper_msg_get_type(params, AT_CANALIAS);
 
     if (!reg->name || strcmp(reg->name, name)) {
-        reg->name = (char*) realloc(reg->name, strlen(name));
+        reg->name = (char*) realloc(reg->name, strlen(name)+1);
         strcpy(reg->name, name);
     }
 
-    if (a_host && t_host[0]=='s') {
-        reg->host = (char*) realloc(reg->host, strlen(&(*a_host)->s));
+    if (a_host && (*a_host) && t_host[0]=='s'
+        && (!reg->host || strcmp(reg->host, &(*a_host)->s)))
+    {
+        reg->host = (char*) realloc(reg->host, strlen(&(*a_host)->s)+1);
         strcpy(reg->host, &(*a_host)->s);
     }
 
