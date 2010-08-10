@@ -1,6 +1,7 @@
 
 #ifndef __MAPPER_INTERNAL_H__
 #define __MAPPER_INTERNAL_H__
+#define DEBUG
 
 #include "types_internal.h"
 #include <mapper/mapper.h>
@@ -137,6 +138,14 @@ int mapper_db_add_or_update_params(const char *name,
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();
+
+/*! Append a linked list of newly appeared devices to input list.
+ *  \param cache  Linked list to append new devices to. */
+mapper_db_device mapper_db_update_new_device_cache( mapper_db_device cache );
+
+/*! Return the head of linked list of devices.
+*/
+mapper_db_device mapper_db_return_first_device();
 
 /**** Messages ****/
 
