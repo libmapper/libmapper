@@ -294,6 +294,8 @@ void mapper_admin_poll(mapper_admin admin)
         }
 
         admin->registered = 1;
+        trace("</%s.?::%p> registered as <%s>\n",
+              admin->identifier, admin, mapper_admin_name(admin));
         mapper_admin_send_osc(admin, "/who", "");
     }
 }
@@ -303,7 +305,7 @@ void mapper_admin_poll(mapper_admin admin)
  */
 void mapper_admin_port_probe(mapper_admin admin)
 {
-    trace("probing port\n");
+    trace("</%s.?::%p> probing port\n", admin->identifier, admin);
 
     /* We don't use mapper_admin_send_osc() here because the name is
      * not yet established and it would trigger a warning. */
@@ -319,7 +321,7 @@ void mapper_admin_name_probe(mapper_admin admin)
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
     char name[256];
-    trace("probing name\n");
+    trace("</%s.?::%p> probing name\n", admin->identifier, admin);
     snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
 
     /* For the same reason, we can't use mapper_admin_send_osc()
@@ -533,6 +535,8 @@ static int handler_logout(const char *path, const char *types,
 						  lo_arg **argv, int argc, lo_message msg,
 						  void *user_data)
 {
+    mapper_admin admin = (mapper_admin)user_data;
+
     if (argc < 1)
         return 0;
 	
@@ -542,7 +546,7 @@ static int handler_logout(const char *path, const char *types,
     const char *name = &argv[0]->s;
 	
     //TO DO: remove record of device from database
-	trace("got /logout %s\n", name);
+	trace("<%s> got /logout %s\n", mapper_admin_name(admin), name);
 	
     return 0;
 }
@@ -630,7 +634,8 @@ static int handler_device_alloc_port(const char *path, const char *types,
     else
         return 0;
 
-    trace("got /port/probe %d \n", probed_port);
+    trace("</%s.?::%p> got /port/probe %d \n",
+          admin->identifier, admin, probed_port);
 
     /* Process port collisions. */
     if (probed_port == admin->port.value)
@@ -666,7 +671,8 @@ static int handler_device_alloc_name(const char *path, const char *types,
     }
     probed_ordinal = atoi(++s);
 
-    trace("got /name/probe %s\n", probed_name);
+    trace("</%s.?::%p> got /name/probe %s\n",
+          admin->identifier, admin, probed_name);
 
     /* Process ordinal collisions. */
     //The collision should be calculated separately per-device-name
@@ -700,7 +706,8 @@ static int handler_device_link(const char *path, const char *types,
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 
-    trace("got /link %s %s\n", sender_name, target_name);
+    trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
+          sender_name, target_name);
 
     /* If the device who received the message is the target in the
      * /link message... */
@@ -739,12 +746,13 @@ static int handler_device_link_to(const char *path, const char *types,
 
     if (strcmp(sender_name, mapper_admin_name(admin)))
     {
-        trace("ignoring /link_to %s %s\n",
-              sender_name, target_name);
+        trace("<%s> ignoring /link_to %s %s\n",
+              mapper_admin_name(admin), sender_name, target_name);
         return 0;
     }
 
-    trace("got /link_to %s %s\n", sender_name, target_name);
+    trace("<%s> got /link_to %s %s\n", mapper_admin_name(admin),
+          sender_name, target_name);
 
     // Discover whether the device is already linked.
     while (router) {
@@ -796,6 +804,7 @@ static int handler_device_linked(const char *path, const char *types,
 								 lo_arg **argv, int argc, lo_message msg,
 								 void *user_data)
 {
+    mapper_admin admin = (mapper_admin) user_data;
     char sender_name[1024], target_name[1024];
 	
     if (argc < 2)
@@ -808,7 +817,8 @@ static int handler_device_linked(const char *path, const char *types,
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 	
-    trace("got /linked %s %s\n", sender_name, target_name);
+    trace("<%s> got /linked %s %s\n", mapper_admin_name(admin),
+          sender_name, target_name);
 	
 	//TO DO: record link in database
 	
@@ -829,7 +839,8 @@ static int handler_device_links_get(const char *path, const char *types,
              (*((mapper_admin) user_data)).identifier,
              (*((mapper_admin) user_data)).ordinal.value);
 
-    trace("got /%s/links/get\n", device_name);
+    trace("<%s> got /%s/links/get\n", mapper_admin_name(admin),
+          device_name);
 
     /*Search through linked devices */
     while (router != NULL) {
@@ -865,7 +876,8 @@ static int handler_device_unlink(const char *path, const char *types,
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 
-    trace("got /unlink %s %s\n", sender_name, target_name);
+    trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
+          sender_name, target_name);
 
     /*If the device who received the message is the sender in the
      * /unlink message ... */
@@ -900,6 +912,7 @@ static int handler_device_unlinked(const char *path, const char *types,
 								   lo_arg **argv, int argc, lo_message msg,
 								   void *user_data)
 {
+    mapper_admin admin = (mapper_admin) user_data;
     char sender_name[1024], target_name[1024];
 	
     if (argc < 2)
@@ -912,7 +925,8 @@ static int handler_device_unlinked(const char *path, const char *types,
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 	
-    trace("got /unlink %s %s\n", sender_name, target_name);
+    trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
+          sender_name, target_name);
 	
 	//TO DO: remove link from database
 	
@@ -956,7 +970,8 @@ static int handler_param_connect(const char *path, const char *types,
         strtok(src_device_name, "/");
         strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
 		
-        trace("got /connect %s%s %s%s\n", src_device_name, src_param_name,
+        trace("<%s> got /connect %s%s %s%s\n", mapper_admin_name(admin),
+              src_device_name, src_param_name,
               target_device_name, target_param_name);
 		
         while (i < md_num_inputs && f == 0) {
@@ -1035,7 +1050,8 @@ static int handler_param_connect_to(const char *path, const char *types,
         strcpy(target_param_name,
                &argv[1]->s + strlen(target_device_name));
 
-        trace("got /connect_to %s%s %s%s + %d arguments\n", src_device_name,
+        trace("<%s> got /connect_to %s%s %s%s + %d arguments\n",
+              mapper_admin_name(admin), src_device_name,
               src_param_name, target_device_name, target_param_name, argc);
 
         /* Searches the source signal among the outputs of the device */
@@ -1187,6 +1203,7 @@ static int handler_param_connected(const char *path, const char *types,
 								   lo_arg **argv, int argc, lo_message msg,
 								   void *user_data)
 {
+    mapper_admin admin = (mapper_admin) user_data;
 	char src_param_name[1024], target_param_name[1024];
 	
     if (argc < 2)
@@ -1199,7 +1216,8 @@ static int handler_param_connected(const char *path, const char *types,
 	strcpy(src_param_name, &argv[0]->s);
 	strcpy(target_param_name, &argv[1]->s);
 	
-	trace("got /connected %s %s\n", src_param_name, target_param_name);
+	trace("<%s> got /connected %s %s\n", mapper_admin_name(admin),
+          src_param_name, target_param_name);
 	
 	//TO DO: record connection in database
 	
@@ -1554,7 +1572,8 @@ static int handler_param_disconnect(const char *path, const char *types,
         strcpy(target_param_name,
                &argv[1]->s + strlen(target_device_name));
 
-        trace("got /disconnect %s%s %s%s\n", src_device_name,
+        trace("<%s> got /disconnect %s%s %s%s\n",
+              mapper_admin_name(admin), src_device_name,
               src_param_name, target_device_name, target_param_name);
 
         /* Searches the source signal among the outputs of the device */
@@ -1604,6 +1623,7 @@ static int handler_param_disconnected(const char *path, const char *types,
 									  lo_arg **argv, int argc,
 									  lo_message msg, void *user_data)
 {
+    mapper_admin admin = (mapper_admin) user_data;
     char src_param_name[1024], target_param_name[1024];
 	
     if (argc < 2)
@@ -1616,7 +1636,8 @@ static int handler_param_disconnected(const char *path, const char *types,
 	strcpy(src_param_name, &argv[0]->s);
 	strcpy(target_param_name, &argv[1]->s);
 	
-	trace("got /disconnected %s %s\n", src_param_name, target_param_name);
+	trace("<%s> got /disconnected %s %s\n", mapper_admin_name(admin),
+          src_param_name, target_param_name);
 	
 	//TO DO: remove connection from database
 	
