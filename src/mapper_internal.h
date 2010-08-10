@@ -1,7 +1,6 @@
 
 #ifndef __MAPPER_INTERNAL_H__
 #define __MAPPER_INTERNAL_H__
-#define DEBUG
 
 #include "types_internal.h"
 #include <mapper/mapper.h>
