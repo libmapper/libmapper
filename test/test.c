@@ -143,7 +143,7 @@ void loop()
            mdev_poll(tmp_device,0);
 
            if (tmp_device->num_routers>0)
-           {    
+           {   
            if (tmp_device->num_mappings_out>0)
            {            
            msig_update_scalar(tmp_device->outputs[0], (mval)((i%10)*1.0f));

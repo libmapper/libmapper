@@ -70,7 +70,7 @@ typedef struct _mapper_signal {
  *                 signel is updated.
  *  \param value The address of a float value (or array) this signal
  *               implicitly reflects, or 0 for none.
- *  
+ *
  */
 mapper_signal msig_float(int length, const char *name,
                          const char *unit, float minimum,
