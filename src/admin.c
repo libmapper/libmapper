@@ -702,7 +702,7 @@ static int handler_device_link(const char *path, const char *types,
                                void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char device_name[1024], sender_name[1024], target_name[1024];
+    char sender_name[1024], target_name[1024];
 
     if (argc < 2)
         return 0;
@@ -711,9 +711,6 @@ static int handler_device_link(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 
@@ -722,7 +719,7 @@ static int handler_device_link(const char *path, const char *types,
 
     /* If the device who received the message is the target in the
      * /link message... */
-    if (strcmp(device_name, target_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), target_name) == 0) {
         mapper_admin_send_osc(
             admin, "/link_to", "ss", sender_name, target_name,
             AT_IP, inet_ntoa(admin->interface_ip),
@@ -841,21 +838,16 @@ static int handler_device_links_get(const char *path, const char *types,
                                     lo_arg **argv, int argc,
                                     lo_message msg, void *user_data)
 {
-    char device_name[1024];
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-
     trace("<%s> got /%s/links/get\n", mapper_admin_name(admin),
-          device_name);
+          mapper_admin_name(admin));
 
     /*Search through linked devices */
     while (router != NULL) {
-        mapper_admin_send_osc(admin, "/linked", "ss", device_name,
+        mapper_admin_send_osc(admin, "/linked", "ss", mapper_admin_name(admin),
                               router->target_name);
         router = router->next;
     }
@@ -869,7 +861,7 @@ static int handler_device_unlink(const char *path, const char *types,
 {
 
     int f = 0;
-    char device_name[1024], sender_name[1024], target_name[1024];
+    char sender_name[1024], target_name[1024];
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
@@ -881,9 +873,6 @@ static int handler_device_unlink(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
     strcpy(sender_name, &argv[0]->s);
     strcpy(target_name, &argv[1]->s);
 
@@ -892,7 +881,7 @@ static int handler_device_unlink(const char *path, const char *types,
 
     /*If the device who received the message is the sender in the
      * /unlink message ... */
-    if (strcmp(device_name, sender_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), sender_name) == 0) {
         /* Search the router to remove */
         while (router != NULL && f == 0) {
             if (strcmp(router->target_name, target_name) == 0) {
@@ -906,13 +895,7 @@ static int handler_device_unlink(const char *path, const char *types,
 
         if (f == 1)
             mapper_admin_send_osc(admin, "/unlinked", "ss",
-                                  device_name, target_name);
-    }
-
-    else if (strcmp(device_name, target_name) == 0) {
-        /*lo_send((*((mapper_admin)
-         * user_data)).admin_addr,"/unlinked", "ss", sender_name,
-         * target_name ); */
+                                  mapper_admin_name(admin), target_name);
     }
 
     return 0;
@@ -956,7 +939,7 @@ static int handler_param_connect(const char *path, const char *types,
     mapper_signal *md_inputs = admin->device->inputs;
     int i = 0, f = 0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024],
+    char src_param_name[1024], src_device_name[1024],
     target_param_name[1024], target_device_name[1024];
 
     if (argc < 2)
@@ -966,15 +949,11 @@ static int handler_param_connect(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-
     strcpy(target_device_name, &argv[1]->s);
     strtok(target_device_name, "/");
 
     // check OSC pattern match
-    if (strcmp(device_name, target_device_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), target_device_name) == 0) {
         strcpy(target_param_name,
                &argv[1]->s + strlen(target_device_name));
         strcpy(src_device_name, &argv[0]->s);
@@ -1032,7 +1011,7 @@ static int handler_param_connect_to(const char *path, const char *types,
 
     int i = 0, j = 2, f1 = 0, f2 = 0, recvport = -1, range_update = 0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024],
+    char src_param_name[1024], src_device_name[1024],
         target_param_name[1024], target_device_name[1024], scaling[1024] =
         "dummy", host_address[1024];
     char dest_type;
@@ -1045,15 +1024,11 @@ static int handler_param_connect_to(const char *path, const char *types,
         || (types[1] != 's' && types[1] != 'S'))
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-
     strcpy(src_device_name, &argv[0]->s);
     strtok(src_device_name, "/");
 
     /* Check OSC pattern match */
-    if (strcmp(device_name, src_device_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
 
         strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
         strcpy(target_device_name, &argv[1]->s);
@@ -1253,7 +1228,7 @@ static int handler_param_connection_modify(const char *path,
 
     int i = 0, f1 = 0, f2 = 0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024],
+    char src_param_name[1024], src_device_name[1024],
         target_param_name[1024], target_device_name[1024],
         modif_prop[1024];
     char mapping_type[1024];
@@ -1266,15 +1241,11 @@ static int handler_param_connection_modify(const char *path,
                                                     && types[2] != 'S'))
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-
     strcpy(src_device_name, &argv[0]->s);
     strtok(src_device_name, "/");
 
     /* Check OSC pattern match */
-    if (strcmp(device_name, src_device_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
 
         strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
         strcpy(target_device_name, &argv[1]->s);
@@ -1557,7 +1528,7 @@ static int handler_param_disconnect(const char *path, const char *types,
         (*((mapper_admin) user_data)).device->outputs;
     int i = 0, f1 = 0, f2 = 0;
 
-    char device_name[1024], src_param_name[1024], src_device_name[1024],
+    char src_param_name[1024], src_device_name[1024],
         target_param_name[1024], target_device_name[1024];
 
     if (argc < 2)
@@ -1567,15 +1538,11 @@ static int handler_param_disconnect(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    snprintf(device_name, 256, "/%s.%d",
-             (*((mapper_admin) user_data)).identifier,
-             (*((mapper_admin) user_data)).ordinal.value);
-
     strcpy(src_device_name, &argv[0]->s);
     strtok(src_device_name, "/");
 
     /* Check OSC pattern match */
-    if (strcmp(device_name, src_device_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
 
         strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
         strcpy(target_device_name, &argv[1]->s);
