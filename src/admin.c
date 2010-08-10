@@ -221,6 +221,10 @@ mapper_admin mapper_admin_new(const char *identifier,
                          handler_device_alloc_port, admin);
     lo_server_add_method(admin->admin_server, "/name/probe", NULL,
                          handler_device_alloc_name, admin);
+    lo_server_add_method(admin->admin_server, "/port/registered", NULL,
+                         handler_device_alloc_port, admin);
+    lo_server_add_method(admin->admin_server, "/name/registered", NULL,
+                         handler_device_alloc_name, admin);
 
     /* Resource allocation algorithm needs a seeded random number
      * generator. */
@@ -296,6 +300,10 @@ void mapper_admin_poll(mapper_admin admin)
                                  handlers[i].types, handlers[i].h,
                                  admin);
         }
+
+        /* Remove some handlers needed during allocation. */
+        lo_server_del_method(admin->admin_server, "/port/registered", NULL);
+        lo_server_del_method(admin->admin_server, "/name/registered", NULL);
 
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
