@@ -14,7 +14,7 @@ typedef void *mapper_device;
 //! An internal structure defining a mapper network monitor.
 typedef void *mapper_monitor;
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 

@@ -207,7 +207,7 @@ void mapper_db_add_device_callback(device_callback_func *f, void *user);
  *              when adding the callback. */
 void mapper_db_remove_device_callback(device_callback_func *f, void *user);
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 }
 #endif
 
