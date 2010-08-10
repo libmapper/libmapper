@@ -1,6 +1,6 @@
 
 noinst_PROGRAMS = test testadmin testsend testrecv testexpression	\
-                  testlinear testparams
+                  testlinear testparams testmonitor
 
 testadmin_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -25,6 +25,10 @@ testexpression_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LI
 testparams_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 testparams_SOURCES = testparams.c
 testparams_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+
+testmonitor_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+testmonitor_SOURCES = testmonitor.c
+testmonitor_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 test_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 test_SOURCES = test.c
