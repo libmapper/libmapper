@@ -1,7 +1,7 @@
 #ifndef __MAPPER_H__
 #define __MAPPER_H__
 
-#ifdef _cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
