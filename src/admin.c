@@ -1016,6 +1016,7 @@ static int handler_param_connect_to(const char *path, const char *types,
         "dummy", host_address[1024];
     char dest_type;
     float dest_range_min = 0, dest_range_max = 1;
+    mapper_clipping_type clip;
 
     if (argc < 2)
         return 0;
@@ -1146,11 +1147,22 @@ static int handler_param_connect_to(const char *path, const char *types,
                             m->expr_tree = T;
                         }
                         j += 2;
-                    } else if (strcmp(&argv[j]->s, "@clipMin") == 0) {
-                        //m->clipMin = strdup(&argv[j+1]->s);
-                        j += 2;
-                    } else if (strcmp(&argv[j]->s, "@clipMax") == 0) {
-                        //m->clipMax = strdup(&argv[j+1]->s);
+                    } else if ((strcmp(&argv[j]->s, "@clipMin") == 0) || (strcmp(&argv[j]->s, "@clipMax") == 0)) {
+                        if (strcmp(&argv[j+1]->s, "none") == 0)
+                            clip = CT_NONE;
+                        else if (strcmp(&argv[j+1]->s, "mute") == 0)
+                            clip = CT_MUTE;
+                        else if (strcmp(&argv[j+1]->s, "clamp") == 0)
+                            clip = CT_CLAMP;
+                        else if (strcmp(&argv[j+1]->s, "fold") == 0)
+                            clip = CT_FOLD;
+                        else if (strcmp(&argv[j+1]->s, "wrap") == 0)
+                            clip = CT_WRAP;
+                        
+                        if (strcmp(&argv[j]->s, "@clipMin") == 0)
+                            m->clip_lower = clip;
+                        else
+                            m->clip_upper = clip;
                         j += 2;
                     } else {
                         j++;
@@ -1226,12 +1238,12 @@ static int handler_param_connection_modify(const char *path,
     mapper_signal *md_outputs =
         (*((mapper_admin) user_data)).device->outputs;
 
-    int i = 0, f1 = 0, f2 = 0;
+    int i = 0, j = 2, f1 = 0, f2 = 0, range_update = 0;
 
     char src_param_name[1024], src_device_name[1024],
-        target_param_name[1024], target_device_name[1024],
-        modif_prop[1024];
+        target_param_name[1024], target_device_name[1024];
     char mapping_type[1024];
+    mapper_clipping_type clip;
 
     if (argc < 4)
         return 0;
@@ -1252,7 +1264,6 @@ static int handler_param_connection_modify(const char *path,
         strtok(target_device_name, "/");
         strcpy(target_param_name,
                &argv[1]->s + strlen(target_device_name));
-        strcpy(modif_prop, &argv[2]->s);
 
         /* Search the source signal among the outputs of the device */
         while (i < md_num_outputs && f1 == 0) {
@@ -1286,188 +1297,73 @@ static int handler_param_connection_modify(const char *path,
                     if (!m)
                         return 0;
 
-                    /* Modify scaling */
-                    if (strcmp(modif_prop, "@scaling") == 0) {
-                        char scaling[1024];
-                        strcpy(scaling, &argv[3]->s);
-
-                        /* Expression type */
-                        if (strcmp(scaling, "expression") == 0) {
-                            m->type = EXPRESSION;
-                            /* lo_send((*((mapper_admin)
-                             * user_data)).admin_addr, "/connected",
-                             * "ssss", "@scaling", "expression",
-                             * "@expression", m->expression ); */
-                        }
-
-                        /* Linear type */
-                        else if ((strcmp(scaling, "linear") == 0)
-                                 || (strcmp(scaling, "calibrate") == 0)) {
-                            if (strcmp(scaling, "calibrate") == 0) {
-                                m->type = CALIBRATE;
-                                m->range.rewrite = 1;
-                            } else
+                    /* Parse the list of properties */
+                    while (j < argc) {
+                        if (types[j] != 's' && types[j] != 'S') {
+                            j++;
+                        } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
+                            if (strcmp(&argv[j + 1]->s, "bypass") == 0)
+                                m->type = BYPASS;
+                            if (strcmp(&argv[j + 1]->s, "linear") == 0)
                                 m->type = LINEAR;
-
-                            /* The expression has to be modified to fit
-                             * the range */
-                            free(m->expression);
-                            m->expression = (char*)malloc(256 * sizeof(char));
-                            snprintf(m->expression, 256, "y=(x-%g)*%g+%g",
-                                     m->range.src_min,
-                                     (m->range.dest_max -
-                                      m->range.dest_min) /
-                                     (m->range.src_max - m->range.src_min),
-                                     m->range.dest_min);
-                            DeleteTree(m->expr_tree);
+                            if (strcmp(&argv[j + 1]->s, "expression") == 0)
+                                m->type = EXPRESSION;
+                            if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
+                                m->type = CALIBRATE;
+                            j += 2;
+                        } else if (strcmp(&argv[j]->s, "@range") == 0) {
+                            if (types[j + 1] == 'i')
+                                m->range.src_min = (float) argv[j + 1]->i;
+                            else if (types[j + 1] == 'f')
+                                m->range.src_min = argv[j + 1]->f;
+                            if (types[j + 2] == 'i')
+                                m->range.src_max = (float) argv[j + 2]->i;
+                            else if (types[j + 2] == 'f')
+                                m->range.src_max = argv[j + 2]->f;
+                            if (types[j + 3] == 'i')
+                                m->range.dest_min = (float) argv[j + 3]->i;
+                            else if (types[j + 3] == 'f')
+                                m->range.dest_min = argv[j + 3]->f;
+                            if (types[j + 4] == 'i')
+                                m->range.dest_max = (float) argv[j + 4]->i;
+                            else if (types[j + 4] == 'f')
+                                m->range.dest_max = argv[j + 4]->f;
+                            range_update += 4;
+                            j += 5;
+                        } else if (strcmp(&argv[j]->s, "@expression") == 0) {
+                            char received_expr[1024];
+                            strcpy(received_expr, &argv[j + 1]->s);
                             Tree *T = NewTree();
-                            int success_tree =
-                                get_expr_Tree(T, m->expression);
-
-                            if (!success_tree)
-                                return 0;
-
-                            m->expr_tree = T;
-                            /*lo_send((*((mapper_admin)
-                             * user_data)).admin_addr,"/connected",
-                             * "ssss", "@scaling", "linear",
-                             * "@expression", m->expression ); */
-                        }
-
-                        /* Bypass type */
-                        else if (strcmp(scaling, "bypass") == 0) {
-                            m->type = BYPASS;
-                            m->expression = strdup("y=x");
-                            /*lo_send((*((mapper_admin)
-                             * user_data)).admin_addr,"/connected",
-                             * "ssss", "@scaling", "linear",
-                             * "@expression", m->expression ); */
-                        }
-                    }
-
-                    /* Modify expression */
-                    else if (strcmp
-                             (modif_prop,
-                              "@scaling expression @expression") == 0) {
-                        char received_expr[1024];
-                        strcpy(received_expr, &argv[3]->s);
-                        Tree *T = NewTree();
-                        int success_tree = get_expr_Tree(T, received_expr);
-
-                        if (success_tree) {
-                            free(m->expression);
-                            m->expression = strdup(&argv[3]->s);
-                            DeleteTree(m->expr_tree);
-                            m->expr_tree = T;
-                        }
-
-                        /*get_expr_Tree(T, m->expression); */
-                        /*m->expr_tree=T; */
-                        /*lo_send((*((mapper_admin)
-                         * user_data)).admin_addr,"/connected", "ss",
-                         * "@scaling expression @expression",
-                         * m->expression ); */
-                    }
-
-                    /* Modify range */
-                    else if (strcmp(modif_prop, "@range") == 0) {
-                        char invert[1024];
-                        strcpy(invert, &argv[3]->s);
-                        if (strcmp(invert, "invert") == 0) {
-                            trace("invert message\n");
-                            strcpy(invert, &argv[4]->s);
-                            if (strcmp(invert, "input") == 0) {
-                                float temp = m->range.src_min;
-                                m->range.src_min = m->range.src_max;
-                                m->range.src_max = temp;
-                            } else if (strcmp(invert, "output") == 0) {
-                                float temp = m->range.dest_min;
-                                m->range.dest_min = m->range.dest_max;
-                                m->range.dest_max = temp;
+                            int success_tree = get_expr_Tree(T, received_expr);
+                            
+                            if (success_tree) {
+                                free(m->expression);
+                                m->expression = strdup(&argv[j + 1]->s);
+                                DeleteTree(m->expr_tree);
+                                m->expr_tree = T;
                             }
+                            j += 2;
+                        } else if ((strcmp(&argv[j]->s, "@clipMin") == 0) || (strcmp(&argv[j]->s, "@clipMax") == 0)) {
+                            if (strcmp(&argv[j+1]->s, "none") == 0)
+                                clip = CT_NONE;
+                            else if (strcmp(&argv[j+1]->s, "mute") == 0)
+                                clip = CT_MUTE;
+                            else if (strcmp(&argv[j+1]->s, "clamp") == 0)
+                                clip = CT_CLAMP;
+                            else if (strcmp(&argv[j+1]->s, "fold") == 0)
+                                clip = CT_FOLD;
+                            else if (strcmp(&argv[j+1]->s, "wrap") == 0)
+                                clip = CT_WRAP;
+                            
+                            if (strcmp(&argv[j]->s, "@clipMin") == 0)
+                                m->clip_lower = clip;
+                            else
+                                m->clip_upper = clip;
+                            j += 2;
                         } else {
-                            switch (types[3]) {
-                            case 'f':
-                                m->range.src_min = argv[3]->f;
-                                break;
-                            case 'i':
-                                m->range.src_min = argv[3]->i;
-                                break;
-                            }
-
-                            switch (types[4]) {
-                            case 'f':
-                                m->range.src_max = argv[4]->f;
-                                break;
-                            case 'i':
-                                m->range.src_max = argv[4]->i;
-                                break;
-                            }
-
-                            switch (types[5]) {
-                            case 'f':
-                                m->range.dest_min = argv[5]->f;
-                                break;
-                            case 'i':
-                                m->range.dest_min = argv[5]->i;
-                                break;
-                            }
-
-                            switch (types[6]) {
-                            case 'f':
-                                m->range.dest_max = argv[6]->f;
-                                break;
-                            case 'i':
-                                m->range.dest_max = argv[6]->i;
-                                break;
-                            }
+                            j++;
                         }
-
-                        if (m->type == LINEAR || m->type == CALIBRATE) {
-                            /* The expression has to be modified to
-                             * fit the new range */
-                            free(m->expression);
-                            m->expression = (char*)malloc(256 * sizeof(char));
-                            snprintf(m->expression, 256, "y=(x-%g)*%g+%g",
-                                     m->range.src_min,
-                                     (m->range.dest_max -
-                                      m->range.dest_min) /
-                                     (m->range.src_max - m->range.src_min),
-                                     m->range.dest_min);
-                            DeleteTree(m->expr_tree);
-                            Tree *T = NewTree();
-                            int success_tree =
-                                get_expr_Tree(T, m->expression);
-                            if (!success_tree)
-                                return 0;
-                            /*get_expr_Tree(T, m->expression); */
-                            m->expr_tree = T;
-                        }
-                        /*lo_send((*((mapper_admin)
-                         * user_data)).admin_addr,"/connected",
-                         * "sffff", @range, m->range.src_min,
-                         * m->range.src_max, m->range.dest_min,
-                         * m->range.dest_max); */
                     }
-
-                    else if (strcmp(modif_prop, "@clipMin") == 0) {
-                        char clipMin[1024];
-                        strcpy(clipMin, &argv[3]->s);
-                         /*TODO*/
-                        /*lo_send((*((mapper_admin)
-                         * user_data)).admin_addr,
-                         * "/connected",.... ); */
-                    }
-
-                    else if (strcmp(modif_prop, "@clipMax") == 0) {
-                        char clipMax[1024];
-                        strcpy(clipMax, &argv[3]->s);
-                         /*TODO*/
-                        /*lo_send((*((mapper_admin)
-                             * user_data)).admin_addr,
-                             * "/connected",.... ); */
-                    }
-
 /***********************TEMPORARY, then only send
                         the modified parameters********************/
 
