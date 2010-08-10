@@ -119,3 +119,136 @@ void mapper_mapping_perform(mapper_mapping mapping,
     mapping->history_pos = p;
     to_value->f = v;
 }
+
+int mapper_clipping_perform(mapper_mapping mapping,
+                            mapper_signal_value_t *from_value,
+                            mapper_signal_value_t *to_value)
+{
+    int muted = 0;
+    float v = from_value->f, total_range = abs(mapping->range.dest_max - mapping->range.dest_min), difference, modulo_difference;
+    
+    if (mapping->range.known) {
+        if (v < mapping->range.dest_min) {
+            switch (mapping->clip_lower) {
+                case CT_MUTE:
+                    // need to prevent value from being sent at all
+                    muted = 1;
+                    break;
+                case CT_CLAMP:
+                    // clamp value to range minimum
+                    v = mapping->range.dest_min;
+                    break;
+                case CT_FOLD:
+                    // fold value around range minimum
+                    difference = abs(v - mapping->range.dest_min);
+                    v = mapping->range.dest_min + difference;
+                    if (v > mapping->range.dest_max) {
+                        // value now exceeds range maximum!
+                        switch (mapping->clip_upper) {
+                            case CT_MUTE:
+                                // need to prevent value from being sent at all
+                                muted = 1;
+                                break;
+                            case CT_CLAMP:
+                                // clamp value to range minimum
+                                v = mapping->range.dest_max;
+                                break;
+                            case CT_FOLD:
+                                // both clip modes are set to fold!
+                                difference = abs(v - mapping->range.dest_max);
+                                modulo_difference = difference - (int)(difference / total_range) * total_range;
+                                if ((int)(difference / total_range) % 2 == 0) {
+                                    v = mapping->range.dest_max - modulo_difference;
+                                }
+                                else
+                                    v = mapping->range.dest_min + modulo_difference;
+                                break;
+                            case CT_WRAP:
+                                // wrap value back from range minimum
+                                difference = abs(v - mapping->range.dest_max);
+                                modulo_difference = difference - (int)(difference / total_range) * total_range;
+                                v = mapping->range.dest_min + modulo_difference;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case CT_WRAP:
+                    // wrap value back from range maximum
+                    difference = abs(v - mapping->range.dest_min);
+                    modulo_difference = difference - (int)(difference / total_range) * total_range;
+                    v = mapping->range.dest_max - modulo_difference;
+                    break;
+                default:
+                    // leave the value unchanged
+                    break;
+            }
+        }
+        
+        else if (v > mapping->range.dest_max) {
+            switch (mapping->clip_upper) {
+                case CT_MUTE:
+                    // need to prevent value from being sent at all
+                    muted = 1;
+                    break;
+                case CT_CLAMP:
+                    // clamp value to range maximum
+                    v = mapping->range.dest_max;
+                    break;
+                case CT_FOLD:
+                    // fold value around range maximum
+                    difference = abs(v - mapping->range.dest_max);
+                    v = mapping->range.dest_max - difference;
+                    if (v < mapping->range.dest_min) {
+                        // value now exceeds range minimum!
+                        switch (mapping->clip_lower) {
+                            case CT_MUTE:
+                                // need to prevent value from being sent at all
+                                muted = 1;
+                                break;
+                            case CT_CLAMP:
+                                // clamp value to range minimum
+                                v = mapping->range.dest_min;
+                                break;
+                            case CT_FOLD:
+                                // both clip modes are set to fold!
+                                difference = abs(v - mapping->range.dest_min);
+                                modulo_difference = difference - (int)(difference / total_range) * total_range;
+                                if ((int)(difference / total_range) % 2 == 0) {
+                                    v = mapping->range.dest_max + modulo_difference;
+                                }
+                                else
+                                    v = mapping->range.dest_min - modulo_difference;
+                                break;
+                            case CT_WRAP:
+                                // wrap value back from range maximum
+                                difference = abs(v - mapping->range.dest_min);
+                                modulo_difference = difference - (int)(difference / total_range) * total_range;
+                                v = mapping->range.dest_max - modulo_difference;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case CT_WRAP:
+                    // wrap value back from range minimum
+                    difference = abs(v - mapping->range.dest_max);
+                    modulo_difference = difference - (int)(difference / total_range) * total_range;
+                    v = mapping->range.dest_min + modulo_difference;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    to_value->f = v;
+    if (muted) {
+        return 0;
+    }
+    else {
+        return 1;
+    }
+    
+}
