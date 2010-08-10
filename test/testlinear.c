@@ -121,19 +121,11 @@ int setup_router()
 
 void wait_ready()
 {
-
-    int count = 0;
-    while (count++ < 10 && !(mdev_ready(sender)
-                             && mdev_ready(receiver))) {
-        printf("\n\nWAIT_READY %d\n", count);
-        printf("SENDER\n");
+    while (!(mdev_ready(sender) && mdev_ready(receiver))) {
         mdev_poll(sender, 0);
-        printf("RECEIVER\n");
         mdev_poll(receiver, 0);
         usleep(500 * 1000);
     }
-
-
 }
 
 void loop()

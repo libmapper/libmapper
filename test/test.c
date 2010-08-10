@@ -98,10 +98,7 @@ void cleanup_receiver()
 
 void wait_local_devices()
 {
-
-    int count = 0;
-
-    while (count++ < 20 && !(mdev_ready(sender) && mdev_ready(receiver))) {
+    while (!(mdev_ready(sender) && mdev_ready(receiver))) {
         mdev_poll(sender, 0);
         mdev_poll(receiver, 0);
 
