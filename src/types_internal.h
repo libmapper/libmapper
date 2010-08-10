@@ -35,7 +35,7 @@ typedef void mapper_admin_resource_on_collision(struct _mapper_admin
 /*! Allocated resources */
 typedef struct _mapper_admin_allocated_t {
     unsigned int value;           //!< The resource to be allocated.
-    unsigned int collision_count; /*!< The number of collisions
+    int collision_count;          /*!< The number of collisions
                                    *   detected for this resource. */
     double count_time;            /*!< The last time at which the
                                    * collision count was updated. */
