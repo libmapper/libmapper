@@ -702,7 +702,7 @@ static int handler_device_link(const char *path, const char *types,
                                void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char sender_name[1024], target_name[1024];
+    const char *sender_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -711,8 +711,8 @@ static int handler_device_link(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(sender_name, &argv[0]->s);
-    strcpy(target_name, &argv[1]->s);
+    sender_name = &argv[0]->s;
+    target_name = &argv[1]->s;
 
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
@@ -813,7 +813,7 @@ static int handler_device_linked(const char *path, const char *types,
                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char sender_name[1024], target_name[1024];
+    const char *sender_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -822,8 +822,8 @@ static int handler_device_linked(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(sender_name, &argv[0]->s);
-    strcpy(target_name, &argv[1]->s);
+    sender_name = &argv[0]->s;
+    target_name = &argv[1]->s;
 
     trace("<%s> got /linked %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
@@ -861,7 +861,7 @@ static int handler_device_unlink(const char *path, const char *types,
 {
 
     int f = 0;
-    char sender_name[1024], target_name[1024];
+    const char *sender_name, *target_name;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
@@ -873,8 +873,8 @@ static int handler_device_unlink(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(sender_name, &argv[0]->s);
-    strcpy(target_name, &argv[1]->s);
+    sender_name = &argv[0]->s;
+    target_name = &argv[1]->s;
 
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
@@ -907,7 +907,7 @@ static int handler_device_unlinked(const char *path, const char *types,
                                    void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char sender_name[1024], target_name[1024];
+    const char *sender_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -916,8 +916,8 @@ static int handler_device_unlinked(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(sender_name, &argv[0]->s);
-    strcpy(target_name, &argv[1]->s);
+    sender_name = &argv[0]->s;
+    target_name = &argv[1]->s;
 
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
