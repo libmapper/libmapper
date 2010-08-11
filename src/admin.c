@@ -736,7 +736,6 @@ static int handler_device_link_to(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_router router = md->routers;
 
     const char *sender_name, *target_name, *host=0, *canAlias=0;
     int port;
@@ -763,11 +762,8 @@ static int handler_device_link_to(const char *path, const char *types,
           sender_name, target_name);
 
     // Discover whether the device is already linked.
-    while (router) {
-        if (strcmp(router->target_name, target_name)==0)
-            break;
-        router = router->next;
-    }
+    mapper_router router =
+        mapper_router_find_by_target_name(md->routers, target_name);
 
     if (router)
         // Already linked, nothing to do.
@@ -859,12 +855,9 @@ static int handler_device_unlink(const char *path, const char *types,
                                  lo_arg **argv, int argc, lo_message msg,
                                  void *user_data)
 {
-
-    int f = 0;
     const char *sender_name, *target_name;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_router router = md->routers;
 
     if (argc < 2)
         return 0;
@@ -879,23 +872,22 @@ static int handler_device_unlink(const char *path, const char *types,
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
 
-    /*If the device who received the message is the sender in the
-     * /unlink message ... */
-    if (strcmp(mapper_admin_name(admin), sender_name) == 0) {
-        /* Search the router to remove */
-        while (router != NULL && f == 0) {
-            if (strcmp(router->target_name, target_name) == 0) {
-                mdev_remove_router(md, router);
-                (*((mapper_admin) user_data)).device->num_routers--;
-                /*mapper_router_free(router); */
-                f = 1;
-            } else
-                router = router->next;
-        }
+    /* Check if we are the indicated sender. */
+    if (strcmp(mapper_admin_name(admin), sender_name))
+        return 0;
 
-        if (f == 1)
-            mapper_admin_send_osc(admin, "/unlinked", "ss",
-                                  mapper_admin_name(admin), target_name);
+    /* If so, remove the router for the target. */
+    mapper_router router =
+        mapper_router_find_by_target_name(md->routers, target_name);
+    if (router) {
+        mdev_remove_router(md, router);
+        md->num_routers--;
+        mapper_admin_send_osc(admin, "/unlinked", "ss",
+                              mapper_admin_name(admin), target_name);
+    }
+    else {
+        trace("<%s> no router for %s found in /unlink handler\n",
+              mapper_admin_name(admin), target_name);
     }
 
     return 0;
@@ -927,6 +919,37 @@ static int handler_device_unlinked(const char *path, const char *types,
     return 0;
 }
 
+/* Helper function to check if the OSC prefix matches.  Like strcmp(),
+ * returns 0 if they match (up to the second '/'), non-0 otherwise.
+ * Also optionally returns a pointer to the remainder of str1 after
+ * the prefix. */
+static int osc_prefix_cmp(const char *str1, const char *str2,
+                          const char **rest)
+{
+    if (str1[0]!='/') {
+        trace("OSC string '%s' does not start with '/'.\n", str1);
+        return 0;
+    }
+    if (str2[0]!='/') {
+        trace("OSC string '%s' does not start with '/'.\n", str2);
+        return 0;
+    }
+
+    // skip first slash
+    const char *s1=str1+1, *s2=str2+1;
+
+    while (*s1 && (*s1)!='/') s1++;
+    while (*s2 && (*s2)!='/') s2++;
+
+    int n1 = s1-str1, n2 = s2-str2;
+    if (n1!=n2) return 0;
+
+    if (rest)
+        *rest = s1;
+
+    return strncmp(str1, str2, n1);
+}
+
 /*! When the /connect message is received by the destination device,
  *  send a connect_to message to the source device. */
 static int handler_param_connect(const char *path, const char *types,
@@ -934,13 +957,11 @@ static int handler_param_connect(const char *path, const char *types,
                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+    mapper_signal input;
 
-    int md_num_inputs = admin->device->n_inputs;
-    mapper_signal *md_inputs = admin->device->inputs;
-    int i = 0, f = 0;
-
-    char src_param_name[1024], src_device_name[1024],
-    target_param_name[1024], target_device_name[1024];
+    const char *src_param_name, *src_name;
+    const char *target_param_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -949,49 +970,46 @@ static int handler_param_connect(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(target_device_name, &argv[1]->s);
-    strtok(target_device_name, "/");
+    target_name = &argv[1]->s;
+    if (osc_prefix_cmp(target_name, mapper_admin_name(admin),
+                       &target_param_name))
+        return 0;
 
-    // check OSC pattern match
-    if (strcmp(mapper_admin_name(admin), target_device_name) == 0) {
-        strcpy(target_param_name,
-               &argv[1]->s + strlen(target_device_name));
-        strcpy(src_device_name, &argv[0]->s);
-        strtok(src_device_name, "/");
-        strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
+    src_name = &argv[0]->s;
+    src_param_name = strchr(src_name+1, '/');
 
-        trace("<%s> got /connect %s%s %s%s\n", mapper_admin_name(admin),
-              src_device_name, src_param_name,
-              target_device_name, target_param_name);
-
-        while (i < md_num_inputs && f == 0) {
-
-            if (strcmp(md_inputs[i]->name, target_param_name) == 0) {
-                f = 1;
-                if (argc <= 2) {
-                    // use some default arguments related to the signal
-                    mapper_admin_send_osc(
-                                          admin, "/connect_to", "ss",
-                                          strcat(src_device_name, src_param_name),
-                                          strcat(target_device_name, target_param_name),
-                                          AT_TYPE, md_inputs[i]->type,
-                                          md_inputs[i]->minimum ? AT_MIN : -1, md_inputs[i],
-                                          md_inputs[i]->maximum ? AT_MAX : -1, md_inputs[i]);
-                } else {
-                    // add the remaining arguments from /connect
-                    mapper_message_t params;
-                    if (mapper_msg_parse_params(&params, path, &types[2],
-                                                argc-2, &argv[2]))
-                        break;
-                    mapper_admin_send_osc_with_params(
-                                                      admin, &params, "/connect_to", "ss",
-                                                      strcat(src_device_name, src_param_name),
-                                                      strcat(target_device_name, target_param_name));
-                }
-            } else
-                i++;
-        }
+    if (!src_param_name) {
+        trace("source '%s' has no parameter in /connect.\n",
+              src_name);
+        return 0;
     }
+
+    trace("<%s> got /connect %s %s\n", mapper_admin_name(admin),
+          src_name, target_name);
+
+    if (mdev_find_input_by_name(md, target_param_name, &input) < 0)
+        return 0;
+
+    if (argc <= 2) {
+        // use some default arguments related to the signal
+        mapper_admin_send_osc(
+            admin, "/connect_to", "ss", src_name, target_name,
+            AT_TYPE, input->type,
+            input->minimum ? AT_MIN : -1, input,
+            input->maximum ? AT_MAX : -1, input);
+    } else {
+        // add the remaining arguments from /connect
+        mapper_message_t params;
+        if (mapper_msg_parse_params(&params, path, &types[2],
+                                    argc-2, &argv[2]))
+        {
+            trace("error parsing message parameters in /connect.\n");
+            return 0;
+        }
+        mapper_admin_send_osc_with_params(
+            admin, &params, "/connect_to", "ss", src_name, target_name);
+    }
+
     return 0;
 }
 

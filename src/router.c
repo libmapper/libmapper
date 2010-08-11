@@ -345,3 +345,13 @@ void mapper_router_add_expression_mapping(mapper_router router,
             src_name, dest_name, "@scaling", "expression", "@expression",
             mapping->expression);
 }
+
+mapper_router mapper_router_find_by_target_name(mapper_router router,
+                                                const char* target_name)
+{
+    while (router) {
+        if (strcmp(router->target_name, target_name)==0)
+            return router;
+    }
+    return 0;
+}

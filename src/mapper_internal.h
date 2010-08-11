@@ -109,6 +109,10 @@ void mapper_router_add_expression_mapping(mapper_router router,
                                           mapper_signal sig,
                                           const char *name, char *expr);
 
+/*! Find a router by target name in a linked list of routers. */
+mapper_router mapper_router_find_by_target_name(mapper_router routers,
+                                                const char* target_name);
+
 int get_expr_Tree(Tree *T, char *s);
 
 /**** Signals ****/

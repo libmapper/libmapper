@@ -123,6 +123,30 @@ int mdev_num_inputs(mapper_device device);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device device);
 
+/*! Find an input signal by name.
+ *  \param md Device to search in.
+ *  \param name Name of output signal to search for. It may optionally
+ *              begin with a '/' character.
+ *  \param result Optional place to get the matching mapper_signal
+ *                pointer. It will have a value of 0 if not found.
+ *  \return Index of the signal in the device's input signal array, or
+ *          -1 if not found.
+ */
+int mdev_find_input_by_name(mapper_device md, const char *name,
+                            mapper_signal *result);
+
+/*! Find an output signal by name.
+ *  \param md Device to search in.
+ *  \param name Name of output signal to search for. It may optionally
+ *              begin with a '/' character.
+ *  \param result Optional place to get the matching mapper_signal
+ *                pointer. It will have a value of 0 if not found.
+ *  \return Index of the signal in the device's output signal array,
+ *          or -1 if not found.
+ */
+int mdev_find_output_by_name(mapper_device md, const char *name,
+                             mapper_signal *result);
+
 /*! Poll this device for new messages.
  *  \param block_ms Number of milliseconds to block waiting for
  *  messages, or 0 for non-blocking behaviour. */

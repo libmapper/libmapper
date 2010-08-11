@@ -103,6 +103,44 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
+int mdev_find_input_by_name(mapper_device md, const char *name,
+                            mapper_signal *result)
+{
+    int i;
+    int slash = name[0]=='/' ? 1 : 0;
+    for (i=0; i<md->n_inputs; i++)
+    {
+        if (strcmp(md->inputs[i]->name + 1, name + slash)==0)
+        {
+            if (result)
+                *result = md->inputs[i];
+            return i;
+        }
+    }
+    if (result)
+        *result = 0;
+    return -1;
+}
+
+int mdev_find_output_by_name(mapper_device md, const char *name,
+                             mapper_signal *result)
+{
+    int i;
+    int slash = name[0]=='/' ? 1 : 0;
+    for (i=0; i<md->n_outputs; i++)
+    {
+        if (strcmp(md->outputs[i]->name + 1, name + slash)==0)
+        {
+            if (result)
+                *result = md->outputs[i];
+            return i;
+        }
+    }
+    if (result)
+        *result = 0;
+    return -1;
+}
+
 void mdev_poll(mapper_device md, int block_ms)
 {
     mapper_admin_poll(md->admin);
