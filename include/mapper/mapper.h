@@ -164,10 +164,7 @@ typedef struct _mapper_db_device {
     int port;     //!< Device network port.
     int canAlias; //!< True if the device can handle OSC aliasing.
     void* user_data; //!< User modifiable data.
-
-    /*! Pointer to the next item in the list, or zero if none. */
-    struct _mapper_db_device *next;
-} *mapper_db_device;
+} mapper_db_device_t, *mapper_db_device;
 
 /*! Find information for a registered device.
  *  \param name  Name of the device to find in the database.
@@ -206,6 +203,25 @@ void mapper_db_add_device_callback(device_callback_func *f, void *user);
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_device_callback(device_callback_func *f, void *user);
+
+/*! Return the whole list of devices.
+ *  \return A double-pointer to the first item in the list of devices,
+ *          or zero if none.  Use mapper_db_device_next() to
+ *          iterate. */
+mapper_db_device_t **mapper_db_get_all_devices();
+
+/*! Return the list of devices with a substring in their name.
+ *  \param str The substring to search for.
+ *  \return    A double-pointer to the first item in a list of matching
+ *             devices.  Use mapper_db_device_next() to iterate. */
+mapper_db_device_t **mapper_db_get_devices_matching(char *str);
+
+/*! Given a device record pointer returned from a previous
+ *  mapper_db_return_*() call, get the next item in the list.
+ *  \param  The previous device record pointer.
+ *  \return A double-pointer to the next device record in the list, or
+ *          zero if no more devices. */
+mapper_db_device_t **mapper_db_device_next(mapper_db_device*);
 
 #ifdef __cplusplus
 }

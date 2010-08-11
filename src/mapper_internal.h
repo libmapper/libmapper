@@ -141,10 +141,6 @@ int mapper_db_add_or_update_params(const char *name,
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();
 
-/*! Return the head of linked list of devices.
-*/
-mapper_db_device mapper_db_return_first_device();
-
 /**** Messages ****/
 
 /*! Parse a message based on an OSC path and parameters.

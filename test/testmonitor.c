@@ -63,8 +63,14 @@ void loop()
         printf("\e[2J\e[0;0H");
         fflush(stdout);
 
-        // TODO: replace with proper database queries
-        mapper_db_dump();
+        printf("Registered devices:\n");
+        mapper_db_device *pdev = mapper_db_get_all_devices();
+        while (pdev) {
+            printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
+                   (*pdev)->name, (*pdev)->host,
+                   (*pdev)->port, (*pdev)->canAlias);
+            pdev = mapper_db_device_next(pdev);
+        }
 
         printf("------------------------------\n");
 
