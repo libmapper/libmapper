@@ -349,8 +349,13 @@ void mapper_router_add_expression_mapping(mapper_router router,
 mapper_router mapper_router_find_by_target_name(mapper_router router,
                                                 const char* target_name)
 {
+    int n = strlen(target_name);
+    const char *slash = strchr(target_name+1, '/');
+    if (slash)
+        n = slash - target_name;
+
     while (router) {
-        if (strcmp(router->target_name, target_name)==0)
+        if (strncmp(router->target_name, target_name, n)==0)
             return router;
         router = router->next;
     }
