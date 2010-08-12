@@ -979,8 +979,8 @@ static int handler_param_connect(const char *path, const char *types,
     src_param_name = strchr(src_name+1, '/');
 
     if (!src_param_name) {
-        trace("source '%s' has no parameter in /connect.\n",
-              src_name);
+        trace("<%s> source '%s' has no parameter in /connect.\n",
+              mapper_admin_name(admin), src_name);
         return 0;
     }
 
@@ -988,7 +988,11 @@ static int handler_param_connect(const char *path, const char *types,
           src_name, target_name);
 
     if (mdev_find_input_by_name(md, target_param_name, &input) < 0)
+    {
+        trace("<%s> no input signal found for '%s' in /connect_to\n",
+              mapper_admin_name(admin), target_param_name);
         return 0;
+    }
 
     if (argc <= 2) {
         // use some default arguments related to the signal
@@ -1003,7 +1007,8 @@ static int handler_param_connect(const char *path, const char *types,
         if (mapper_msg_parse_params(&params, path, &types[2],
                                     argc-2, &argv[2]))
         {
-            trace("error parsing message parameters in /connect.\n");
+            trace("<%s> error parsing message parameters in /connect.\n",
+                  mapper_admin_name(admin));
             return 0;
         }
         mapper_admin_send_osc_with_params(
