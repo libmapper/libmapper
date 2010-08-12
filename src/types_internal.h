@@ -91,6 +91,8 @@ typedef enum _mapper_clipping_type {
                  *   boundary. */
 } mapper_clipping_type;
 
+extern const char* mapper_clipping_type_strings[];
+
 /*! Describes the scaling mode of the mapping. */
 typedef enum _mapper_scaling_type {
     SC_BYPASS,       //!< Direct scaling
@@ -99,6 +101,8 @@ typedef enum _mapper_scaling_type {
     SC_CALIBRATE,    //!< Calibrate to input
     SC_MUTE,         //!< Mute scaling
 } mapper_scaling_type;
+
+extern const char* mapper_scaling_type_strings[];
 
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities

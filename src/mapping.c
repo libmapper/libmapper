@@ -7,6 +7,24 @@
 #include "operations.h"
 #include "expression.h"
 
+const char* mapper_clipping_type_strings[] =
+{
+    "none",        /* CT_NONE */
+    "mute",        /* CT_MUTE */
+    "clamp",       /* CT_CLAMP */
+    "fold",        /* CT_FOLD */
+    "wrap",        /* CT_WRAP */
+};
+
+const char* mapper_scaling_type_strings[] =
+{
+    "bypass",      /* SC_BYPASS */
+    "linear",      /* SC_LINEAR */
+    "expression",  /* SC_EXPRESSION */
+    "calibrate",   /* SC_CALIBRATE */
+    "mute",        /* SC_MUTE */
+};
+
 void mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value)

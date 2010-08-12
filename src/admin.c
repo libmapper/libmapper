@@ -1093,20 +1093,37 @@ static int handler_param_connect_to(const char *path, const char *types,
 
         return 0;
     }
+    
+    mapper_mapping m;
 
     if (argc == 2) {
         /* If no properties were provided, default to direct
          * mapping */
-        mapper_router_add_direct_mapping(router, output,
+        m = mapper_router_add_direct_mapping(router, output,
                                          target_param_name);
     } else {
         /* Add a flavourless mapping */
-        mapper_mapping m = mapper_router_add_blank_mapping(
+        m = mapper_router_add_blank_mapping(
             router, output, target_param_name);
 
         /* Set its properties. */
         mapper_mapping_set_from_message(m, output, &params);
     }
+    
+    // Send /connected message
+    lo_message mess = lo_message_new();
+    if (!mess) {
+        trace("couldn't allocate lo_message\n");
+        return 0;
+    }
+    
+    lo_message_add_string(mess, src_name);
+    lo_message_add_string(mess, target_name);
+    
+    mapper_mapping_prepare_osc_message(mess, m);
+    
+    lo_send_message(admin->admin_addr, "/connected", mess);
+    lo_message_free(mess);
 
     return 0;
 }
@@ -1157,7 +1174,6 @@ static int handler_param_connection_modify(const char *path,
 
     char src_param_name[1024], src_device_name[1024],
         target_param_name[1024], target_device_name[1024];
-    char mapping_type[1024];
     mapper_clipping_type clip;
 
     if (argc < 4)
@@ -1282,39 +1298,19 @@ static int handler_param_connection_modify(const char *path,
 /***********************TEMPORARY, then only send
                         the modified parameters********************/
 
-                    switch (m->scaling) {
-                    case SC_EXPRESSION:
-                        strcpy(mapping_type, "expression");
-                        break;
-
-                    case SC_LINEAR:
-                        strcpy(mapping_type, "linear");
-                        break;
-
-                    case SC_BYPASS:
-                        strcpy(mapping_type, "bypass");
-                        break;
-
-                    case SC_CALIBRATE:
-                        strcpy(mapping_type, "calibrate");
-                        break;
-
-                    default:
-                        break;
-
+                    lo_message mess = lo_message_new();
+                    if (!mess) {
+                        trace("couldn't allocate lo_message\n");
+                        return 0;
                     }
-
-                    mapper_admin_send_osc(
-                        admin, "/connected", "ss",
-                        strcat(src_device_name, src_param_name),
-                        strcat(target_device_name, target_param_name),
-                        AT_SCALING, mapping_type,
-                        AT_RANGE,
-                            m->range.src_min,  m->range.src_max,
-                            m->range.dest_min, m->range.dest_max,
-                        AT_EXPRESSION, m->expression,
-                        AT_CLIPMIN, "none",
-                        AT_CLIPMAX, "none");
+                    
+                    lo_message_add_string(mess, strcat(src_device_name, src_param_name));
+                    lo_message_add_string(mess, strcat(target_device_name, target_param_name));
+                    
+                    mapper_mapping_prepare_osc_message(mess, m);
+                    
+                    lo_send_message(admin->admin_addr, "/connected", mess);
+                    lo_message_free(mess);
                 }
                 f1 = 1;
             } else
@@ -1454,16 +1450,26 @@ static int handler_device_connections_get(const char *path,
         /* Searches the router linking to the receiver */
         while (router != NULL) {
             mapper_signal_mapping sm = router->mappings;
-            snprintf(src_name, 256, "/%s.%d%s",
-                     (*((mapper_admin) user_data)).identifier,
-                     (*((mapper_admin) user_data)).ordinal.value,
+            snprintf(src_name, 256, "%s%s",
+                     mapper_admin_name(admin),
                      md_outputs[i]->name);
             while (sm != NULL) {
                 mapper_mapping m = sm->mapping;
                 snprintf(target_name, 256, "%s%s", router->target_name,
                          m->name);
-                mapper_admin_send_osc(admin, "/connected", "ss",
-                                      src_name, target_name);
+                lo_message mess = lo_message_new();
+                if (!mess) {
+                    trace("couldn't allocate lo_message\n");
+                    return 0;
+                }
+                
+                lo_message_add_string(mess, src_name);
+                lo_message_add_string(mess, target_name);
+                
+                mapper_mapping_prepare_osc_message(mess, m);
+                
+                lo_send_message(admin->admin_addr, "/connected", mess);
+                lo_message_free(mess);
                 sm = sm->next;
             }
             router = router->next;

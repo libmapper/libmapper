@@ -165,7 +165,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
     return mapping;
 }
 
-void mapper_router_add_direct_mapping(mapper_router router,
+mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
                                       mapper_signal sig, const char *name)
 {
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
@@ -182,6 +182,7 @@ void mapper_router_add_direct_mapping(mapper_router router,
 
     lo_send(router->device->admin->admin_addr, "/connected", "ssss",
             src_name, dest_name, "@scaling", "bypass");
+    return mapping;
 }
 
 void mapper_router_add_linear_range_mapping(mapper_router router,

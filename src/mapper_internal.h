@@ -85,7 +85,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
                                                mapper_signal sig,
                                                const char *name);
 
-void mapper_router_add_direct_mapping(mapper_router router,
+mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
                                       mapper_signal sig, const char *name);
 
 void mapper_router_add_linear_range_mapping(mapper_router router,
@@ -248,6 +248,9 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq);
 /*! Prepare a lo_message for sending based on a set of parameters. */
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
+
+/*! Prepare a lo_message for sending based on a mapping struct. */
+void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map);
 
 /**** Debug macros ****/
 
