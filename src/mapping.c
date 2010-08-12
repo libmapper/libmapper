@@ -462,26 +462,26 @@ static int get_range(mapper_signal sig, mapper_mapping mapping,
 
     if (sig) {
         if (!(range_known & MAPPING_RANGE_SRC_MIN)
-            && sig->minimum)
+            && sig->props.minimum)
         {
-            if (sig->type == 'f') {
+            if (sig->props.type == 'f') {
                 range_known |= MAPPING_RANGE_SRC_MIN;
-                range[0] = sig->minimum->f;
-            } else if (sig->type == 'i') {
+                range[0] = sig->props.minimum->f;
+            } else if (sig->props.type == 'i') {
                 range_known |= MAPPING_RANGE_SRC_MIN;
-                range[0] = sig->minimum->i32;
+                range[0] = sig->props.minimum->i32;
             }
         }
 
         if (!(range_known & MAPPING_RANGE_SRC_MAX)
-            && sig->maximum)
+            && sig->props.maximum)
         {
-            if (sig->type == 'f') {
+            if (sig->props.type == 'f') {
                 range_known |= MAPPING_RANGE_SRC_MAX;
-                range[1] = sig->maximum->f;
-            } else if (sig->type == 'i') {
+                range[1] = sig->props.maximum->f;
+            } else if (sig->props.type == 'i') {
                 range_known |= MAPPING_RANGE_SRC_MAX;
-                range[1] = sig->maximum->i32;
+                range[1] = sig->props.maximum->i32;
             }
         }
     }

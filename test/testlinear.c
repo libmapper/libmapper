@@ -113,7 +113,8 @@ int setup_router()
     }
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_router_add_linear_range_mapping(router, sendsig, recvsig->name,
+    mapper_router_add_linear_range_mapping(router, sendsig,
+                                           recvsig->props.name,
                                            0.0f, 1.0f, -10.0f, 10.0f);
 
 
@@ -135,7 +136,8 @@ void loop()
     int i;
     for (i = 0; i < 10; i++) {
         mdev_poll(sender, 0);
-        printf("Updating signal %s to %f\n", sendsig->name, (i * 1.0f));
+        printf("Updating signal %s to %f\n",
+               sendsig->props.name, (i * 1.0f));
         msig_update_scalar(sendsig, (mval) (i * 1.0f));
         sent++;
         usleep(250 * 1000);

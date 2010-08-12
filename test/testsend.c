@@ -37,7 +37,8 @@ int test_controller()
     int i;
     for (i = 0; i < 10; i++) {
         mdev_poll(md, 500);
-        printf("Updating signal %s to %f\n", sig->name, (i * 1.0f));
+        printf("Updating signal %s to %f\n",
+               sig->props.name, (i * 1.0f));
         msig_update_scalar(sig, (mval) (i * 1.0f));
     }
 

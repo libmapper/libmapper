@@ -15,24 +15,24 @@ mapper_signal msig_float(int length, const char *name,
 {
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
-    sig->type = 'f';
-    sig->length = length;
+    sig->props.type = 'f';
+    sig->props.length = length;
     assert(length >= 1);
     assert(name != 0);
-    sig->name = strdup(name);
+    sig->props.name = strdup(name);
     if (unit)
-        sig->unit = strdup(unit);
+        sig->props.unit = strdup(unit);
     sig->value = (mapper_signal_value_t *) value;
 
     if (minimum != INFINITY && minimum != -INFINITY) {
-        sig->minimum = (mapper_signal_value_t *)
+        sig->props.minimum = (mapper_signal_value_t *)
             malloc(sizeof(mapper_signal_value_t));
-        sig->minimum->f = minimum;
+        sig->props.minimum->f = minimum;
     }
 
     if (maximum != INFINITY && maximum != -INFINITY) {
-        sig->maximum = (mapper_signal_value_t*) malloc(sizeof(mapper_signal_value_t));
-        sig->maximum->f = maximum;
+        sig->props.maximum = (mapper_signal_value_t*) malloc(sizeof(mapper_signal_value_t));
+        sig->props.maximum->f = maximum;
     }
 
     sig->handler = handler;
@@ -53,7 +53,7 @@ void msig_update(mapper_signal sig, mapper_signal_value_t *value)
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value)
 {
-    switch (sig->type) {
+    switch (sig->props.type) {
     case 'f':
         lo_message_add_float(m, value->f);
         break;
@@ -79,10 +79,10 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     int mdlen = strlen(mdname);
     if (mdlen >= len)
         return 0;
-    if ((mdlen + strlen(sig->name)) > len)
+    if ((mdlen + strlen(sig->props.name)) > len)
         return 0;
 
     strncpy(name, mdname, len);
-    strncat(name, sig->name, len);
+    strncat(name, sig->props.name, len);
     return strlen(name);
 }

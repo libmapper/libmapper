@@ -78,6 +78,39 @@ typedef struct _mapper_db_mapping {
                                  *   to unmute */
 } mapper_db_mapping_t, *mapper_db_mapping;
 
+/*! A signal value may be one of several different types, so we use a
+ *  union to represent this.  The appropriate selection from this
+ *  union is determined by the mapper_signal::type variable. */
+
+typedef union _mapper_signal_value {
+    float f;
+    double d;
+    int i32;
+} mapper_signal_value_t, mval;
+
+/*! A record that describes properties of a signal. */
+typedef struct _mapper_db_signal
+{
+    /*! The type of this signal, specified as an OSC type
+     *  character. */
+    char type;
+
+    /*! Length of the signal vector, or 1 for scalars. */
+    int length;
+
+    /*! The name of this signal, an OSC path.  Must start with '/'. */
+    const char *name;
+
+    /*! The unit of this signal, or NULL for N/A. */
+    const char *unit;
+
+    /*! The minimum of this signal, or NULL for no minimum. */
+    mapper_signal_value_t *minimum;
+
+    /*! The maximum of this signal, or NULL for no maximum. */
+    mapper_signal_value_t *maximum;
+} mapper_db_signal_t, *mapper_db_signal;
+
 #ifdef __cplusplus
 }
 #endif

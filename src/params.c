@@ -253,11 +253,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_MIN:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->minimum);
+            mval_add_to_message(m, sig, sig->props.minimum);
             break;
         case AT_MAX:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->maximum);
+            mval_add_to_message(m, sig, sig->props.maximum);
             break;
         case AT_SCALING:
             // TODO: enumerate scaling types

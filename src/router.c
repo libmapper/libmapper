@@ -79,7 +79,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         c = 1;
         i = 0;
 
-        signal.name = strdup(m->props.dest_name);
+        signal.props.name = strdup(m->props.dest_name);
 
         mapper_signal_value_t v;
         mapper_mapping_perform(m, value, &v);
@@ -101,10 +101,10 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     if (!m)
         return;
 
-    for (i = 0; i < sig->length; i++)
+    for (i = 0; i < sig->props.length; i++)
         mval_add_to_message(m, sig, &value[i]);
 
-    lo_send_message(router->addr, sig->name, m);
+    lo_send_message(router->addr, sig->props.name, m);
     lo_message_free(m);
     return;
 }
@@ -159,7 +159,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
 
     // Some default values?
     mapping->props.scaling = SC_BYPASS;
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
     mapping->props.expression = strdup("y=x");
     mapping->props.range.known = 0;
@@ -172,7 +172,7 @@ mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
                                       mapper_signal sig, const char *name)
 {
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
 
     char src_name[1024], dest_name[1024];
@@ -197,7 +197,7 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
 {
     mapper_mapping mapping =
         (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_linear_range(mapping, src_min, src_max,
                                     dest_min, dest_max);
@@ -222,7 +222,7 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
     char src_name[1024], dest_name[1024];
 
     mapping->props.scaling = SC_LINEAR;
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
 
     free(mapping->props.expression);
@@ -242,7 +242,7 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
     mapper_router_add_mapping(router, sig, mapping);
 
     snprintf(src_name, 1024, "/%s%s",
-             mapper_admin_name(router->device->admin), sig->name);
+             mapper_admin_name(router->device->admin), sig->props.name);
     snprintf(dest_name, 1024, "%s%s", router->target_name, name);
 
     lo_send(router->device->admin->admin_addr, "/connected", "ssssss",
@@ -258,7 +258,7 @@ void mapper_router_add_calibrate_mapping(mapper_router router,
     mapper_mapping mapping =
         (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_calibrate(mapping, dest_min, dest_max);
     mapper_router_add_mapping(router, sig, mapping);
@@ -279,7 +279,7 @@ void mapper_router_add_expression_mapping(mapper_router router,
     mapper_mapping mapping =
         (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
-    mapping->props.src_name = strdup(sig->name);
+    mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_expression(mapping, expr);
     mapper_router_add_mapping(router, sig, mapping);

@@ -577,10 +577,10 @@ static int handler_id_n_namespace_input_get(const char *path,
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
         mapper_admin_send_osc(
-            admin, "%s/namespace/input", "s", sig->name,
-            AT_TYPE, sig->type,
-            sig->minimum ? AT_MIN : -1, sig,
-            sig->maximum ? AT_MAX : -1, sig);
+            admin, "%s/namespace/input", "s", sig->props.name,
+            AT_TYPE, sig->props.type,
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig);
     }
 
     return 0;
@@ -601,10 +601,10 @@ static int handler_id_n_namespace_output_get(const char *path,
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
         mapper_admin_send_osc(
-            admin, "%s/namespace/output", "s", sig->name,
-            AT_TYPE, sig->type,
-            sig->minimum ? AT_MIN : -1, sig,
-            sig->maximum ? AT_MAX : -1, sig);
+            admin, "%s/namespace/output", "s", sig->props.name,
+            AT_TYPE, sig->props.type,
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig);
     }
 
     return 0;
@@ -998,9 +998,9 @@ static int handler_param_connect(const char *path, const char *types,
         // use some default arguments related to the signal
         mapper_admin_send_osc(
             admin, "/connect_to", "ss", src_name, target_name,
-            AT_TYPE, input->type,
-            input->minimum ? AT_MIN : -1, input,
-            input->maximum ? AT_MAX : -1, input);
+            AT_TYPE, input->props.type,
+            input->props.minimum ? AT_MIN : -1, input,
+            input->props.maximum ? AT_MAX : -1, input);
     } else {
         // add the remaining arguments from /connect
         mapper_message_t params;
@@ -1200,7 +1200,7 @@ static int handler_param_connection_modify(const char *path,
         while (i < md_num_outputs && f1 == 0) {
 
             /* If this signal exists... */
-            if (strcmp(md_outputs[i]->name, src_param_name) == 0) {
+            if (strcmp(md_outputs[i]->props.name, src_param_name) == 0) {
 
                 /* Search the router linking to the receiver */
                 while (router != NULL && f2 == 0) {
@@ -1364,7 +1364,7 @@ static int handler_param_disconnect(const char *path, const char *types,
         /* Searches the source signal among the outputs of the device */
         while (i < md_num_outputs && f1 == 0) {
             /* If this signal exists ... */
-            if (strcmp(md_outputs[i]->name, src_param_name) == 0) {
+            if (strcmp(md_outputs[i]->props.name, src_param_name) == 0) {
 
                 /* Searches the router linking to the receiver */
                 while (router != NULL && f2 == 0) {
@@ -1453,7 +1453,7 @@ static int handler_device_connections_get(const char *path,
             mapper_signal_mapping sm = router->mappings;
             snprintf(src_name, 256, "%s%s",
                      mapper_admin_name(admin),
-                     md_outputs[i]->name);
+                     md_outputs[i]->props.name);
             while (sm != NULL) {
                 mapper_mapping m = sm->mapping;
                 snprintf(target_name, 256, "%s%s", router->target_name,

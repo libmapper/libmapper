@@ -10,16 +10,6 @@ extern "C" {
 
 /*** Signals ***/
 
-/*! A signal value may be one of several different types, so we use a
- *  union to represent this.  The appropriate selection from this
- *  union is determined by the mapper_signal::type variable. */
-
-typedef union _mapper_signal_value {
-    float f;
-    double d;
-    int i32;
-} mapper_signal_value_t, mval;
-
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
 typedef void mapper_signal_handler(mapper_device mdev,
@@ -28,26 +18,10 @@ typedef void mapper_signal_handler(mapper_device mdev,
 /*! A signal is defined as a vector of values, along with some
  *  metadata. */
 
-typedef struct _mapper_signal {
-
-    /*! The type of this signal, specified as an OSC type
-     *  character. */
-    char type;
-
-    /*! Length of the signal vector, or 1 for scalars. */
-    int length;
-
-    /*! The name of this signal, an OSC path.  Must start with '/'. */
-    const char *name;
-
-    /*! The unit of this signal, or NULL for N/A. */
-    const char *unit;
-
-    /*! The minimum of this signal, or NULL for no minimum. */
-    mapper_signal_value_t *minimum;
-
-    /*! The maximum of this signal, or NULL for no maximum. */
-    mapper_signal_value_t *maximum;
+typedef struct _mapper_signal
+{
+    /*! Properties of this signal. */
+    mapper_db_signal_t props;
 
     /*! An optional pointer to a C variable containing the actual
      *  vector. */

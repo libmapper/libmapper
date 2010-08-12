@@ -110,7 +110,8 @@ int mdev_find_input_by_name(mapper_device md, const char *name,
     int slash = name[0]=='/' ? 1 : 0;
     for (i=0; i<md->n_inputs; i++)
     {
-        if (strcmp(md->inputs[i]->name + 1, name + slash)==0)
+        if (strcmp(md->inputs[i]->props.name + 1,
+                   name + slash)==0)
         {
             if (result)
                 *result = md->inputs[i];
@@ -129,7 +130,8 @@ int mdev_find_output_by_name(mapper_device md, const char *name,
     int slash = name[0]=='/' ? 1 : 0;
     for (i=0; i<md->n_outputs; i++)
     {
-        if (strcmp(md->outputs[i]->name + 1, name + slash)==0)
+        if (strcmp(md->outputs[i]->props.name + 1,
+                   name + slash)==0)
         {
             if (result)
                 *result = md->outputs[i];
@@ -219,18 +221,19 @@ static int handler_signal(const char *path, const char *types,
 
     if (sig->handler) {
         int i;
-        sv = (mapper_signal_value_t*) realloc(sv, sizeof(mapper_signal_value_t) * sig->length);
-        switch (sig->type) {
+        sv = (mapper_signal_value_t*) realloc(
+            sv, sizeof(mapper_signal_value_t) * sig->props.length);
+        switch (sig->props.type) {
         case 'f':
-            for (i = 0; i < sig->length; i++)
+            for (i = 0; i < sig->props.length; i++)
                 sv[i].f = argv[i]->f;
             break;
         case 'd':
-            for (i = 0; i < sig->length; i++)
+            for (i = 0; i < sig->props.length; i++)
                 sv[i].d = argv[i]->d;
             break;
         case 'i':
-            for (i = 0; i < sig->length; i++)
+            for (i = 0; i < sig->props.length; i++)
                 sv[i].i32 = argv[i]->i;
             break;
         default:
@@ -263,12 +266,12 @@ void mdev_start_server(mapper_device md)
         }
 
         for (i = 0; i < md->n_inputs; i++) {
-            type = (char*) realloc(type, md->inputs[i]->length + 1);
-            for (j = 0; j < md->inputs[i]->length; j++)
-                type[j] = md->inputs[i]->type;
+            type = (char*) realloc(type, md->inputs[i]->props.length + 1);
+            for (j = 0; j < md->inputs[i]->props.length; j++)
+                type[j] = md->inputs[i]->props.type;
             type[j] = 0;
             lo_server_add_method(md->server,
-                                 md->inputs[i]->name,
+                                 md->inputs[i]->props.name,
                                  type,
                                  handler_signal, (void *) (md->inputs[i]));
         }
