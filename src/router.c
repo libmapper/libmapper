@@ -352,6 +352,7 @@ mapper_router mapper_router_find_by_target_name(mapper_router router,
     while (router) {
         if (strcmp(router->target_name, target_name)==0)
             return router;
+        router = router->next;
     }
     return 0;
 }
