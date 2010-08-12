@@ -1026,20 +1026,10 @@ static int handler_param_connect_to(const char *path, const char *types,
 
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_router router = md->routers;
+    mapper_signal output;
 
-    int md_num_outputs = (*((mapper_admin) user_data)).device->n_outputs;
-    mapper_signal *md_outputs =
-        (*((mapper_admin) user_data)).device->outputs;
-
-    int i = 0, j = 2, f1 = 0, f2 = 0, recvport = -1, range_update = 0;
-
-    char src_param_name[1024], src_device_name[1024],
-        target_param_name[1024], target_device_name[1024], scaling[1024] =
-        "dummy", host_address[1024];
-    char dest_type;
-    float dest_range_min = 0, dest_range_max = 1;
-    mapper_clipping_type clip;
+    const char *src_param_name, *src_name;
+    const char *target_param_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -1048,174 +1038,76 @@ static int handler_param_connect_to(const char *path, const char *types,
         || (types[1] != 's' && types[1] != 'S'))
         return 0;
 
-    strcpy(src_device_name, &argv[0]->s);
-    strtok(src_device_name, "/");
+    src_name = &argv[0]->s;
+    if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
+                       &src_param_name))
+        return 0;
 
-    /* Check OSC pattern match */
-    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
+    target_name = &argv[1]->s;
+    target_param_name = strchr(target_name+1, '/');
 
-        strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
-        strcpy(target_device_name, &argv[1]->s);
-        strtok(target_device_name, "/");
-        strcpy(target_param_name,
-               &argv[1]->s + strlen(target_device_name));
-
-        trace("<%s> got /connect_to %s%s %s%s + %d arguments\n",
-              mapper_admin_name(admin), src_device_name,
-              src_param_name, target_device_name, target_param_name, argc);
-
-        /* Searches the source signal among the outputs of the device */
-        while (i < md_num_outputs && f1 == 0) {
-
-            /* If the signal exists ... */
-            if (strcmp(md_outputs[i]->name, src_param_name) == 0) {
-                trace("signal exists: %s\n", md_outputs[i]->name);
-
-                /* Search the router linking to the receiver */
-                while (router != NULL && f2 == 0) {
-                    if (strcmp(router->target_name, target_device_name) ==
-                        0)
-                        f2 = 1;
-                    else
-                        router = router->next;
-                }
-                f1 = 1;
-            } else
-                i++;
-        }
-
-        /* If the router doesn't exist yet */
-        if (f2 == 0) {
-            trace("devices are not linked!");
-            if (host_address != NULL && recvport != -1) {
-                //TO DO: create routed using supplied host and port info
-                //TO DO: send /linked message
-            } else {
-                //TO DO: send /link message to start process - should
-                //       also cache /connect_to message for completion after
-                //       link???
-            }
-        }
-
-        /* If this router exists... */
-        else {
-            if (argc == 2) {
-                /* If no properties were provided, default to direct
-                 * mapping */
-                mapper_router_add_direct_mapping(router,
-                                                 admin->device->outputs[i],
-                                                 target_param_name);
-            } else {
-                /* If properties were provided, construct a custom
-                 * mapping state: */
-
-                /* Add a flavourless mapping */
-                mapper_mapping m = mapper_router_add_blank_mapping(
-                    router, admin->device->outputs[i], target_param_name);
-
-                /* Parse the list of properties */
-                while (j < argc) {
-                    if (types[j] != 's' && types[j] != 'S') {
-                        j++;
-                    } else if (strcmp(&argv[j]->s, "@type") == 0) {
-                        dest_type = argv[j + 1]->c;
-                        j += 2;
-                    } else if (strcmp(&argv[j]->s, "@min") == 0) {
-                        dest_range_min = argv[j + 1]->f;
-                        range_update++;
-                        j += 2;
-                    } else if (strcmp(&argv[j]->s, "@max") == 0) {
-                        dest_range_max = argv[j + 1]->f;
-                        range_update++;
-                        j += 2;
-                    } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
-                        if (strcmp(&argv[j + 1]->s, "bypass") == 0)
-                            m->scaling = SC_BYPASS;
-                        if (strcmp(&argv[j + 1]->s, "linear") == 0)
-                            m->scaling = SC_LINEAR;
-                        if (strcmp(&argv[j + 1]->s, "expression") == 0)
-                            m->scaling = SC_EXPRESSION;
-                        if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
-                            m->scaling = SC_CALIBRATE;
-                        j += 2;
-                    } else if (strcmp(&argv[j]->s, "@range") == 0) {
-                        if (types[j + 1] == 'i')
-                            m->range.src_min = (float) argv[j + 1]->i;
-                        else if (types[j + 1] == 'f')
-                            m->range.src_min = argv[j + 1]->f;
-                        if (types[j + 2] == 'i')
-                            m->range.src_max = (float) argv[j + 2]->i;
-                        else if (types[j + 2] == 'f')
-                            m->range.src_max = argv[j + 2]->f;
-                        if (types[j + 3] == 'i')
-                            m->range.dest_min = (float) argv[j + 3]->i;
-                        else if (types[j + 3] == 'f')
-                            m->range.dest_min = argv[j + 3]->f;
-                        if (types[j + 4] == 'i')
-                            m->range.dest_max = (float) argv[j + 4]->i;
-                        else if (types[j + 4] == 'f')
-                            m->range.dest_max = argv[j + 4]->f;
-                        range_update += 4;
-                        j += 5;
-                    } else if (strcmp(&argv[j]->s, "@expression") == 0) {
-                        char received_expr[1024];
-                        strcpy(received_expr, &argv[j + 1]->s);
-                        Tree *T = NewTree();
-                        int success_tree = get_expr_Tree(T, received_expr);
-
-                        if (success_tree) {
-                            free(m->expression);
-                            m->expression = strdup(&argv[j + 1]->s);
-                            DeleteTree(m->expr_tree);
-                            m->expr_tree = T;
-                        }
-                        j += 2;
-                    } else if ((strcmp(&argv[j]->s, "@clipMin") == 0) || (strcmp(&argv[j]->s, "@clipMax") == 0)) {
-                        if (strcmp(&argv[j+1]->s, "none") == 0)
-                            clip = CT_NONE;
-                        else if (strcmp(&argv[j+1]->s, "mute") == 0)
-                            clip = CT_MUTE;
-                        else if (strcmp(&argv[j+1]->s, "clamp") == 0)
-                            clip = CT_CLAMP;
-                        else if (strcmp(&argv[j+1]->s, "fold") == 0)
-                            clip = CT_FOLD;
-                        else if (strcmp(&argv[j+1]->s, "wrap") == 0)
-                            clip = CT_WRAP;
-                        
-                        if (strcmp(&argv[j]->s, "@clipMin") == 0)
-                            m->clip_lower = clip;
-                        else
-                            m->clip_upper = clip;
-                        j += 2;
-                    } else {
-                        j++;
-                    }
-                }
-
-                if (strcmp(scaling, "dummy") == 0) {
-                    if ((range_update == 2)
-                        && (md_outputs[i]->type == 'i'
-                            || md_outputs[i]->type == 'f')
-                        && (dest_type == 'i' || dest_type == 'f')) {
-                        /* If destination range was provided and types
-                         * are 'i' or 'f', default to linear
-                         * mapping. */
-                        mapper_router_add_linear_range_mapping(
-                            router, admin->device->outputs[i],
-                            target_param_name, md_outputs[i]->minimum->f,
-                            md_outputs[i]->maximum->f,
-                            dest_range_min, dest_range_max);
-                    } else {
-                        // Otherwise default to direct mapping
-                        mapper_router_add_direct_mapping(
-                            router, admin->device->outputs[i],
-                            target_param_name);
-                    }
-                }
-            }
-            /* Add clipping! */
-        }
+    if (!target_param_name) {
+        trace("<%s> target '%s' has no parameter in /connect_to.\n",
+              mapper_admin_name(admin), target_name);
+        return 0;
     }
+
+    trace("<%s> got /connect_to %s %s + %d arguments\n",
+          mapper_admin_name(admin), src_name, target_name, argc);
+
+    if (mdev_find_output_by_name(md, src_param_name, &output) < 0)
+    {
+        trace("<%s> no output signal found for '%s' in /connect_to\n",
+              mapper_admin_name(admin), src_param_name);
+        return 0;
+    }
+
+    mapper_message_t params;
+    if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing parameters in /connect_to, "
+              "continuing anyway.\n", mapper_admin_name(admin));
+    }
+
+    mapper_router router =
+        mapper_router_find_by_target_name(md->routers, target_name);
+
+    if (!router) {
+        trace("<%s> not linked to '%s' on /connect_to.\n",
+              mapper_admin_name(admin), target_name);
+        // TODO: Perform /link_to?
+
+        const char *host = mapper_msg_get_param_if_string(&params, AT_IP);
+        int port;
+        if (host && !mapper_msg_get_param_if_int(&params, AT_PORT, &port))
+        {
+            // Port and host are valid
+            // TO DO: create routed using supplied host and port info
+            // TO DO: send /linked message
+        }
+        else {
+            /* TO DO: send /link message to start process - should
+             * also cache /connect_to message for completion after
+             * link??? */
+        }
+
+        return 0;
+    }
+
+    if (argc == 2) {
+        /* If no properties were provided, default to direct
+         * mapping */
+        mapper_router_add_direct_mapping(router, output,
+                                         target_param_name);
+    } else {
+        /* Add a flavourless mapping */
+        mapper_mapping m = mapper_router_add_blank_mapping(
+            router, output, target_param_name);
+
+        /* Set its properties. */
+        mapper_mapping_set_from_message(m, output, &params);
+    }
+
     return 0;
 }
 

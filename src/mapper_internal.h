@@ -129,6 +129,23 @@ int mapper_clipping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
 
+/*! Set a mapping's properties based on message parameters. */
+void mapper_mapping_set_from_message(mapper_mapping mapping,
+                                     mapper_signal sig,
+                                     mapper_message_t *msg);
+
+void mapper_mapping_set_direct(mapper_mapping mapping);
+
+void mapper_mapping_set_linear_range(mapper_mapping mapping,
+                                     float src_min, float src_max,
+                                     float dest_min, float dest_max);
+
+void mapper_mapping_set_expression(mapper_mapping mapping,
+                                   const char *expr);
+
+void mapper_mapping_set_calibrate(mapper_mapping mapping,
+                                  float dest_min, float dest_max);
+
 /**** Local device database ****/
 
 /*! Add or update an entry in the device database using parsed message
@@ -185,6 +202,15 @@ const char* mapper_msg_get_type(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
                                            mapper_msg_param_t param);
 
+/*! Helper to get a direct parameter value only if it's a char type,
+ *  or if it's a string of length one.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \return       A string containing the parameter value or zero if
+ *                not found. */
+const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
+                                         mapper_msg_param_t param);
+
 /*! Helper to get a direct parameter value only if it's an int.
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
@@ -202,6 +228,18 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
 int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value);
+
+/*! Helper to return the clipping type from a message parameter.
+ *  \param msg Structure containing parameter info.
+ *  \param param Either AT_CLIPMIN or AT_CLIPMAX.
+ *  \return The clipping type, or -1 if not found. */
+mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
+                                             mapper_msg_param_t param);
+
+/*! Helper to return the scaling type from a message parameter.
+ *  \param msg Structure containing parameter info.
+ *  \return The scaling type, or -1 if not found. */
+mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */

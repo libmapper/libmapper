@@ -169,18 +169,16 @@ void mapper_router_add_direct_mapping(mapper_router router,
                                       mapper_signal sig, const char *name)
 {
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    char src_name[1024], dest_name[1024];
-
-    mapping->scaling = SC_BYPASS;
     mapping->name = strdup(name);
-    mapping->expression = strdup("y=x");
+
+    char src_name[1024], dest_name[1024];
+    msig_full_name(sig, src_name, 1024);
+    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
+
     mapping->range.known = 0;
 
     mapper_router_add_mapping(router, sig, mapping);
-
-    snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier,
-             router->device->admin->ordinal.value, sig->name);
-    snprintf(dest_name, 256, "%s%s", router->target_name, name);
+    mapper_mapping_set_direct(mapping);
 
     lo_send(router->device->admin->admin_addr, "/connected", "ssss",
             src_name, dest_name, "@scaling", "bypass");
@@ -192,49 +190,16 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
                                             float src_min, float src_max,
                                             float dest_min, float dest_max)
 {
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    char src_name[1024], dest_name[1024];
-
-    mapping->scaling = SC_LINEAR;
+    mapper_mapping mapping =
+        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     mapping->name = strdup(name);
-
-    float scale = (dest_min - dest_max) / (src_min - src_max);
-    float offset =
-        (dest_max * src_min - dest_min * src_max) / (src_min - src_max);
-
-    free(mapping->expression);
-    mapping->expression = (char*) malloc(256 * sizeof(char));
-    snprintf(mapping->expression, 256, "y=x*%g+%g", scale, offset);
-
-    mapping->range.src_min = src_min;
-    mapping->range.src_max = src_max;
-    mapping->range.dest_min = dest_min;
-    mapping->range.dest_max = dest_max;
-    mapping->range.known = RANGE_KNOWN;
-
-    Tree *T = NewTree();
-
-    int success_tree = get_expr_Tree(T, mapping->expression);
-    if (!success_tree)
-        return;
-
-    mapping->expr_tree = T;
-
-    /*mapping->coef_input[0] = scale.f;
-       mapping->order_input = 1;
-
-       mapping->expression = strdup(expression);
-       mapping->range[0]=src_min;
-       mapping->range[1]=src_max;
-       mapping->range[2]=dest_min;
-       mapping->range[3]=dest_max; */
-
-
+    mapper_mapping_set_linear_range(mapping, src_min, src_max,
+                                    dest_min, dest_max);
     mapper_router_add_mapping(router, sig, mapping);
 
-    snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier,
-             router->device->admin->ordinal.value, sig->name);
-    snprintf(dest_name, 256, "%s%s", router->target_name, name);
+    char src_name[1024], dest_name[1024];
+    msig_full_name(sig, src_name, 1024);
+    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
 
     lo_send(router->device->admin->admin_addr, "/connected", "sssssssffff",
             src_name, dest_name, "@scaling", "linear", "@expression",
@@ -283,36 +248,16 @@ void mapper_router_add_calibrate_mapping(mapper_router router,
                                          const char *name, float dest_min,
                                          float dest_max)
 {
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    char src_name[1024], dest_name[1024];
+    mapper_mapping mapping =
+        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
-    mapping->scaling = SC_CALIBRATE;
     mapping->name = strdup(name);
-
-    free(mapping->expression);
-    mapping->expression = (char*) malloc(256 * sizeof(char));
-    snprintf(mapping->expression, 256, "y=%g", dest_min);
-
-    mapping->range.dest_min = dest_min;
-    mapping->range.dest_max = dest_max;
-    mapping->range.known = RANGE_DEST_MIN | RANGE_DEST_MAX;
-    mapping->range.rewrite = 1;
-
-    /*mapping->coef_input[0] = scale.f;
-       mapping->order_input = 1;
-
-       mapping->expression = strdup(expression);
-       mapping->range[0]=src_min;
-       mapping->range[1]=src_max;
-       mapping->range[2]=dest_min;
-       mapping->range[3]=dest_max; */
-
-
+    mapper_mapping_set_calibrate(mapping, dest_min, dest_max);
     mapper_router_add_mapping(router, sig, mapping);
 
-    snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier,
-             router->device->admin->ordinal.value, sig->name);
-    snprintf(dest_name, 256, "%s%s", router->target_name, name);
+    char src_name[1024], dest_name[1024];
+    msig_full_name(sig, src_name, 1024);
+    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
 
     lo_send(router->device->admin->admin_addr, "/connected", "sssssssssff",
             src_name, dest_name, "@scaling", "calibrate", "@expression",
@@ -323,23 +268,16 @@ void mapper_router_add_expression_mapping(mapper_router router,
                                           mapper_signal sig,
                                           const char *name, char *expr)
 {
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    char src_name[1024], dest_name[1024];
+    mapper_mapping mapping =
+        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
-    mapping->scaling = SC_EXPRESSION;
     mapping->name = strdup(name);
-    mapping->expression = strdup(expr);
-    mapping->range.known = 0;
-
-    Tree *T = NewTree();
-    get_expr_Tree(T, expr);
-    mapping->expr_tree = T;
-
+    mapper_mapping_set_expression(mapping, expr);
     mapper_router_add_mapping(router, sig, mapping);
 
-    snprintf(src_name, 256, "/%s.%d%s", router->device->admin->identifier,
-             router->device->admin->ordinal.value, sig->name);
-    snprintf(dest_name, 256, "%s%s", router->target_name, name);
+    char src_name[1024], dest_name[1024];
+    msig_full_name(sig, src_name, 1024);
+    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
 
     lo_send(router->device->admin->admin_addr, "/connected", "ssssss",
             src_name, dest_name, "@scaling", "expression", "@expression",

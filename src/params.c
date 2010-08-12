@@ -131,6 +131,28 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
     return &(*a)->s;
 }
 
+const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
+                                         mapper_msg_param_t param)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !(*a)) return 0;
+
+    const char *t = mapper_msg_get_type(msg, param);
+    if (!t) return 0;
+
+    if ((t[0] == 's' || t[0] == 'S')
+        && (&(*a)->s)[0] && (&(*a)->s)[1]==0)
+        return &(*a)->s;
+
+    if (t[0] == 'c')
+        return (char*)&(*a)->c;
+
+    return 0;
+}
+
 int mapper_msg_get_param_if_int(mapper_message_t *msg,
                                 mapper_msg_param_t param,
                                 int *value)
@@ -321,4 +343,45 @@ void mapper_msg_prepare_params(lo_message m,
             break;
         }
     }
+}
+
+mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg)
+{
+    lo_arg **a = mapper_msg_get_param(msg, AT_SCALING);
+    if (!a || !*a)
+        return -1;
+
+    if (strcmp(&(*a)->s, "bypass") == 0)
+        return SC_BYPASS;
+    if (strcmp(&(*a)->s, "linear") == 0)
+        return SC_LINEAR;
+    if (strcmp(&(*a)->s, "expression") == 0)
+        return SC_EXPRESSION;
+    if (strcmp(&(*a)->s, "calibrate") == 0)
+        return SC_CALIBRATE;
+
+    return -1;
+}
+
+mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
+                                             mapper_msg_param_t param)
+{
+    die_unless(param == AT_CLIPMIN || param == AT_CLIPMAX,
+               "bad param in mapper_msg_get_clipping()\n");
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !*a)
+        return -1;
+
+    if (strcmp(&(*a)->s, "none") == 0)
+        return CT_NONE;
+    if (strcmp(&(*a)->s, "mute") == 0)
+        return CT_MUTE;
+    if (strcmp(&(*a)->s, "clamp") == 0)
+        return CT_CLAMP;
+    if (strcmp(&(*a)->s, "fold") == 0)
+        return CT_FOLD;
+    if (strcmp(&(*a)->s, "wrap") == 0)
+        return CT_WRAP;
+
+    return -1;
 }
