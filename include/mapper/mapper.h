@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <mapper/mapper_db.h>
 #include <mapper/mapper_types.h>
 
 /*** Signals ***/
@@ -180,15 +181,6 @@ const char *mdev_name(mapper_device device);
 unsigned int mdev_port(mapper_device device);
 
 /**** Local device database ****/
-
-/*! A record that keeps information about a device on the network. */
-typedef struct _mapper_db_device {
-    char *name;   //!< Device name.
-    char *host;   //!< Device network host name.
-    int port;     //!< Device network port.
-    int canAlias; //!< True if the device can handle OSC aliasing.
-    void* user_data; //!< User modifiable data.
-} mapper_db_device_t, *mapper_db_device;
 
 /*! Find information for a registered device.
  *  \param name  Name of the device to find in the database.

@@ -348,18 +348,18 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
 {
     lo_message_add_string(m, mapper_msg_param_strings[AT_SCALING]);
-    lo_message_add_string(m, mapper_scaling_type_strings[map->scaling]);
+    lo_message_add_string(m, mapper_scaling_type_strings[map->props.scaling]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
-    lo_message_add_string(m, map->expression);
+    lo_message_add_string(m, map->props.expression);
     lo_message_add_string(m, mapper_msg_param_strings[AT_RANGE]);
-    lo_message_add_float(m, map->range.src_min);
-    lo_message_add_float(m, map->range.src_max);
-    lo_message_add_float(m, map->range.dest_min);
-    lo_message_add_float(m, map->range.dest_max);
+    lo_message_add_float(m, map->props.range.src_min);
+    lo_message_add_float(m, map->props.range.src_max);
+    lo_message_add_float(m, map->props.range.dest_min);
+    lo_message_add_float(m, map->props.range.dest_max);
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMIN]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->clip_lower]);
+    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_lower]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMAX]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->clip_upper]);
+    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_upper]);
 }
 
 mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg)

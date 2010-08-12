@@ -1222,7 +1222,7 @@ static int handler_param_connection_modify(const char *path,
                         return 0;
 
                     mapper_mapping m = sm->mapping;
-                    while (m && strcmp(m->name, target_param_name) != 0) {
+                    while (m && strcmp(m->props.dest_name, target_param_name) != 0) {
                         m = m->next;
                     }
                     if (!m)
@@ -1234,31 +1234,31 @@ static int handler_param_connection_modify(const char *path,
                             j++;
                         } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
                             if (strcmp(&argv[j + 1]->s, "bypass") == 0)
-                                m->scaling = SC_BYPASS;
+                                m->props.scaling = SC_BYPASS;
                             if (strcmp(&argv[j + 1]->s, "linear") == 0)
-                                m->scaling = SC_LINEAR;
+                                m->props.scaling = SC_LINEAR;
                             if (strcmp(&argv[j + 1]->s, "expression") == 0)
-                                m->scaling = SC_EXPRESSION;
+                                m->props.scaling = SC_EXPRESSION;
                             if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
-                                m->scaling = SC_CALIBRATE;
+                                m->props.scaling = SC_CALIBRATE;
                             j += 2;
                         } else if (strcmp(&argv[j]->s, "@range") == 0) {
                             if (types[j + 1] == 'i')
-                                m->range.src_min = (float) argv[j + 1]->i;
+                                m->props.range.src_min = (float) argv[j + 1]->i;
                             else if (types[j + 1] == 'f')
-                                m->range.src_min = argv[j + 1]->f;
+                                m->props.range.src_min = argv[j + 1]->f;
                             if (types[j + 2] == 'i')
-                                m->range.src_max = (float) argv[j + 2]->i;
+                                m->props.range.src_max = (float) argv[j + 2]->i;
                             else if (types[j + 2] == 'f')
-                                m->range.src_max = argv[j + 2]->f;
+                                m->props.range.src_max = argv[j + 2]->f;
                             if (types[j + 3] == 'i')
-                                m->range.dest_min = (float) argv[j + 3]->i;
+                                m->props.range.dest_min = (float) argv[j + 3]->i;
                             else if (types[j + 3] == 'f')
-                                m->range.dest_min = argv[j + 3]->f;
+                                m->props.range.dest_min = argv[j + 3]->f;
                             if (types[j + 4] == 'i')
-                                m->range.dest_max = (float) argv[j + 4]->i;
+                                m->props.range.dest_max = (float) argv[j + 4]->i;
                             else if (types[j + 4] == 'f')
-                                m->range.dest_max = argv[j + 4]->f;
+                                m->props.range.dest_max = argv[j + 4]->f;
                             range_update += 4;
                             j += 5;
                         } else if (strcmp(&argv[j]->s, "@expression") == 0) {
@@ -1268,8 +1268,8 @@ static int handler_param_connection_modify(const char *path,
                             int success_tree = get_expr_Tree(T, received_expr);
                             
                             if (success_tree) {
-                                free(m->expression);
-                                m->expression = strdup(&argv[j + 1]->s);
+                                free(m->props.expression);
+                                m->props.expression = strdup(&argv[j + 1]->s);
                                 DeleteTree(m->expr_tree);
                                 m->expr_tree = T;
                             }
@@ -1287,9 +1287,9 @@ static int handler_param_connection_modify(const char *path,
                                 clip = CT_WRAP;
                             
                             if (strcmp(&argv[j]->s, "@clipMin") == 0)
-                                m->clip_lower = clip;
+                                m->props.clip_lower = clip;
                             else
-                                m->clip_upper = clip;
+                                m->props.clip_upper = clip;
                             j += 2;
                         } else {
                             j++;
@@ -1385,7 +1385,8 @@ static int handler_param_disconnect(const char *path, const char *types,
                         return 0;
 
                     mapper_mapping m = sm->mapping;
-                    while (m && strcmp(m->name, target_param_name) != 0) {
+                    while (m && strcmp(m->props.dest_name,
+                                       target_param_name) != 0) {
                         m = m->next;
                     }
                     if (!m)
@@ -1456,7 +1457,7 @@ static int handler_device_connections_get(const char *path,
             while (sm != NULL) {
                 mapper_mapping m = sm->mapping;
                 snprintf(target_name, 256, "%s%s", router->target_name,
-                         m->name);
+                         m->props.dest_name);
                 lo_message mess = lo_message_new();
                 if (!mess) {
                     trace("couldn't allocate lo_message\n");

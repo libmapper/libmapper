@@ -6,6 +6,8 @@
 #include "operations.h"
 #include "expression.h"
 
+#include <mapper/mapper_db.h>
+
 /**** Defined in mapper.h ****/
 
 /* Types defined here replace opaque prototypes in mapper.h, thus we
@@ -79,55 +81,14 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! Describes what happens when the clipping boundaries are
- *  exceeded. */
-typedef enum _mapper_clipping_type {
-    CT_NONE,    /*!< Value is passed through unchanged. This is the
-                 *   default. */
-    CT_MUTE,    //!< Value is muted.
-    CT_CLAMP,   //!< Value is limited to the boundary.
-    CT_FOLD,    //!< Value continues in opposite direction.
-    CT_WRAP,    /*!< Value appears as modulus offset at the opposite
-                 *   boundary. */
-} mapper_clipping_type;
-
-extern const char* mapper_clipping_type_strings[];
-
-/*! Describes the scaling mode of the mapping. */
-typedef enum _mapper_scaling_type {
-    SC_BYPASS,       //!< Direct scaling
-    SC_LINEAR,       //!< Linear scaling
-    SC_EXPRESSION,   //!< Expression scaling
-    SC_CALIBRATE,    //!< Calibrate to input
-    SC_MUTE,         //!< Mute scaling
-} mapper_scaling_type;
-
-extern const char* mapper_scaling_type_strings[];
-
-/* Bit flags to identify which range extremities are known. If the bit
- * field is equal to RANGE_KNOWN, then all four required extremities
- * are known, and a linear mapping can be calculated. */
-#define RANGE_SRC_MIN  0x01
-#define RANGE_SRC_MAX  0x02
-#define RANGE_DEST_MIN 0x04
-#define RANGE_DEST_MAX 0x08
-#define RANGE_KNOWN    0x0F
-
-typedef struct _mapper_mapping_range {
-    float src_min;              //!< Source minimum.
-    float src_max;              //!< Source maximum.
-    float dest_min;             //!< Destination minimum.
-    float dest_max;             //!< Destination maximum.
-    int known;                  /*!< Bitfield identifying known range
-                                 *   extremities. */
-    int rewrite;                //!< Need to overwrite src_min and src_max?
-} mapper_mapping_range_t;
-
 /*! The mapping structure is a linked list of mappings for a given
- *  signal.  Each signal can be associated with multiple outputs. */
+ *  signal.  Each signal can be associated with multiple outputs. This
+ *  structure only contains state information used for performing
+ *  mapping, the mapping properties are publically defined in
+ *  mapper_db.h. */
 
 typedef struct _mapper_mapping {
-    char *name;                     //!< Destination name (OSC path).
+    mapper_db_mapping_t props;      //!< Properties.
     struct _mapper_mapping *next;   //!< Next mapping in the list.
     int order_input;                /*!< Order of the input side of
                                      *   the difference equation. */
@@ -143,23 +104,12 @@ typedef struct _mapper_mapping {
     float history_input[MAX_HISTORY_ORDER];  //!< History of input.
     float history_output[MAX_HISTORY_ORDER]; //!< History of output.
 
-    int history_pos;                  /*!< Position in history ring
-                                       *   buffers. */
-    mapper_clipping_type clip_upper;  /*!< Operation for exceeded
-                                       *   upper boundary. */
-    mapper_clipping_type clip_lower;  /*!< Operation for exceeded
-                                       *   lower boundary. */
+    int history_pos;   //!< Position in history ring buffers.
 
-    mapper_mapping_range_t range;     //!< Range information.
-    char *expression;
+    int calibrating;   /*!< 1 if the source range is currently being
+                        *   calibrated, 0 otherwise. */
 
-    mapper_scaling_type scaling;   /*!< Bypass, linear, calibrate, or
-                                    *   expression mapping */
-    int muted;                  /*!< 1 to mute mapping connection, 0
-                                 *   to unmute */
-    Tree *expr_tree;            /*!< Tree representing the mapping
-                                 *   expression */
-    char dest_type;             //!< Destination signal type.
+    Tree *expr_tree;   //!< Tree representing the mapping expression.
 } *mapper_mapping;
 
 
@@ -234,7 +184,16 @@ typedef enum {
     N_AT_PARAMS
 } mapper_msg_param_t;
 
+/*! Strings that correspond to mapper_msg_param_t. */
 extern const char* mapper_msg_param_strings[];
+
+/*! Strings that correspond to mapper_clipping_type, defined in
+ *  mapper_db.h. */
+extern const char* mapper_clipping_type_strings[];
+
+/*! Strings that correspond to mapper_scaling_type, defined in
+ *  mapper_db.h. */
+extern const char* mapper_scaling_type_strings[];
 
 /*! Queriable representation of a parameterized message parsed from an
  *  incoming OSC message. Does not contain a copy of data, so only
