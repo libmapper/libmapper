@@ -6,8 +6,10 @@
 #include "expression.h"
 
 /*! Get the expression tree from the expression string. */
-int get_expr_Tree(Tree *T, char *s)
+int get_expr_Tree(Tree *T, const char *str)
 {
+    char expr[1024], *s = expr;
+    strncpy(s, str, 1024);
 
     /* The commented parts are for debug use, to get the string from
      * the terminal */

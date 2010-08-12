@@ -113,7 +113,7 @@ void mapper_router_add_expression_mapping(mapper_router router,
 mapper_router mapper_router_find_by_target_name(mapper_router routers,
                                                 const char* target_name);
 
-int get_expr_Tree(Tree *T, char *s);
+int get_expr_Tree(Tree *T, const char *s);
 
 /**** Signals ****/
 
