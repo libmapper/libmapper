@@ -18,7 +18,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
     mapping->history_input[p] = from_value->f;
     v = mapping->history_input[p];
 
-    if (mapping->type == BYPASS /*|| mapping->type==LINEAR */ ) {
+    if (mapping->scaling == SC_BYPASS /*|| mapping->type==LINEAR */ ) {
         /*for (i=0; i < mapping->order_input; i++)
            v = mapping->history_input[(p+i)%5] * mapping->coef_input[i];
 
@@ -34,7 +34,8 @@ void mapper_mapping_perform(mapper_mapping mapping,
     }
 
 
-    else if (mapping->type == EXPRESSION || mapping->type == LINEAR) {
+    else if (mapping->scaling == SC_EXPRESSION
+             || mapping->scaling == SC_LINEAR) {
         v = EvalTree(mapping->expr_tree, mapping->history_input,
                      mapping->history_output, p, &err);
         mapping->history_output[p] = v;
@@ -44,7 +45,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
             p = MAX_HISTORY_ORDER - 1;
     }
 
-    else if (mapping->type == CALIBRATE) {
+    else if (mapping->scaling == SC_CALIBRATE) {
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (mapping->range.rewrite) {

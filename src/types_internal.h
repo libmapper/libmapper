@@ -91,16 +91,14 @@ typedef enum _mapper_clipping_type {
                  *   boundary. */
 } mapper_clipping_type;
 
-
-
-typedef enum _mapper_mapping_type {
-    BYPASS,                     //!< Direct mapping
-    LINEAR,                     //!< Linear mapping
-    EXPRESSION,                 //!< Expression mapping
-    CALIBRATE,                  //!< Calibrate to input
-    MUTE,                       //!< Mute mapping
-} mapper_mapping_type;
-
+/*! Describes the scaling mode of the mapping. */
+typedef enum _mapper_scaling_type {
+    SC_BYPASS,       //!< Direct scaling
+    SC_LINEAR,       //!< Linear scaling
+    SC_EXPRESSION,   //!< Expression scaling
+    SC_CALIBRATE,    //!< Calibrate to input
+    SC_MUTE,         //!< Mute scaling
+} mapper_scaling_type;
 
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
@@ -151,12 +149,13 @@ typedef struct _mapper_mapping {
     mapper_mapping_range_t range;     //!< Range information.
     char *expression;
 
-    mapper_mapping_type type;   /*!< Bypass, linear, calibrate, or
-                                 *   expression mapping */
+    mapper_scaling_type scaling;   /*!< Bypass, linear, calibrate, or
+                                    *   expression mapping */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
     Tree *expr_tree;            /*!< Tree representing the mapping
                                  *   expression */
+    char dest_type;             //!< Destination signal type.
 } *mapper_mapping;
 
 

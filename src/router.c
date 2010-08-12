@@ -156,7 +156,7 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
     // Some default values?
-    mapping->type = BYPASS;
+    mapping->scaling = SC_BYPASS;
     mapping->name = strdup(name);
     mapping->expression = strdup("y=x");
     mapping->range.known = 0;
@@ -171,7 +171,7 @@ void mapper_router_add_direct_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
-    mapping->type = BYPASS;
+    mapping->scaling = SC_BYPASS;
     mapping->name = strdup(name);
     mapping->expression = strdup("y=x");
     mapping->range.known = 0;
@@ -195,7 +195,7 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
-    mapping->type = LINEAR;
+    mapping->scaling = SC_LINEAR;
     mapping->name = strdup(name);
 
     float scale = (dest_min - dest_max) / (src_min - src_max);
@@ -250,7 +250,7 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
-    mapping->type = LINEAR;
+    mapping->scaling = SC_LINEAR;
     mapping->name = strdup(name);
 
     free(mapping->expression);
@@ -286,7 +286,7 @@ void mapper_router_add_calibrate_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
-    mapping->type = CALIBRATE;
+    mapping->scaling = SC_CALIBRATE;
     mapping->name = strdup(name);
 
     free(mapping->expression);
@@ -326,7 +326,7 @@ void mapper_router_add_expression_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     char src_name[1024], dest_name[1024];
 
-    mapping->type = EXPRESSION;
+    mapping->scaling = SC_EXPRESSION;
     mapping->name = strdup(name);
     mapping->expression = strdup(expr);
     mapping->range.known = 0;

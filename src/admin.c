@@ -1130,13 +1130,13 @@ static int handler_param_connect_to(const char *path, const char *types,
                         j += 2;
                     } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
                         if (strcmp(&argv[j + 1]->s, "bypass") == 0)
-                            m->type = BYPASS;
+                            m->scaling = SC_BYPASS;
                         if (strcmp(&argv[j + 1]->s, "linear") == 0)
-                            m->type = LINEAR;
+                            m->scaling = SC_LINEAR;
                         if (strcmp(&argv[j + 1]->s, "expression") == 0)
-                            m->type = EXPRESSION;
+                            m->scaling = SC_EXPRESSION;
                         if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
-                            m->type = CALIBRATE;
+                            m->scaling = SC_CALIBRATE;
                         j += 2;
                     } else if (strcmp(&argv[j]->s, "@range") == 0) {
                         if (types[j + 1] == 'i')
@@ -1326,13 +1326,13 @@ static int handler_param_connection_modify(const char *path,
                             j++;
                         } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
                             if (strcmp(&argv[j + 1]->s, "bypass") == 0)
-                                m->type = BYPASS;
+                                m->scaling = SC_BYPASS;
                             if (strcmp(&argv[j + 1]->s, "linear") == 0)
-                                m->type = LINEAR;
+                                m->scaling = SC_LINEAR;
                             if (strcmp(&argv[j + 1]->s, "expression") == 0)
-                                m->type = EXPRESSION;
+                                m->scaling = SC_EXPRESSION;
                             if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
-                                m->type = CALIBRATE;
+                                m->scaling = SC_CALIBRATE;
                             j += 2;
                         } else if (strcmp(&argv[j]->s, "@range") == 0) {
                             if (types[j + 1] == 'i')
@@ -1390,20 +1390,20 @@ static int handler_param_connection_modify(const char *path,
 /***********************TEMPORARY, then only send
                         the modified parameters********************/
 
-                    switch (m->type) {
-                    case EXPRESSION:
+                    switch (m->scaling) {
+                    case SC_EXPRESSION:
                         strcpy(mapping_type, "expression");
                         break;
 
-                    case LINEAR:
+                    case SC_LINEAR:
                         strcpy(mapping_type, "linear");
                         break;
 
-                    case BYPASS:
+                    case SC_BYPASS:
                         strcpy(mapping_type, "bypass");
                         break;
 
-                    case CALIBRATE:
+                    case SC_CALIBRATE:
                         strcpy(mapping_type, "calibrate");
                         break;
 
