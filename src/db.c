@@ -135,7 +135,7 @@ static void update_device_record_params(mapper_db_device reg,
 int mapper_db_add_or_update_params(const char *name,
                                    mapper_message_t *params)
 {
-    mapper_db_device reg = mapper_db_find_device_by_name(name);
+    mapper_db_device reg = mapper_db_get_device_by_name(name);
     int rc = 0;
 
     if (!reg) {
@@ -160,7 +160,7 @@ int mapper_db_add_or_update_params(const char *name,
     return rc;
 }
 
-mapper_db_device mapper_db_find_device_by_name(const char *name)
+mapper_db_device mapper_db_get_device_by_name(const char *name)
 {
 
     mapper_db_device reg = g_db_registered_devices;
@@ -186,7 +186,8 @@ mapper_db_device *mapper_db_get_all_devices()
     return (mapper_db_device*)&lh->self;
 }
 
-mapper_db_device *mapper_db_get_devices_matching_continuation(list_header_t *lh)
+mapper_db_device *mapper_db_match_device_by_name_continuation(
+    list_header_t *lh)
 {
     mapper_db_device reg = list_get_header_by_data(lh->self)->next;
     while (reg) {
@@ -206,7 +207,7 @@ mapper_db_device *mapper_db_get_devices_matching_continuation(list_header_t *lh)
     return 0;
 }
 
-mapper_db_device *mapper_db_get_devices_matching(char *str)
+mapper_db_device *mapper_db_match_device_by_name(char *str)
 {
     if (!g_db_registered_devices)
         return 0;
@@ -230,7 +231,7 @@ mapper_db_device *mapper_db_get_devices_matching(char *str)
     list_header_t *result = (list_header_t*)malloc(sizeof(list_header_t));
     memset(result, 0, sizeof(list_header_t));
     result->self = reg;
-    result->next = mapper_db_get_devices_matching_continuation;
+    result->next = mapper_db_match_device_by_name_continuation;
     result->query_context = strdup(str);
     result->query_type = QUERY_DYNAMIC;
 
@@ -311,4 +312,152 @@ void mapper_db_remove_device_callback(device_callback_func *f, void *user)
         g_db_device_callbacks = cb->next;
 
     free(cb);
+}
+
+void mapper_db_add_signal_callback(signal_callback_func *f, void *user)
+{
+    trace("mapper_db_add_signal_callback(signal_callback_func *f,"
+          " void *user() not yet implemented.\n");
+}
+
+void mapper_db_remove_signal_callback(signal_callback_func *f, void *user)
+{
+    trace("mapper_db_remove_signal_callback(signal_callback_func *f,"
+          " void *user() not yet implemented.\n");
+}
+
+mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
+    const char *device_name)
+{
+    trace("mapper_db_get_inputs_by_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
+    const char *device_name)
+{
+    trace("mapper_db_get_outputs_by_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
+    const char *device_name, const char *input_pattern)
+{
+    trace("mapper_db_match_inputs_by_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
+    const char *device_name, char const *output_pattern)
+{
+    trace("mapper_db_match_outputs_by_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t** s)
+{
+    trace("mapper_db_signal_next(mapper_db_signal_t** s()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
+{
+    trace("mapper_db_add_mapping_callback(mapping_callback_func *f,"
+          " void *user() not yet implemented.\n");
+}
+
+void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user)
+{
+    trace("mapper_db_remove_mapping_callback(mapping_callback_func *f,"
+          " void *user() not yet implemented.\n");
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
+    const char *input_name)
+{
+    trace("mapper_db_get_mappings_by_input_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
+    const char *device_name, const char *input_name)
+{
+    trace("mapper_db_get_mappings_by_device_and_input_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
+    const char *output_name)
+{
+    trace("mapper_db_get_mappings_by_output_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
+    const char *device_name, const char *output_name)
+{
+    trace("mapper_db_get_mappings_by_device_and_output_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_devices_and_signals(
+    mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
+    mapper_db_device_t **output_devices, mapper_db_signal_t **outputs)
+{
+    trace("mapper_db_get_mappings_by_devices_and_signals()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t** m)
+{
+    trace("mapper_db_mapping_next(mapper_db_mapping_t** m()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+void mapper_db_add_link_callback(link_callback_func *f, void *user)
+{
+    trace("mapper_db_add_link_callback(link_callback_func *f, void *user()"
+          " not yet implemented.\n");
+}
+
+void mapper_db_remove_link_callback(link_callback_func *f, void *user)
+{
+    trace("mapper_db_remove_link_callback(link_callback_func *f, void *user()"
+          " not yet implemented.\n");
+}
+
+mapper_db_link_t **mapper_db_get_links_by_input_device_name(
+    const char *input_device_name)
+{
+    trace("mapper_db_get_links_by_input_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_link_t **mapper_db_get_links_by_output_device_name(
+    const char *output_device_name)
+{
+    trace("mapper_db_get_links_by_output_device_name()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_link_t **mapper_db_get_links_by_input_output_devices(
+    mapper_db_device_t **input_device_list,
+    mapper_db_device_t **output_device_list)
+{
+    trace("mapper_db_get_links_by_input_output_devices()"
+          " not yet implemented.\n");
+    return 0;
 }

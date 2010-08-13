@@ -68,7 +68,7 @@ int main()
 
     printf("\nFind /testdb.3:\n");
 
-    mapper_db_device dev = mapper_db_find_device_by_name("/testdb.3");
+    mapper_db_device dev = mapper_db_get_device_by_name("/testdb.3");
     if (!dev) {
         printf("Not found.\n");
         return 1;
@@ -81,7 +81,7 @@ int main()
 
     printf("\nFind /dummy:\n");
 
-    dev = mapper_db_find_device_by_name("/dummy");
+    dev = mapper_db_get_device_by_name("/dummy");
     if (dev) {
         printf("unexpected found /dummy: %p\n", dev);
         return 1;
@@ -92,7 +92,7 @@ int main()
 
     printf("\nFind matching '__':\n");
 
-    pdev = mapper_db_get_devices_matching("__");
+    pdev = mapper_db_match_device_by_name("__");
 
     count=0;
     if (!pdev) {

@@ -111,6 +111,12 @@ typedef struct _mapper_db_signal
     mapper_signal_value_t *maximum;
 } mapper_db_signal_t, *mapper_db_signal;
 
+/*! A record that describes the properties of a link between devices. */
+typedef struct _mapper_db_link {
+    char *src_name;                 //!< Source device name (OSC path).
+    char *dest_name;                //!< Destination device name (OSC path).
+} mapper_db_link_t, *mapper_db_link;
+
 #ifdef __cplusplus
 }
 #endif
