@@ -279,11 +279,6 @@ void mapper_mapping_set_direct(mapper_mapping m)
 {
     m->props.scaling = SC_BYPASS;
 
-    if (m->props.expression)
-        free(m->props.expression);
-
-    m->props.expression = strdup("y=x");
-
     // TODO send /modify
 }
 
