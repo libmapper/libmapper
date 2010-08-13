@@ -580,3 +580,47 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         break;
     }
 }
+
+mapper_mapping mapper_mapping_find_by_names(mapper_device md, 
+                                            const char* src_name,
+                                            const char* target_name)
+{
+    mapper_router router = md->routers;
+    int i = 0;
+    int n = strlen(target_name);
+    const char *slash = strchr(target_name+1, '/');
+    if (slash)
+        n = n - strlen(slash);
+        
+    src_name = strchr(src_name+1, '/');
+    
+    while (i < md->n_outputs) {
+        // Check if device outputs includes src_name
+        if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
+            while (router != NULL) {
+                // find associated router
+                if (strncmp(router->target_name, target_name, n) == 0) {
+                    // find associated mapping
+                    mapper_signal_mapping sm = router->mappings;
+                    while (sm && sm->signal != md->outputs[i])
+                        sm = sm->next;
+                    if (!sm)
+                        return NULL;
+                    mapper_mapping m = sm->mapping;
+                    while (m && strcmp(m->props.dest_name, (target_name + n)) != 0)
+                        m = m->next;
+                    if (!m)
+                        return NULL;
+                    else
+                        return m;
+                }
+                else {
+                    router = router->next;
+                }
+            }
+            return NULL;
+        }
+        i++;
+    }
+    return NULL;
+}

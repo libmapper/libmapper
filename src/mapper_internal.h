@@ -129,6 +129,10 @@ int mapper_clipping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
 
+mapper_mapping mapper_mapping_find_by_names(mapper_device md,
+                                                    const char* src_name,
+                                                    const char* target_name);
+
 /*! Set a mapping's properties based on message parameters. */
 void mapper_mapping_set_from_message(mapper_mapping mapping,
                                      mapper_signal sig,

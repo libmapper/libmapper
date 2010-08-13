@@ -1164,17 +1164,9 @@ static int handler_param_connection_modify(const char *path,
 
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_router router = md->routers;
+    mapper_signal output;
 
-    int md_num_outputs = (*((mapper_admin) user_data)).device->n_outputs;
-    mapper_signal *md_outputs =
-        (*((mapper_admin) user_data)).device->outputs;
-
-    int i = 0, j = 2, f1 = 0, f2 = 0, range_update = 0;
-
-    char src_param_name[1024], src_device_name[1024],
-        target_param_name[1024], target_device_name[1024];
-    mapper_clipping_type clip;
+    const char *src_name, *src_param_name;
 
     if (argc < 4)
         return 0;
@@ -1184,139 +1176,43 @@ static int handler_param_connection_modify(const char *path,
                                                     && types[2] != 'S'))
         return 0;
 
-    strcpy(src_device_name, &argv[0]->s);
-    strtok(src_device_name, "/");
-
-    /* Check OSC pattern match */
-    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
-
-        strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
-        strcpy(target_device_name, &argv[1]->s);
-        strtok(target_device_name, "/");
-        strcpy(target_param_name,
-               &argv[1]->s + strlen(target_device_name));
-
-        /* Search the source signal among the outputs of the device */
-        while (i < md_num_outputs && f1 == 0) {
-
-            /* If this signal exists... */
-            if (strcmp(md_outputs[i]->props.name, src_param_name) == 0) {
-
-                /* Search the router linking to the receiver */
-                while (router != NULL && f2 == 0) {
-                    if (strcmp(router->target_name, target_device_name) ==
-                        0)
-                        f2 = 1;
-                    else
-                        router = router->next;
-                }
-
-                /* If this router exists ... */
-                if (f2 == 1) {
-
-                    /* Search the mapping corresponding to this connection */
-                    mapper_signal_mapping sm = router->mappings;
-                    while (sm && sm->signal != md_outputs[i])
-                        sm = sm->next;
-                    if (!sm)
-                        return 0;
-
-                    mapper_mapping m = sm->mapping;
-                    while (m && strcmp(m->props.dest_name, target_param_name) != 0) {
-                        m = m->next;
-                    }
-                    if (!m)
-                        return 0;
-
-                    /* Parse the list of properties */
-                    while (j < argc) {
-                        if (types[j] != 's' && types[j] != 'S') {
-                            j++;
-                        } else if (strcmp(&argv[j]->s, "@scaling") == 0) {
-                            if (strcmp(&argv[j + 1]->s, "bypass") == 0)
-                                m->props.scaling = SC_BYPASS;
-                            if (strcmp(&argv[j + 1]->s, "linear") == 0)
-                                m->props.scaling = SC_LINEAR;
-                            if (strcmp(&argv[j + 1]->s, "expression") == 0)
-                                m->props.scaling = SC_EXPRESSION;
-                            if (strcmp(&argv[j + 1]->s, "calibrate") == 0)
-                                m->props.scaling = SC_CALIBRATE;
-                            j += 2;
-                        } else if (strcmp(&argv[j]->s, "@range") == 0) {
-                            if (types[j + 1] == 'i')
-                                m->props.range.src_min = (float) argv[j + 1]->i;
-                            else if (types[j + 1] == 'f')
-                                m->props.range.src_min = argv[j + 1]->f;
-                            if (types[j + 2] == 'i')
-                                m->props.range.src_max = (float) argv[j + 2]->i;
-                            else if (types[j + 2] == 'f')
-                                m->props.range.src_max = argv[j + 2]->f;
-                            if (types[j + 3] == 'i')
-                                m->props.range.dest_min = (float) argv[j + 3]->i;
-                            else if (types[j + 3] == 'f')
-                                m->props.range.dest_min = argv[j + 3]->f;
-                            if (types[j + 4] == 'i')
-                                m->props.range.dest_max = (float) argv[j + 4]->i;
-                            else if (types[j + 4] == 'f')
-                                m->props.range.dest_max = argv[j + 4]->f;
-                            range_update += 4;
-                            j += 5;
-                        } else if (strcmp(&argv[j]->s, "@expression") == 0) {
-                            char received_expr[1024];
-                            strcpy(received_expr, &argv[j + 1]->s);
-                            Tree *T = NewTree();
-                            int success_tree = get_expr_Tree(T, received_expr);
-                            
-                            if (success_tree) {
-                                free(m->props.expression);
-                                m->props.expression = strdup(&argv[j + 1]->s);
-                                DeleteTree(m->expr_tree);
-                                m->expr_tree = T;
-                            }
-                            j += 2;
-                        } else if ((strcmp(&argv[j]->s, "@clipMin") == 0) || (strcmp(&argv[j]->s, "@clipMax") == 0)) {
-                            if (strcmp(&argv[j+1]->s, "none") == 0)
-                                clip = CT_NONE;
-                            else if (strcmp(&argv[j+1]->s, "mute") == 0)
-                                clip = CT_MUTE;
-                            else if (strcmp(&argv[j+1]->s, "clamp") == 0)
-                                clip = CT_CLAMP;
-                            else if (strcmp(&argv[j+1]->s, "fold") == 0)
-                                clip = CT_FOLD;
-                            else if (strcmp(&argv[j+1]->s, "wrap") == 0)
-                                clip = CT_WRAP;
-                            
-                            if (strcmp(&argv[j]->s, "@clipMin") == 0)
-                                m->props.clip_lower = clip;
-                            else
-                                m->props.clip_upper = clip;
-                            j += 2;
-                        } else {
-                            j++;
-                        }
-                    }
-/***********************TEMPORARY, then only send
-                        the modified parameters********************/
-
-                    lo_message mess = lo_message_new();
-                    if (!mess) {
-                        trace("couldn't allocate lo_message\n");
-                        return 0;
-                    }
-                    
-                    lo_message_add_string(mess, strcat(src_device_name, src_param_name));
-                    lo_message_add_string(mess, strcat(target_device_name, target_param_name));
-                    
-                    mapper_mapping_prepare_osc_message(mess, m);
-                    
-                    lo_send_message(admin->admin_addr, "/connected", mess);
-                    lo_message_free(mess);
-                }
-                f1 = 1;
-            } else
-                i++;
-        }
+    src_name = &argv[0]->s;
+    if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
+                       &src_param_name))
+        return 0;
+            
+    if (mdev_find_output_by_name(md, src_param_name, &output) < 0)
+    {
+        trace("<%s> no output signal found for '%s' in /connect_to\n",
+              mapper_admin_name(admin), src_param_name);
+        return 0;
     }
+    
+    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
+    
+    mapper_message_t params;
+    if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing parameters in /connect_to, "
+              "continuing anyway.\n", mapper_admin_name(admin));
+    }
+    
+    mapper_mapping_set_from_message(m, output, &params);
+
+    lo_message mess = lo_message_new();
+    if (!mess) {
+        trace("couldn't allocate lo_message\n");
+        return 0;
+    }
+    
+    lo_message_add_string(mess, src_name);
+    lo_message_add_string(mess, &argv[1]->s);
+    
+    mapper_mapping_prepare_osc_message(mess, m);
+    
+    lo_send_message(admin->admin_addr, "/connected", mess);
+    lo_message_free(mess);
+
     return 0;
 }
 
