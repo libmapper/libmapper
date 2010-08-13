@@ -81,10 +81,10 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 
         signal.props.name = strdup(m->props.dest_name);
 
-        mapper_signal_value_t v;
+        mapper_signal_value_t v, w;
         if (mapper_mapping_perform(m, value, &v))
-            if (mapper_clipping_perform(m, value, &v))
-                mapper_router_send_signal(router, &signal, &v);
+            if (mapper_clipping_perform(m, &v, &w))
+                mapper_router_send_signal(router, &signal, &w);
         m = m->next;
     }
 }
