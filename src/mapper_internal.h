@@ -122,7 +122,7 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 
 /**** Mappings ****/
 
-void mapper_mapping_perform(mapper_mapping mapping,
+int mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
 int mapper_clipping_perform(mapper_mapping mapping,

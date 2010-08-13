@@ -25,7 +25,7 @@ const char* mapper_scaling_type_strings[] =
     "mute",        /* SC_MUTE */
 };
 
-void mapper_mapping_perform(mapper_mapping mapping,
+int mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value)
 {
@@ -37,6 +37,10 @@ void mapper_mapping_perform(mapper_mapping mapping,
     p = mapping->history_pos;
     mapping->history_input[p] = from_value->f;
     v = mapping->history_input[p];
+    
+    if (mapping->props.muted) {
+        return 0;
+    }
 
     if (mapping->props.scaling == SC_BYPASS /*|| mapping->type==LINEAR */ ) {
         /*for (i=0; i < mapping->order_input; i++)
@@ -140,6 +144,7 @@ void mapper_mapping_perform(mapper_mapping mapping,
 
     mapping->history_pos = p;
     to_value->f = v;
+    return 1;
 }
 
 int mapper_clipping_perform(mapper_mapping mapping,
@@ -320,20 +325,37 @@ void mapper_mapping_set_expression(mapper_mapping m,
                                    const char *expr)
 {
     Tree *T = NewTree();
-    if (get_expr_Tree(T, expr))
+    if (expr)
     {
-        m->props.scaling = SC_EXPRESSION;
+        if (get_expr_Tree(T, expr))
+        {
+            m->props.scaling = SC_EXPRESSION;
 
-        if (m->expr_tree)
-            DeleteTree(m->expr_tree);
-        m->expr_tree = T;
+            if (m->expr_tree)
+                DeleteTree(m->expr_tree);
+            m->expr_tree = T;
 
-        if (m->props.expression)
-            free(m->props.expression);
-        m->props.expression = strdup(expr);
+            if (m->props.expression)
+                free(m->props.expression);
+            m->props.expression = strdup(expr);
+        }
+        else
+            DeleteTree(T);
     }
-    else
-        DeleteTree(T);
+    else {
+        if (get_expr_Tree(T, m->props.expression))
+        {
+            m->props.scaling = SC_EXPRESSION;
+            // In this case it is possible that expr_tree exists and is correct
+            // Rebuild it anyway?
+            if (m->expr_tree)
+                DeleteTree(m->expr_tree);
+            m->expr_tree = T;
+        }
+        else
+            DeleteTree(T);
+    }
+
 
     // TODO send /modify
 }
@@ -566,10 +588,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         {
             const char *expr =
                 mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-            if (expr)
-                mapper_mapping_set_expression(m, expr);
-            else
-                m->props.scaling = SC_EXPRESSION;
+            mapper_mapping_set_expression(m, expr);
         }
         break;
     default:
