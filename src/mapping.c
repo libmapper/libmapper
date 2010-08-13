@@ -513,17 +513,17 @@ void mapper_mapping_set_from_message(mapper_mapping m,
 
     if (range_known & MAPPING_RANGE_SRC_MAX) {
         m->props.range.known |= MAPPING_RANGE_SRC_MAX;
-        m->props.range.src_max = range[0];
+        m->props.range.src_max = range[1];
     }
 
     if (range_known & MAPPING_RANGE_DEST_MIN) {
         m->props.range.known |= MAPPING_RANGE_DEST_MIN;
-        m->props.range.dest_min = range[0];
+        m->props.range.dest_min = range[2];
     }
 
     if (range_known & MAPPING_RANGE_DEST_MAX) {
         m->props.range.known |= MAPPING_RANGE_DEST_MAX;
-        m->props.range.dest_max = range[0];
+        m->props.range.dest_max = range[3];
     }
 
     /* Clipping. */
