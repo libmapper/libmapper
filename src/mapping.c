@@ -573,6 +573,8 @@ void mapper_mapping_set_from_message(mapper_mapping m,
                 mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
             if (expr)
                 mapper_mapping_set_expression(m, expr);
+            else
+                m->props.scaling = SC_EXPRESSION;
         }
         break;
     default:
