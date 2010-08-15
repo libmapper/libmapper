@@ -127,7 +127,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
             int success_tree = get_expr_Tree(T, mapping->props.expression);
 
             if (!success_tree)
-                return;
+                return 0;
 
             mapping->expr_tree = T;
         }
