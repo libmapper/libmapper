@@ -141,8 +141,7 @@ void mapper_mapping_set_from_message(mapper_mapping mapping,
 void mapper_mapping_set_direct(mapper_mapping mapping);
 
 void mapper_mapping_set_linear_range(mapper_mapping mapping,
-                                     float src_min, float src_max,
-                                     float dest_min, float dest_max);
+                                     mapper_mapping_range_t *range);
 
 void mapper_mapping_set_expression(mapper_mapping mapping,
                                    const char *expr);

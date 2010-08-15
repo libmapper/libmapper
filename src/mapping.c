@@ -60,6 +60,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
 
     else if (mapping->props.scaling == SC_EXPRESSION
              || mapping->props.scaling == SC_LINEAR) {
+        die_unless(mapping->expr_tree!=0, "Missing expression.\n");
         v = EvalTree(mapping->expr_tree, mapping->history_input,
                      mapping->history_output, p, &err);
         mapping->history_output[p] = v;
@@ -93,47 +94,17 @@ int mapper_mapping_perform(mapper_mapping mapping,
         }
 
         if (changed) {
-            /* Need to arrange to send an admin bus message stating
-             * new ranges and expression.  The expression has to be
-             * modified to fit the range. */
-            if (mapping->props.range.src_min == mapping->props.range.src_max) {
-                free(mapping->props.expression);
-                mapping->props.expression = (char*) malloc(100 * sizeof(char));
-                snprintf(mapping->props.expression, 100, "y=%f",
-                         mapping->props.range.src_min);
-            } else if (mapping->props.range.known == MAPPING_RANGE_KNOWN
-                       && mapping->props.range.src_min == mapping->props.range.dest_min
-                       && mapping->props.range.src_max ==
-                       mapping->props.range.dest_max)
-                snprintf(mapping->props.expression, 100, "y=x");
+            mapper_mapping_set_linear_range(mapping,
+                                            &mapping->props.range);
 
-            else if (mapping->props.range.known == MAPPING_RANGE_KNOWN) {
-                float scale = (mapping->props.range.dest_min
-                               - mapping->props.range.dest_max)
-                    / (mapping->props.range.src_min - mapping->props.range.src_max);
-                float offset =
-                    (mapping->props.range.dest_max * mapping->props.range.src_min
-                     - mapping->props.range.dest_min * mapping->props.range.src_max)
-                    / (mapping->props.range.src_min - mapping->props.range.src_max);
-
-                free(mapping->props.expression);
-                mapping->props.expression = (char*) malloc(256 * sizeof(char));
-                snprintf(mapping->props.expression, 256, "y=x*%g+%g",
-                         scale, offset);
-            }
-
-            DeleteTree(mapping->expr_tree);
-            Tree *T = NewTree();
-            int success_tree = get_expr_Tree(T, mapping->props.expression);
-
-            if (!success_tree)
-                return 0;
-
-            mapping->expr_tree = T;
+            /* Stay in calibrate mode. */
+            if (mapping->calibrating)
+                mapping->props.scaling = SC_CALIBRATE;
         }
 
-        v = EvalTree(mapping->expr_tree, mapping->history_input,
-                     mapping->history_output, p, &err);
+        if (mapping->expr_tree)
+            v = EvalTree(mapping->expr_tree, mapping->history_input,
+                         mapping->history_output, p, &err);
         mapping->history_output[p] = v;
 
         --p;
@@ -288,35 +259,64 @@ void mapper_mapping_set_direct(mapper_mapping m)
 }
 
 void mapper_mapping_set_linear_range(mapper_mapping m,
-                                     float src_min, float src_max,
-                                     float dest_min, float dest_max)
+                                     mapper_mapping_range_t *r)
 {
     m->props.scaling = SC_LINEAR;
 
-    float scale = (dest_min - dest_max) / (src_min - src_max);
-    float offset =
-        (dest_max * src_min - dest_min * src_max) / (src_min - src_max);
+    char expr[256] = "";
+    const char *e = expr;
 
-    if (m->props.expression)
-        free(m->props.expression);
+    if (r->known
+        & (MAPPING_RANGE_SRC_MIN | MAPPING_RANGE_SRC_MAX))
+    {
+        if (r->src_min == r->src_max)
+            snprintf(expr, 256, "y=%g", r->src_min);
 
-    char expr[256];
-    snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
-    m->props.expression = strdup(expr);
+        else if (r->known == MAPPING_RANGE_KNOWN
+                 && r->src_min == r->dest_min
+                 && r->src_max == r->dest_max)
+            e = strdup("y=x");
 
-    m->props.range.src_min = src_min;
-    m->props.range.src_max = src_max;
-    m->props.range.dest_min = dest_min;
-    m->props.range.dest_max = dest_max;
-    m->props.range.known = MAPPING_RANGE_KNOWN;
+        else if (r->known == MAPPING_RANGE_KNOWN) {
+            float scale = ((r->dest_min - r->dest_max)
+                           / (r->src_min - r->src_max));
+            float offset =
+                ((r->dest_max * r->src_min
+                  - r->dest_min * r->src_max)
+                 / (r->src_min - r->src_max));
 
-    Tree *T = NewTree();
+            snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
+        }
+        else
+            e = 0;
+    }
+    else
+        e = 0;
 
-    int success_tree = get_expr_Tree(T, m->props.expression);
-    if (!success_tree)
-        return;
+    if (&m->props.range != r)
+        memcpy(&m->props.range, r,
+               sizeof(mapper_mapping_range_t));
 
-    m->expr_tree = T;
+    // If everything is successful, replace the mapping's expression.
+    if (e)
+    {
+        Tree *T = NewTree();
+        if (!T)
+            return;
+        int success_tree = get_expr_Tree(T, e);
+        if (success_tree)
+        {
+            if (m->props.expression)
+                free(m->props.expression);
+            m->props.expression = strdup(e);
+
+            if (m->expr_tree)
+                DeleteTree(m->expr_tree);
+            m->expr_tree = T;
+        }
+        else
+            DeleteTree(T);
+    }
 
     // TODO send /modify
 }
@@ -563,11 +563,16 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case -1:
         /* No scaling type specified; see if we know the range and
            choose between linear or direct mapping. */
-        if (range_known == MAPPING_RANGE_KNOWN)
+        if (range_known == MAPPING_RANGE_KNOWN) {
             /* We have enough information for a linear mapping. */
-            mapper_mapping_set_linear_range(
-                m, range[0], range[1], range[2], range[3]);
-        else
+            mapper_mapping_range_t r;
+            r.src_min = range[0];
+            r.src_max = range[1];
+            r.dest_min = range[2];
+            r.dest_max = range[3];
+            r.known = range_known;
+            mapper_mapping_set_linear_range(m, &r);
+        } else
             /* No range, default to direct mapping. */
             mapper_mapping_set_direct(m);
         break;
@@ -575,9 +580,15 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         mapper_mapping_set_direct(m);
         break;
     case SC_LINEAR:
-        if (range_known == MAPPING_RANGE_KNOWN)
-            mapper_mapping_set_linear_range(
-                m, range[0], range[1], range[2], range[3]);
+        if (range_known == MAPPING_RANGE_KNOWN) {
+            mapper_mapping_range_t r;
+            r.src_min = range[0];
+            r.src_max = range[1];
+            r.dest_min = range[2];
+            r.dest_max = range[3];
+            r.known = range_known;
+            mapper_mapping_set_linear_range(m, &r);
+        }
         break;
     case SC_CALIBRATE:
         if (range_known & (MAPPING_RANGE_DEST_MIN

@@ -199,8 +199,14 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
         (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
-    mapper_mapping_set_linear_range(mapping, src_min, src_max,
-                                    dest_min, dest_max);
+
+    mapper_mapping_range_t range;
+    range.src_min = src_min;
+    range.src_max = src_max;
+    range.dest_min = dest_min;
+    range.dest_max = dest_max;
+    range.known = MAPPING_RANGE_KNOWN;
+    mapper_mapping_set_linear_range(mapping, &range);
     mapper_router_add_mapping(router, sig, mapping);
 
     char src_name[1024], dest_name[1024];
