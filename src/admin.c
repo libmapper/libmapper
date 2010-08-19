@@ -536,7 +536,7 @@ static int handler_registered(const char *path, const char *types,
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    mapper_db_add_or_update_params(name, &params);
+    mapper_db_add_or_update_device_params(name, &params);
 
     return 0;
 }

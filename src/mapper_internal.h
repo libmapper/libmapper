@@ -158,8 +158,8 @@ void mapper_mapping_set_calibrate(mapper_mapping mapping,
  *                information.
  *  \return       Non-zero if device was added to the database, or
  *                zero if it was already present. */
-int mapper_db_add_or_update_params(const char *name,
-                                   mapper_message_t *params);
+int mapper_db_add_or_update_device_params(const char *name,
+                                          mapper_message_t *params);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */

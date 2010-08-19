@@ -132,8 +132,8 @@ static void update_device_record_params(mapper_db_device reg,
 
 }
 
-int mapper_db_add_or_update_params(const char *name,
-                                   mapper_message_t *params)
+int mapper_db_add_or_update_device_params(const char *name,
+                                          mapper_message_t *params)
 {
     mapper_db_device reg = mapper_db_get_device_by_name(name);
     int rc = 0;

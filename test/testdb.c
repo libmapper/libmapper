@@ -26,10 +26,10 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_params("/testdb.1", &msg);
-    mapper_db_add_or_update_params("/testdb__.2", &msg);
-    mapper_db_add_or_update_params("/testdb.3", &msg);
-    mapper_db_add_or_update_params("/testdb__.4", &msg);
+    mapper_db_add_or_update_device_params("/testdb.1", &msg);
+    mapper_db_add_or_update_device_params("/testdb__.2", &msg);
+    mapper_db_add_or_update_device_params("/testdb.3", &msg);
+    mapper_db_add_or_update_device_params("/testdb__.4", &msg);
 
     /*********/
 
