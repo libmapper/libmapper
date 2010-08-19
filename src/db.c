@@ -102,6 +102,14 @@ static void* list_get_next(void *mem)
     return list_get_header_by_data(mem)->next;
 }
 
+/*! Prepend an item to the beginning of a list. */
+static void* list_prepend_item(void *item, void **list)
+{
+    list_set_next(item, *list);
+    *list = item;
+    return item;
+}
+
 /*! Update information about a given device record based on message
  *  parameters. */
 static void update_device_record_params(mapper_db_device reg,
@@ -147,8 +155,7 @@ int mapper_db_add_or_update_device_params(const char *name,
         reg = (mapper_db_device) list_new_item(sizeof(*reg));
         rc = 1;
 
-        list_set_next(reg, g_db_registered_devices);
-        g_db_registered_devices = reg;
+        list_prepend_item(reg, (void**)&g_db_registered_devices);
     }
 
     if (reg) {
@@ -449,15 +456,10 @@ int mapper_db_add_or_update_signal_params(const char *name,
     if (sig) {
         update_signal_record_params(sig, name, device_name, params);
 
-        if (!psig) {
-            if (is_output) {
-                list_set_next(sig, g_db_registered_outputs);
-                g_db_registered_outputs = sig;
-            } else {
-                list_set_next(sig, g_db_registered_inputs);
-                g_db_registered_inputs = sig;
-            }
-        }
+        if (!psig)
+            list_prepend_item(sig, (void**)(is_output
+                                            ? &g_db_registered_outputs
+                                            : &g_db_registered_inputs));
 
         fptr_list cb = g_db_signal_callbacks;
         while (cb) {
