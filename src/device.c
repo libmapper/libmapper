@@ -78,6 +78,8 @@ void mdev_register_input(mapper_device md, mapper_signal sig)
 
     md->inputs[md->n_inputs - 1] = sig;
     sig->device = md;
+    if (md->admin->name)
+        sig->props.device_name = md->admin->name;
 
     mdev_start_server(md);
 }
@@ -91,6 +93,8 @@ void mdev_register_output(mapper_device md, mapper_signal sig)
 
     md->outputs[md->n_outputs - 1] = sig;
     sig->device = md;
+    if (md->admin->name)
+        sig->props.device_name = md->admin->name;
 }
 
 int mdev_num_inputs(mapper_device md)

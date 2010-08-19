@@ -221,13 +221,11 @@ mapper_db_device_t **mapper_db_device_next(mapper_db_device_t**);
  *  updated in the database. Such a function is passed in to
  *  mapper_db_add_signal_callback().
  *  \param record  Pointer to the signal record.
- *  \param device  Pointer to the associated device record.
  *  \param action  A value of mapper_db_action_t indicating what
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
 typedef void signal_callback_func(mapper_db_signal record,
-                                  mapper_db_device device,
                                   mapper_db_action_t action,
                                   void *user);
 
@@ -286,6 +284,11 @@ mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
  *  \return A double-pointer to the next signal record in the list, or
  *          zero if no more signals. */
 mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t**);
+
+/*! Given a signal record pointer returned from a previous
+ *  mapper_db_get_*() call, indicate that we are done iterating.
+ *  \param The previous signal record pointer. */
+void mapper_db_signal_done(mapper_db_signal_t **s);
 
 /***** Mappings *****/
 

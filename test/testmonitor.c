@@ -15,6 +15,28 @@ mapper_device dummy = 0;
 int port = 9000;
 int done = 0;
 
+void printsignal(mapper_db_signal sig, int is_output)
+{
+    printf("  %s name=%s%s, type=%c, length=%d",
+           is_output ? "output" : "input",
+           sig->device_name, sig->name, sig->type, sig->length);
+    if (sig->unit)
+        printf(", unit=%s", sig->unit);
+    if (sig->minimum) {
+        if (sig->type == 'i')
+            printf(", minimum=%d", sig->minimum->i32);
+        else if (sig->type == 'f')
+            printf(", minimum=%g", sig->minimum->f);
+    }
+    if (sig->maximum) {
+        if (sig->type == 'i')
+            printf(", maximum=%d", sig->maximum->i32);
+        else if (sig->type == 'f')
+            printf(", maximum=%g", sig->maximum->f);
+    }
+    printf("\n");
+}
+
 /*! Creation of a local dummy device. */
 int setup_dummy_device()
 {
@@ -69,6 +91,25 @@ void loop()
             printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
                    (*pdev)->name, (*pdev)->host,
                    (*pdev)->port, (*pdev)->canAlias);
+            pdev = mapper_db_device_next(pdev);
+        }
+
+        printf("------------------------------\n");
+
+        printf("Registered signals:\n");
+        pdev = mapper_db_get_all_devices();
+        while (pdev) {
+            mapper_db_signal *psig =
+                mapper_db_get_inputs_by_device_name((*pdev)->name);
+            while (psig) {
+                printsignal(*psig, 0);
+                psig = mapper_db_signal_next(psig);
+            }
+            psig = mapper_db_get_outputs_by_device_name((*pdev)->name);
+            while (psig) {
+                printsignal(*psig, 1);
+                psig = mapper_db_signal_next(psig);
+            }
             pdev = mapper_db_device_next(pdev);
         }
 

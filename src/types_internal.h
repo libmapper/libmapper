@@ -176,11 +176,14 @@ typedef enum {
     AT_TYPE,
     AT_MIN,
     AT_MAX,
+    AT_MINIMUM,
+    AT_MAXIMUM,
     AT_SCALING,
     AT_EXPRESSION,
     AT_CLIPMIN,
     AT_CLIPMAX,
     AT_RANGE,
+    AT_UNITS,
     N_AT_PARAMS
 } mapper_msg_param_t;
 

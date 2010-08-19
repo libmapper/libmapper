@@ -101,6 +101,10 @@ typedef struct _mapper_db_signal
     /*! The name of this signal, an OSC path.  Must start with '/'. */
     const char *name;
 
+    /*! The device name of which this signal is a member. An OSC path.
+     *  Must start with '/'. */
+    const char *device_name;
+
     /*! The unit of this signal, or NULL for N/A. */
     const char *unit;
 

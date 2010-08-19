@@ -15,11 +15,14 @@ const char* mapper_msg_param_strings[] =
     "@type",       /* AT_TYPE */
     "@min",        /* AT_MIN */
     "@max",        /* AT_MAX */
+    "@minimum",    /* AT_MINIMUM */
+    "@maximum",    /* AT_MAXIMUM */
     "@scaling",    /* AT_SCALING */
     "@expression", /* AT_EXPRESSION */
     "@clipMin",    /* AT_CLIPMIN */
     "@clipMax",    /* AT_CLIPMAX */
     "@range",      /* AT_RANGE */
+    "@units",      /* AT_UNITS */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,

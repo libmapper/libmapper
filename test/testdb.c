@@ -7,6 +7,27 @@
 #include "../src/types_internal.h"
 #include "../src/mapper_internal.h"
 
+void printsignal(mapper_db_signal sig)
+{
+    printf("  name=%s%s, type=%c, length=%d",
+           sig->device_name, sig->name, sig->type, sig->length);
+    if (sig->unit)
+        printf(", unit=%s", sig->unit);
+    if (sig->minimum) {
+        if (sig->type == 'i')
+            printf(", minimum=%d", sig->minimum->i32);
+        else if (sig->type == 'f')
+            printf(", minimum=%g", sig->minimum->f);
+    }
+    if (sig->maximum) {
+        if (sig->type == 'i')
+            printf(", maximum=%d", sig->maximum->i32);
+        else if (sig->type == 'f')
+            printf(", maximum=%g", sig->maximum->f);
+    }
+    printf("\n");
+}
+
 int main()
 {
     lo_arg *args[20];
@@ -31,12 +52,34 @@ int main()
     mapper_db_add_or_update_device_params("/testdb.3", &msg);
     mapper_db_add_or_update_device_params("/testdb__.4", &msg);
 
+    args[0] = (lo_arg*)"@type";
+    args[1] = (lo_arg*)"f";
+    args[2] = (lo_arg*)"@IP";
+    args[3] = (lo_arg*)"localhost";
+
+    if (mapper_msg_parse_params(&msg, "/testdb.1/namespace/input",
+                                "sc", 2, args))
+    {
+        printf("2: Error, parsing failed.\n");
+        return 1;
+    }
+
+    mapper_db_add_or_update_signal_params("/in1", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params("/in2", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params("/in2", "/testdb.1", 0, &msg);
+
+    mapper_db_add_or_update_signal_params("/out1", "/testdb.1", 1, &msg);
+    mapper_db_add_or_update_signal_params("/out2", "/testdb.1", 1, &msg);
+    mapper_db_add_or_update_signal_params("/out1", "/testdb.2", 1, &msg);
+
     /*********/
 
     trace("Dump:\n");
     mapper_db_dump();
 
     /*********/
+
+    printf("\n--- Devices ---\n");
 
     printf("\nWalk the whole database:\n");
     mapper_db_device *pdev = mapper_db_get_all_devices();
@@ -96,11 +139,11 @@ int main()
 
     count=0;
     if (!pdev) {
-        printf("mapper_db_get_all_devices() returned 0.\n");
+        printf("mapper_db_match_device_by_name() returned 0.\n");
         return 1;
     }
     if (!*pdev) {
-        printf("mapper_db_get_all_devices() returned something "
+        printf("mapper_db_match_device_by_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
@@ -115,6 +158,193 @@ int main()
 
     if (count != 2) {
         printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\n--- Signals ---\n");
+
+    printf("\nFind all inputs for device '/testdb.1':\n");
+
+    mapper_db_signal *psig =
+        mapper_db_get_inputs_by_device_name("/testdb.1");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_get_inputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_get_inputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind all outputs for device '/testdb.1':\n");
+
+    psig = mapper_db_get_outputs_by_device_name("/testdb.1");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_get_outputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_get_outputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind all inputs for device '/testdb.2':\n");
+
+    psig = mapper_db_get_inputs_by_device_name("/testdb.2");
+
+    count=0;
+    if (psig) {
+        printf("mapper_db_get_inputs_by_device_name() "
+               "incorrectly found something.\n");
+        printsignal(*psig);
+        return 1;
+    }
+    else
+        printf("  correctly returned 0.\n");
+
+    /*********/
+
+    printf("\nFind all outputs for device '/testdb.2':\n");
+
+    psig = mapper_db_get_outputs_by_device_name("/testdb.2");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_get_outputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_get_outputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 1) {
+        printf("Expected 1 record, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind matching input 'in' for device '/testdb.1':\n");
+
+    psig = mapper_db_match_inputs_by_device_name("/testdb.1", "in");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_match_inputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_match_inputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind matching output 'out' for device '/testdb.1':\n");
+
+    psig = mapper_db_match_outputs_by_device_name("/testdb.1", "out");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_match_outputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_match_outputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind matching output 'out' for device '/testdb.2':\n");
+
+    psig = mapper_db_match_outputs_by_device_name("/testdb.2", "out");
+
+    count=0;
+    if (!psig) {
+        printf("mapper_db_match_outputs_by_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*psig) {
+        printf("mapper_db_match_outputs_by_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (psig) {
+        count ++;
+        printsignal(*psig);
+        psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 1) {
+        printf("Expected 1 record, but counted %d.\n", count);
         return 1;
     }
 

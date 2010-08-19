@@ -161,6 +161,20 @@ void mapper_mapping_set_calibrate(mapper_mapping mapping,
 int mapper_db_add_or_update_device_params(const char *name,
                                           mapper_message_t *params);
 
+/*! Add or update an entry in the signal database using parsed message
+ *  parameters.
+ *  \param name   The name of the signal.
+ *  \param name   The name of the device associated with this signal.
+ *  \param is_output The signal is an output if 1, or input if 0.
+ *  \param params The parsed message parameters containing new device
+ *                information.
+ *  \return       Non-zero if device was added to the database, or
+ *                zero if it was already present. */
+int mapper_db_add_or_update_signal_params(const char *name,
+                                          const char *device_name,
+                                          int is_output,
+                                          mapper_message_t *params);
+
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();
