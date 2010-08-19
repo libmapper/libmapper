@@ -1,5 +1,6 @@
 
 #include <string.h>
+#include <stdarg.h>
 
 #include "mapper_internal.h"
 
@@ -52,7 +53,7 @@ typedef struct {
     void *next;
     void *self;
     query_type_t query_type;
-    void *query_context;
+    struct _query_info *query_context;
     int data[0]; // stub
 }  list_header_t;
 
@@ -109,6 +110,88 @@ static void* list_prepend_item(void *item, void **list)
     *list = item;
     return item;
 }
+
+/** Structures and functions for performing dynamic queries **/
+
+/* Here are some generalized routines for dealing with typical context
+ * format and query continuation. Functions specific to particular
+ * queries are defined further down with their compare operation. */
+
+/*! Function for query comparison */
+typedef int query_compare_func_t(void *context_data, void *item);
+
+/*! Function for freeing query context */
+typedef void query_free_func_t(list_header_t *lh);
+
+/*! Contains some function pointers and data for handling query context. */
+typedef struct _query_info {
+    query_compare_func_t *query_compare;
+    query_free_func_t *query_free;
+    int data[0]; // stub
+} query_info_t;
+
+static void **dynamic_query_continuation(list_header_t *lh)
+{
+    void *item = list_get_header_by_data(lh->self)->next;
+    while (item) {
+        if (lh->query_context->query_compare(&lh->query_context->data, item))
+            break;
+        item = list_get_next(item);
+    }
+
+    if (item) {
+        lh->self = item;
+        return &lh->self;
+    }
+
+    // Clean up
+    lh->query_context->query_free(lh);
+    return 0;
+}
+
+static void free_query_single_context(list_header_t *lh)
+{
+    free(lh->query_context);
+    free(lh);
+}
+
+static list_header_t *construct_query_context_from_strings(
+    query_compare_func_t *f, ...)
+{
+    list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
+    lh->next = dynamic_query_continuation;
+    lh->query_type = QUERY_DYNAMIC;
+
+    va_list aq;
+    va_start(aq, f);
+
+    int size = 0;
+    const char *s = va_arg(aq, const char*);
+    while (s) {
+        size += strlen(s) + 1;
+        s = va_arg(aq, const char*);
+    };
+    va_end(aq);
+
+    lh->query_context = (query_info_t*)malloc(sizeof(query_info_t)+size);
+
+    char *t = (char*)&lh->query_context->data;
+    va_start(aq, f);
+    s = va_arg(aq, const char*);
+    while (s) {
+        while (*s) { *t++ = *s++; }
+        *t++ = 0;
+        s = va_arg(aq, const char*);
+    };
+    va_end(aq);
+
+    lh->query_context->query_compare = f;
+    lh->query_context->query_free =
+        (query_free_func_t*)free_query_single_context;
+    return lh;
+}
+
+/**** Device records ****/
 
 /*! Update information about a given device record based on message
  *  parameters. */
@@ -198,56 +281,28 @@ mapper_db_device *mapper_db_get_all_devices()
     return (mapper_db_device*)&lh->self;
 }
 
-mapper_db_device *mapper_db_match_device_by_name_continuation(
-    list_header_t *lh)
+static int cmp_query_match_device_by_name(void *context_data,
+                                          mapper_db_device dev)
 {
-    mapper_db_device reg = list_get_header_by_data(lh->self)->next;
-    while (reg) {
-        if (strstr(reg->name, lh->query_context))
-            break;
-        reg = list_get_header_by_data(reg)->next;
-    }
-
-    if (reg) {
-        lh->self = reg;
-        return (mapper_db_device*)&lh->self;
-    }
-
-    // Clean up
-    free(lh->query_context);
-    free(lh);
-    return 0;
+    const char *device_pattern = (const char*)context_data;
+    return strstr(dev->name, device_pattern)!=0;
 }
 
 mapper_db_device *mapper_db_match_device_by_name(char *str)
 {
-    if (!g_db_registered_devices)
+    mapper_db_device dev = g_db_registered_devices;
+    if (!dev)
         return 0;
 
-    mapper_db_device reg = g_db_registered_devices;
-    while (reg) {
-        if (strstr(reg->name, str))
-            break;
-        list_header_t *lh = list_get_header_by_data(reg);
-        reg = lh->next;
-    }
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_match_device_by_name, str, 0);
 
-    if (!reg)
-        return 0;  // No matches
+    lh->self = dev;
 
-    /* Here we treat next as a pointer to a continuation function, so
-     * we can return items from the database computed lazily.  The
-     * context is simply the string to match.  In the future, it might
-     * point to the results of a SQL query for example. */
+    if (cmp_query_match_device_by_name((void*)str, dev))
+        return (mapper_db_device*)&lh->self;
 
-    list_header_t *result = (list_header_t*)malloc(sizeof(list_header_t));
-    memset(result, 0, sizeof(list_header_t));
-    result->self = reg;
-    result->next = mapper_db_match_device_by_name_continuation;
-    result->query_context = strdup(str);
-    result->query_type = QUERY_DYNAMIC;
-
-    return (mapper_db_device*)&result->self;
+    return (mapper_db_device*)dynamic_query_continuation(lh);
 }
 
 mapper_db_device *mapper_db_device_next(mapper_db_device* p)
@@ -277,7 +332,10 @@ mapper_db_device *mapper_db_device_next(mapper_db_device* p)
     }
     else if (lh1->query_type == QUERY_DYNAMIC)
     {
-        // Call the continuation.
+        /* Here we treat next as a pointer to a continuation function, so
+         * we can return items from the database computed lazily.  The
+         * context is simply the string to match.  In the future, it might
+         * point to the results of a SQL query for example. */
         mapper_db_device *(*f) (list_header_t*) = lh1->next;
         return f(lh1);
     }
@@ -487,137 +545,97 @@ void mapper_db_remove_signal_callback(signal_callback_func *f, void *user)
           " void *user() not yet implemented.\n");
 }
 
-static mapper_db_signal_t **
-mapper_db_get_signals_by_device_name_continuation(list_header_t *lh)
+static int cmp_query_signal_exact_device_name(void *context_data,
+                                              mapper_db_signal sig)
 {
-    const char *device_name = (const char*)lh->query_context;
-
-    mapper_db_signal sig = list_get_header_by_data(lh->self)->next;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0)
-            break;
-        sig = list_get_header_by_data(sig)->next;
-    }
-
-    if (sig) {
-        lh->self = sig;
-        return (mapper_db_signal*)&lh->self;
-    }
-
-    // Clean up
-    free(lh->query_context);
-    free(lh);
-    return 0;
+    const char *device_name = (const char*)context_data;
+    return strcmp(device_name, sig->device_name)==0;
 }
 
 mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
     const char *device_name)
 {
     mapper_db_signal sig = g_db_registered_inputs;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0)
-        {
-            list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
-            lh->next = mapper_db_get_signals_by_device_name_continuation;
-            lh->self = sig;
-            lh->query_type = QUERY_DYNAMIC;
-            lh->query_context = strdup(device_name);
-            return (mapper_db_signal*)&lh->self;
-        }
-        sig = list_get_next(sig);
-    }
-    return 0;
+    if (!sig)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_signal_exact_device_name,
+        device_name, 0);
+
+    lh->self = sig;
+
+    if (cmp_query_signal_exact_device_name((void*)device_name, sig))
+        return (mapper_db_signal*)&lh->self;
+
+    return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
 mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
     const char *device_name)
 {
     mapper_db_signal sig = g_db_registered_outputs;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0)
-        {
-            list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
-            lh->next = mapper_db_get_signals_by_device_name_continuation;
-            lh->self = sig;
-            lh->query_type = QUERY_DYNAMIC;
-            lh->query_context = strdup(device_name);
-            return (mapper_db_signal*)&lh->self;
-        }
-        sig = list_get_next(sig);
-    }
-    return 0;
+    if (!sig)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_signal_exact_device_name,
+        device_name, 0);
+
+    lh->self = sig;
+
+    if (cmp_query_signal_exact_device_name((void*)device_name, sig))
+        return (mapper_db_signal*)&lh->self;
+
+    return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
-static mapper_db_signal_t **
-mapper_db_match_signals_by_device_name_continuation(list_header_t *lh)
+static int cmp_match_signal_device_name(void *context_data,
+                                        mapper_db_signal sig)
 {
-    const char *device_name = (const char*)lh->query_context;
-    const char *signal_pattern = ((const char*)lh->query_context
+    const char *device_name = (const char*)context_data;
+    const char *signal_pattern = ((const char*)context_data
                                   + strlen(device_name) + 1);
-
-    mapper_db_signal sig = list_get_header_by_data(lh->self)->next;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0
-            && strstr(sig->name, signal_pattern))
-            break;
-        sig = list_get_header_by_data(sig)->next;
-    }
-
-    if (sig) {
-        lh->self = sig;
-        return (mapper_db_signal*)&lh->self;
-    }
-
-    // Clean up
-    free(lh->query_context);
-    free(lh);
-    return 0;
+    return strcmp(device_name, sig->device_name)==0
+        && strstr(sig->name, signal_pattern);
 }
 
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
     const char *device_name, const char *input_pattern)
 {
     mapper_db_signal sig = g_db_registered_inputs;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0
-            && strstr(sig->name, input_pattern))
-        {
-            list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
-            lh->next = mapper_db_match_signals_by_device_name_continuation;
-            lh->self = sig;
-            lh->query_type = QUERY_DYNAMIC;
-            lh->query_context = malloc(strlen(device_name)
-                                       + strlen(input_pattern) + 2);
-            strcpy(lh->query_context, device_name);
-            strcpy(lh->query_context+strlen(device_name)+1, input_pattern);
-            return (mapper_db_signal*)&lh->self;
-        }
-        sig = list_get_next(sig);
-    }
-    return 0;
+    if (!sig)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_match_signal_device_name,
+        device_name, input_pattern, 0);
+
+    lh->self = sig;
+
+    if (cmp_match_signal_device_name(&lh->query_context->data, sig))
+        return (mapper_db_signal*)&lh->self;
+
+    return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
 mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
     const char *device_name, char const *output_pattern)
 {
     mapper_db_signal sig = g_db_registered_outputs;
-    while (sig) {
-        if (strcmp(device_name, sig->device_name)==0
-            && strstr(sig->name, output_pattern))
-        {
-            list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
-            lh->next = mapper_db_match_signals_by_device_name_continuation;
-            lh->self = sig;
-            lh->query_type = QUERY_DYNAMIC;
-            lh->query_context = malloc(strlen(device_name)
-                                       + strlen(output_pattern) + 2);
-            strcpy(lh->query_context, device_name);
-            strcpy(lh->query_context+strlen(device_name)+1, output_pattern);
-            return (mapper_db_signal*)&lh->self;
-        }
-        sig = list_get_next(sig);
-    }
-    return 0;
+    if (!sig)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_match_signal_device_name,
+        device_name, output_pattern, 0);
+
+    lh->self = sig;
+
+    if (cmp_match_signal_device_name(&lh->query_context->data, sig))
+        return (mapper_db_signal*)&lh->self;
+
+    return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
 mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t** p)
@@ -658,11 +676,8 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
 {
     if (!s) return;
     list_header_t *lh = list_get_header_by_data(*s);
-    if (lh->query_type == QUERY_DYNAMIC) {
-        if (lh->query_context)
-            free(lh->query_context);
-        free(lh);
-    }
+    if (lh->query_type == QUERY_DYNAMIC)
+        lh->query_context->query_free(lh);
 }
 
 void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
