@@ -215,6 +215,11 @@ mapper_db_device_t **mapper_db_match_device_by_name(char *device_pattern);
  *          zero if no more devices. */
 mapper_db_device_t **mapper_db_device_next(mapper_db_device_t**);
 
+/*! Given a device record pointer returned from a previous
+ *  mapper_db_get_*() call, indicate that we are done iterating.
+ *  \param The previous device record pointer. */
+void mapper_db_device_done(mapper_db_device_t **);
+
 /***** Signals *****/
 
 /*! A callback function prototype for when a signal record is added or

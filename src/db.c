@@ -129,6 +129,7 @@ typedef void query_free_func_t(list_header_t *lh);
 
 /*! Contains some function pointers and data for handling query context. */
 typedef struct _query_info {
+    unsigned int size;
     query_compare_func_t *query_compare;
     query_free_func_t *query_free;
     int data[0]; // stub
@@ -149,7 +150,8 @@ static void **dynamic_query_continuation(list_header_t *lh)
     }
 
     // Clean up
-    lh->query_context->query_free(lh);
+    if (lh->query_context->query_free)
+        lh->query_context->query_free(lh);
     return 0;
 }
 
@@ -189,11 +191,81 @@ static list_header_t *construct_query_context_from_strings(
     };
     va_end(aq);
 
+    lh->query_context->size = sizeof(query_info_t)+size;
     lh->query_context->query_compare = f;
     lh->query_context->query_free =
         (query_free_func_t*)free_query_single_context;
     return lh;
 }
+
+static void save_query_single_context(list_header_t *src,
+                                      void *mem, unsigned int size)
+{
+    int needed = sizeof(list_header_t);
+    if (src->query_context)
+        needed += src->query_context->size;
+    else
+        needed += sizeof(unsigned int);
+
+    die_unless(size >= needed,
+               "not enough memory provided to save query context.\n");
+
+    memcpy(mem, src, sizeof(list_header_t));
+    if (src->query_context)
+        memcpy(mem+sizeof(list_header_t), src->query_context,
+               src->query_context->size);
+    else
+        ((query_info_t*)(mem+sizeof(list_header_t)))->size = 0;
+}
+
+static void restore_query_single_context(list_header_t *dest, void *mem)
+{
+    query_info_t *qi = mem + sizeof(list_header_t);
+    if (qi->size > 0)
+        die_unless(dest->query_context
+                   && dest->query_context->size >= qi->size,
+                   "not enough memory provided to restore query context.\n");
+
+    void *qc = dest->query_context;
+    memcpy(dest, mem, sizeof(list_header_t));
+    if (qi->size == 0)
+        dest->query_context = 0;
+    else {
+        memcpy(qc, qi, qi->size);
+        dest->query_context = qc;
+    }
+}
+
+// May be useful in the future.
+#if 0
+static list_header_t *dup_query_single_context(list_header_t *lh)
+{
+    list_header_t *result = (list_header_t*) malloc(sizeof(list_header_t*));
+    memcpy(result, lh, sizeof(list_header_t));
+
+    if (lh->query_context) {
+        result->query_context = malloc(lh->query_context->size);
+        memcpy(result->query_context, lh->query_context,
+               lh->query_context->size);
+    }
+
+    return result;
+}
+
+static void copy_query_single_context(list_header_t *src,
+                                      list_header_t *dest)
+{
+    memcpy(src, dest, sizeof(list_header_t));
+    if (src->query_context) {
+        die_unless(dest->query_context!=0,
+                   "error, no destination query context to copy to.");
+        die_unless(dest->query_context->size == src->query_context->size,
+                   "error, query context sizes don't match on copy.");
+        memcpy(dest->query_context, src->query_context,
+               src->query_context->size);
+    }
+}
+#endif
 
 static void **iterator_next(void** p)
 {
@@ -380,6 +452,15 @@ mapper_db_device *mapper_db_match_device_by_name(char *str)
 mapper_db_device *mapper_db_device_next(mapper_db_device* p)
 {
     return (mapper_db_device*) iterator_next((void**)p);
+}
+
+void mapper_db_device_done(mapper_db_device_t **d)
+{
+    if (!d) return;
+    list_header_t *lh = list_get_header_by_data(*d);
+    if (lh->query_type == QUERY_DYNAMIC
+        && lh->query_context->query_free)
+        lh->query_context->query_free(lh);
 }
 
 void mapper_db_dump()
@@ -675,7 +756,8 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
 {
     if (!s) return;
     list_header_t *lh = list_get_header_by_data(*s);
-    if (lh->query_type == QUERY_DYNAMIC)
+    if (lh->query_type == QUERY_DYNAMIC
+        && lh->query_context->query_free)
         lh->query_context->query_free(lh);
 }
 
@@ -875,13 +957,112 @@ mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
     return (mapper_db_link*)dynamic_query_continuation(lh);
 }
 
-mapper_db_link_t **mapper_db_get_links_by_source_destination_devices(
+typedef struct {
+    list_header_t *lh_src_head;
+    list_header_t *lh_dest_head;
+} src_dest_devices_t;
+
+static int cmp_get_links_by_source_dest_devices(void *context_data,
+                                                mapper_db_link link)
+{
+    src_dest_devices_t *qdata = (src_dest_devices_t*)context_data;
+    char ctx_backup[1024];
+
+    /* Save the source list context so we can restart the query on the
+     * next pass. */
+    save_query_single_context(qdata->lh_src_head, ctx_backup, 1024);
+
+    /* Indicate not to free memory at the end of the pass. */
+    if (qdata->lh_src_head->query_type == QUERY_DYNAMIC
+        && qdata->lh_src_head->query_context)
+        qdata->lh_src_head->query_context->query_free = 0;
+
+    /* Find at least one device in the source list that matches. */
+    mapper_db_device *src = (mapper_db_device*)&qdata->lh_src_head->self;
+    while (src && *src) {
+        if (strcmp((*src)->name, link->src_name)==0)
+            break;
+        src = mapper_db_device_next(src);
+    }
+    mapper_db_device_done(src);
+    restore_query_single_context(qdata->lh_src_head, ctx_backup);
+    if (!src)
+        return 0;
+
+    /* Save the destination list context so we can restart the query
+     * on the next pass. */
+    save_query_single_context(qdata->lh_dest_head, ctx_backup, 1024);
+
+    /* Indicate not to free memory at the end of the pass. */
+    if (qdata->lh_dest_head->query_type == QUERY_DYNAMIC
+        && qdata->lh_dest_head->query_context)
+        qdata->lh_dest_head->query_context->query_free = 0;
+
+    /* Find at least one device in the destination list that matches. */
+    mapper_db_device *dest = (mapper_db_device*)&qdata->lh_dest_head->self;
+    while (dest && *dest) {
+        if (strcmp((*dest)->name, link->dest_name)==0)
+            break;
+        dest = mapper_db_device_next(dest);
+    }
+    restore_query_single_context(qdata->lh_dest_head, ctx_backup);
+    mapper_db_device_done(dest);
+    if (!dest)
+        return 0;
+
+    return 1;
+}
+
+static void free_query_source_dest_devices(list_header_t *lh)
+{
+    query_info_t *qi = lh->query_context;
+    src_dest_devices_t *d = (src_dest_devices_t*)&qi->data;
+
+    qi = d->lh_src_head->query_context;
+    if (d->lh_src_head->query_type == QUERY_DYNAMIC
+        && qi->query_free)
+        qi->query_free(d->lh_src_head);
+
+    qi = d->lh_dest_head->query_context;
+    if (d->lh_dest_head->query_type == QUERY_DYNAMIC
+        && qi->query_free)
+        qi->query_free(d->lh_dest_head);
+
+    free_query_single_context(lh);
+}
+
+mapper_db_link_t **mapper_db_get_links_by_source_dest_devices(
     mapper_db_device_t **source_device_list,
     mapper_db_device_t **dest_device_list)
 {
-    trace("mapper_db_get_links_by_source_destination_devices()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_link link = g_db_registered_links;
+    if (!link)
+        return 0;
+
+    query_info_t *qi = (query_info_t*)
+        malloc(sizeof(query_info_t) + sizeof(src_dest_devices_t));
+
+    qi->size = sizeof(query_info_t) + sizeof(src_dest_devices_t);
+    qi->query_compare =
+        (query_compare_func_t*) cmp_get_links_by_source_dest_devices;
+    qi->query_free = free_query_source_dest_devices;
+
+    src_dest_devices_t *qdata = (src_dest_devices_t*)&qi->data;
+
+    qdata->lh_src_head = list_get_header_by_self(source_device_list);
+    qdata->lh_dest_head = list_get_header_by_self(dest_device_list);
+
+    list_header_t *lh = (list_header_t*) malloc(sizeof(list_header_t));
+    lh->self = link;
+    lh->next = dynamic_query_continuation;
+    lh->query_type = QUERY_DYNAMIC;
+    lh->query_context = qi;
+
+    if (cmp_get_links_by_source_dest_devices(
+            &lh->query_context->data, link))
+        return (mapper_db_link*)&lh->self;
+
+    return (mapper_db_link*)dynamic_query_continuation(lh);
 }
 
 mapper_db_link_t **mapper_db_link_next(mapper_db_link_t** p)
@@ -893,6 +1074,7 @@ void mapper_db_link_done(mapper_db_link_t **s)
 {
     if (!s) return;
     list_header_t *lh = list_get_header_by_data(*s);
-    if (lh->query_type == QUERY_DYNAMIC)
+    if (lh->query_type == QUERY_DYNAMIC
+        && lh->query_context->query_free)
         lh->query_context->query_free(lh);
 }

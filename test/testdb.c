@@ -79,11 +79,11 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_link_params("/testdb.1", "/testdb.2", &msg);
-    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.3", &msg);
-    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params("/testdb.1", "/testdb__.2", &msg);
+    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb.3", &msg);
     mapper_db_add_or_update_link_params("/testdb.3", "/testdb.1", &msg);
-    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.4", &msg);
+    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb__.4", &msg);
 
     /*********/
 
@@ -365,9 +365,10 @@ int main()
 
     printf("\n--- Links ---\n");
 
-    printf("\nFind matching link with source '/testdb.2':\n");
+    printf("\nFind matching links with source '/testdb__.2':\n");
 
-    mapper_db_link* plink = mapper_db_get_links_by_source_device_name("/testdb.2");
+    mapper_db_link* plink =
+        mapper_db_get_links_by_source_device_name("/testdb__.2");
 
     count=0;
     if (!plink) {
@@ -394,9 +395,9 @@ int main()
 
     /*********/
 
-    printf("\nFind matching link with destination '/testdb.4':\n");
+    printf("\nFind matching links with destination '/testdb__.4':\n");
 
-    plink = mapper_db_get_links_by_dest_device_name("/testdb.4");
+    plink = mapper_db_get_links_by_dest_device_name("/testdb__.4");
 
     count=0;
     if (!plink) {
@@ -418,6 +419,50 @@ int main()
 
     if (count != 1) {
         printf("Expected 1 record, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind links with source matching 'db' and "
+           "destination matching '__':\n");
+
+    pdev = mapper_db_match_device_by_name("db");
+
+    if (!pdev) {
+        printf("mapper_db_match_device_by_name() returned 0.\n");
+        return 1;
+    }
+
+    mapper_db_device_t **pdev2 = mapper_db_match_device_by_name("__");
+
+    if (!pdev2) {
+        printf("mapper_db_match_device_by_name() returned 0.\n");
+        return 1;
+    }
+
+    plink = mapper_db_get_links_by_source_dest_devices(pdev, pdev2);
+
+    count=0;
+    if (!plink) {
+        printf("mapper_db_get_links_by_source_dest_devices() returned 0.\n");
+        return 1;
+    }
+    if (!*plink) {
+        printf("mapper_db_get_links_by_source_dest_devices() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (plink) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*plink)->src_name, (*plink)->dest_name);
+        plink = mapper_db_link_next(plink);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
         return 1;
     }
 
