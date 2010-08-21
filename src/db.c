@@ -229,6 +229,36 @@ static void **iterator_next(void** p)
     return 0;
 }
 
+void add_callback(fptr_list *head, void *f, void *user)
+{
+    fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
+    cb->f = f;
+    cb->context = user;
+    cb->next = *head;
+    *head = cb;
+}
+
+void remove_callback(fptr_list *head, void *f, void *user)
+{
+    fptr_list cb = *head;
+    fptr_list prevcb = 0;
+    while (cb) {
+        if (cb->f == f && cb->context == user)
+            break;
+        prevcb = cb;
+        cb = cb->next;
+    }
+    if (!cb)
+        return;
+
+    if (prevcb)
+        prevcb->next = cb->next;
+    else
+        *head = cb->next;
+
+    free(cb);
+}
+
 /**** Device records ****/
 
 /*! Update information about a given device record based on message
@@ -378,32 +408,12 @@ void mapper_db_dump()
 
 void mapper_db_add_device_callback(device_callback_func *f, void *user)
 {
-    fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
-    cb->f = f;
-    cb->context = user;
-    cb->next = g_db_device_callbacks;
-    g_db_device_callbacks = cb;
+    add_callback(&g_db_device_callbacks, f, user);
 }
 
 void mapper_db_remove_device_callback(device_callback_func *f, void *user)
 {
-    fptr_list cb = g_db_device_callbacks;
-    fptr_list prevcb = 0;
-    while (cb) {
-        if (cb->f == f && cb->context == user)
-            break;
-        prevcb = cb;
-        cb = cb->next;
-    }
-    if (!cb)
-        return;
-
-    if (prevcb)
-        prevcb->next = cb->next;
-    else
-        g_db_device_callbacks = cb->next;
-
-    free(cb);
+    remove_callback(&g_db_device_callbacks, f, user);
 }
 
 static void update_signal_value_if_arg(lo_arg **a, const char *type,
