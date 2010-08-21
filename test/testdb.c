@@ -468,6 +468,49 @@ int main()
 
     /*********/
 
+    printf("\nFind any links with source matching '2':\n");
+
+    pdev = mapper_db_match_device_by_name("2");
+
+    if (!pdev) {
+        printf("mapper_db_match_device_by_name() returned 0.\n");
+        return 1;
+    }
+
+    pdev2 = mapper_db_get_all_devices();
+
+    if (!pdev2) {
+        printf("mapper_db_get_all_devices() returned 0.\n");
+        return 1;
+    }
+
+    plink = mapper_db_get_links_by_source_dest_devices(pdev, pdev2);
+
+    count=0;
+    if (!plink) {
+        printf("mapper_db_get_links_by_source_dest_devices() returned 0.\n");
+        return 1;
+    }
+    if (!*plink) {
+        printf("mapper_db_get_links_by_source_dest_devices() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (plink) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*plink)->src_name, (*plink)->dest_name);
+        plink = mapper_db_link_next(plink);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
     printf("\nTest PASSED.\n");
     return 0;
 }
