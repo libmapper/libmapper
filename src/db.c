@@ -191,6 +191,44 @@ static list_header_t *construct_query_context_from_strings(
     return lh;
 }
 
+static void **iterator_next(void** p)
+{
+    if (!p) {
+        trace("bad pointer in iterator_next()\n");
+        return 0;
+    }
+
+    if (!*p) {
+        trace("pointer in iterator_next() points nowhere\n");
+        return 0;
+    }
+
+    list_header_t *lh1 = list_get_header_by_self(p);
+    if (!lh1->next)
+        return 0;
+
+    if (lh1->query_type == QUERY_STATIC)
+    {
+        list_header_t *lh2 = list_get_header_by_data(lh1->next);
+
+        die_unless(lh2->self == &lh2->data,
+                   "bad self pointer in list structure");
+
+        return (void**)&lh2->self;
+    }
+    else if (lh1->query_type == QUERY_DYNAMIC)
+    {
+        /* Here we treat next as a pointer to a continuation function,
+         * so we can return items from the database computed lazily.
+         * The context is simply the string(s) to match.  In the
+         * future, it might point to the results of a SQL query for
+         * example. */
+        void **(*f) (list_header_t*) = lh1->next;
+        return f(lh1);
+    }
+    return 0;
+}
+
 /**** Device records ****/
 
 /*! Update information about a given device record based on message
@@ -307,39 +345,7 @@ mapper_db_device *mapper_db_match_device_by_name(char *str)
 
 mapper_db_device *mapper_db_device_next(mapper_db_device* p)
 {
-    if (!p) {
-        trace("bad pointer in mapper_db_device_next()\n");
-        return 0;
-    }
-
-    if (!*p) {
-        trace("pointer in mapper_db_device_next() points nowhere\n");
-        return 0;
-    }
-
-    list_header_t *lh1 = list_get_header_by_self(p);
-    if (!lh1->next)
-        return 0;
-
-    if (lh1->query_type == QUERY_STATIC)
-    {
-        list_header_t *lh2 = list_get_header_by_data(lh1->next);
-
-        die_unless(lh2->self == &lh2->data,
-                   "bad self pointer in list structure");
-
-        return (mapper_db_device*)&lh2->self;
-    }
-    else if (lh1->query_type == QUERY_DYNAMIC)
-    {
-        /* Here we treat next as a pointer to a continuation function, so
-         * we can return items from the database computed lazily.  The
-         * context is simply the string to match.  In the future, it might
-         * point to the results of a SQL query for example. */
-        mapper_db_device *(*f) (list_header_t*) = lh1->next;
-        return f(lh1);
-    }
-    return 0;
+    return (mapper_db_device*) iterator_next((void**)p);
 }
 
 void mapper_db_dump()
@@ -640,36 +646,7 @@ mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
 
 mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t** p)
 {
-    if (!p) {
-        trace("bad pointer in mapper_db_signal_next()\n");
-        return 0;
-    }
-
-    if (!*p) {
-        trace("pointer in mapper_db_signal_next() points nowhere\n");
-        return 0;
-    }
-
-    list_header_t *lh1 = list_get_header_by_self(p);
-    if (!lh1->next)
-        return 0;
-
-    if (lh1->query_type == QUERY_STATIC)
-    {
-        list_header_t *lh2 = list_get_header_by_data(lh1->next);
-
-        die_unless(lh2->self == &lh2->data,
-                   "bad self pointer in list structure");
-
-        return (mapper_db_signal*)&lh2->self;
-    }
-    else if (lh1->query_type == QUERY_DYNAMIC)
-    {
-        // Call the continuation.
-        mapper_db_signal *(*f) (list_header_t*) = lh1->next;
-        return f(lh1);
-    }
-    return 0;
+    return (mapper_db_signal*) iterator_next((void**)p);
 }
 
 void mapper_db_signal_done(mapper_db_signal_t **s)
