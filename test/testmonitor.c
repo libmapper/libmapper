@@ -137,6 +137,23 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
     sleep(1);
 }
 
+void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
+{
+    printf("Signal %s%s ", sig->device_name, sig->name);
+    switch (a) {
+    case MDB_NEW:
+        printf("added.\n");
+        break;
+    case MDB_MODIFY:
+        printf("modified.\n");
+        break;
+    case MDB_REMOVE:
+        printf("removed.\n");
+        break;
+    }
+    sleep(1);
+}
+
 void ctrlc(int sig)
 {
     done = 1;
@@ -155,6 +172,7 @@ int main()
     }
 
     mapper_db_add_device_callback(on_device, 0);
+    mapper_db_add_signal_callback(on_signal, 0);
 
     wait_local_devices();
 
@@ -162,6 +180,7 @@ int main()
 
   done:
     mapper_db_remove_device_callback(on_device, 0);
+    mapper_db_remove_signal_callback(on_signal, 0);
     cleanup_dummy_device();
     return result;
 }

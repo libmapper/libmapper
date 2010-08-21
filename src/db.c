@@ -551,14 +551,12 @@ int mapper_db_add_or_update_signal_params(const char *name,
 
 void mapper_db_add_signal_callback(signal_callback_func *f, void *user)
 {
-    trace("mapper_db_add_signal_callback(signal_callback_func *f,"
-          " void *user() not yet implemented.\n");
+    add_callback(&g_db_signal_callbacks, f, user);
 }
 
 void mapper_db_remove_signal_callback(signal_callback_func *f, void *user)
 {
-    trace("mapper_db_remove_signal_callback(signal_callback_func *f,"
-          " void *user() not yet implemented.\n");
+    remove_callback(&g_db_signal_callbacks, f, user);
 }
 
 static int cmp_query_signal_exact_device_name(void *context_data,
