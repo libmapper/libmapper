@@ -72,6 +72,19 @@ int main()
     mapper_db_add_or_update_signal_params("/out2", "/testdb.1", 1, &msg);
     mapper_db_add_or_update_signal_params("/out1", "/testdb.2", 1, &msg);
 
+    if (mapper_msg_parse_params(&msg, "/linked",
+                                "", 0, args))
+    {
+        printf("3: Error, parsing failed (on no args!)\n");
+        return 1;
+    }
+
+    mapper_db_add_or_update_link_params("/testdb.1", "/testdb.2", &msg);
+    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params("/testdb.3", "/testdb.1", &msg);
+    mapper_db_add_or_update_link_params("/testdb.2", "/testdb.4", &msg);
+
     /*********/
 
     trace("Dump:\n");
@@ -341,6 +354,66 @@ int main()
         count ++;
         printsignal(*psig);
         psig = mapper_db_signal_next(psig);
+    }
+
+    if (count != 1) {
+        printf("Expected 1 record, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\n--- Links ---\n");
+
+    printf("\nFind matching link with source '/testdb.2':\n");
+
+    mapper_db_link* plink = mapper_db_get_links_by_source_device_name("/testdb.2");
+
+    count=0;
+    if (!plink) {
+        printf("mapper_db_get_links_by_source_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*plink) {
+        printf("mapper_db_get_links_by_source_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (plink) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*plink)->src_name, (*plink)->dest_name);
+        plink = mapper_db_link_next(plink);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind matching link with destination '/testdb.4':\n");
+
+    plink = mapper_db_get_links_by_dest_device_name("/testdb.4");
+
+    count=0;
+    if (!plink) {
+        printf("mapper_db_get_links_by_dest_device_name() returned 0.\n");
+        return 1;
+    }
+    if (!*plink) {
+        printf("mapper_db_get_links_by_dest_device_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (plink) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*plink)->src_name, (*plink)->dest_name);
+        plink = mapper_db_link_next(plink);
     }
 
     if (count != 1) {

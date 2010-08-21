@@ -8,6 +8,7 @@
 mapper_db_device g_db_registered_devices = NULL;
 mapper_db_signal g_db_registered_inputs = NULL;
 mapper_db_signal g_db_registered_outputs = NULL;
+mapper_db_link   g_db_registered_links = NULL;
 
 /*! A list of function and context pointers. */
 typedef struct _fptr_list {
@@ -21,6 +22,9 @@ fptr_list g_db_device_callbacks = NULL;
 
 /*! A global list of signal record callbacks. */
 fptr_list g_db_signal_callbacks = NULL;
+
+/*! A global list of link record callbacks. */
+fptr_list g_db_link_callbacks = NULL;
 
 /* Some useful local list functions. */
 
@@ -404,6 +408,14 @@ void mapper_db_dump()
               sig->device_name, sig->name);
         sig = list_get_next(sig);
     }
+
+    mapper_db_link link = g_db_registered_links;
+    trace("Registered links:\n");
+    while (link) {
+        trace("  source=%s, dest=%s\n",
+              link->src_name, link->dest_name);
+        link = list_get_next(link);
+    }
 }
 
 void mapper_db_add_device_callback(device_callback_func *f, void *user)
@@ -415,6 +427,8 @@ void mapper_db_remove_device_callback(device_callback_func *f, void *user)
 {
     remove_callback(&g_db_device_callbacks, f, user);
 }
+
+/**** Signals ****/
 
 static void update_signal_value_if_arg(lo_arg **a, const char *type,
                                        char sigtype,
@@ -725,39 +739,160 @@ mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t** m)
     return 0;
 }
 
+/**** Link records ****/
+
+/*! Update information about a given link record based on message
+ *  parameters. */
+static void update_link_record_params(mapper_db_link link,
+                                      const char *src_name,
+                                      const char *dest_name,
+                                      mapper_message_t *params)
+{
+    if (!link->src_name || strcmp(link->src_name, src_name)) {
+        char *str = (char*) realloc((void*)link->src_name,
+                                    strlen(src_name)+1);
+        strcpy(str, src_name);
+        link->src_name = str;
+    }
+
+    if (!link->dest_name || strcmp(link->dest_name, dest_name)) {
+        char *str = (char*) realloc((void*)link->dest_name,
+                                    strlen(dest_name)+1);
+        strcpy(str, dest_name);
+        link->dest_name = str;
+    }
+}
+
+int mapper_db_add_or_update_link_params(const char *src_name,
+                                        const char *dest_name,
+                                        mapper_message_t *params)
+{
+    mapper_db_link link;
+    int rc = 0;
+
+    link = mapper_db_get_link_by_source_dest_names(src_name, dest_name);
+
+    if (!link) {
+        link = (mapper_db_link) list_new_item(sizeof(mapper_db_link_t));
+        rc = 1;
+    }
+
+    if (link) {
+        update_link_record_params(link, src_name, dest_name, params);
+
+        if (rc)
+            list_prepend_item(link, (void**)&g_db_registered_links);
+
+        fptr_list cb = g_db_link_callbacks;
+        while (cb) {
+            link_callback_func *f = cb->f;
+            f(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+            cb = cb->next;
+        }
+    }
+    else {
+        trace("couldn't find or create link in "
+              "mapper_db_add_or_update_link_params()\n");
+    }
+
+    return rc;
+}
+
 void mapper_db_add_link_callback(link_callback_func *f, void *user)
 {
-    trace("mapper_db_add_link_callback(link_callback_func *f, void *user()"
-          " not yet implemented.\n");
+    add_callback(&g_db_link_callbacks, f, user);
 }
 
 void mapper_db_remove_link_callback(link_callback_func *f, void *user)
 {
-    trace("mapper_db_remove_link_callback(link_callback_func *f, void *user()"
-          " not yet implemented.\n");
+    remove_callback(&g_db_link_callbacks, f, user);
 }
 
-mapper_db_link_t **mapper_db_get_links_by_input_device_name(
-    const char *input_device_name)
+mapper_db_link mapper_db_get_link_by_source_dest_names(
+    const char *source_device_name, const char *dest_device_name)
 {
-    trace("mapper_db_get_links_by_input_device_name()"
+    mapper_db_link link = g_db_registered_links;
+    while (link) {
+        if (strcmp(link->src_name, source_device_name)==0
+            && strcmp(link->dest_name, dest_device_name)==0)
+            break;
+        link = list_get_next(link);
+    }
+    return link;
+}
+
+static int cmp_query_get_links_by_source_device_name(void *context_data,
+                                                     mapper_db_link link)
+{
+    const char *src = (const char*)context_data;
+    return strcmp(link->src_name, src)==0;
+}
+
+mapper_db_link_t **mapper_db_get_links_by_source_device_name(
+    const char *source_device_name)
+{
+    mapper_db_link link = g_db_registered_links;
+    if (!link)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_links_by_source_device_name,
+        source_device_name, 0);
+
+    lh->self = link;
+
+    if (cmp_query_get_links_by_source_device_name(
+            &lh->query_context->data, link))
+        return (mapper_db_link*)&lh->self;
+
+    return (mapper_db_link*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_links_by_dest_device_name(void *context_data,
+                                                   mapper_db_link link)
+{
+    const char *dest = (const char*)context_data;
+    return strcmp(link->dest_name, dest)==0;
+}
+
+mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
+    const char *dest_device_name)
+{
+    mapper_db_link link = g_db_registered_links;
+    if (!link)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_links_by_dest_device_name,
+        dest_device_name, 0);
+
+    lh->self = link;
+
+    if (cmp_query_get_links_by_dest_device_name(
+            &lh->query_context->data, link))
+        return (mapper_db_link*)&lh->self;
+
+    return (mapper_db_link*)dynamic_query_continuation(lh);
+}
+
+mapper_db_link_t **mapper_db_get_links_by_source_destination_devices(
+    mapper_db_device_t **source_device_list,
+    mapper_db_device_t **dest_device_list)
+{
+    trace("mapper_db_get_links_by_source_destination_devices()"
           " not yet implemented.\n");
     return 0;
 }
 
-mapper_db_link_t **mapper_db_get_links_by_output_device_name(
-    const char *output_device_name)
+mapper_db_link_t **mapper_db_link_next(mapper_db_link_t** p)
 {
-    trace("mapper_db_get_links_by_output_device_name()"
-          " not yet implemented.\n");
-    return 0;
+    return (mapper_db_link*) iterator_next((void**)p);
 }
 
-mapper_db_link_t **mapper_db_get_links_by_input_output_devices(
-    mapper_db_device_t **input_device_list,
-    mapper_db_device_t **output_device_list)
+void mapper_db_link_done(mapper_db_link_t **s)
 {
-    trace("mapper_db_get_links_by_input_output_devices()"
-          " not yet implemented.\n");
-    return 0;
+    if (!s) return;
+    list_header_t *lh = list_get_header_by_data(*s);
+    if (lh->query_type == QUERY_DYNAMIC)
+        lh->query_context->query_free(lh);
 }

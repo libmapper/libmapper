@@ -179,6 +179,12 @@ int mapper_db_add_or_update_signal_params(const char *name,
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();
 
+/**** Links ****/
+
+int mapper_db_add_or_update_link_params(const char *src_name,
+                                        const char *dest_name,
+                                        mapper_message_t *params);
+
 /**** Messages ****/
 
 /*! Parse a message based on an OSC path and parameters.
