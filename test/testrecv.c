@@ -13,7 +13,7 @@
 int sent = 0;
 int received = 0;
 
-void handler(mapper_device mdev, mapper_signal_value_t *v)
+void handler(mapper_signal sig, mapper_signal_value_t *v)
 {
     printf("handler: Got %f\n", (*v).f);
     received++;
@@ -21,19 +21,13 @@ void handler(mapper_device mdev, mapper_signal_value_t *v)
 
 int test_recv()
 {
-    lo_address a = lo_address_new("localhost", "9000");
-    if (!a) {
-        printf("Error creating lo_address for test.\n");
-        return 1;
-    }
-
     mapper_device md = mdev_new("synth", 9000);
     if (!md)
         goto error;
     printf("Mapper device created.\n");
 
     mapper_signal sig =
-        msig_float(1, "/mapped1", 0, INFINITY, INFINITY, 0, handler, 0);
+        msig_float(1, "/mapped1", 0, 0, 1, 0, handler, 0);
 
     mdev_register_input(md, sig);
 
@@ -43,10 +37,9 @@ int test_recv()
 
     printf("Waiting for port/ordinal allocation..\n");
     int i;
-    char signame[1024];
     for (i = 0; i < 10; i++) {
         mdev_poll(md, 500);
-        if (msig_full_name(sig, signame, 1024))
+        if (mdev_ready(md))
             break;
         usleep(500 * 1000);
     }
@@ -54,12 +47,24 @@ int test_recv()
         printf("Timed out waiting for signal name.\n");
         goto error;
     }
+	
+	char port[10];
+	sprintf(port, "%i", md->admin->port.value);
+	printf("allocated port = %s\n", port);
+	
+	lo_address a = lo_address_new("localhost", port);
+    if (!a) {
+        printf("Error creating lo_address for test.\n");
+        return 1;
+    }
 
     printf("Polling device..\n");
     for (i = 0; i < 10; i++) {
-        lo_send(a, signame, "f", (float) i);
+        lo_send(a, sig->props.name, "f", (float) i);
+		printf("Updating signal %s to %f\n", sig->props.name, (float) i);
         sent++;
         mdev_poll(md, 500);
+		//usleep(500 * 1000);
     }
 
     if (sent != received) {

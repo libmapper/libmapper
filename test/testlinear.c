@@ -55,7 +55,7 @@ void cleanup_sender()
     }
 }
 
-void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
+void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 {
     printf("handler: Got %f\n", (*v).f);
     received++;

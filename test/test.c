@@ -58,9 +58,9 @@ void cleanup_sender()
     }
 }
 
-void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
+void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 {
-    printf("--> Receiver got %f\n\n", (*v).f);
+    printf("--> Receiver got %s %f\n\n", sig->props.name, (*v).f);
     received++;
 }
 

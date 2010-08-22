@@ -243,7 +243,7 @@ static int handler_signal(const char *path, const char *types,
         default:
             assert(0);
         }
-        sig->handler(md, sv);
+        sig->handler(sig, sv);
     }
 
     return 0;

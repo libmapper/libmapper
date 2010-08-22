@@ -58,7 +58,7 @@ void cleanup_sender()
     }
 }
 
-void insig_handler(mapper_device mdev, mapper_signal_value_t *v)
+void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 {
     printf("handler: Got %f\n", (*v).f);
     received++;
@@ -116,7 +116,7 @@ int setup_router()
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
     mapper_router_add_expression_mapping(router, sendsig,
-                                         signame_in, "y=x*10");
+                                         recvsig->props.name, "y=x*10");
     return 0;
 }
 
