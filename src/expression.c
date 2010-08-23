@@ -8,7 +8,7 @@
 #include "expression.h"
 
 /*! Get the expression string from the terminal, only for debug use. */
-void get_typed_string(char *s, error *err)
+void get_typed_string(char *s, mapper_error *err)
 {
     int i = 0;
     char buffer[SIZE];
@@ -191,7 +191,7 @@ Tree *CopyTree(Tree *T)
 
 
 /*! Convert a string to an operator_type object. */
-Operator string_to_operator(char *s, operator_type type, error *err)
+Operator string_to_operator(char *s, operator_type type, mapper_error *err)
 {
     Operator oper = EVAL;
     if (type == arity_1) {
@@ -278,7 +278,7 @@ Operator string_to_operator(char *s, operator_type type, error *err)
 
 
 /*! Get the history order from a string, x[..] or y[..]*/
-int find_history_order(char *s, error *err)
+int find_history_order(char *s, mapper_error *err)
 {
     int o = 0;
     char *buffer = NULL;
@@ -307,7 +307,7 @@ int find_history_order(char *s, error *err)
 
 /*! Construct the expression tree using the different priorities of
  *  the operators and functions */
-void ConstructTree(Tree *T, char **expr, int t1, int t2, error *err)
+void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
 {
     int i = t1;
 

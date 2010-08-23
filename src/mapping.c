@@ -31,7 +31,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
 {
     int p, changed = 0;
     float v;
-    error err = NO_ERR;
+    mapper_error err = NO_ERR;
 
 
     p = mapping->history_pos;

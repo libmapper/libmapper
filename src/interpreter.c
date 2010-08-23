@@ -17,7 +17,7 @@ int get_expr_Tree(Tree *T, const char *str)
     /*char s[SIZE]; */
     char **parsed_expr = NULL;
     int expr_length;
-    error err = ERR_EMPTY_EXPR;
+    mapper_error err = ERR_EMPTY_EXPR;
     while (err != NO_ERR) {
         err = NO_ERR;
 

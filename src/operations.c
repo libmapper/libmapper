@@ -213,7 +213,7 @@ Operator CEIL = {
 /*! This function is called when the output value of the sender is
  *  updated and returns the value sent to the receiver */
 float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos,
-               error *err)
+               mapper_error *err)
 {
     float valueL, valueR;
     Operator operat = T->oper;
