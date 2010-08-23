@@ -10,9 +10,11 @@ extern "C" {
 
 /*** Signals ***/
 
+struct _mapper_signal;
+
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(mapper_device mdev,
+typedef void mapper_signal_handler(struct _mapper_signal *msig,
                                    mapper_signal_value_t *v);
 
 /*! A signal is defined as a vector of values, along with some
