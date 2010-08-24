@@ -335,6 +335,89 @@ void remove_callback(fptr_list *head, void *f, void *user)
     free(cb);
 }
 
+/* Helper functions for updating struct fields based on message
+ * parameters. */
+
+static void update_signal_value_if_arg(mapper_message_t *params,
+                                       mapper_msg_param_t field,
+                                       char sigtype,
+                                       mapper_signal_value_t **pv)
+{
+    lo_arg **a = mapper_msg_get_param(params, field);
+    const char *type = mapper_msg_get_type(params, field);
+
+    if (!a || !(*a))
+        return;
+
+    mapper_signal_value_t v;
+    int update = 0;
+    if (sigtype == 'f') {
+        if (type[0] == 'f') {
+            v.f = (*a)->f;
+            update = 1;
+        }
+        else if (type[0] == 'i') {
+            v.f = (*a)->i;
+            update = 1;
+        }
+    }
+    else if (sigtype == 'i') {
+        if (type[0] == 'f') {
+            v.i32 = (int)(*a)->f;
+            update = 1;
+        }
+        else if (type[0] == 'i') {
+            v.i32 = (*a)->i;
+            update = 1;
+        }
+    }
+    if (update) {
+        *pv = realloc(*pv, sizeof(mapper_signal_value_t));
+        **pv = v;
+    }
+}
+
+static void update_string_if_different(char **pdest_str,
+                                       const char *src_str)
+{
+    if (!(*pdest_str) || strcmp((*pdest_str), src_str)) {
+        char *str = (char*) realloc((void*)(*pdest_str),
+                                    strlen(src_str)+1);
+        strcpy(str, src_str);
+        (*pdest_str) = str;
+    }
+}
+
+static void update_string_if_arg(char **pdest_str,
+                                 mapper_message_t *params,
+                                 mapper_msg_param_t field)
+{
+    lo_arg **a = mapper_msg_get_param(params, field);
+    const char *type = mapper_msg_get_type(params, field);
+
+    if (a && (*a) && (type[0]=='s' || type[0]=='S')
+        && (!(*pdest_str) || strcmp((*pdest_str), &(*a)->s)))
+    {
+        char *str = (char*) realloc((void*)(*pdest_str),
+                                    strlen(&(*a)->s)+1);
+        strcpy(str, &(*a)->s);
+        (*pdest_str) = str;
+    }
+}
+
+static void update_char_if_arg(char *pdest_char,
+                               mapper_message_t *params,
+                               mapper_msg_param_t field)
+{
+    lo_arg **a = mapper_msg_get_param(params, field);
+    const char *type = mapper_msg_get_type(params, field);
+
+    if (a && (*a) && (type[0]=='s' || type[0]=='S'))
+        (*pdest_char) = (&(*a)->s)[0];
+    else if (a && (*a) && type[0]=='c')
+        (*pdest_char) = (*a)->c;
+}
+
 /**** Device records ****/
 
 /*! Update information about a given device record based on message
@@ -343,29 +426,18 @@ static void update_device_record_params(mapper_db_device reg,
                                         const char *name,
                                         mapper_message_t *params)
 {
-    lo_arg **a_host = mapper_msg_get_param(params, AT_IP);
-    const char *t_host = mapper_msg_get_type(params, AT_IP);
+    update_string_if_different(&reg->name, name);
+
+    update_string_if_arg(&reg->host, params, AT_IP);
 
     lo_arg **a_port = mapper_msg_get_param(params, AT_PORT);
     const char *t_port = mapper_msg_get_type(params, AT_PORT);
 
-    lo_arg **a_canAlias = mapper_msg_get_param(params, AT_CANALIAS);
-    const char *t_canAlias = mapper_msg_get_type(params, AT_CANALIAS);
-
-    if (!reg->name || strcmp(reg->name, name)) {
-        reg->name = (char*) realloc(reg->name, strlen(name)+1);
-        strcpy(reg->name, name);
-    }
-
-    if (a_host && (*a_host) && t_host[0]=='s'
-        && (!reg->host || strcmp(reg->host, &(*a_host)->s)))
-    {
-        reg->host = (char*) realloc(reg->host, strlen(&(*a_host)->s)+1);
-        strcpy(reg->host, &(*a_host)->s);
-    }
-
     if (a_port && t_port[0]=='i')
         reg->port = (*a_port)->i;
+
+    lo_arg **a_canAlias = mapper_msg_get_param(params, AT_CANALIAS);
+    const char *t_canAlias = mapper_msg_get_type(params, AT_CANALIAS);
 
     if (a_canAlias && t_canAlias[0]=='s')
         reg->canAlias = strcmp("no", &(*a_canAlias)->s)!=0;
@@ -511,41 +583,6 @@ void mapper_db_remove_device_callback(device_callback_func *f, void *user)
 
 /**** Signals ****/
 
-static void update_signal_value_if_arg(lo_arg **a, const char *type,
-                                       char sigtype,
-                                       mapper_signal_value_t **pv)
-{
-    if (!a || !(*a))
-        return;
-
-    mapper_signal_value_t v;
-    int update = 0;
-    if (sigtype == 'f') {
-        if (type[0] == 'f') {
-            v.f = (*a)->f;
-            update = 1;
-        }
-        else if (type[0] == 'i') {
-            v.f = (*a)->i;
-            update = 1;
-        }
-    }
-    else if (sigtype == 'i') {
-        if (type[0] == 'f') {
-            v.i32 = (int)(*a)->f;
-            update = 1;
-        }
-        else if (type[0] == 'i') {
-            v.i32 = (*a)->i;
-            update = 1;
-        }
-    }
-    if (update) {
-        *pv = realloc(*pv, sizeof(mapper_signal_value_t));
-        **pv = v;
-    }
-}
-
 /*! Update information about a given signal record based on message
  *  parameters. */
 static void update_signal_record_params(mapper_db_signal sig,
@@ -553,49 +590,17 @@ static void update_signal_record_params(mapper_db_signal sig,
                                         const char *device_name,
                                         mapper_message_t *params)
 {
-    lo_arg **a_type = mapper_msg_get_param(params, AT_TYPE);
-    const char *t_type = mapper_msg_get_type(params, AT_TYPE);
+    update_string_if_different((char**)&sig->name, name);
+    update_string_if_different((char**)&sig->device_name, device_name);
 
-    lo_arg **a_units = mapper_msg_get_param(params, AT_UNITS);
-    const char *t_units = mapper_msg_get_type(params, AT_UNITS);
+    update_char_if_arg(&sig->type, params, AT_TYPE);
 
-    lo_arg **a_minimum = mapper_msg_get_param(params, AT_MINIMUM);
-    const char *t_minimum = mapper_msg_get_type(params, AT_MINIMUM);
+    update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
-    lo_arg **a_maximum = mapper_msg_get_param(params, AT_MAXIMUM);
-    const char *t_maximum = mapper_msg_get_type(params, AT_MAXIMUM);
-
-    if (!sig->name || strcmp(sig->name, name)) {
-        char *str = (char*) realloc((void*)sig->name, strlen(name)+1);
-        strcpy(str, name);
-        sig->name = str;
-    }
-
-    if (!sig->device_name || strcmp(sig->device_name, device_name)) {
-        char *str = (char*) realloc((void*)sig->device_name,
-                                    strlen(device_name)+1);
-        strcpy(str, device_name);
-        sig->device_name = str;
-    }
-
-    if (a_type && (*a_type) && t_type[0]=='s')
-        sig->type = (&(*a_type)->s)[0];
-    else if (a_type && (*a_type) && t_type[0]=='c')
-        sig->type = (*a_type)->c;
-
-    if (a_units && (*a_units) && t_units[0]=='s'
-        && (!sig->unit || strcmp(sig->unit, &(*a_units)->s)))
-    {
-        char *str = (char*) realloc((void*)sig->unit,
-                                    strlen(&(*a_units)->s)+1);
-        strcpy(str, &(*a_units)->s);
-        sig->unit = str;
-    }
-
-    update_signal_value_if_arg(a_maximum, t_maximum,
+    update_signal_value_if_arg(params, AT_MAXIMUM,
                                sig->type, &sig->maximum);
 
-    update_signal_value_if_arg(a_minimum, t_minimum,
+    update_signal_value_if_arg(params, AT_MINIMUM,
                                sig->type, &sig->minimum);
 }
 
@@ -830,19 +835,8 @@ static void update_link_record_params(mapper_db_link link,
                                       const char *dest_name,
                                       mapper_message_t *params)
 {
-    if (!link->src_name || strcmp(link->src_name, src_name)) {
-        char *str = (char*) realloc((void*)link->src_name,
-                                    strlen(src_name)+1);
-        strcpy(str, src_name);
-        link->src_name = str;
-    }
-
-    if (!link->dest_name || strcmp(link->dest_name, dest_name)) {
-        char *str = (char*) realloc((void*)link->dest_name,
-                                    strlen(dest_name)+1);
-        strcpy(str, dest_name);
-        link->dest_name = str;
-    }
+    update_string_if_different(&link->src_name, src_name);
+    update_string_if_different(&link->dest_name, dest_name);
 }
 
 int mapper_db_add_or_update_link_params(const char *src_name,
