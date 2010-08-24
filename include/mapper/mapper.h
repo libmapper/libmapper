@@ -386,6 +386,11 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_devices_and_signals(
  *          zero if no more mappings. */
 mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t**);
 
+/*! Given a mapping record pointer returned from a previous
+ *  mapper_db_get_*() call, indicate that we are done iterating.
+ *  \param The previous mapping record pointer. */
+void mapper_db_mapping_done(mapper_db_mapping_t **);
+
 /***** Links *****/
 
 /*! A callback function prototype for when a link record is added or

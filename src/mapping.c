@@ -25,6 +25,24 @@ const char* mapper_scaling_type_strings[] =
     "mute",        /* SC_MUTE */
 };
 
+const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
+{
+    die_unless(clipping < N_MAPPER_CLIPPING_TYPES && clipping >= 0,
+               "called mapper_get_clipping_type_string() with "
+               "bad parameter.\n");
+
+    return mapper_clipping_type_strings[clipping];
+}
+
+const char *mapper_get_scaling_type_string(mapper_scaling_type scaling)
+{
+    die_unless(scaling < N_MAPPER_SCALING_TYPES && scaling >= 0,
+               "called mapper_get_scaling_type_string() with "
+               "bad parameter.\n");
+
+    return mapper_scaling_type_strings[scaling];
+}
+
 int mapper_mapping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value)

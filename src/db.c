@@ -4,11 +4,20 @@
 
 #include "mapper_internal.h"
 
-/*! Initialization of the global list of local devices. */
+/*! The global list of devices. */
 mapper_db_device g_db_registered_devices = NULL;
+
+/*! The global list of inputs. */
 mapper_db_signal g_db_registered_inputs = NULL;
+
+/*! The global list of outputs. */
 mapper_db_signal g_db_registered_outputs = NULL;
-mapper_db_link   g_db_registered_links = NULL;
+
+/*! The global list of mappings. */
+mapper_db_mapping g_db_registered_mappings = NULL;
+
+/*! The global list of links. */
+mapper_db_link g_db_registered_links = NULL;
 
 /*! A list of function and context pointers. */
 typedef struct _fptr_list {
@@ -22,6 +31,9 @@ fptr_list g_db_device_callbacks = NULL;
 
 /*! A global list of signal record callbacks. */
 fptr_list g_db_signal_callbacks = NULL;
+
+/*! A global list of mapping record callbacks. */
+fptr_list g_db_mapping_callbacks = NULL;
 
 /*! A global list of link record callbacks. */
 fptr_list g_db_link_callbacks = NULL;
@@ -562,6 +574,42 @@ void mapper_db_dump()
         sig = list_get_next(sig);
     }
 
+    mapper_db_mapping map = g_db_registered_mappings;
+    trace("Registered mappings:\n");
+    while (map) {
+        char r[1024] = "(";
+        if (map->range.known & MAPPING_RANGE_SRC_MIN)
+            sprintf(r+strlen(r), "%f, ", map->range.src_min);
+        else
+            strcat(r, "-, ");
+        if (map->range.known & MAPPING_RANGE_SRC_MAX)
+            sprintf(r+strlen(r), "%f, ", map->range.src_max);
+        else
+            strcat(r, "-, ");
+        if (map->range.known & MAPPING_RANGE_DEST_MIN)
+            sprintf(r+strlen(r), "%f, ", map->range.dest_min);
+        else
+            strcat(r, "-, ");
+        if (map->range.known & MAPPING_RANGE_DEST_MAX)
+            sprintf(r+strlen(r), "%f", map->range.dest_max);
+        else
+            strcat(r, "-");
+        strcat(r, ")");
+        trace("  src_name=%s, dest_name=%s,\n"
+              "      src_type=%d, dest_type=%d,\n"
+              "      clip_upper=%s, clip_lower=%s,\n"
+              "      range=%s,\n"
+              "      expression=%s, scaling=%s, muted=%d\n",
+              map->src_name, map->dest_name, map->src_type,
+              map->dest_type,
+              mapper_get_clipping_type_string(map->clip_upper),
+              mapper_get_clipping_type_string(map->clip_lower),
+              r, map->expression,
+              mapper_get_scaling_type_string(map->scaling),
+              map->muted);
+        map = list_get_next(map);
+    }
+
     mapper_db_link link = g_db_registered_links;
     trace("Registered links:\n");
     while (link) {
@@ -768,14 +816,111 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
 
 void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
 {
-    trace("mapper_db_add_mapping_callback(mapping_callback_func *f,"
-          " void *user() not yet implemented.\n");
+    add_callback(&g_db_mapping_callbacks, f, user);
+}
+
+/**** Mapping records ****/
+
+/*! Update information about a given mapping record based on message
+ *  parameters. */
+static void update_mapping_record_params(mapper_db_mapping map,
+                                        const char *src_name,
+                                        const char *dest_name,
+                                        mapper_message_t *params)
+{
+    update_string_if_different(&map->src_name, src_name);
+    update_string_if_different(&map->dest_name, dest_name);
+
+    // TODO: Unhandled fields --
+    /* char src_type; */
+    /* char dest_type; */
+
+    mapper_clipping_type clip;
+    clip = mapper_msg_get_clipping(params, AT_CLIPMAX);
+    if (clip!=-1)
+        map->clip_upper = clip;
+
+    clip = mapper_msg_get_clipping(params, AT_CLIPMIN);
+    if (clip!=-1)
+        map->clip_lower = clip;
+
+    lo_arg **a_range = mapper_msg_get_param(params, AT_RANGE);
+    const char *t_range = mapper_msg_get_type(params, AT_RANGE);
+
+    // TODO: currently ignoring strings such as 'invert', '-'
+    if (a_range && (*a_range)) {
+        if (t_range[0] == 'f') {
+            map->range.src_min = (*a_range)->f;
+            map->range.known |= MAPPING_RANGE_SRC_MIN;
+        } else if (t_range[0] == 'i') {
+            map->range.src_min = (float)(*a_range)->i;
+            map->range.known |= MAPPING_RANGE_SRC_MIN;
+        }
+        if (t_range[1] == 'f') {
+            map->range.src_max = (*a_range)->f;
+            map->range.known |= MAPPING_RANGE_SRC_MAX;
+        } else if (t_range[1] == 'i') {
+            map->range.src_min = (float)(*a_range)->i;
+            map->range.known |= MAPPING_RANGE_SRC_MAX;
+        }
+        if (t_range[2] == 'f') {
+            map->range.dest_min = (*a_range)->f;
+            map->range.known |= MAPPING_RANGE_DEST_MIN;
+        } else if (t_range[2] == 'i') {
+            map->range.src_min = (float)(*a_range)->i;
+            map->range.known |= MAPPING_RANGE_DEST_MIN;
+        }
+        if (t_range[3] == 'f') {
+            map->range.dest_max = (*a_range)->f;
+            map->range.known |= MAPPING_RANGE_DEST_MAX;
+        } else if (t_range[3] == 'i') {
+            map->range.src_min = (float)(*a_range)->i;
+            map->range.known |= MAPPING_RANGE_DEST_MAX;
+        }
+    }
+
+    update_string_if_arg(&map->expression, params, AT_EXPRESSION);
+
+    mapper_scaling_type scaling = mapper_msg_get_scaling(params);
+    if (scaling!=-1)
+        map->scaling = scaling;
+
+    // TODO
+    /* int muted; */
+}
+
+int mapper_db_add_or_update_mapping_params(const char *src_name,
+                                           const char *dest_name,
+                                           mapper_message_t *params)
+{
+    mapper_db_mapping map;
+    int found = 0;
+
+    // TODO: get device by names
+
+    if (!found)
+        map = (mapper_db_mapping) list_new_item(sizeof(mapper_db_mapping_t));
+
+    if (map) {
+        update_mapping_record_params(map, src_name, dest_name, params);
+
+        if (!found)
+            list_prepend_item(map, (void**)&g_db_registered_mappings);
+
+        fptr_list cb = g_db_mapping_callbacks;
+        while (cb) {
+            mapping_callback_func *f = cb->f;
+            f(map, found ? MDB_MODIFY : MDB_NEW, cb->context);
+            cb = cb->next;
+        }
+    }
+
+    return found;
 }
 
 void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user)
 {
-    trace("mapper_db_remove_mapping_callback(mapping_callback_func *f,"
-          " void *user() not yet implemented.\n");
+    remove_callback(&g_db_mapping_callbacks, f, user);
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
@@ -824,6 +969,15 @@ mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t** m)
     trace("mapper_db_mapping_next(mapper_db_mapping_t** m()"
           " not yet implemented.\n");
     return 0;
+}
+
+void mapper_db_mapping_done(mapper_db_mapping_t **d)
+{
+    if (!d) return;
+    list_header_t *lh = list_get_header_by_data(*d);
+    if (lh->query_type == QUERY_DYNAMIC
+        && lh->query_context->query_free)
+        lh->query_context->query_free(lh);
 }
 
 /**** Link records ****/

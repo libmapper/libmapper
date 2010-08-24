@@ -33,6 +33,7 @@ int main()
     lo_arg *args[20];
     mapper_message_t msg;
     int port=1234;
+    int zero=0, one=1;
 
     /* Test the database functions */
 
@@ -72,10 +73,51 @@ int main()
     mapper_db_add_or_update_signal_params("/out2", "/testdb.1", 1, &msg);
     mapper_db_add_or_update_signal_params("/out1", "/testdb.2", 1, &msg);
 
+    args[0] = (lo_arg*)"@scaling";
+    args[1] = (lo_arg*)"bypass";
+    args[2] = (lo_arg*)"@clipMin";
+    args[3] = (lo_arg*)"none";
+
+    if (mapper_msg_parse_params(&msg, "/connected",
+                                "ssss", 4, args))
+    {
+        printf("4: Error, parsing failed.\n");
+        return 1;
+    }
+
+    mapper_db_add_or_update_mapping_params("/testdb.1/out2",
+                                           "/testdb__.2/in1", &msg);
+    mapper_db_add_or_update_mapping_params("/testdb__.2/out1",
+                                           "/testdb.1/in1", &msg);
+
+    args[0] = (lo_arg*)"@scaling";
+    args[1] = (lo_arg*)"expression";
+    args[2] = (lo_arg*)"@expression";
+    args[3] = (lo_arg*)"(x-10)*80";
+    args[4] = (lo_arg*)"@clipMin";
+    args[5] = (lo_arg*)"none";
+    args[6] = (lo_arg*)"@range";
+    args[7] = (lo_arg*)&zero;
+    args[8] = (lo_arg*)&one;
+    args[9] = (lo_arg*)&zero;
+    args[10] = (lo_arg*)&one;
+
+    if (mapper_msg_parse_params(&msg, "/connected",
+                                "sssssssiiii", 11, args))
+    {
+        printf("5: Error, parsing failed.\n");
+        return 1;
+    }
+
+    mapper_db_add_or_update_mapping_params("/testdb.1/out1",
+                                           "/testdb__.2/in2", &msg);
+    mapper_db_add_or_update_mapping_params("/testdb__.2/out2",
+                                           "/testdb.1/in2", &msg);
+
     if (mapper_msg_parse_params(&msg, "/linked",
                                 "", 0, args))
     {
-        printf("3: Error, parsing failed (on no args!)\n");
+        printf("6: Error, parsing failed (on no args!)\n");
         return 1;
     }
 

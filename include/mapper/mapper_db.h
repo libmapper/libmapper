@@ -45,6 +45,7 @@ typedef enum _mapper_clipping_type {
     CT_FOLD,    //!< Value continues in opposite direction.
     CT_WRAP,    /*!< Value appears as modulus offset at the opposite
                  *   boundary. */
+    N_MAPPER_CLIPPING_TYPES
 } mapper_clipping_type;
 
 /*! Describes the scaling mode of the mapping. */
@@ -54,6 +55,7 @@ typedef enum _mapper_scaling_type {
     SC_EXPRESSION,   //!< Expression scaling
     SC_CALIBRATE,    //!< Calibrate to input
     SC_MUTE,         //!< Mute scaling
+    N_MAPPER_SCALING_TYPES
 } mapper_scaling_type;
 
 /*! A record that describes the properties of a connection mapping. */

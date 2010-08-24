@@ -149,6 +149,10 @@ void mapper_mapping_set_expression(mapper_mapping mapping,
 void mapper_mapping_set_calibrate(mapper_mapping mapping,
                                   float dest_min, float dest_max);
 
+const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
+
+const char *mapper_get_scaling_type_string(mapper_scaling_type scaling);
+
 /**** Local device database ****/
 
 /*! Add or update an entry in the device database using parsed message
@@ -166,14 +170,26 @@ int mapper_db_add_or_update_device_params(const char *name,
  *  \param name   The name of the signal.
  *  \param name   The name of the device associated with this signal.
  *  \param is_output The signal is an output if 1, or input if 0.
- *  \param params The parsed message parameters containing new device
+ *  \param params The parsed message parameters containing new signal
  *                information.
- *  \return       Non-zero if device was added to the database, or
+ *  \return       Non-zero if signal was added to the database, or
  *                zero if it was already present. */
 int mapper_db_add_or_update_signal_params(const char *name,
                                           const char *device_name,
                                           int is_output,
                                           mapper_message_t *params);
+
+/*! Add or update an entry in the mapping database using parsed message
+ *  parameters.
+ *  \param name   The full name of the source signal.
+ *  \param name   The full name of the destination signal.
+ *  \param params The parsed message parameters containing new mapping
+ *                information.
+ *  \return       Non-zero if mapping was added to the database, or
+ *                zero if it was already present. */
+int mapper_db_add_or_update_mapping_params(const char *src_name,
+                                           const char *dest_name,
+                                           mapper_message_t *params);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
@@ -181,6 +197,14 @@ void mapper_db_dump();
 
 /**** Links ****/
 
+/*! Add or update an entry in the link database using parsed message
+ *  parameters.
+ *  \param src_name  The name of the source device.
+ *  \param dest_name The name of the destination device.
+ *  \param params The parsed message parameters containing new link
+ *                information.
+ *  \return       Non-zero if link was added to the database, or
+ *                zero if it was already present. */
 int mapper_db_add_or_update_link_params(const char *src_name,
                                         const char *dest_name,
                                         mapper_message_t *params);
