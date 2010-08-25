@@ -814,11 +814,6 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
         lh->query_context->query_free(lh);
 }
 
-void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
-{
-    add_callback(&g_db_mapping_callbacks, f, user);
-}
-
 /**** Mapping records ****/
 
 /*! Update information about a given mapping record based on message
@@ -916,6 +911,11 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
     }
 
     return found;
+}
+
+void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
+{
+    add_callback(&g_db_mapping_callbacks, f, user);
 }
 
 void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user)
