@@ -327,7 +327,7 @@ void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user);
 /*! Return the list of mappings for a given input name.
  *  \param input_name Name of the input to find.
  *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
     const char *input_name);
@@ -338,7 +338,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
  *  \param input_name Exact name of the input to find, including the
  *                    leading '/'.
  *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
     const char *device_name, const char *input_name);
@@ -346,7 +346,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
 /*! Return the list of mappings for a given output name.
  *  \param output_name Name of the output to find.
  *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
     const char *output_name);
@@ -357,7 +357,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
  *  \param output_name Exact name of the output to find, including the
  *                     leading '/'.
  *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
     const char *device_name, const char *output_name);
@@ -373,7 +373,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
  *  \param outputs Double-pointer to the first item in a list
  *                 returned from a previous database query.
  *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_devices_and_signals(
     mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
