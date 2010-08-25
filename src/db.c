@@ -923,39 +923,137 @@ void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user)
     remove_callback(&g_db_mapping_callbacks, f, user);
 }
 
+static int cmp_query_get_mappings_by_input_name(void *context_data,
+                                                mapper_db_mapping map)
+{
+    const char *inputname = (const char*)context_data;
+    const char *mapinputname = map->src_name+1;
+    while (*mapinputname && *mapinputname != '/')  // find the signal name
+        mapinputname++;
+    mapinputname++;
+    return strcmp(mapinputname, inputname)==0;
+}
+
 mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
     const char *input_name)
 {
-    trace("mapper_db_get_mappings_by_input_name()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_mapping mapping = g_db_registered_mappings;
+    if (!mapping)
+        return 0;
+
+    // query skips first '/' in the name if it is provided
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_mappings_by_input_name,
+        input_name[0]=='/' ? input_name+1 : input_name, 0);
+
+    lh->self = mapping;
+
+    if (cmp_query_get_mappings_by_input_name(
+            &lh->query_context->data, mapping))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_mappings_by_device_and_input_name(
+    void *context_data, mapper_db_mapping map)
+{
+    const char *name = (const char*) context_data;
+    return strcmp(map->src_name, name)==0;
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
     const char *device_name, const char *input_name)
 {
-    trace("mapper_db_get_mappings_by_device_and_input_name()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_mapping mapping = g_db_registered_mappings;
+    if (!mapping)
+        return 0;
+
+    // query skips first '/' in both names if it is provided
+    char name[1024];
+    snprintf(name, 1024, "/%s/%s",
+             device_name[0]=='/' ? device_name+1 : device_name,
+             input_name[0]=='/' ? input_name+1 : input_name);
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_mappings_by_device_and_input_name,
+        name, 0);
+
+    lh->self = mapping;
+
+    if (cmp_query_get_mappings_by_device_and_input_name(
+            &lh->query_context->data, mapping))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_mappings_by_output_name(void *context_data,
+                                                mapper_db_mapping map)
+{
+    const char *outputname = (const char*)context_data;
+    const char *mapoutputname = map->dest_name+1;
+    while (*mapoutputname && *mapoutputname != '/')  // find the signal name
+        mapoutputname++;
+    mapoutputname++;
+    return strcmp(mapoutputname, outputname)==0;
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
     const char *output_name)
 {
-    trace("mapper_db_get_mappings_by_output_name()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_mapping mapping = g_db_registered_mappings;
+    if (!mapping)
+        return 0;
+
+    // query skips first '/' in the name if it is provided
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_mappings_by_output_name,
+        output_name[0]=='/' ? output_name+1 : output_name, 0);
+
+    lh->self = mapping;
+
+    if (cmp_query_get_mappings_by_output_name(
+            &lh->query_context->data, mapping))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_mappings_by_device_and_output_name(
+    void *context_data, mapper_db_mapping map)
+{
+    const char *name = (const char*) context_data;
+    return strcmp(map->dest_name, name)==0;
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
     const char *device_name, const char *output_name)
 {
-    trace("mapper_db_get_mappings_by_device_and_output_name()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_mapping mapping = g_db_registered_mappings;
+    if (!mapping)
+        return 0;
+
+    char name[1024];
+    snprintf(name, 1024, "/%s/%s",
+             device_name[0]=='/' ? device_name+1 : device_name,
+             output_name[0]=='/' ? output_name+1 : output_name);
+
+    // query skips first '/' in both names if it is provided
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_mappings_by_device_and_output_name,
+        name, 0);
+
+    lh->self = mapping;
+
+    if (cmp_query_get_mappings_by_device_and_output_name(
+            &lh->query_context->data, mapping))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
-mapper_db_mapping_t **mapper_db_get_mappings_by_devices_and_signals(
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal(
     mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
     mapper_db_device_t **output_devices, mapper_db_signal_t **outputs)
 {
@@ -966,9 +1064,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_devices_and_signals(
 
 mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t** m)
 {
-    trace("mapper_db_mapping_next(mapper_db_mapping_t** m()"
-          " not yet implemented.\n");
-    return 0;
+    return (mapper_db_mapping*) iterator_next((void**)m);
 }
 
 void mapper_db_mapping_done(mapper_db_mapping_t **d)

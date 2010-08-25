@@ -111,6 +111,8 @@ int main()
 
     mapper_db_add_or_update_mapping_params("/testdb.1/out1",
                                            "/testdb__.2/in2", &msg);
+    mapper_db_add_or_update_mapping_params("/testdb.1/out1",
+                                           "/testdb__.2/in1", &msg);
     mapper_db_add_or_update_mapping_params("/testdb__.2/out2",
                                            "/testdb.1/in2", &msg);
 
@@ -400,6 +402,131 @@ int main()
 
     if (count != 1) {
         printf("Expected 1 record, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\n--- Mappings ---\n");
+
+    printf("\nFind mappings with source 'out1':\n");
+
+    mapper_db_mapping* pmap =
+        mapper_db_get_mappings_by_input_name("out1");
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_input_name() returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_input_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 3) {
+        printf("Expected 3 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind mappings for device 'testdb.1', "
+           "source 'out1':\n");
+
+    pmap = mapper_db_get_mappings_by_device_and_input_name("testdb.1",
+                                                           "/out1");
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_device_and_input_name() "
+               "returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_device_and_input_name() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind mappings with destination 'in2':\n");
+
+    pmap = mapper_db_get_mappings_by_output_name("in2");
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_output_name() returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_output_name() returned something "
+               "which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind mappings for device 'testdb__.2', "
+           "destination 'in1':\n");
+
+    pmap = mapper_db_get_mappings_by_device_and_output_name("testdb__.2",
+                                                           "/in1");
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_device_and_output_name() "
+               "returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_device_and_output_name() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 2) {
+        printf("Expected 2 records, but counted %d.\n", count);
         return 1;
     }
 
