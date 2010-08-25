@@ -1053,11 +1053,20 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
     return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal(
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
+    const char *input_device_name,  const char *input_name,
+    const char *output_device_name, const char *output_name)
+{
+    trace("mapper_db_get_mappings_by_device_and_signal_names()"
+          " not yet implemented.\n");
+    return 0;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_queries(
     mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
     mapper_db_device_t **output_devices, mapper_db_signal_t **outputs)
 {
-    trace("mapper_db_get_mappings_by_devices_and_signals()"
+    trace("mapper_db_get_mappings_by_device_and_signal_queries()"
           " not yet implemented.\n");
     return 0;
 }
