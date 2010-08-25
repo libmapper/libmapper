@@ -532,6 +532,38 @@ int main()
 
     /*********/
 
+    printf("\nFind mappings for input device 'testdb__.2', signal 'out1',"
+           "\n              and output device 'testdb.1', signal 'in1':\n");
+
+    pmap = mapper_db_get_mappings_by_device_and_signal_names(
+        "testdb__.2", "out1", "testdb.1", "in1");
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_device_and_signal_names() "
+               "returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_device_and_signal_names() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 1) {
+        printf("Expected 1 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
     printf("\n--- Links ---\n");
 
     printf("\nFind matching links with source '/testdb__.2':\n");

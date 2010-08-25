@@ -1053,13 +1053,50 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
     return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
+static int cmp_query_get_mappings_by_device_and_signal_names(
+    void *context_data, mapper_db_mapping map)
+{
+    const char *src_name = (const char*) context_data;
+    if (strcmp(map->src_name, src_name)!=0)
+        return 0;
+    const char *dest_name = src_name + strlen(src_name) + 1;
+    return strcmp(map->dest_name, dest_name)==0;
+}
+
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
     const char *input_device_name,  const char *input_name,
     const char *output_device_name, const char *output_name)
 {
-    trace("mapper_db_get_mappings_by_device_and_signal_names()"
-          " not yet implemented.\n");
-    return 0;
+    mapper_db_mapping mapping = g_db_registered_mappings;
+    if (!mapping)
+        return 0;
+
+    char inname[1024];
+    snprintf(inname, 1024, "/%s/%s",
+             (input_device_name[0]=='/'
+              ? input_device_name+1
+              : input_device_name),
+             input_name[0]=='/' ? input_name+1 : input_name);
+
+    char outname[1024];
+    snprintf(outname, 1024, "/%s/%s",
+             (output_device_name[0]=='/'
+              ? output_device_name+1
+              : output_device_name),
+             output_name[0]=='/' ? output_name+1 : output_name);
+
+    // query skips first '/' in both names if it is provided
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_mappings_by_device_and_signal_names,
+        inname, outname, 0);
+
+    lh->self = mapping;
+
+    if (cmp_query_get_mappings_by_device_and_signal_names(
+            &lh->query_context->data, mapping))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_queries(
