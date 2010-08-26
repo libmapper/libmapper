@@ -1289,7 +1289,11 @@ static int handler_param_disconnect(const char *path, const char *types,
                         return 0;
 
                     /*The mapping is removed */
-                    mapper_router_remove_mapping( /*router, */ sm, m);
+                    if(mapper_router_remove_mapping(router, sm, m)) {
+                        lo_send(admin->admin_addr, "/disconnected",
+                                "ss", strcat(src_device_name, src_param_name),
+                                strcat(target_device_name, target_param_name));
+                    }
                 } else
                     return 0;
                 f1 = 1;

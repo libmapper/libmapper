@@ -78,7 +78,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
                                mapper_mapping mapping);
 
-void mapper_router_remove_mapping(mapper_signal_mapping sm,
+int mapper_router_remove_mapping(mapper_router router, mapper_signal_mapping sm,
                                   mapper_mapping mapping);
 
 mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
