@@ -1240,7 +1240,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
     
     if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
     {
-        trace("<%s> no output signal found for '%s' in /connect_to\n",
+        trace("<%s> no output signal found for '%s' in /disconnect\n",
               mapper_admin_name(admin), src_signal_name);
         return 0;
     }
@@ -1251,9 +1251,11 @@ static int handler_signal_disconnect(const char *path, const char *types,
     
     /*The mapping is removed */
     if (mapper_router_remove_mapping(router, m)) {
-        lo_send(admin->admin_addr, "/disconnected",
-                "ss", &argv[0]->s, &argv[1]->s);
+        return 0;
     }
+    
+    lo_send(admin->admin_addr, "/disconnected",
+            "ss", &argv[0]->s, &argv[1]->s);
         
     return 0;
 }

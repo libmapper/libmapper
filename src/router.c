@@ -139,13 +139,15 @@ int mapper_router_remove_mapping(mapper_router router,
     mapper_mapping *m = &router->mappings->mapping;
     while (*m) {
         if (*m == mapping) {
-            *m = mapping->next;
-			router->device->num_mappings_out--;
-            return 1;
+            if (--router->device->num_mappings_out <= 0)
+                router->mappings = NULL;
+            else
+                *m = mapping->next;
+            return 0;
         }
         m = &(*m)->next;
     }
-    return 0;
+    return 1;
 }
 
 mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
