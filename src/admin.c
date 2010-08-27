@@ -62,8 +62,8 @@ static int handler_signal_connect_to(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_signal_connected(const char *, const char *, lo_arg **,
                                     int, lo_message, void *);
-static int handler_signal_modify(const char *, const char *,
-                                 lo_arg **, int, lo_message, void *);
+static int handler_signal_connection_modify(const char *, const char *,
+                                            lo_arg **, int, lo_message, void *);
 static int handler_signal_disconnect(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_signal_disconnected(const char *, const char *, lo_arg **,
@@ -92,7 +92,7 @@ handlers[] = {
     {"/connect",                NULL,       handler_signal_connect},
     {"/connect_to",             NULL,       handler_signal_connect_to},
     {"/connected",              NULL,       handler_signal_connected},
-    {"/connection/modify",      NULL,       handler_signal_modify},
+    {"/connection/modify",      NULL,       handler_signal_connection_modify},
     {"/disconnect",             "ss",       handler_signal_disconnect},
     {"/disconnected",           "ss",       handler_signal_disconnected},
 };
@@ -1155,9 +1155,9 @@ static int handler_signal_connected(const char *path, const char *types,
 
 /*! Modify the connection properties : scaling, range, expression,
  *  clipMin, clipMax. */
-static int handler_signal_modify(const char *path, const char *types,
-                                 lo_arg **argv, int argc, lo_message msg,
-                                 void *user_data)
+static int handler_signal_connection_modify(const char *path, const char *types,
+                                            lo_arg **argv, int argc, lo_message msg,
+                                            void *user_data)
 {
 
     mapper_admin admin = (mapper_admin) user_data;
@@ -1254,8 +1254,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
     
-    lo_send(admin->admin_addr, "/disconnected",
-            "ss", &argv[0]->s, &argv[1]->s);
+    mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
         
     return 0;
 }
