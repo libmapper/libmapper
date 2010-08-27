@@ -173,18 +173,11 @@ mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
-
-    char src_name[1024], dest_name[1024];
-    msig_full_name(sig, src_name, 1024);
-    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
-
     mapping->props.range.known = 0;
 
     mapper_router_add_mapping(router, sig, mapping);
     mapper_mapping_set_direct(mapping);
 
-    lo_send(router->device->admin->admin_addr, "/connected", "ssss",
-            src_name, dest_name, "@scaling", "bypass");
     return mapping;
 }
 
@@ -200,22 +193,15 @@ void mapper_router_add_linear_range_mapping(mapper_router router,
     mapping->props.dest_name = strdup(name);
 
     mapper_mapping_range_t range;
+    
     range.src_min = src_min;
     range.src_max = src_max;
     range.dest_min = dest_min;
     range.dest_max = dest_max;
     range.known = MAPPING_RANGE_KNOWN;
+    
     mapper_mapping_set_linear_range(mapping, &range);
     mapper_router_add_mapping(router, sig, mapping);
-
-    char src_name[1024], dest_name[1024];
-    msig_full_name(sig, src_name, 1024);
-    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
-
-    lo_send(router->device->admin->admin_addr, "/connected", "sssssssffff",
-            src_name, dest_name, "@scaling", "linear", "@expression",
-            mapping->props.expression, "@range", src_min, src_max, dest_min,
-            dest_max);
 }
 
 void mapper_router_add_linear_scale_mapping(mapper_router router,
@@ -224,7 +210,6 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
                                             float scale, float offset)
 {
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    char src_name[1024], dest_name[1024];
 
     mapping->props.scaling = SC_LINEAR;
     mapping->props.src_name = strdup(sig->props.name);
@@ -245,14 +230,6 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
     mapping->expr_tree = T;
 
     mapper_router_add_mapping(router, sig, mapping);
-
-    snprintf(src_name, 1024, "/%s%s",
-             mapper_admin_name(router->device->admin), sig->props.name);
-    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
-
-    lo_send(router->device->admin->admin_addr, "/connected", "ssssss",
-            src_name, dest_name, "@scaling", "linear", "@expression",
-            mapping->props.expression);
 }
 
 void mapper_router_add_calibrate_mapping(mapper_router router,
@@ -267,14 +244,6 @@ void mapper_router_add_calibrate_mapping(mapper_router router,
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_calibrate(mapping, dest_min, dest_max);
     mapper_router_add_mapping(router, sig, mapping);
-
-    char src_name[1024], dest_name[1024];
-    msig_full_name(sig, src_name, 1024);
-    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
-
-    lo_send(router->device->admin->admin_addr, "/connected", "sssssssssff",
-            src_name, dest_name, "@scaling", "calibrate", "@expression",
-            mapping->props.expression, "@range", "-", "-", dest_min, dest_max);
 }
 
 void mapper_router_add_expression_mapping(mapper_router router,
@@ -288,14 +257,6 @@ void mapper_router_add_expression_mapping(mapper_router router,
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_expression(mapping, expr);
     mapper_router_add_mapping(router, sig, mapping);
-
-    char src_name[1024], dest_name[1024];
-    msig_full_name(sig, src_name, 1024);
-    snprintf(dest_name, 1024, "%s%s", router->target_name, name);
-
-    lo_send(router->device->admin->admin_addr, "/connected", "ssssss",
-            src_name, dest_name, "@scaling", "expression", "@expression",
-            mapping->props.expression);
 }
 
 mapper_router mapper_router_find_by_target_name(mapper_router router,
