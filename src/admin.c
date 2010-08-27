@@ -56,19 +56,18 @@ static int handler_device_unlinked(const char *, const char *, lo_arg **,
                                    int, lo_message, void *);
 static int handler_device_links_get(const char *, const char *, lo_arg **,
                                     int, lo_message, void *);
-static int handler_param_connect(const char *, const char *, lo_arg **,
-                                 int, lo_message, void *);
-static int handler_param_connect_to(const char *, const char *, lo_arg **,
+static int handler_signal_connect(const char *, const char *, lo_arg **,
+                                  int, lo_message, void *);
+static int handler_signal_connect_to(const char *, const char *, lo_arg **,
+                                     int, lo_message, void *);
+static int handler_signal_connected(const char *, const char *, lo_arg **,
                                     int, lo_message, void *);
-static int handler_param_connected(const char *, const char *, lo_arg **,
-                                   int, lo_message, void *);
-static int handler_param_connection_modify(const char *, const char *,
-                                           lo_arg **, int, lo_message,
-                                           void *);
-static int handler_param_disconnect(const char *, const char *, lo_arg **,
-                                    int, lo_message, void *);
-static int handler_param_disconnected(const char *, const char *, lo_arg **,
-                                      int, lo_message, void *);
+static int handler_signal_modify(const char *, const char *,
+                                 lo_arg **, int, lo_message, void *);
+static int handler_signal_disconnect(const char *, const char *, lo_arg **,
+                                     int, lo_message, void *);
+static int handler_signal_disconnected(const char *, const char *, lo_arg **,
+                                       int, lo_message, void *);
 static int handler_device_connections_get(const char *, const char *,
                                           lo_arg **, int, lo_message,
                                           void *);
@@ -90,12 +89,12 @@ handlers[] = {
     {"/unlink",                 "ss",       handler_device_unlink},
     {"/unlinked",               "ss",       handler_device_unlinked},
     {"%s/connections/get",      "",         handler_device_connections_get},
-    {"/connect",                NULL,       handler_param_connect},
-    {"/connect_to",             NULL,       handler_param_connect_to},
-    {"/connected",              NULL,       handler_param_connected},
-    {"/connection/modify",      NULL,       handler_param_connection_modify},
-    {"/disconnect",             "ss",       handler_param_disconnect},
-    {"/disconnected",           "ss",       handler_param_disconnected},
+    {"/connect",                NULL,       handler_signal_connect},
+    {"/connect_to",             NULL,       handler_signal_connect_to},
+    {"/connected",              NULL,       handler_signal_connected},
+    {"/connection/modify",      NULL,       handler_signal_modify},
+    {"/disconnect",             "ss",       handler_signal_disconnect},
+    {"/disconnected",           "ss",       handler_signal_disconnected},
 };
 const int N_HANDLERS = sizeof(handlers)/sizeof(handlers[0]);
 
@@ -952,16 +951,16 @@ static int osc_prefix_cmp(const char *str1, const char *str2,
 
 /*! When the /connect message is received by the destination device,
  *  send a connect_to message to the source device. */
-static int handler_param_connect(const char *path, const char *types,
-                                 lo_arg **argv, int argc, lo_message msg,
-                                 void *user_data)
+static int handler_signal_connect(const char *path, const char *types,
+                                  lo_arg **argv, int argc, lo_message msg,
+                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal input;
 
-    const char *src_param_name, *src_name;
-    const char *target_param_name, *target_name;
+    const char *src_signal_name, *src_name;
+    const char *target_signal_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -972,13 +971,13 @@ static int handler_param_connect(const char *path, const char *types,
 
     target_name = &argv[1]->s;
     if (osc_prefix_cmp(target_name, mapper_admin_name(admin),
-                       &target_param_name))
+                       &target_signal_name))
         return 0;
 
     src_name = &argv[0]->s;
-    src_param_name = strchr(src_name+1, '/');
+    src_signal_name = strchr(src_name+1, '/');
 
-    if (!src_param_name) {
+    if (!src_signal_name) {
         trace("<%s> source '%s' has no parameter in /connect.\n",
               mapper_admin_name(admin), src_name);
         return 0;
@@ -987,10 +986,10 @@ static int handler_param_connect(const char *path, const char *types,
     trace("<%s> got /connect %s %s\n", mapper_admin_name(admin),
           src_name, target_name);
 
-    if (mdev_find_input_by_name(md, target_param_name, &input) < 0)
+    if (mdev_find_input_by_name(md, target_signal_name, &input) < 0)
     {
         trace("<%s> no input signal found for '%s' in /connect_to\n",
-              mapper_admin_name(admin), target_param_name);
+              mapper_admin_name(admin), target_signal_name);
         return 0;
     }
 
@@ -1019,17 +1018,17 @@ static int handler_param_connect(const char *path, const char *types,
 }
 
 /*! Connect two signals. */
-static int handler_param_connect_to(const char *path, const char *types,
-                                    lo_arg **argv, int argc,
-                                    lo_message msg, void *user_data)
+static int handler_signal_connect_to(const char *path, const char *types,
+                                     lo_arg **argv, int argc,
+                                     lo_message msg, void *user_data)
 {
 
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal output;
 
-    const char *src_param_name, *src_name;
-    const char *target_param_name, *target_name;
+    const char *src_signal_name, *src_name;
+    const char *target_signal_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -1040,13 +1039,13 @@ static int handler_param_connect_to(const char *path, const char *types,
 
     src_name = &argv[0]->s;
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
-                       &src_param_name))
+                       &src_signal_name))
         return 0;
 
     target_name = &argv[1]->s;
-    target_param_name = strchr(target_name+1, '/');
+    target_signal_name = strchr(target_name+1, '/');
 
-    if (!target_param_name) {
+    if (!target_signal_name) {
         trace("<%s> target '%s' has no parameter in /connect_to.\n",
               mapper_admin_name(admin), target_name);
         return 0;
@@ -1055,10 +1054,10 @@ static int handler_param_connect_to(const char *path, const char *types,
     trace("<%s> got /connect_to %s %s + %d arguments\n",
           mapper_admin_name(admin), src_name, target_name, argc);
 
-    if (mdev_find_output_by_name(md, src_param_name, &output) < 0)
+    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
     {
         trace("<%s> no output signal found for '%s' in /connect_to\n",
-              mapper_admin_name(admin), src_param_name);
+              mapper_admin_name(admin), src_signal_name);
         return 0;
     }
 
@@ -1100,11 +1099,11 @@ static int handler_param_connect_to(const char *path, const char *types,
         /* If no properties were provided, default to direct
          * mapping */
         m = mapper_router_add_direct_mapping(router, output,
-                                         target_param_name);
+                                         target_signal_name);
     } else {
         /* Add a flavourless mapping */
         m = mapper_router_add_blank_mapping(
-            router, output, target_param_name);
+            router, output, target_signal_name);
 
         /* Set its properties. */
         mapper_mapping_set_from_message(m, output, &params);
@@ -1129,12 +1128,12 @@ static int handler_param_connect_to(const char *path, const char *types,
 }
 
 /*! Respond to /connected by storing connection in database. */
-static int handler_param_connected(const char *path, const char *types,
-                                   lo_arg **argv, int argc, lo_message msg,
-                                   void *user_data)
+static int handler_signal_connected(const char *path, const char *types,
+                                    lo_arg **argv, int argc, lo_message msg,
+                                    void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char src_param_name[1024], target_param_name[1024];
+    char src_signal_name[1024], target_signal_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1143,11 +1142,11 @@ static int handler_param_connected(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(src_param_name, &argv[0]->s);
-    strcpy(target_param_name, &argv[1]->s);
+    strcpy(src_signal_name, &argv[0]->s);
+    strcpy(target_signal_name, &argv[1]->s);
 
     trace("<%s> got /connected %s %s\n", mapper_admin_name(admin),
-          src_param_name, target_param_name);
+          src_signal_name, target_signal_name);
 
     //TO DO: record connection in database
 
@@ -1156,17 +1155,16 @@ static int handler_param_connected(const char *path, const char *types,
 
 /*! Modify the connection properties : scaling, range, expression,
  *  clipMin, clipMax. */
-static int handler_param_connection_modify(const char *path,
-                                           const char *types,
-                                           lo_arg **argv, int argc,
-                                           lo_message msg, void *user_data)
+static int handler_signal_modify(const char *path, const char *types,
+                                 lo_arg **argv, int argc, lo_message msg,
+                                 void *user_data)
 {
 
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal output;
 
-    const char *src_name, *src_param_name;
+    const char *src_name, *src_signal_name;
 
     if (argc < 4)
         return 0;
@@ -1178,13 +1176,13 @@ static int handler_param_connection_modify(const char *path,
 
     src_name = &argv[0]->s;
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
-                       &src_param_name))
+                       &src_signal_name))
         return 0;
             
-    if (mdev_find_output_by_name(md, src_param_name, &output) < 0)
+    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
     {
         trace("<%s> no output signal found for '%s' in /connect_to\n",
-              mapper_admin_name(admin), src_param_name);
+              mapper_admin_name(admin), src_signal_name);
         return 0;
     }
     
@@ -1217,9 +1215,9 @@ static int handler_param_connection_modify(const char *path,
 }
 
 /*! Disconnect two signals. */
-static int handler_param_disconnect(const char *path, const char *types,
-                                    lo_arg **argv, int argc,
-                                    lo_message msg, void *user_data)
+static int handler_signal_disconnect(const char *path, const char *types,
+                                     lo_arg **argv, int argc,
+                                     lo_message msg, void *user_data)
 {
 
     mapper_admin admin = (mapper_admin) user_data;
@@ -1231,8 +1229,8 @@ static int handler_param_disconnect(const char *path, const char *types,
         (*((mapper_admin) user_data)).device->outputs;
     int i = 0, f1 = 0, f2 = 0;
 
-    char src_param_name[1024], src_device_name[1024],
-        target_param_name[1024], target_device_name[1024];
+    char src_signal_name[1024], src_device_name[1024],
+        target_signal_name[1024], target_device_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1247,20 +1245,20 @@ static int handler_param_disconnect(const char *path, const char *types,
     /* Check OSC pattern match */
     if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
 
-        strcpy(src_param_name, &argv[0]->s + strlen(src_device_name));
+        strcpy(src_signal_name, &argv[0]->s + strlen(src_device_name));
         strcpy(target_device_name, &argv[1]->s);
         strtok(target_device_name, "/");
-        strcpy(target_param_name,
+        strcpy(target_signal_name,
                &argv[1]->s + strlen(target_device_name));
 
         trace("<%s> got /disconnect %s%s %s%s\n",
               mapper_admin_name(admin), src_device_name,
-              src_param_name, target_device_name, target_param_name);
+              src_signal_name, target_device_name, target_signal_name);
 
         /* Searches the source signal among the outputs of the device */
         while (i < md_num_outputs && f1 == 0) {
             /* If this signal exists ... */
-            if (strcmp(md_outputs[i]->props.name, src_param_name) == 0) {
+            if (strcmp(md_outputs[i]->props.name, src_signal_name) == 0) {
 
                 /* Searches the router linking to the receiver */
                 while (router != NULL && f2 == 0) {
@@ -1282,7 +1280,7 @@ static int handler_param_disconnect(const char *path, const char *types,
 
                     mapper_mapping m = sm->mapping;
                     while (m && strcmp(m->props.dest_name,
-                                       target_param_name) != 0) {
+                                       target_signal_name) != 0) {
                         m = m->next;
                     }
                     if (!m)
@@ -1291,8 +1289,8 @@ static int handler_param_disconnect(const char *path, const char *types,
                     /*The mapping is removed */
                     if (mapper_router_remove_mapping(router, sm, m)) {
                         lo_send(admin->admin_addr, "/disconnected",
-                                "ss", strcat(src_device_name, src_param_name),
-                                strcat(target_device_name, target_param_name));
+                                "ss", strcat(src_device_name, src_signal_name),
+                                strcat(target_device_name, target_signal_name));
                     }
                 } else
                     return 0;
@@ -1305,12 +1303,12 @@ static int handler_param_disconnect(const char *path, const char *types,
 }
 
 /*! Respond to /disconnected by removing connection from database. */
-static int handler_param_disconnected(const char *path, const char *types,
-                                      lo_arg **argv, int argc,
-                                      lo_message msg, void *user_data)
+static int handler_signal_disconnected(const char *path, const char *types,
+                                       lo_arg **argv, int argc,
+                                       lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char src_param_name[1024], target_param_name[1024];
+    char src_signal_name[1024], target_signal_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1319,11 +1317,11 @@ static int handler_param_disconnected(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(src_param_name, &argv[0]->s);
-    strcpy(target_param_name, &argv[1]->s);
+    strcpy(src_signal_name, &argv[0]->s);
+    strcpy(target_signal_name, &argv[1]->s);
 
     trace("<%s> got /disconnected %s %s\n", mapper_admin_name(admin),
-          src_param_name, target_param_name);
+          src_signal_name, target_signal_name);
 
     //TO DO: remove connection from database
 
