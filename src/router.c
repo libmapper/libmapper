@@ -132,19 +132,16 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     router->device->num_mappings_out++;
 }
 
-void mapper_router_remove_mapping(      /*mapper_router router, */
-                                     mapper_signal_mapping sm,
-                                     mapper_mapping mapping)
+int mapper_router_remove_mapping(mapper_router router, 
+								 mapper_signal_mapping sm,
+								 mapper_mapping mapping)
 {
 
     mapper_mapping *m = &sm->mapping;
     while (*m) {
         if (*m == mapping) {
             *m = mapping->next;
-            /* lo_send(router->device->admin->admin_addr,"/disconnected",
-                       "ss", strcat(src_device_name, src_param_name),
-                       strcat(target_device_name, target_param_name) );
-               router->device->num_mappings_out--; */
+			router->device->num_mappings_out--;
             break;
         }
         m = &(*m)->next;
