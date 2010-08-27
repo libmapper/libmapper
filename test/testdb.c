@@ -71,7 +71,7 @@ int main()
 
     mapper_db_add_or_update_signal_params("/out1", "/testdb.1", 1, &msg);
     mapper_db_add_or_update_signal_params("/out2", "/testdb.1", 1, &msg);
-    mapper_db_add_or_update_signal_params("/out1", "/testdb.2", 1, &msg);
+    mapper_db_add_or_update_signal_params("/out1", "/testdb__.2", 1, &msg);
 
     args[0] = (lo_arg*)"@scaling";
     args[1] = (lo_arg*)"bypass";
@@ -279,9 +279,9 @@ int main()
 
     /*********/
 
-    printf("\nFind all inputs for device '/testdb.2':\n");
+    printf("\nFind all inputs for device '/testdb__.2':\n");
 
-    psig = mapper_db_get_inputs_by_device_name("/testdb.2");
+    psig = mapper_db_get_inputs_by_device_name("/testdb__.2");
 
     count=0;
     if (psig) {
@@ -295,9 +295,9 @@ int main()
 
     /*********/
 
-    printf("\nFind all outputs for device '/testdb.2':\n");
+    printf("\nFind all outputs for device '/testdb__.2':\n");
 
-    psig = mapper_db_get_outputs_by_device_name("/testdb.2");
+    psig = mapper_db_get_outputs_by_device_name("/testdb__.2");
 
     count=0;
     if (!psig) {
@@ -379,9 +379,9 @@ int main()
 
     /*********/
 
-    printf("\nFind matching output 'out' for device '/testdb.2':\n");
+    printf("\nFind matching output 'out' for device '/testdb__.2':\n");
 
-    psig = mapper_db_match_outputs_by_device_name("/testdb.2", "out");
+    psig = mapper_db_match_outputs_by_device_name("/testdb__.2", "out");
 
     count=0;
     if (!psig) {
@@ -546,6 +546,40 @@ int main()
     }
     if (!*pmap) {
         printf("mapper_db_get_mappings_by_device_and_signal_names() "
+               "returned something which pointed to 0.\n");
+        return 1;
+    }
+
+    while (pmap) {
+        count ++;
+        printf("  source=%s, dest=%s\n",
+               (*pmap)->src_name, (*pmap)->dest_name);
+        pmap = mapper_db_mapping_next(pmap);
+    }
+
+    if (count != 1) {
+        printf("Expected 1 records, but counted %d.\n", count);
+        return 1;
+    }
+
+    /*********/
+
+    printf("\nFind mappings for input device 'testdb__.2', signals "
+           "matching 'out',"
+           "\n              and output device 'testdb.1', all signals:\n");
+
+    pmap = mapper_db_get_mappings_by_signal_queries(
+        mapper_db_match_outputs_by_device_name("/testdb__.2", "out"),
+        mapper_db_get_inputs_by_device_name("/testdb.1"));
+
+    count=0;
+    if (!pmap) {
+        printf("mapper_db_get_mappings_by_signal_queries() "
+               "returned 0.\n");
+        return 1;
+    }
+    if (!*pmap) {
+        printf("mapper_db_get_mappings_by_signal_queries() "
                "returned something which pointed to 0.\n");
         return 1;
     }

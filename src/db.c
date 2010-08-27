@@ -347,6 +347,31 @@ void remove_callback(fptr_list *head, void *f, void *user)
     free(cb);
 }
 
+/* Helper functions for queries that take two queries as parameters. */
+
+typedef struct {
+    list_header_t *lh_src_head;
+    list_header_t *lh_dest_head;
+} src_dest_queries_t;
+
+static void free_query_src_dest_queries(list_header_t *lh)
+{
+    query_info_t *qi = lh->query_context;
+    src_dest_queries_t *d = (src_dest_queries_t*)&qi->data;
+
+    qi = d->lh_src_head->query_context;
+    if (d->lh_src_head->query_type == QUERY_DYNAMIC
+        && qi->query_free)
+        qi->query_free(d->lh_src_head);
+
+    qi = d->lh_dest_head->query_context;
+    if (d->lh_dest_head->query_type == QUERY_DYNAMIC
+        && qi->query_free)
+        qi->query_free(d->lh_dest_head);
+
+    free_query_single_context(lh);
+}
+
 /* Helper functions for updating struct fields based on message
  * parameters. */
 
@@ -1099,13 +1124,95 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
     return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_queries(
-    mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
-    mapper_db_device_t **output_devices, mapper_db_signal_t **outputs)
+static int cmp_get_mappings_by_signal_queries(void *context_data,
+                                              mapper_db_mapping map)
 {
-    trace("mapper_db_get_mappings_by_device_and_signal_queries()"
-          " not yet implemented.\n");
-    return 0;
+    src_dest_queries_t *qsig = (src_dest_queries_t*) context_data;
+    char ctx_backup[1024];
+
+    /* Save the source list context so we can restart the query on the
+     * next pass. */
+    save_query_single_context(qsig->lh_src_head, ctx_backup, 1024);
+
+    /* Indicate not to free memory at the end of the pass. */
+    if (qsig->lh_src_head->query_type == QUERY_DYNAMIC
+        && qsig->lh_src_head->query_context)
+        qsig->lh_src_head->query_context->query_free = 0;
+
+    /* Find at least one signal in the source list that matches. */
+    mapper_db_signal *srcsig = (mapper_db_signal*)&qsig->lh_src_head->self;
+    unsigned int devnamelen = strlen((*srcsig)->device_name);
+    while (srcsig && *srcsig) {
+        if (strncmp((*srcsig)->device_name, map->src_name, devnamelen)==0
+            && strcmp((*srcsig)->name, map->src_name+devnamelen)==0)
+            break;
+        srcsig = mapper_db_signal_next(srcsig);
+    }
+    mapper_db_signal_done(srcsig);
+    restore_query_single_context(qsig->lh_src_head, ctx_backup);
+    if (!srcsig)
+        return 0;
+
+    /* Save the destination list context so we can restart the query
+     * on the next pass. */
+    save_query_single_context(qsig->lh_dest_head, ctx_backup, 1024);
+
+    /* Indicate not to free memory at the end of the pass. */
+    if (qsig->lh_dest_head->query_type == QUERY_DYNAMIC
+        && qsig->lh_dest_head->query_context)
+        qsig->lh_dest_head->query_context->query_free = 0;
+
+    /* Find at least one signal in the destination list that matches. */
+    mapper_db_signal *destsig = (mapper_db_signal*)&qsig->lh_dest_head->self;
+    devnamelen = strlen((*destsig)->device_name);
+    while (destsig && *destsig) {
+        if (strncmp((*destsig)->device_name, map->dest_name, devnamelen)==0
+            && strcmp((*destsig)->name, map->dest_name+devnamelen)==0)
+            break;
+        destsig = mapper_db_signal_next(destsig);
+    }
+    restore_query_single_context(qsig->lh_dest_head, ctx_backup);
+    mapper_db_signal_done(destsig);
+    if (!destsig)
+        return 0;
+
+    return 1;
+}
+
+mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
+    mapper_db_signal_t **inputs, mapper_db_signal_t **outputs)
+{
+    mapper_db_mapping maps = g_db_registered_mappings;
+    if (!maps)
+        return 0;
+
+    if (!(inputs && outputs))
+        return 0;
+
+    query_info_t *qi = (query_info_t*)
+        malloc(sizeof(query_info_t) + sizeof(src_dest_queries_t));
+
+    qi->size = sizeof(query_info_t) + sizeof(src_dest_queries_t);
+    qi->query_compare =
+        (query_compare_func_t*) cmp_get_mappings_by_signal_queries;
+    qi->query_free = free_query_src_dest_queries;
+
+    src_dest_queries_t *qdata = (src_dest_queries_t*)&qi->data;
+
+    qdata->lh_src_head = list_get_header_by_self(inputs);
+    qdata->lh_dest_head = list_get_header_by_self(outputs);
+
+    list_header_t *lh = (list_header_t*) malloc(sizeof(list_header_t));
+    lh->self = maps;
+    lh->next = dynamic_query_continuation;
+    lh->query_type = QUERY_DYNAMIC;
+    lh->query_context = qi;
+
+    if (cmp_get_mappings_by_signal_queries(
+            &lh->query_context->data, maps))
+        return (mapper_db_mapping*)&lh->self;
+
+    return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
 mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t** m)
@@ -1247,15 +1354,10 @@ mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
     return (mapper_db_link*)dynamic_query_continuation(lh);
 }
 
-typedef struct {
-    list_header_t *lh_src_head;
-    list_header_t *lh_dest_head;
-} src_dest_devices_t;
-
 static int cmp_get_links_by_source_dest_devices(void *context_data,
                                                 mapper_db_link link)
 {
-    src_dest_devices_t *qdata = (src_dest_devices_t*)context_data;
+    src_dest_queries_t *qdata = (src_dest_queries_t*)context_data;
     char ctx_backup[1024];
 
     /* Save the source list context so we can restart the query on the
@@ -1303,24 +1405,6 @@ static int cmp_get_links_by_source_dest_devices(void *context_data,
     return 1;
 }
 
-static void free_query_source_dest_devices(list_header_t *lh)
-{
-    query_info_t *qi = lh->query_context;
-    src_dest_devices_t *d = (src_dest_devices_t*)&qi->data;
-
-    qi = d->lh_src_head->query_context;
-    if (d->lh_src_head->query_type == QUERY_DYNAMIC
-        && qi->query_free)
-        qi->query_free(d->lh_src_head);
-
-    qi = d->lh_dest_head->query_context;
-    if (d->lh_dest_head->query_type == QUERY_DYNAMIC
-        && qi->query_free)
-        qi->query_free(d->lh_dest_head);
-
-    free_query_single_context(lh);
-}
-
 mapper_db_link_t **mapper_db_get_links_by_source_dest_devices(
     mapper_db_device_t **source_device_list,
     mapper_db_device_t **dest_device_list)
@@ -1330,14 +1414,14 @@ mapper_db_link_t **mapper_db_get_links_by_source_dest_devices(
         return 0;
 
     query_info_t *qi = (query_info_t*)
-        malloc(sizeof(query_info_t) + sizeof(src_dest_devices_t));
+        malloc(sizeof(query_info_t) + sizeof(src_dest_queries_t));
 
-    qi->size = sizeof(query_info_t) + sizeof(src_dest_devices_t);
+    qi->size = sizeof(query_info_t) + sizeof(src_dest_queries_t);
     qi->query_compare =
         (query_compare_func_t*) cmp_get_links_by_source_dest_devices;
-    qi->query_free = free_query_source_dest_devices;
+    qi->query_free = free_query_src_dest_queries;
 
-    src_dest_devices_t *qdata = (src_dest_devices_t*)&qi->data;
+    src_dest_queries_t *qdata = (src_dest_queries_t*)&qi->data;
 
     qdata->lh_src_head = list_get_header_by_self(source_device_list);
     qdata->lh_dest_head = list_get_header_by_self(dest_device_list);

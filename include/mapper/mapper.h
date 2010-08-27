@@ -380,11 +380,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
     const char *output_device_name, const char *output_name);
 
 /*! Return the list of mappings that touch any signals in the lists of
- *  inputs, outputs, and devices provided.
- *  \param input_devices Double-pointer to the first item in a list
- *                       returned from a previous database query.
- *  \param output_devices Double-pointer to the first item in a list
- *                        returned from a previous database query.
+ *  inputs and outputs provided.
  *  \param inputs Double-pointer to the first item in a list
  *                returned from a previous database query.
  *  \param outputs Double-pointer to the first item in a list
@@ -392,9 +388,8 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
  *  \return A double-pointer to the first item in the list of output
  *          signals, or zero if none.  Use mapper_db_mapping_next() to
  *          iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_queries(
-    mapper_db_device_t **input_devices,  mapper_db_signal_t **inputs,
-    mapper_db_device_t **output_devices, mapper_db_signal_t **outputs);
+mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
+    mapper_db_signal_t **inputs, mapper_db_signal_t **outputs);
 
 /*! Given a mapping record pointer returned from a previous
  *  mapper_db_get_mappings*() call, get the next item in the list.
