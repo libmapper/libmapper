@@ -1222,83 +1222,39 @@ static int handler_signal_disconnect(const char *path, const char *types,
 
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_router router = md->routers;
-
-    int md_num_outputs = (*((mapper_admin) user_data)).device->n_outputs;
-    mapper_signal *md_outputs =
-        (*((mapper_admin) user_data)).device->outputs;
-    int i = 0, f1 = 0, f2 = 0;
-
-    char src_signal_name[1024], src_device_name[1024],
-        target_signal_name[1024], target_device_name[1024];
-
+    mapper_signal output;
+        
+    const char *src_name, *src_signal_name;
+    
     if (argc < 2)
         return 0;
-
+    
     if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
         && types[1] != 'S')
         return 0;
-
-    strcpy(src_device_name, &argv[0]->s);
-    strtok(src_device_name, "/");
-
-    /* Check OSC pattern match */
-    if (strcmp(mapper_admin_name(admin), src_device_name) == 0) {
-
-        strcpy(src_signal_name, &argv[0]->s + strlen(src_device_name));
-        strcpy(target_device_name, &argv[1]->s);
-        strtok(target_device_name, "/");
-        strcpy(target_signal_name,
-               &argv[1]->s + strlen(target_device_name));
-
-        trace("<%s> got /disconnect %s%s %s%s\n",
-              mapper_admin_name(admin), src_device_name,
-              src_signal_name, target_device_name, target_signal_name);
-
-        /* Searches the source signal among the outputs of the device */
-        while (i < md_num_outputs && f1 == 0) {
-            /* If this signal exists ... */
-            if (strcmp(md_outputs[i]->props.name, src_signal_name) == 0) {
-
-                /* Searches the router linking to the receiver */
-                while (router != NULL && f2 == 0) {
-                    if (strcmp(router->target_name, target_device_name) ==
-                        0)
-                        f2 = 1;
-                    else
-                        router = router->next;
-                }
-
-                /* If this router exists ... */
-                if (f2 == 1) {
-                    /* Search the mapping corresponding to this connection */
-                    mapper_signal_mapping sm = router->mappings;
-                    while (sm && sm->signal != md_outputs[i])
-                        sm = sm->next;
-                    if (!sm)
-                        return 0;
-
-                    mapper_mapping m = sm->mapping;
-                    while (m && strcmp(m->props.dest_name,
-                                       target_signal_name) != 0) {
-                        m = m->next;
-                    }
-                    if (!m)
-                        return 0;
-
-                    /*The mapping is removed */
-                    if (mapper_router_remove_mapping(router, sm, m)) {
-                        lo_send(admin->admin_addr, "/disconnected",
-                                "ss", strcat(src_device_name, src_signal_name),
-                                strcat(target_device_name, target_signal_name));
-                    }
-                } else
-                    return 0;
-                f1 = 1;
-            } else
-                i++;
-        }
+    
+    src_name = &argv[0]->s;
+    if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
+                       &src_signal_name))
+        return 0;
+    
+    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
+    {
+        trace("<%s> no output signal found for '%s' in /connect_to\n",
+              mapper_admin_name(admin), src_signal_name);
+        return 0;
     }
+    
+    mapper_router router = mapper_router_find_by_target_name(md->routers, &argv[1]->s);
+    
+    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
+    
+    /*The mapping is removed */
+    if (mapper_router_remove_mapping(router, m)) {
+        lo_send(admin->admin_addr, "/disconnected",
+                "ss", &argv[0]->s, &argv[1]->s);
+    }
+        
     return 0;
 }
 
