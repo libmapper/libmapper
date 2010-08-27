@@ -71,6 +71,9 @@ static int handler_signal_disconnected(const char *, const char *, lo_arg **,
 static int handler_device_connections_get(const char *, const char *,
                                           lo_arg **, int, lo_message,
                                           void *);
+static int handler_generic(const char *path, const char *types,
+		lo_arg **argv, int argc, lo_message m,
+		void *userdata);
 
 /* Handler <-> Message relationships */
 static struct { char* path; char *types; lo_method_handler h; }
@@ -104,6 +107,54 @@ static void handler_error(int num, const char *msg, const char *where)
     printf("[libmapper] liblo server error %d in path %s: %s\n",
            num, where, msg);
 }
+
+static int handler_generic(const char *path, const char *types,
+		lo_arg **argv, int argc, lo_message m,
+		void *user_data) {
+
+	if ( strchr(path+2, '/') == NULL ) {
+
+		return 0;
+
+	}
+
+	if ( !strcmp(strchr(path+2, '/'), "/namespace/input") ||
+			!strcmp(strchr(path+2, '/'), "/namespace/output") ) { 
+
+		char** token_array;
+		int num_tokens;
+		token_array = parse_string( path, &num_tokens );
+
+		if (argc < 1)
+			return 0;
+
+		if (types[0] != 's' && types[0] != 'S')
+			return 0;
+
+		const char *name = &argv[0]->s;
+		int is_output = 0;
+
+		mapper_message_t params;
+		mapper_msg_parse_params(&params, path, &types[1],
+				argc-1, &argv[1]);
+
+		if ( !strcmp(strchr(path+2, '/'), "/namespace/output") ) {
+
+			is_output = 1;
+
+		}
+
+		mapper_db_add_or_update_signal_params( name+1, 
+				*(token_array+1), 
+				is_output, 
+				&params );
+
+	}
+
+	return 0;
+
+}
+
 
 /* Functions for handling the resource allocation scheme.  If
  * check_collisions() returns 1, the resource in question should be
@@ -299,6 +350,10 @@ void mapper_admin_poll(mapper_admin admin)
                                  handlers[i].types, handlers[i].h,
                                  admin);
         }
+
+		lo_server_add_method(admin->admin_server, NULL,
+				NULL, handler_generic,
+				admin);
 
         /* Remove some handlers needed during allocation. */
         lo_server_del_method(admin->admin_server, "/port/registered", NULL);
