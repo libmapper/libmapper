@@ -159,8 +159,6 @@ typedef struct _mapper_device {
      *  one input has been registered and the incoming port has been
      *  allocated. */
     lo_server server;
-    int num_routers;
-    int num_mappings_out;
 } *mapper_device;
 
 /**** Messages ****/

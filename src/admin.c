@@ -850,7 +850,6 @@ static int handler_device_link_to(const char *path, const char *types,
     // Creation of a new router added to the sender.
     router = mapper_router_new(md, host, port, target_name);
     mdev_add_router(md, router);
-    md->num_routers ++;
 
     // Announce the result.
     mapper_admin_send_osc(admin, "/linked", "ss",
@@ -940,7 +939,6 @@ static int handler_device_unlink(const char *path, const char *types,
         mapper_router_find_by_target_name(md->routers, target_name);
     if (router) {
         mdev_remove_router(md, router);
-        md->num_routers--;
         mapper_admin_send_osc(admin, "/unlinked", "ss",
                               mapper_admin_name(admin), target_name);
     }

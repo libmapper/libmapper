@@ -112,8 +112,6 @@ void loop()
 {
     printf("-------------------- GO ! --------------------\n");
     int i = 0;
-    /*mapper_device tmp_device=0;
-       list_admins tmp_local_devices =0; */
 
     if (automate) {
         char sender_name[1024], receiver_name[1024];
@@ -164,11 +162,9 @@ void loop()
            } */
 
         mdev_poll(sender, 0);
-        if (sender->num_mappings_out > 0) {
-            msig_update_scalar(sender->outputs[0],
-                               (mval) ((i % 10) * 1.0f));
-            printf("sender value updated to %d -->\n", i % 10);
-        }
+        msig_update_scalar(sender->outputs[0],
+                           (mval) ((i % 10) * 1.0f));
+        printf("sender value updated to %d -->\n", i % 10);
 
         usleep(500 * 1000);
         mdev_poll(receiver, 0);

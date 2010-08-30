@@ -30,8 +30,6 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
     md->routers = 0;
-    md->num_routers = 0;
-    md->num_mappings_out = 0;
     return md;
 }
 

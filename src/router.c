@@ -128,21 +128,15 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     // add new mapping to this signal's list
     mapping->next = sm->mapping;
     sm->mapping = mapping;
-
-    router->device->num_mappings_out++;
 }
 
 int mapper_router_remove_mapping(mapper_router router, 
 								 mapper_mapping mapping)
 {
-
     mapper_mapping *m = &router->mappings->mapping;
     while (*m) {
         if (*m == mapping) {
-            if (--router->device->num_mappings_out <= 0)
-                router->mappings = NULL;
-            else
-                *m = mapping->next;
+            *m = mapping->next;
             return 0;
         }
         m = &(*m)->next;
