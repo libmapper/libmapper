@@ -300,6 +300,12 @@ void mapper_admin_free(mapper_admin admin)
     if (!admin)
         return;
 
+    if (admin->port.locked && admin->ordinal.locked) {
+        // A registered device must tell the network it is leaving.
+        mapper_admin_send_osc(admin, "/logout", "s",
+                              mapper_admin_name(admin));
+    }
+
     if (admin->identifier)
         free(admin->identifier);
 

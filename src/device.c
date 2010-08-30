@@ -38,8 +38,6 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        lo_send(md->admin->admin_addr, "/logout", "s",
-                mapper_admin_name(md->admin));
         if (md->admin)
             mapper_admin_free(md->admin);
         for (i = 0; i < md->n_inputs; i++)
