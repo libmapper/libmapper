@@ -133,34 +133,6 @@ void loop()
     }
 
     while (i >= 0) {
-
-        /*tmp_local_devices=LOCAL_DEVICES;
-           while(tmp_local_devices != NULL)
-           {
-           tmp_device=tmp_local_devices->admin->device;
-           mdev_poll(tmp_device,0);
-
-           if (tmp_device->num_routers>0)
-           {   
-           if (tmp_device->num_mappings_out>0)
-           {            
-           msig_update_scalar(tmp_device->outputs[0], (mval)((i%10)*1.0f));
-           printf("%s value updated to %d -->\n",tmp_device->admin->identifier,i%10);
-           }
-           }
-           tmp_local_devices=tmp_local_devices->next;
-           }
-           usleep(500*1000);
-
-
-           tmp_local_devices=LOCAL_DEVICES;
-           while(tmp_local_devices!=NULL)
-           {
-           tmp_device=tmp_local_devices->admin->device;
-           mdev_poll(tmp_device,0);
-           tmp_local_devices=tmp_local_devices->next;
-           } */
-
         mdev_poll(sender, 0);
         msig_update_scalar(sender->outputs[0],
                            (mval) ((i % 10) * 1.0f));
