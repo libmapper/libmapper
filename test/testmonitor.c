@@ -115,6 +115,26 @@ void loop()
 
         printf("------------------------------\n");
 
+        printf("Registered mappings:\n");
+        mapper_db_mapping *pmap = mapper_db_get_all_mappings();
+        while (pmap) {
+            printf("  %s -> %s\n",
+                   (*pmap)->src_name, (*pmap)->dest_name);
+            pmap = mapper_db_mapping_next(pmap);
+        }
+
+        printf("------------------------------\n");
+
+        printf("Registered links:\n");
+        mapper_db_link *plink = mapper_db_get_all_links();
+        while (plink) {
+            printf("  %s -> %s\n",
+                   (*plink)->src_name, (*plink)->dest_name);
+            plink = mapper_db_link_next(plink);
+        }
+
+        printf("------------------------------\n");
+
         mdev_poll(dummy, 0);
         usleep(500 * 1000);
     }
@@ -154,6 +174,40 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     sleep(1);
 }
 
+void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
+{
+    printf("Mapping %s -> %s ", map->src_name, map->dest_name);
+    switch (a) {
+    case MDB_NEW:
+        printf("added.\n");
+        break;
+    case MDB_MODIFY:
+        printf("modified.\n");
+        break;
+    case MDB_REMOVE:
+        printf("removed.\n");
+        break;
+    }
+    sleep(1);
+}
+
+void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
+{
+    printf("Link %s -> %s ", lnk->src_name, lnk->dest_name);
+    switch (a) {
+    case MDB_NEW:
+        printf("added.\n");
+        break;
+    case MDB_MODIFY:
+        printf("modified.\n");
+        break;
+    case MDB_REMOVE:
+        printf("removed.\n");
+        break;
+    }
+    sleep(1);
+}
+
 void ctrlc(int sig)
 {
     done = 1;
@@ -173,6 +227,8 @@ int main()
 
     mapper_db_add_device_callback(on_device, 0);
     mapper_db_add_signal_callback(on_signal, 0);
+    mapper_db_add_mapping_callback(on_mapping, 0);
+    mapper_db_add_link_callback(on_link, 0);
 
     wait_local_devices();
 
@@ -181,6 +237,8 @@ int main()
   done:
     mapper_db_remove_device_callback(on_device, 0);
     mapper_db_remove_signal_callback(on_signal, 0);
+    mapper_db_remove_mapping_callback(on_mapping, 0);
+    mapper_db_remove_link_callback(on_link, 0);
     cleanup_dummy_device();
     return result;
 }

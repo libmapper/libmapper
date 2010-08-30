@@ -938,6 +938,19 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
     return found;
 }
 
+mapper_db_mapping_t **mapper_db_get_all_mappings()
+{
+    if (!g_db_registered_mappings)
+        return 0;
+
+    list_header_t *lh = list_get_header_by_data(g_db_registered_mappings);
+
+    die_unless(lh->self == &lh->data,
+               "bad self pointer in list structure");
+
+    return (mapper_db_mapping*)&lh->self;
+}
+
 void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
 {
     add_callback(&g_db_mapping_callbacks, f, user);
@@ -1285,6 +1298,19 @@ void mapper_db_add_link_callback(link_callback_func *f, void *user)
 void mapper_db_remove_link_callback(link_callback_func *f, void *user)
 {
     remove_callback(&g_db_link_callbacks, f, user);
+}
+
+mapper_db_link_t **mapper_db_get_all_links()
+{
+    if (!g_db_registered_links)
+        return 0;
+
+    list_header_t *lh = list_get_header_by_data(g_db_registered_links);
+
+    die_unless(lh->self == &lh->data,
+               "bad self pointer in list structure");
+
+    return (mapper_db_link*)&lh->self;
 }
 
 mapper_db_link mapper_db_get_link_by_source_dest_names(
