@@ -133,13 +133,19 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
 int mapper_router_remove_mapping(mapper_router router, 
 								 mapper_mapping mapping)
 {
-    mapper_mapping *m = &router->mappings->mapping;
-    while (*m) {
-        if (*m == mapping) {
-            *m = mapping->next;
-            return 0;
+    // find signal in signal mapping list
+    mapper_signal_mapping sm = router->mappings;
+    while (sm) {
+        mapper_mapping *m = &sm->mapping;
+        while (*m) {
+            if (*m == mapping) {
+                *m = mapping->next;
+                free(mapping);
+                return 0;
+            }
+            m = &(*m)->next;
         }
-        m = &(*m)->next;
+        sm = sm->next;
     }
     return 1;
 }
