@@ -127,6 +127,28 @@ static void* list_prepend_item(void *item, void **list)
     return item;
 }
 
+/*! Remove an item from a list and free its memory. */
+void list_remove_item(void *item, void **head)
+{
+    void *prev_node = 0, *node = *head;
+    while (node) {
+        if (node == item)
+            break;
+        prev_node = node;
+        node = list_get_next(node);
+    }
+
+    if (!node)
+        return;
+
+    if (prev_node)
+        list_set_next(prev_node, list_get_next(node));
+    else
+        *head = list_get_next(node);
+
+    free(list_get_header_by_data(node));
+}
+
 /** Structures and functions for performing dynamic queries **/
 
 /* Here are some generalized routines for dealing with typical context
@@ -506,6 +528,23 @@ int mapper_db_add_or_update_device_params(const char *name,
     }
 
     return rc;
+}
+
+void mapper_db_remove_device(const char *name)
+{
+    mapper_db_device dev = mapper_db_get_device_by_name(name);
+    if (dev) {
+        fptr_list cb = g_db_device_callbacks;
+        while (cb) {
+            device_callback_func *f = cb->f;
+            f(dev, MDB_REMOVE, cb->context);
+            cb = cb->next;
+        }
+    }
+
+    list_remove_item(dev, (void**)&g_db_registered_devices);
+
+    // TODO: also remove mappings and signals for this device
 }
 
 mapper_db_device mapper_db_get_device_by_name(const char *name)

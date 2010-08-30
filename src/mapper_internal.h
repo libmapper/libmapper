@@ -191,6 +191,9 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
                                            const char *dest_name,
                                            mapper_message_t *params);
 
+/*! Remove a named device from the database if it exists. */
+void mapper_db_remove_device(const char *name);
+
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();

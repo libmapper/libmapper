@@ -621,8 +621,9 @@ static int handler_logout(const char *path, const char *types,
 
     const char *name = &argv[0]->s;
 
-    //TO DO: remove record of device from database
     trace("<%s> got /logout %s\n", mapper_admin_name(admin), name);
+
+    mapper_db_remove_device(name);
 
     return 0;
 }
