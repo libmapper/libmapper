@@ -15,6 +15,16 @@ mapper_device dummy = 0;
 int port = 9000;
 int done = 0;
 
+const int polltime_ms = 100;
+
+void dbpause()
+{
+    // Don't pause normally, but this is left here to be easily
+    // enabled for debugging purposes.
+
+    // sleep(1);
+}
+
 void printsignal(mapper_db_signal sig, int is_output)
 {
     printf("  %s name=%s%s, type=%c, length=%d",
@@ -71,7 +81,7 @@ void wait_local_devices()
 {
     while (!(mdev_ready(dummy))) {
         mdev_poll(dummy, 0);
-        usleep(500 * 1000);
+        usleep(polltime_ms * 1000);
     }
 
     mapper_db_dump();
@@ -136,7 +146,7 @@ void loop()
         printf("------------------------------\n");
 
         mdev_poll(dummy, 0);
-        usleep(500 * 1000);
+        usleep(polltime_ms * 1000);
     }
 }
 
@@ -154,7 +164,7 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         printf("removed.\n");
         break;
     }
-    sleep(1);
+    dbpause();
 }
 
 void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
@@ -171,7 +181,7 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
         printf("removed.\n");
         break;
     }
-    sleep(1);
+    dbpause();
 }
 
 void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
@@ -188,7 +198,7 @@ void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
         printf("removed.\n");
         break;
     }
-    sleep(1);
+    dbpause();
 }
 
 void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
@@ -205,7 +215,7 @@ void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
         printf("removed.\n");
         break;
     }
-    sleep(1);
+    dbpause();
 }
 
 void ctrlc(int sig)
