@@ -108,51 +108,52 @@ static void handler_error(int num, const char *msg, const char *where)
            num, where, msg);
 }
 
+/* Handle messages for which we cannot specify a particular method
+ * name. Currently this consists of messages which are prefixed by the
+ * device name---since we don't know the name of all devices, we
+ * cannot listen for this message for them. The only messages of this
+ * type in the protocol are /<device>/namespace/<input/output>
+ * messages. */
 static int handler_generic(const char *path, const char *types,
-		lo_arg **argv, int argc, lo_message m,
-		void *user_data) {
+                           lo_arg **argv, int argc, lo_message m,
+                           void *user_data)
+{
+    if (argc < 2)
+        return 1;
 
-	if ( strchr(path+2, '/') == NULL ) {
+    if (types[0] != 's' && types[0] != 'S')
+        return 1;
 
-		return 0;
+    const char *suffix = strchr(path+1, '/');
+    if (!suffix)
+        return 1;
 
-	}
+    int is_output = -1;
+    if (strcmp(suffix, "/namespace/input")==0)
+        is_output = 0;
 
-	if ( !strcmp(strchr(path+2, '/'), "/namespace/input") ||
-			!strcmp(strchr(path+2, '/'), "/namespace/output") ) { 
+    if (strcmp(suffix, "/namespace/output")==0)
+        is_output = 1;
 
-		char** token_array;
-		int num_tokens;
-		token_array = parse_string( path, &num_tokens );
+    if (is_output == -1)
+        return 1;
 
-		if (argc < 1)
-			return 0;
+    int devnamelen = suffix-path;
+    char devname[1024];
+    strncpy(devname, path, devnamelen);
 
-		if (types[0] != 's' && types[0] != 'S')
-			return 0;
+    const char *name = &argv[0]->s;
 
-		const char *name = &argv[0]->s;
-		int is_output = 0;
+    mapper_message_t params;
+    mapper_msg_parse_params(&params, path, &types[1],
+                            argc-1, &argv[1]);
 
-		mapper_message_t params;
-		mapper_msg_parse_params(&params, path, &types[1],
-				argc-1, &argv[1]);
-
-		if ( !strcmp(strchr(path+2, '/'), "/namespace/output") ) {
-
-			is_output = 1;
-
-		}
-
-		mapper_db_add_or_update_signal_params( name+1, 
-				*(token_array+1), 
-				is_output, 
-				&params );
-
-	}
+    mapper_db_add_or_update_signal_params( name, 
+                                           devname,
+                                           is_output, 
+                                           &params );
 
 	return 0;
-
 }
 
 
