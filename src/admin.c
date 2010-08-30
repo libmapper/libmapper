@@ -139,8 +139,12 @@ static int handler_generic(const char *path, const char *types,
         return 1;
 
     int devnamelen = suffix-path;
+    if (devnamelen >= 1024)
+        return 0;
+
     char devname[1024];
     strncpy(devname, path, devnamelen);
+    devname[devnamelen]=0;
 
     const char *name = &argv[0]->s;
 
