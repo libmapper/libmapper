@@ -1378,6 +1378,8 @@ static int handler_device_connections_get(const char *path,
                      md_outputs[i]->props.name);
             while (sm != NULL) {
                 mapper_mapping m = sm->mapping;
+                if (!m)
+                    return 0;
                 snprintf(target_name, 256, "%s%s", router->target_name,
                          m->props.dest_name);
                 lo_message mess = lo_message_new();
