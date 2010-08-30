@@ -997,7 +997,7 @@ static int osc_prefix_cmp(const char *str1, const char *str2,
     while (*s2 && (*s2)!='/') s2++;
 
     int n1 = s1-str1, n2 = s2-str2;
-    if (n1!=n2) return 0;
+    if (n1!=n2) return 1;
 
     if (rest)
         *rest = s1;
