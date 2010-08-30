@@ -882,7 +882,10 @@ static int handler_device_linked(const char *path, const char *types,
     trace("<%s> got /linked %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
 
-    //TO DO: record link in database
+    mapper_message_t params;
+    if (mapper_msg_parse_params(&params, path, types+2, argc-2, argv+2))
+        return 0;
+    mapper_db_add_or_update_link_params(sender_name, target_name, &params);
 
     return 0;
 }
@@ -1191,7 +1194,7 @@ static int handler_signal_connected(const char *path, const char *types,
                                     void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char src_signal_name[1024], target_signal_name[1024];
+    char *src_signal_name, *target_signal_name;
 
     if (argc < 2)
         return 0;
@@ -1200,13 +1203,19 @@ static int handler_signal_connected(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(src_signal_name, &argv[0]->s);
-    strcpy(target_signal_name, &argv[1]->s);
+    src_signal_name = &argv[0]->s;
+    target_signal_name = &argv[1]->s;
 
     trace("<%s> got /connected %s %s\n", mapper_admin_name(admin),
           src_signal_name, target_signal_name);
 
-    //TO DO: record connection in database
+    mapper_message_t params;
+    if (mapper_msg_parse_params(&params, path, types+2, argc-2, argv+2)) {
+        lo_message_pp(msg);
+        return 0;
+    }
+    mapper_db_add_or_update_mapping_params(src_signal_name,
+                                           target_signal_name, &params);
 
     return 0;
 }

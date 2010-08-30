@@ -156,6 +156,13 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
+
+        // Request namespace for new devices.
+        // TODO: API function for this?
+        char cmd[1024];
+        snprintf(cmd, 1024, "%s/namespace/get", dev->name);
+        mapper_admin_send_osc(dummy->admin, cmd, "");
+
         break;
     case MDB_MODIFY:
         printf("modified.\n");
