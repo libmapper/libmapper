@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <signal.h>
 
 int automate = 1;
 
@@ -21,6 +22,7 @@ int sendport = 9000;
 
 int sent = 0;
 int received = 0;
+int done = 0;
 
 /*! Creation of a local sender. */
 int setup_sender()
@@ -132,7 +134,7 @@ void loop()
         lo_address_free(a);
     }
 
-    while (i >= 0) {
+    while (i >= 0 && !done) {
         mdev_poll(sender, 0);
         msig_update_scalar(sender->outputs[0],
                            (mval) ((i % 10) * 1.0f));
@@ -145,9 +147,16 @@ void loop()
     }
 }
 
+void ctrlc(int sig)
+{
+    done = 1;
+}
+
 int main()
 {
     int result = 0;
+
+    signal(SIGINT, ctrlc);
 
     if (setup_receiver()) {
         printf("Error initializing receiver.\n");
