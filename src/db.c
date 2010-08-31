@@ -536,6 +536,18 @@ void mapper_db_remove_device(const char *name)
     if (!dev)
         return;
 
+    mapper_db_remove_mappings_by_query(
+        mapper_db_get_mappings_by_device_name(name));
+
+    mapper_db_remove_links_by_query(
+        mapper_db_get_links_by_device_name(name));
+
+    mapper_db_remove_inputs_by_query(
+        mapper_db_get_inputs_by_device_name(name));
+
+    mapper_db_remove_outputs_by_query(
+        mapper_db_get_outputs_by_device_name(name));
+
     fptr_list cb = g_db_device_callbacks;
     while (cb) {
         device_callback_func *f = cb->f;
@@ -544,18 +556,6 @@ void mapper_db_remove_device(const char *name)
     }
 
     list_remove_item(dev, (void**)&g_db_registered_devices);
-
-    mapper_db_remove_inputs_by_query(
-        mapper_db_get_inputs_by_device_name(name));
-
-    mapper_db_remove_outputs_by_query(
-        mapper_db_get_outputs_by_device_name(name));
-
-    mapper_db_remove_mappings_by_query(
-        mapper_db_get_mappings_by_device_name(name));
-
-    mapper_db_remove_links_by_query(
-        mapper_db_get_links_by_device_name(name));
 }
 
 mapper_db_device mapper_db_get_device_by_name(const char *name)
