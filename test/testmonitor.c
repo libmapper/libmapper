@@ -14,6 +14,7 @@ mapper_device dummy = 0;
 
 int port = 9000;
 int done = 0;
+int update = 0;
 
 const int polltime_ms = 100;
 
@@ -91,6 +92,13 @@ void loop()
 {
     while (!done)
     {
+        mdev_poll(dummy, 0);
+        usleep(polltime_ms * 1000);
+
+        if (!update)
+            continue;
+        update = 0;
+
         // clear screen & cursor to home
         printf("\e[2J\e[0;0H");
         fflush(stdout);
@@ -144,9 +152,6 @@ void loop()
         }
 
         printf("------------------------------\n");
-
-        mdev_poll(dummy, 0);
-        usleep(polltime_ms * 1000);
     }
 }
 
@@ -172,6 +177,7 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         break;
     }
     dbpause();
+    update = 1;
 }
 
 void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
@@ -189,6 +195,7 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
         break;
     }
     dbpause();
+    update = 1;
 }
 
 void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
@@ -206,6 +213,7 @@ void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
         break;
     }
     dbpause();
+    update = 1;
 }
 
 void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
@@ -223,6 +231,7 @@ void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
         break;
     }
     dbpause();
+    update = 1;
 }
 
 void ctrlc(int sig)
