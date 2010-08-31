@@ -164,6 +164,16 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         snprintf(cmd, 1024, "%s/namespace/get", dev->name);
         mapper_admin_send_osc(dummy->admin, cmd, "");
 
+        // Request links for new devices.
+        // TODO: API function for this?
+        snprintf(cmd, 1024, "%s/links/get", dev->name);
+        mapper_admin_send_osc(dummy->admin, cmd, "");
+
+        // Request mappings for new devices.
+        // TODO: API function for this?
+        snprintf(cmd, 1024, "%s/connections/get", dev->name);
+        mapper_admin_send_osc(dummy->admin, cmd, "");
+
         break;
     case MDB_MODIFY:
         printf("modified.\n");
