@@ -249,6 +249,16 @@ void mapper_db_add_signal_callback(signal_callback_func *f, void *user);
  *              when adding the callback. */
 void mapper_db_remove_signal_callback(signal_callback_func *f, void *user);
 
+/*! Return the list of all known inputs across all devices.
+ *  \return A double-pointer to the first item in the list of results
+ *          or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal_t **mapper_db_get_all_inputs();
+
+/*! Return the list of all known outputs across all devices.
+ *  \return A double-pointer to the first item in the list of results
+ *          or zero if none.  Use mapper_db_signal_next() to iterate. */ 
+mapper_db_signal_t **mapper_db_get_all_outputs();
+
 /*! Return the list of inputs for a given device.
  *  \param device_name Name of the device to match for outputs.  Must
  *                     be exact, including the leading '/'.

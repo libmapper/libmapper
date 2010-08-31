@@ -115,20 +115,16 @@ void loop()
         printf("------------------------------\n");
 
         printf("Registered signals:\n");
-        pdev = mapper_db_get_all_devices();
-        while (pdev) {
-            mapper_db_signal *psig =
-                mapper_db_get_inputs_by_device_name((*pdev)->name);
-            while (psig) {
-                printsignal(*psig, 0);
-                psig = mapper_db_signal_next(psig);
-            }
-            psig = mapper_db_get_outputs_by_device_name((*pdev)->name);
-            while (psig) {
-                printsignal(*psig, 1);
-                psig = mapper_db_signal_next(psig);
-            }
-            pdev = mapper_db_device_next(pdev);
+        mapper_db_signal *psig =
+            mapper_db_get_all_inputs();
+        while (psig) {
+            printsignal(*psig, 0);
+            psig = mapper_db_signal_next(psig);
+        }
+        psig = mapper_db_get_all_outputs();
+        while (psig) {
+            printsignal(*psig, 1);
+            psig = mapper_db_signal_next(psig);
         }
 
         printf("------------------------------\n");

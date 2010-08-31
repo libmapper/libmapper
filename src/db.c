@@ -771,6 +771,32 @@ void mapper_db_remove_signal_callback(signal_callback_func *f, void *user)
     remove_callback(&g_db_signal_callbacks, f, user);
 }
 
+mapper_db_signal_t **mapper_db_get_all_inputs()
+{
+    if (!g_db_registered_inputs)
+        return 0;
+
+    list_header_t *lh = list_get_header_by_data(g_db_registered_inputs);
+
+    die_unless(lh->self == &lh->data,
+               "bad self pointer in list structure");
+
+    return (mapper_db_signal*)&lh->self;
+}
+
+mapper_db_signal_t **mapper_db_get_all_outputs()
+{
+    if (!g_db_registered_outputs)
+        return 0;
+
+    list_header_t *lh = list_get_header_by_data(g_db_registered_outputs);
+
+    die_unless(lh->self == &lh->data,
+               "bad self pointer in list structure");
+
+    return (mapper_db_signal*)&lh->self;
+}
+
 static int cmp_query_signal_exact_device_name(void *context_data,
                                               mapper_db_signal sig)
 {
