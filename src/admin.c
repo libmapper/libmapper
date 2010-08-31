@@ -966,7 +966,6 @@ static int handler_device_unlinked(const char *path, const char *types,
                                    void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    const char *sender_name, *target_name;
 
     if (argc < 2)
         return 0;
@@ -975,13 +974,15 @@ static int handler_device_unlinked(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    sender_name = &argv[0]->s;
-    target_name = &argv[1]->s;
+    const char *sender_name = &argv[0]->s;
+    const char *target_name = &argv[1]->s;
 
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
 
-    //TO DO: remove link from database
+    mapper_db_remove_link(
+        mapper_db_get_link_by_source_dest_names(sender_name,
+                                                target_name));
 
     return 0;
 }
@@ -1339,7 +1340,6 @@ static int handler_signal_disconnected(const char *path, const char *types,
                                        lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    char src_signal_name[1024], target_signal_name[1024];
 
     if (argc < 2)
         return 0;
@@ -1348,13 +1348,15 @@ static int handler_signal_disconnected(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    strcpy(src_signal_name, &argv[0]->s);
-    strcpy(target_signal_name, &argv[1]->s);
+    const char *src_signal_name = &argv[0]->s;
+    const char *dest_signal_name = &argv[1]->s;
 
     trace("<%s> got /disconnected %s %s\n", mapper_admin_name(admin),
-          src_signal_name, target_signal_name);
+          src_signal_name, dest_signal_name);
 
-    //TO DO: remove connection from database
+    mapper_db_remove_mapping(
+        mapper_db_get_mapping_by_signal_full_names(src_signal_name,
+                                                   dest_signal_name));
 
     return 0;
 }

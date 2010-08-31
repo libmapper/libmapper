@@ -396,6 +396,15 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
     const char *input_device_name,  const char *input_name,
     const char *output_device_name, const char *output_name);
 
+/*! Return the mapping that match the exact source and destination
+ *  specified by their full names ("/<device>/<signal>").
+ *  \param src_name  Full name of source signal.
+ *  \param dest_name Full name of destination signal.
+ *  \return A pointer to a structure containing information on the
+ *          found mapping, or 0 if not found. */
+mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
+    const char *src_name, const char *dest_name);
+
 /*! Return the list of mappings that touch any signals in the lists of
  *  inputs and outputs provided.
  *  \param inputs Double-pointer to the first item in a list

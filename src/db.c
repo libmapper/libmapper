@@ -1231,6 +1231,22 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
     return (mapper_db_mapping*)dynamic_query_continuation(lh);
 }
 
+mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
+    const char *src_name, const char *dest_name)
+{
+    mapper_db_mapping map = g_db_registered_mappings;
+    if (!map)
+        return 0;
+
+    while (map) {
+        if (strcmp(map->src_name, src_name)==0
+            && strcmp(map->dest_name, dest_name)==0)
+            return map;
+        map = list_get_next(map);
+    }
+    return 0;
+}
+
 static int cmp_query_get_mappings_by_device_and_signal_names(
     void *context_data, mapper_db_mapping map)
 {
@@ -1387,16 +1403,23 @@ void mapper_db_remove_mappings_by_query(mapper_db_mapping_t **s)
     while (s) {
         mapper_db_mapping map = *s;
         s = mapper_db_mapping_next(s);
-
-        fptr_list cb = g_db_mapping_callbacks;
-        while (cb) {
-            mapping_callback_func *f = cb->f;
-            f(map, MDB_REMOVE, cb->context);
-            cb = cb->next;
-        }
-
-        list_remove_item(map, (void**)&g_db_registered_mappings);
+        mapper_db_remove_mapping(map);
     }
+}
+
+void mapper_db_remove_mapping(mapper_db_mapping map)
+{
+    if (!map)
+        return;
+
+    fptr_list cb = g_db_mapping_callbacks;
+    while (cb) {
+        mapping_callback_func *f = cb->f;
+        f(map, MDB_REMOVE, cb->context);
+        cb = cb->next;
+    }
+
+    list_remove_item(map, (void**)&g_db_registered_mappings);
 }
 
 /**** Link records ****/
@@ -1669,14 +1692,21 @@ void mapper_db_remove_links_by_query(mapper_db_link_t **s)
     while (s) {
         mapper_db_link link = *s;
         s = mapper_db_link_next(s);
-
-        fptr_list cb = g_db_link_callbacks;
-        while (cb) {
-            link_callback_func *f = cb->f;
-            f(link, MDB_REMOVE, cb->context);
-            cb = cb->next;
-        }
-
-        list_remove_item(link, (void**)&g_db_registered_links);
+        mapper_db_remove_link(link);
     }
+}
+
+void mapper_db_remove_link(mapper_db_link link)
+{
+    if (!link)
+        return;
+
+    fptr_list cb = g_db_link_callbacks;
+    while (cb) {
+        link_callback_func *f = cb->f;
+        f(link, MDB_REMOVE, cb->context);
+        cb = cb->next;
+    }
+
+    list_remove_item(link, (void**)&g_db_registered_links);
 }

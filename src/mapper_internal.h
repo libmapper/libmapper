@@ -203,8 +203,14 @@ void mapper_db_remove_outputs_by_query(mapper_db_signal_t **s);
 /*! Remove mappings in the provided query. */
 void mapper_db_remove_mappings_by_query(mapper_db_mapping_t **s);
 
+/*! Remove a specific mapping from the database. */
+void mapper_db_remove_mapping(mapper_db_mapping map);
+
 /*! Remove links in the provided query. */
 void mapper_db_remove_links_by_query(mapper_db_link_t **s);
+
+/*! Remove a specific link from the database. */
+void mapper_db_remove_link(mapper_db_link map);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
