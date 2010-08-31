@@ -980,6 +980,10 @@ static int handler_device_unlinked(const char *path, const char *types,
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           sender_name, target_name);
 
+    mapper_db_remove_mappings_by_query(
+        mapper_db_get_mappings_by_source_dest_device_names(sender_name,
+                                                           target_name));
+
     mapper_db_remove_link(
         mapper_db_get_link_by_source_dest_names(sender_name,
                                                 target_name));

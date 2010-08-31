@@ -405,6 +405,15 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
 mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
     const char *src_name, const char *dest_name);
 
+/*! Return mappings that have the specified source and destination
+ *  devices.
+ *  \param src_name  Name of source device.
+ *  \param dest_name Name of destination device.
+ *  \return A double-pointer to the first item in a list of results,
+ *          or 0 if not found. */
+mapper_db_mapping_t **mapper_db_get_mappings_by_source_dest_device_names(
+    const char *src_device_name, const char *dest_device_name);
+
 /*! Return the list of mappings that touch any signals in the lists of
  *  inputs and outputs provided.
  *  \param inputs Double-pointer to the first item in a list
