@@ -194,6 +194,18 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device(const char *name);
 
+/*! Remove signals in the provided query. */
+void mapper_db_remove_inputs_by_query(mapper_db_signal_t **s);
+
+/*! Remove signals in the provided query. */
+void mapper_db_remove_outputs_by_query(mapper_db_signal_t **s);
+
+/*! Remove mappings in the provided query. */
+void mapper_db_remove_mappings_by_query(mapper_db_mapping_t **s);
+
+/*! Remove links in the provided query. */
+void mapper_db_remove_links_by_query(mapper_db_link_t **s);
+
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump();

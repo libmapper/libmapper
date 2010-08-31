@@ -339,6 +339,13 @@ void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user);
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_all_mappings();
 
+/*! Return the list of mappings that touch the given device name.
+ *  \param device_name Name of the device to find.
+ *  \return A double-pointer to the first item in the list of results,
+ *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
+mapper_db_mapping_t **mapper_db_get_mappings_by_device_name(
+    const char *device_name);
+
 /*! Return the list of mappings for a given input name.
  *  \param input_name Name of the input to find.
  *  \return A double-pointer to the first item in the list of results
@@ -443,6 +450,13 @@ void mapper_db_remove_link_callback(link_callback_func *f, void *user);
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_link_next() to iterate. */
 mapper_db_link_t **mapper_db_get_all_links();
+
+/*! Return the list of links that touch the given device name.
+ *  \param device_name Name of the device to find.
+ *  \return A double-pointer to the first item in the list of results,
+ *          or zero if none.  Use mapper_db_link_next() to iterate. */
+mapper_db_link_t **mapper_db_get_links_by_device_name(
+    const char *device_name);
 
 /*! Return the list of links for a given source name.
  *  \param source_device_name Name of the source device to find.
