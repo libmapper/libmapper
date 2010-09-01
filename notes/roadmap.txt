@@ -1,0 +1,131 @@
+% Roadmap for libmapper
+
+This document contains information on what needs to be accomplished in
+the library before a first release, and thereafter what features might
+be added in the future.
+
+Requirements
+============
+
+Before initial release, the library must provide the following:
+
+* Allow defining a named device and input/output signals.
+
+* Allow allocation of a unique port and name for the device.
+
+* Allow automatically responding to GUI commands to set up routings
+  and mappings.
+
+* Allow monitoring of the network and querying of this information for
+  display and user interaction.
+
+Current Status
+==============
+
+The current status is summarized here:
+
+* Name/port allocation works.
+
+* A device and signal API is established, allowing polling of the
+  network, responding to incoming signal values, and updating
+  registered output signals.
+
+* Routings (called Links) and Mappings can be established, and all
+  required signal conditioning functions have been implemented.
+
+* A device is able to also monitor the network and store information
+  about other devices, signals, links, and mappings, and this
+  information can be queried.
+
+Tasks To Do
+===========
+
+The following tasks currently need to be accomplished before initial
+release:
+
+* Code review of the database API.  In particular, inconsistencies
+  between terminology "input" vs. "source", "output", "destination",
+  "target", must be cleared up.  Check clarity, as it is somewhat
+  cluttered and verbose with various query types.
+
+* Code review of the expression parser/interpreter.
+
+* Ensure correct action is taken (if any) when signals are registered
+  and unregistered.
+
+* Port to Windows, or decide on priority of this.
+
+* Separate network monitor from device, such that it's possible to
+  monitor the network without creating a dummy device.  This may
+  require creating a global context handle for example.  (Currently
+  the database is the only global.)
+
+* Create a concise but convincing example for both controller and
+  synth sides.  Optional support for audio output, perhaps using STK,
+  would be beneficial here.
+
+* Allow selection of network interface.  This will also require
+  changes to liblo.
+
+* Make port/IP for admin bus configurable.
+
+* Add API for requesting network information.  (Send a request for a
+  device's namespace, links, mappings.)
+
+* Implement namespace hashing.
+
+* Implement OSC aliasing for signal connections.
+
+* Implement allocation "suggestions" to speed up port/ordinal
+  allocation.
+
+Lower priority tasks
+====================
+
+* Add a user interaction to "testmonitor", allowing users to create
+  connections in a text-based environment.  Although there will be
+  graphical interfaces, described in the next section, it should be
+  considered useful for the library to come with a simple tool to
+  monitor and possibly control the network, so that a user may test
+  the examples.
+
+* Develop the SWIG bindings, tested at least against Python.  In fact
+  there would be several benefits to doing this with higher priority,
+  as it would help in developing examples.  For senders and receivers,
+  it would provide a cross-platform GUI (tkinter).  It would also ease
+  the development of testmonitor as a barebones example of a network
+  monitor/UI (see the previous point), by providing GUI and/or ncurses
+  bindings.
+
+* Look into usage on embedded platforms.
+
+* In support of the previous point, implement the proposal for
+  pre-defined expressions.
+
+External tasks
+==============
+
+There are some tasks which address uses of the library/protocol rather
+than being tasks for the library development itself.
+
+* Development of Max external. (In progress.)
+
+* Development of Pure Data external.
+
+* Development of SuperCollider interface, either using library or
+  reimplemented in SC to some extent.
+
+* Development of Qt user interface. (In progress.)
+
+* Development of browser-based interface.
+
+* Modify some of the FAUST architectures (e.g., Jack) to automatically
+  create a libmapper interface for input and output signals.
+
+Future developments
+===================
+
+Ideas that we consider to have potential but are not being considered
+for current work.
+
+* Audio-rate signal connections via Jack, SoundFlower, etc.
