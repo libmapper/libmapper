@@ -102,6 +102,9 @@ Lower priority tasks
 * In support of the previous point, implement the proposal for
   pre-defined expressions.
 
+* Consider using a back-end such as SQLite for database searching.
+  (May be more efficient for supporting large networks.)
+
 External tasks
 ==============
 
@@ -121,6 +124,8 @@ than being tasks for the library development itself.
 
 * Modify some of the FAUST architectures (e.g., Jack) to automatically
   create a libmapper interface for input and output signals.
+
+* Wrap all STK instruments as mapper-compatible synths.
 
 Future developments
 ===================
