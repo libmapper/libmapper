@@ -53,8 +53,6 @@ release:
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered.
 
-* Port to Windows, or decide on priority of this.
-
 * Separate network monitor from device, such that it's possible to
   monitor the network without creating a dummy device.  This may
   require creating a global context handle for example.  (Currently
@@ -72,6 +70,9 @@ release:
 * Add API for requesting network information.  (Send a request for a
   device's namespace, links, mappings.)
 
+Lower priority tasks
+====================
+
 * Implement namespace hashing.
 
 * Implement OSC aliasing for signal connections.
@@ -79,8 +80,7 @@ release:
 * Implement allocation "suggestions" to speed up port/ordinal
   allocation.
 
-Lower priority tasks
-====================
+* Port to Windows.
 
 * Add a user interaction to "testmonitor", allowing users to create
   connections in a text-based environment.  Although there will be
