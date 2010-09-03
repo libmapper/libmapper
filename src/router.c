@@ -18,7 +18,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->addr = lo_address_new(host, str);
-    router->target_name = strdup(name);
+    router->dest_name = strdup(name);
     router->device = device;
 
     if (!router->addr) {
@@ -259,16 +259,16 @@ void mapper_router_add_expression_mapping(mapper_router router,
     mapper_router_add_mapping(router, sig, mapping);
 }
 
-mapper_router mapper_router_find_by_target_name(mapper_router router,
-                                                const char* target_name)
+mapper_router mapper_router_find_by_dest_name(mapper_router router,
+                                                const char* dest_name)
 {
-    int n = strlen(target_name);
-    const char *slash = strchr(target_name+1, '/');
+    int n = strlen(dest_name);
+    const char *slash = strchr(dest_name+1, '/');
     if (slash)
-        n = slash - target_name;
+        n = slash - dest_name;
 
     while (router) {
-        if (strncmp(router->target_name, target_name, n)==0)
+        if (strncmp(router->dest_name, dest_name, n)==0)
             return router;
         router = router->next;
     }

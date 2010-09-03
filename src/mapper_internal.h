@@ -109,9 +109,9 @@ void mapper_router_add_expression_mapping(mapper_router router,
                                           mapper_signal sig,
                                           const char *name, char *expr);
 
-/*! Find a router by target name in a linked list of routers. */
-mapper_router mapper_router_find_by_target_name(mapper_router routers,
-                                                const char* target_name);
+/*! Find a router by destination name in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_name(mapper_router routers,
+                                                const char* dest_name);
 
 int get_expr_Tree(Tree *T, const char *s);
 
@@ -131,7 +131,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
 
 mapper_mapping mapper_mapping_find_by_names(mapper_device md,
                                                     const char* src_name,
-                                                    const char* target_name);
+                                                    const char* dest_name);
 
 /*! Set a mapping's properties based on message parameters. */
 void mapper_mapping_set_from_message(mapper_mapping mapping,

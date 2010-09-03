@@ -210,8 +210,8 @@ Operator CEIL = {
 };
 
 
-/*! This function is called when the output value of the sender is
- *  updated and returns the value sent to the receiver */
+/*! This function is called when the output value of the source is
+ *  updated and returns the value sent to the destination */
 float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos,
                mapper_error *err)
 {

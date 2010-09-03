@@ -128,8 +128,8 @@ typedef struct _mapper_signal_mapping {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    const char *target_name;        /*!< Router name given by the
-                                     *   target name. */
+    const char *dest_name;          /*!< Router name given by the
+                                     *   destination name. */
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this router */
     lo_address addr;                //!< Sending address.

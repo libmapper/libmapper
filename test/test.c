@@ -12,8 +12,8 @@
 
 int automate = 1;
 
-mapper_device sender = 0;
-mapper_device receiver = 0;
+mapper_device source = 0;
+mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
@@ -24,74 +24,74 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-/*! Creation of a local sender. */
-int setup_sender()
+/*! Creation of a local source. */
+int setup_source()
 {
-    sender = mdev_new("testsend", sendport);
-    if (!sender)
+    source = mdev_new("testsend", sendport);
+    if (!source)
         goto error;
-    printf("Sender created.\n");
+    printf("source created.\n");
 
     sendsig = msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
 
-    mdev_register_output(sender, sendsig);
+    mdev_register_output(source, sendsig);
 
     printf("Output signal /outsig registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(sender));
+    printf("Number of outputs: %d\n", mdev_num_outputs(source));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_sender()
+void cleanup_source()
 {
-    if (sender) {
-        if (sender->routers) {
+    if (source) {
+        if (source->routers) {
             printf("Removing router.. ");
             fflush(stdout);
-            mdev_remove_router(sender, sender->routers);
+            mdev_remove_router(source, source->routers);
             printf("ok\n");
         }
-        printf("Freeing sender.. ");
+        printf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(sender);
+        mdev_free(source);
         printf("ok\n");
     }
 }
 
 void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 {
-    printf("--> Receiver got %s %f\n\n", sig->props.name, (*v).f);
+    printf("--> destination got %s %f\n\n", sig->props.name, (*v).f);
     received++;
 }
 
-/*! Creation of a local receiver. */
-int setup_receiver()
+/*! Creation of a local destination. */
+int setup_destination()
 {
-    receiver = mdev_new("testrecv", recvport);
-    if (!receiver)
+    destination = mdev_new("testrecv", recvport);
+    if (!destination)
         goto error;
-    printf("Receiver created.\n");
+    printf("destination created.\n");
 
     recvsig = msig_float(1, "/insig", 0, 0, 1, 0, insig_handler, 0);
 
-    mdev_register_input(receiver, recvsig);
+    mdev_register_input(destination, recvsig);
 
     printf("Input signal /insig registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(receiver));
+    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_receiver()
+void cleanup_destination()
 {
-    if (receiver) {
-        printf("Freeing receiver.. ");
+    if (destination) {
+        printf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(receiver);
+        mdev_free(destination);
         printf("ok\n");
     }
 }
@@ -100,9 +100,9 @@ void cleanup_receiver()
 
 void wait_local_devices()
 {
-    while (!(mdev_ready(sender) && mdev_ready(receiver))) {
-        mdev_poll(sender, 0);
-        mdev_poll(receiver, 0);
+    while (!(mdev_ready(source) && mdev_ready(destination))) {
+        mdev_poll(source, 0);
+        mdev_poll(destination, 0);
 
         usleep(500 * 1000);
     }
@@ -116,32 +116,32 @@ void loop()
     int i = 0;
 
     if (automate) {
-        char sender_name[1024], receiver_name[1024];
+        char source_name[1024], destination_name[1024];
 
-        printf("%s\n", mdev_name(sender));
-        printf("%s\n", mdev_name(receiver));
+        printf("%s\n", mdev_name(source));
+        printf("%s\n", mdev_name(destination));
 
         lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
         lo_address_set_ttl(a, 1);
 
-        lo_send(a, "/link", "ss", mdev_name(sender), mdev_name(receiver));
+        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
 
-        msig_full_name(sendsig, sender_name, 1024);
-        msig_full_name(recvsig, receiver_name, 1024);
+        msig_full_name(sendsig, source_name, 1024);
+        msig_full_name(recvsig, destination_name, 1024);
 
-        lo_send(a, "/connect", "ss", sender_name, receiver_name);
+        lo_send(a, "/connect", "ss", source_name, destination_name);
 
         lo_address_free(a);
     }
 
     while (i >= 0 && !done) {
-        mdev_poll(sender, 0);
-        msig_update_scalar(sender->outputs[0],
+        mdev_poll(source, 0);
+        msig_update_scalar(source->outputs[0],
                            (mval) ((i % 10) * 1.0f));
-        printf("sender value updated to %d -->\n", i % 10);
+        printf("source value updated to %d -->\n", i % 10);
 
         usleep(500 * 1000);
-        mdev_poll(receiver, 0);
+        mdev_poll(destination, 0);
 
         i++;
     }
@@ -158,14 +158,14 @@ int main()
 
     signal(SIGINT, ctrlc);
 
-    if (setup_receiver()) {
-        printf("Error initializing receiver.\n");
+    if (setup_destination()) {
+        printf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_sender()) {
-        printf("Done initializing sender.\n");
+    if (setup_source()) {
+        printf("Done initializing source.\n");
         result = 1;
         goto done;
     }
@@ -175,7 +175,7 @@ int main()
     loop();
 
   done:
-    cleanup_receiver();
-    cleanup_sender();
+    cleanup_destination();
+    cleanup_source();
     return result;
 }

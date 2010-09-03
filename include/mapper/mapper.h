@@ -411,7 +411,7 @@ mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
  *  \param dest_name Name of destination device.
  *  \return A double-pointer to the first item in a list of results,
  *          or 0 if not found. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_source_dest_device_names(
+mapper_db_mapping_t **mapper_db_get_mappings_by_src_dest_device_names(
     const char *src_device_name, const char *dest_device_name);
 
 /*! Return the list of mappings that touch any signals in the lists of
@@ -477,38 +477,38 @@ mapper_db_link_t **mapper_db_get_links_by_device_name(
     const char *device_name);
 
 /*! Return the list of links for a given source name.
- *  \param source_device_name Name of the source device to find.
+ *  \param src_device_name Name of the source device to find.
  *  \return A double-pointer to the first item in the list of source
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
-mapper_db_link_t **mapper_db_get_links_by_source_device_name(
-    const char *source_device_name);
+mapper_db_link_t **mapper_db_get_links_by_src_device_name(
+    const char *src_device_name);
 
 /*! Return the list of links for a given destination name.
- *  \param destination_device_name Name of the destination device to find.
+ *  \param dest_device_name Name of the destination device to find.
  *  \return A double-pointer to the first item in the list of destination
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
-    const char *destination_device_name);
+    const char *dest_device_name);
 
 /*! Return the link structure associated with the exact devices specified.
- *  \param source_device_name Name of the source device to find.
- *  \param destination_device_name Name of the destination device to find.
+ *  \param src_device_name Name of the source device to find.
+ *  \param dest_device_name Name of the destination device to find.
  *  \return A structure containing information on the link, or 0 if
  *          not found. */
-mapper_db_link mapper_db_get_link_by_source_dest_names(
-    const char *source_device_name,
-    const char *destination_device_name);
+mapper_db_link mapper_db_get_link_by_src_dest_names(
+    const char *src_device_name,
+    const char *dest_device_name);
 
 /*! Return the list of links for a given source name.
- *  \param source_device_name Name of the source device to find.
+ *  \param src_device_name Name of the source device to find.
  *  \return A double-pointer to the first item in the list of source
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
-mapper_db_link_t **mapper_db_get_links_by_source_dest_devices(
-    mapper_db_device_t **source_device_list,
-    mapper_db_device_t **destination_device_list);
+mapper_db_link_t **mapper_db_get_links_by_src_dest_devices(
+    mapper_db_device_t **src_device_list,
+    mapper_db_device_t **dest_device_list);
 
 /*! Given a link record double-pointer returned from a previous
  *  mapper_db_get_links*() call, get the next item in the list.

@@ -603,15 +603,15 @@ int main()
     printf("\nFind matching links with source '/testdb__.2':\n");
 
     mapper_db_link* plink =
-        mapper_db_get_links_by_source_device_name("/testdb__.2");
+        mapper_db_get_links_by_src_device_name("/testdb__.2");
 
     count=0;
     if (!plink) {
-        printf("mapper_db_get_links_by_source_device_name() returned 0.\n");
+        printf("mapper_db_get_links_by_src_device_name() returned 0.\n");
         return 1;
     }
     if (!*plink) {
-        printf("mapper_db_get_links_by_source_device_name() returned something "
+        printf("mapper_db_get_links_by_src_device_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
@@ -676,15 +676,15 @@ int main()
         return 1;
     }
 
-    plink = mapper_db_get_links_by_source_dest_devices(pdev, pdev2);
+    plink = mapper_db_get_links_by_src_dest_devices(pdev, pdev2);
 
     count=0;
     if (!plink) {
-        printf("mapper_db_get_links_by_source_dest_devices() returned 0.\n");
+        printf("mapper_db_get_links_by_src_dest_devices() returned 0.\n");
         return 1;
     }
     if (!*plink) {
-        printf("mapper_db_get_links_by_source_dest_devices() "
+        printf("mapper_db_get_links_by_src_dest_devices() "
                "returned something which pointed to 0.\n");
         return 1;
     }
@@ -719,15 +719,15 @@ int main()
         return 1;
     }
 
-    plink = mapper_db_get_links_by_source_dest_devices(pdev, pdev2);
+    plink = mapper_db_get_links_by_src_dest_devices(pdev, pdev2);
 
     count=0;
     if (!plink) {
-        printf("mapper_db_get_links_by_source_dest_devices() returned 0.\n");
+        printf("mapper_db_get_links_by_src_dest_devices() returned 0.\n");
         return 1;
     }
     if (!*plink) {
-        printf("mapper_db_get_links_by_source_dest_devices() "
+        printf("mapper_db_get_links_by_src_dest_devices() "
                "returned something which pointed to 0.\n");
         return 1;
     }

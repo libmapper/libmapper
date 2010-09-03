@@ -8,8 +8,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-mapper_device sender = 0;
-mapper_device receiver = 0;
+mapper_device source = 0;
+mapper_device destination = 0;
 mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
@@ -20,37 +20,37 @@ int sendport = 9001;
 int sent = 0;
 int received = 0;
 
-int setup_sender()
+int setup_source()
 {
-    sender = mdev_new("testsend", sendport);
-    if (!sender)
+    source = mdev_new("testsend", sendport);
+    if (!source)
         goto error;
-    printf("Sender created.\n");
+    printf("source created.\n");
 
     sendsig = msig_float(1, "/outsig", 0, INFINITY, INFINITY, 0, 0, 0);
 
-    mdev_register_output(sender, sendsig);
+    mdev_register_output(source, sendsig);
 
     printf("Output signal /outsig registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(sender));
+    printf("Number of outputs: %d\n", mdev_num_outputs(source));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_sender()
+void cleanup_source()
 {
-    if (sender) {
+    if (source) {
         if (router) {
             printf("Removing router.. ");
             fflush(stdout);
-            mdev_remove_router(sender, router);
+            mdev_remove_router(source, router);
             printf("ok\n");
         }
-        printf("Freeing sender.. ");
+        printf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(sender);
+        mdev_free(source);
         printf("ok\n");
     }
 }
@@ -61,33 +61,33 @@ void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
     received++;
 }
 
-int setup_receiver()
+int setup_destination()
 {
-    receiver = mdev_new("testrecv", recvport);
-    if (!receiver)
+    destination = mdev_new("testrecv", recvport);
+    if (!destination)
         goto error;
-    printf("Receiver created.\n");
+    printf("destination created.\n");
 
     recvsig =
         msig_float(1, "/insig", 0, INFINITY, INFINITY, 0, insig_handler,
                    0);
 
-    mdev_register_input(receiver, recvsig);
+    mdev_register_input(destination, recvsig);
 
     printf("Input signal /insig registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(receiver));
+    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_receiver()
+void cleanup_destination()
 {
-    if (receiver) {
-        printf("Freeing receiver.. ");
+    if (destination) {
+        printf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(receiver);
+        mdev_free(destination);
         printf("ok\n");
     }
 }
@@ -95,20 +95,20 @@ void cleanup_receiver()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(sender, host, recvport,
-                               mdev_name(receiver));
-    mdev_add_router(sender, router);
+    router = mapper_router_new(source, host, recvport,
+                               mdev_name(destination));
+    mdev_add_router(source, router);
     printf("Router to %s:%d added.\n", host, recvport);
 
     char signame_in[1024];
     if (!msig_full_name(recvsig, signame_in, 1024)) {
-        printf("Could not get receiver signal name.\n");
+        printf("Could not get destination signal name.\n");
         return 1;
     }
 
     char signame_out[1024];
     if (!msig_full_name(sendsig, signame_out, 1024)) {
-        printf("Could not get sender signal name.\n");
+        printf("Could not get source signal name.\n");
         return 1;
     }
 
@@ -123,9 +123,9 @@ int setup_router()
 
 void wait_ready()
 {
-    while (!(mdev_ready(sender) && mdev_ready(receiver))) {
-        mdev_poll(sender, 0);
-        mdev_poll(receiver, 0);
+    while (!(mdev_ready(source) && mdev_ready(destination))) {
+        mdev_poll(source, 0);
+        mdev_poll(destination, 0);
         usleep(500 * 1000);
     }
 }
@@ -135,13 +135,13 @@ void loop()
     printf("Polling device..\n");
     int i;
     for (i = 0; i < 10; i++) {
-        mdev_poll(sender, 0);
+        mdev_poll(source, 0);
         printf("Updating signal %s to %f\n",
                sendsig->props.name, (i * 1.0f));
         msig_update_scalar(sendsig, (mval) (i * 1.0f));
         sent++;
         usleep(250 * 1000);
-        mdev_poll(receiver, 0);
+        mdev_poll(destination, 0);
     }
 }
 
@@ -149,14 +149,14 @@ int main()
 {
     int result = 0;
 
-    if (setup_receiver()) {
-        printf("Error initializing receiver.\n");
+    if (setup_destination()) {
+        printf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_sender()) {
-        printf("Done initializing sender.\n");
+    if (setup_source()) {
+        printf("Done initializing source.\n");
         result = 1;
         goto done;
     }
@@ -179,8 +179,8 @@ int main()
     }
 
   done:
-    cleanup_receiver();
-    cleanup_sender();
+    cleanup_destination();
+    cleanup_source();
     printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }
