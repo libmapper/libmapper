@@ -50,6 +50,8 @@ release:
 
 * Code review of the expression parser/interpreter.
 
+* Adjust signal declaration syntax, generalize signal tracking functions?
+
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered.
 
@@ -91,7 +93,7 @@ Lower priority tasks
 
 * Develop the SWIG bindings, tested at least against Python.  In fact
   there would be several benefits to doing this with higher priority,
-  as it would help in developing examples.  For senders and receivers,
+  as it would help in developing examples.  For sources and destinations,
   it would provide a cross-platform GUI (tkinter).  It would also ease
   the development of testmonitor as a barebones example of a network
   monitor/UI (see the previous point), by providing GUI and/or ncurses
