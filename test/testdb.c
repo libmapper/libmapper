@@ -58,7 +58,7 @@ int main()
     args[2] = (lo_arg*)"@IP";
     args[3] = (lo_arg*)"localhost";
 
-    if (mapper_msg_parse_params(&msg, "/testdb.1/namespace/input",
+    if (mapper_msg_parse_params(&msg, "/testdb.1/signal/input",
                                 "sc", 2, args))
     {
         printf("2: Error, parsing failed.\n");

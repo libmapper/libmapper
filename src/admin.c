@@ -32,13 +32,13 @@ static int handler_registered(const char *, const char *, lo_arg **,
                               int, lo_message, void *);
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
-static int handler_id_n_namespace_input_get(const char *, const char *,
+static int handler_id_n_signals_input_get(const char *, const char *,
                                             lo_arg **, int, lo_message,
                                             void *);
-static int handler_id_n_namespace_output_get(const char *, const char *,
+static int handler_id_n_signals_output_get(const char *, const char *,
                                              lo_arg **, int, lo_message,
                                              void *);
-static int handler_id_n_namespace_get(const char *, const char *,
+static int handler_id_n_signals_get(const char *, const char *,
                                       lo_arg **, int, lo_message, void *);
 static int handler_device_alloc_port(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
@@ -81,9 +81,9 @@ handlers[] = {
     {"/who",                    "",         handler_who},
     {"/registered",             NULL,       handler_registered},
     {"/logout",                 NULL,       handler_logout},
-    {"%s/namespace/get",        "",         handler_id_n_namespace_get},
-    {"%s/namespace/input/get",  "",         handler_id_n_namespace_input_get},
-    {"%s/namespace/output/get", "",         handler_id_n_namespace_output_get},
+    {"%s/signals/get",        "",         handler_id_n_signals_get},
+    {"%s/signals/input/get",  "",         handler_id_n_signals_input_get},
+    {"%s/signals/output/get", "",         handler_id_n_signals_output_get},
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
@@ -112,7 +112,7 @@ static void handler_error(int num, const char *msg, const char *where)
  * name. Currently this consists of messages which are prefixed by the
  * device name---since we don't know the name of all devices, we
  * cannot listen for this message for them. The only messages of this
- * type in the protocol are /<device>/namespace/<input/output>
+ * type in the protocol are /<device>/signals/<input/output>
  * messages. */
 static int handler_generic(const char *path, const char *types,
                            lo_arg **argv, int argc, lo_message m,
@@ -129,10 +129,10 @@ static int handler_generic(const char *path, const char *types,
         return 1;
 
     int is_output = -1;
-    if (strcmp(suffix, "/namespace/input")==0)
+    if (strcmp(suffix, "/signal/input")==0)
         is_output = 0;
 
-    if (strcmp(suffix, "/namespace/output")==0)
+    if (strcmp(suffix, "/signal/output")==0)
         is_output = 1;
 
     if (is_output == -1)
@@ -628,9 +628,9 @@ static int handler_logout(const char *path, const char *types,
     return 0;
 }
 
-/*! Respond to /namespace/input/get by enumerating all supported
+/*! Respond to /signals/input/get by enumerating all supported
  *  inputs. */
-static int handler_id_n_namespace_input_get(const char *path,
+static int handler_id_n_signals_input_get(const char *path,
                                             const char *types,
                                             lo_arg **argv, int argc,
                                             lo_message msg,
@@ -643,7 +643,7 @@ static int handler_id_n_namespace_input_get(const char *path,
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
         mapper_admin_send_osc(
-            admin, "%s/namespace/input", "s", sig->props.name,
+            admin, "%s/signal/input", "s", sig->props.name,
             AT_TYPE, sig->props.type,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig);
@@ -652,9 +652,9 @@ static int handler_id_n_namespace_input_get(const char *path,
     return 0;
 }
 
-/*! Respond to /namespace/output/get by enumerating all supported
+/*! Respond to /signals/output/get by enumerating all supported
  *  outputs. */
-static int handler_id_n_namespace_output_get(const char *path,
+static int handler_id_n_signals_output_get(const char *path,
                                              const char *types,
                                              lo_arg **argv, int argc,
                                              lo_message msg,
@@ -667,7 +667,7 @@ static int handler_id_n_namespace_output_get(const char *path,
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
         mapper_admin_send_osc(
-            admin, "%s/namespace/output", "s", sig->props.name,
+            admin, "%s/signal/output", "s", sig->props.name,
             AT_TYPE, sig->props.type,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig);
@@ -676,16 +676,16 @@ static int handler_id_n_namespace_output_get(const char *path,
     return 0;
 }
 
-/*! Respond to /namespace/get by enumerating all supported inputs and
+/*! Respond to /signals/get by enumerating all supported inputs and
  *  outputs. */
-static int handler_id_n_namespace_get(const char *path, const char *types,
+static int handler_id_n_signals_get(const char *path, const char *types,
                                       lo_arg **argv, int argc,
                                       lo_message msg, void *user_data)
 {
 
-    handler_id_n_namespace_input_get(path, types, argv, argc, msg,
+    handler_id_n_signals_input_get(path, types, argv, argc, msg,
                                      user_data);
-    handler_id_n_namespace_output_get(path, types, argv, argc, msg,
+    handler_id_n_signals_output_get(path, types, argv, argc, msg,
                                       user_data);
 
     return 0;
