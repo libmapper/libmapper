@@ -60,7 +60,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
         return 0;
     }
 
-    if (mapping->props.scaling == SC_BYPASS /*|| mapping->type==LINEAR */ ) {
+    if (!mapping->props.scaling || mapping->props.scaling == SC_BYPASS /*|| mapping->type==LINEAR */ ) {
         /*for (i=0; i < mapping->order_input; i++)
            v = mapping->history_input[(p+i)%5] * mapping->coef_input[i];
 
@@ -347,8 +347,6 @@ void mapper_mapping_set_expression(mapper_mapping m,
     {
         if (get_expr_Tree(T, expr))
         {
-            m->props.scaling = SC_EXPRESSION;
-
             if (m->expr_tree)
                 DeleteTree(m->expr_tree);
             m->expr_tree = T;
@@ -361,9 +359,8 @@ void mapper_mapping_set_expression(mapper_mapping m,
             DeleteTree(T);
     }
     else {
-        if (get_expr_Tree(T, m->props.expression))
+        if (m->props.expression && get_expr_Tree(T, m->props.expression))
         {
-            m->props.scaling = SC_EXPRESSION;
             // In this case it is possible that expr_tree exists and is correct
             // Rebuild it anyway?
             if (m->expr_tree)
@@ -570,6 +567,10 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
     if (clip_max >= 0)
         m->props.clip_upper = clip_max;
+    
+    /* Expression. */
+    const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
+    mapper_mapping_set_expression(m, expr);
 
     /* Now set the scaling type depending on the requested type and
      * the known properties. */
@@ -579,20 +580,22 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     switch (scaling)
     {
     case -1:
-        /* No scaling type specified; see if we know the range and
-           choose between linear or direct mapping. */
-        if (range_known == MAPPING_RANGE_KNOWN) {
-            /* We have enough information for a linear mapping. */
-            mapper_mapping_range_t r;
-            r.src_min = range[0];
-            r.src_max = range[1];
-            r.dest_min = range[2];
-            r.dest_max = range[3];
-            r.known = range_known;
-            mapper_mapping_set_linear_range(m, &r);
-        } else
-            /* No range, default to direct mapping. */
-            mapper_mapping_set_direct(m);
+        /* No scaling type specified; if scaling not yet set, see if 
+         we know the range and choose between linear or direct mapping. */
+            if (!m->props.scaling) {
+                if (range_known == MAPPING_RANGE_KNOWN) {
+                    /* We have enough information for a linear mapping. */
+                    mapper_mapping_range_t r;
+                    r.src_min = range[0];
+                    r.src_max = range[1];
+                    r.dest_min = range[2];
+                    r.dest_max = range[3];
+                    r.known = range_known;
+                    mapper_mapping_set_linear_range(m, &r);
+                } else
+                    /* No range, default to direct mapping. */
+                    mapper_mapping_set_direct(m);
+            }
         break;
     case SC_BYPASS:
         mapper_mapping_set_direct(m);
@@ -615,9 +618,8 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         break;
     case SC_EXPRESSION:
         {
-            const char *expr =
-                mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-            mapper_mapping_set_expression(m, expr);
+            if (m->props.expression)
+                m->props.scaling = SC_EXPRESSION;
         }
         break;
     default:

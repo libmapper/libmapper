@@ -157,11 +157,8 @@ mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
     // Some default values?
-    mapping->props.scaling = SC_BYPASS;
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
-    mapping->props.expression = strdup("y=x");
-    mapping->props.range.known = 0;
 
     mapper_router_add_mapping(router, sig, mapping);
     return mapping;
