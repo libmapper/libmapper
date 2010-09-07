@@ -77,10 +77,16 @@ Lower priority tasks
 
 * Implement namespace hashing.
 
+* Implement connection muting.
+
 * Implement OSC aliasing for signal connections.
+
+* Implement bidirectional communication for state queries.
 
 * Implement allocation "suggestions" to speed up port/ordinal
   allocation.
+
+* Add "fixed" processing type.
 
 * Port to Windows.
 
@@ -136,3 +142,5 @@ Ideas that we consider to have potential but are not being considered
 for current work.
 
 * Audio-rate signal connections via Jack, SoundFlower, etc.
+
+* Interpolation for filtering of sporadic signals
