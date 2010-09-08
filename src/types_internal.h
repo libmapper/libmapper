@@ -109,7 +109,7 @@ typedef struct _mapper_mapping {
     int calibrating;   /*!< 1 if the source range is currently being
                         *   calibrated, 0 otherwise. */
 
-    Tree *expr_tree;   //!< Tree representing the mapping expression.
+    mapper_expr_tree expr_tree;  //!< Tree representing the mapping expression.
 } *mapper_mapping;
 
 

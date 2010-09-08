@@ -7,30 +7,8 @@
 #include "operations.h"
 #include "expression.h"
 
-/*! Get the expression string from the terminal, only for debug use. */
-void get_typed_string(char *s, mapper_error *err)
-{
-    int i = 0;
-    char buffer[SIZE];
-    char *buffer2 = NULL;
-    buffer2 = fgets(buffer, SIZE, stdin);
-    while (buffer[i] != '\n' && i < SIZE)
-        i++;
-    if (i < SIZE) {
-        buffer[i] = '\0';
-        strcpy(s, buffer);
-    }
-
-    else {
-        *err = ERR_TOO_LONG;
-        perror("Too long expression\n");
-        return;
-    }
-}
-
-
 /*! Remove spaces in a string. */
-void remove_spaces(char *s)
+static void remove_spaces(char *s)
 {
     char *buffer = NULL;
     int i, j = 0;
@@ -46,7 +24,7 @@ void remove_spaces(char *s)
 
 /*! Tell if a character has to be seen as a separator by the
  *  parser. */
-int is_separator(char c)
+static int is_separator(char c)
 {
     int ret;
     switch (c) {
@@ -71,7 +49,7 @@ int is_separator(char c)
 
 
 /*! Parse the string and separate the terms in an array. */
-char **parse_string(char *s, int *l)
+static char **parse_string(char *s, int *l)
 {
     char **tab = (char **) malloc((strlen(s)+1) * sizeof(char*));
     int i_s = 0;
@@ -122,40 +100,41 @@ char **parse_string(char *s, int *l)
     return tab;
 }
 
-Tree *NewTree(void)
+mapper_expr_tree mapper_expr_new(void)
 {
-    Tree *T;
-    T = (Tree *) calloc(1, sizeof(Tree));
+    mapper_expr_tree T;
+    T = (mapper_expr_tree) calloc(1, sizeof(struct _mapper_expr_tree));
     T->left = NULL;
     T->right = NULL;
     return T;
 }
 
-void DeleteTree(Tree *T)
+void mapper_expr_free(mapper_expr_tree T)
 {
     if (T != NULL) {
-        DeleteTree(T->left);
-        DeleteTree(T->right);
+        mapper_expr_free(T->left);
+        mapper_expr_free(T->right);
         free(T);
     }
 }
 
-Tree *CopyTree(Tree *T)
+mapper_expr_tree mapper_expr_copy(mapper_expr_tree T)
 {
-    Tree *new_T = NULL;
+    mapper_expr_tree new_T = NULL;
     if (T != NULL) {
-        new_T = NewTree();
+        new_T = mapper_expr_new();
         new_T->num = T->num;
         new_T->oper = T->oper;
-        new_T->left = CopyTree(T->left);
-        new_T->right = CopyTree(T->right);
+        new_T->left = mapper_expr_copy(T->left);
+        new_T->right = mapper_expr_copy(T->right);
     }
     return new_T;
 }
 
 
 /*! Convert a string to an operator_type object. */
-Operator string_to_operator(char *s, operator_type type, mapper_error *err)
+static Operator string_to_operator(char *s, operator_type type,
+                                   mapper_expr_error *err)
 {
     Operator oper = EVAL;
     if (type == arity_1) {
@@ -242,7 +221,7 @@ Operator string_to_operator(char *s, operator_type type, mapper_error *err)
 
 
 /*! Get the history order from a string, x[..] or y[..]*/
-int find_history_order(char *s, mapper_error *err)
+static int find_history_order(char *s, mapper_expr_error *err)
 {
     int o = 0;
     if (s[1] == '[' && s[strlen(s) - 1] == ']')
@@ -257,10 +236,10 @@ int find_history_order(char *s, mapper_error *err)
         return o;
 }
 
-
 /*! Construct the expression tree using the different priorities of
  *  the operators and functions */
-void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
+void mapper_expr_construct(mapper_expr_tree T, char **expr,
+                           int t1, int t2, mapper_expr_error *err)
 {
     int i = t1;
 
@@ -420,7 +399,7 @@ void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
 
         else if ((strcmp(expr[positionv], "pi") == 0)
                  || (strcmp(expr[positionv], "Pi") == 0)) {
-            T->num = _Pi;
+            T->num = M_PI;
         }
 
         else {
@@ -433,7 +412,7 @@ void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
 
     else if (operat.type == arity_1) {
         T->oper = operat;
-        T->left = NewTree();
+        T->left = mapper_expr_new();
         T->right = NULL;
         if ((t2 - prev_parenth_order - position - 1) < 0
             || (expr[position + 1][0] == '('
@@ -448,14 +427,14 @@ void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
             perror("Arguments must be between ()\n");
             return;
         }
-        ConstructTree(T->left, expr, position + 1,
-                      t2 - prev_parenth_order, err);
+        mapper_expr_construct(T->left, expr, position + 1,
+                              t2 - prev_parenth_order, err);
     }
 
     else if (operat.id == OPP.id) {
         T->oper = MINUS;
-        T->left = NewTree();
-        T->right = NewTree();
+        T->left = mapper_expr_new();
+        T->right = mapper_expr_new();
         T->left->oper = EVAL;
         T->left->num = (float) 0;
         if ((t2 - prev_parenth_order - position - 1) < 0) {
@@ -463,27 +442,87 @@ void ConstructTree(Tree *T, char **expr, int t1, int t2, mapper_error *err)
             perror("Missing argument\n");
             return;
         }
-        ConstructTree(T->right, expr, position + 1,
-                      t2 - prev_parenth_order, err);
+        mapper_expr_construct(T->right, expr, position + 1,
+                              t2 - prev_parenth_order, err);
     }
 
     else {
         T->oper = operat;
-        T->left = NewTree();
-        T->right = NewTree();
+        T->left = mapper_expr_new();
+        T->right = mapper_expr_new();
         if ((position - 1 - t1 - prev_parenth_order) < 0) {
             *err = ERR_MISSING_ARG;
             perror("Missing argument\n");
             return;
         }
-        ConstructTree(T->left, expr, t1 + prev_parenth_order,
-                      position - 1, err);
+        mapper_expr_construct(T->left, expr, t1 + prev_parenth_order,
+                              position - 1, err);
         if ((t2 - prev_parenth_order - position - 1) < 0) {
             *err = ERR_MISSING_ARG;
             perror("Missing argument\n");
             return;
         }
-        ConstructTree(T->right, expr, position + 1,
-                      t2 - prev_parenth_order, err);
+        mapper_expr_construct(T->right, expr, position + 1,
+                              t2 - prev_parenth_order, err);
     }
+}
+
+/*! Get the expression tree from the expression string. */
+int mapper_expr_create_from_string(mapper_expr_tree T, const char *str)
+{
+    char expr[1024], *s = expr;
+    strncpy(s, str, 1024);
+
+    /* The commented parts are for debug use, to get the string from
+     * the terminal */
+
+    /*char s[SIZE]; */
+    char **parsed_expr = NULL;
+    int expr_length;
+    mapper_expr_error err = ERR_EMPTY_EXPR;
+    while (err != NO_ERR) {
+        err = NO_ERR;
+
+        if (s != NULL && err == NO_ERR) {
+
+            /*Remove spaces */
+            remove_spaces(s);
+            if (s[0] == 'y' && s[1] == '=')
+                s = strndup(s+2, strlen(s)-2);
+            if (strlen(s) > 0) {
+
+                /*Parse the expression */
+                parsed_expr = parse_string(s, &expr_length);
+                if (parsed_expr != NULL) {
+
+                    /*Construct the tree */
+                    mapper_expr_construct(T, parsed_expr, 0,
+                                          expr_length - 1, &err);
+                    free(*parsed_expr);
+                    if (err != NO_ERR)
+                        return 0;
+                }
+
+                else {
+                    err = ERR_PARSER;
+                    perror("Parser error\n");
+                    return 0;
+                }
+            }
+
+            else {
+                err = ERR_EMPTY_EXPR;
+                perror("Empty expression\n");
+                return 0;
+            }
+        }
+
+        else {
+            err = ERR_GET_STRING;
+            perror("Impossible to get the string\n");
+            return 0;
+        }
+    }
+    return 1 /**/;
+
 }

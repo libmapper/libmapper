@@ -49,8 +49,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
 {
     int p, changed = 0;
     float v;
-    mapper_error err = NO_ERR;
-
+    mapper_expr_error err = NO_ERR;
 
     p = mapping->history_pos;
     mapping->history_input[p] = from_value->f;
@@ -79,8 +78,8 @@ int mapper_mapping_perform(mapper_mapping mapping,
     else if (mapping->props.scaling == SC_EXPRESSION
              || mapping->props.scaling == SC_LINEAR) {
         die_unless(mapping->expr_tree!=0, "Missing expression.\n");
-        v = EvalTree(mapping->expr_tree, mapping->history_input,
-                     mapping->history_output, p, &err);
+        v = mapper_expr_eval(mapping->expr_tree, mapping->history_input,
+                             mapping->history_output, p, &err);
         mapping->history_output[p] = v;
 
         --p;
@@ -121,8 +120,8 @@ int mapper_mapping_perform(mapper_mapping mapping,
         }
 
         if (mapping->expr_tree)
-            v = EvalTree(mapping->expr_tree, mapping->history_input,
-                         mapping->history_output, p, &err);
+            v = mapper_expr_eval(mapping->expr_tree, mapping->history_input,
+                                 mapping->history_output, p, &err);
         mapping->history_output[p] = v;
 
         --p;
@@ -318,10 +317,10 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
     // If everything is successful, replace the mapping's expression.
     if (e)
     {
-        Tree *T = NewTree();
+        mapper_expr_tree T = mapper_expr_new();
         if (!T)
             return;
-        int success_tree = get_expr_Tree(T, e);
+        int success_tree = mapper_expr_create_from_string(T, e);
         if (success_tree)
         {
             if (m->props.expression)
@@ -329,11 +328,11 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
             m->props.expression = strdup(e);
 
             if (m->expr_tree)
-                DeleteTree(m->expr_tree);
+                mapper_expr_free(m->expr_tree);
             m->expr_tree = T;
         }
         else
-            DeleteTree(T);
+            mapper_expr_free(T);
     }
 
     // TODO send /modify
@@ -342,13 +341,13 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
 void mapper_mapping_set_expression(mapper_mapping m,
                                    const char *expr)
 {
-    Tree *T = NewTree();
+    mapper_expr_tree T = mapper_expr_new();
     if (expr)
     {
-        if (get_expr_Tree(T, expr))
+        if (mapper_expr_create_from_string(T, expr))
         {
             if (m->expr_tree)
-                DeleteTree(m->expr_tree);
+                mapper_expr_free(m->expr_tree);
             m->expr_tree = T;
 
             if (m->props.expression)
@@ -356,19 +355,20 @@ void mapper_mapping_set_expression(mapper_mapping m,
             m->props.expression = strdup(expr);
         }
         else
-            DeleteTree(T);
+            mapper_expr_free(T);
     }
     else {
-        if (m->props.expression && get_expr_Tree(T, m->props.expression))
+        if (m->props.expression
+            && mapper_expr_create_from_string(T, m->props.expression))
         {
             // In this case it is possible that expr_tree exists and is correct
             // Rebuild it anyway?
             if (m->expr_tree)
-                DeleteTree(m->expr_tree);
+                mapper_expr_free(m->expr_tree);
             m->expr_tree = T;
         }
         else
-            DeleteTree(T);
+            mapper_expr_free(T);
     }
 
 

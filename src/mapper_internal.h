@@ -113,8 +113,6 @@ void mapper_router_add_expression_mapping(mapper_router router,
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
                                                 const char* dest_name);
 
-int get_expr_Tree(Tree *T, const char *s);
-
 /**** Signals ****/
 
 void mval_add_to_message(lo_message m, mapper_signal sig,

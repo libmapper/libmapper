@@ -212,8 +212,9 @@ Operator CEIL = {
 
 /*! This function is called when the output value of the source is
  *  updated and returns the value sent to the destination */
-float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos,
-               mapper_error *err)
+float mapper_expr_eval(mapper_expr_tree T,
+                       float *history_x, float *history_y,
+                       int hist_pos, mapper_expr_error *err)
 {
     float valueL, valueR;
     Operator operat = T->oper;
@@ -258,7 +259,8 @@ float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos,
     else {
         if (T->left != NULL) {
             valueL =
-                EvalTree(T->left, history_x, history_y, hist_pos, err);
+                mapper_expr_eval(T->left, history_x, history_y,
+                                 hist_pos, err);
             if (operat.type == arity_1)
                 return (*operat.function1) (valueL);
         }
@@ -269,7 +271,8 @@ float EvalTree(Tree *T, float *history_x, float *history_y, int hist_pos,
             return (float) 0;
         } if (T->right != NULL) {
             valueR =
-                EvalTree(T->right, history_x, history_y, hist_pos, err);
+                mapper_expr_eval(T->right, history_x, history_y,
+                                 hist_pos, err);
             if (operat.type == arity_2)
                 return (*operat.function2) (valueL, valueR);
 

@@ -218,9 +218,10 @@ void mapper_router_add_linear_scale_mapping(mapper_router router,
 
     mapping->props.range.known = 0;
 
-    Tree *T = NewTree();
+    mapper_expr_tree T = mapper_expr_new();
 
-    int success_tree = get_expr_Tree(T, mapping->props.expression);
+    int success_tree =
+        mapper_expr_create_from_string(T, mapping->props.expression);
     if (!success_tree)
         return;
 
