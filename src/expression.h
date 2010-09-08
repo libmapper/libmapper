@@ -11,7 +11,6 @@ typedef enum { NO_ERR, ERR_GET_STRING, ERR_EMPTY_EXPR,
 } mapper_error;
 void get_typed_string(char *s, mapper_error *err);
 void remove_spaces(char *s);
-char *sub_string(const char *s, unsigned int start, unsigned int end);
 int is_separator(char c);
 char **parse_string(char *s, int *l);
 Operator string_to_operator(char *s, operator_type type, mapper_error *err);

@@ -26,7 +26,7 @@ int get_expr_Tree(Tree *T, const char *str)
             /*Remove spaces */
             remove_spaces(s);
             if (s[0] == 'y' && s[1] == '=')
-                s = sub_string(s, 2, strlen(s) - 1);
+                s = strndup(s+2, strlen(s)-2);
             if (strlen(s) > 0) {
 
                 /*Parse the expression */

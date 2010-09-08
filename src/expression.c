@@ -44,43 +44,6 @@ void remove_spaces(char *s)
     free(buffer);
 }
 
-
-/*! Get the substring between two positions in a string */
-char *sub_string(const char *s, unsigned int start, unsigned int end)
-{
-    char *new_s = NULL;
-    if (s != NULL && start < end) {
-        new_s = (char*) malloc(sizeof(char) * (end - start + 2));
-        if (new_s != NULL) {
-            int i;
-            for (i = start; i <= end; i++) {
-                new_s[i - start] = s[i];
-            }
-            new_s[i - start] = '\0';
-        }
-
-        else {
-            fprintf(stderr, "Allocation error\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    else if (s != NULL && start == end) {
-        new_s = (char*) malloc(2 * sizeof(char));
-        if (new_s != NULL) {
-            new_s[0] = s[start];
-            new_s[1] = '\0';
-        }
-
-        else {
-            fprintf(stderr, "Allocation error\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-    return new_s;
-}
-
-
 /*! Tell if a character has to be seen as a separator by the
  *  parser. */
 int is_separator(char c)
@@ -129,7 +92,8 @@ char **parse_string(char *s, int *l)
                 tab[i_tab] =
                     (char *) malloc((i_s - i_prev_separator) *
                                     sizeof(char));
-                tab[i_tab] = sub_string(s, i_prev_separator + 1, i_s - 1);
+                tab[i_tab] = strndup(s + i_prev_separator + 1,
+                                     i_s - i_prev_separator - 1);
                 i_tab++;
             }
 
@@ -137,7 +101,7 @@ char **parse_string(char *s, int *l)
              * inserted into the array */
             if (is_separator(s[i_s]) == 1) {
                 tab[i_tab] = (char *) malloc(2 * sizeof(char));
-                tab[i_tab] = sub_string(s, i_s, i_s);
+                tab[i_tab] = strndup(s+i_s, 1);
                 i_tab++;
                 i_prev_separator = i_s;
                 i_s++;
@@ -281,25 +245,14 @@ Operator string_to_operator(char *s, operator_type type, mapper_error *err)
 int find_history_order(char *s, mapper_error *err)
 {
     int o = 0;
-    char *buffer = NULL;
-    buffer = (char*) malloc(strlen(s) * sizeof(char));
-    if (s[1] == '[' && s[strlen(s) - 1] == ']') {
-        buffer = sub_string(s, 2, strlen(s) - 1);
-        o = atoi(buffer);
-    }
+    if (s[1] == '[' && s[strlen(s) - 1] == ']')
+        o = atoi(s+2);
 
-    else {
-        perror("Invalid history argument\n");
-        *err = ERR_HISTORY_ARGUMENT;
-        return 0;
-    }
-    free(buffer);
     if (o >= 0 || (int) fabs(o) > MAX_HISTORY_ORDER - 1) {
         perror("Invalid history argument\n");
         *err = ERR_HISTORY_ARGUMENT;
         return 0;
     }
-
     else
         return o;
 }
