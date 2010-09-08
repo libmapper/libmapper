@@ -250,6 +250,7 @@ void mapper_router_add_expression_mapping(mapper_router router,
     mapper_mapping mapping =
         (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
 
+    mapping->props.scaling = SC_EXPRESSION;
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
     mapper_mapping_set_expression(mapping, expr);
