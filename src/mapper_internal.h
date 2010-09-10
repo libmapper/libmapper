@@ -75,39 +75,11 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
 
-void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                               mapper_mapping mapping);
+mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig,
+                                         const char *name);
 
 int mapper_router_remove_mapping(mapper_router router,
                                   mapper_mapping mapping);
-
-mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
-                                               mapper_signal sig,
-                                               const char *name);
-
-mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
-                                      mapper_signal sig, const char *name);
-
-void mapper_router_add_linear_range_mapping(mapper_router router,
-                                            mapper_signal sig,
-                                            const char *name,
-                                            float src_min, float src_max,
-                                            float dest_min,
-                                            float dest_max);
-
-void mapper_router_add_linear_scale_mapping(mapper_router router,
-                                            mapper_signal sig,
-                                            const char *name,
-                                            float scale, float offset);
-
-void mapper_router_add_calibrate_mapping(mapper_router router,
-                                         mapper_signal sig,
-                                         const char *name, float dest_min,
-                                         float dest_max);
-
-void mapper_router_add_expression_mapping(mapper_router router,
-                                          mapper_signal sig,
-                                          const char *name, char *expr);
 
 /*! Find a router by destination name in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,

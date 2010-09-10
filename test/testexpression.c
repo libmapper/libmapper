@@ -115,8 +115,11 @@ int setup_router()
     }
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_router_add_expression_mapping(router, sendsig,
-                                         recvsig->props.name, "y=x*10");
+    mapper_mapping m = mapper_router_add_mapping(router, sendsig,
+                                                 recvsig->props.name);
+    const char *expr = "y=x*10";
+    mapper_mapping_set_expression(m, expr);
+    
     return 0;
 }
 

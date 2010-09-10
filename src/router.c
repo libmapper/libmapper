@@ -109,9 +109,14 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     return;
 }
 
-void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                               mapper_mapping mapping)
+mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig,
+                                         const char *name)
 {
+    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
+    
+    mapping->props.src_name = strdup(sig->props.name);
+    mapping->props.dest_name = strdup(name);
+    
     // find signal in signal mapping list
     mapper_signal_mapping sm = router->mappings;
     while (sm && sm->signal != sig)
@@ -128,6 +133,8 @@ void mapper_router_add_mapping(mapper_router router, mapper_signal sig,
     // add new mapping to this signal's list
     mapping->next = sm->mapping;
     sm->mapping = mapping;
+    
+    return mapping;
 }
 
 int mapper_router_remove_mapping(mapper_router router, 
@@ -148,114 +155,6 @@ int mapper_router_remove_mapping(mapper_router router,
         sm = sm->next;
     }
     return 1;
-}
-
-mapper_mapping mapper_router_add_blank_mapping(mapper_router router,
-                                               mapper_signal sig,
-                                               const char *name)
-{
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-
-    // Some default values?
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-
-    mapper_router_add_mapping(router, sig, mapping);
-    return mapping;
-}
-
-mapper_mapping mapper_router_add_direct_mapping(mapper_router router,
-                                      mapper_signal sig, const char *name)
-{
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-    mapping->props.range.known = 0;
-
-    mapper_router_add_mapping(router, sig, mapping);
-    mapper_mapping_set_direct(mapping);
-
-    return mapping;
-}
-
-void mapper_router_add_linear_range_mapping(mapper_router router,
-                                            mapper_signal sig,
-                                            const char *name,
-                                            float src_min, float src_max,
-                                            float dest_min, float dest_max)
-{
-    mapper_mapping mapping =
-        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-
-    mapper_mapping_range_t range;
-    
-    range.src_min = src_min;
-    range.src_max = src_max;
-    range.dest_min = dest_min;
-    range.dest_max = dest_max;
-    range.known = MAPPING_RANGE_KNOWN;
-    
-    mapper_mapping_set_linear_range(mapping, &range);
-    mapper_router_add_mapping(router, sig, mapping);
-}
-
-void mapper_router_add_linear_scale_mapping(mapper_router router,
-                                            mapper_signal sig,
-                                            const char *name,
-                                            float scale, float offset)
-{
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-
-    mapping->props.scaling = SC_LINEAR;
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-
-    free(mapping->props.expression);
-    mapping->props.expression = (char*) malloc(256 * sizeof(char));
-    snprintf(mapping->props.expression, 256, "y=x*%g+%g", scale, offset);
-
-    mapping->props.range.known = 0;
-
-    mapper_expr_tree T = mapper_expr_new();
-
-    int success_tree =
-        mapper_expr_create_from_string(T, mapping->props.expression);
-    if (!success_tree)
-        return;
-
-    mapping->expr_tree = T;
-
-    mapper_router_add_mapping(router, sig, mapping);
-}
-
-void mapper_router_add_calibrate_mapping(mapper_router router,
-                                         mapper_signal sig,
-                                         const char *name, float dest_min,
-                                         float dest_max)
-{
-    mapper_mapping mapping =
-        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-    mapper_mapping_set_calibrate(mapping, dest_min, dest_max);
-    mapper_router_add_mapping(router, sig, mapping);
-}
-
-void mapper_router_add_expression_mapping(mapper_router router,
-                                          mapper_signal sig,
-                                          const char *name, char *expr)
-{
-    mapper_mapping mapping =
-        (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
-
-    mapping->props.scaling = SC_EXPRESSION;
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.dest_name = strdup(name);
-    mapper_mapping_set_expression(mapping, expr);
-    mapper_router_add_mapping(router, sig, mapping);
 }
 
 mapper_router mapper_router_find_by_dest_name(mapper_router router,

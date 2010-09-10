@@ -1166,18 +1166,11 @@ static int handler_signal_connect_to(const char *path, const char *types,
         return 0;
     }
     
-    mapper_mapping m;
+    /* Add a flavourless mapping */
+    mapper_mapping m = mapper_router_add_mapping(router, output,
+                                                 dest_signal_name);
 
     if (argc == 2) {
-        /* If no properties were provided, default to direct
-         * mapping */
-        m = mapper_router_add_direct_mapping(router, output,
-                                         dest_signal_name);
-    } else {
-        /* Add a flavourless mapping */
-        m = mapper_router_add_blank_mapping(
-            router, output, dest_signal_name);
-
         /* Set its properties. */
         mapper_mapping_set_from_message(m, output, &params);
     }

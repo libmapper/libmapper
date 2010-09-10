@@ -341,6 +341,8 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
 void mapper_mapping_set_expression(mapper_mapping m,
                                    const char *expr)
 {
+    if (!m->props.scaling)
+        m->props.scaling = SC_EXPRESSION;
     mapper_expr_tree T = mapper_expr_new();
     if (expr)
     {

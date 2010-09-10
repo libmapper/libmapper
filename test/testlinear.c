@@ -113,10 +113,16 @@ int setup_router()
     }
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_router_add_linear_range_mapping(router, sendsig,
-                                           recvsig->props.name,
-                                           0.0f, 1.0f, -10.0f, 10.0f);
-
+    mapper_mapping m = mapper_router_add_mapping(router, sendsig,
+                                                 recvsig->props.name);
+    mapper_mapping_range_t range;
+    range.src_min = 0;
+    range.src_max = 1;
+    range.dest_min = -10;
+    range.dest_max = 10;
+    range.known = MAPPING_RANGE_KNOWN;
+    
+    mapper_mapping_set_linear_range(m, &range);
 
     return 0;
 }
