@@ -7,6 +7,16 @@
 #include "operations.h"
 #include "expression.h"
 
+/*! Provided because strndup is not standard on all supported platforms. */
+static char* strndup_(const char* s, size_t n)
+{
+    if (n < 0) return 0;
+    char *r = (char*)malloc(n+1);
+    strncpy(r, s, n);
+    r[n] = 0;
+    return r;
+}
+
 /*! Remove spaces in a string. */
 static void remove_spaces(char *s)
 {
@@ -70,8 +80,8 @@ static char **parse_string(char *s, int *l)
                 tab[i_tab] =
                     (char *) malloc((i_s - i_prev_separator) *
                                     sizeof(char));
-                tab[i_tab] = strndup(s + i_prev_separator + 1,
-                                     i_s - i_prev_separator - 1);
+                tab[i_tab] = strndup_(s + i_prev_separator + 1,
+                                      i_s - i_prev_separator - 1);
                 i_tab++;
             }
 
@@ -79,7 +89,7 @@ static char **parse_string(char *s, int *l)
              * inserted into the array */
             if (is_separator(s[i_s]) == 1) {
                 tab[i_tab] = (char *) malloc(2 * sizeof(char));
-                tab[i_tab] = strndup(s+i_s, 1);
+                tab[i_tab] = strndup_(s+i_s, 1);
                 i_tab++;
                 i_prev_separator = i_s;
                 i_s++;
@@ -488,7 +498,7 @@ int mapper_expr_create_from_string(mapper_expr_tree T, const char *str)
             /*Remove spaces */
             remove_spaces(s);
             if (s[0] == 'y' && s[1] == '=')
-                s = strndup(s+2, strlen(s)-2);
+                s = strndup_(s+2, strlen(s)-2);
             if (strlen(s) > 0) {
 
                 /*Parse the expression */
