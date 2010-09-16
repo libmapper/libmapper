@@ -118,6 +118,8 @@ static int handler_generic(const char *path, const char *types,
                            lo_arg **argv, int argc, lo_message m,
                            void *user_data)
 {
+    trace("vijay \n handler_generic called with %s argc %d types[0] %s \n", path, argc, types);
+
     if (argc < 2)
         return 1;
 

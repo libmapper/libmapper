@@ -100,6 +100,15 @@ int mdev_num_inputs(mapper_device device);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device device);
 
+//! Request signals for specific device.
+int mdev_request_signals_by_name( const char* name, mapper_device dummy );
+
+//! Request links for specific device.
+int mdev_request_links_by_name( const char* name, mapper_device dummy );
+
+//! Request mappings for specific device.
+int mdev_request_mappings_by_name( const char* name, mapper_device dummy );
+
 /*! Find an input signal by name.
  *  \param md Device to search in.
  *  \param name Name of output signal to search for. It may optionally

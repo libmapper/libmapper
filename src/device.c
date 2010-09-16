@@ -103,6 +103,33 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
+int mdev_request_signals_by_name( const char* name, mapper_device dummy ) 
+{
+
+	char cmd[1024];
+	snprintf( cmd, 1024, "%s/signals/get", name );
+	mapper_admin_send_osc( dummy->admin, cmd, "" );
+
+}
+
+int mdev_request_links_by_name( const char* name, mapper_device dummy )
+{
+
+	char cmd[1024];
+	snprintf( cmd, 1024, "%s/links/get", name );
+	mapper_admin_send_osc( dummy->admin, cmd, "" );
+
+}
+
+int mdev_request_mappings_by_name( const char* name, mapper_device dummy )
+{
+
+	char cmd[1024];
+	snprintf( cmd, 1024, "%s/connections/get", name );
+	mapper_admin_send_osc( dummy->admin, cmd, "" );
+
+}
+
 int mdev_find_input_by_name(mapper_device md, const char *name,
                             mapper_signal *result)
 {
