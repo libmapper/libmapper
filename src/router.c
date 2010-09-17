@@ -116,6 +116,9 @@ mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig
     
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
+    mapping->props.scaling = SC_BYPASS;
+    mapping->props.clip_lower = CT_NONE;
+    mapping->props.clip_upper = CT_NONE;
     
     // find signal in signal mapping list
     mapper_signal_mapping sm = router->mappings;
