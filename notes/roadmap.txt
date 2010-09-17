@@ -43,10 +43,11 @@ Tasks To Do
 The following tasks currently need to be accomplished before initial
 release:
 
-* Code review of the database API.  In particular, inconsistencies
-  between terminology "input" vs. "source", "output", "destination",
-  "target", must be cleared up.  Check clarity, as it is somewhat
-  cluttered and verbose with various query types.
+* Code review of the database API. 
+  * (DONE) In particular, inconsistencies between terminology "input" vs. 
+    "source", "output", "destination", "target", must be cleared up. 
+  * Check clarity, as it is somewhat cluttered and verbose with various 
+    query types.
 
 * Code review of the expression parser/interpreter.
 
@@ -69,8 +70,8 @@ release:
 
 * Make port/IP for admin bus configurable.
 
-* Add API for requesting network information.  (Send a request for a
-  device's namespace, links, mappings.)
+* (DONE) Add API for requesting network information.  (Send a request for a
+  device's namespace, links, mappings.) (DONE)
 
 Lower priority tasks
 ====================
