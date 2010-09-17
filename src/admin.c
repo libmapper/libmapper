@@ -118,7 +118,7 @@ static int handler_generic(const char *path, const char *types,
                            lo_arg **argv, int argc, lo_message m,
                            void *user_data)
 {
-    trace("vijay \n handler_generic called with %s argc %d types[0] %s \n", path, argc, types);
+    //trace("vijay \n handler_generic called with %s argc %d types[0] %s \n", path, argc, types);
 
     if (argc < 2)
         return 1;
@@ -908,7 +908,7 @@ static int handler_device_links_get(const char *path, const char *types,
     mapper_device md = admin->device;
     mapper_router router = md->routers;
 
-    trace("<%s> got /%s/links/get\n", mapper_admin_name(admin),
+    trace("<%s> got %s/links/get\n", mapper_admin_name(admin),
           mapper_admin_name(admin));
 
     /*Search through linked devices */
@@ -1371,15 +1371,22 @@ static int handler_device_connections_get(const char *path,
     mapper_device md = admin->device;
     mapper_router router = md->routers;
 
-    while (router) {
-        mapper_signal_mapping sm = router->mappings;
-        mapper_signal sig = sm->signal;
+    trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
-        msig_full_name(sig, src_name, 1024);
+
+    while (router) {
+
+        mapper_signal_mapping sm = router->mappings;
+        mapper_signal sig;
 
         while (sm) {
-            mapper_mapping m = sm->mapping;
+
+			mapper_mapping m = sm->mapping;
+			sig = sm->signal;
+
             while (m) {
+
+				msig_full_name(sig, src_name, 1024);
                 snprintf(dest_name, 1024, "%s%s",
                          router->dest_name, m->props.dest_name);
 
@@ -1397,10 +1404,13 @@ static int handler_device_connections_get(const char *path,
                 lo_send_message(admin->admin_addr, "/connected", mess);
                 lo_message_free(mess);
                 m = m->next;
+
             }
             sm = sm->next;
+
         }
         router = router->next;
+
     }
 
     return 0;
