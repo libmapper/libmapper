@@ -50,6 +50,7 @@ typedef enum _mapper_clipping_type {
 
 /*! Describes the scaling mode of the mapping. */
 typedef enum _mapper_scaling_type {
+    SC_UNDEFINED,    //!< Not yet defined
     SC_BYPASS,       //!< Direct scaling
     SC_LINEAR,       //!< Linear scaling
     SC_EXPRESSION,   //!< Expression scaling

@@ -18,6 +18,7 @@ const char* mapper_clipping_type_strings[] =
 
 const char* mapper_scaling_type_strings[] =
 {
+    NULL,          /* SC_UNDEFINED */
     "bypass",      /* SC_BYPASS */
     "linear",      /* SC_LINEAR */
     "expression",  /* SC_EXPRESSION */
@@ -341,8 +342,6 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
 void mapper_mapping_set_expression(mapper_mapping m,
                                    const char *expr)
 {
-    if (!m->props.scaling)
-        m->props.scaling = SC_EXPRESSION;
     mapper_expr_tree T = mapper_expr_new();
     if (expr)
     {
@@ -584,7 +583,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case -1:
         /* No scaling type specified; if scaling not yet set, see if 
          we know the range and choose between linear or direct mapping. */
-            if (!m->props.scaling) {
+            if (m->props.scaling == SC_UNDEFINED) {
                 if (range_known == MAPPING_RANGE_KNOWN) {
                     /* We have enough information for a linear mapping. */
                     mapper_mapping_range_t r;

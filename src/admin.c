@@ -1172,7 +1172,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
     mapper_mapping m = mapper_router_add_mapping(router, output,
                                                  dest_signal_name);
 
-    if (argc == 2) {
+    if (argc > 2) {
         /* Set its properties. */
         mapper_mapping_set_from_message(m, output, &params);
     }
