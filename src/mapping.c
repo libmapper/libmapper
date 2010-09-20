@@ -91,12 +91,12 @@ int mapper_mapping_perform(mapper_mapping mapping,
     else if (mapping->props.scaling == SC_CALIBRATE) {
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
-        if (mapping->calibrating) {
+        if (!mapping->calibrating) {
             mapping->props.range.src_min = from_value->f;
             mapping->props.range.src_max = from_value->f;
             mapping->props.range.known |=
                 MAPPING_RANGE_SRC_MIN | MAPPING_RANGE_SRC_MAX;
-            mapping->calibrating = 0;
+            mapping->calibrating = 1;
             changed = 1;
         } else {
             if (from_value->f < mapping->props.range.src_min) {
@@ -116,8 +116,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
                                             &mapping->props.range);
 
             /* Stay in calibrate mode. */
-            if (mapping->calibrating)
-                mapping->props.scaling = SC_CALIBRATE;
+            mapping->props.scaling = SC_CALIBRATE;
         }
 
         if (mapping->expr_tree)
@@ -391,7 +390,7 @@ void mapper_mapping_set_calibrate(mapper_mapping m,
     m->props.range.dest_min = dest_min;
     m->props.range.dest_max = dest_max;
     m->props.range.known |= MAPPING_RANGE_DEST_MIN | MAPPING_RANGE_DEST_MAX;
-    m->calibrating = 1;
+    m->calibrating = 0;
 
     // TODO send /modify
 }
