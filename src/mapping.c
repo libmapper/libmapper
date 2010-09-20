@@ -557,6 +557,11 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         m->props.range.known |= MAPPING_RANGE_DEST_MAX;
         m->props.range.dest_max = range[3];
     }
+    
+    // TO DO: test if range has actually changed
+    if (m->props.range.known == MAPPING_RANGE_KNOWN) {
+        mapper_mapping_set_linear_range(m, &m->props.range);
+    }
 
     /* Clipping. */
 
