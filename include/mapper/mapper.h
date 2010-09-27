@@ -318,6 +318,11 @@ void mapper_db_signal_done(mapper_db_signal_t **s);
 
 /***** Mappings *****/
 
+/*! Interface to add a mapping between two signals.
+ *  \param source_signal_path Source signal name (OSC path).
+ *  \param dest_signal_path   Destination signal name (OSC path). */
+void add_new_mapping( const char* source_signal_path, const char* dest_signal_path );
+
 /*! A callback function prototype for when a mapping record is added or
  *  updated in the database. Such a function is passed in to
  *  mapper_db_add_mapping_callback().
