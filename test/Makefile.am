@@ -3,7 +3,7 @@ TEST_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 TEST_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 noinst_PROGRAMS = test testadmin testsend testrecv testexpression	\
-                  testlinear testparams testmonitor testdb
+                  testlinear testparams testmonitor testdb testparser
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -36,6 +36,10 @@ testmonitor_LDADD = $(TEST_LDADD)
 testdb_CFLAGS = $(TEST_CFLAGS)
 testdb_SOURCES = testdb.c
 testdb_LDADD = $(TEST_LDADD)
+
+testparser_CFLAGS = $(TEST_CFLAGS)
+testparser_SOURCES = testparser.c
+testparser_LDADD = $(TEST_LDADD)
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c

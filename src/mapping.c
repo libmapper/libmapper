@@ -1,11 +1,11 @@
 
 #include <string.h>
+#include <math.h>
+#include <stdlib.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
 #include <mapper/mapper.h>
-#include "operations.h"
-#include "expression.h"
 
 const char* mapper_clipping_type_strings[] =
 {
@@ -45,50 +45,27 @@ const char *mapper_get_scaling_type_string(mapper_scaling_type scaling)
 }
 
 int mapper_mapping_perform(mapper_mapping mapping,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value)
+                           mapper_signal sig,
+                           mapper_signal_value_t *from_value,
+                           mapper_signal_value_t *to_value)
 {
-    int p, changed = 0;
-    float v;
-    mapper_expr_error err = NO_ERR;
-
-    p = mapping->history_pos;
-    mapping->history_input[p] = from_value->f;
-    v = mapping->history_input[p];
+    int changed = 0;
     
-    if (mapping->props.muted) {
+    if (mapping->props.muted)
         return 0;
-    }
 
-    if (!mapping->props.scaling || mapping->props.scaling == SC_BYPASS /*|| mapping->type==LINEAR */ ) {
-        /*for (i=0; i < mapping->order_input; i++)
-           v = mapping->history_input[(p+i)%5] * mapping->coef_input[i];
-
-           for (i=0; i < mapping->order_output; i++)
-           v = mapping->history_output[(p+i)%5] * mapping->coef_output[i]; */
-
-        /*v=mapping->history_input[p]; */
-        mapping->history_output[p] = v;
-
-        --p;
-        if (p < 0)
-            p = MAX_HISTORY_ORDER;
-    }
-
+    if (!mapping->props.scaling || mapping->props.scaling == SC_BYPASS)
+        *to_value = *from_value;
 
     else if (mapping->props.scaling == SC_EXPRESSION
-             || mapping->props.scaling == SC_LINEAR) {
-        die_unless(mapping->expr_tree!=0, "Missing expression.\n");
-        v = mapper_expr_eval(mapping->expr_tree, mapping->history_input,
-                             mapping->history_output, p, &err);
-        mapping->history_output[p] = v;
-
-        --p;
-        if (p < 0)
-            p = MAX_HISTORY_ORDER - 1;
+             || mapping->props.scaling == SC_LINEAR)
+    {
+        die_unless(mapping->expr!=0, "Missing expression.\n");
+        *to_value = mapper_expr_evaluate(mapping->expr, from_value);
     }
 
-    else if (mapping->props.scaling == SC_CALIBRATE) {
+    else if (mapping->props.scaling == SC_CALIBRATE)
+    {
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (!mapping->calibrating) {
@@ -112,26 +89,17 @@ int mapper_mapping_perform(mapper_mapping mapping,
         }
 
         if (changed) {
-            mapper_mapping_set_linear_range(mapping,
+            mapper_mapping_set_linear_range(mapping, sig,
                                             &mapping->props.range);
 
             /* Stay in calibrate mode. */
             mapping->props.scaling = SC_CALIBRATE;
         }
 
-        if (mapping->expr_tree)
-            v = mapper_expr_eval(mapping->expr_tree, mapping->history_input,
-                                 mapping->history_output, p, &err);
-        mapping->history_output[p] = v;
-
-        --p;
-        if (p < 0)
-            p = MAX_HISTORY_ORDER - 1;
+        if (mapping->expr)
+            *to_value = mapper_expr_evaluate(mapping->expr, from_value);
     }
 
-
-    mapping->history_pos = p;
-    to_value->f = v;
     return 1;
 }
 
@@ -140,7 +108,11 @@ int mapper_clipping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *to_value)
 {
     int muted = 0;
-    float v = from_value->f, total_range = abs(mapping->props.range.dest_max - mapping->props.range.dest_min), difference, modulo_difference;
+    // TODO: this doesn't check the value type, assumes float
+    float v = from_value->f;
+    float total_range = fabsf(mapping->props.range.dest_max
+                              - mapping->props.range.dest_min);
+    float difference, modulo_difference;
     
     if (mapping->props.range.known) {
         if (v < mapping->props.range.dest_min) {
@@ -155,7 +127,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     break;
                 case CT_FOLD:
                     // fold value around range minimum
-                    difference = abs(v - mapping->props.range.dest_min);
+                    difference = fabsf(v - mapping->props.range.dest_min);
                     v = mapping->props.range.dest_min + difference;
                     if (v > mapping->props.range.dest_max) {
                         // value now exceeds range maximum!
@@ -170,7 +142,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                                 break;
                             case CT_FOLD:
                                 // both clip modes are set to fold!
-                                difference = abs(v - mapping->props.range.dest_max);
+                                difference = fabsf(v - mapping->props.range.dest_max);
                                 modulo_difference = difference - (int)(difference / total_range) * total_range;
                                 if ((int)(difference / total_range) % 2 == 0) {
                                     v = mapping->props.range.dest_max - modulo_difference;
@@ -180,7 +152,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                                 break;
                             case CT_WRAP:
                                 // wrap value back from range minimum
-                                difference = abs(v - mapping->props.range.dest_max);
+                                difference = fabsf(v - mapping->props.range.dest_max);
                                 modulo_difference = difference - (int)(difference / total_range) * total_range;
                                 v = mapping->props.range.dest_min + modulo_difference;
                                 break;
@@ -191,7 +163,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     break;
                 case CT_WRAP:
                     // wrap value back from range maximum
-                    difference = abs(v - mapping->props.range.dest_min);
+                    difference = fabsf(v - mapping->props.range.dest_min);
                     modulo_difference = difference - (int)(difference / total_range) * total_range;
                     v = mapping->props.range.dest_max - modulo_difference;
                     break;
@@ -213,7 +185,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     break;
                 case CT_FOLD:
                     // fold value around range maximum
-                    difference = abs(v - mapping->props.range.dest_max);
+                    difference = fabsf(v - mapping->props.range.dest_max);
                     v = mapping->props.range.dest_max - difference;
                     if (v < mapping->props.range.dest_min) {
                         // value now exceeds range minimum!
@@ -228,7 +200,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                                 break;
                             case CT_FOLD:
                                 // both clip modes are set to fold!
-                                difference = abs(v - mapping->props.range.dest_min);
+                                difference = fabsf(v - mapping->props.range.dest_min);
                                 modulo_difference = difference - (int)(difference / total_range) * total_range;
                                 if ((int)(difference / total_range) % 2 == 0) {
                                     v = mapping->props.range.dest_max + modulo_difference;
@@ -238,7 +210,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                                 break;
                             case CT_WRAP:
                                 // wrap value back from range maximum
-                                difference = abs(v - mapping->props.range.dest_min);
+                                difference = fabsf(v - mapping->props.range.dest_min);
                                 modulo_difference = difference - (int)(difference / total_range) * total_range;
                                 v = mapping->props.range.dest_max - modulo_difference;
                                 break;
@@ -249,7 +221,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     break;
                 case CT_WRAP:
                     // wrap value back from range minimum
-                    difference = abs(v - mapping->props.range.dest_max);
+                    difference = fabsf(v - mapping->props.range.dest_max);
                     modulo_difference = difference - (int)(difference / total_range) * total_range;
                     v = mapping->props.range.dest_min + modulo_difference;
                     break;
@@ -268,6 +240,29 @@ int mapper_clipping_perform(mapper_mapping mapping,
     
 }
 
+/* Helper to replace a mapping's expression only if the given string
+ * parses successfully. Returns 0 on success, non-zero on error. */
+static int replace_expression_string(mapper_mapping m,
+                                     mapper_signal s,
+                                     const char *expr_str)
+{
+    mapper_expr expr = mapper_expr_new_from_string(
+        expr_str, s->props.type=='f', s->props.length);
+
+    if (!expr)
+        return 1;
+
+    if (m->expr)
+        mapper_expr_free(m->expr);
+
+    m->expr = expr;
+    int len = sizeof(expr_str);
+    if (!m->props.expression || len > strlen(m->props.expression))
+        m->props.expression = realloc(m->props.expression, len);
+    strncpy(m->props.expression, expr_str, len);
+    return 0;
+}
+
 void mapper_mapping_set_direct(mapper_mapping m)
 {
     m->props.scaling = SC_BYPASS;
@@ -276,6 +271,7 @@ void mapper_mapping_set_direct(mapper_mapping m)
 }
 
 void mapper_mapping_set_linear_range(mapper_mapping m,
+                                     mapper_signal sig,
                                      mapper_mapping_range_t *r)
 {
     m->props.scaling = SC_LINEAR;
@@ -315,67 +311,25 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
                sizeof(mapper_mapping_range_t));
 
     // If everything is successful, replace the mapping's expression.
-    if (e)
-    {
-        mapper_expr_tree T = mapper_expr_new();
-        if (!T)
-            return;
-        int success_tree = mapper_expr_create_from_string(T, e);
-        if (success_tree)
-        {
-            if (m->props.expression)
-                free(m->props.expression);
-            m->props.expression = strdup(e);
-
-            if (m->expr_tree)
-                mapper_expr_free(m->expr_tree);
-            m->expr_tree = T;
-        }
-        else
-            mapper_expr_free(T);
-    }
+    if (e) replace_expression_string(m, sig, e);
 
     // TODO send /modify
 }
 
 void mapper_mapping_set_expression(mapper_mapping m,
+                                   mapper_signal sig,
                                    const char *expr)
 {
-    mapper_expr_tree T = mapper_expr_new();
-    if (expr)
-    {
-        if (mapper_expr_create_from_string(T, expr))
-        {
-            if (m->expr_tree)
-                mapper_expr_free(m->expr_tree);
-            m->expr_tree = T;
+    if (replace_expression_string(m, sig, expr))
+        return;
 
-            if (m->props.expression)
-                free(m->props.expression);
-            m->props.expression = strdup(expr);
-        }
-        else
-            mapper_expr_free(T);
-    }
-    else {
-        if (m->props.expression
-            && mapper_expr_create_from_string(T, m->props.expression))
-        {
-            // In this case it is possible that expr_tree exists and is correct
-            // Rebuild it anyway?
-            if (m->expr_tree)
-                mapper_expr_free(m->expr_tree);
-            m->expr_tree = T;
-        }
-        else
-            mapper_expr_free(T);
-    }
-
+    m->props.scaling = SC_EXPRESSION;
 
     // TODO send /modify
 }
 
 void mapper_mapping_set_calibrate(mapper_mapping m,
+                                  mapper_signal sig,
                                   float dest_min, float dest_max)
 {
     m->props.scaling = SC_CALIBRATE;
@@ -560,7 +514,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     
     // TO DO: test if range has actually changed
     if (m->props.range.known == MAPPING_RANGE_KNOWN) {
-        mapper_mapping_set_linear_range(m, &m->props.range);
+        mapper_mapping_set_linear_range(m, sig, &m->props.range);
     }
 
     /* Clipping. */
@@ -575,7 +529,8 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    mapper_mapping_set_expression(m, expr);
+    if (expr)
+        replace_expression_string(m, sig, expr);
 
     /* Now set the scaling type depending on the requested type and
      * the known properties. */
@@ -596,7 +551,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
                     r.dest_min = range[2];
                     r.dest_max = range[3];
                     r.known = range_known;
-                    mapper_mapping_set_linear_range(m, &r);
+                    mapper_mapping_set_linear_range(m, sig, &r);
                 } else
                     /* No range, default to direct mapping. */
                     mapper_mapping_set_direct(m);
@@ -613,13 +568,13 @@ void mapper_mapping_set_from_message(mapper_mapping m,
             r.dest_min = range[2];
             r.dest_max = range[3];
             r.known = range_known;
-            mapper_mapping_set_linear_range(m, &r);
+            mapper_mapping_set_linear_range(m, sig, &r);
         }
         break;
     case SC_CALIBRATE:
         if (range_known & (MAPPING_RANGE_DEST_MIN
                            | MAPPING_RANGE_DEST_MAX))
-            mapper_mapping_set_calibrate(m, range[2], range[3]);
+            mapper_mapping_set_calibrate(m, sig, range[2], range[3]);
         break;
     case SC_EXPRESSION:
         {

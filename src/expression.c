@@ -4,535 +4,937 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "operations.h"
-#include "expression.h"
+#include "mapper_internal.h"
 
-/*! Provided because strndup is not standard on all supported platforms. */
-static char* strndup_(const char* s, size_t n)
+#define STACK_SIZE 256
+#ifdef DEBUG
+#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
+#else
+#define TRACING 0
+#endif
+
+static float minf(float x, float y)
 {
-    if (n < 0) return 0;
-    char *r = (char*)malloc(n+1);
-    strncpy(r, s, n);
-    r[n] = 0;
-    return r;
+    if (y < x) return y;
+    else return x;
 }
 
-/*! Remove spaces in a string. */
-static void remove_spaces(char *s)
+static float maxf(float x, float y)
 {
-    char *buffer = NULL;
-    int i, j = 0;
-    char c;
-    buffer = (char*) malloc(strlen(s) + 1);
-    for (i = 0; (c = s[i]) != '\0'; i++)
-        if (!isspace(c))
-            buffer[j++] = c;
-    buffer[j] = '\0';
-    strcpy(s, buffer);
-    free(buffer);
+    if (y > x) return y;
+    else return x;
 }
 
-/*! Tell if a character has to be seen as a separator by the
- *  parser. */
-static int is_separator(char c)
+static float pif()
 {
-    int ret;
-    switch (c) {
-    case '+':
-    case '-':
-    case '*':
-    case '/':
-    case '^':
-    case '(':
-    case ')':
-        ret = 1;
-        break;
-    case '\0':
-    case '\n':
-        ret = 2;
-        break;
-    default:
-        ret = 0;
+    return M_PI;
+}
+
+typedef enum {
+    FUNC_UNKNOWN=-1,
+    FUNC_POW=0,
+    FUNC_SIN,
+    FUNC_COS,
+    FUNC_TAN,
+    FUNC_ABS,
+    FUNC_SQRT,
+    FUNC_LOG,
+    FUNC_LOG10,
+    FUNC_EXP,
+    FUNC_FLOOR,
+    FUNC_ROUND,
+    FUNC_CEIL,
+    FUNC_ASIN,
+    FUNC_ACOS,
+    FUNC_ATAN,
+    FUNC_ATAN2,
+    FUNC_SINH,
+    FUNC_COSH,
+    FUNC_TANH,
+    FUNC_LOGB,
+    FUNC_EXP2,
+    FUNC_LOG2,
+    FUNC_HYPOT,
+    FUNC_CBRT,
+    FUNC_TRUNC,
+    FUNC_MIN,
+    FUNC_MAX,
+    FUNC_PI,
+    N_FUNCS
+} expr_func_t;
+
+static struct {
+    const char *name;
+    unsigned int arity;
+    void *func;
+} function_table[] = {
+    { "pow", 2, powf },
+    { "sin", 1, sinf },
+    { "cos", 1, cosf },
+    { "tan", 1, tanf },
+    { "abs", 1, fabsf },
+    { "sqrt", 1, sqrtf },
+    { "log", 1, logf },
+    { "log10", 1, log10f },
+    { "exp", 1, expf },
+    { "floor", 1, floorf },
+    { "round", 1, roundf },
+    { "ceil", 1, ceilf },
+    { "asin", 1, asinf },
+    { "acos", 1, acosf },
+    { "atan", 1, atanf },
+    { "atan2", 2, atan2f },
+    { "sinh", 1, sinhf },
+    { "cosh", 1, coshf },
+    { "tanh", 1, tanhf },
+    { "logb", 1, logbf },
+    { "exp2", 1, exp2f },
+    { "log2", 1, log2f },
+    { "hypot", 2, hypotf },
+    { "cbrt", 1, cbrtf },
+    { "trunc", 1, truncf },
+    { "min", 2, minf },
+    { "max", 2, maxf },
+    { "pi", 0, pif },
+};
+
+typedef float func_float_arity0();
+typedef float func_float_arity1(float);
+typedef float func_float_arity2(float,float);
+
+typedef struct _token {
+    enum {
+        TOK_FLOAT,
+        TOK_INT,
+        TOK_OP,
+        TOK_OPEN_PAREN,
+        TOK_CLOSE_PAREN,
+        TOK_VAR,
+        TOK_OPEN_SQUARE,
+        TOK_CLOSE_SQUARE,
+        TOK_OPEN_CURLY,
+        TOK_CLOSE_CURLY,
+        TOK_FUNC,
+        TOK_COMMA,
+        TOK_END,
+        TOK_TOFLOAT,
+    } type;
+    union {
+        float f;
+        int i;
+        char var;
+        char op;
+        expr_func_t func;
+    };
+} token_t;
+
+static expr_func_t function_lookup(const char *s, int len)
+{
+    int i;
+    for (i=0; i<N_FUNCS; i++) {
+        if (strncmp(s, function_table[i].name, len)==0)
+            return i;
     }
-    return ret;
+    return FUNC_UNKNOWN;
 }
 
-
-/*! Parse the string and separate the terms in an array. */
-static char **parse_string(char *s, int *l)
+static int expr_lex(const char **str, token_t *tok)
 {
-    char **tab = (char **) malloc((strlen(s)+1) * sizeof(char*));
-    int i_s = 0;
-    int i_prev_separator = -1;
-    int i_tab = 0;
-    while (i_s <= strlen(s)) {
-        if (is_separator(s[i_s]) != 0
-            && ((i_s == 0) || ((i_s != 0) && (s[i_s - 1] != '['))))
+    int n=0;
+    char c = **str;
+    const char *s;
+    int integer_found = 0;
 
-            /* '-' must not be seen as a separator when it is used for
-             * history values : x[-1]... */
-        {
-
-            /* If the previous separator is not the previous
-             * character, a new word has to be inserted into the
-             * array */
-            if (i_prev_separator != (i_s - 1)) {
-                tab[i_tab] =
-                    (char *) malloc((i_s - i_prev_separator) *
-                                    sizeof(char));
-                tab[i_tab] = strndup_(s + i_prev_separator + 1,
-                                      i_s - i_prev_separator - 1);
-                i_tab++;
-            }
-
-            /* If this separator is different from '\0', it has to be
-             * inserted into the array */
-            if (is_separator(s[i_s]) == 1) {
-                tab[i_tab] = (char *) malloc(2 * sizeof(char));
-                tab[i_tab] = strndup_(s+i_s, 1);
-                i_tab++;
-                i_prev_separator = i_s;
-                i_s++;
-            }
-
-            /* If the separator is '\0', parsing is ended */
-            else if (is_separator(s[i_s]) == 2) {
-                tab[i_tab] = (char *) malloc(4 * sizeof(char));
-                tab[i_tab] = "end";
-                i_s = strlen(s) * 2;
-            }
-        }
-
-        else
-            i_s++;
-    }
-    *l = i_tab;
-    return tab;
-}
-
-mapper_expr_tree mapper_expr_new(void)
-{
-    mapper_expr_tree T;
-    T = (mapper_expr_tree) calloc(1, sizeof(struct _mapper_expr_tree));
-    T->left = NULL;
-    T->right = NULL;
-    return T;
-}
-
-void mapper_expr_free(mapper_expr_tree T)
-{
-    if (T != NULL) {
-        mapper_expr_free(T->left);
-        mapper_expr_free(T->right);
-        free(T);
-    }
-}
-
-mapper_expr_tree mapper_expr_copy(mapper_expr_tree T)
-{
-    mapper_expr_tree new_T = NULL;
-    if (T != NULL) {
-        new_T = mapper_expr_new();
-        new_T->num = T->num;
-        new_T->oper = T->oper;
-        new_T->left = mapper_expr_copy(T->left);
-        new_T->right = mapper_expr_copy(T->right);
-    }
-    return new_T;
-}
-
-
-/*! Convert a string to an operator_type object. */
-static Operator string_to_operator(char *s, operator_type type,
-                                   mapper_expr_error *err)
-{
-    Operator oper = EVAL;
-    if (type == arity_1) {
-        if (strcmp(s, "sin") == 0)
-            oper = SIN;
-
-        else if (strcmp(s, "cos") == 0)
-            oper = COS;
-
-        else if (strcmp(s, "tan") == 0)
-            oper = TAN;
-
-        else if (strcmp(s, "exp") == 0)
-            oper = EXP;
-
-        else if (strcmp(s, "log") == 0)
-            oper = LOG;
-
-        else if (strcmp(s, "log10") == 0)
-            oper = LOG10;
-
-        else if (strcmp(s, "abs") == 0)
-            oper = ABS;
-
-        else if (strcmp(s, "sqrt") == 0)
-            oper = SQUARE_ROOT;
-
-        else if (strcmp(s, "floor") == 0)
-            oper = FLOOR;
-
-        else if (strcmp(s, "round") == 0)
-            oper = ROUND;
-
-        else if (strcmp(s, "ceil") == 0)
-            oper = CEIL;
-
-        else if (strcmp(s, "-") == 0)
-            oper = OPP;
-
-        else {
-            *err = ERR_INCORRECT_EXPRESSION;
-            fprintf(stderr, "Incorrect expression : %s\n", s);
-        }
-    }
-
-    else if (type == arity_2) {
-        switch (s[0]) {
-        case '+':
-            oper = PLUS;
-            break;
-        case '-':
-            oper = MINUS;
-            break;
-        case '*':
-            oper = TIMES;
-            break;
-        case '/':
-            oper = DIV;
-            break;
-        case '^':
-            oper = POW;
-            break;
-        default:
-            *err = ERR_INCORRECT_EXPRESSION;
-            fprintf(stderr, "Incorrect expression : %s\n", s);
-        }
-    }
-
-    else if (type == eval) {
-        switch (s[0]) {
-        case 'x':
-            oper = VARX;
-            break;
-        case 'y':
-            oper = VARY;
-            break;
-        default:
-            *err = ERR_INCORRECT_EXPRESSION;
-            fprintf(stderr, "Incorrect expression : %s\n", s);
-        }
-    }
-    return oper;
-}
-
-
-/*! Get the history order from a string, x[..] or y[..]*/
-static int find_history_order(char *s, mapper_expr_error *err)
-{
-    int o = 0;
-    if (s[1] == '[' && s[strlen(s) - 1] == ']')
-        o = atoi(s+2);
-
-    if (o >= 0 || (int) fabs(o) > MAX_HISTORY_ORDER - 1) {
-        perror("Invalid history argument\n");
-        *err = ERR_HISTORY_ARGUMENT;
+    if (c==0) {
+        tok->type = TOK_END;
         return 0;
     }
-    else
-        return o;
-}
 
-/*! Construct the expression tree using the different priorities of
- *  the operators and functions */
-void mapper_expr_construct(mapper_expr_tree T, char **expr,
-                           int t1, int t2, mapper_expr_error *err)
-{
-    int i = t1;
+  again:
 
-/* positionv : position of the last operand in the expression */
-    int positionv = t1;
-
-/* position : position of the operator with the lowest priority */
-    int position = t1;
-
-/* parenth_order : "depth" of the term at the position i */
-    int parenth_order = 0;
-
-/* prev_parenth_order : "depth" of the term at the position i-1 */
-    int prev_parenth_order = 100;
-    int history_order = 0;
-
-/* Initialization with the operator of highest priority. */
-    operator_priority curr_prior = PRIOR_VAR;
-    Operator operat = VARX;
-    Operator tmp_oper = VARX;
-    if (t1 > t2) {
-        *err = ERR_EMPTY_EXPR;
-        perror("Empty expression\n");
-        return;
-    }
-
-/* Research of the operator with the lowest priority. */
-    while (i < t2 + 1) {
-
-        /* Analysis of expr[i] */
-
-        /*If expr[i] represents a parenthesis */
-        if (expr[i][0] == '(') {
-            if (i == (t2 - 1) || expr[i + 1][0] == ')') {
-                *err = ERR_PARENTHESIS;
-                perror("Parenthesis error\n");
-                return;
-            }
-
-            else
-                parenth_order++;
-        }
-
-        else if (expr[i][0] == ')') {
-            if (i == t1 || ((i != t2 - 1) && expr[i + 1][0] == '(')) {
-                *err = ERR_PARENTHESIS;
-                perror("Parenthesis error\n");
-                return;
-            }
-
-            else
-                parenth_order--;
-        }
-
-        /*If expr[i] represents a float */
-        else if (isdigit(expr[i][0]) != 0 || (strcmp(expr[i], "pi") == 0)
-                 || (strcmp(expr[i], "Pi") == 0)) {
-            if (curr_prior > PRIOR_NUMBER) {
-                curr_prior = PRIOR_NUMBER;
-                positionv = i;
-            }
-        }
-
-        else {
-
-            /*If expr[i] represents a function or an history value */
-            if (strlen(expr[i]) != 1) {
-                if (strchr(expr[i], '[') == NULL) {
-                    tmp_oper = string_to_operator(expr[i], arity_1, err);
-                }
-
-                else {
-                    if (expr[i][0] == 'x') {
-                        tmp_oper = VARX_HISTORY;
-                        history_order = find_history_order(expr[i], err);
-                    }
-
-                    else if (expr[i][0] == 'y') {
-                        tmp_oper = VARY_HISTORY;
-                        history_order = find_history_order(expr[i], err);
-                    }
-
-                    else {
-                        *err = ERR_HISTORY_ARGUMENT;
-                        perror("Invalid history argument\n");
-                        return;
-                    }
-                }
-            }
-
-            /*If expr[i] represents an operator or a variable */
-            else if (strlen(expr[i]) == 1) {
-                switch (expr[i][0]) {
-
-                /* '-' represents both operators MINUS (arity_2) and
-                 * OPP (arity_1) */
-                case '-':
-                    if ((i == t1)
-                        || ((i != t1) && (expr[i - 1][0] == '('))
-                        || ((i != t1) && (expr[i - 1][0] == '*'))
-                        || ((i != t1) && (expr[i - 1][0] == '/'))
-                        || ((i != t1) && (expr[i - 1][0] == '^')))
-                        tmp_oper = string_to_operator("-", arity_1, err);
-
-                    else
-                        tmp_oper = string_to_operator("-", arity_2, err);
-                    break;
-                case 'x':
-                case 'y':
-                    tmp_oper = string_to_operator(expr[i], eval, err);
-                    break;
-                default:
-                    tmp_oper = string_to_operator(expr[i], arity_2, err);
-                    break;
-                }
-            }
-
-            /* If the "parenthesis depth" has decreased or if the
-             * priority of tmp_oper is lower than the current lowest
-             * one, operat=tmp_oper */
-            if ((parenth_order < prev_parenth_order)
-                || ((parenth_order == prev_parenth_order)
-                    && (curr_prior > tmp_oper.prior))) {
-                position = i;
-                operat = tmp_oper;
-                curr_prior = operat.prior;
-                prev_parenth_order = parenth_order;
-            }
-        }
-        i++;
-    }
-    if (parenth_order != 0) {
-        *err = ERR_PARENTHESIS;
-        perror("Parenthesis error\n");
-        return;
-    }
-
-    else if (*err == ERR_INCORRECT_EXPRESSION) {
-        return;
-    }
-
-/* Construction of the tree. */
-    if (curr_prior == PRIOR_VAR) {
-
-        /* In this case T->num gives the history order, and not a
-         * nuveric value */
-        T->oper = operat;
-        if (history_order != 0)
-            T->num = history_order;
-    }
-
-    else if (curr_prior == PRIOR_NUMBER) {
-        T->oper = EVAL;
-        if (isdigit(expr[positionv][0]) != 0) {
-            T->num = (float) atof(expr[positionv]);
-        }
-
-        else if ((strcmp(expr[positionv], "pi") == 0)
-                 || (strcmp(expr[positionv], "Pi") == 0)) {
-            T->num = M_PI;
-        }
-
-        else {
-            *err = ERR_INCORRECT_EXPRESSION;
-            fprintf(stderr, "Incorrect expression : %s\n",
-                    expr[positionv]);
-            return;
-        }
-    }
-
-    else if (operat.type == arity_1) {
-        T->oper = operat;
-        T->left = mapper_expr_new();
-        T->right = NULL;
-        if ((t2 - prev_parenth_order - position - 1) < 0
-            || (expr[position + 1][0] == '('
-                && expr[position + 2][0] == ')')) {
-            *err = ERR_MISSING_ARG;
-            perror("Missing argument\n");
-            return;
-        }
-
-        else if (expr[position + 1][0] != '(') {
-            *err = ERR_PARENTHESIS;
-            perror("Arguments must be between ()\n");
-            return;
-        }
-        mapper_expr_construct(T->left, expr, position + 1,
-                              t2 - prev_parenth_order, err);
-    }
-
-    else if (operat.id == OPP.id) {
-        T->oper = MINUS;
-        T->left = mapper_expr_new();
-        T->right = mapper_expr_new();
-        T->left->oper = EVAL;
-        T->left->num = (float) 0;
-        if ((t2 - prev_parenth_order - position - 1) < 0) {
-            *err = ERR_MISSING_ARG;
-            perror("Missing argument\n");
-            return;
-        }
-        mapper_expr_construct(T->right, expr, position + 1,
-                              t2 - prev_parenth_order, err);
-    }
-
-    else {
-        T->oper = operat;
-        T->left = mapper_expr_new();
-        T->right = mapper_expr_new();
-        if ((position - 1 - t1 - prev_parenth_order) < 0) {
-            *err = ERR_MISSING_ARG;
-            perror("Missing argument\n");
-            return;
-        }
-        mapper_expr_construct(T->left, expr, t1 + prev_parenth_order,
-                              position - 1, err);
-        if ((t2 - prev_parenth_order - position - 1) < 0) {
-            *err = ERR_MISSING_ARG;
-            perror("Missing argument\n");
-            return;
-        }
-        mapper_expr_construct(T->right, expr, position + 1,
-                              t2 - prev_parenth_order, err);
-    }
-}
-
-/*! Get the expression tree from the expression string. */
-int mapper_expr_create_from_string(mapper_expr_tree T, const char *str)
-{
-    char expr[1024], *s = expr;
-    strncpy(s, str, 1024);
-
-    /* The commented parts are for debug use, to get the string from
-     * the terminal */
-
-    /*char s[SIZE]; */
-    char **parsed_expr = NULL;
-    int expr_length;
-    mapper_expr_error err = ERR_EMPTY_EXPR;
-    while (err != NO_ERR) {
-        err = NO_ERR;
-
-        if (s != NULL && err == NO_ERR) {
-
-            /*Remove spaces */
-            remove_spaces(s);
-            if (s[0] == 'y' && s[1] == '=')
-                s = strndup_(s+2, strlen(s)-2);
-            if (strlen(s) > 0) {
-
-                /*Parse the expression */
-                parsed_expr = parse_string(s, &expr_length);
-                if (parsed_expr != NULL) {
-
-                    /*Construct the tree */
-                    mapper_expr_construct(T, parsed_expr, 0,
-                                          expr_length - 1, &err);
-                    free(*parsed_expr);
-                    if (err != NO_ERR)
-                        return 0;
-                }
-
-                else {
-                    err = ERR_PARSER;
-                    perror("Parser error\n");
-                    return 0;
-                }
-            }
-
-            else {
-                err = ERR_EMPTY_EXPR;
-                perror("Empty expression\n");
-                return 0;
-            }
-        }
-
-        else {
-            err = ERR_GET_STRING;
-            perror("Impossible to get the string\n");
+    if (isdigit(c)) {
+        s = *str;
+        do {
+            c = (*(++*str));
+        } while (c && isdigit(c));
+        n = atoi(s);
+        integer_found = 1;
+        if (c!='.') {
+            tok->i = n;
+            tok->type = TOK_INT;
             return 0;
         }
     }
-    return 1 /**/;
 
+    switch (c) {
+    case '.':
+        s = *str;
+        c = (*(++*str));
+        if (!isdigit(c) && integer_found) {
+            tok->type = TOK_FLOAT;
+            tok->f = (float)n;
+            return 0;
+        }
+        if (!isdigit(c))
+            break;
+        do {
+            c = (*(++*str));
+        } while (c && isdigit(c));
+        tok->f = (float)n + atof(s);
+        tok->type = TOK_FLOAT;
+        return 0;
+    case '+':
+    case '-':
+    case '/':
+    case '*':
+    case '=':
+        tok->type = TOK_OP;
+        tok->op = c;
+        ++*str;
+        return 0;
+    case '(':
+        tok->type = TOK_OPEN_PAREN;
+        ++*str;
+        return 0;
+    case ')':
+        tok->type = TOK_CLOSE_PAREN;
+        ++*str;
+        return 0;
+    case 'x':
+    case 'y':
+        tok->type = TOK_VAR;
+        tok->var = c;
+        ++*str;
+        return 0;
+    case '[':
+        tok->type = TOK_OPEN_SQUARE;
+        ++*str;
+        return 0;
+    case ']':
+        tok->type = TOK_CLOSE_SQUARE;
+        ++*str;
+        return 0;
+    case '{':
+        tok->type = TOK_OPEN_CURLY;
+        ++*str;
+        return 0;
+    case '}':
+        tok->type = TOK_CLOSE_CURLY;
+        ++*str;
+        return 0;
+    case ' ':
+    case '\t':
+    case '\r':
+    case '\n':
+        c = (*(++*str));
+        goto again;
+    case ',':
+        tok->type = TOK_COMMA;
+        ++*str;
+        return 0;
+    default:
+        if (!isalpha(c)) {
+            printf("unknown character '%c' in lexer\n", c);
+            break;
+        }
+        s = *str;
+        while (c && (isalpha(c) || isdigit(c)))
+            c = (*(++*str));
+        tok->type = TOK_FUNC;
+        tok->func = function_lookup(s, *str-s);
+        return 0;
+    }
+
+    return 1;
+}
+
+typedef struct _exprnode
+{
+    token_t tok;
+    int is_float;
+    int history_index;  // when tok.type==TOK_VAR
+    int vector_index;   // when tok.type==TOK_VAR
+    struct _exprnode *next;
+} *exprnode;
+
+struct _mapper_expr
+{
+    exprnode node;
+    int vector_size;
+    int history_size;
+    int history_pos;
+    mapper_signal_value_t *input_history;
+    mapper_signal_value_t *output_history;
+};
+
+typedef enum {
+    YEQUAL_Y,
+    YEQUAL_EQ,
+    EXPR,
+    EXPR_RIGHT,
+    TERM,
+    TERM_RIGHT,
+    VALUE,
+    NEGATE,
+    VAR_RIGHT,
+    VAR_VECTINDEX,
+    VAR_HISTINDEX,
+    CLOSE_VECTINDEX,
+    CLOSE_HISTINDEX,
+    OPEN_PAREN,
+    CLOSE_PAREN,
+    COMMA,
+    END,
+} state_t;
+
+typedef struct _stack_obj
+{
+    union {
+        state_t state;
+        exprnode node;
+    };
+    enum {
+        ST_STATE,
+        ST_NODE,
+    } type;
+} stack_obj_t;
+
+static exprnode exprnode_new(token_t *tok, int is_float)
+{
+    exprnode t = (exprnode)
+        malloc(sizeof(struct _exprnode));
+    t->tok = *tok;
+    t->is_float = is_float;
+    t->history_index = 0;
+    t->vector_index = 0;
+    t->next = 0;
+    return t;
+}
+
+static void exprnode_free(exprnode e)
+{
+    while (e) {
+        exprnode tmp = e;
+        e = e->next;
+        free(tmp);
+    }
+}
+
+void mapper_expr_free(mapper_expr expr)
+{
+    exprnode_free(expr->node);
+    free(expr->input_history);
+    free(expr->output_history);
+    free(expr);
+}
+
+#ifdef DEBUG
+void printtoken(token_t *tok)
+{
+    switch (tok->type) {
+    case TOK_FLOAT:        printf("%f", tok->f);          break;
+    case TOK_INT:          printf("%d", tok->i);          break;
+    case TOK_OP:           printf("%c", tok->op);         break;
+    case TOK_OPEN_PAREN:   printf("(");                   break;
+    case TOK_CLOSE_PAREN:  printf(")");                   break;
+    case TOK_VAR:          printf("VAR(%c)", tok->var);   break;
+    case TOK_OPEN_SQUARE:  printf("[");                   break;
+    case TOK_CLOSE_SQUARE: printf("]");                   break;
+    case TOK_OPEN_CURLY:   printf("{");                   break;
+    case TOK_CLOSE_CURLY:  printf("}");                   break;
+    case TOK_FUNC:         printf("FUNC(%s)",
+                                  function_table[tok->func].name);
+        break;
+    case TOK_COMMA:        printf(",");                   break;
+    case TOK_END:          printf("END");                 break;
+    case TOK_TOFLOAT:      printf("(float)");             break;
+    default:               printf("(unknown token)");     break;
+    }
+}
+
+void printexprnode(const char *s, exprnode list)
+{
+    printf("%s", s);
+    while (list) {
+        if (list->is_float
+            && list->tok.type != TOK_FLOAT
+            && list->tok.type != TOK_TOFLOAT)
+            printf(".");
+        printtoken(&list->tok);
+        if (list->tok.type == TOK_VAR) {
+            if (list->history_index < 0)
+                printf("{%d}", list->history_index);
+            if (list->vector_index > -1)
+                printf("[%d]", list->vector_index);
+        }
+        list = list->next;
+        if (list) printf(" ");
+    }
+}
+
+void printexpr(const char*s, mapper_expr e)
+{
+    printexprnode(s, e->node);
+}
+
+void printstack(stack_obj_t *stack, int top)
+{
+    const char *state_name[] = {
+        "YEQUAL_Y", "YEQUAL_EQ", "EXPR", "EXPR_RIGHT", "TERM",
+        "TERM_RIGHT", "VALUE", "NEGATE", "VAR_RIGHT",
+        "VAR_VECTINDEX", "VAR_HISTINDEX", "CLOSE_VECTINDEX",
+        "CLOSE_HISTINDEX", "OPEN_PAREN", "CLOSE_PAREN",
+        "COMMA", "END" };
+
+    int i;
+    printf("Stack: ");
+    for (i=0; i<=top; i++) {
+        if (stack[i].type == ST_NODE) {
+            printf("[");
+            printexprnode("", stack[i].node);
+            printf("] ");
+            continue;
+        }
+        printf("%s ", state_name[stack[i].state]);
+    }
+    printf("\n");
+}
+#endif
+
+static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
+                                  int constant_folding)
+{
+    // track whether any variable references
+    int refvar = 0;
+    int is_float = 0;
+
+    // find trailing operator on right hand side
+    exprnode rhs_last = rhs;
+    if (rhs->tok.type == TOK_VAR)
+        refvar = 1;
+    while (rhs_last->next) {
+        if (rhs_last->tok.type == TOK_VAR)
+            refvar = 1;
+        rhs_last = rhs_last->next;
+    }
+
+    // find pointer to insertion place:
+    // - could be a function that needs args,
+    // - otherwise assume it's before the trailing operator
+    exprnode *plhs_last = plhs;
+    if ((*plhs_last)->tok.type == TOK_VAR)
+        refvar = 1;
+    while ((*plhs_last)->next) {
+        if ((*plhs_last)->tok.type == TOK_VAR)
+            refvar = 1;
+        plhs_last = &(*plhs_last)->next;
+    }
+
+    // insert float coersion if sides disagree on type
+    token_t coerce;
+    coerce.type = TOK_TOFLOAT;
+    is_float = (*plhs_last)->is_float || rhs_last->is_float;
+    if ((*plhs_last)->is_float && !rhs_last->is_float) {
+        rhs_last = rhs_last->next = exprnode_new(&coerce, 1);
+    } else if (!(*plhs_last)->is_float && rhs_last->is_float) {
+        exprnode e = exprnode_new(&coerce, 1);
+        e->next = (*plhs_last);
+        (*plhs_last) = e;
+        plhs_last = &e->next;
+        e->next->is_float = 1;
+    }
+
+    // insert the list before the trailing op of left hand side
+    rhs_last->next = (*plhs_last);
+    (*plhs_last) = rhs;
+
+    // if there were no variable references, then expression is
+    // constant, so evaluate it immediately
+    if (constant_folding && !refvar) {
+        struct _mapper_expr e;
+        e.node = *plhs;
+        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0);
+
+        exprnode_free((*plhs)->next);
+        (*plhs)->next = 0;
+        (*plhs)->is_float = is_float;
+
+        if (is_float) {
+            (*plhs)->tok.type = TOK_FLOAT;
+            (*plhs)->tok.f = v.f;
+        }
+        else {
+            (*plhs)->tok.type = TOK_INT;
+            (*plhs)->tok.i = v.i32;
+        }
+    }
+}
+
+/* Macros to help express stack operations in parser. */
+#define PUSHSTATE(x) { top++; stack[top].state = x; stack[top].type = ST_STATE; }
+#define PUSHEXPR(x, f) { top++; stack[top].node = exprnode_new(&x, f); stack[top].type = ST_NODE; }
+#define POP() (top--)
+#define TOPSTATE_IS(x) (stack[top].type == ST_STATE && stack[top].state == x)
+#define APPEND_OP(x)                                                    \
+    if (stack[top].type == ST_NODE) {                                   \
+        exprnode e = stack[top].node;                                   \
+        while (e->next) e = e->next;                                    \
+        e->next = exprnode_new(&tok, 0);                                \
+        e->next->is_float = e->is_float;                                \
+    }
+#define SUCCESS(x) { result = x; goto done; }
+#define FAIL(msg) { error_message = msg; result = 0; goto done; }
+
+/*! Create a new expression by parsing the given string. */
+mapper_expr mapper_expr_new_from_string(const char *str,
+                                        int input_is_float,
+                                        int vector_size)
+{
+    const char *s = str;
+    if (!str) return 0;
+    stack_obj_t stack[STACK_SIZE];
+    int top = -1;
+    exprnode result = 0;
+    const char *error_message = 0;
+
+    token_t tok;
+    int i, next_token = 1;
+
+    int var_allowed = 1;
+    float oldest_samps = 0;
+
+    PUSHSTATE(EXPR);
+    PUSHSTATE(YEQUAL_EQ);
+    PUSHSTATE(YEQUAL_Y);
+
+    while (top >= 0) {
+        if (next_token && expr_lex(&s, &tok))
+            {FAIL("Error in lexical analysis.");}
+        next_token = 0;
+
+        if (stack[top].type == ST_NODE) {
+            if (top==0)
+                SUCCESS(stack[top].node);
+            if (stack[top-1].type == ST_STATE) {
+                if (top >= 2 && stack[top-2].type == ST_NODE) {
+                    if (stack[top-1].type == ST_STATE
+                        && (stack[top-1].state == EXPR_RIGHT
+                            || stack[top-1].state == TERM_RIGHT
+                            || stack[top-1].state == CLOSE_PAREN))
+                    {
+                        collapse_expr_to_left(&stack[top-2].node,
+                                              stack[top].node, 1);
+                        POP();
+                    }
+                    else if (stack[top-1].type == ST_STATE
+                             && stack[top-1].state == CLOSE_HISTINDEX)
+                    {
+                        die_unless(stack[top-2].node->tok.type == TOK_VAR,
+                                   "expected VAR two-down on the stack.\n");
+                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT
+                                                              || stack[top].node->tok.type == TOK_FLOAT),
+                                   "expected lonely INT or FLOAT expression on the stack.\n");
+                        if (stack[top].node->tok.type == TOK_FLOAT)
+                            stack[top-2].node->history_index = (int)stack[top].node->tok.f;
+                        else
+                            stack[top-2].node->history_index = stack[top].node->tok.i;
+
+                        /* Track the oldest history reference in order
+                         * to know how much buffer needs to be
+                         * allocated for this expression. */
+                        if (oldest_samps > stack[top-2].node->history_index)
+                            oldest_samps = stack[top-2].node->history_index;
+
+                        exprnode_free(stack[top].node);
+                        POP();
+                    }
+                    else if (stack[top-1].type == ST_STATE
+                             && stack[top-1].state == CLOSE_VECTINDEX)
+                    {
+                        die_unless(stack[top-2].node->tok.type == TOK_VAR,
+                                   "expected VAR two-down on the stack.\n");
+                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT
+                                                              || stack[top].node->tok.type == TOK_FLOAT),
+                                   "expected lonely INT or FLOAT expression on the stack.\n");
+                        if (stack[top].node->tok.type == TOK_FLOAT)
+                            stack[top-2].node->vector_index = (int)stack[top].node->tok.f;
+                        else
+                            stack[top-2].node->vector_index = stack[top].node->tok.i;
+                        if (stack[top-2].node->vector_index < 0
+                            || stack[top-2].node->vector_index >= vector_size)
+                            {FAIL("Vector index outside input size.");}
+
+                        exprnode_free(stack[top].node);
+                        POP();
+                    }
+                }
+                else {
+                    // swap the expression down the stack
+                    stack_obj_t tmp = stack[top-1];
+                    stack[top-1] = stack[top];
+                    stack[top] = tmp;
+                }
+            }
+
+#if TRACING
+            printstack(&stack[0], top);
+#endif
+            continue;
+        }
+
+        switch (stack[top].state) {
+        case YEQUAL_Y:
+            if (tok.type == TOK_VAR && tok.var == 'y')
+                POP();
+            else
+                {FAIL("Error in y= prefix.");}
+            next_token = 1;
+            break;
+        case YEQUAL_EQ:
+            if (tok.type == TOK_OP && tok.op == '=') {
+                POP();
+            } else {
+                {FAIL("Error in y= prefix.");}
+            }
+            next_token = 1;
+            break;
+        case EXPR:
+            POP();
+            PUSHSTATE(EXPR_RIGHT);
+            PUSHSTATE(TERM);
+            break;
+        case EXPR_RIGHT:
+            if (tok.type == TOK_OP) {
+                POP();
+                if (tok.op == '+' || tok.op == '-') {
+                    APPEND_OP(tok);
+                    PUSHSTATE(EXPR);
+                    next_token = 1;
+                }
+            }
+            else POP();
+            break;
+        case TERM:
+            POP();
+            PUSHSTATE(TERM_RIGHT);
+            PUSHSTATE(VALUE);
+            break;
+        case TERM_RIGHT:
+            if (tok.type == TOK_OP) {
+                POP();
+                if (tok.op == '*' || tok.op == '/') {
+                    APPEND_OP(tok);
+                    PUSHSTATE(TERM);
+                    next_token = 1;
+                }
+            }
+            else POP();
+            break;
+        case VALUE:
+            if (tok.type == TOK_INT) {
+                POP();
+                PUSHEXPR(tok, 0);
+                next_token = 1;
+            } else if (tok.type == TOK_FLOAT) {
+                POP();
+                PUSHEXPR(tok, 1);
+                next_token = 1;
+            } else if (tok.type == TOK_VAR) {
+                if (var_allowed) {
+                    POP();
+                    PUSHEXPR(tok, input_is_float);
+                    PUSHSTATE(VAR_RIGHT);
+                    next_token = 1;
+                }
+                else
+                    {FAIL("Unexpected variable reference.");}
+            } else if (tok.type == TOK_OPEN_PAREN) {
+                POP();
+                PUSHSTATE(CLOSE_PAREN);
+                PUSHSTATE(EXPR);
+                next_token = 1;
+            } else if (tok.type == TOK_FUNC) {
+                POP();
+                if (tok.func == FUNC_UNKNOWN)
+                    {FAIL("Unknown function.");}
+                else {
+                    PUSHEXPR(tok, 1);
+                    int arity = function_table[tok.func].arity;
+                    if (arity > 0) {
+                        PUSHSTATE(CLOSE_PAREN);
+                        PUSHSTATE(EXPR);
+                        for (i=1; i < arity; i++) {
+                            PUSHSTATE(COMMA);
+                            PUSHSTATE(EXPR);
+                        }
+                        PUSHSTATE(OPEN_PAREN);
+                    }
+                    next_token = 1;
+                }
+            } else if (tok.type == TOK_OP && tok.op == '-') {
+                POP();
+                PUSHSTATE(NEGATE);
+                PUSHSTATE(VALUE);
+                next_token = 1;
+            } else
+                {FAIL("Expected value.");}
+            break;
+        case NEGATE:
+            POP();
+            // insert '0' before, and '-' after the expression.
+            // set is_float according to trailing operator.
+            if (stack[top].type == ST_NODE) {
+                token_t t;
+                t.type = TOK_INT;
+                t.i = 0;
+                exprnode e = exprnode_new(&t, 0);
+                t.type = TOK_OP;
+                t.op = '-';
+                e->next = exprnode_new(&t, 0);
+                collapse_expr_to_left(&e, stack[top].node, 1);
+                stack[top].node = e;
+            }
+            else
+                {FAIL("Expected to negate an expression.");}
+            break;
+        case VAR_RIGHT:
+            if (tok.type == TOK_OPEN_SQUARE) {
+                POP();
+                PUSHSTATE(VAR_VECTINDEX);
+            }
+            else if (tok.type == TOK_OPEN_CURLY) {
+                POP();
+                PUSHSTATE(VAR_HISTINDEX);
+            }
+            else
+                POP();
+            break;
+        case VAR_VECTINDEX:
+            POP();
+            if (tok.type == TOK_OPEN_SQUARE) {
+                var_allowed = 0;
+                PUSHSTATE(CLOSE_VECTINDEX);
+                PUSHSTATE(EXPR);
+                next_token = 1;
+            }
+            break;
+        case VAR_HISTINDEX:
+            POP();
+            if (tok.type == TOK_OPEN_CURLY) {
+                var_allowed = 0;
+                PUSHSTATE(CLOSE_HISTINDEX);
+                PUSHSTATE(EXPR);
+                next_token = 1;
+            }
+            break;
+        case CLOSE_VECTINDEX:
+            if (tok.type == TOK_CLOSE_SQUARE) {
+                var_allowed = 1;
+                POP();
+                PUSHSTATE(VAR_HISTINDEX);
+                next_token = 1;
+            }
+            else
+                {FAIL("Expected ']'.");}
+            break;
+        case CLOSE_HISTINDEX:
+            if (tok.type == TOK_CLOSE_CURLY) {
+                var_allowed = 1;
+                POP();
+                PUSHSTATE(VAR_VECTINDEX);
+                next_token = 1;
+            }
+            else
+                {FAIL("Expected '}'.");}
+            break;
+        case CLOSE_PAREN:
+            if (tok.type == TOK_CLOSE_PAREN) {
+                POP();
+                next_token = 1;
+                break;
+            } else
+                {FAIL("Expected ')'.");}
+            break;
+        case COMMA:
+            if (tok.type == TOK_COMMA) {
+                POP();
+                // find previous expression on the stack
+                for (i=top-1; i>=0 && stack[i].type!=ST_NODE; --i) {};
+                if (i>=0) {
+                    collapse_expr_to_left(&stack[i].node,
+                                          stack[top].node, 0);
+                    POP();
+                }
+                next_token = 1;
+            } else
+                {FAIL("Expected ','.");}
+            break;
+        case OPEN_PAREN:
+            if (tok.type == TOK_OPEN_PAREN) {
+                POP();
+                next_token = 1;
+            } else
+                {FAIL("Expected '('.");}
+            break;
+        case END:
+            if (tok.type == TOK_END) {
+                POP();
+                break;
+            } else
+                {FAIL("Expected END.");}
+        default:
+            FAIL("Unexpected parser state.");
+            break;
+        }
+
+#if TRACING
+        printstack(&stack[0], top);
+#endif
+    }
+
+  done:
+    if (!result) {
+        if (error_message)
+            printf("%s\n", error_message);
+        goto cleanup;
+    }
+
+    // We need a limit, but this is a bit arbitrary.
+    if (oldest_samps < -100) {
+        trace("Expression contains history reference of %f\n", oldest_samps);
+        goto cleanup;
+    }
+
+    mapper_expr expr = malloc(sizeof(struct _mapper_expr));
+    expr->node = result;
+    expr->vector_size = vector_size;
+    expr->history_size = (int)ceilf(-oldest_samps)+1;
+    expr->history_pos = -1;
+    expr->input_history = calloc(sizeof(mapper_signal_value_t)
+                                 * vector_size * expr->history_size, 1);
+    expr->output_history = calloc(sizeof(mapper_signal_value_t)
+                                  * expr->history_size, 1);
+    return expr;
+
+  cleanup:
+    for (i=0; i<top; i++) {
+        if (stack[i].type == ST_NODE)
+            exprnode_free(stack[i].node);
+    }
+    return 0;
+}
+
+#if TRACING
+#define trace_eval printf
+#else
+static void trace_eval(const char *s,...) {}
+#endif
+
+mapper_signal_value_t mapper_expr_evaluate(
+    mapper_expr expr, mapper_signal_value_t* input_vector)
+{
+    mapper_signal_value_t stack[STACK_SIZE];
+    mapper_signal_value_t left, right;
+    int top = -1;
+    exprnode node = expr->node;
+
+    if (input_vector) {
+        expr->history_pos = (expr->history_pos+1) % expr->history_size;
+        memcpy(&expr->input_history[expr->history_pos*expr->vector_size],
+               input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
+    }
+
+    while (node) {
+        switch (node->tok.type) {
+        case TOK_INT:
+            stack[++top].i32 = node->tok.i;
+            break;
+        case TOK_FLOAT:
+            stack[++top].f = node->tok.f;
+            break;
+        case TOK_VAR:
+            die_unless(input_vector,
+                       "Input required but not provided for "
+                       "expression evaluation.\n");
+            {
+                int idx = ((node->history_index + expr->history_pos
+                            + expr->history_size) % expr->history_size);
+                switch (node->tok.var) {
+                case 'x':
+                    idx = idx * expr->vector_size + node->vector_index;
+                    stack[++top] = expr->input_history[idx];
+                    break;
+                case 'y':
+                    stack[++top] = expr->output_history[idx];
+                    break;
+                default: goto error;
+                }
+            }
+            break;
+        case TOK_TOFLOAT:
+            stack[top].f = (float)stack[top].i32;
+            break;
+        case TOK_OP:
+            right = stack[top--];
+            left = stack[top--];
+            if (node->is_float) {
+                trace_eval("%f %c %f = ", left.f, node->tok.op, right.f);
+                switch (node->tok.op) {
+                case '+': stack[++top].f = left.f + right.f; break;
+                case '-': stack[++top].f = left.f - right.f; break;
+                case '*': stack[++top].f = left.f * right.f; break;
+                case '/': stack[++top].f = left.f / right.f; break;
+                default: goto error;
+                }
+                trace_eval("%f\n", stack[top].f);
+            } else {
+                trace_eval("%d %c %d = ", left.i32, node->tok.op, right.i32);
+                switch (node->tok.op) {
+                case '+': stack[++top].i32 = left.i32 + right.i32; break;
+                case '-': stack[++top].i32 = left.i32 - right.i32; break;
+                case '*': stack[++top].i32 = left.i32 * right.i32; break;
+                case '/': stack[++top].i32 = left.i32 / right.i32; break;
+                default: goto error;
+                }
+                trace_eval("%d\n", stack[top].i32);
+            }
+            break;
+        case TOK_FUNC:
+            switch (function_table[node->tok.func].arity) {
+            case 0:
+                stack[++top].f = ((func_float_arity0*)function_table[node->tok.func].func)();
+                trace_eval("%s = %f\n", function_table[node->tok.func].name,
+                           stack[top].f);
+                break;
+            case 1:
+                right = stack[top--];
+                trace_eval("%s(%f) = ", function_table[node->tok.func].name, right.f);
+                right.f = ((func_float_arity1*)function_table[node->tok.func].func)(right.f);
+                trace_eval("%f\n", right.f);
+                stack[++top].f = right.f;
+                break;
+            case 2:
+                right = stack[top--];
+                left = stack[top--];
+                trace_eval("%s(%f,%f) = ", function_table[node->tok.func].name, left.f, right.f);
+                right.f = ((func_float_arity2*)function_table[node->tok.func].func)(left.f, right.f);
+                trace_eval("%f\n", right.f);
+                stack[++top].f = right.f;
+                break;
+            default: goto error;
+            }
+            break;
+        default: goto error;
+        }
+        node = node->next;
+    }
+
+    if (input_vector)
+        expr->output_history[expr->history_pos] = stack[0];
+    return stack[0];
+
+  error:
+    trace("Unexpected token in expression.");
+    stack[0].i32 = 0;
+    return stack[0];
 }

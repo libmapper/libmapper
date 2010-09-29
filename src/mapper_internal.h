@@ -92,9 +92,18 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 
 /**** Mappings ****/
 
+/*! Perform the mapping from a value vector to a scalar.  The result
+ *  of this operation should be sent to the destination.
+ *  \param mapping    The mapping to perform.
+ *  \param from_value Pointer to first value in a vector of the
+ *                    expected size.
+ *  \param from_value Pointer to a value to receive the scalar result.
+ *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_mapping_perform(mapper_mapping mapping,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value);
+                           mapper_signal sig,
+                           mapper_signal_value_t *from_value,
+                           mapper_signal_value_t *to_value);
+
 int mapper_clipping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
@@ -111,12 +120,15 @@ void mapper_mapping_set_from_message(mapper_mapping mapping,
 void mapper_mapping_set_direct(mapper_mapping mapping);
 
 void mapper_mapping_set_linear_range(mapper_mapping mapping,
+                                     mapper_signal sig,
                                      mapper_mapping_range_t *range);
 
 void mapper_mapping_set_expression(mapper_mapping mapping,
+                                   mapper_signal sig,
                                    const char *expr);
 
 void mapper_mapping_set_calibrate(mapper_mapping mapping,
+                                  mapper_signal sig,
                                   float dest_min, float dest_max);
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
@@ -289,6 +301,21 @@ void mapper_msg_prepare_params(lo_message m,
 
 /*! Prepare a lo_message for sending based on a mapping struct. */
 void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map);
+
+/**** Expression parser/evaluator ****/
+
+mapper_expr mapper_expr_new_from_string(const char *str,
+                                        int input_is_float,
+                                        int vector_size);
+
+#ifdef DEBUG
+void printexpr(const char*, mapper_expr);
+#endif
+
+mapper_signal_value_t mapper_expr_evaluate(
+    mapper_expr expr, mapper_signal_value_t* input_vector);
+
+void mapper_expr_free(mapper_expr expr);
 
 /**** Debug macros ****/
 

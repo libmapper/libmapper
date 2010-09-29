@@ -1,8 +1,5 @@
 
-#include "../src/operations.h"
-#include "../src/expression.h"
 #include "../src/mapper_internal.h"
-
 
 #include <mapper/mapper.h>
 #include <stdio.h>
@@ -118,8 +115,8 @@ int setup_router()
     mapper_mapping m = mapper_router_add_mapping(router, sendsig,
                                                  recvsig->props.name);
     const char *expr = "y=x*10";
-    mapper_mapping_set_expression(m, expr);
-    
+    mapper_mapping_set_expression(m, sendsig, expr);
+
     return 0;
 }
 

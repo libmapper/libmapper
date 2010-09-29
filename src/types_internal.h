@@ -3,8 +3,6 @@
 #define __MAPPER_TYPES_H__
 
 #include <lo/lo_lowlevel.h>
-#include "operations.h"
-#include "expression.h"
 
 #include <mapper/mapper_db.h>
 
@@ -17,6 +15,7 @@
 
 struct _mapper_signal;
 struct _mapper_admin;
+typedef struct _mapper_expr *mapper_expr;
 
 /* Forward declarations for this file. */
 
@@ -90,26 +89,11 @@ typedef mapper_admin_t *mapper_admin;
 typedef struct _mapper_mapping {
     mapper_db_mapping_t props;      //!< Properties.
     struct _mapper_mapping *next;   //!< Next mapping in the list.
-    int order_input;                /*!< Order of the input side of
-                                     *   the difference equation. */
-    int order_output;               /*!< Order of the output side of
-                                     *   the difference equation. */
-
-    /*! Coefficients for the input polynomial. */
-    float coef_input[MAX_HISTORY_ORDER];
-
-    /*! Coefficients for the output polynomial. */
-    float coef_output[MAX_HISTORY_ORDER];
-
-    float history_input[MAX_HISTORY_ORDER];  //!< History of input.
-    float history_output[MAX_HISTORY_ORDER]; //!< History of output.
-
-    int history_pos;   //!< Position in history ring buffers.
 
     int calibrating;   /*!< 1 if the source range is currently being
                         *   calibrated, 0 otherwise. */
 
-    mapper_expr_tree expr_tree;  //!< Tree representing the mapping expression.
+    mapper_expr expr;  //!< The mapping expression.
 } *mapper_mapping;
 
 

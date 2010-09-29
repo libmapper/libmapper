@@ -7,8 +7,6 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
-#include "operations.h"
-#include "expression.h"
 #include <mapper/mapper.h>
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
@@ -82,7 +80,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         signal.props.name = strdup(m->props.dest_name);
 
         mapper_signal_value_t v, w;
-        if (mapper_mapping_perform(m, value, &v))
+        if (mapper_mapping_perform(m, sig, value, &v))
             if (mapper_clipping_perform(m, &v, &w))
                 mapper_router_send_signal(router, &signal, &w);
         m = m->next;

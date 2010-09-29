@@ -1,5 +1,4 @@
-#include "../src/operations.h"
-#include "../src/expression.h"
+
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
@@ -122,7 +121,7 @@ int setup_router()
     range.dest_max = 10;
     range.known = MAPPING_RANGE_KNOWN;
     
-    mapper_mapping_set_linear_range(m, &range);
+    mapper_mapping_set_linear_range(m, sendsig, &range);
 
     return 0;
 }

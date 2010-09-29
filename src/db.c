@@ -1,6 +1,7 @@
 
 #include <string.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 #include "mapper_internal.h"
 
