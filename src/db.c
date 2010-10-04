@@ -749,6 +749,7 @@ int mapper_db_add_or_update_signal_params(const char *name,
 
         // Defaults
         sig->length = 1;
+		sig->is_output = is_output;
     }
 
     if (sig) {

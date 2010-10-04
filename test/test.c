@@ -13,8 +13,14 @@ int automate = 1;
 
 mapper_device source = 0;
 mapper_device destination = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mapper_signal sendsig_1 = 0;
+mapper_signal recvsig_1 = 0;
+mapper_signal sendsig_2 = 0;
+mapper_signal recvsig_2 = 0;
+mapper_signal sendsig_3 = 0;
+mapper_signal recvsig_3 = 0;
+mapper_signal sendsig_4 = 0;
+mapper_signal recvsig_4 = 0;
 
 int recvport = 9000;
 int sendport = 9000;
@@ -26,14 +32,20 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", sendport);
+    source = mdev_new("qttestsend", sendport);
     if (!source)
         goto error;
     printf("source created.\n");
 
-    sendsig = msig_float(1, "/outsig", 0, 0, 1, 0, 0, 0);
+    sendsig_1 = msig_float(1, "/outsig_1", 0, 0, 1, 0, 0, 0);
+    sendsig_2 = msig_float(1, "/outsig_2", 0, 0, 1, 0, 0, 0);
+    sendsig_3 = msig_float(1, "/outsig_3", 0, 0, 1, 0, 0, 0);
+    sendsig_4 = msig_float(1, "/outsig_4", 0, 0, 1, 0, 0, 0);
 
-    mdev_register_output(source, sendsig);
+    mdev_register_output(source, sendsig_1);
+    mdev_register_output(source, sendsig_2);
+    mdev_register_output(source, sendsig_3);
+    mdev_register_output(source, sendsig_4);
 
     printf("Output signal /outsig registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -68,14 +80,20 @@ void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", recvport);
+    destination = mdev_new("qttestrecv", recvport);
     if (!destination)
         goto error;
     printf("destination created.\n");
 
-    recvsig = msig_float(1, "/insig", 0, 0, 1, 0, insig_handler, 0);
+    recvsig_1 = msig_float(1, "/insig_1", 0, 0, 1, 0, insig_handler, 0);
+    recvsig_2 = msig_float(1, "/insig_2", 0, 0, 1, 0, insig_handler, 0);
+    recvsig_3 = msig_float(1, "/insig_3", 0, 0, 1, 0, insig_handler, 0);
+    recvsig_4 = msig_float(1, "/insig_4", 0, 0, 1, 0, insig_handler, 0);
 
-    mdev_register_input(destination, recvsig);
+    mdev_register_input(destination, recvsig_1);
+    mdev_register_input(destination, recvsig_2);
+    mdev_register_input(destination, recvsig_3);
+    mdev_register_input(destination, recvsig_4);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -115,7 +133,8 @@ void loop()
     int i = 0;
 
     if (automate) {
-        char source_name[1024], destination_name[1024];
+        char source_name_1[1024], destination_name_1[1024];
+        char source_name_2[1024], destination_name_2[1024];
 
         printf("%s\n", mdev_name(source));
         printf("%s\n", mdev_name(destination));
@@ -125,10 +144,15 @@ void loop()
 
         lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
 
-        msig_full_name(sendsig, source_name, 1024);
-        msig_full_name(recvsig, destination_name, 1024);
+        msig_full_name(sendsig_1, source_name_1, 1024);
+        msig_full_name(recvsig_1, destination_name_1, 1024);
 
-        lo_send(a, "/connect", "ss", source_name, destination_name);
+        lo_send(a, "/connect", "ss", source_name_1, destination_name_1);
+
+        msig_full_name(sendsig_2, source_name_2, 1024);
+        msig_full_name(recvsig_2, destination_name_2, 1024);
+
+        lo_send(a, "/connect", "ss", source_name_2, destination_name_2);
 
         lo_address_free(a);
     }
@@ -136,6 +160,8 @@ void loop()
     while (i >= 0 && !done) {
         mdev_poll(source, 0);
         msig_update_scalar(source->outputs[0],
+                           (mval) ((i % 10) * 1.0f));
+        msig_update_scalar(source->outputs[1],
                            (mval) ((i % 10) * 1.0f));
         printf("source value updated to %d -->\n", i % 10);
 

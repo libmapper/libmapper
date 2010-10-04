@@ -94,6 +94,9 @@ typedef union _mapper_signal_value {
 /*! A record that describes properties of a signal. */
 typedef struct _mapper_db_signal
 {
+	/*! Flag to indicate whether signal is source or destination */
+	int is_output;
+
     /*! The type of this signal, specified as an OSC type
      *  character. */
     char type;
