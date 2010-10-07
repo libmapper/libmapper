@@ -50,7 +50,7 @@ void printsignal(mapper_db_signal sig, int is_output)
 /*! Creation of a local dummy device. */
 int setup_dummy_device()
 {
-    dummy = mdev_new("dummy", port);
+    dummy = mdev_new("dummy", port, 0);
     if (!dummy)
         goto error;
     printf("Dummy device created.\n");

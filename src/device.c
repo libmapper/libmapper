@@ -12,7 +12,8 @@
 #include <mapper/mapper.h>
 
 //! Allocate and initialize a mapper device.
-mapper_device mdev_new(const char *name_prefix, int initial_port)
+mapper_device mdev_new(const char *name_prefix, int initial_port,
+                       const char *iface)
 {
     if (initial_port == 0)
         initial_port = 9000;
@@ -20,7 +21,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port)
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
-    md->admin = mapper_admin_new(name_prefix, md, initial_port);
+    md->admin = mapper_admin_new(name_prefix, md, initial_port, iface);
 
     if (!md->admin) {
         mdev_free(md);

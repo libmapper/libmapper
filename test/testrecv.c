@@ -20,7 +20,7 @@ void handler(mapper_signal sig, mapper_signal_value_t *v)
 
 int test_recv()
 {
-    mapper_device md = mdev_new("synth", 9000);
+    mapper_device md = mdev_new("synth", 9000, 0);
     if (!md)
         goto error;
     printf("Mapper device created.\n");

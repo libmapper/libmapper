@@ -7,6 +7,7 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <net/if.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -234,31 +235,57 @@ static void on_collision(mapper_admin_allocated_t *resource,
                          mapper_admin admin, int type);
 
 /*! Local function to get the IP address of a network interface. */
-static struct in_addr get_interface_addr(const char *ifname)
+static int get_interface_addr(const char* pref,
+                              struct in_addr* addr, char iface[16])
 {
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
-    struct in_addr error = { 0 };
+    struct ifaddrs *iflo=0, *ifchosen=0;
+    struct in_addr zero;
+    struct sockaddr_in *sa;
 
     if (getifaddrs(&ifaphead) != 0)
-        return error;
+        return 1;
+
+    inet_aton("0.0.0.0", &zero);
 
     ifap = ifaphead;
     while (ifap) {
-        struct sockaddr_in *sa = (struct sockaddr_in *) ifap->ifa_addr;
+        sa = (struct sockaddr_in *) ifap->ifa_addr;
         if (!sa) {
-            trace("ifap->ifa_addr = 0, unknown condition.\n");
             ifap = ifap->ifa_next;
             continue;
         }
-        if (sa->sin_family == AF_INET
-            && strcmp(ifap->ifa_name, ifname) == 0) {
-            return sa->sin_addr;
+
+        // Note, we could also check for IFF_MULTICAST-- however this
+        // is the data-sending port, not the admin bus port.
+
+        if (sa->sin_family == AF_INET && ifap->ifa_flags & IFF_UP
+            && memcpy(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0)
+        {
+            ifchosen = ifap;
+            if (pref && strcmp(ifap->ifa_name, pref)==0)
+                break;
+            else if (ifap->ifa_flags & IFF_LOOPBACK)
+                iflo = ifap;
         }
         ifap = ifap->ifa_next;
     }
 
-    return error;
+    // Default to loopback address in case user is working locally.
+    if (!ifchosen)
+        ifchosen = iflo;
+
+    if (ifchosen) {
+        strncpy(iface, ifchosen->ifa_name, 15);
+        sa = (struct sockaddr_in *) ifchosen->ifa_addr;
+        *addr = sa->sin_addr;
+        freeifaddrs(ifaphead);
+        return 0;
+    }
+
+    freeifaddrs(ifaphead);
+    return 2;
 }
 
 /*! Allocate and initialize a new admin structure.
@@ -272,7 +299,8 @@ static struct in_addr get_interface_addr(const char *ifname)
  *  \return A newly initialized mapper admin structure.
  */
 mapper_admin mapper_admin_new(const char *identifier,
-                              mapper_device device, int initial_port)
+                              mapper_device device, int initial_port,
+                              const char *iface)
 {
     mapper_admin admin = (mapper_admin)malloc(sizeof(mapper_admin_t));
     if (!admin)
@@ -280,21 +308,9 @@ mapper_admin mapper_admin_new(const char *identifier,
 
     /* Initialize interface information.  We'll use defaults for now,
      * perhaps this should be configurable in the future. */
-    {
-        char *eths[] = { "eth0", "eth1", "eth2", "eth3", "eth4",
-                         "en0", "en1", "en2", "en3", "en4", "lo" };
-        int num = sizeof(eths) / sizeof(char *), i;
-        for (i = 0; i < num; i++) {
-            admin->interface_ip = get_interface_addr(eths[i]);
-            if (admin->interface_ip.s_addr != 0) {
-                strcpy(admin->interface, eths[i]);
-                break;
-            }
-        }
-        if (i >= num) {
-            trace("no interface found\n");
-        }
-    }
+    if (get_interface_addr(iface, &admin->interface_ip,
+                           admin->interface))
+        trace("no interface found\n");
 
     /* Open address for multicast group 224.0.1.3, port 7570 */
     admin->admin_addr = lo_address_new("224.0.1.3", "7570");
@@ -306,6 +322,12 @@ mapper_admin mapper_admin_new(const char *identifier,
 
     /* Set TTL for packet to 1 -> local subnet */
     lo_address_set_ttl(admin->admin_addr, 1);
+
+    /* Specify the interface to use for multicasting */
+#ifdef HAVE_LIBLO_SET_IFACE
+    lo_address_set_iface(admin->admin_addr,
+                         admin->interface, 0);
+#endif
 
     /* Open server for multicast group 224.0.1.3, port 7570 */
     admin->admin_server =

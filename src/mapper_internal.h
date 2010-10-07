@@ -9,8 +9,11 @@
 
 /**** Admin ****/
 
+/* Parameter iface may be 0; if no network interface is preferred, it
+ * will try to select one. */
 mapper_admin mapper_admin_new(const char *identifier,
-                              mapper_device device, int initial_port);
+                              mapper_device device, int initial_port,
+                              const char *iface);
 
 void mapper_admin_free(mapper_admin admin);
 

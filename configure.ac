@@ -118,6 +118,12 @@ AS_IF([test "x$liblo_LIBS" = x],
 AS_IF([test x$with_liblo != xno],[
   AC_DEFINE([HAVE_LIBLO],[],[Define to enable Open Sound Control support with liblo])
   AC_SUBST(LIBLO,liblo)
+
+  tmpLIBS="$LIBS"
+  LIBS="$LIBS $liblo_LIBS"
+  AC_CHECK_FUNC([lo_address_set_iface],
+    [AC_DEFINE([HAVE_LIBLO_SET_IFACE],[],[Define to use lo_address_set_iface function in liblo.])])
+  LIBS="$tmpLIBS"
 ])
 
 # Debug mode

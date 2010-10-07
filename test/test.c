@@ -32,7 +32,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("qttestsend", sendport);
+    source = mdev_new("qttestsend", sendport, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -80,7 +80,7 @@ void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("qttestrecv", recvport);
+    destination = mdev_new("qttestrecv", recvport, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

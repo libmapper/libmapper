@@ -82,8 +82,16 @@ int msig_full_name(mapper_signal sig, char *name, int len);
 
 /*** Devices ***/
 
-//! Allocate and initialize a mapper device.
-mapper_device mdev_new(const char *name_prefix, int initial_port);
+/*! Allocate and initialize a mapper device.
+ * \param name_prefix   A short descriptive string to identify the device.
+ * \param initial_port  An initial port to use to receive data, or 0.
+ *                      Subsequently, a unique port will be selected.
+ * \param iface         If non-zero, a string identifying a preferred
+ *                      network interface.  This string can be
+ *                      enumerated e.g. using if_nameindex(). If zero,
+ *                      an interface will be selected automatically. */
+mapper_device mdev_new(const char *name_prefix, int initial_port,
+                       const char *iface);
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device device);

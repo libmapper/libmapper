@@ -9,7 +9,7 @@
 
 int test_controller()
 {
-    mapper_device md = mdev_new("tester", 9000);
+    mapper_device md = mdev_new("tester", 9000, 0);
     if (!md)
         goto error;
     printf("Mapper device created.\n");
