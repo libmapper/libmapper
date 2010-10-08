@@ -236,7 +236,7 @@ static void on_collision(mapper_admin_allocated_t *resource,
 
 /*! Local function to get the IP address of a network interface. */
 static int get_interface_addr(const char* pref,
-                              struct in_addr* addr, char iface[16])
+                              struct in_addr* addr, char **iface)
 {
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
@@ -277,7 +277,8 @@ static int get_interface_addr(const char* pref,
         ifchosen = iflo;
 
     if (ifchosen) {
-        strncpy(iface, ifchosen->ifa_name, 15);
+        if (*iface) free(iface);
+        *iface = strdup(ifchosen->ifa_name);
         sa = (struct sockaddr_in *) ifchosen->ifa_addr;
         *addr = sa->sin_addr;
         freeifaddrs(ifaphead);
@@ -306,10 +307,12 @@ mapper_admin mapper_admin_new(const char *identifier,
     if (!admin)
         return NULL;
 
+    admin->interface = 0;
+
     /* Initialize interface information.  We'll use defaults for now,
      * perhaps this should be configurable in the future. */
     if (get_interface_addr(iface, &admin->interface_ip,
-                           admin->interface))
+                           &admin->interface))
         trace("no interface found\n");
 
     /* Open address for multicast group 224.0.1.3, port 7570 */
@@ -397,6 +400,9 @@ void mapper_admin_free(mapper_admin admin)
 
     if (admin->name)
         free(admin->name);
+
+    if (admin->interface)
+        free(admin->interface);
 
     if (admin->admin_server)
         lo_server_free(admin->admin_server);

@@ -64,7 +64,7 @@ typedef struct _mapper_admin {
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
                                        *   bus. */
-    char interface[16];               /*!< The name of the network
+    char *interface;                  /*!< The name of the network
                                        *   interface for receiving
                                        *   messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */
