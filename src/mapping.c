@@ -256,7 +256,7 @@ static int replace_expression_string(mapper_mapping m,
         mapper_expr_free(m->expr);
 
     m->expr = expr;
-    int len = sizeof(expr_str);
+    int len = strlen(expr_str)+1;
     if (!m->props.expression || len > strlen(m->props.expression))
         m->props.expression = realloc(m->props.expression, len);
     strncpy(m->props.expression, expr_str, len);
