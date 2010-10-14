@@ -5,40 +5,6 @@
 
 #include "mapper_internal.h"
 
-/*! The global list of devices. */
-mapper_db_device g_db_registered_devices = NULL;
-
-/*! The global list of inputs. */
-mapper_db_signal g_db_registered_inputs = NULL;
-
-/*! The global list of outputs. */
-mapper_db_signal g_db_registered_outputs = NULL;
-
-/*! The global list of mappings. */
-mapper_db_mapping g_db_registered_mappings = NULL;
-
-/*! The global list of links. */
-mapper_db_link g_db_registered_links = NULL;
-
-/*! A list of function and context pointers. */
-typedef struct _fptr_list {
-    void *f;
-    void *context;
-    struct _fptr_list *next;
-} *fptr_list;
-
-/*! A global list of device record callbacks. */
-fptr_list g_db_device_callbacks = NULL;
-
-/*! A global list of signal record callbacks. */
-fptr_list g_db_signal_callbacks = NULL;
-
-/*! A global list of mapping record callbacks. */
-fptr_list g_db_mapping_callbacks = NULL;
-
-/*! A global list of link record callbacks. */
-fptr_list g_db_link_callbacks = NULL;
-
 /* Some useful local list functions. */
 
 /*
@@ -504,23 +470,24 @@ static void update_device_record_params(mapper_db_device reg,
 
 }
 
-int mapper_db_add_or_update_device_params(const char *name,
+int mapper_db_add_or_update_device_params(mapper_db db,
+                                          const char *name,
                                           mapper_message_t *params)
 {
-    mapper_db_device reg = mapper_db_get_device_by_name(name);
+    mapper_db_device reg = mapper_db_get_device_by_name(db, name);
     int rc = 0;
 
     if (!reg) {
         reg = (mapper_db_device) list_new_item(sizeof(*reg));
         rc = 1;
 
-        list_prepend_item(reg, (void**)&g_db_registered_devices);
+        list_prepend_item(reg, (void**)&db->registered_devices);
     }
 
     if (reg) {
         update_device_record_params(reg, name, params);
         
-        fptr_list cb = g_db_device_callbacks;
+        fptr_list cb = db->device_callbacks;
         while (cb) {
             device_callback_func *f = cb->f;
             f(reg, rc ? MDB_NEW : MDB_MODIFY, cb->context);
@@ -531,38 +498,39 @@ int mapper_db_add_or_update_device_params(const char *name,
     return rc;
 }
 
-void mapper_db_remove_device(const char *name)
+void mapper_db_remove_device(mapper_db db, const char *name)
 {
-    mapper_db_device dev = mapper_db_get_device_by_name(name);
+    mapper_db_device dev = mapper_db_get_device_by_name(db, name);
     if (!dev)
         return;
 
-    mapper_db_remove_mappings_by_query(
-        mapper_db_get_mappings_by_device_name(name));
+    mapper_db_remove_mappings_by_query(db,
+        mapper_db_get_mappings_by_device_name(db, name));
 
-    mapper_db_remove_links_by_query(
-        mapper_db_get_links_by_device_name(name));
+    mapper_db_remove_links_by_query(db,
+        mapper_db_get_links_by_device_name(db, name));
 
-    mapper_db_remove_inputs_by_query(
-        mapper_db_get_inputs_by_device_name(name));
+    mapper_db_remove_inputs_by_query(db,
+        mapper_db_get_inputs_by_device_name(db, name));
 
-    mapper_db_remove_outputs_by_query(
-        mapper_db_get_outputs_by_device_name(name));
+    mapper_db_remove_outputs_by_query(db,
+        mapper_db_get_outputs_by_device_name(db, name));
 
-    fptr_list cb = g_db_device_callbacks;
+    fptr_list cb = db->device_callbacks;
     while (cb) {
         device_callback_func *f = cb->f;
         f(dev, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
-    list_remove_item(dev, (void**)&g_db_registered_devices);
+    list_remove_item(dev, (void**)&db->registered_devices);
 }
 
-mapper_db_device mapper_db_get_device_by_name(const char *name)
+mapper_db_device mapper_db_get_device_by_name(mapper_db db,
+                                              const char *name)
 {
 
-    mapper_db_device reg = g_db_registered_devices;
+    mapper_db_device reg = db->registered_devices;
     while (reg) {
         if (strcmp(reg->name, name)==0)
             return reg;
@@ -572,12 +540,12 @@ mapper_db_device mapper_db_get_device_by_name(const char *name)
 
 }
 
-mapper_db_device *mapper_db_get_all_devices()
+mapper_db_device *mapper_db_get_all_devices(mapper_db db)
 {
-    if (!g_db_registered_devices)
+    if (!db->registered_devices)
         return 0;
 
-    list_header_t *lh = list_get_header_by_data(g_db_registered_devices);
+    list_header_t *lh = list_get_header_by_data(db->registered_devices);
 
     die_unless(lh->self == &lh->data,
                "bad self pointer in list structure");
@@ -592,9 +560,10 @@ static int cmp_query_match_device_by_name(void *context_data,
     return strstr(dev->name, device_pattern)!=0;
 }
 
-mapper_db_device *mapper_db_match_device_by_name(char *str)
+mapper_db_device *mapper_db_match_device_by_name(mapper_db db,
+                                                 char *str)
 {
-    mapper_db_device dev = g_db_registered_devices;
+    mapper_db_device dev = db->registered_devices;
     if (!dev)
         return 0;
 
@@ -623,9 +592,9 @@ void mapper_db_device_done(mapper_db_device_t **d)
         lh->query_context->query_free(lh);
 }
 
-void mapper_db_dump()
+void mapper_db_dump(mapper_db db)
 {
-    mapper_db_device reg = g_db_registered_devices;
+    mapper_db_device reg = db->registered_devices;
     trace("Registered devices:\n");
     while (reg) {
         trace("  name=%s, host=%s, port=%d, canAlias=%d\n",
@@ -634,7 +603,7 @@ void mapper_db_dump()
         reg = list_get_next(reg);
     }
 
-    mapper_db_signal sig = g_db_registered_inputs;
+    mapper_db_signal sig = db->registered_inputs;
     trace("Registered inputs:\n");
     while (sig) {
         trace("  name=%s%s\n",
@@ -642,7 +611,7 @@ void mapper_db_dump()
         sig = list_get_next(sig);
     }
 
-    sig = g_db_registered_outputs;
+    sig = db->registered_outputs;
     trace("Registered outputs:\n");
     while (sig) {
         trace("  name=%s%s\n",
@@ -650,7 +619,7 @@ void mapper_db_dump()
         sig = list_get_next(sig);
     }
 
-    mapper_db_mapping map = g_db_registered_mappings;
+    mapper_db_mapping map = db->registered_mappings;
     trace("Registered mappings:\n");
     while (map) {
         char r[1024] = "(";
@@ -686,7 +655,7 @@ void mapper_db_dump()
         map = list_get_next(map);
     }
 
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     trace("Registered links:\n");
     while (link) {
         trace("  source=%s, dest=%s\n",
@@ -695,14 +664,16 @@ void mapper_db_dump()
     }
 }
 
-void mapper_db_add_device_callback(device_callback_func *f, void *user)
+void mapper_db_add_device_callback(mapper_db db,
+                                   device_callback_func *f, void *user)
 {
-    add_callback(&g_db_device_callbacks, f, user);
+    add_callback(&db->device_callbacks, f, user);
 }
 
-void mapper_db_remove_device_callback(device_callback_func *f, void *user)
+void mapper_db_remove_device_callback(mapper_db db,
+                                      device_callback_func *f, void *user)
 {
-    remove_callback(&g_db_device_callbacks, f, user);
+    remove_callback(&db->device_callbacks, f, user);
 }
 
 /**** Signals ****/
@@ -728,7 +699,8 @@ static void update_signal_record_params(mapper_db_signal sig,
                                sig->type, &sig->minimum);
 }
 
-int mapper_db_add_or_update_signal_params(const char *name,
+int mapper_db_add_or_update_signal_params(mapper_db db,
+                                          const char *name,
                                           const char *device_name,
                                           int is_output,
                                           mapper_message_t *params)
@@ -737,9 +709,9 @@ int mapper_db_add_or_update_signal_params(const char *name,
     mapper_db_signal *psig = 0;
 
     if (is_output)
-        psig = mapper_db_match_outputs_by_device_name(device_name, name);
+        psig = mapper_db_match_outputs_by_device_name(db, device_name, name);
     else
-        psig = mapper_db_match_inputs_by_device_name(device_name, name);
+        psig = mapper_db_match_inputs_by_device_name(db, device_name, name);
     // TODO: actually we want to find the exact signal
 
     if (psig)
@@ -757,10 +729,10 @@ int mapper_db_add_or_update_signal_params(const char *name,
 
         if (!psig)
             list_prepend_item(sig, (void**)(is_output
-                                            ? &g_db_registered_outputs
-                                            : &g_db_registered_inputs));
+                                            ? &db->registered_outputs
+                                            : &db->registered_inputs));
 
-        fptr_list cb = g_db_signal_callbacks;
+        fptr_list cb = db->signal_callbacks;
         while (cb) {
             signal_callback_func *f = cb->f;
             f(sig, psig ? MDB_MODIFY : MDB_NEW, cb->context);
@@ -774,22 +746,24 @@ int mapper_db_add_or_update_signal_params(const char *name,
     return 1;
 }
 
-void mapper_db_add_signal_callback(signal_callback_func *f, void *user)
+void mapper_db_add_signal_callback(mapper_db db,
+                                   signal_callback_func *f, void *user)
 {
-    add_callback(&g_db_signal_callbacks, f, user);
+    add_callback(&db->signal_callbacks, f, user);
 }
 
-void mapper_db_remove_signal_callback(signal_callback_func *f, void *user)
+void mapper_db_remove_signal_callback(mapper_db db,
+                                      signal_callback_func *f, void *user)
 {
-    remove_callback(&g_db_signal_callbacks, f, user);
+    remove_callback(&db->signal_callbacks, f, user);
 }
 
-mapper_db_signal_t **mapper_db_get_all_inputs()
+mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db)
 {
-    if (!g_db_registered_inputs)
+    if (!db->registered_inputs)
         return 0;
 
-    list_header_t *lh = list_get_header_by_data(g_db_registered_inputs);
+    list_header_t *lh = list_get_header_by_data(db->registered_inputs);
 
     die_unless(lh->self == &lh->data,
                "bad self pointer in list structure");
@@ -797,12 +771,12 @@ mapper_db_signal_t **mapper_db_get_all_inputs()
     return (mapper_db_signal*)&lh->self;
 }
 
-mapper_db_signal_t **mapper_db_get_all_outputs()
+mapper_db_signal_t **mapper_db_get_all_outputs(mapper_db db)
 {
-    if (!g_db_registered_outputs)
+    if (!db->registered_outputs)
         return 0;
 
-    list_header_t *lh = list_get_header_by_data(g_db_registered_outputs);
+    list_header_t *lh = list_get_header_by_data(db->registered_outputs);
 
     die_unless(lh->self == &lh->data,
                "bad self pointer in list structure");
@@ -818,9 +792,9 @@ static int cmp_query_signal_exact_device_name(void *context_data,
 }
 
 mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
-    const char *device_name)
+    mapper_db db, const char *device_name)
 {
-    mapper_db_signal sig = g_db_registered_inputs;
+    mapper_db_signal sig = db->registered_inputs;
     if (!sig)
         return 0;
 
@@ -837,9 +811,9 @@ mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
 }
 
 mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
-    const char *device_name)
+    mapper_db db, const char *device_name)
 {
-    mapper_db_signal sig = g_db_registered_outputs;
+    mapper_db_signal sig = db->registered_outputs;
     if (!sig)
         return 0;
 
@@ -866,9 +840,9 @@ static int cmp_match_signal_device_name(void *context_data,
 }
 
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
-    const char *device_name, const char *input_pattern)
+    mapper_db db, const char *device_name, const char *input_pattern)
 {
-    mapper_db_signal sig = g_db_registered_inputs;
+    mapper_db_signal sig = db->registered_inputs;
     if (!sig)
         return 0;
 
@@ -885,9 +859,9 @@ mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
 }
 
 mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
-    const char *device_name, char const *output_pattern)
+    mapper_db db, const char *device_name, char const *output_pattern)
 {
-    mapper_db_signal sig = g_db_registered_outputs;
+    mapper_db_signal sig = db->registered_outputs;
     if (!sig)
         return 0;
 
@@ -917,37 +891,39 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
         lh->query_context->query_free(lh);
 }
 
-void mapper_db_remove_inputs_by_query(mapper_db_signal_t **s)
+void mapper_db_remove_inputs_by_query(mapper_db db,
+                                      mapper_db_signal_t **s)
 {
     while (s) {
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        fptr_list cb = g_db_signal_callbacks;
+        fptr_list cb = db->signal_callbacks;
         while (cb) {
             signal_callback_func *f = cb->f;
             f(sig, MDB_REMOVE, cb->context);
             cb = cb->next;
         }
 
-        list_remove_item(sig, (void**)&g_db_registered_inputs);
+        list_remove_item(sig, (void**)&db->registered_inputs);
     }
 }
 
-void mapper_db_remove_outputs_by_query(mapper_db_signal_t **s)
+void mapper_db_remove_outputs_by_query(mapper_db db,
+                                       mapper_db_signal_t **s)
 {
     while (s) {
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        fptr_list cb = g_db_signal_callbacks;
+        fptr_list cb = db->signal_callbacks;
         while (cb) {
             signal_callback_func *f = cb->f;
             f(sig, MDB_REMOVE, cb->context);
             cb = cb->next;
         }
 
-        list_remove_item(sig, (void**)&g_db_registered_outputs);
+        list_remove_item(sig, (void**)&db->registered_outputs);
     }
 }
 
@@ -956,9 +932,9 @@ void mapper_db_remove_outputs_by_query(mapper_db_signal_t **s)
 /*! Update information about a given mapping record based on message
  *  parameters. */
 static void update_mapping_record_params(mapper_db_mapping map,
-                                        const char *src_name,
-                                        const char *dest_name,
-                                        mapper_message_t *params)
+                                         const char *src_name,
+                                         const char *dest_name,
+                                         mapper_message_t *params)
 {
     update_string_if_different(&map->src_name, src_name);
     update_string_if_different(&map->dest_name, dest_name);
@@ -1021,7 +997,8 @@ static void update_mapping_record_params(mapper_db_mapping map,
     /* int muted; */
 }
 
-int mapper_db_add_or_update_mapping_params(const char *src_name,
+int mapper_db_add_or_update_mapping_params(mapper_db db,
+                                           const char *src_name,
                                            const char *dest_name,
                                            mapper_message_t *params)
 {
@@ -1037,9 +1014,9 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
         update_mapping_record_params(map, src_name, dest_name, params);
 
         if (!found)
-            list_prepend_item(map, (void**)&g_db_registered_mappings);
+            list_prepend_item(map, (void**)&db->registered_mappings);
 
-        fptr_list cb = g_db_mapping_callbacks;
+        fptr_list cb = db->mapping_callbacks;
         while (cb) {
             mapping_callback_func *f = cb->f;
             f(map, found ? MDB_MODIFY : MDB_NEW, cb->context);
@@ -1050,12 +1027,12 @@ int mapper_db_add_or_update_mapping_params(const char *src_name,
     return found;
 }
 
-mapper_db_mapping_t **mapper_db_get_all_mappings()
+mapper_db_mapping_t **mapper_db_get_all_mappings(mapper_db db)
 {
-    if (!g_db_registered_mappings)
+    if (!db->registered_mappings)
         return 0;
 
-    list_header_t *lh = list_get_header_by_data(g_db_registered_mappings);
+    list_header_t *lh = list_get_header_by_data(db->registered_mappings);
 
     die_unless(lh->self == &lh->data,
                "bad self pointer in list structure");
@@ -1063,14 +1040,16 @@ mapper_db_mapping_t **mapper_db_get_all_mappings()
     return (mapper_db_mapping*)&lh->self;
 }
 
-void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user)
+void mapper_db_add_mapping_callback(mapper_db db,
+                                    mapping_callback_func *f, void *user)
 {
-    add_callback(&g_db_mapping_callbacks, f, user);
+    add_callback(&db->mapping_callbacks, f, user);
 }
 
-void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user)
+void mapper_db_remove_mapping_callback(mapper_db db,
+                                       mapping_callback_func *f, void *user)
 {
-    remove_callback(&g_db_mapping_callbacks, f, user);
+    remove_callback(&db->mapping_callbacks, f, user);
 }
 
 static int cmp_query_get_mappings_by_device_name(void *context_data,
@@ -1083,9 +1062,9 @@ static int cmp_query_get_mappings_by_device_name(void *context_data,
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_name(
-    const char *device_name)
+    mapper_db db, const char *device_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1115,9 +1094,9 @@ static int cmp_query_get_mappings_by_src_dest_device_names(
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_src_dest_device_names(
-    const char *src_device_name, const char *dest_device_name)
+    mapper_db db, const char *src_device_name, const char *dest_device_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1148,9 +1127,9 @@ static int cmp_query_get_mappings_by_input_name(void *context_data,
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
-    const char *input_name)
+    mapper_db db, const char *input_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1176,9 +1155,9 @@ static int cmp_query_get_mappings_by_device_and_input_name(
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
-    const char *device_name, const char *input_name)
+    mapper_db db, const char *device_name, const char *input_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1213,9 +1192,9 @@ static int cmp_query_get_mappings_by_output_name(void *context_data,
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
-    const char *output_name)
+    mapper_db db, const char *output_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1241,9 +1220,9 @@ static int cmp_query_get_mappings_by_device_and_output_name(
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
-    const char *device_name, const char *output_name)
+    mapper_db db, const char *device_name, const char *output_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1267,9 +1246,9 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
 }
 
 mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
-    const char *src_name, const char *dest_name)
+    mapper_db db, const char *src_name, const char *dest_name)
 {
-    mapper_db_mapping map = g_db_registered_mappings;
+    mapper_db_mapping map = db->registered_mappings;
     if (!map)
         return 0;
 
@@ -1293,10 +1272,11 @@ static int cmp_query_get_mappings_by_device_and_signal_names(
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
+    mapper_db db,
     const char *input_device_name,  const char *input_name,
     const char *output_device_name, const char *output_name)
 {
-    mapper_db_mapping mapping = g_db_registered_mappings;
+    mapper_db_mapping mapping = db->registered_mappings;
     if (!mapping)
         return 0;
 
@@ -1384,9 +1364,10 @@ static int cmp_get_mappings_by_signal_queries(void *context_data,
 }
 
 mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
+    mapper_db db,
     mapper_db_signal_t **inputs, mapper_db_signal_t **outputs)
 {
-    mapper_db_mapping maps = g_db_registered_mappings;
+    mapper_db_mapping maps = db->registered_mappings;
     if (!maps)
         return 0;
 
@@ -1433,28 +1414,28 @@ void mapper_db_mapping_done(mapper_db_mapping_t **d)
         lh->query_context->query_free(lh);
 }
 
-void mapper_db_remove_mappings_by_query(mapper_db_mapping_t **s)
+void mapper_db_remove_mappings_by_query(mapper_db db, mapper_db_mapping_t **s)
 {
     while (s) {
         mapper_db_mapping map = *s;
         s = mapper_db_mapping_next(s);
-        mapper_db_remove_mapping(map);
+        mapper_db_remove_mapping(db, map);
     }
 }
 
-void mapper_db_remove_mapping(mapper_db_mapping map)
+void mapper_db_remove_mapping(mapper_db db, mapper_db_mapping map)
 {
     if (!map)
         return;
 
-    fptr_list cb = g_db_mapping_callbacks;
+    fptr_list cb = db->mapping_callbacks;
     while (cb) {
         mapping_callback_func *f = cb->f;
         f(map, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
-    list_remove_item(map, (void**)&g_db_registered_mappings);
+    list_remove_item(map, (void**)&db->registered_mappings);
 }
 
 /**** Link records ****/
@@ -1470,14 +1451,15 @@ static void update_link_record_params(mapper_db_link link,
     update_string_if_different(&link->dest_name, dest_name);
 }
 
-int mapper_db_add_or_update_link_params(const char *src_name,
+int mapper_db_add_or_update_link_params(mapper_db db,
+                                        const char *src_name,
                                         const char *dest_name,
                                         mapper_message_t *params)
 {
     mapper_db_link link;
     int rc = 0;
 
-    link = mapper_db_get_link_by_src_dest_names(src_name, dest_name);
+    link = mapper_db_get_link_by_src_dest_names(db, src_name, dest_name);
 
     if (!link) {
         link = (mapper_db_link) list_new_item(sizeof(mapper_db_link_t));
@@ -1488,9 +1470,9 @@ int mapper_db_add_or_update_link_params(const char *src_name,
         update_link_record_params(link, src_name, dest_name, params);
 
         if (rc)
-            list_prepend_item(link, (void**)&g_db_registered_links);
+            list_prepend_item(link, (void**)&db->registered_links);
 
-        fptr_list cb = g_db_link_callbacks;
+        fptr_list cb = db->link_callbacks;
         while (cb) {
             link_callback_func *f = cb->f;
             f(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
@@ -1505,22 +1487,24 @@ int mapper_db_add_or_update_link_params(const char *src_name,
     return rc;
 }
 
-void mapper_db_add_link_callback(link_callback_func *f, void *user)
+void mapper_db_add_link_callback(mapper_db db,
+                                 link_callback_func *f, void *user)
 {
-    add_callback(&g_db_link_callbacks, f, user);
+    add_callback(&db->link_callbacks, f, user);
 }
 
-void mapper_db_remove_link_callback(link_callback_func *f, void *user)
+void mapper_db_remove_link_callback(mapper_db db,
+                                    link_callback_func *f, void *user)
 {
-    remove_callback(&g_db_link_callbacks, f, user);
+    remove_callback(&db->link_callbacks, f, user);
 }
 
-mapper_db_link_t **mapper_db_get_all_links()
+mapper_db_link_t **mapper_db_get_all_links(mapper_db db)
 {
-    if (!g_db_registered_links)
+    if (!db->registered_links)
         return 0;
 
-    list_header_t *lh = list_get_header_by_data(g_db_registered_links);
+    list_header_t *lh = list_get_header_by_data(db->registered_links);
 
     die_unless(lh->self == &lh->data,
                "bad self pointer in list structure");
@@ -1529,9 +1513,10 @@ mapper_db_link_t **mapper_db_get_all_links()
 }
 
 mapper_db_link mapper_db_get_link_by_src_dest_names(
+    mapper_db db,
     const char *src_device_name, const char *dest_device_name)
 {
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     while (link) {
         if (strcmp(link->src_name, src_device_name)==0
             && strcmp(link->dest_name, dest_device_name)==0)
@@ -1550,9 +1535,9 @@ static int cmp_query_get_links_by_device_name(void *context_data,
 }
 
 mapper_db_link_t **mapper_db_get_links_by_device_name(
-    const char *device_name)
+    mapper_db db, const char *device_name)
 {
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     if (!link)
         return 0;
 
@@ -1577,9 +1562,9 @@ static int cmp_query_get_links_by_src_device_name(void *context_data,
 }
 
 mapper_db_link_t **mapper_db_get_links_by_src_device_name(
-    const char *src_device_name)
+    mapper_db db, const char *src_device_name)
 {
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     if (!link)
         return 0;
 
@@ -1604,9 +1589,9 @@ static int cmp_query_get_links_by_dest_device_name(void *context_data,
 }
 
 mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
-    const char *dest_device_name)
+    mapper_db db, const char *dest_device_name)
 {
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     if (!link)
         return 0;
 
@@ -1675,10 +1660,11 @@ static int cmp_get_links_by_src_dest_devices(void *context_data,
 }
 
 mapper_db_link_t **mapper_db_get_links_by_src_dest_devices(
+    mapper_db db,
     mapper_db_device_t **src_device_list,
     mapper_db_device_t **dest_device_list)
 {
-    mapper_db_link link = g_db_registered_links;
+    mapper_db_link link = db->registered_links;
     if (!link)
         return 0;
 
@@ -1722,26 +1708,26 @@ void mapper_db_link_done(mapper_db_link_t **s)
         lh->query_context->query_free(lh);
 }
 
-void mapper_db_remove_links_by_query(mapper_db_link_t **s)
+void mapper_db_remove_links_by_query(mapper_db db, mapper_db_link_t **s)
 {
     while (s) {
         mapper_db_link link = *s;
         s = mapper_db_link_next(s);
-        mapper_db_remove_link(link);
+        mapper_db_remove_link(db, link);
     }
 }
 
-void mapper_db_remove_link(mapper_db_link link)
+void mapper_db_remove_link(mapper_db db, mapper_db_link link)
 {
     if (!link)
         return;
 
-    fptr_list cb = g_db_link_callbacks;
+    fptr_list cb = db->link_callbacks;
     while (cb) {
         link_callback_func *f = cb->f;
         f(link, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
-    list_remove_item(link, (void**)&g_db_registered_links);
+    list_remove_item(link, (void**)&db->registered_links);
 }

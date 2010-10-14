@@ -9,7 +9,8 @@
 #include <arpa/inet.h>
 #include <signal.h>
 
-mapper_device dummy = 0;
+mapper_monitor mon = 0;
+mapper_db db = 0;
 
 int port = 9000;
 int done = 0;
@@ -48,12 +49,14 @@ void printsignal(mapper_db_signal sig, int is_output)
 }
 
 /*! Creation of a local dummy device. */
-int setup_dummy_device()
+int setup_monitor()
 {
-    dummy = mdev_new("dummy", port, 0);
-    if (!dummy)
+    mon = mapper_monitor_new();
+    if (!mon)
         goto error;
-    printf("Dummy device created.\n");
+    printf("Monitor created.\n");
+
+    db = mapper_monitor_get_db(mon);
 
     return 0;
 
@@ -61,37 +64,21 @@ int setup_dummy_device()
     return 1;
 }
 
-void cleanup_dummy_device()
+void cleanup_monitor()
 {
-    if (dummy) {
-        if (dummy->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(dummy, dummy->routers);
-            printf("ok\n");
-        }
-        printf("Freeing dummy.. ");
+    if (mon) {
+        printf("\rFreeing monitor.. ");
         fflush(stdout);
-        mdev_free(dummy);
+        mapper_monitor_free(mon);
         printf("ok\n");
     }
-}
-
-void wait_local_devices()
-{
-    while (!(mdev_ready(dummy))) {
-        mdev_poll(dummy, 0);
-        usleep(polltime_ms * 1000);
-    }
-
-    mapper_db_dump();
 }
 
 void loop()
 {
     while (!done)
     {
-        mdev_poll(dummy, 0);
+        mapper_monitor_poll(mon, 0);
         usleep(polltime_ms * 1000);
 
         if (!update)
@@ -103,7 +90,7 @@ void loop()
         fflush(stdout);
 
         printf("Registered devices:\n");
-        mapper_db_device *pdev = mapper_db_get_all_devices();
+        mapper_db_device *pdev = mapper_db_get_all_devices(db);
         while (pdev) {
             printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
                    (*pdev)->name, (*pdev)->host,
@@ -115,12 +102,12 @@ void loop()
 
         printf("Registered signals:\n");
         mapper_db_signal *psig =
-            mapper_db_get_all_inputs();
+            mapper_db_get_all_inputs(db);
         while (psig) {
             printsignal(*psig, 0);
             psig = mapper_db_signal_next(psig);
         }
-        psig = mapper_db_get_all_outputs();
+        psig = mapper_db_get_all_outputs(db);
         while (psig) {
             printsignal(*psig, 1);
             psig = mapper_db_signal_next(psig);
@@ -129,7 +116,7 @@ void loop()
         printf("------------------------------\n");
 
         printf("Registered mappings:\n");
-        mapper_db_mapping *pmap = mapper_db_get_all_mappings();
+        mapper_db_mapping *pmap = mapper_db_get_all_mappings(db);
         while (pmap) {
             printf("  %s -> %s\n",
                    (*pmap)->src_name, (*pmap)->dest_name);
@@ -139,7 +126,7 @@ void loop()
         printf("------------------------------\n");
 
         printf("Registered links:\n");
-        mapper_db_link *plink = mapper_db_get_all_links();
+        mapper_db_link *plink = mapper_db_get_all_links(db);
         while (plink) {
             printf("  %s -> %s\n",
                    (*plink)->src_name, (*plink)->dest_name);
@@ -161,17 +148,17 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         // TODO: API function for this?
         char cmd[1024];
         snprintf(cmd, 1024, "%s/signals/get", dev->name);
-        mapper_admin_send_osc(dummy->admin, cmd, "");
+        mapper_admin_send_osc(mon->admin, cmd, "");
 
         // Request links for new devices.
         // TODO: API function for this?
         snprintf(cmd, 1024, "%s/links/get", dev->name);
-        mapper_admin_send_osc(dummy->admin, cmd, "");
+        mapper_admin_send_osc(mon->admin, cmd, "");
 
         // Request mappings for new devices.
         // TODO: API function for this?
         snprintf(cmd, 1024, "%s/connections/get", dev->name);
-        mapper_admin_send_osc(dummy->admin, cmd, "");
+        mapper_admin_send_osc(mon->admin, cmd, "");
 
         break;
     case MDB_MODIFY:
@@ -250,26 +237,26 @@ int main()
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dummy_device()) {
-        printf("Done initializing dummy device.\n");
+    if (setup_monitor()) {
+        printf("Done initializing mon device.\n");
         result = 1;
         goto done;
     }
 
-    mapper_db_add_device_callback(on_device, 0);
-    mapper_db_add_signal_callback(on_signal, 0);
-    mapper_db_add_mapping_callback(on_mapping, 0);
-    mapper_db_add_link_callback(on_link, 0);
+    mapper_db_add_device_callback(db, on_device, 0);
+    mapper_db_add_signal_callback(db, on_signal, 0);
+    mapper_db_add_mapping_callback(db, on_mapping, 0);
+    mapper_db_add_link_callback(db, on_link, 0);
 
-    wait_local_devices();
+    mapper_admin_send_osc(mon->admin, "/who", "");
 
     loop();
 
   done:
-    mapper_db_remove_device_callback(on_device, 0);
-    mapper_db_remove_signal_callback(on_signal, 0);
-    mapper_db_remove_mapping_callback(on_mapping, 0);
-    mapper_db_remove_link_callback(on_link, 0);
-    cleanup_dummy_device();
+    mapper_db_remove_device_callback(db, on_device, 0);
+    mapper_db_remove_signal_callback(db, on_signal, 0);
+    mapper_db_remove_mapping_callback(db, on_mapping, 0);
+    mapper_db_remove_link_callback(db, on_link, 0);
+    cleanup_monitor();
     return result;
 }

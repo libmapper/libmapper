@@ -34,6 +34,8 @@ int main()
     mapper_message_t msg;
     int port=1234;
     int zero=0, one=1;
+    mapper_db_t db_t, *db = &db_t;
+    memset(db, 0, sizeof(db_t));
 
     /* Test the database functions */
 
@@ -48,10 +50,10 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_device_params("/testdb.1", &msg);
-    mapper_db_add_or_update_device_params("/testdb__.2", &msg);
-    mapper_db_add_or_update_device_params("/testdb.3", &msg);
-    mapper_db_add_or_update_device_params("/testdb__.4", &msg);
+    mapper_db_add_or_update_device_params(db, "/testdb.1", &msg);
+    mapper_db_add_or_update_device_params(db, "/testdb__.2", &msg);
+    mapper_db_add_or_update_device_params(db, "/testdb.3", &msg);
+    mapper_db_add_or_update_device_params(db, "/testdb__.4", &msg);
 
     args[0] = (lo_arg*)"@type";
     args[1] = (lo_arg*)"f";
@@ -65,13 +67,13 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_signal_params("/in1", "/testdb.1", 0, &msg);
-    mapper_db_add_or_update_signal_params("/in2", "/testdb.1", 0, &msg);
-    mapper_db_add_or_update_signal_params("/in2", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params(db, "/in1", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", 0, &msg);
 
-    mapper_db_add_or_update_signal_params("/out1", "/testdb.1", 1, &msg);
-    mapper_db_add_or_update_signal_params("/out2", "/testdb.1", 1, &msg);
-    mapper_db_add_or_update_signal_params("/out1", "/testdb__.2", 1, &msg);
+    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb.1", 1, &msg);
+    mapper_db_add_or_update_signal_params(db, "/out2", "/testdb.1", 1, &msg);
+    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb__.2", 1, &msg);
 
     args[0] = (lo_arg*)"@scaling";
     args[1] = (lo_arg*)"bypass";
@@ -85,9 +87,9 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_mapping_params("/testdb.1/out2",
+    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out2",
                                            "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_mapping_params("/testdb__.2/out1",
+    mapper_db_add_or_update_mapping_params(db, "/testdb__.2/out1",
                                            "/testdb.1/in1", &msg);
 
     args[0] = (lo_arg*)"@scaling";
@@ -109,11 +111,11 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_mapping_params("/testdb.1/out1",
+    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out1",
                                            "/testdb__.2/in2", &msg);
-    mapper_db_add_or_update_mapping_params("/testdb.1/out1",
+    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out1",
                                            "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_mapping_params("/testdb__.2/out2",
+    mapper_db_add_or_update_mapping_params(db, "/testdb__.2/out2",
                                            "/testdb.1/in2", &msg);
 
     if (mapper_msg_parse_params(&msg, "/linked",
@@ -123,23 +125,23 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_link_params("/testdb.1", "/testdb__.2", &msg);
-    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb.3", &msg);
-    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb.3", &msg);
-    mapper_db_add_or_update_link_params("/testdb.3", "/testdb.1", &msg);
-    mapper_db_add_or_update_link_params("/testdb__.2", "/testdb__.4", &msg);
+    mapper_db_add_or_update_link_params(db, "/testdb.1", "/testdb__.2", &msg);
+    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb.3", &msg);
+    mapper_db_add_or_update_link_params(db, "/testdb.3", "/testdb.1", &msg);
+    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb__.4", &msg);
 
     /*********/
 
     trace("Dump:\n");
-    mapper_db_dump();
+    mapper_db_dump(db);
 
     /*********/
 
     printf("\n--- Devices ---\n");
 
     printf("\nWalk the whole database:\n");
-    mapper_db_device *pdev = mapper_db_get_all_devices();
+    mapper_db_device *pdev = mapper_db_get_all_devices(db);
     int count=0;
     if (!pdev) {
         printf("mapper_db_get_all_devices() returned 0.\n");
@@ -168,7 +170,7 @@ int main()
 
     printf("\nFind /testdb.3:\n");
 
-    mapper_db_device dev = mapper_db_get_device_by_name("/testdb.3");
+    mapper_db_device dev = mapper_db_get_device_by_name(db, "/testdb.3");
     if (!dev) {
         printf("Not found.\n");
         return 1;
@@ -181,7 +183,7 @@ int main()
 
     printf("\nFind /dummy:\n");
 
-    dev = mapper_db_get_device_by_name("/dummy");
+    dev = mapper_db_get_device_by_name(db, "/dummy");
     if (dev) {
         printf("unexpected found /dummy: %p\n", dev);
         return 1;
@@ -192,7 +194,7 @@ int main()
 
     printf("\nFind matching '__':\n");
 
-    pdev = mapper_db_match_device_by_name("__");
+    pdev = mapper_db_match_device_by_name(db, "__");
 
     count=0;
     if (!pdev) {
@@ -225,7 +227,7 @@ int main()
     printf("\nFind all inputs for device '/testdb.1':\n");
 
     mapper_db_signal *psig =
-        mapper_db_get_inputs_by_device_name("/testdb.1");
+        mapper_db_get_inputs_by_device_name(db, "/testdb.1");
 
     count=0;
     if (!psig) {
@@ -253,7 +255,7 @@ int main()
 
     printf("\nFind all outputs for device '/testdb.1':\n");
 
-    psig = mapper_db_get_outputs_by_device_name("/testdb.1");
+    psig = mapper_db_get_outputs_by_device_name(db, "/testdb.1");
 
     count=0;
     if (!psig) {
@@ -281,7 +283,7 @@ int main()
 
     printf("\nFind all inputs for device '/testdb__.2':\n");
 
-    psig = mapper_db_get_inputs_by_device_name("/testdb__.2");
+    psig = mapper_db_get_inputs_by_device_name(db, "/testdb__.2");
 
     count=0;
     if (psig) {
@@ -297,7 +299,7 @@ int main()
 
     printf("\nFind all outputs for device '/testdb__.2':\n");
 
-    psig = mapper_db_get_outputs_by_device_name("/testdb__.2");
+    psig = mapper_db_get_outputs_by_device_name(db, "/testdb__.2");
 
     count=0;
     if (!psig) {
@@ -325,7 +327,7 @@ int main()
 
     printf("\nFind matching input 'in' for device '/testdb.1':\n");
 
-    psig = mapper_db_match_inputs_by_device_name("/testdb.1", "in");
+    psig = mapper_db_match_inputs_by_device_name(db, "/testdb.1", "in");
 
     count=0;
     if (!psig) {
@@ -353,7 +355,7 @@ int main()
 
     printf("\nFind matching output 'out' for device '/testdb.1':\n");
 
-    psig = mapper_db_match_outputs_by_device_name("/testdb.1", "out");
+    psig = mapper_db_match_outputs_by_device_name(db, "/testdb.1", "out");
 
     count=0;
     if (!psig) {
@@ -381,7 +383,7 @@ int main()
 
     printf("\nFind matching output 'out' for device '/testdb__.2':\n");
 
-    psig = mapper_db_match_outputs_by_device_name("/testdb__.2", "out");
+    psig = mapper_db_match_outputs_by_device_name(db, "/testdb__.2", "out");
 
     count=0;
     if (!psig) {
@@ -412,7 +414,7 @@ int main()
     printf("\nFind mappings with source 'out1':\n");
 
     mapper_db_mapping* pmap =
-        mapper_db_get_mappings_by_input_name("out1");
+        mapper_db_get_mappings_by_input_name(db, "out1");
 
     count=0;
     if (!pmap) {
@@ -442,7 +444,7 @@ int main()
     printf("\nFind mappings for device 'testdb.1', "
            "source 'out1':\n");
 
-    pmap = mapper_db_get_mappings_by_device_and_input_name("testdb.1",
+    pmap = mapper_db_get_mappings_by_device_and_input_name(db, "testdb.1",
                                                            "/out1");
 
     count=0;
@@ -473,7 +475,7 @@ int main()
 
     printf("\nFind mappings with destination 'in2':\n");
 
-    pmap = mapper_db_get_mappings_by_output_name("in2");
+    pmap = mapper_db_get_mappings_by_output_name(db, "in2");
 
     count=0;
     if (!pmap) {
@@ -503,8 +505,9 @@ int main()
     printf("\nFind mappings for device 'testdb__.2', "
            "destination 'in1':\n");
 
-    pmap = mapper_db_get_mappings_by_device_and_output_name("testdb__.2",
-                                                           "/in1");
+    pmap = mapper_db_get_mappings_by_device_and_output_name(db,
+                                                            "testdb__.2",
+                                                            "/in1");
 
     count=0;
     if (!pmap) {
@@ -536,7 +539,7 @@ int main()
            "\n              and output device 'testdb.1', signal 'in1':\n");
 
     pmap = mapper_db_get_mappings_by_device_and_signal_names(
-        "testdb__.2", "out1", "testdb.1", "in1");
+        db, "testdb__.2", "out1", "testdb.1", "in1");
 
     count=0;
     if (!pmap) {
@@ -568,9 +571,9 @@ int main()
            "matching 'out',"
            "\n              and output device 'testdb.1', all signals:\n");
 
-    pmap = mapper_db_get_mappings_by_signal_queries(
-        mapper_db_match_outputs_by_device_name("/testdb__.2", "out"),
-        mapper_db_get_inputs_by_device_name("/testdb.1"));
+    pmap = mapper_db_get_mappings_by_signal_queries(db,
+        mapper_db_match_outputs_by_device_name(db, "/testdb__.2", "out"),
+        mapper_db_get_inputs_by_device_name(db, "/testdb.1"));
 
     count=0;
     if (!pmap) {
@@ -603,7 +606,7 @@ int main()
     printf("\nFind matching links with source '/testdb__.2':\n");
 
     mapper_db_link* plink =
-        mapper_db_get_links_by_src_device_name("/testdb__.2");
+        mapper_db_get_links_by_src_device_name(db, "/testdb__.2");
 
     count=0;
     if (!plink) {
@@ -632,7 +635,7 @@ int main()
 
     printf("\nFind matching links with destination '/testdb__.4':\n");
 
-    plink = mapper_db_get_links_by_dest_device_name("/testdb__.4");
+    plink = mapper_db_get_links_by_dest_device_name(db, "/testdb__.4");
 
     count=0;
     if (!plink) {
@@ -662,21 +665,21 @@ int main()
     printf("\nFind links with source matching 'db' and "
            "destination matching '__':\n");
 
-    pdev = mapper_db_match_device_by_name("db");
+    pdev = mapper_db_match_device_by_name(db, "db");
 
     if (!pdev) {
         printf("mapper_db_match_device_by_name() returned 0.\n");
         return 1;
     }
 
-    mapper_db_device_t **pdev2 = mapper_db_match_device_by_name("__");
+    mapper_db_device_t **pdev2 = mapper_db_match_device_by_name(db, "__");
 
     if (!pdev2) {
         printf("mapper_db_match_device_by_name() returned 0.\n");
         return 1;
     }
 
-    plink = mapper_db_get_links_by_src_dest_devices(pdev, pdev2);
+    plink = mapper_db_get_links_by_src_dest_devices(db, pdev, pdev2);
 
     count=0;
     if (!plink) {
@@ -705,21 +708,21 @@ int main()
 
     printf("\nFind any links with source matching '2':\n");
 
-    pdev = mapper_db_match_device_by_name("2");
+    pdev = mapper_db_match_device_by_name(db, "2");
 
     if (!pdev) {
         printf("mapper_db_match_device_by_name() returned 0.\n");
         return 1;
     }
 
-    pdev2 = mapper_db_get_all_devices();
+    pdev2 = mapper_db_get_all_devices(db);
 
     if (!pdev2) {
         printf("mapper_db_get_all_devices() returned 0.\n");
         return 1;
     }
 
-    plink = mapper_db_get_links_by_src_dest_devices(pdev, pdev2);
+    plink = mapper_db_get_links_by_src_dest_devices(db, pdev, pdev2);
 
     count=0;
     if (!plink) {

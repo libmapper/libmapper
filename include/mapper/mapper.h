@@ -108,15 +108,6 @@ int mdev_num_inputs(mapper_device device);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device device);
 
-//! Request signals for specific device.
-int mdev_request_signals_by_name( const char* name, mapper_device dummy );
-
-//! Request links for specific device.
-int mdev_request_links_by_name( const char* name, mapper_device dummy );
-
-//! Request mappings for specific device.
-int mdev_request_mappings_by_name( const char* name, mapper_device dummy );
-
 /*! Find an input signal by name.
  *  \param md Device to search in.
  *  \param name Name of output signal to search for. It may optionally
@@ -202,30 +193,34 @@ typedef void device_callback_func(mapper_db_device record,
  *  \param cb   Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_device_callback(device_callback_func *f, void *user);
+void mapper_db_add_device_callback(mapper_db db,
+                                   device_callback_func *f, void *user);
 
 /*! Remove a device record callback from the database service.
  *  \param cb   Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_device_callback(device_callback_func *f, void *user);
+void mapper_db_remove_device_callback(mapper_db db,
+                                      device_callback_func *f, void *user);
 
 /*! Return the whole list of devices.
  *  \return A double-pointer to the first item in the list of devices,
  *          or zero if none.  Use mapper_db_device_next() to
  *          iterate. */
-mapper_db_device_t **mapper_db_get_all_devices();
+mapper_db_device_t **mapper_db_get_all_devices(mapper_db db);
 
 /*! Find information for a registered device.
  *  \param name  Name of the device to find in the database.
  *  \return      Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_name(const char *device_name);
+mapper_db_device mapper_db_get_device_by_name(mapper_db db,
+                                              const char *device_name);
 
 /*! Return the list of devices with a substring in their name.
  *  \param str The substring to search for.
  *  \return    A double-pointer to the first item in a list of matching
  *             devices.  Use mapper_db_device_next() to iterate. */
-mapper_db_device_t **mapper_db_match_device_by_name(char *device_pattern);
+mapper_db_device_t **mapper_db_match_device_by_name(mapper_db db,
+                                                    char *device_pattern);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_return_*() call, get the next item in the list.
@@ -258,23 +253,25 @@ typedef void signal_callback_func(mapper_db_signal record,
  *  \param cb   Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_signal_callback(signal_callback_func *f, void *user);
+void mapper_db_add_signal_callback(mapper_db db,
+                                   signal_callback_func *f, void *user);
 
 /*! Remove a signal record callback from the database service.
  *  \param cb   Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_signal_callback(signal_callback_func *f, void *user);
+void mapper_db_remove_signal_callback(mapper_db db,
+                                      signal_callback_func *f, void *user);
 
 /*! Return the list of all known inputs across all devices.
  *  \return A double-pointer to the first item in the list of results
  *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_get_all_inputs();
+mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db);
 
 /*! Return the list of all known outputs across all devices.
  *  \return A double-pointer to the first item in the list of results
  *          or zero if none.  Use mapper_db_signal_next() to iterate. */ 
-mapper_db_signal_t **mapper_db_get_all_outputs();
+mapper_db_signal_t **mapper_db_get_all_outputs(mapper_db db);
 
 /*! Return the list of inputs for a given device.
  *  \param device_name Name of the device to match for outputs.  Must
@@ -283,7 +280,7 @@ mapper_db_signal_t **mapper_db_get_all_outputs();
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
-    const char *device_name);
+    mapper_db db, const char *device_name);
 
 /*! Return the list of outputs for a given device.
  *  \param device_name Name of the device to match for outputs.  Must
@@ -292,7 +289,7 @@ mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
-    const char *device_name);
+    mapper_db db, const char *device_name);
 
 /*! Return the list of inputs for a given device.
  *  \param device_name Name of the device to match for inputs.
@@ -301,7 +298,7 @@ mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
-    const char *device_name, const char *input_pattern);
+    mapper_db db, const char *device_name, const char *input_pattern);
 
 /*! Return the list of outputs for a given device.
  *  \param device_name Name of the device to match for outputs.
@@ -310,7 +307,7 @@ mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
-    const char *device_name, char const *output_pattern);
+    mapper_db db, const char *device_name, char const *output_pattern);
 
 /*! Given a signal record pointer returned from a previous
  *  mapper_db_get_*() call, get the next item in the list.
@@ -355,32 +352,34 @@ typedef void mapping_callback_func(mapper_db_mapping record,
  *  \param cb   Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_mapping_callback(mapping_callback_func *f, void *user);
+void mapper_db_add_mapping_callback(mapper_db db,
+                                    mapping_callback_func *f, void *user);
 
 /*! Remove a mapping record callback from the database service.
  *  \param cb   Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_mapping_callback(mapping_callback_func *f, void *user);
+void mapper_db_remove_mapping_callback(mapper_db db,
+                                       mapping_callback_func *f, void *user);
 
 /*! Return a list of all registered mappings.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_all_mappings();
+mapper_db_mapping_t **mapper_db_get_all_mappings(mapper_db db);
 
 /*! Return the list of mappings that touch the given device name.
  *  \param device_name Name of the device to find.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_name(
-    const char *device_name);
+    mapper_db db, const char *device_name);
 
 /*! Return the list of mappings for a given input name.
  *  \param input_name Name of the input to find.
  *  \return A double-pointer to the first item in the list of results
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
-    const char *input_name);
+    mapper_db db, const char *input_name);
 
 /*! Return the list of mappings for a given device and input name.
  *  \param device_name Exact name of the device to find, including the
@@ -390,14 +389,14 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
-    const char *device_name, const char *input_name);
+    mapper_db db, const char *device_name, const char *input_name);
 
 /*! Return the list of mappings for a given output name.
  *  \param output_name Name of the output to find.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
-    const char *output_name);
+    mapper_db db, const char *output_name);
 
 /*! Return the list of mappings for a given device and output name.
  *  \param device_name Exact name of the device to find, including the
@@ -407,7 +406,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
-    const char *device_name, const char *output_name);
+    mapper_db db, const char *device_name, const char *output_name);
 
 /*! Return the list of mappings that touch any signals in the lists of
  *  inputs, outputs, and devices provided.
@@ -422,6 +421,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
+    mapper_db db,
     const char *input_device_name,  const char *input_name,
     const char *output_device_name, const char *output_name);
 
@@ -432,7 +432,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
  *  \return A pointer to a structure containing information on the
  *          found mapping, or 0 if not found. */
 mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
-    const char *src_name, const char *dest_name);
+    mapper_db db, const char *src_name, const char *dest_name);
 
 /*! Return mappings that have the specified source and destination
  *  devices.
@@ -441,6 +441,7 @@ mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
  *  \return A double-pointer to the first item in a list of results,
  *          or 0 if not found. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_src_dest_device_names(
+    mapper_db db,
     const char *src_device_name, const char *dest_device_name);
 
 /*! Return the list of mappings that touch any signals in the lists of
@@ -452,6 +453,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_src_dest_device_names(
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
 mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
+    mapper_db db,
     mapper_db_signal_t **inputs, mapper_db_signal_t **outputs);
 
 /*! Given a mapping record pointer returned from a previous
@@ -485,25 +487,27 @@ typedef void link_callback_func(mapper_db_link record,
  *  \param cb   Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_link_callback(link_callback_func *f, void *user);
+void mapper_db_add_link_callback(mapper_db db,
+                                 link_callback_func *f, void *user);
 
 /*! Remove a link record callback from the database service.
  *  \param cb   Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_link_callback(link_callback_func *f, void *user);
+void mapper_db_remove_link_callback(mapper_db db,
+                                    link_callback_func *f, void *user);
 
 /*! Return the whole list of links.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_all_links();
+mapper_db_link_t **mapper_db_get_all_links(mapper_db db);
 
 /*! Return the list of links that touch the given device name.
  *  \param device_name Name of the device to find.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_link_next() to iterate. */
 mapper_db_link_t **mapper_db_get_links_by_device_name(
-    const char *device_name);
+    mapper_db db, const char *device_name);
 
 /*! Return the list of links for a given source name.
  *  \param src_device_name Name of the source device to find.
@@ -511,7 +515,7 @@ mapper_db_link_t **mapper_db_get_links_by_device_name(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_link_t **mapper_db_get_links_by_src_device_name(
-    const char *src_device_name);
+    mapper_db db, const char *src_device_name);
 
 /*! Return the list of links for a given destination name.
  *  \param dest_device_name Name of the destination device to find.
@@ -519,16 +523,15 @@ mapper_db_link_t **mapper_db_get_links_by_src_device_name(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
-    const char *dest_device_name);
+    mapper_db db, const char *dest_device_name);
 
 /*! Return the link structure associated with the exact devices specified.
  *  \param src_device_name Name of the source device to find.
  *  \param dest_device_name Name of the destination device to find.
  *  \return A structure containing information on the link, or 0 if
  *          not found. */
-mapper_db_link mapper_db_get_link_by_src_dest_names(
-    const char *src_device_name,
-    const char *dest_device_name);
+mapper_db_link mapper_db_get_link_by_src_dest_names(mapper_db db,
+    const char *src_device_name, const char *dest_device_name);
 
 /*! Return the list of links for a given source name.
  *  \param src_device_name Name of the source device to find.
@@ -536,6 +539,7 @@ mapper_db_link mapper_db_get_link_by_src_dest_names(
  *          signals, or zero if none.  Use mapper_db_signal_next() to
  *          iterate. */
 mapper_db_link_t **mapper_db_get_links_by_src_dest_devices(
+    mapper_db db,
     mapper_db_device_t **src_device_list,
     mapper_db_device_t **dest_device_list);
 
@@ -550,6 +554,33 @@ mapper_db_link_t **mapper_db_link_next(mapper_db_link_t**);
  *  mapper_db_get_*() call, indicate that we are done iterating.
  *  \param The previous link record double-pointer. */
 void mapper_db_link_done(mapper_db_link_t **s);
+
+/***** Monitors *****/
+
+/*! Create a network monitor. */
+mapper_monitor mapper_monitor_new();
+
+/*! Free a network monitor. */
+void mapper_monitor_free(mapper_monitor mon);
+
+/*! Poll a network monitor. */
+void mapper_monitor_poll(mapper_monitor mon, int block_ms);
+
+/*! Get the database associated with a monitor. This can be used as
+ *  long as the monitor remains alive. */
+mapper_db mapper_monitor_get_db(mapper_monitor mon);
+
+/*! Request signals for specific device. */
+int mapper_monitor_request_signals_by_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request links for specific device. */
+int mapper_monitor_request_links_by_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request mappings for specific device. */
+int mapper_monitor_request_mappings_by_name(
+    mapper_monitor mon, const char* name);
 
 #ifdef __cplusplus
 }

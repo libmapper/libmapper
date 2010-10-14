@@ -21,7 +21,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
-    md->admin = mapper_admin_new(name_prefix, md, initial_port, iface);
+    md->admin = mapper_admin_new(name_prefix, md, initial_port, iface, 0);
 
     if (!md->admin) {
         mdev_free(md);
@@ -102,36 +102,6 @@ int mdev_num_inputs(mapper_device md)
 int mdev_num_outputs(mapper_device md)
 {
     return md->n_outputs;
-}
-
-int mdev_request_signals_by_name( const char* name, mapper_device dummy ) 
-{
-
-	char cmd[1024];
-	snprintf( cmd, 1024, "%s/signals/get", name );
-	mapper_admin_send_osc( dummy->admin, cmd, "" );
-    return 0;
-
-}
-
-int mdev_request_links_by_name( const char* name, mapper_device dummy )
-{
-
-	char cmd[1024];
-	snprintf( cmd, 1024, "%s/links/get", name );
-	mapper_admin_send_osc( dummy->admin, cmd, "" );
-    return 0;
-
-}
-
-int mdev_request_mappings_by_name( const char* name, mapper_device dummy )
-{
-
-	char cmd[1024];
-	snprintf( cmd, 1024, "%s/connections/get", name );
-	mapper_admin_send_osc( dummy->admin, cmd, "" );
-    return 0;
-
 }
 
 int mdev_find_input_by_name(mapper_device md, const char *name,

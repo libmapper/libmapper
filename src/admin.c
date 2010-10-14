@@ -139,30 +139,40 @@ static int handler_generic(const char *path, const char *types,
 		void *userdata);
 
 /* Handler <-> Message relationships */
-static struct { char* path; char *types; lo_method_handler h; }
-handlers[] = {
+struct handler_method_assoc {
+    char* path;
+    char *types;
+    lo_method_handler h;
+};
+static struct handler_method_assoc device_handlers[] = {
     {"/who",                    "",         handler_who},
-    {"/registered",             NULL,       handler_registered},
-    {"/logout",                 NULL,       handler_logout},
-    {"%s/signals/get",        "",         handler_id_n_signals_get},
-    {"%s/signals/input/get",  "",         handler_id_n_signals_input_get},
-    {"%s/signals/output/get", "",         handler_id_n_signals_output_get},
+    {"%s/signals/get",          "",         handler_id_n_signals_get},
+    {"%s/signals/input/get",    "",         handler_id_n_signals_input_get},
+    {"%s/signals/output/get",   "",         handler_id_n_signals_output_get},
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
     {"/link_to",                "sssssiss", handler_device_link_to},
-    {"/linked",                 "ss",       handler_device_linked},
     {"/unlink",                 "ss",       handler_device_unlink},
-    {"/unlinked",               "ss",       handler_device_unlinked},
     {"%s/connections/get",      "",         handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connect_to",             NULL,       handler_signal_connect_to},
-    {"/connected",              NULL,       handler_signal_connected},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
     {"/disconnect",             "ss",       handler_signal_disconnect},
+};
+const int N_DEVICE_HANDLERS =
+    sizeof(device_handlers)/sizeof(device_handlers[0]);
+
+static struct handler_method_assoc monitor_handlers[] = {
+    {"/registered",             NULL,       handler_registered},
+    {"/logout",                 NULL,       handler_logout},
+    {"/linked",                 "ss",       handler_device_linked},
+    {"/unlinked",               "ss",       handler_device_unlinked},
+    {"/connected",              NULL,       handler_signal_connected},
     {"/disconnected",           "ss",       handler_signal_disconnected},
 };
-const int N_HANDLERS = sizeof(handlers)/sizeof(handlers[0]);
+const int N_MONITOR_HANDLERS =
+    sizeof(monitor_handlers)/sizeof(monitor_handlers[0]);
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -181,7 +191,9 @@ static int handler_generic(const char *path, const char *types,
                            lo_arg **argv, int argc, lo_message m,
                            void *user_data)
 {
-    //trace("vijay \n handler_generic called with %s argc %d types[0] %s \n", path, argc, types);
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
 
     if (argc < 2)
         return 1;
@@ -217,7 +229,7 @@ static int handler_generic(const char *path, const char *types,
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    mapper_db_add_or_update_signal_params( name, 
+    mapper_db_add_or_update_signal_params( db, name, 
                                            devname,
                                            is_output, 
                                            &params );
@@ -289,7 +301,41 @@ static int get_interface_addr(const char* pref,
     return 2;
 }
 
-/*! Allocate and initialize a new admin structure.
+static void mapper_admin_add_device_methods(mapper_admin admin)
+{
+    int i;
+    char fullpath[256];
+    for (i=0; i < N_DEVICE_HANDLERS; i++)
+    {
+        snprintf(fullpath, 256, device_handlers[i].path,
+                 mapper_admin_name(admin));
+        lo_server_add_method(admin->admin_server, fullpath,
+                             device_handlers[i].types,
+                             device_handlers[i].h,
+                             admin);
+    }
+}
+
+static void mapper_admin_add_monitor_methods(mapper_admin admin)
+{
+    int i;
+    for (i=0; i < N_MONITOR_HANDLERS; i++)
+    {
+        lo_server_add_method(admin->admin_server,
+                             monitor_handlers[i].path,
+                             monitor_handlers[i].types,
+                             monitor_handlers[i].h,
+                             admin);
+    }
+
+    lo_server_add_method(admin->admin_server, NULL,
+                         NULL, handler_generic,
+                         admin);
+}
+
+/*! Allocate and initialize a new admin structure.  An admin may be
+ *  associated with one device, one monitor, or both.  If no device,
+ *  first 3 parameters should be 0.
  *  \param identifier An identifier for this device which does not
  *  need to be unique.
  *  \param type The device type for this device. (Data direction,
@@ -297,13 +343,16 @@ static int get_interface_addr(const char* pref,
  *  \param initial_port The initial UDP port to use for this
  *  device. This will likely change within a few minutes after the
  *  device is allocated.
+ *  \param iface String to select a network interface. May be 0; if no
+ *  network interface is preferred, it will try to select one.
+ *  \param mon An optional monitor that will use this admin.
  *  \return A newly initialized mapper admin structure.
  */
 mapper_admin mapper_admin_new(const char *identifier,
                               mapper_device device, int initial_port,
-                              const char *iface)
+                              const char *iface, mapper_monitor mon)
 {
-    mapper_admin admin = (mapper_admin)malloc(sizeof(mapper_admin_t));
+    mapper_admin admin = (mapper_admin)calloc(1, sizeof(mapper_admin_t));
     if (!admin)
         return NULL;
 
@@ -342,41 +391,51 @@ mapper_admin mapper_admin_new(const char *identifier,
         return NULL;
     }
 
-    /* Initialize data structures */
-    admin->identifier = strdup(identifier);
-    admin->name = 0;
-    admin->ordinal.value = 1;
-    admin->ordinal.locked = 0;
-    admin->ordinal.collision_count = -1;
-    admin->ordinal.count_time = get_current_time();
-    admin->ordinal.on_collision = mapper_admin_name_registered;
-    admin->port.value = initial_port;
-    admin->port.locked = 0;
-    admin->port.collision_count = -1;
-    admin->port.count_time = get_current_time();
-    admin->port.on_collision = mapper_admin_port_registered;
-    admin->registered = 0;
-    admin->device = device;
-
-    /* Add methods for admin bus.  Only add methods needed for
-     * allocation here. Further methods are added when the device is
-     * registered. */
-    lo_server_add_method(admin->admin_server, "/port/probe", NULL,
-                         handler_device_alloc_port, admin);
-    lo_server_add_method(admin->admin_server, "/name/probe", NULL,
-                         handler_device_alloc_name, admin);
-    lo_server_add_method(admin->admin_server, "/port/registered", NULL,
-                         handler_device_alloc_port, admin);
-    lo_server_add_method(admin->admin_server, "/name/registered", NULL,
-                         handler_device_alloc_name, admin);
-
     /* Resource allocation algorithm needs a seeded random number
      * generator. */
     srand(((unsigned int)(get_current_time()*1000000.0))%100000);
 
-    /* Probe potential port and name to admin bus. */
-    mapper_admin_port_probe(admin);
-    mapper_admin_name_probe(admin);
+    /* Initialize data structures */
+    if (device)
+    {
+        admin->identifier = strdup(identifier);
+        admin->name = 0;
+        admin->ordinal.value = 1;
+        admin->ordinal.locked = 0;
+        admin->ordinal.collision_count = -1;
+        admin->ordinal.count_time = get_current_time();
+        admin->ordinal.on_collision = mapper_admin_name_registered;
+        admin->port.value = initial_port;
+        admin->port.locked = 0;
+        admin->port.collision_count = -1;
+        admin->port.count_time = get_current_time();
+        admin->port.on_collision = mapper_admin_port_registered;
+        admin->registered = 0;
+        admin->device = device;
+
+        /* Add methods for admin bus.  Only add methods needed for
+         * allocation here. Further methods are added when the device is
+         * registered. */
+        lo_server_add_method(admin->admin_server, "/port/probe", NULL,
+                             handler_device_alloc_port, admin);
+        lo_server_add_method(admin->admin_server, "/name/probe", NULL,
+                             handler_device_alloc_name, admin);
+        lo_server_add_method(admin->admin_server, "/port/registered", NULL,
+                             handler_device_alloc_port, admin);
+        lo_server_add_method(admin->admin_server, "/name/registered", NULL,
+                             handler_device_alloc_name, admin);
+
+        /* Probe potential port and name to admin bus. */
+        mapper_admin_port_probe(admin);
+        mapper_admin_name_probe(admin);
+    }
+
+    /* Initialize monitor methods. */
+    if (mon) {
+        admin->monitor = mon;
+        mapper_admin_add_monitor_methods(admin);
+        mapper_admin_send_osc(admin, "/who", "");
+    }
 
     return admin;
 }
@@ -425,6 +484,8 @@ void mapper_admin_poll(mapper_admin admin)
         count++;
     }
 
+    if (!admin->device)
+        return;
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */
@@ -442,25 +503,16 @@ void mapper_admin_poll(mapper_admin admin)
 
     /* If we are ready to register the device, add the needed message
      * handlers. */
-    if (!admin->registered && admin->port.locked && admin->ordinal.locked) {
-        int i;
-        for (i=0; i < N_HANDLERS; i++)
-        {
-            char fullpath[256];
-            snprintf(fullpath, 256, handlers[i].path,
-                     mapper_admin_name(admin));
-            lo_server_add_method(admin->admin_server, fullpath,
-                                 handlers[i].types, handlers[i].h,
-                                 admin);
-        }
-
-		lo_server_add_method(admin->admin_server, NULL,
-				NULL, handler_generic,
-				admin);
+    if (!admin->registered
+        && admin->port.locked && admin->ordinal.locked)
+    {
+        mapper_admin_add_device_methods(admin);
 
         /* Remove some handlers needed during allocation. */
-        lo_server_del_method(admin->admin_server, "/port/registered", NULL);
-        lo_server_del_method(admin->admin_server, "/name/registered", NULL);
+        lo_server_del_method(admin->admin_server,
+                             "/port/registered", NULL);
+        lo_server_del_method(admin->admin_server,
+                             "/name/registered", NULL);
 
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
@@ -519,6 +571,12 @@ void mapper_admin_name_registered(mapper_admin admin)
 const char *_real_mapper_admin_name(mapper_admin admin,
                                     const char *file, unsigned int line)
 {
+#ifdef DEBUG
+    if (!admin->identifier || !admin->device)
+        trace("mapper_admin_name() called on non-device admin at %s:%d.\n",
+              file, line);
+#endif
+
     if (!admin->ordinal.locked) {
         /* Since this function is intended to be used internally in a
          * fairly liberal manner, we want to trace any situations
@@ -681,6 +739,10 @@ static int handler_registered(const char *path, const char *types,
                               lo_arg **argv, int argc, lo_message msg,
                               void *user_data)
 {
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
+
     if (argc < 1)
         return 0;
 
@@ -693,7 +755,7 @@ static int handler_registered(const char *path, const char *types,
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    mapper_db_add_or_update_device_params(name, &params);
+    mapper_db_add_or_update_device_params(db, name, &params);
 
     return 0;
 }
@@ -703,7 +765,9 @@ static int handler_logout(const char *path, const char *types,
                           lo_arg **argv, int argc, lo_message msg,
                           void *user_data)
 {
-    mapper_admin admin = (mapper_admin)user_data;
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
 
     if (argc < 1)
         return 0;
@@ -713,9 +777,9 @@ static int handler_logout(const char *path, const char *types,
 
     const char *name = &argv[0]->s;
 
-    trace("<%s> got /logout %s\n", mapper_admin_name(admin), name);
+    trace("got /logout %s\n", name);
 
-    mapper_db_remove_device(name);
+    mapper_db_remove_device(db, name);
 
     return 0;
 }
@@ -966,6 +1030,8 @@ static int handler_device_linked(const char *path, const char *types,
                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
     const char *src_name, *dest_name;
 
     if (argc < 2)
@@ -984,7 +1050,7 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, argv+2))
         return 0;
-    mapper_db_add_or_update_link_params(src_name, dest_name, &params);
+    mapper_db_add_or_update_link_params(db, src_name, dest_name, &params);
 
     return 0;
 }
@@ -1058,6 +1124,8 @@ static int handler_device_unlinked(const char *path, const char *types,
                                    void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
 
     if (argc < 2)
         return 0;
@@ -1072,13 +1140,13 @@ static int handler_device_unlinked(const char *path, const char *types,
     trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    mapper_db_remove_mappings_by_query(
-        mapper_db_get_mappings_by_src_dest_device_names(src_name,
-                                                           dest_name));
+    mapper_db_remove_mappings_by_query(db,
+        mapper_db_get_mappings_by_src_dest_device_names(db, src_name,
+                                                        dest_name));
 
-    mapper_db_remove_link(
-        mapper_db_get_link_by_src_dest_names(src_name,
-                                                dest_name));
+    mapper_db_remove_link(db,
+        mapper_db_get_link_by_src_dest_names(db, src_name,
+                                             dest_name));
 
     return 0;
 }
@@ -1291,6 +1359,8 @@ static int handler_signal_connected(const char *path, const char *types,
                                     void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
     char *src_signal_name, *dest_signal_name;
 
     if (argc < 2)
@@ -1311,7 +1381,7 @@ static int handler_signal_connected(const char *path, const char *types,
         lo_message_pp(msg);
         return 0;
     }
-    mapper_db_add_or_update_mapping_params(src_signal_name,
+    mapper_db_add_or_update_mapping_params(db, src_signal_name,
                                            dest_signal_name, &params);
 
     return 0;
@@ -1429,6 +1499,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
                                        lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
 
     if (argc < 2)
         return 0;
@@ -1443,8 +1515,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
     trace("<%s> got /disconnected %s %s\n", mapper_admin_name(admin),
           src_signal_name, dest_signal_name);
 
-    mapper_db_remove_mapping(
-        mapper_db_get_mapping_by_signal_full_names(src_signal_name,
+    mapper_db_remove_mapping(db,
+        mapper_db_get_mapping_by_signal_full_names(db, src_signal_name,
                                                    dest_signal_name));
 
     return 0;

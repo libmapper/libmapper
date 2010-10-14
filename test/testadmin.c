@@ -13,7 +13,7 @@ int test_admin()
 {
     int error = 0, wait;
 
-    my_admin = mapper_admin_new("tester", 0, 8000, 0);
+    my_admin = mapper_admin_new("tester", 0, 8000, 0, 0);
     if (!my_admin) {
         printf("Error creating admin structure.\n");
         return 1;

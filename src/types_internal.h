@@ -72,6 +72,8 @@ typedef struct _mapper_admin {
                                        *   been registered. */
     struct _mapper_device *device;    /*!< Device that this admin is
                                        *   in charge of. */
+    struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
+                                       *   in charge of. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -144,6 +146,32 @@ typedef struct _mapper_device {
      *  allocated. */
     lo_server server;
 } *mapper_device;
+
+/**** Monitor ****/
+
+/*! A list of function and context pointers. */
+typedef struct _fptr_list {
+    void *f;
+    void *context;
+    struct _fptr_list *next;
+} *fptr_list;
+
+typedef struct _mapper_db {
+    mapper_db_device  registered_devices;  //<! List of devices.
+    mapper_db_signal  registered_inputs;   //<! List of inputs.
+    mapper_db_signal  registered_outputs;  //<! List of outputs.
+    mapper_db_mapping registered_mappings; //<! List of mappings.
+    mapper_db_link    registered_links;    //<! List of links.
+    fptr_list         device_callbacks;  //<! List of device record callbacks.
+    fptr_list         signal_callbacks;  //<! List of signal record callbacks.
+    fptr_list         mapping_callbacks; //<! List of mapping record callbacks.
+    fptr_list         link_callbacks;    //<! List of link record callbacks.
+} mapper_db_t, *mapper_db;
+
+typedef struct _mapper_monitor {
+    mapper_admin      admin;    //<! Admin for this monitor.
+    mapper_db_t       db;       //<! Database for this monitor. 
+}  *mapper_monitor;
 
 /**** Messages ****/
 

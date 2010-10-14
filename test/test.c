@@ -123,8 +123,6 @@ void wait_local_devices()
 
         usleep(500 * 1000);
     }
-
-    mapper_db_dump();
 }
 
 void loop()
