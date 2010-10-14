@@ -261,7 +261,7 @@ static int get_interface_addr(const char* pref,
         // is the data-sending port, not the admin bus port.
 
         if (sa->sin_family == AF_INET && ifap->ifa_flags & IFF_UP
-            && memcpy(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0)
+            && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0)
         {
             ifchosen = ifap;
             if (pref && strcmp(ifap->ifa_name, pref)==0)
