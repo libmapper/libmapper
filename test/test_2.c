@@ -46,7 +46,8 @@ int setup_sources() {
 		for ( int j=0; j<number; j++ ) {
 
 			sprintf( str, "/outsig%d", j );
-			signal_pointer = msig_float(1, str, 0, 0, 1, 0, 0, 0);
+            float mn=0, mx=1;
+			signal_pointer = msig_float(1, str, 0, &mn, &mx, 0, 0, 0);
 			mdev_register_output(source_device_list[i], signal_pointer);
 
 		}
@@ -102,6 +103,7 @@ int setup_destinations() {
 	char str[20];
 	mapper_signal signal_pointer;
 	int number;
+	float mn=0, mx=1;
 
 	for ( int i=0; i<num_dests; i++ ) {
 
@@ -113,7 +115,7 @@ int setup_destinations() {
 		for ( int j=0; j<number; j++ ) {
 
 			sprintf( str, "/insig%d", j );
-			signal_pointer = msig_float(1, str, 0, 0, 1, 0, 0, 0);
+			signal_pointer = msig_float(1, str, 0, &mn, &mx, 0, 0, 0);
 			mdev_register_input(dest_device_list[i], signal_pointer);
 
 		}

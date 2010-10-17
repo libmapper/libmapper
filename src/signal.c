@@ -8,36 +8,93 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mapper_signal msig_float(int length, const char *name,
-                         const char *unit, float minimum,
-                         float maximum, float *value,
-                         mapper_signal_handler *handler, void *user_data)
+mapper_signal msig_new(int length, const char *name, const char *unit,
+                       char type,
+                       mapper_signal_value_t *minimum,
+                       mapper_signal_value_t *maximum,
+                       mapper_signal_value_t *value,
+                       mapper_signal_handler *handler, void *user_data)
 {
+    if (length < 1) return 0;
+    if (!(name && unit)) return 0;
+    if (type != 'f' && type != 'i')
+        return 0;
+
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
-    sig->props.type = 'f';
+    sig->props.type = type;
     sig->props.length = length;
-    assert(length >= 1);
-    assert(name != 0);
     sig->props.name = strdup(name);
     if (unit)
         sig->props.unit = strdup(unit);
     sig->value = (mapper_signal_value_t *) value;
-
-    if (minimum != INFINITY && minimum != -INFINITY) {
-        sig->props.minimum = (mapper_signal_value_t *)
-            malloc(sizeof(mapper_signal_value_t));
-        sig->props.minimum->f = minimum;
-    }
-
-    if (maximum != INFINITY && maximum != -INFINITY) {
-        sig->props.maximum = (mapper_signal_value_t*) malloc(sizeof(mapper_signal_value_t));
-        sig->props.maximum->f = maximum;
-    }
-
     sig->handler = handler;
     sig->user_data = user_data;
+    msig_set_minimum(sig, minimum);
+    msig_set_maximum(sig, maximum);
     return sig;
+}
+
+mapper_signal msig_float(int length, const char *name, const char *unit,
+                         float *minimum, float *maximum, float *value,
+                         mapper_signal_handler *handler, void *user_data)
+{
+    return msig_new(length, name, unit, 'f', MSIGVALP(value),
+                    MSIGVALP(minimum), MSIGVALP(maximum),
+                    handler, user_data);
+}
+
+mapper_signal msig_int(int length, const char *name, const char *unit,
+                         int *minimum, int *maximum, int *value,
+                         mapper_signal_handler *handler, void *user_data)
+{
+    return msig_new(length, name, unit, 'i', MSIGVALP(value),
+                    MSIGVALP(minimum), MSIGVALP(maximum),
+                    handler, user_data);
+}
+
+void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum)
+{
+    if (minimum) {
+        if (!sig->props.minimum)
+            sig->props.minimum = (mapper_signal_value_t *)
+                malloc(sizeof(mapper_signal_value_t));
+        *sig->props.minimum = *minimum;
+    }
+    else {
+        if (sig->props.minimum)
+            free(sig->props.minimum);
+        sig->props.minimum = 0;
+    }
+}
+
+void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum)
+{
+    if (maximum) {
+        if (!sig->props.maximum)
+            sig->props.maximum = (mapper_signal_value_t *)
+                malloc(sizeof(mapper_signal_value_t));
+        *sig->props.maximum = *maximum;
+    }
+    else {
+        if (sig->props.maximum)
+            free(sig->props.maximum);
+        sig->props.maximum = 0;
+    }
+}
+
+void msig_free(mapper_signal sig)
+{
+    if (!sig) return;
+    if (sig->props.minimum)
+        free(sig->props.minimum);
+    if (sig->props.maximum)
+        free(sig->props.maximum);
+    if (sig->props.name)
+        free((char*)sig->props.name);
+    if (sig->props.unit)
+        free((char*)sig->props.unit);
+    free(sig);
 }
 
 void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value)

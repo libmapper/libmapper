@@ -26,7 +26,8 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    sendsig = msig_float(1, "/outsig", 0, INFINITY, INFINITY, 0, 0, 0);
+    float mn=0, mx=1;
+    sendsig = msig_float(1, "/outsig", 0, &mn, &mx, 0, 0, 0);
 
     mdev_register_output(source, sendsig);
 
@@ -67,9 +68,9 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
+    float mn=0, mx=1;
     recvsig =
-        msig_float(1, "/insig", 0, INFINITY, INFINITY, 0, insig_handler,
-                   0);
+        msig_float(1, "/insig", 0, &mn, &mx, 0, insig_handler, 0);
 
     mdev_register_input(destination, recvsig);
 

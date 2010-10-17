@@ -14,8 +14,9 @@ int test_controller()
         goto error;
     printf("Mapper device created.\n");
 
+    float mn=0, mx=1;
     mapper_signal sig =
-        msig_float(1, "/testsig", 0, INFINITY, INFINITY, 0, 0, 0);
+        msig_float(1, "/testsig", 0, &mn, &mx, 0, 0, 0);
 
     mdev_register_output(md, sig);
 

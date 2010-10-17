@@ -42,11 +42,11 @@ void mdev_free(mapper_device md)
         if (md->admin)
             mapper_admin_free(md->admin);
         for (i = 0; i < md->n_inputs; i++)
-            free(md->inputs[i]);
+            msig_free(md->inputs[i]);
         if (md->inputs)
             free(md->inputs);
         for (i = 0; i < md->n_outputs; i++)
-            free(md->outputs[i]);
+            msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
         free(md);

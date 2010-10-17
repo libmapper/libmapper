@@ -40,22 +40,91 @@ typedef struct _mapper_signal
     void *user_data;
 } *mapper_signal;
 
-/*! Fill out a signal structure for a floating point scalar. */
-/*! \param name The name of the signal, starting with '/'.
+/*! Macro to take a float or int value and cast it to a
+ *  mapper_signal_value_t. */
+#define MSIGVAL(f) (*(mapper_signal_value_t*)&f)
+
+/*! Macro to take a float or int pointer and cast it to a
+ *  mapper_signal_value_t pointer. */
+#define MSIGVALP(f) ((mapper_signal_value_t*)f)
+
+/*! Create a signal structure and fill it with provided
+ *  arguments. Values and strings pointed to by this call (except
+ *  user_data) will be copied. Signals should be freed by msig_free()
+ *  only if they are not registered with a device.
+ *  \param name The name of the signal, starting with '/'.
  *  \param length The length of the signal vector, or 1 for a scalar.
  *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum The minimum possible value, or INFINITY for none.
- *  \param maximum The maximum possible value, or INFINITY for none.
- *  \param handler the function to be called when the value of the
- *                 signel is updated.
+ *  \param type The type fo the signal value.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none.
  *  \param value The address of a float value (or array) this signal
  *               implicitly reflects, or 0 for none.
- *
- */
-mapper_signal msig_float(int length, const char *name,
-                         const char *unit, float minimum,
-                         float maximum, float *value,
+ *  \param handler Function to be called when the value of the
+ *                 signal is updated.
+ *  \param user_data User context pointer to be passed to handler. */
+mapper_signal msig_new(int length, const char *name, const char *unit,
+                       char type,
+                       mapper_signal_value_t *minimum,
+                       mapper_signal_value_t *maximum,
+                       mapper_signal_value_t *value,
+                       mapper_signal_handler *handler, void *user_data);
+
+/*! Create a signal structure for a floating point scalar or
+ *  vector. This is just a shortcut for msig_new() for the common case
+ *  of float signals. Values and strings pointed to by this call
+ *  (except user_data) will be copied. Signals should be freed by
+ *  msig_free() only if they are not registered with a device.
+ *  \param name The name of the signal, starting with '/'.
+ *  \param length The length of the signal vector, or 1 for a scalar.
+ *  \param unit The unit of the signal, or 0 for none.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none.
+ *  \param value The address of a float value (or array) this signal
+ *               implicitly reflects, or 0 for none.
+ *  \param handler Function to be called when the value of the
+ *                 signal is updated.
+ *  \param user_data User context pointer to be passed to handler. */
+mapper_signal msig_float(int length, const char *name, const char *unit,
+                         float *minimum, float *maximum, float *value,
                          mapper_signal_handler *handler, void *user_data);
+
+/*! Create a signal structure for a inting point scalar or
+ *  vector. This is just a shortcut for msig_new() for the common case
+ *  of int signals. Values and strings pointed to by this call (except
+ *  user_data) will be copied. Signals should be freed by msig_free()
+ *  only if they are not registered with a device.
+ *  \param name The name of the signal, starting with '/'.
+ *  \param length The length of the signal vector, or 1 for a scalar.
+ *  \param unit The unit of the signal, or 0 for none.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none.
+ *  \param value The address of a int value (or array) this signal
+ *               implicitly reflects, or 0 for none.
+ *  \param handler Function to be called when the value of the
+ *                 signal is updated.
+ *  \param user_data User context pointer to be passed to handler. */
+mapper_signal msig_int(int length, const char *name, const char *unit,
+                         int *minimum, int *maximum, int *value,
+                         mapper_signal_handler *handler, void *user_data);
+
+/*! Free memory used by a mapper_signal. Call this only for signals
+ *  that are not registered with a device. Registered signals will be
+ *  freed by mdev_free().
+ *  \param sig The signal to free. */
+void msig_free(mapper_signal sig);
+
+/*! Set or remove the minimum of a signal.
+ *  \param sig      The signal to operate on.
+ *  \param minimum  Must be the same type as the signal, or 0 to remove
+ *                  the minimum. */
+void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum);
+
+/*! Set or remove the maximum of a signal.
+ *  \param sig      The signal to operate on.
+ *  \param maximum  Must be the same type as the signal, or 0 to remove
+ *                  the maximum. */
+void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum);
 
 /*! Update the value of a signal.
  *  This is a scalar equivalent to msig_update(), for when passing by

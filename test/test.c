@@ -37,10 +37,11 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    sendsig_1 = msig_float(1, "/outsig_1", 0, 0, 1, 0, 0, 0);
-    sendsig_2 = msig_float(1, "/outsig_2", 0, 0, 1, 0, 0, 0);
-    sendsig_3 = msig_float(1, "/outsig_3", 0, 0, 1, 0, 0, 0);
-    sendsig_4 = msig_float(1, "/outsig_4", 0, 0, 1, 0, 0, 0);
+    float mn=0, mx=1;
+    sendsig_1 = msig_float(1, "/outsig_1", 0, &mn, &mx, 0, 0, 0);
+    sendsig_2 = msig_float(1, "/outsig_2", 0, &mn, &mx, 0, 0, 0);
+    sendsig_3 = msig_float(1, "/outsig_3", 0, &mn, &mx, 0, 0, 0);
+    sendsig_4 = msig_float(1, "/outsig_4", 0, &mn, &mx, 0, 0, 0);
 
     mdev_register_output(source, sendsig_1);
     mdev_register_output(source, sendsig_2);
@@ -85,10 +86,11 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    recvsig_1 = msig_float(1, "/insig_1", 0, 0, 1, 0, insig_handler, 0);
-    recvsig_2 = msig_float(1, "/insig_2", 0, 0, 1, 0, insig_handler, 0);
-    recvsig_3 = msig_float(1, "/insig_3", 0, 0, 1, 0, insig_handler, 0);
-    recvsig_4 = msig_float(1, "/insig_4", 0, 0, 1, 0, insig_handler, 0);
+    float mn=0, mx=1;
+    recvsig_1 = msig_float(1, "/insig_1", 0, &mn, &mx, 0, insig_handler, 0);
+    recvsig_2 = msig_float(1, "/insig_2", 0, &mn, &mx, 0, insig_handler, 0);
+    recvsig_3 = msig_float(1, "/insig_3", 0, &mn, &mx, 0, insig_handler, 0);
+    recvsig_4 = msig_float(1, "/insig_4", 0, &mn, &mx, 0, insig_handler, 0);
 
     mdev_register_input(destination, recvsig_1);
     mdev_register_input(destination, recvsig_2);

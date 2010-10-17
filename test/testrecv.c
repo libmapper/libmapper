@@ -25,8 +25,9 @@ int test_recv()
         goto error;
     printf("Mapper device created.\n");
 
+    float mn=0, mx=1;
     mapper_signal sig =
-        msig_float(1, "/mapped1", 0, 0, 1, 0, handler, 0);
+        msig_float(1, "/mapped1", 0, &mn, &mx, 0, handler, 0);
 
     mdev_register_input(md, sig);
 
