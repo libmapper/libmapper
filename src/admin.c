@@ -652,8 +652,23 @@ static void on_collision(mapper_admin_allocated_t *resource,
 void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
                                  const char *types, ...)
 {
-    char namedpath[1024];
-    snprintf(namedpath, 1024, path, mapper_admin_name(admin));
+    char str[1024];
+    const char *namedpath=str;
+
+    /* If string wants a name, mapper_admin_name() will complain about
+     * no device in debug mode.  Otherwise, in non-debug mode, just
+     * don't ask for the name if there's no device. */
+#ifdef DEBUG
+    if (strstr(path, "%s"))
+#else
+    if (admin->device)
+#endif
+    {
+        char namedpath[1024];
+        snprintf(namedpath, 1024, path, mapper_admin_name(admin));
+    }
+    else
+        namedpath = path;
 
     char t[]=" ";
 
