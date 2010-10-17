@@ -16,7 +16,7 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
                        mapper_signal_handler *handler, void *user_data)
 {
     if (length < 1) return 0;
-    if (!(name && unit)) return 0;
+    if (!name) return 0;
     if (type != 'f' && type != 'i')
         return 0;
 
