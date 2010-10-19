@@ -664,8 +664,7 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
     if (admin->device)
 #endif
     {
-        char namedpath[1024];
-        snprintf(namedpath, 1024, path, mapper_admin_name(admin));
+        snprintf(str, 1024, path, mapper_admin_name(admin));
     }
     else
         namedpath = path;
