@@ -40,45 +40,52 @@ The current status is summarized here:
 Tasks To Do
 ===========
 
+Target release date: November 15, 2010.
+
 The following tasks currently need to be accomplished before initial
 release:
 
 * Code review of the database API. 
-  * (DONE) In particular, inconsistencies between terminology "input" vs. 
-    "source", "output", "destination", "target", must be cleared up. 
-  * Check clarity, as it is somewhat cluttered and verbose with various 
-    query types.
+    * Check clarity, as it is somewhat cluttered and verbose with various 
+      query types.
+    * Extensible attributes of signals and devices. Effect on database
+      API?  Perhaps using string-based names of attributes can
+      simplify the API. (Steve, 1 week)
 
-* Code review of the expression parser/interpreter.
-
-* Adjust signal declaration syntax, generalize signal tracking functions?
-
-* Ensure correct action is taken (if any) when signals are registered
-  and unregistered.
-
-* Separate network monitor from device, such that it's possible to
-  monitor the network without creating a dummy device.  This may
-  require creating a global context handle for example.  (Currently
-  the database is the only global.)
+* Should input/output be a simple parameter of signals, or specified
+  at creation time? Means changing protocol. (Yes. Joe & Steve. 1 week)
 
 * Create a concise but convincing example for both controller and
-  synth sides.  Optional support for audio output, perhaps using STK,
-  would be beneficial here.
+  synth sides.  Optional support for audio output, perhaps using RtAudio,
+  would be beneficial here. (Steve)
 
-* Allow selection of network interface.  This will also require
-  changes to liblo.
+* Develop the SWIG bindings, tested at least against Python.  In fact
+  there would be several benefits to doing this with higher priority,
+  as it would help in developing examples.  For sources and destinations,
+  it would provide a cross-platform GUI (tkinter).  It would also ease
+  the development of testmonitor as a barebones example of a network
+  monitor/UI (see the previous point), by providing GUI and/or ncurses
+  bindings. (Steve, 2 weeks)
 
-* Make port/IP for admin bus configurable.
+* Include some Max/MSP standalone versions of controllers, Granul8,
+  etc? (Joe)
 
-* (DONE) Add API for requesting network information.  (Send a request for a
-  device's namespace, links, mappings.) (DONE)
+* Are we including the Max/MSP GUI, standalone? Check licenses, size,
+  etc. Binary release for Mac OS X.  (Joe)
+
+* Documentation, tutorials. External API. (Steve) Textual
+  tutorial. (Vijay)
 
 Lower priority tasks
 ====================
 
+* Ensure correct action is taken (if any) when signals are registered
+  and unregistered, or devices disappear and reappear. (Depends on
+  namespace hashing, save for later.)
+
 * Implement namespace hashing.
 
-* Implement connection muting.
+* Implement connection muting. (Joe)
 
 * Implement OSC aliasing for signal connections.
 
@@ -98,15 +105,7 @@ Lower priority tasks
   monitor and possibly control the network, so that a user may test
   the examples.
 
-* Develop the SWIG bindings, tested at least against Python.  In fact
-  there would be several benefits to doing this with higher priority,
-  as it would help in developing examples.  For sources and destinations,
-  it would provide a cross-platform GUI (tkinter).  It would also ease
-  the development of testmonitor as a barebones example of a network
-  monitor/UI (see the previous point), by providing GUI and/or ncurses
-  bindings.
-
-* Look into usage on embedded platforms.
+* Look into usage on embedded platforms. (Works on gumstix!)
 
 * In support of the previous point, implement the proposal for
   pre-defined expressions.
@@ -120,16 +119,16 @@ External tasks
 There are some tasks which address uses of the library/protocol rather
 than being tasks for the library development itself.
 
-* Development of Max external. (In progress.)
+* Development of Max external. (Done)
 
-* Development of Pure Data external.
+* Development of Pure Data external. (Joe)
 
-* Development of SuperCollider interface, either using library or
+* Development of SuperCollider usage, either using library or
   reimplemented in SC to some extent.
 
-* Development of Qt user interface. (In progress.)
+* Development of Qt GUI. (In progress.)
 
-* Development of browser-based interface.
+* Development of browser-based GUI.
 
 * Modify some of the FAUST architectures (e.g., Jack) to automatically
   create a libmapper interface for input and output signals.
@@ -145,3 +144,5 @@ for current work.
 * Audio-rate signal connections via Jack, SoundFlower, etc.
 
 * Interpolation for filtering of sporadic signals
+
+* Many-to-one mapping.
