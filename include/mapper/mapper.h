@@ -155,12 +155,13 @@ int msig_full_name(mapper_signal sig, char *name, int len);
  * \param name_prefix   A short descriptive string to identify the device.
  * \param initial_port  An initial port to use to receive data, or 0.
  *                      Subsequently, a unique port will be selected.
- * \param iface         If non-zero, a string identifying a preferred
- *                      network interface.  This string can be
- *                      enumerated e.g. using if_nameindex(). If zero,
- *                      an interface will be selected automatically. */
+
+ * \param admin         A previously allocated admin to use.  If 0, an
+ *                      admin will be allocated for use with this device.
+ * \return              A newly allocated mapper device.  Should be free
+ *                      using mdev_free(). */
 mapper_device mdev_new(const char *name_prefix, int initial_port,
-                       const char *iface);
+                       mapper_admin admin);
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device device);
@@ -232,6 +233,29 @@ const char *mdev_name(mapper_device device);
  *  \return An integer indicating the device's port, or zero if it is
  *  not available. */
 unsigned int mdev_port(mapper_device device);
+
+/*** Admins ***/
+
+/*! Create an admin with custom parameters.  Creating an admin object
+ *  manually is only required if you wish to specify custom network
+ *  parameters.  Creating a device or monitor without specifying an
+ *  admin will give you an object working on the "standard"
+ *  configuration.
+ * \param iface  If non-zero, a string identifying a preferred network
+ *               interface.  This string can be enumerated e.g. using
+ *               if_nameindex(). If zero, an interface will be
+ *               selected automatically.
+ * \param group  If non-zero, specify a multicast group address to use.
+ *               Zero indicates that the standard group 224.0.1.3 should
+ *               be used.
+ * \param port   If non-zero, specify a multicast port to use.  Zero
+ *               indicates that the standard port 7570 should be used.
+ * \return       A newly allocated admin.  Should be freed using
+ *               mapper_admin_free() */
+mapper_admin mapper_admin_new(const char *iface, const char *ip, int port);
+
+/*! Free an admin created with mapper_admin_new(). */
+void mapper_admin_free(mapper_admin admin);
 
 /**** Local device database ****/
 

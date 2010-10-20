@@ -132,6 +132,11 @@ typedef struct _mapper_device {
      *  name. */
     const char *name_prefix;
 
+    /*! Non-zero if this device is the sole owner of this admin, i.e.,
+     *  it was created during mdev_new() and should be freed during
+     *  mdev_free(). */
+    int own_admin;
+
     mapper_admin admin;
     struct _mapper_signal **inputs;
     struct _mapper_signal **outputs;

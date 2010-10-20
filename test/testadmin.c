@@ -8,17 +8,27 @@
 #include <arpa/inet.h>
 
 mapper_admin my_admin = NULL;
+mapper_device my_device = NULL;
 
 int test_admin()
 {
     int error = 0, wait;
 
-    my_admin = mapper_admin_new("tester", 0, 8000, 0, 0);
+    my_admin = mapper_admin_new(0, 0, 0);
     if (!my_admin) {
         printf("Error creating admin structure.\n");
         return 1;
     }
+
     printf("Admin structure initialized.\n");
+
+    my_device = mdev_new("tester", 8000, my_admin);
+    if (!my_device) {
+        printf("Error creating device structure.\n");
+        return 1;
+    }
+
+    printf("Device structure initialized.\n");
 
     printf("Found interface %s has IP %s\n", my_admin->interface,
            inet_ntoa(my_admin->interface_ip));
@@ -38,6 +48,8 @@ int test_admin()
         mapper_admin_poll(my_admin);
     }
 
+    mdev_free(my_device);
+    printf("Device structure freed.\n");
     mapper_admin_free(my_admin);
     printf("Admin structure freed.\n");
 

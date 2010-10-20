@@ -13,7 +13,7 @@
 
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port,
-                       const char *iface)
+                       mapper_admin admin)
 {
     if (initial_port == 0)
         initial_port = 9000;
@@ -21,7 +21,17 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
-    md->admin = mapper_admin_new(name_prefix, md, initial_port, iface, 0);
+
+    if (admin) {
+        md->admin = admin;
+        md->own_admin = 0;
+    }
+    else {
+        md->admin = mapper_admin_new(0, 0, 0);
+        md->own_admin = 1;
+    }
+
+    mapper_admin_add_device(md->admin, md, name_prefix, initial_port);
 
     if (!md->admin) {
         mdev_free(md);
@@ -39,7 +49,7 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        if (md->admin)
+        if (md->admin && md->own_admin)
             mapper_admin_free(md->admin);
         for (i = 0; i < md->n_inputs; i++)
             msig_free(md->inputs[i]);

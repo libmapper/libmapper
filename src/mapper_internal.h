@@ -9,11 +9,10 @@
 
 /**** Admin ****/
 
-mapper_admin mapper_admin_new(const char *identifier,
-                              mapper_device device, int initial_port,
-                              const char *iface, mapper_monitor mon);
+void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
+                             const char *identifier, int initial_port);
 
-void mapper_admin_free(mapper_admin admin);
+void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 void mapper_admin_poll(mapper_admin admin);
 

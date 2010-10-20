@@ -7,7 +7,8 @@ mapper_monitor mapper_monitor_new()
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
-    mon->admin = mapper_admin_new(0, 0, 0, 0, mon);
+    mon->admin = mapper_admin_new(0, 0, 0);
+    mapper_admin_add_monitor(mon->admin, mon);
     return mon;
 }
 

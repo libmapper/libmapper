@@ -333,24 +333,7 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
                          admin);
 }
 
-/*! Allocate and initialize a new admin structure.  An admin may be
- *  associated with one device, one monitor, or both.  If no device,
- *  first 3 parameters should be 0.
- *  \param identifier An identifier for this device which does not
- *  need to be unique.
- *  \param type The device type for this device. (Data direction,
- *  functionality.)
- *  \param initial_port The initial UDP port to use for this
- *  device. This will likely change within a few minutes after the
- *  device is allocated.
- *  \param iface String to select a network interface. May be 0; if no
- *  network interface is preferred, it will try to select one.
- *  \param mon An optional monitor that will use this admin.
- *  \return A newly initialized mapper admin structure.
- */
-mapper_admin mapper_admin_new(const char *identifier,
-                              mapper_device device, int initial_port,
-                              const char *iface, mapper_monitor mon)
+mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
 {
     mapper_admin admin = (mapper_admin)calloc(1, sizeof(mapper_admin_t));
     if (!admin)
@@ -358,14 +341,22 @@ mapper_admin mapper_admin_new(const char *identifier,
 
     admin->interface = 0;
 
+    /* Default standard ip and port is group 224.0.1.3, port 7570 */
+    char port_str[10], *s_port = port_str;
+    if (!group) group = "224.0.1.3";
+    if (port==0)
+        s_port = "7570";
+    else
+        snprintf(port_str, 10, "%d", port);
+
     /* Initialize interface information.  We'll use defaults for now,
      * perhaps this should be configurable in the future. */
     if (get_interface_addr(iface, &admin->interface_ip,
                            &admin->interface))
         trace("no interface found\n");
 
-    /* Open address for multicast group 224.0.1.3, port 7570 */
-    admin->admin_addr = lo_address_new("224.0.1.3", "7570");
+    /* Open address */
+    admin->admin_addr = lo_address_new(group, s_port);
     if (!admin->admin_addr) {
         free(admin->identifier);
         free(admin);
@@ -394,48 +385,6 @@ mapper_admin mapper_admin_new(const char *identifier,
     /* Resource allocation algorithm needs a seeded random number
      * generator. */
     srand(((unsigned int)(get_current_time()*1000000.0))%100000);
-
-    /* Initialize data structures */
-    if (device)
-    {
-        admin->identifier = strdup(identifier);
-        admin->name = 0;
-        admin->ordinal.value = 1;
-        admin->ordinal.locked = 0;
-        admin->ordinal.collision_count = -1;
-        admin->ordinal.count_time = get_current_time();
-        admin->ordinal.on_collision = mapper_admin_name_registered;
-        admin->port.value = initial_port;
-        admin->port.locked = 0;
-        admin->port.collision_count = -1;
-        admin->port.count_time = get_current_time();
-        admin->port.on_collision = mapper_admin_port_registered;
-        admin->registered = 0;
-        admin->device = device;
-
-        /* Add methods for admin bus.  Only add methods needed for
-         * allocation here. Further methods are added when the device is
-         * registered. */
-        lo_server_add_method(admin->admin_server, "/port/probe", NULL,
-                             handler_device_alloc_port, admin);
-        lo_server_add_method(admin->admin_server, "/name/probe", NULL,
-                             handler_device_alloc_name, admin);
-        lo_server_add_method(admin->admin_server, "/port/registered", NULL,
-                             handler_device_alloc_port, admin);
-        lo_server_add_method(admin->admin_server, "/name/registered", NULL,
-                             handler_device_alloc_name, admin);
-
-        /* Probe potential port and name to admin bus. */
-        mapper_admin_port_probe(admin);
-        mapper_admin_name_probe(admin);
-    }
-
-    /* Initialize monitor methods. */
-    if (mon) {
-        admin->monitor = mon;
-        mapper_admin_add_monitor_methods(admin);
-        mapper_admin_send_osc(admin, "/who", "");
-    }
 
     return admin;
 }
@@ -470,6 +419,57 @@ void mapper_admin_free(mapper_admin admin)
         lo_address_free(admin->admin_addr);
 
     free(admin);
+}
+
+/*! Add an uninitialized device to this admin. */
+void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
+                             const char *identifier, int initial_port)
+{
+    /* Initialize data structures */
+    if (dev)
+    {
+        admin->identifier = strdup(identifier);
+        admin->name = 0;
+        admin->ordinal.value = 1;
+        admin->ordinal.locked = 0;
+        admin->ordinal.collision_count = -1;
+        admin->ordinal.count_time = get_current_time();
+        admin->ordinal.on_collision = mapper_admin_name_registered;
+        admin->port.value = initial_port;
+        admin->port.locked = 0;
+        admin->port.collision_count = -1;
+        admin->port.count_time = get_current_time();
+        admin->port.on_collision = mapper_admin_port_registered;
+        admin->registered = 0;
+        admin->device = dev;
+
+        /* Add methods for admin bus.  Only add methods needed for
+         * allocation here. Further methods are added when the device is
+         * registered. */
+        lo_server_add_method(admin->admin_server, "/port/probe", NULL,
+                             handler_device_alloc_port, admin);
+        lo_server_add_method(admin->admin_server, "/name/probe", NULL,
+                             handler_device_alloc_name, admin);
+        lo_server_add_method(admin->admin_server, "/port/registered", NULL,
+                             handler_device_alloc_port, admin);
+        lo_server_add_method(admin->admin_server, "/name/registered", NULL,
+                             handler_device_alloc_name, admin);
+
+        /* Probe potential port and name to admin bus. */
+        mapper_admin_port_probe(admin);
+        mapper_admin_name_probe(admin);
+    }
+}
+
+/*! Add an uninitialized monitor to this admin. */
+void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
+{
+    /* Initialize monitor methods. */
+    if (mon) {
+        admin->monitor = mon;
+        mapper_admin_add_monitor_methods(admin);
+        mapper_admin_send_osc(admin, "/who", "");
+    }
 }
 
 /*! This is the main function to be called once in a while from a
