@@ -55,7 +55,6 @@ typedef enum _mapper_scaling_type {
     SC_LINEAR,       //!< Linear scaling
     SC_EXPRESSION,   //!< Expression scaling
     SC_CALIBRATE,    //!< Calibrate to source signal
-    SC_MUTE,         //!< Mute scaling
     N_MAPPER_SCALING_TYPES
 } mapper_scaling_type;
 

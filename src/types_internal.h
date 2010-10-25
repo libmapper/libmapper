@@ -199,6 +199,7 @@ typedef enum {
     AT_CLIPMAX,
     AT_RANGE,
     AT_UNITS,
+    AT_MUTE,
     N_AT_PARAMS
 } mapper_msg_param_t;
 

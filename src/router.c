@@ -118,6 +118,7 @@ mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig
     mapping->props.expression = strdup("y=x");
     mapping->props.clip_lower = CT_NONE;
     mapping->props.clip_upper = CT_NONE;
+    mapping->props.muted = 0;
     
     // find signal in signal mapping list
     mapper_signal_mapping sm = router->mappings;

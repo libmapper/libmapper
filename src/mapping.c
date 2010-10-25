@@ -23,7 +23,6 @@ const char* mapper_scaling_type_strings[] =
     "linear",      /* SC_LINEAR */
     "expression",  /* SC_EXPRESSION */
     "calibrate",   /* SC_CALIBRATE */
-    "mute",        /* SC_MUTE */
 };
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
@@ -517,8 +516,12 @@ void mapper_mapping_set_from_message(mapper_mapping m,
         mapper_mapping_set_linear_range(m, sig, &m->props.range);
     }
 
+    /* Muting. */
+    int muting;
+    if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
+        m->props.muted = muting;
+    
     /* Clipping. */
-
     int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
     if (clip_min >= 0)
         m->props.clip_lower = clip_min;

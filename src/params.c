@@ -23,6 +23,7 @@ const char* mapper_msg_param_strings[] =
     "@clipMax",    /* AT_CLIPMAX */
     "@range",      /* AT_RANGE */
     "@units",      /* AT_UNITS */
+    "@mute",       /* AT_MUTE */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -290,6 +291,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             f = va_arg(aq, double);
             lo_message_add_float(m, f);
             break;
+        case AT_MUTE:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
         default:
             die_unless(0, "unknown parameter %d\n", pa);
         }
@@ -369,6 +374,8 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
     lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_lower]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMAX]);
     lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_upper]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
+    lo_message_add_int32(m, map->props.muted);
 }
 
 mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg)
