@@ -85,8 +85,6 @@ Lower priority tasks
 
 * Implement namespace hashing.
 
-* Implement connection muting. (Joe)
-
 * Implement OSC aliasing for signal connections.
 
 * Implement bidirectional communication for state queries.

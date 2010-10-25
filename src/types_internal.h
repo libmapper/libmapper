@@ -200,6 +200,7 @@ typedef enum {
     AT_RANGE,
     AT_UNITS,
     AT_MUTE,
+    AT_LENGTH,
     N_AT_PARAMS
 } mapper_msg_param_t;
 

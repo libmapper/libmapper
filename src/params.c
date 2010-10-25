@@ -24,6 +24,7 @@ const char* mapper_msg_param_strings[] =
     "@range",      /* AT_RANGE */
     "@units",      /* AT_UNITS */
     "@mute",       /* AT_MUTE */
+    "@length",     /* AT_LENGTH */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -292,6 +293,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_float(m, f);
             break;
         case AT_MUTE:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
+            break;
+        case AT_LENGTH:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;

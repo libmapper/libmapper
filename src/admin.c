@@ -815,6 +815,7 @@ static int handler_id_n_signals_input_get(const char *path,
         mapper_admin_send_osc(
             admin, "%s/signal/input", "s", sig->props.name,
             AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig);
     }
@@ -839,6 +840,7 @@ static int handler_id_n_signals_output_get(const char *path,
         mapper_admin_send_osc(
             admin, "%s/signal/output", "s", sig->props.name,
             AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig);
     }
