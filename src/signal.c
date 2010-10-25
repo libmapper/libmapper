@@ -39,8 +39,8 @@ mapper_signal msig_float(int length, const char *name, const char *unit,
                          float *minimum, float *maximum, float *value,
                          mapper_signal_handler *handler, void *user_data)
 {
-    return msig_new(length, name, unit, 'f', MSIGVALP(value),
-                    MSIGVALP(minimum), MSIGVALP(maximum),
+    return msig_new(length, name, unit, 'f', MSIGVALP(minimum),
+                    MSIGVALP(maximum),  MSIGVALP(value),
                     handler, user_data);
 }
 
@@ -48,8 +48,8 @@ mapper_signal msig_int(int length, const char *name, const char *unit,
                          int *minimum, int *maximum, int *value,
                          mapper_signal_handler *handler, void *user_data)
 {
-    return msig_new(length, name, unit, 'i', MSIGVALP(value),
-                    MSIGVALP(minimum), MSIGVALP(maximum),
+    return msig_new(length, name, unit, 'i', MSIGVALP(minimum), 
+                    MSIGVALP(maximum), MSIGVALP(value),
                     handler, user_data);
 }
 
