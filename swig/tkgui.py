@@ -5,19 +5,17 @@ import sys
 import mapper
 
 def on_gui_change(x):
-#    print 'on_gui_change',x,x.__class__
     sig_out.update_scalar(int(x))
 
 def on_mapper_change(sig, x):
-#    print 'on_mapper_change', x, x.__class__
     w.set(int(x))
 
 dev = mapper.device("tkgui", 9000)
 
-sig_in = mapper.signal(1, "/signal0", None, 'f', on_mapper_change)
+sig_in = mapper.signal(1, "/signal0", 'i', None, on_mapper_change)
 dev.register_input(sig_in)
 
-sig_out = mapper.signal(1, "/signal0", None, 'f', lambda x: x)
+sig_out = mapper.signal(1, "/signal0", 'i', None, lambda x: x)
 dev.register_output(sig_out)
 
 master = Tkinter.Tk()
@@ -26,7 +24,6 @@ master.title("libmapper Python GUI demo")
 w = Tkinter.Scale(master, from_=0, to=100, label='signal0',
                   orient=Tkinter.HORIZONTAL, length=300,
                   command=on_gui_change)
-
 w.pack()
 
 def do_poll():
