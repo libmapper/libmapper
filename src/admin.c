@@ -289,7 +289,7 @@ static int get_interface_addr(const char* pref,
         ifchosen = iflo;
 
     if (ifchosen) {
-        if (*iface) free(iface);
+        if (*iface) free(*iface);
         *iface = strdup(ifchosen->ifa_name);
         sa = (struct sockaddr_in *) ifchosen->ifa_addr;
         *addr = sa->sin_addr;
