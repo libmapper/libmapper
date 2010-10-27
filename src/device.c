@@ -31,12 +31,12 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
         md->own_admin = 1;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix, initial_port);
-
     if (!md->admin) {
         mdev_free(md);
         return NULL;
     }
+
+    mapper_admin_add_device(md->admin, md, name_prefix, initial_port);
 
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
