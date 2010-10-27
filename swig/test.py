@@ -3,7 +3,7 @@ import sys, mapper
 
 def h(sig, f):
     try:
-        print sig.name(), f
+        print sig.name, f
     except:
         print 'exception'
         print sig, f
