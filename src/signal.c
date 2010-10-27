@@ -99,12 +99,14 @@ void msig_free(mapper_signal sig)
 
 void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value)
 {
-    mdev_route_signal(sig->device, sig, &value);
+    if (sig->device)
+        mdev_route_signal(sig->device, sig, &value);
 }
 
 void msig_update(mapper_signal sig, mapper_signal_value_t *value)
 {
-    mdev_route_signal(sig->device, sig, value);
+    if (sig->device)
+        mdev_route_signal(sig->device, sig, value);
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
