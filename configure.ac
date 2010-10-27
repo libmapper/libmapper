@@ -87,6 +87,7 @@ if test x$swig_enabled = xyes; then
        else
          PYCFLAGS=$(python-config --cflags)
          PYLIBS=$(python-config --libs)
+         AC_SUBST(SWIG)
        fi
      else
        swig_enabled=no
@@ -143,6 +144,7 @@ AC_CONFIG_FILES([
     test/Makefile
     doc/Makefile
     doc/libmapper.doxyfile
+    swig/Makefile
     libmapper.pc
 ])
 AC_OUTPUT
