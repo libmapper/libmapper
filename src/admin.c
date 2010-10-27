@@ -374,7 +374,7 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
 
     /* Open server for multicast group 224.0.1.3, port 7570 */
     admin->admin_server =
-        lo_server_new_multicast("224.0.1.3", "7570", handler_error);
+        lo_server_new_multicast(group, s_port, handler_error);
     if (!admin->admin_server) {
         free(admin->identifier);
         lo_address_free(admin->admin_addr);
