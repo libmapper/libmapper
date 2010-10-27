@@ -193,10 +193,22 @@ typedef struct _signal {} signal;
         return 0;
     }
     void update_scalar(float f) {
-        msig_update_scalar($self, *(mapper_signal_value_t*)&f);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update_scalar($self, *(mapper_signal_value_t*)&f);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update_scalar($self, *(mapper_signal_value_t*)&i);
+        }
     }
     void update_scalar(int i) {
-        msig_update_scalar($self, *(mapper_signal_value_t*)&i);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update_scalar($self, *(mapper_signal_value_t*)&i);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update_scalar($self, *(mapper_signal_value_t*)&f);
+        }
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
