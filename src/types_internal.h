@@ -22,6 +22,39 @@ typedef struct _mapper_expr *mapper_expr;
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
 
+/*! Used to hold string look-up table nodes. */
+typedef struct {
+    char *key;
+    void *value;
+} node_t;
+
+/*! Used to hold string look-up tables. */
+typedef struct {
+    node_t *store;
+    int len;
+    int alloced;
+} table_t, *table;
+
+/*! Create a new string table. */
+table table_new();
+
+/*! Free a string table. */
+void table_free(table t);
+
+/*! Add a string to a table. */
+void table_add(table t, const char *key, void *value);
+
+/*! Sort a table.  Call this after table_add and before table_find. */
+void table_sort(table t);
+
+/*! Look up a value in a table.  Returns 1 if found, 0 if not found,
+ *  and fills in value if found. */
+int table_find(table t, const char *key, void **value);
+
+/*! Look up a value in a table.  Returns the value directly, which may
+ *  be zero, but also returns 0 if not found. */
+void *table_find_p(table t, const char *key);
+
 /**** Admin bus ****/
 
 /*! Function to call when an allocated resource is locked. */
