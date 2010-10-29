@@ -103,6 +103,8 @@ static int handler_id_n_signals_output_get(const char *, const char *,
                                              void *);
 static int handler_id_n_signals_get(const char *, const char *,
                                       lo_arg **, int, lo_message, void *);
+static int handler_signal_info(const char *, const char *, lo_arg **,
+                               int, lo_message, void *);
 static int handler_device_alloc_port(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_device_alloc_name(const char *, const char *, lo_arg **,
@@ -134,9 +136,6 @@ static int handler_signal_disconnected(const char *, const char *, lo_arg **,
 static int handler_device_connections_get(const char *, const char *,
                                           lo_arg **, int, lo_message,
                                           void *);
-static int handler_generic(const char *path, const char *types,
-		lo_arg **argv, int argc, lo_message m,
-		void *userdata);
 
 /* Handler <-> Message relationships */
 struct handler_method_assoc {
@@ -166,6 +165,7 @@ const int N_DEVICE_HANDLERS =
 static struct handler_method_assoc monitor_handlers[] = {
     {"/registered",             NULL,       handler_registered},
     {"/logout",                 NULL,       handler_logout},
+    {"/signal",                 NULL,       handler_signal_info},
     {"/linked",                 "ss",       handler_device_linked},
     {"/unlinked",               "ss",       handler_device_unlinked},
     {"/connected",              NULL,       handler_signal_connected},
@@ -180,63 +180,6 @@ static void handler_error(int num, const char *msg, const char *where)
     printf("[libmapper] liblo server error %d in path %s: %s\n",
            num, where, msg);
 }
-
-/* Handle messages for which we cannot specify a particular method
- * name. Currently this consists of messages which are prefixed by the
- * device name---since we don't know the name of all devices, we
- * cannot listen for this message for them. The only messages of this
- * type in the protocol are /<device>/signals/<input/output>
- * messages. */
-static int handler_generic(const char *path, const char *types,
-                           lo_arg **argv, int argc, lo_message m,
-                           void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
-
-    if (argc < 2)
-        return 1;
-
-    if (types[0] != 's' && types[0] != 'S')
-        return 1;
-
-    const char *suffix = strchr(path+1, '/');
-    if (!suffix)
-        return 1;
-
-    int is_output = -1;
-    if (strcmp(suffix, "/signal/input")==0)
-        is_output = 0;
-
-    if (strcmp(suffix, "/signal/output")==0)
-        is_output = 1;
-
-    if (is_output == -1)
-        return 1;
-
-    int devnamelen = suffix-path;
-    if (devnamelen >= 1024)
-        return 0;
-
-    char devname[1024];
-    strncpy(devname, path, devnamelen);
-    devname[devnamelen]=0;
-
-    const char *name = &argv[0]->s;
-
-    mapper_message_t params;
-    mapper_msg_parse_params(&params, path, &types[1],
-                            argc-1, &argv[1]);
-
-    mapper_db_add_or_update_signal_params( db, name, 
-                                           devname,
-                                           is_output, 
-                                           &params );
-
-	return 0;
-}
-
 
 /* Functions for handling the resource allocation scheme.  If
  * check_collisions() returns 1, the resource in question should be
@@ -327,10 +270,6 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
                              monitor_handlers[i].h,
                              admin);
     }
-
-    lo_server_add_method(admin->admin_server, NULL,
-                         NULL, handler_generic,
-                         admin);
 }
 
 mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
@@ -808,12 +747,15 @@ static int handler_id_n_signals_input_get(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    char sig_name[1024];
     int i;
 
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
+        msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
-            admin, "%s/signal/input", "s", sig->props.name,
+            admin, "/signal", "s", sig_name,
+            AT_DIRECTION, "input",
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
@@ -833,12 +775,15 @@ static int handler_id_n_signals_output_get(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    char sig_name[1024];
     int i;
 
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
+        msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
-            admin, "%s/signal/output", "s", sig->props.name,
+            admin, "/signal", "s", sig_name,
+            AT_DIRECTION, "output",
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
@@ -862,6 +807,45 @@ static int handler_id_n_signals_get(const char *path, const char *types,
 
     return 0;
 
+}
+
+/*! Register information about a signal. */
+static int handler_signal_info(const char *path, const char *types,
+                               lo_arg **argv, int argc, lo_message m,
+                               void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_monitor mon = admin->monitor;
+    mapper_db db = mapper_monitor_get_db(mon);
+    
+    if (argc < 2)
+        return 1;
+    
+    if (types[0] != 's' && types[0] != 'S')
+        return 1;
+    
+    const char *full_sig_name = &argv[0]->s;
+    const char *sig_name = strchr(full_sig_name+1, '/');
+    if (!sig_name)
+        return 1;
+    
+    int devnamelen = sig_name-full_sig_name;
+    if (devnamelen >= 1024)
+        return 0;
+    
+    char devname[1024];
+    strncpy(devname, full_sig_name, devnamelen);
+    devname[devnamelen]=0;
+        
+    mapper_message_t params;
+    mapper_msg_parse_params(&params, path, &types[1],
+                            argc-1, &argv[1]);
+    
+    mapper_db_add_or_update_signal_params( db, sig_name, 
+                                          devname,
+                                          &params );
+    
+	return 0;
 }
 
 static int handler_device_alloc_port(const char *path, const char *types,

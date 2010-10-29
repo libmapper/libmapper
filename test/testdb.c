@@ -55,25 +55,36 @@ int main()
     mapper_db_add_or_update_device_params(db, "/testdb.3", &msg);
     mapper_db_add_or_update_device_params(db, "/testdb__.4", &msg);
 
-    args[0] = (lo_arg*)"@type";
-    args[1] = (lo_arg*)"f";
-    args[2] = (lo_arg*)"@IP";
-    args[3] = (lo_arg*)"localhost";
+    args[0] = (lo_arg*)"@direction";
+    args[1] = (lo_arg*)"input";
+    args[2] = (lo_arg*)"@type";
+    args[3] = (lo_arg*)"f";
+    args[4] = (lo_arg*)"@IP";
+    args[5] = (lo_arg*)"localhost";
 
-    if (mapper_msg_parse_params(&msg, "/testdb.1/signal/input",
+    if (mapper_msg_parse_params(&msg, "/testdb.1/signal",
                                 "sc", 2, args))
     {
         printf("2: Error, parsing failed.\n");
         return 1;
     }
 
-    mapper_db_add_or_update_signal_params(db, "/in1", "/testdb.1", 0, &msg);
-    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", 0, &msg);
-    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", 0, &msg);
+    mapper_db_add_or_update_signal_params(db, "/in1", "/testdb.1", &msg);
+    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", &msg);
+    mapper_db_add_or_update_signal_params(db, "/in2", "/testdb.1", &msg);
+    
+    args[1] = (lo_arg*)"output";
+    
+    if (mapper_msg_parse_params(&msg, "/testdb.1/signal",
+                                "sc", 2, args))
+    {
+        printf("2: Error, parsing failed.\n");
+        return 1;
+    }
 
-    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb.1", 1, &msg);
-    mapper_db_add_or_update_signal_params(db, "/out2", "/testdb.1", 1, &msg);
-    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb__.2", 1, &msg);
+    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb.1", &msg);
+    mapper_db_add_or_update_signal_params(db, "/out2", "/testdb.1", &msg);
+    mapper_db_add_or_update_signal_params(db, "/out1", "/testdb__.2", &msg);
 
     args[0] = (lo_arg*)"@scaling";
     args[1] = (lo_arg*)"bypass";

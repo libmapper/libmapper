@@ -25,6 +25,7 @@ const char* mapper_msg_param_strings[] =
     "@units",      /* AT_UNITS */
     "@mute",       /* AT_MUTE */
     "@length",     /* AT_LENGTH */
+    "@direction",  /* AT_DIRECTION */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -300,6 +301,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
+        case AT_DIRECTION:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
+            break;
         default:
             die_unless(0, "unknown parameter %d\n", pa);
         }
@@ -381,6 +386,22 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
     lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_upper]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, map->props.muted);
+}
+
+mapper_scaling_type mapper_msg_get_direction(mapper_message_t *msg)
+{
+    lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
+    if (!a || !*a)
+        return -1;
+    
+    if (strcmp(&(*a)->s, "input") == 0)
+        return 0;
+    else if (strcmp(&(*a)->s, "output") == 0)
+        return 1;
+    else
+        return -1;
+    
+    return -1;
 }
 
 mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg)

@@ -154,7 +154,6 @@ int mapper_db_add_or_update_device_params(mapper_db db,
  *  \param db     The database to operate on.
  *  \param name   The name of the signal.
  *  \param name   The name of the device associated with this signal.
- *  \param is_output The signal is an output if 1, or input if 0.
  *  \param params The parsed message parameters containing new signal
  *                information.
  *  \return       Non-zero if signal was added to the database, or
@@ -162,7 +161,6 @@ int mapper_db_add_or_update_device_params(mapper_db db,
 int mapper_db_add_or_update_signal_params(mapper_db db,
                                           const char *name,
                                           const char *device_name,
-                                          int is_output,
                                           mapper_message_t *params);
 
 /*! Add or update an entry in the mapping database using parsed message
@@ -298,6 +296,11 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
  *  \return The clipping type, or -1 if not found. */
 mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
                                              mapper_msg_param_t param);
+
+/*! Helper to return the signal direction from a message parameter.
+ *  \param msg Structure containing parameter info.
+ *  \return 0 for input, 1 for output, or -1 if not found. */
+mapper_scaling_type mapper_msg_get_direction(mapper_message_t *msg);
 
 /*! Helper to return the scaling type from a message parameter.
  *  \param msg Structure containing parameter info.

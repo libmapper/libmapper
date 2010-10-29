@@ -702,16 +702,19 @@ static void update_signal_record_params(mapper_db_signal sig,
 int mapper_db_add_or_update_signal_params(mapper_db db,
                                           const char *name,
                                           const char *device_name,
-                                          int is_output,
                                           mapper_message_t *params)
 {
     mapper_db_signal sig;
     mapper_db_signal *psig = 0;
 
-    if (is_output)
+    //need to find out if signal is output from params
+    int is_output = mapper_msg_get_direction(params);
+    if (is_output == 1)
         psig = mapper_db_match_outputs_by_device_name(db, device_name, name);
-    else
+    else if (is_output == 0)
         psig = mapper_db_match_inputs_by_device_name(db, device_name, name);
+    else
+        return 0;
     // TODO: actually we want to find the exact signal
 
     if (psig)
