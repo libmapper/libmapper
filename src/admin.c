@@ -105,10 +105,14 @@ static int handler_id_n_signals_get(const char *, const char *,
                                       lo_arg **, int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
-static int handler_device_alloc_port(const char *, const char *, lo_arg **,
+static int handler_device_port_probe(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
-static int handler_device_alloc_name(const char *, const char *, lo_arg **,
+static int handler_device_name_probe(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
+static int handler_device_port_registered(const char *, const char *, lo_arg **,
+                                          int, lo_message, void *);
+static int handler_device_name_registered(const char *, const char *, lo_arg **,
+                                          int, lo_message, void *);
 static int handler_device_link(const char *, const char *, lo_arg **, int,
                                lo_message, void *);
 static int handler_device_link_to(const char *, const char *, lo_arg **,
@@ -186,8 +190,6 @@ static void handler_error(int num, const char *msg, const char *where)
  * probed on the admin bus. */
 static int check_collisions(mapper_admin admin,
                             mapper_admin_allocated_t *resource);
-static void on_collision(mapper_admin_allocated_t *resource,
-                         mapper_admin admin, int type);
 
 /*! Local function to get the IP address of a network interface. */
 static int get_interface_addr(const char* pref,
@@ -338,8 +340,9 @@ void mapper_admin_free(mapper_admin admin)
 
     if (admin->port.locked && admin->ordinal.locked) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_send_osc(admin, "/logout", "s",
-                              mapper_admin_name(admin));
+        mapper_admin_send_osc(admin, "/logout", "s", mapper_admin_name(admin),
+                              AT_IP, inet_ntoa(admin->interface_ip),
+                              AT_PORT, admin->port.value);
     }
 
     if (admin->identifier)
@@ -364,6 +367,7 @@ void mapper_admin_free(mapper_admin admin)
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
                              const char *identifier, int initial_port)
 {
+    int i;
     /* Initialize data structures */
     if (dev)
     {
@@ -371,28 +375,29 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->name = 0;
         admin->ordinal.value = 1;
         admin->ordinal.locked = 0;
-        admin->ordinal.collision_count = -1;
-        admin->ordinal.count_time = get_current_time();
-        admin->ordinal.on_collision = mapper_admin_name_registered;
         admin->port.value = initial_port;
         admin->port.locked = 0;
-        admin->port.collision_count = -1;
-        admin->port.count_time = get_current_time();
-        admin->port.on_collision = mapper_admin_port_registered;
         admin->registered = 0;
         admin->device = dev;
+        for (i=0; i<8; i++) {
+            admin->ordinal.suggestion[i] = 0;
+            admin->port.suggestion[i] = 0;
+        }
+        
+        /* Choose a random ID for allocation speedup */
+        admin->random_id = rand();
 
         /* Add methods for admin bus.  Only add methods needed for
          * allocation here. Further methods are added when the device is
          * registered. */
         lo_server_add_method(admin->admin_server, "/port/probe", NULL,
-                             handler_device_alloc_port, admin);
+                             handler_device_port_probe, admin);
         lo_server_add_method(admin->admin_server, "/name/probe", NULL,
-                             handler_device_alloc_name, admin);
+                             handler_device_name_probe, admin);
         lo_server_add_method(admin->admin_server, "/port/registered", NULL,
-                             handler_device_alloc_port, admin);
+                             handler_device_port_registered, admin);
         lo_server_add_method(admin->admin_server, "/name/registered", NULL,
-                             handler_device_alloc_name, admin);
+                             handler_device_name_registered, admin);
 
         /* Probe potential port and name to admin bus. */
         mapper_admin_port_probe(admin);
@@ -417,7 +422,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
 void mapper_admin_poll(mapper_admin admin)
 {
 
-    int count = 0;
+    int count = 0, status;
 
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
@@ -428,17 +433,33 @@ void mapper_admin_poll(mapper_admin admin)
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */
-    if (!admin->port.locked)
-        if (check_collisions(admin, &admin->port))
+    if (!admin->port.locked) {
+        status = check_collisions(admin, &admin->port);
+        if (status == 1) {
             /* If the port has changed, re-probe the new potential port. */
             mapper_admin_port_probe(admin);
+        }
+        else if (status == 2) {
+            /* If the allocation routine has succeeded, send registered msg. */
+            lo_send(admin->admin_addr, "/port/registered",
+                    "i", admin->port.value);
+        }
+    }
 
     /* If the ordinal is not yet locked, process collision timing.
      * Once the ordinal is locked it won't change. */
-    if (!admin->ordinal.locked)
-        if (check_collisions(admin, &admin->ordinal))
+    if (!admin->ordinal.locked) {
+        status = check_collisions(admin, &admin->ordinal);
+        if (status == 1) {
             /* If the ordinal has changed, re-probe the new name. */
             mapper_admin_name_probe(admin);
+        }
+        else if (status == 2) {
+            /* If the allocation routine has succeeded, send registered msg. */
+            lo_send(admin->admin_addr, "/name/registered",
+                    "s", mapper_admin_name(admin));
+        }
+    }
 
     /* If we are ready to register the device, add the needed message
      * handlers. */
@@ -447,16 +468,17 @@ void mapper_admin_poll(mapper_admin admin)
     {
         mapper_admin_add_device_methods(admin);
 
-        /* Remove some handlers needed during allocation. */
-        lo_server_del_method(admin->admin_server,
-                             "/port/registered", NULL);
-        lo_server_del_method(admin->admin_server,
-                             "/name/registered", NULL);
-
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
               admin->identifier, admin, mapper_admin_name(admin));
-        mapper_admin_send_osc(admin, "/who", "");
+        mapper_admin_send_osc(
+              admin, "/registered", "s", mapper_admin_name(admin),
+              AT_IP, inet_ntoa(admin->interface_ip),
+              AT_PORT, admin->port.value,
+              AT_CANALIAS, 0,
+              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+              AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+              AT_HASH, 0);
     }
 }
 
@@ -466,10 +488,13 @@ void mapper_admin_poll(mapper_admin admin)
 void mapper_admin_port_probe(mapper_admin admin)
 {
     trace("</%s.?::%p> probing port\n", admin->identifier, admin);
+    
+    admin->port.collision_count = -1;
+    admin->port.count_time = get_current_time();
 
     /* We don't use mapper_admin_send_osc() here because the name is
      * not yet established and it would trigger a warning. */
-    lo_send(admin->admin_addr, "/port/probe", "i", admin->port.value);
+    lo_send(admin->admin_addr, "/port/probe", "ii", admin->port.value, admin->random_id);
 }
 
 /*! Probe the admin bus to see if a device's proposed name.ordinal is
@@ -477,6 +502,9 @@ void mapper_admin_port_probe(mapper_admin admin)
  */
 void mapper_admin_name_probe(mapper_admin admin)
 {
+    admin->ordinal.collision_count = -1;
+    admin->ordinal.count_time = get_current_time();
+    
     /* Note: mapper_admin_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
@@ -486,25 +514,7 @@ void mapper_admin_name_probe(mapper_admin admin)
 
     /* For the same reason, we can't use mapper_admin_send_osc()
      * here. */
-    lo_send(admin->admin_addr, "/name/probe", "s", name);
-}
-
-/*! Announce on the admin bus a device's registered port. */
-void mapper_admin_port_registered(mapper_admin admin)
-{
-    if (admin->port.locked)
-        /* Name not yet registered, so we can't use
-         * mapper_admin_send_osc() here. */
-        lo_send(admin->admin_addr, "/port/registered",
-                "i", admin->port.value);
-}
-
-/*! Announce on the admin bus a device's registered name.ordinal. */
-void mapper_admin_name_registered(mapper_admin admin)
-{
-    if (admin->ordinal.locked)
-        mapper_admin_send_osc(admin, "/name/registered",
-                              "s", mapper_admin_name(admin));
+    lo_send(admin->admin_addr, "/name/probe", "si", name, admin->random_id);
 }
 
 const char *_real_mapper_admin_name(mapper_admin admin,
@@ -549,22 +559,20 @@ static int check_collisions(mapper_admin admin,
 
     timediff = get_current_time() - resource->count_time;
 
-    if (timediff >= 2.0) {
+    if (timediff >= 2.0 && resource->collision_count <= 1) {
         resource->locked = 1;
         if (resource->on_lock)
             resource->on_lock(admin->device, resource);
+        return 2;
     }
-
-    else
+    
+    else if (timediff >= 0.5 && resource->collision_count > 0) {
         /* If port collisions were found within 500 milliseconds of the
-         * last probe, try a new random port. */
-    if (timediff >= 0.5 && resource->collision_count > 0) {
-        /* Otherwise, add a random number based on the number of
+         * last probe, add a random number based on the number of
          * collisions. */
         resource->value += rand() % (resource->collision_count + 1);
 
         /* Prepare for causing new port collisions. */
-
         resource->collision_count = -1;
         resource->count_time = get_current_time();
 
@@ -573,19 +581,6 @@ static int check_collisions(mapper_admin admin,
     }
 
     return 0;
-}
-
-static void on_collision(mapper_admin_allocated_t *resource,
-                         mapper_admin admin, int type)
-{
-    if (resource->locked && resource->on_collision)
-        resource->on_collision(admin);
-
-    /* Count port collisions. */
-    resource->collision_count++;
-    trace("%d collision_count = %d\n", resource->value,
-          resource->collision_count);
-    resource->count_time = get_current_time();
 }
 
 void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
@@ -848,14 +843,145 @@ static int handler_signal_info(const char *path, const char *types,
 	return 0;
 }
 
-static int handler_device_alloc_port(const char *path, const char *types,
+/*! Repond to port collisions during allocation, help suggest ports once allocated. */
+static int handler_device_port_registered(const char *path, const char *types,
+                                          lo_arg **argv, int argc,
+                                          lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    unsigned int registered_port = 0;
+    int ID = -1, suggestion = -1, diff;
+    
+    if (argc < 1)
+        return 0;
+    
+    if (types[0] == 'i')
+        registered_port = argv[0]->i;
+    else if (types[0] == 'f')
+        registered_port = (unsigned int) argv[0]->f;
+    else
+        return 0;
+    
+    if (argc > 1) {
+        if (types[1] == 'i')
+            ID = argv[1]->i;
+        else if (types[1] == 'f')
+            ID = (int) argv[1]->f;
+        if (types[2] == 'i')
+            suggestion = argv[2]->i;
+        else if (types[2] == 'f')
+            suggestion = (int) argv[2]->f;
+    }
+    
+    trace("</%s.?::%p> got /port/registered %d %i \n",
+          admin->identifier, admin, registered_port, ID);
+    
+    // if port is locked and registered port is within my block, store it
+    if (admin->port.locked) {
+        diff = registered_port - admin->port.value;
+        if (diff > 0 && diff < 9) {
+            admin->port.suggestion[diff-1] = -1;
+        }
+    }
+    else {
+        if (registered_port == admin->port.value) {
+            if (ID == admin->random_id && suggestion > 0) {
+                admin->port.value = suggestion;
+                mapper_admin_port_probe(admin);
+            }
+            else {
+                /* Count port collisions. */
+                admin->port.collision_count++;
+                admin->port.count_time = get_current_time();
+            }
+        }
+    }
+    return 0;
+}
+
+/*! Repond to name collisions during allocation, help suggest names once allocated. */
+static int handler_device_name_registered(const char *path, const char *types,
+                                          lo_arg **argv, int argc,
+                                          lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    char *registered_name = 0, *suggested_name = 0, *s;
+    unsigned int registered_ordinal = 0;
+    int ID = -1, diff;
+    
+    if (argc < 1)
+        return 0;
+    
+    if (types[0] != 's' && types[0] != 'S')
+        return 0;
+    
+    registered_name = &argv[0]->s;
+    
+    if (argc > 1) {
+        if (types[1] == 'i')
+            ID = argv[1]->i;
+        else if (types[1] == 'f')
+            ID = (int) argv[1]->f;
+        if (types[2] == 's' || types[2] == 'S')
+            suggested_name = &argv[2]->s;
+    }
+    
+    /* Parse the ordinal from the complete name which is in the
+     * format: /<name>.<n> */
+    s = registered_name;
+    if (*s++ != '/')
+        return 0;
+    while (*s != '.' && *s++) {
+    }
+    registered_ordinal = atoi(++s);
+    
+    trace("</%s.?::%p> got /name/registered %s %i \n",
+          admin->identifier, admin, registered_name, ID);
+    
+    // If device name matches
+    strtok(registered_name, ".");
+    registered_name++;
+    if (strcmp(registered_name, admin->identifier) == 0) {
+    
+        // if ordinal is locked and registered ordinal is within my block, store it
+        if (admin->ordinal.locked) {
+            diff = registered_ordinal - admin->ordinal.value;
+            if (diff > 0 && diff < 9) {
+                admin->ordinal.suggestion[diff-1] = -1;
+            }
+        }
+        else {
+            if (registered_ordinal == admin->ordinal.value) {
+                if (ID == admin->random_id && suggested_name) {
+                    // Parse the ordinal from the suggested name
+                    s = suggested_name;
+                    if (*s++ != '/')
+                        return 0;
+                    while (*s != '.' && *s++) {
+                    }
+                    admin->ordinal.value = atoi(++s);
+                    mapper_admin_name_probe(admin);
+                }
+                else {
+                    /* Count port collisions. */
+                    admin->ordinal.collision_count++;
+                    admin->ordinal.count_time = get_current_time();
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+/*! Repond to port probes during allocation, help suggest ports once allocated. */
+static int handler_device_port_probe(const char *path, const char *types,
                                      lo_arg **argv, int argc,
                                      lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-
-
+    double current_time;
     unsigned int probed_port = 0;
+    int ID = -1, i;
 
     if (argc < 1)
         return 0;
@@ -866,26 +992,52 @@ static int handler_device_alloc_port(const char *path, const char *types,
         probed_port = (unsigned int) argv[0]->f;
     else
         return 0;
+    
+    if (argc > 0) {
+        if (types[1] == 'i')
+            ID = argv[1]->i;
+        else if (types[1] == 'f')
+            ID = (int) argv[1]->f;
+    }
 
-    trace("</%s.?::%p> got /port/probe %d \n",
-          admin->identifier, admin, probed_port);
-
-    /* Process port collisions. */
-    if (probed_port == admin->port.value)
-        on_collision(&admin->port, admin, 0);
-
+    trace("</%s.?::%p> got /port/probe %d %i \n",
+          admin->identifier, admin, probed_port, ID);
+    
+    if (probed_port == admin->port.value) {
+        if (admin->port.locked) {
+            current_time = get_current_time();
+            for (i=0; i<8; i++) {
+                if (admin->port.suggestion[i] >= 0 
+                    && (current_time - admin->port.suggestion[i]) > 2.0) {
+                    // reserve suggested port
+                    admin->port.suggestion[i] = get_current_time();
+                    break;
+                }
+            }
+            /* Name may not yet be registered, so we can't use
+             * mapper_admin_send_osc() here. */
+            lo_send(admin->admin_addr, "/port/registered",
+                    "iii", admin->port.value, ID, 
+                    (admin->port.value+i+1));
+        }
+        else {
+            admin->port.collision_count++;
+            admin->port.count_time = get_current_time();
+        }
+    }
     return 0;
 }
 
-static int handler_device_alloc_name(const char *path, const char *types,
+/*! Repond to name probes during allocation, help suggest names once allocated. */
+static int handler_device_name_probe(const char *path, const char *types,
                                      lo_arg **argv, int argc,
                                      lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-
-
+    double current_time;
     char *probed_name = 0, *s;
     unsigned int probed_ordinal = 0;
+    int ID = -1, i;
 
     if (argc < 1)
         return 0;
@@ -894,6 +1046,13 @@ static int handler_device_alloc_name(const char *path, const char *types,
         return 0;
 
     probed_name = &argv[0]->s;
+    
+    if (argc > 0) {
+        if (types[1] == 'i')
+            ID = argv[1]->i;
+        else if (types[1] == 'f')
+            ID = (int) argv[1]->f;
+    }
 
     /* Parse the ordinal from the complete name which is in the
      * format: /<name>.<n> */
@@ -912,9 +1071,29 @@ static int handler_device_alloc_name(const char *path, const char *types,
     strtok(probed_name, ".");
     probed_name++;
     if ((strcmp(probed_name, admin->identifier) == 0)
-        && (probed_ordinal == admin->ordinal.value))
-        on_collision(&admin->ordinal, admin, 1);
-
+        && (probed_ordinal == admin->ordinal.value)) {
+        if (admin->ordinal.locked) {
+            current_time = get_current_time();
+            for (i=0; i<8; i++) {
+                if (admin->ordinal.suggestion[i] >= 0 
+                    && (current_time - admin->ordinal.suggestion[i]) > 2.0) {
+                    // reserve suggested ordinal
+                    admin->ordinal.suggestion[i] = get_current_time();
+                    break;
+                }
+            }
+            char suggested_name[256];
+            snprintf(suggested_name, 256, "/%s.%d", admin->identifier, 
+                     (admin->ordinal.value+i+1));
+            lo_send(admin->admin_addr, "/name/registered",
+                    "sis", mapper_admin_name(admin), ID, 
+                    suggested_name);
+        }
+        else {
+            admin->ordinal.collision_count++;
+            admin->ordinal.count_time = get_current_time();
+        }
+    }
     return 0;
 }
 

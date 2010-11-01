@@ -75,6 +75,8 @@ typedef struct _mapper_admin_allocated_t {
                                    * collision count was updated. */
     int locked;                   /*!< Whether or not the value has
                                    *   been locked in (allocated). */
+    double suggestion[8];         /*!< Availability of a range 
+                                       of resource values. */
 
     //!< Function to call when resource becomes locked.
     mapper_admin_resource_on_lock *on_lock;
@@ -90,6 +92,8 @@ typedef struct _mapper_admin {
                                        *   this device. */
     char *name;                       /*!< The full name for this
                                        *   device, or zero. */
+    int random_id;                    /*!< Random ID for allocation
+                                           speedup. */
     mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
                                        *   device. */
     mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
