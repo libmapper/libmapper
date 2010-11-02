@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 #include <math.h>
 #include <lo/lo.h>
 
@@ -29,6 +29,13 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
+/*! Internal function to get the current time. */
+static double get_current_time()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0; 
+}
 
 int setup_sources() {
 
@@ -228,7 +235,7 @@ void ctrlc(int sig) {
 }
 
 int main() {
-
+    double now = get_current_time();
     int result = 0;
 
     signal(SIGINT, ctrlc);
@@ -252,6 +259,8 @@ int main() {
     }
 
     wait_local_devices();
+    now = get_current_time() - now;
+    printf("Allocated %d devices in %f seconds.\n", num_sources + num_dests, now);
 
     loop();
 
