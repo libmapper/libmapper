@@ -24,7 +24,7 @@ Current Status
 
 The current status is summarized here:
 
-* Name/port allocation works.
+* Name/port allocation works. Allocation speedup works.
 
 * A device and signal API is established, allowing polling of the
   network, responding to incoming signal values, and updating
@@ -53,11 +53,19 @@ release:
       simplify the API. (Steve, 1 week)
 
 * Should input/output be a simple parameter of signals, or specified
-  at creation time? Means changing protocol. (Yes. Joe & Steve. 1 week)
+  at creation time? Means changing protocol. (Done)
+
+* Merge signal-creation API with adding signal to device as input/output.
+
+* Implement allocation "suggestions" to speed up port/ordinal
+  allocation. (Done)
 
 * Create a concise but convincing example for both controller and
   synth sides.  Optional support for audio output, perhaps using RtAudio,
-  would be beneficial here. (Steve)
+  would be beneficial here. (Steve: 3/4 Done)
+
+* Create example program for interfacing with Wiimote, HID? Try to do 
+  this through pd objects with libmapper external. (Joe)
 
 * Develop the SWIG bindings, tested at least against Python.  In fact
   there would be several benefits to doing this with higher priority,
@@ -65,16 +73,22 @@ release:
   it would provide a cross-platform GUI (tkinter).  It would also ease
   the development of testmonitor as a barebones example of a network
   monitor/UI (see the previous point), by providing GUI and/or ncurses
-  bindings. (Steve, 2 weeks)
+  bindings. (Steve, 2 weeks: Done for device but not monitor)
 
 * Include some Max/MSP standalone versions of controllers, Granul8,
-  etc? (Joe)
+  etc? Need 32/64bit, windows? (Joe)
 
-* Are we including the Max/MSP GUI, standalone? Check licenses, size,
-  etc. Binary release for Mac OS X.  (Joe)
+* Are we including the Max/MSP GUI, standalone? 
+    * Check licenses, size, etc. Binary release for Mac OS X.  (Joe)
+    * We need some sort of interface for Linux - webmapper? Qt?
 
-* Documentation, tutorials. External API. (Steve) Textual
-  tutorial. (Vijay)
+* Documentation, tutorials. 
+    * External API. (Steve) 
+    * Textual tutorial. (Vijay)
+    * Videos.
+    * Move code hosting to GitHub?
+    * Enable download counting on idmil.org?
+    * Explicitly state known deficiencies
 
 Lower priority tasks
 ====================
@@ -88,9 +102,6 @@ Lower priority tasks
 * Implement OSC aliasing for signal connections.
 
 * Implement bidirectional communication for state queries.
-
-* Implement allocation "suggestions" to speed up port/ordinal
-  allocation.
 
 * Add "fixed" processing type.
 
@@ -111,13 +122,17 @@ Lower priority tasks
 * Consider using a back-end such as SQLite for database searching.
   (May be more efficient for supporting large networks.)
 
+* Check for disallowed OSC characters. Security testing.
+    * Add default MAX_CONNECTIONS, MAX_SIGNALS
+
 External tasks
 ==============
 
 There are some tasks which address uses of the library/protocol rather
 than being tasks for the library development itself.
 
-* Development of Max external. (Done)
+* Development of Max external. Generate binaries for 32/64bit OSX, Windows.
+  Should try to statically link libmapper, liblo. (In progress)
 
 * Development of Pure Data external. (Joe)
 
@@ -144,3 +159,5 @@ for current work.
 * Interpolation for filtering of sporadic signals
 
 * Many-to-one mapping.
+
+* Add documentation and icon URLs to device properties. Add to GUI. 
