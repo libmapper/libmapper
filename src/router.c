@@ -114,7 +114,7 @@ mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig
     
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.dest_name = strdup(name);
-    mapping->props.scaling = SC_UNDEFINED;
+    mapping->props.mode = SC_UNDEFINED;
     mapping->props.expression = strdup("y=x");
     mapping->props.clip_lower = CT_NONE;
     mapping->props.clip_upper = CT_NONE;

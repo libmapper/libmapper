@@ -17,7 +17,7 @@ const char* mapper_msg_param_strings[] =
     "@max",        /* AT_MAX */
     "@minimum",    /* AT_MINIMUM */
     "@maximum",    /* AT_MAXIMUM */
-    "@scaling",    /* AT_SCALING */
+    "@mode",       /* AT_MODE */
     "@expression", /* AT_EXPRESSION */
     "@clipMin",    /* AT_CLIPMIN */
     "@clipMax",    /* AT_CLIPMAX */
@@ -265,8 +265,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             sig = va_arg(aq, mapper_signal);
             mval_add_to_message(m, sig, sig->props.maximum);
             break;
-        case AT_SCALING:
-            // TODO: enumerate scaling types
+        case AT_MODE:
+            // TODO: enumerate mode types
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
@@ -365,9 +365,9 @@ void mapper_msg_prepare_params(lo_message m,
 
 void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
 {
-    if (map->props.scaling) {
-        lo_message_add_string(m, mapper_msg_param_strings[AT_SCALING]);
-        lo_message_add_string(m, mapper_scaling_type_strings[map->props.scaling]);
+    if (map->props.mode) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
+        lo_message_add_string(m, mapper_mode_type_strings[map->props.mode]);
     }
     if (map->props.expression) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
@@ -388,7 +388,7 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
     lo_message_add_int32(m, map->props.muted);
 }
 
-mapper_scaling_type mapper_msg_get_direction(mapper_message_t *msg)
+mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
 {
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
     if (!a || !*a)
@@ -404,9 +404,9 @@ mapper_scaling_type mapper_msg_get_direction(mapper_message_t *msg)
     return -1;
 }
 
-mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg)
+mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
 {
-    lo_arg **a = mapper_msg_get_param(msg, AT_SCALING);
+    lo_arg **a = mapper_msg_get_param(msg, AT_MODE);
     if (!a || !*a)
         return -1;
 

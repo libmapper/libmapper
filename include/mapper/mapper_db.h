@@ -48,15 +48,15 @@ typedef enum _mapper_clipping_type {
     N_MAPPER_CLIPPING_TYPES
 } mapper_clipping_type;
 
-/*! Describes the scaling mode of the mapping. */
-typedef enum _mapper_scaling_type {
+/*! Describes the mapping mode. */
+typedef enum _mapper_mode_type {
     SC_UNDEFINED,    //!< Not yet defined
-    SC_BYPASS,       //!< Direct scaling
+    SC_BYPASS,       //!< Direct throughput
     SC_LINEAR,       //!< Linear scaling
-    SC_EXPRESSION,   //!< Expression scaling
+    SC_EXPRESSION,   //!< Expression
     SC_CALIBRATE,    //!< Calibrate to source signal
-    N_MAPPER_SCALING_TYPES
-} mapper_scaling_type;
+    N_MAPPER_MODE_TYPES
+} mapper_mode_type;
 
 /*! A record that describes the properties of a connection mapping. */
 typedef struct _mapper_db_mapping {
@@ -74,7 +74,7 @@ typedef struct _mapper_db_mapping {
     mapper_mapping_range_t range;     //!< Range information.
     char *expression;
 
-    mapper_scaling_type scaling;   /*!< Bypass, linear, calibrate, or
+    mapper_mode_type mode;   /*!< Bypass, linear, calibrate, or
                                     *   expression mapping */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */

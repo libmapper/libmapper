@@ -230,7 +230,7 @@ typedef enum {
     AT_MAX,
     AT_MINIMUM,
     AT_MAXIMUM,
-    AT_SCALING,
+    AT_MODE,
     AT_EXPRESSION,
     AT_CLIPMIN,
     AT_CLIPMAX,
@@ -249,9 +249,9 @@ extern const char* mapper_msg_param_strings[];
  *  mapper_db.h. */
 extern const char* mapper_clipping_type_strings[];
 
-/*! Strings that correspond to mapper_scaling_type, defined in
+/*! Strings that correspond to mapper_mode_type, defined in
  *  mapper_db.h. */
-extern const char* mapper_scaling_type_strings[];
+extern const char* mapper_mode_type_strings[];
 
 /*! Queriable representation of a parameterized message parsed from an
  *  incoming OSC message. Does not contain a copy of data, so only

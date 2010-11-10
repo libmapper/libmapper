@@ -129,7 +129,7 @@ void mapper_mapping_set_calibrate(mapper_mapping mapping,
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
 
-const char *mapper_get_scaling_type_string(mapper_scaling_type scaling);
+const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 /**** Local device database ****/
 
@@ -296,12 +296,12 @@ mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
 /*! Helper to return the signal direction from a message parameter.
  *  \param msg Structure containing parameter info.
  *  \return 0 for input, 1 for output, or -1 if not found. */
-mapper_scaling_type mapper_msg_get_direction(mapper_message_t *msg);
+mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg);
 
-/*! Helper to return the scaling type from a message parameter.
+/*! Helper to return the mode type from a message parameter.
  *  \param msg Structure containing parameter info.
- *  \return The scaling type, or -1 if not found. */
-mapper_scaling_type mapper_msg_get_scaling(mapper_message_t *msg);
+ *  \return The mode type, or -1 if not found. */
+mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */

@@ -1566,7 +1566,7 @@ static int handler_signal_connected(const char *path, const char *types,
     return 0;
 }
 
-/*! Modify the connection properties : scaling, range, expression,
+/*! Modify the connection properties : mode, range, expression,
  *  clipMin, clipMax. */
 static int handler_signal_connection_modify(const char *path, const char *types,
                                             lo_arg **argv, int argc, lo_message msg,

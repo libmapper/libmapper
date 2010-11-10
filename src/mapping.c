@@ -16,7 +16,7 @@ const char* mapper_clipping_type_strings[] =
     "wrap",        /* CT_WRAP */
 };
 
-const char* mapper_scaling_type_strings[] =
+const char* mapper_mode_type_strings[] =
 {
     NULL,          /* SC_UNDEFINED */
     "bypass",      /* SC_BYPASS */
@@ -34,13 +34,13 @@ const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
     return mapper_clipping_type_strings[clipping];
 }
 
-const char *mapper_get_scaling_type_string(mapper_scaling_type scaling)
+const char *mapper_get_mode_type_string(mapper_mode_type mode)
 {
-    die_unless(scaling < N_MAPPER_SCALING_TYPES && scaling >= 0,
-               "called mapper_get_scaling_type_string() with "
+    die_unless(mode < N_MAPPER_MODE_TYPES && mode >= 0,
+               "called mapper_get_mode_type_string() with "
                "bad parameter.\n");
 
-    return mapper_scaling_type_strings[scaling];
+    return mapper_mode_type_strings[mode];
 }
 
 int mapper_mapping_perform(mapper_mapping mapping,
@@ -53,17 +53,17 @@ int mapper_mapping_perform(mapper_mapping mapping,
     if (mapping->props.muted)
         return 0;
 
-    if (!mapping->props.scaling || mapping->props.scaling == SC_BYPASS)
+    if (!mapping->props.mode || mapping->props.mode == SC_BYPASS)
         *to_value = *from_value;
 
-    else if (mapping->props.scaling == SC_EXPRESSION
-             || mapping->props.scaling == SC_LINEAR)
+    else if (mapping->props.mode == SC_EXPRESSION
+             || mapping->props.mode == SC_LINEAR)
     {
         die_unless(mapping->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(mapping->expr, from_value);
     }
 
-    else if (mapping->props.scaling == SC_CALIBRATE)
+    else if (mapping->props.mode == SC_CALIBRATE)
     {
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -92,7 +92,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
                                             &mapping->props.range);
 
             /* Stay in calibrate mode. */
-            mapping->props.scaling = SC_CALIBRATE;
+            mapping->props.mode = SC_CALIBRATE;
         }
 
         if (mapping->expr)
@@ -264,7 +264,7 @@ static int replace_expression_string(mapper_mapping m,
 
 void mapper_mapping_set_direct(mapper_mapping m)
 {
-    m->props.scaling = SC_BYPASS;
+    m->props.mode = SC_BYPASS;
 
     // TODO send /modify
 }
@@ -273,7 +273,7 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
                                      mapper_signal sig,
                                      mapper_mapping_range_t *r)
 {
-    m->props.scaling = SC_LINEAR;
+    m->props.mode = SC_LINEAR;
 
     char expr[256] = "";
     const char *e = expr;
@@ -322,7 +322,7 @@ void mapper_mapping_set_expression(mapper_mapping m,
     if (replace_expression_string(m, sig, expr))
         return;
 
-    m->props.scaling = SC_EXPRESSION;
+    m->props.mode = SC_EXPRESSION;
 
     // TODO send /modify
 }
@@ -331,7 +331,7 @@ void mapper_mapping_set_calibrate(mapper_mapping m,
                                   mapper_signal sig,
                                   float dest_min, float dest_max)
 {
-    m->props.scaling = SC_CALIBRATE;
+    m->props.mode = SC_CALIBRATE;
 
     if (m->props.expression)
         free(m->props.expression);
@@ -535,17 +535,17 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     if (expr)
         replace_expression_string(m, sig, expr);
 
-    /* Now set the scaling type depending on the requested type and
+    /* Now set the mode type depending on the requested type and
      * the known properties. */
 
-    int scaling = mapper_msg_get_scaling(msg);
+    int mode = mapper_msg_get_mode(msg);
 
-    switch (scaling)
+    switch (mode)
     {
     case -1:
-        /* No scaling type specified; if scaling not yet set, see if 
+        /* No mode type specified; if mode not yet set, see if 
          we know the range and choose between linear or direct mapping. */
-            if (m->props.scaling == SC_UNDEFINED) {
+            if (m->props.mode == SC_UNDEFINED) {
                 if (range_known == MAPPING_RANGE_KNOWN) {
                     /* We have enough information for a linear mapping. */
                     mapper_mapping_range_t r;
@@ -582,11 +582,11 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case SC_EXPRESSION:
         {
             if (m->props.expression)
-                m->props.scaling = SC_EXPRESSION;
+                m->props.mode = SC_EXPRESSION;
         }
         break;
     default:
-        trace("unknown result from mapper_msg_get_scaling()\n");
+        trace("unknown result from mapper_msg_get_mode()\n");
         break;
     }
 }

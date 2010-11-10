@@ -86,7 +86,7 @@ int main()
     mapper_db_add_or_update_signal_params(db, "/out2", "/testdb.1", &msg);
     mapper_db_add_or_update_signal_params(db, "/out1", "/testdb__.2", &msg);
 
-    args[0] = (lo_arg*)"@scaling";
+    args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"bypass";
     args[2] = (lo_arg*)"@clipMin";
     args[3] = (lo_arg*)"none";
@@ -103,7 +103,7 @@ int main()
     mapper_db_add_or_update_mapping_params(db, "/testdb__.2/out1",
                                            "/testdb.1/in1", &msg);
 
-    args[0] = (lo_arg*)"@scaling";
+    args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"expression";
     args[2] = (lo_arg*)"@expression";
     args[3] = (lo_arg*)"(x-10)*80";

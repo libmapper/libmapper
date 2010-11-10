@@ -644,13 +644,13 @@ void mapper_db_dump(mapper_db db)
               "      src_type=%d, dest_type=%d,\n"
               "      clip_upper=%s, clip_lower=%s,\n"
               "      range=%s,\n"
-              "      expression=%s, scaling=%s, muted=%d\n",
+              "      expression=%s, mode=%s, muted=%d\n",
               map->src_name, map->dest_name, map->src_type,
               map->dest_type,
               mapper_get_clipping_type_string(map->clip_upper),
               mapper_get_clipping_type_string(map->clip_lower),
               r, map->expression,
-              mapper_get_scaling_type_string(map->scaling),
+              mapper_get_mode_type_string(map->mode),
               map->muted);
         map = list_get_next(map);
     }
@@ -992,9 +992,9 @@ static void update_mapping_record_params(mapper_db_mapping map,
 
     update_string_if_arg(&map->expression, params, AT_EXPRESSION);
 
-    mapper_scaling_type scaling = mapper_msg_get_scaling(params);
-    if (scaling!=-1)
-        map->scaling = scaling;
+    mapper_mode_type mode = mapper_msg_get_mode(params);
+    if (mode!=-1)
+        map->mode = mode;
 
     // TODO
     /* int muted; */
