@@ -1,0 +1,30 @@
+#!/usr/bin/env python
+
+"""
+setup.py file for SWIG mapper
+"""
+
+from distutils.core import setup, Extension
+
+LO_LIBS = "@liblo_LIBS@"
+LO_LDDIRS = [x[2:] for x in LO_LIBS.split() if x[0:2]=='-L']
+LO_LDLIBS = [x[2:] for x in LO_LIBS.split() if x[0:2]=='-l']
+
+LO_CFLAGS = "@liblo_CFLAGS@"
+LO_INCDIRS = [x[2:] for x in LO_CFLAGS.split() if x[0:2]=='-I']
+
+top = '..'
+mapper_module = Extension('_mapper',
+                             sources=['mapper_wrap.c'],
+                             include_dirs=[top+'/src', top+'/include']+LO_INCDIRS,
+                             library_dirs=[top+'/src/.libs']+LO_LDDIRS,
+                             libraries=['mapper-0']+LO_LDLIBS,
+                             )
+
+setup (name = 'mapper',
+       version = '@PACKAGE_VERSION@',
+       author      = "IDMIL",
+       description = """Simple swig mapper""",
+       ext_modules = [mapper_module],
+       py_modules = ["mapper"],
+       )

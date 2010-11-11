@@ -145,6 +145,7 @@ AC_CONFIG_FILES([
     doc/Makefile
     doc/libmapper.doxyfile
     swig/Makefile
+    swig/setup.py
     libmapper.pc
 ])
 AC_OUTPUT
