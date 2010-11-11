@@ -41,6 +41,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
     md->routers = 0;
+    md->extra = table_new();
     return md;
 }
 
@@ -59,6 +60,8 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
+        if (md->extra)
+            table_free(md->extra, 1);
         free(md);
     }
 }
@@ -316,4 +319,16 @@ int mdev_ready(mapper_device device)
         return 0;
 
     return device->admin->registered;
+}
+
+void mdev_set_property(mapper_device dev, const char *property,
+                       char type, lo_arg *value)
+{
+    mapper_table_add_or_update_osc_value(dev->extra,
+                                         property, type, value);
+}
+
+void mdev_remove_property(mapper_device dev, const char *property)
+{
+    table_remove_key(dev->extra, property, 1);
 }

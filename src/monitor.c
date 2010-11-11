@@ -14,6 +14,7 @@ mapper_monitor mapper_monitor_new()
 
 void mapper_monitor_free(mapper_monitor mon)
 {
+    // TODO: free structures pointed to by the database
     if (mon)
         free(mon);
 }

@@ -22,38 +22,20 @@ typedef struct _mapper_expr *mapper_expr;
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
 
+/**** String tables ****/
+
 /*! Used to hold string look-up table nodes. */
 typedef struct {
-    char *key;
+    const char *key;
     void *value;
-} node_t;
+} string_table_node_t;
 
 /*! Used to hold string look-up tables. */
-typedef struct {
-    node_t *store;
+typedef struct _mapper_string_table {
+    string_table_node_t *store;
     int len;
     int alloced;
-} table_t, *table;
-
-/*! Create a new string table. */
-table table_new();
-
-/*! Free a string table. */
-void table_free(table t);
-
-/*! Add a string to a table. */
-void table_add(table t, const char *key, void *value);
-
-/*! Sort a table.  Call this after table_add and before table_find. */
-void table_sort(table t);
-
-/*! Look up a value in a table.  Returns 1 if found, 0 if not found,
- *  and fills in value if found. */
-int table_find(table t, const char *key, void **value);
-
-/*! Look up a value in a table.  Returns the value directly, which may
- *  be zero, but also returns 0 if not found. */
-void *table_find_p(table t, const char *key);
+} mapper_string_table_t, *table;
 
 /**** Admin bus ****/
 
@@ -187,6 +169,9 @@ typedef struct _mapper_device {
      *  one input has been registered and the incoming port has been
      *  allocated. */
     lo_server server;
+
+    /*! Extra properties associated with this device. */
+    struct _mapper_string_table *extra;
 } *mapper_device;
 
 /**** Monitor ****/
@@ -239,8 +224,12 @@ typedef enum {
     AT_MUTE,
     AT_LENGTH,
     AT_DIRECTION,
+    AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;
+
+/* Maximum number of "extra" signal parameters. */
+#define N_EXTRA_PARAMS 20
 
 /*! Strings that correspond to mapper_msg_param_t. */
 extern const char* mapper_msg_param_strings[];
@@ -255,12 +244,18 @@ extern const char* mapper_mode_type_strings[];
 
 /*! Queriable representation of a parameterized message parsed from an
  *  incoming OSC message. Does not contain a copy of data, so only
- *  valid for the duration of the message handler. */
+ *  valid for the duration of the message handler. Also allows for a
+ *  constant number of "extra" parameters; that is, unknown parameters
+ *  that may be specified for a signal and used for metadata, which
+ *  will be added to a general-purpose string table associated with
+ *  the signal. */
 typedef struct _mapper_message
 {
     const char *path;               //!< OSC address.
     lo_arg **values[N_AT_PARAMS];   //!< Array of parameter values.
     const char *types[N_AT_PARAMS]; //!< Array of types for each value.
+    lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
+    char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
 } mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__

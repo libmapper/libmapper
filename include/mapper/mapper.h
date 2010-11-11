@@ -11,34 +11,12 @@ extern "C" {
 /*** Signals ***/
 
 struct _mapper_signal;
+typedef struct _mapper_signal *mapper_signal;
 
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
 typedef void mapper_signal_handler(struct _mapper_signal *msig,
                                    mapper_signal_value_t *v);
-
-/*! A signal is defined as a vector of values, along with some
- *  metadata. */
-
-typedef struct _mapper_signal
-{
-    /*! Properties of this signal. */
-    mapper_db_signal_t props;
-
-    /*! An optional pointer to a C variable containing the actual
-     *  vector. */
-    mapper_signal_value_t *value;
-
-    /*! The device associated with this signal. */
-    mapper_device device;
-
-    /*! An optional function to be called when the signal value
-     *  changes. */
-    mapper_signal_handler *handler;
-
-    /*! A pointer available for passing user context. */
-    void *user_data;
-} *mapper_signal;
 
 /*! Macro to take a float or int value and cast it to a
  *  mapper_signal_value_t. */
@@ -126,6 +104,25 @@ void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum);
  *                  the maximum. */
 void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum);
 
+/*! Get a signal's property structure.
+ *  \param sig  The signal to operate on.
+ *  \return     A structure containing the signal's properties. */
+mapper_db_signal msig_get_properties(mapper_signal sig);
+
+/*! Set a property of a signal.  Can be used to provide arbitrary
+ *  metadata.  Value pointed to will be copied.
+ *  \param sig       The signal to operate on.
+ *  \param property  The name of the property to add.
+ *  \param type      The property OSC type.
+ *  \param value     The property OSC value. */
+void msig_set_property(mapper_signal sig, const char *property,
+                       char type, lo_arg *value);
+
+/*! Remove a property of a signal.
+ *  \param sig       The signal to operate on.
+ *  \param property  The name of the property to remove. */
+void msig_remove_property(mapper_signal sig, const char *property);
+
 /*! Update the value of a signal.
  *  This is a scalar equivalent to msig_update(), for when passing by
  *  value is more convenient than passing a pointer.
@@ -201,6 +198,20 @@ int mdev_find_input_by_name(mapper_device md, const char *name,
  */
 int mdev_find_output_by_name(mapper_device md, const char *name,
                              mapper_signal *result);
+
+/*! Set a property of a device.  Can be used to provide arbitrary
+ *  metadata.  Value pointed to will be copied.
+ *  \param dev       The device to operate on.
+ *  \param property  The name of the property to add.
+ *  \param type      The property OSC type.
+ *  \param value     The property OSC value. */
+void mdev_set_property(mapper_device dev, const char *property,
+                       char type, lo_arg *value);
+
+/*! Remove a property of a device.
+ *  \param dev       The device to operate on.
+ *  \param property  The name of the property to remove. */
+void mdev_remove_property(mapper_device dev, const char *property);
 
 /*! Poll this device for new messages.
  *  \param block_ms Number of milliseconds to block waiting for
@@ -674,6 +685,64 @@ int mapper_monitor_request_links_by_name(
 /*! Request mappings for specific device. */
 int mapper_monitor_request_mappings_by_name(
     mapper_monitor mon, const char* name);
+
+/***** String tables *****/
+
+/* For accessing named parameters of signals and devices. */
+
+/*! Look up a signal property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param sig The signal to look at.
+ *  \param index Numerical index of a signal property.
+ *  \param property Address of a string pointer to receive the name of
+ *                  indexed property.  May be zero.
+ *  \param type Address of a character to receive the property value
+ *              type.
+ *  \param value Address of a lo_arg* to receive the property value.
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
+                                    const char **property, char *type,
+                                    const lo_arg **value);
+
+/*! Look up a signal property by name.
+ *  \param sig The signal to look at.
+ *  \param property The name of the property to retrive.
+ *  \param type A pointer to a location to receive the type of the
+ *              property value. (Required.)
+ *  \param value A pointer a location to receive the address of the
+ *               property's value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_signal_property_lookup(mapper_db_signal sig,
+                                     const char *property,
+                                     char *type,
+                                     const lo_arg **value);
+
+/*! Look up a device property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param dev The device to look at.
+ *  \param index Numerical index of a device property.
+ *  \param property Address of a string pointer to receive the name of
+ *                  indexed property.  May be zero.
+ *  \param type Address of a character to receive the property value
+ *              type.
+ *  \param value Address of a lo_arg* to receive the property value.
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
+                                    const char **property, char *type,
+                                    const lo_arg **value);
+
+/*! Look up a device property by name.
+ *  \param dev The device to look at.
+ *  \param property The name of the property to retrive.
+ *  \param type A pointer to a location to receive the type of the
+ *              property value. (Required.)
+ *  \param value A pointer a location to receive the address of the
+ *               property's value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_device_property_lookup(mapper_db_device dev,
+                                     const char *property,
+                                     char *type,
+                                     const lo_arg **value);
 
 #ifdef __cplusplus
 }

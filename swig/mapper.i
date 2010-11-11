@@ -57,7 +57,7 @@
     return o;
  }
 %{
-#include <mapper/mapper.h>
+#include <mapper_internal.h>
 typedef struct _device {} device;
 typedef struct _signal {} signal__;
 

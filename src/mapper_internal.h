@@ -5,6 +5,31 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+/**** Signals ****/
+
+/*! A signal is defined as a vector of values, along with some
+ *  metadata. */
+
+struct _mapper_signal
+{
+    /*! Properties of this signal. */
+    mapper_db_signal_t props;
+
+    /*! An optional pointer to a C variable containing the actual
+     *  vector. */
+    mapper_signal_value_t *value;
+
+    /*! The device associated with this signal. */
+    struct _mapper_device *device;
+
+    /*! An optional function to be called when the signal value
+     *  changes. */
+    mapper_signal_handler *handler;
+
+    /*! A pointer available for passing user context. */
+    void *user_data;
+};
+
 // Mapper internal functions
 
 /**** Admin ****/
@@ -158,6 +183,11 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
                                           const char *name,
                                           const char *device_name,
                                           mapper_message_t *params);
+
+/*! Initialize an already-allocated mapper_db_signal structure. */
+void mapper_db_signal_init(mapper_db_signal sig, int is_output,
+                           char type, int length,
+                           const char *name, const char *unit);
 
 /*! Add or update an entry in the mapping database using parsed message
  *  parameters.
@@ -328,6 +358,59 @@ mapper_signal_value_t mapper_expr_evaluate(
     mapper_expr expr, mapper_signal_value_t* input_vector);
 
 void mapper_expr_free(mapper_expr expr);
+
+/**** String tables ****/
+
+/*! Create a new string table. */
+table table_new();
+
+/*! Free a string table.
+ * \param t Table to free.
+ * \param free_values Non-zero to free all values, otherwise zero. */
+void table_free(table t, int free_values);
+
+/*! Add a string to a table. */
+void table_add(table t, const char *key, void *value);
+
+/*! Sort a table.  Call this after table_add and before table_find. */
+void table_sort(table t);
+
+/*! Look up a value in a table.  Returns 0 if found, 1 if not found,
+ *  and fills in value if found. */
+int table_find(table t, const char *key, void **value);
+
+/*! Look up a value in a table.  Returns the value directly, which may
+ *  be zero, but also returns 0 if not found. */
+void *table_find_p(table t, const char *key);
+
+/*! Look up a value in a table.  Returns a pointer to the value,
+ *  allowing it to be modified in-place.  Returns 0 if not found. */
+void **table_find_pp(table t, const char *key);
+
+/*! Remove a key-value pair from a table (by key). free_key is
+ *  non-zero to indicate that key should be free()'d. */
+void table_remove_key(table t, const char *key, int free_key);
+
+/*! Get the value at a particular index. */
+void *table_value_at_index_p(table t, unsigned int index);
+
+/*! Get the key at a particular index. */
+const char *table_key_at_index(table t, unsigned int index);
+
+/*! Update a value in a table if the key already exists, or add it
+ *  otherwise.  Returns 0 if no add took place.  Sorts the table
+ *  before exiting, so this should be considered a longer operation
+ *  than table_add. */
+int table_add_or_update(table t, const char *key, void *value);
+
+#ifdef DEBUG
+/*! Dump a table of OSC values. */
+void table_dump_osc_values(table t);
+#endif
+
+/*! Add a typed OSC argument to a string table. */
+void mapper_table_add_or_update_osc_value(table t, const char *key,
+                                          char type, lo_arg *arg);
 
 /**** Debug macros ****/
 

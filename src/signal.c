@@ -22,11 +22,10 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
 
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
-    sig->props.type = type;
-    sig->props.length = length;
-    sig->props.name = strdup(name);
-    if (unit)
-        sig->props.unit = strdup(unit);
+
+    /* TODO signal direction */
+    mapper_db_signal_init(&sig->props, 0, type, length, name, unit);
+
     sig->value = (mapper_signal_value_t *) value;
     sig->handler = handler;
     sig->user_data = user_data;
@@ -51,6 +50,23 @@ mapper_signal msig_int(int length, const char *name, const char *unit,
     return msig_new(length, name, unit, 'i', MSIGVALP(minimum), 
                     MSIGVALP(maximum), MSIGVALP(value),
                     handler, user_data);
+}
+
+mapper_db_signal msig_get_properties(mapper_signal sig)
+{
+    return &sig->props;
+}
+
+void msig_set_property(mapper_signal sig, const char *property,
+                       char type, lo_arg *value)
+{
+    mapper_table_add_or_update_osc_value(sig->props.extra,
+                                         property, type, value);
+}
+
+void msig_remove_property(mapper_signal sig, const char *property)
+{
+    table_remove_key(sig->props.extra, property, 1);
 }
 
 void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum)
@@ -94,6 +110,8 @@ void msig_free(mapper_signal sig)
         free((char*)sig->props.name);
     if (sig->props.unit)
         free((char*)sig->props.unit);
+    if (sig->props.extra)
+        table_free(sig->props.extra, 1);
     free(sig);
 }
 

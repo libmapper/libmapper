@@ -3,6 +3,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <lo/lo.h>
 
 #include <unistd.h>
@@ -26,24 +27,29 @@ void dbpause()
     // sleep(1);
 }
 
-void printsignal(mapper_db_signal sig, int is_output)
+void printsignal(mapper_db_signal sig)
 {
-    printf("  %s name=%s%s, type=%c, length=%d",
-           is_output ? "output" : "input",
-           sig->device_name, sig->name, sig->type, sig->length);
-    if (sig->unit)
-        printf(", unit=%s", sig->unit);
-    if (sig->minimum) {
-        if (sig->type == 'i')
-            printf(", minimum=%d", sig->minimum->i32);
-        else if (sig->type == 'f')
-            printf(", minimum=%g", sig->minimum->f);
-    }
-    if (sig->maximum) {
-        if (sig->type == 'i')
-            printf(", maximum=%d", sig->maximum->i32);
-        else if (sig->type == 'f')
-            printf(", maximum=%g", sig->maximum->f);
+    printf("  %s name=%s%s",
+           sig->is_output ? "output" : "input",
+           sig->device_name, sig->name);
+
+    int i=0;
+    const char *key;
+    char type;
+    const lo_arg *val;
+    while(!mapper_db_signal_property_index(
+              sig, i++, &key, &type, &val))
+    {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed these
+        if (strcmp(key, "device_name")==0
+            || strcmp(key, "name")==0
+            || strcmp(key, "direction")==0)
+            continue;
+
+        printf(", %s=", key);
+        lo_arg_pp(type, (lo_arg*)val);
     }
     printf("\n");
 }
@@ -92,9 +98,18 @@ void loop()
         printf("Registered devices:\n");
         mapper_db_device *pdev = mapper_db_get_all_devices(db);
         while (pdev) {
-            printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
-                   (*pdev)->name, (*pdev)->host,
-                   (*pdev)->port, (*pdev)->canAlias);
+            int i=0;
+            const char *key;
+            char type;
+            const lo_arg *val;
+            printf("  device");
+            while (!mapper_db_device_property_index(
+                       *pdev, i++, &key, &type, &val))
+            {
+                printf(", %s=", key);
+                lo_arg_pp(type, (lo_arg*)val);
+            }
+            printf("\n");
             pdev = mapper_db_device_next(pdev);
         }
 
@@ -104,12 +119,12 @@ void loop()
         mapper_db_signal *psig =
             mapper_db_get_all_inputs(db);
         while (psig) {
-            printsignal(*psig, 0);
+            printsignal(*psig);
             psig = mapper_db_signal_next(psig);
         }
         psig = mapper_db_get_all_outputs(db);
         while (psig) {
-            printsignal(*psig, 1);
+            printsignal(*psig);
             psig = mapper_db_signal_next(psig);
         }
 

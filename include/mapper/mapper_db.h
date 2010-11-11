@@ -5,8 +5,23 @@
 extern "C" {
 #endif
 
+/* An opaque structure to hold a string table of key-value pairs, used
+ * to hold arbitrary signal and device parameters. */
+struct _mapper_string_table;
+
 /*! \file This file defines structs used to return information from
  *  the network database. */
+
+#include <lo/lo.h>
+
+/*! A pair representing an arbitrary parameter value and its
+ *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
+ *  type is a string, the allocated size may be longer than
+ *  sizeof(mapper_osc_arg_t). */
+typedef struct _mapper_osc_value {
+    char type;
+    lo_arg value;
+} mapper_osc_value_t;
 
 /*! A record that keeps information about a device on the network. */
 typedef struct _mapper_db_device {
@@ -15,6 +30,9 @@ typedef struct _mapper_db_device {
     int port;     //!< Device network port.
     int canAlias; //!< True if the device can handle OSC aliasing.
     void* user_data; //!< User modifiable data.
+
+    /*! Extra properties associated with this device. */
+    struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
 /* Bit flags to identify which range extremities are known. If the bit
@@ -118,6 +136,9 @@ typedef struct _mapper_db_signal
 
     /*! The maximum of this signal, or NULL for no maximum. */
     mapper_signal_value_t *maximum;
+
+    /*! Extra properties associated with this signal. */
+    struct _mapper_string_table *extra;
 } mapper_db_signal_t, *mapper_db_signal;
 
 /*! A record that describes the properties of a link between devices. */

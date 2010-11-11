@@ -478,7 +478,8 @@ void mapper_admin_poll(mapper_admin admin)
               AT_CANALIAS, 0,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-              AT_HASH, 0);
+              AT_HASH, 0,
+              AT_EXTRA, admin->device->extra);
     }
 }
 
@@ -754,7 +755,8 @@ static int handler_id_n_signals_input_get(const char *path,
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig);
+            sig->props.maximum ? AT_MAX : -1, sig,
+            AT_EXTRA, sig->props.extra);
     }
 
     return 0;
@@ -782,7 +784,8 @@ static int handler_id_n_signals_output_get(const char *path,
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
             sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig);
+            sig->props.maximum ? AT_MAX : -1, sig,
+            AT_EXTRA, sig->props.extra);
     }
 
     return 0;
@@ -835,7 +838,7 @@ static int handler_signal_info(const char *path, const char *types,
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
-    
+
     mapper_db_add_or_update_signal_params( db, sig_name, 
                                           devname,
                                           &params );

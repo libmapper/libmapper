@@ -444,6 +444,215 @@ static void update_char_if_arg(char *pdest_char,
         (*pdest_char) = (*a)->c;
 }
 
+static void add_or_update_extra_params(table t,
+                                       mapper_message_t *params)
+{
+    int i=0;
+    while (params->extra_args[i])
+    {
+        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
+        lo_arg *arg = *(params->extra_args[i]+1);
+        char type = params->extra_types[i];
+        mapper_table_add_or_update_osc_value(t, key, type, arg);
+        i++;
+    }
+}
+
+/* Static data for property tables embedded in the db data
+ * structures.
+ *
+ * Signals and devices have properties that can be indexed by name,
+ * and can have extra properties attached to them if these appear in
+ * the OSC message describing the resource.  The utility of this is to
+ * allow for attaching of arbitrary metadata to objects on the
+ * network.  For example, signals can have 'x' and 'y' values to
+ * indicate their physical position in the room.
+ *
+ * It is also useful to be able to look up standard properties like
+ * vector length, name, or unit by specifying these as a string.
+ *
+ * The following data provides a string table (as usable by the
+ * implementation in table.c) for indexing the static data existing in
+ * the mapper_db_* data structures.  Some of these static properties
+ * may not actually exist, such as 'minimum' and 'maximum' which are
+ * optional properties of signals.  Therefore an 'indirect' form is
+ * available where the table points to a pointer to the value, which
+ * may be null.
+ *
+ * A property lookup consists of looking through the 'extra'
+ * properties of a structure.  If the requested property is not found,
+ * then the 'static' properties are searched---in the worst case, an
+ * unsuccessful lookup may therefore take twice as long.
+ *
+ * To iterate through all available properties, the caller must
+ * request by index, starting at 0, and incrementing until failure.
+ * They are not guaranteed to be in a particular order.
+ */
+
+typedef struct {
+    char type;
+    char indirect;
+    int  offset;
+} property_table_value_t;
+
+static mapper_db_signal_t *sigdb=0;
+#define SIGDB_OFFSET(x) ((char*)&sigdb->x - (char*)sigdb)
+
+static mapper_db_device_t *devdb=0;
+#define DEVDB_OFFSET(x) ((char*)&devdb->x - (char*)devdb)
+
+/* Here type 'o', which is not an OSC type, was reserved to mean "same
+ * type as the signal's type".  The lookup and index functions will
+ * return the sig->type instead of the value's type. */
+static property_table_value_t sigdb_values[] = {
+    { 's', 1, SIGDB_OFFSET(device_name) },
+    { 'i', 0, SIGDB_OFFSET(is_output) },
+    { 'i', 0, SIGDB_OFFSET(length) },
+    { 'o', 1, SIGDB_OFFSET(maximum) },
+    { 'o', 1, SIGDB_OFFSET(minimum) },
+    { 's', 1, SIGDB_OFFSET(name) },
+    { 'c', 0, SIGDB_OFFSET(type) },
+    { 's', 1, SIGDB_OFFSET(unit) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t sigdb_nodes[] = {
+    { "device_name", &sigdb_values[0] },
+    { "direction",   &sigdb_values[1] },
+    { "length",      &sigdb_values[2] },
+    { "maximum",     &sigdb_values[3] },
+    { "minimum",     &sigdb_values[4] },
+    { "name",        &sigdb_values[5] },
+    { "type",        &sigdb_values[6] },
+    { "unit",        &sigdb_values[7] },
+};
+
+static mapper_string_table_t sigdb_table =
+  { sigdb_nodes, 8, 8 };
+
+static property_table_value_t devdb_values[] = {
+    { 'i', 0, DEVDB_OFFSET(canAlias) },
+    { 's', 1, DEVDB_OFFSET(host) },
+    { 'i', 0, DEVDB_OFFSET(port) },
+    { 's', 1, DEVDB_OFFSET(name) },
+    { 'i', 0, DEVDB_OFFSET(user_data) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t devdb_nodes[] = {
+    { "can_alias", &devdb_values[0] },
+    { "host",      &devdb_values[1] },
+    { "port",      &devdb_values[2] },
+    { "name",      &devdb_values[3] },
+    { "user_data", &devdb_values[4] },
+};
+
+static mapper_string_table_t devdb_table =
+  { devdb_nodes, 5, 5 };
+
+/* Generic index and lookup functions to which the above tables would
+ * be passed. These are called for specific types below. */
+
+static
+int mapper_db_property_index(void *thestruct, char o_type,
+                             table extra, unsigned int index,
+                             const char **property, char *type,
+                             const lo_arg **value, table proptable)
+{
+    die_unless(type!=0, "type parameter cannot be null.\n");
+    die_unless(value!=0, "value parameter cannot be null.\n");
+
+    int i=0, j=0;
+
+    /* Unfortunately due to "optional" properties likes
+     * minimum/maximum, unit, etc, we cannot use an O(1) lookup here--
+     * the index changes according to availability of properties.
+     * Thus, we have to search through properties linearly,
+     * incrementing a counter along the way, so indexed lookup is
+     * O(N).  Meaning iterating through all indexes is O(N^2).  A
+     * better way would be to use an iterator-style interface if
+     * efficiency was important for iteration. */
+
+    /* First search static properties */
+    property_table_value_t *prop;
+    for (i=0; i < proptable->len; i++)
+    {
+        prop = table_value_at_index_p(proptable, i);
+        if (prop->indirect) {
+            lo_arg **pp = (lo_arg**)((char*)thestruct + prop->offset);
+            if (*pp) {
+                if (j==index) {
+                    if (property)
+                        *property = table_key_at_index(proptable, i);
+                    *type = prop->type == 'o' ? o_type : prop->type;
+                    *value = *pp;
+                    return 0;
+                }
+                j++;
+            }
+        }
+        else {
+            if (j==index) {
+                if (property)
+                    *property = table_key_at_index(proptable, i);
+                *type = prop->type == 'o' ? o_type : prop->type;
+                *value = (lo_arg*)((char*)thestruct + prop->offset);
+                return 0;
+            }
+            j++;
+        }
+    }
+
+    index -= j;
+    mapper_osc_value_t *val;
+    val = table_value_at_index_p(extra, index);
+    if (val) {
+        if (property)
+            *property = table_key_at_index(extra, index);
+        *type = val->type == 'o' ? o_type : val->type;
+        *value = &val->value;
+        return 0;
+    }
+
+    return 1;
+}
+
+static
+int mapper_db_property_lookup(void *thestruct, char o_type,
+                              table extra, const char *property,
+                              char *type, const lo_arg **value,
+                              table proptable)
+{
+    die_unless(type!=0, "type parameter cannot be null.\n");
+    die_unless(value!=0, "value parameter cannot be null.\n");
+
+    const mapper_osc_value_t *val;
+    val = table_find_p(extra, property);
+    if (val) {
+        *type = val->type == 'o' ? o_type : val->type;
+        *value = &val->value;
+        return 0;
+    }
+
+    property_table_value_t *prop;
+    prop = table_find_p(&sigdb_table, property);
+    if (prop) {
+        *type = prop->type == 'o' ? o_type : prop->type;
+        if (prop->indirect) {
+            lo_arg **pp = (lo_arg**)((char*)thestruct + prop->offset);
+            if (*pp)
+                *value = *pp;
+            else
+                return 1;
+        }
+        else
+            *value = (lo_arg*)((char*)thestruct + prop->offset);
+        return 0;
+    }
+
+    return 1;
+}
+
 /**** Device records ****/
 
 /*! Update information about a given device record based on message
@@ -479,6 +688,7 @@ int mapper_db_add_or_update_device_params(mapper_db db,
 
     if (!reg) {
         reg = (mapper_db_device) list_new_item(sizeof(*reg));
+        reg->extra = table_new();
         rc = 1;
 
         list_prepend_item(reg, (void**)&db->registered_devices);
@@ -496,6 +706,26 @@ int mapper_db_add_or_update_device_params(mapper_db db,
     }
 
     return rc;
+}
+
+int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
+                                    const char **property, char *type,
+                                    const lo_arg **value)
+{
+    return mapper_db_property_index(dev, 0, dev->extra,
+                                    index, property, type,
+                                    value, &devdb_table);
+}
+
+
+int mapper_db_device_property_lookup(mapper_db_device dev,
+                                     const char *property,
+                                     char *type,
+                                     const lo_arg **value)
+{
+    return mapper_db_property_lookup(dev, 0, dev->extra,
+                                     property, type, value,
+                                     &devdb_table);
 }
 
 void mapper_db_remove_device(mapper_db db, const char *name)
@@ -697,6 +927,8 @@ static void update_signal_record_params(mapper_db_signal sig,
 
     update_signal_value_if_arg(params, AT_MINIMUM,
                                sig->type, &sig->minimum);
+
+    add_or_update_extra_params(sig->extra, params);
 }
 
 int mapper_db_add_or_update_signal_params(mapper_db db,
@@ -722,9 +954,8 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
     else {
         sig = (mapper_db_signal) list_new_item(sizeof(mapper_db_signal_t));
 
-        // Defaults
-        sig->length = 1;
-		sig->is_output = is_output;
+        // Defaults (length=1, is_output=1)
+        mapper_db_signal_init(sig, 0, 'i', 1, 0, 0);
     }
 
     if (sig) {
@@ -747,6 +978,37 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
         mapper_db_signal_done(psig);
 
     return 1;
+}
+
+void mapper_db_signal_init(mapper_db_signal sig, int is_output,
+                           char type, int length,
+                           const char *name, const char *unit)
+{
+    sig->is_output = is_output;
+    sig->type = type;
+    sig->length = length;
+    sig->name = name ? strdup(name) : 0;
+    sig->unit = unit ? strdup(unit) : 0;
+    sig->extra = table_new();
+}
+
+int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
+                                    const char **property, char *type,
+                                    const lo_arg **value)
+{
+    return mapper_db_property_index(sig, sig->type, sig->extra,
+                                    index, property, type,
+                                    value, &sigdb_table);
+}
+
+int mapper_db_signal_property_lookup(mapper_db_signal sig,
+                                     const char *property,
+                                     char *type,
+                                     const lo_arg **value)
+{
+    return mapper_db_property_lookup(sig, sig->type, sig->extra,
+                                     property, type, value,
+                                     &sigdb_table);
 }
 
 void mapper_db_add_signal_callback(mapper_db db,

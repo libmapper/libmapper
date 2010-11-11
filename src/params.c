@@ -26,6 +26,8 @@ const char* mapper_msg_param_strings[] =
     "@mute",       /* AT_MUTE */
     "@length",     /* AT_LENGTH */
     "@direction",  /* AT_DIRECTION */
+    "",            /* AT_EXTRA (special case, does not represent a
+                    * specific property name) */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -42,6 +44,8 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 
     memset(msg, 0, sizeof(mapper_message_t));
     msg->path = path;
+    msg->extra_args[0] = 0;
+    int extra_count = 0;
 
     for (i=0; i<argc; i++) {
         if (types[i]!='s') {
@@ -59,10 +63,17 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 break;
 
         if (j==N_AT_PARAMS) {
-            /* unknown parameter */
-            trace("message %s, unknown parameter '%s'\n",
-                  path, &argv[i]->s);
-            return 1;
+            if (argv[i]->s == '@' && extra_count < N_EXTRA_PARAMS) {
+                /* Unknown "extra" parameter, record the key index. */
+                msg->extra_args[extra_count] = &argv[i];
+                i++; // To value
+                msg->extra_types[extra_count] = types[i];
+                extra_count++;
+                continue;
+            }
+            else
+                /* Skip non-keyed parameters */
+                continue;
         }
 
         /* special case: range has 4 float or int parameters */
@@ -207,6 +218,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     int i;
     float f;
     char t[] = " ";
+    table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
 
@@ -219,10 +231,12 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             continue;
         }
 
+        /* Only "extra" is not a real property name */
 #ifdef DEBUG
         if (pa >= 0 && pa < N_AT_PARAMS)
 #endif
-            lo_message_add_string(m, mapper_msg_param_strings[pa]);
+            if (pa != AT_EXTRA)
+                lo_message_add_string(m, mapper_msg_param_strings[pa]);
 
         switch (pa) {
         case AT_IP:
@@ -304,6 +318,27 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_DIRECTION:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
+            break;
+        case AT_EXTRA:
+            tab = va_arg(aq, table);
+            i = 0;
+            {
+                mapper_osc_value_t *val;
+                val = table_value_at_index_p(tab, i++);
+                while(val)
+                {
+                    const char *k = table_key_at_index(tab, i-1);
+                    char key[256] = "@";
+                    char type[] = "s ";
+                    strncpy(&key[1], k, 254);
+                    type[1] = val->type;
+                    if (val->type == 's' || val->type == 'S')
+                        lo_message_add(m, type, key, &val->value);
+                    else
+                        lo_message_add(m, type, key, val->value);
+                    val = table_value_at_index_p(tab, i++);
+                }
+            }
             break;
         default:
             die_unless(0, "unknown parameter %d\n", pa);
