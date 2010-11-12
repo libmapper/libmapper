@@ -35,22 +35,28 @@ typedef enum {
 typedef struct {
     void *next;
     void *self;
-    query_type_t query_type;
     struct _query_info *query_context;
-    int data[0]; // stub
+    query_type_t query_type;
+    int data[1]; // stub
 }  list_header_t;
+
+#define LIST_HEADER_SIZE (sizeof(list_header_t)-sizeof(int[1]))
 
 /*! Reserve memory for a list item.  Reserves an extra pointer at the
  *  beginning of the structure to allow for a list pointer. */
 static list_header_t* list_new_item(size_t size)
 {
-    // make sure the compiler is doing what we think it's doing with
-    // that zero-length array
-    die_unless(sizeof(list_header_t) == sizeof(void*)*3 + sizeof(query_type_t),
-               "unexpected size for list_header_t");
+    list_header_t *lh=0;
 
-    size += sizeof(list_header_t);
-    list_header_t *lh = malloc(size);
+    // make sure the compiler is doing what we think it's doing with
+    // the size of list_header_t and location of data
+    die_unless(LIST_HEADER_SIZE == sizeof(void*)*3 + sizeof(query_type_t),
+               "unexpected size for list_header_t");
+    die_unless(((char*)&lh->data - (char*)lh) == LIST_HEADER_SIZE,
+               "unexpected offset for data in list_header_t");
+
+    size += LIST_HEADER_SIZE;
+    lh = malloc(size);
     if (!lh)
         return 0;
 
@@ -64,7 +70,7 @@ static list_header_t* list_new_item(size_t size)
 /*! Get the list header for memory returned from list_new_item(). */
 static list_header_t* list_get_header_by_data(void *data)
 {
-    return (list_header_t*)(data - sizeof(list_header_t));
+    return (list_header_t*)(data - LIST_HEADER_SIZE);
 }
 
 /*! Get the list header for memory returned from list_new_item(). */
@@ -165,7 +171,7 @@ static void free_query_single_context(list_header_t *lh)
 static list_header_t *construct_query_context_from_strings(
     query_compare_func_t *f, ...)
 {
-    list_header_t *lh = (list_header_t*)malloc(sizeof(list_header_t));
+    list_header_t *lh = (list_header_t*)malloc(LIST_HEADER_SIZE);
     lh->next = dynamic_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
 
@@ -202,7 +208,7 @@ static list_header_t *construct_query_context_from_strings(
 static void save_query_single_context(list_header_t *src,
                                       void *mem, unsigned int size)
 {
-    int needed = sizeof(list_header_t);
+    int needed = LIST_HEADER_SIZE;
     if (src->query_context)
         needed += src->query_context->size;
     else
@@ -211,24 +217,24 @@ static void save_query_single_context(list_header_t *src,
     die_unless(size >= needed,
                "not enough memory provided to save query context.\n");
 
-    memcpy(mem, src, sizeof(list_header_t));
+    memcpy(mem, src, LIST_HEADER_SIZE);
     if (src->query_context)
-        memcpy(mem+sizeof(list_header_t), src->query_context,
+        memcpy(mem+LIST_HEADER_SIZE, src->query_context,
                src->query_context->size);
     else
-        ((query_info_t*)(mem+sizeof(list_header_t)))->size = 0;
+        ((query_info_t*)(mem+LIST_HEADER_SIZE))->size = 0;
 }
 
 static void restore_query_single_context(list_header_t *dest, void *mem)
 {
-    query_info_t *qi = mem + sizeof(list_header_t);
+    query_info_t *qi = mem + LIST_HEADER_SIZE;
     if (qi->size > 0)
         die_unless(dest->query_context
                    && dest->query_context->size >= qi->size,
                    "not enough memory provided to restore query context.\n");
 
     void *qc = dest->query_context;
-    memcpy(dest, mem, sizeof(list_header_t));
+    memcpy(dest, mem, LIST_HEADER_SIZE);
     if (qi->size == 0)
         dest->query_context = 0;
     else {
@@ -242,7 +248,7 @@ static void restore_query_single_context(list_header_t *dest, void *mem)
 static list_header_t *dup_query_single_context(list_header_t *lh)
 {
     list_header_t *result = (list_header_t*) malloc(sizeof(list_header_t*));
-    memcpy(result, lh, sizeof(list_header_t));
+    memcpy(result, lh, LIST_HEADER_SIZE);
 
     if (lh->query_context) {
         result->query_context = malloc(lh->query_context->size);
@@ -256,7 +262,7 @@ static list_header_t *dup_query_single_context(list_header_t *lh)
 static void copy_query_single_context(list_header_t *src,
                                       list_header_t *dest)
 {
-    memcpy(src, dest, sizeof(list_header_t));
+    memcpy(src, dest, LIST_HEADER_SIZE);
     if (src->query_context) {
         die_unless(dest->query_context!=0,
                    "error, no destination query context to copy to.");
@@ -1652,7 +1658,7 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
     qdata->lh_src_head = list_get_header_by_self(inputs);
     qdata->lh_dest_head = list_get_header_by_self(outputs);
 
-    list_header_t *lh = (list_header_t*) malloc(sizeof(list_header_t));
+    list_header_t *lh = (list_header_t*) malloc(LIST_HEADER_SIZE);
     lh->self = maps;
     lh->next = dynamic_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
@@ -1946,7 +1952,7 @@ mapper_db_link_t **mapper_db_get_links_by_src_dest_devices(
     qdata->lh_src_head = list_get_header_by_self(src_device_list);
     qdata->lh_dest_head = list_get_header_by_self(dest_device_list);
 
-    list_header_t *lh = (list_header_t*) malloc(sizeof(list_header_t));
+    list_header_t *lh = (list_header_t*) malloc(LIST_HEADER_SIZE);
     lh->self = link;
     lh->next = dynamic_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
