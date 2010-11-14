@@ -166,9 +166,8 @@ int main()
 
     while (pdev) {
         count ++;
-        printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
-               (*pdev)->name, (*pdev)->host,
-               (*pdev)->port, (*pdev)->canAlias);
+        printf("  name=%s, host=%s, port=%d\n",
+               (*pdev)->name, (*pdev)->host, (*pdev)->port);
         pdev = mapper_db_device_next(pdev);
     }
 
@@ -187,8 +186,8 @@ int main()
         return 1;
     }
 
-    printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
-           dev->name, dev->host, dev->port, dev->canAlias);
+    printf("  name=%s, host=%s, port=%d\n",
+           dev->name, dev->host, dev->port);
 
     /*********/
 
@@ -220,9 +219,8 @@ int main()
 
     while (pdev) {
         count ++;
-        printf("  name=%s, host=%s, port=%d, canAlias=%d\n",
-               (*pdev)->name, (*pdev)->host,
-               (*pdev)->port, (*pdev)->canAlias);
+        printf("  name=%s, host=%s, port=%d\n",
+               (*pdev)->name, (*pdev)->host, (*pdev)->port);
         pdev = mapper_db_device_next(pdev);
     }
 

@@ -155,7 +155,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
-    {"/link_to",                "sssssiss", handler_device_link_to},
+    {"/link_to",                "sssssi",   handler_device_link_to},
     {"/unlink",                 "ss",       handler_device_unlink},
     {"%s/connections/get",      "",         handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
@@ -480,7 +480,6 @@ int mapper_admin_poll(mapper_admin admin)
               admin, "/registered", "s", mapper_admin_name(admin),
               AT_IP, inet_ntoa(admin->interface_ip),
               AT_PORT, admin->port.value,
-              AT_CANALIAS, 0,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
               AT_HASH, 0,
@@ -680,7 +679,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         admin, "/registered", "s", mapper_admin_name(admin),
         AT_IP, inet_ntoa(admin->interface_ip),
         AT_PORT, admin->port.value,
-        AT_CANALIAS, 0,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_HASH, 0);
@@ -1111,6 +1109,7 @@ static int handler_device_link(const char *path, const char *types,
                                lo_arg **argv, int argc, lo_message msg,
                                void *user_data)
 {
+    printf("got /link\n");
     mapper_admin admin = (mapper_admin) user_data;
     const char *src_name, *dest_name;
 
@@ -1133,8 +1132,7 @@ static int handler_device_link(const char *path, const char *types,
         mapper_admin_send_osc(
             admin, "/link_to", "ss", src_name, dest_name,
             AT_IP, inet_ntoa(admin->interface_ip),
-            AT_PORT, admin->port.value,
-            AT_CANALIAS, 0);
+            AT_PORT, admin->port.value);
     }
     return 0;
 }
@@ -1147,7 +1145,7 @@ static int handler_device_link_to(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
 
-    const char *src_name, *dest_name, *host=0, *canAlias=0;
+    const char *src_name, *dest_name, *host=0;
     int port;
     mapper_message_t params;
 
@@ -1196,8 +1194,6 @@ static int handler_device_link_to(const char *path, const char *types,
         return 0;
     }
 
-    canAlias = mapper_msg_get_param_if_string(&params, AT_CANALIAS);
-
     // Creation of a new router added to the source.
     router = mapper_router_new(md, host, port, dest_name);
     mdev_add_router(md, router);
@@ -1206,8 +1202,8 @@ static int handler_device_link_to(const char *path, const char *types,
     mapper_admin_send_osc(admin, "/linked", "ss",
                           mapper_admin_name(admin), dest_name);
 
-    trace("new router to %s -> host: %s, port: %d, canAlias: %s\n",
-          dest_name, host, port, canAlias ? canAlias : "no");
+    trace("new router to %s -> host: %s, port: %d\n",
+          dest_name, host, port);
 
     return 0;
 }

@@ -8,7 +8,6 @@ const char* mapper_msg_param_strings[] =
 {
     "@IP",         /* AT_IP */
     "@port",       /* AT_PORT */
-    "@canAlias",   /* AT_CANALIAS */
     "@numInputs",  /* AT_NUMINPUTS */
     "@numOutputs", /* AT_NUMOUTPUTS */
     "@hash",       /* AT_HASH */
@@ -247,13 +246,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
-        case AT_CANALIAS:
-            i = va_arg(aq, int);
-            if (i)
-                lo_message_add_string(m, "yes");
-            else
-                lo_message_add_string(m, "no");
-            break;
         case AT_NUMINPUTS:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
@@ -378,22 +370,14 @@ void mapper_msg_prepare_params(lo_message m,
             continue;
 
         lo_message_add_string(m, mapper_msg_param_strings[pa]);
-        switch (pa) {
-        case AT_CANALIAS:
-            if (a->i)
-                lo_message_add_string(m, "yes");
-            else
-                lo_message_add_string(m, "no");
-            break;
-        case AT_RANGE:
+        if (pa == AT_RANGE) {
             msg_add_lo_arg(m, msg->types[pa][0], msg->values[pa][0]);
             msg_add_lo_arg(m, msg->types[pa][1], msg->values[pa][1]);
             msg_add_lo_arg(m, msg->types[pa][2], msg->values[pa][2]);
             msg_add_lo_arg(m, msg->types[pa][3], msg->values[pa][3]);
-            break;
-        default:
+        }
+        else {
             msg_add_lo_arg(m, *msg->types[pa], a);
-            break;
         }
     }
 }

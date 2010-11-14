@@ -546,7 +546,6 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case -1:
         /* No mode type specified; if mode not yet set, see if 
          we know the range and choose between linear or direct mapping. */
-            printf("MAPPING MODE: %i\n", m->props.mode);
             if (m->props.mode == SC_UNDEFINED) {
                 if (range_known == MAPPING_RANGE_KNOWN) {
                     /* We have enough information for a linear mapping. */

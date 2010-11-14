@@ -207,7 +207,6 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_IP,
     AT_PORT,
-    AT_CANALIAS,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
     AT_HASH,

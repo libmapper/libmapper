@@ -28,7 +28,6 @@ typedef struct _mapper_db_device {
     char *name;   //!< Device name.
     char *host;   //!< Device network host name.
     int port;     //!< Device network port.
-    int canAlias; //!< True if the device can handle OSC aliasing.
     void* user_data; //!< User modifiable data.
 
     /*! Extra properties associated with this device. */

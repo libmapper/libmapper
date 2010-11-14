@@ -537,7 +537,6 @@ static mapper_string_table_t sigdb_table =
   { sigdb_nodes, 8, 8 };
 
 static property_table_value_t devdb_values[] = {
-    { 'i', 0, DEVDB_OFFSET(canAlias) },
     { 's', 1, DEVDB_OFFSET(host) },
     { 'i', 0, DEVDB_OFFSET(port) },
     { 's', 1, DEVDB_OFFSET(name) },
@@ -676,13 +675,6 @@ static void update_device_record_params(mapper_db_device reg,
 
     if (a_port && t_port[0]=='i')
         reg->port = (*a_port)->i;
-
-    lo_arg **a_canAlias = mapper_msg_get_param(params, AT_CANALIAS);
-    const char *t_canAlias = mapper_msg_get_type(params, AT_CANALIAS);
-
-    if (a_canAlias && t_canAlias[0]=='s')
-        reg->canAlias = strcmp("no", &(*a_canAlias)->s)!=0;
-
 }
 
 int mapper_db_add_or_update_device_params(mapper_db db,
@@ -833,9 +825,8 @@ void mapper_db_dump(mapper_db db)
     mapper_db_device reg = db->registered_devices;
     trace("Registered devices:\n");
     while (reg) {
-        trace("  name=%s, host=%s, port=%d, canAlias=%d\n",
-              reg->name, reg->host,
-              reg->port, reg->canAlias);
+        trace("  name=%s, host=%s, port=%d\n",
+              reg->name, reg->host, reg->port);
         reg = list_get_next(reg);
     }
 
