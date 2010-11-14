@@ -512,7 +512,8 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     }
     
     // TO DO: test if range has actually changed
-    if (m->props.range.known == MAPPING_RANGE_KNOWN) {
+    if (m->props.range.known == MAPPING_RANGE_KNOWN 
+        && m->props.mode == SC_LINEAR) {
         mapper_mapping_set_linear_range(m, sig, &m->props.range);
     }
 
@@ -545,6 +546,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case -1:
         /* No mode type specified; if mode not yet set, see if 
          we know the range and choose between linear or direct mapping. */
+            printf("MAPPING MODE: %i\n", m->props.mode);
             if (m->props.mode == SC_UNDEFINED) {
                 if (range_known == MAPPING_RANGE_KNOWN) {
                     /* We have enough information for a linear mapping. */
