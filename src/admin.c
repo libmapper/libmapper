@@ -91,18 +91,18 @@ static double get_current_time()
 /* Internal message handler prototypes. */
 static int handler_who(const char *, const char *, lo_arg **, int,
                        lo_message, void *);
-static int handler_registered(const char *, const char *, lo_arg **,
-                              int, lo_message, void *);
+static int handler_device(const char *, const char *, lo_arg **,
+                          int, lo_message, void *);
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_id_n_signals_input_get(const char *, const char *,
-                                            lo_arg **, int, lo_message,
-                                            void *);
+                                          lo_arg **, int, lo_message, 
+                                          void *);
 static int handler_id_n_signals_output_get(const char *, const char *,
-                                             lo_arg **, int, lo_message,
-                                             void *);
+                                           lo_arg **, int, lo_message,
+                                           void *);
 static int handler_id_n_signals_get(const char *, const char *,
-                                      lo_arg **, int, lo_message, void *);
+                                    lo_arg **, int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
 static int handler_device_port_probe(const char *, const char *, lo_arg **,
@@ -167,7 +167,7 @@ const int N_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
 
 static struct handler_method_assoc monitor_handlers[] = {
-    {"/registered",             NULL,       handler_registered},
+    {"/device",                 NULL,       handler_device},
     {"/logout",                 NULL,       handler_logout},
     {"/signal",                 NULL,       handler_signal_info},
     {"/linked",                 "ss",       handler_device_linked},
@@ -477,7 +477,7 @@ int mapper_admin_poll(mapper_admin admin)
     if (admin->registered && admin->device->update) {
         admin->device->update = 0;
         mapper_admin_send_osc(
-              admin, "/registered", "s", mapper_admin_name(admin),
+              admin, "/device", "s", mapper_admin_name(admin),
               AT_IP, inet_ntoa(admin->interface_ip),
               AT_PORT, admin->port.value,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
@@ -676,7 +676,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     mapper_admin admin = (mapper_admin) user_data;
 
     mapper_admin_send_osc(
-        admin, "/registered", "s", mapper_admin_name(admin),
+        admin, "/device", "s", mapper_admin_name(admin),
         AT_IP, inet_ntoa(admin->interface_ip),
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
@@ -688,9 +688,9 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 
 
 /*! Register information about port and host for the device. */
-static int handler_registered(const char *path, const char *types,
-                              lo_arg **argv, int argc, lo_message msg,
-                              void *user_data)
+static int handler_device(const char *path, const char *types,
+                          lo_arg **argv, int argc, lo_message msg,
+                          void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
