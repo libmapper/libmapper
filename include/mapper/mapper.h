@@ -216,7 +216,7 @@ void mdev_remove_property(mapper_device dev, const char *property);
 /*! Poll this device for new messages.
  *  \param block_ms Number of milliseconds to block waiting for
  *  messages, or 0 for non-blocking behaviour. */
-void mdev_poll(mapper_device md, int block_ms);
+int mdev_poll(mapper_device md, int block_ms);
 
 /*! Send the current value of a signal.
  *  This is called by msig_update(), so use that to change the value

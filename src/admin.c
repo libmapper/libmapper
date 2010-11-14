@@ -420,7 +420,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
 /*! This is the main function to be called once in a while from a
  *  program so that the admin bus can be automatically managed.
  */
-void mapper_admin_poll(mapper_admin admin)
+int mapper_admin_poll(mapper_admin admin)
 {
 
     int count = 0, status;
@@ -430,7 +430,7 @@ void mapper_admin_poll(mapper_admin admin)
     }
 
     if (!admin->device)
-        return;
+        return 0;
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */
@@ -486,6 +486,7 @@ void mapper_admin_poll(mapper_admin admin)
               AT_HASH, 0,
               AT_EXTRA, admin->device->extra);
     }
+    return count;
 }
 
 /*! Probe the admin bus to see if a device's proposed port is already

@@ -6,10 +6,24 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+#include "config.h"
 #include <mapper/mapper.h>
+
+/*! Internal function to get the current time. */
+static double get_current_time()
+{
+#ifdef HAVE_GETTIMEOFDAY
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
+#else
+#error No timing method known on this platform.
+#endif
+}
 
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port,
@@ -163,14 +177,23 @@ int mdev_find_output_by_name(mapper_device md, const char *name,
     return -1;
 }
 
-void mdev_poll(mapper_device md, int block_ms)
+int mdev_poll(mapper_device md, int block_ms)
 {
-    mapper_admin_poll(md->admin);
+    double then = get_current_time();
+    int count = mapper_admin_poll(md->admin);
+    int count2 = 0;
 
-    if (md->server)
-        lo_server_recv_noblock(md->server, block_ms);
+    if (md->server) {
+        while (count2 < md->n_inputs 
+               && lo_server_recv_noblock(md->server, 0)
+               && get_current_time() - then < block_ms * 1000) {
+            count2++;
+        }
+        return count + count2;
+    }
     else
-        usleep(block_ms * 1000);
+        usleep(block_ms * 1000 - (get_current_time() - then));
+    return 0;
 }
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,

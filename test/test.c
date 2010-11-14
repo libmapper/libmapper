@@ -74,7 +74,7 @@ void cleanup_source()
 
 void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 {
-    printf("--> destination got %s %f\n\n", sig->props.name, (*v).f);
+    printf("--> destination got %s %f\n", sig->props.name, (*v).f);
     received++;
 }
 
@@ -166,7 +166,7 @@ void loop()
         printf("source value updated to %d -->\n", i % 10);
 
         usleep(500 * 1000);
-        mdev_poll(destination, 0);
+        printf("Received %i messages.\n\n", mdev_poll(destination, 1));
 
         i++;
     }
