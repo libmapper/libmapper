@@ -383,6 +383,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
             admin->ordinal.suggestion[i] = 0;
             admin->port.suggestion[i] = 0;
         }
+        admin->device->update = 0;
         
         /* Choose a random ID for allocation speedup */
         admin->random_id = rand();
@@ -471,6 +472,10 @@ void mapper_admin_poll(mapper_admin admin)
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
               admin->identifier, admin, mapper_admin_name(admin));
+        admin->device->update = 1;
+    }
+    if (admin->registered && admin->device->update) {
+        admin->device->update = 0;
         mapper_admin_send_osc(
               admin, "/registered", "s", mapper_admin_name(admin),
               AT_IP, inet_ntoa(admin->interface_ip),

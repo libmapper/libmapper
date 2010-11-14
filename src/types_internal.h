@@ -163,6 +163,7 @@ typedef struct _mapper_device {
     int n_outputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
+    int update;   //!< True if attributes have changed since last update.
     mapper_router routers;
 
     /*! Server used to handle incoming messages.  NULL until at least
