@@ -115,8 +115,8 @@ static int handler_device_name_registered(const char *, const char *, lo_arg **,
                                           int, lo_message, void *);
 static int handler_device_link(const char *, const char *, lo_arg **, int,
                                lo_message, void *);
-static int handler_device_link_to(const char *, const char *, lo_arg **,
-                                  int, lo_message, void *);
+static int handler_device_linkTo(const char *, const char *, lo_arg **,
+                                 int, lo_message, void *);
 static int handler_device_linked(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_unlink(const char *, const char *, lo_arg **,
@@ -127,8 +127,8 @@ static int handler_device_links_get(const char *, const char *, lo_arg **,
                                     int, lo_message, void *);
 static int handler_signal_connect(const char *, const char *, lo_arg **,
                                   int, lo_message, void *);
-static int handler_signal_connect_to(const char *, const char *, lo_arg **,
-                                     int, lo_message, void *);
+static int handler_signal_connectTo(const char *, const char *, lo_arg **,
+                                    int, lo_message, void *);
 static int handler_signal_connected(const char *, const char *, lo_arg **,
                                     int, lo_message, void *);
 static int handler_signal_connection_modify(const char *, const char *,
@@ -155,11 +155,11 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
-    {"/link_to",                "sssssi",   handler_device_link_to},
+    {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
     {"%s/connections/get",      "",         handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
-    {"/connect_to",             NULL,       handler_signal_connect_to},
+    {"/connectTo",              NULL,       handler_signal_connectTo},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
     {"/disconnect",             "ss",       handler_signal_disconnect},
 };
@@ -740,10 +740,10 @@ static int handler_logout(const char *path, const char *types,
 /*! Respond to /signals/input/get by enumerating all supported
  *  inputs. */
 static int handler_id_n_signals_input_get(const char *path,
-                                            const char *types,
-                                            lo_arg **argv, int argc,
-                                            lo_message msg,
-                                            void *user_data)
+                                          const char *types,
+                                          lo_arg **argv, int argc,
+                                          lo_message msg,
+                                          void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
@@ -769,10 +769,10 @@ static int handler_id_n_signals_input_get(const char *path,
 /*! Respond to /signals/output/get by enumerating all supported
  *  outputs. */
 static int handler_id_n_signals_output_get(const char *path,
-                                             const char *types,
-                                             lo_arg **argv, int argc,
-                                             lo_message msg,
-                                             void *user_data)
+                                           const char *types,
+                                           lo_arg **argv, int argc,
+                                           lo_message msg,
+                                           void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
@@ -798,14 +798,14 @@ static int handler_id_n_signals_output_get(const char *path,
 /*! Respond to /signals/get by enumerating all supported inputs and
  *  outputs. */
 static int handler_id_n_signals_get(const char *path, const char *types,
-                                      lo_arg **argv, int argc,
-                                      lo_message msg, void *user_data)
+                                    lo_arg **argv, int argc,
+                                    lo_message msg, void *user_data)
 {
 
     handler_id_n_signals_input_get(path, types, argv, argc, msg,
-                                     user_data);
+                                   user_data);
     handler_id_n_signals_output_get(path, types, argv, argc, msg,
-                                      user_data);
+                                    user_data);
 
     return 0;
 
@@ -1130,7 +1130,7 @@ static int handler_device_link(const char *path, const char *types,
      * /link message... */
     if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
         mapper_admin_send_osc(
-            admin, "/link_to", "ss", src_name, dest_name,
+            admin, "/linkTo", "ss", src_name, dest_name,
             AT_IP, inet_ntoa(admin->interface_ip),
             AT_PORT, admin->port.value);
     }
@@ -1138,9 +1138,9 @@ static int handler_device_link(const char *path, const char *types,
 }
 
 /*! Link two devices... continued. */
-static int handler_device_link_to(const char *path, const char *types,
-                                  lo_arg **argv, int argc, lo_message msg,
-                                  void *user_data)
+static int handler_device_linkTo(const char *path, const char *types,
+                                 lo_arg **argv, int argc, lo_message msg,
+                                 void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
@@ -1161,12 +1161,12 @@ static int handler_device_link_to(const char *path, const char *types,
 
     if (strcmp(src_name, mapper_admin_name(admin)))
     {
-        trace("<%s> ignoring /link_to %s %s\n",
+        trace("<%s> ignoring /linkTo %s %s\n",
               mapper_admin_name(admin), src_name, dest_name);
         return 0;
     }
 
-    trace("<%s> got /link_to %s %s\n", mapper_admin_name(admin),
+    trace("<%s> got /linkTo %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
     // Discover whether the device is already linked.
@@ -1185,12 +1185,12 @@ static int handler_device_link_to(const char *path, const char *types,
     // Check the results.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
     if (!host) {
-        trace("can't perform /link_to, host unknown\n");
+        trace("can't perform /linkTo, host unknown\n");
         return 0;
     }
 
     if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
-        trace("can't perform /link_to, port unknown\n");
+        trace("can't perform /linkTo, port unknown\n");
         return 0;
     }
 
@@ -1367,7 +1367,7 @@ static int osc_prefix_cmp(const char *str1, const char *str2,
 }
 
 /*! When the /connect message is received by the destination device,
- *  send a connect_to message to the source device. */
+ *  send a connectTo message to the source device. */
 static int handler_signal_connect(const char *path, const char *types,
                                   lo_arg **argv, int argc, lo_message msg,
                                   void *user_data)
@@ -1405,7 +1405,7 @@ static int handler_signal_connect(const char *path, const char *types,
 
     if (mdev_find_input_by_name(md, dest_signal_name, &input) < 0)
     {
-        trace("<%s> no input signal found for '%s' in /connect_to\n",
+        trace("<%s> no input signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), dest_signal_name);
         return 0;
     }
@@ -1413,7 +1413,7 @@ static int handler_signal_connect(const char *path, const char *types,
     if (argc <= 2) {
         // use some default arguments related to the signal
         mapper_admin_send_osc(
-            admin, "/connect_to", "ss", src_name, dest_name,
+            admin, "/connectTo", "ss", src_name, dest_name,
             AT_TYPE, input->props.type,
             input->props.minimum ? AT_MIN : -1, input,
             input->props.maximum ? AT_MAX : -1, input);
@@ -1428,18 +1428,17 @@ static int handler_signal_connect(const char *path, const char *types,
             return 0;
         }
         mapper_admin_send_osc_with_params(
-            admin, &params, "/connect_to", "ss", src_name, dest_name);
+            admin, &params, "/connectTo", "ss", src_name, dest_name);
     }
 
     return 0;
 }
 
 /*! Connect two signals. */
-static int handler_signal_connect_to(const char *path, const char *types,
-                                     lo_arg **argv, int argc,
-                                     lo_message msg, void *user_data)
+static int handler_signal_connectTo(const char *path, const char *types,
+                                    lo_arg **argv, int argc,
+                                    lo_message msg, void *user_data)
 {
-
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal output;
@@ -1463,17 +1462,17 @@ static int handler_signal_connect_to(const char *path, const char *types,
     dest_signal_name = strchr(dest_name+1, '/');
 
     if (!dest_signal_name) {
-        trace("<%s> destination '%s' has no parameter in /connect_to.\n",
+        trace("<%s> destination '%s' has no parameter in /connectTo.\n",
               mapper_admin_name(admin), dest_name);
         return 0;
     }
 
-    trace("<%s> got /connect_to %s %s + %d arguments\n",
+    trace("<%s> got /connectTo %s %s + %d arguments\n",
           mapper_admin_name(admin), src_name, dest_name, argc);
 
     if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
     {
-        trace("<%s> no output signal found for '%s' in /connect_to\n",
+        trace("<%s> no output signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), src_signal_name);
         return 0;
     }
@@ -1481,7 +1480,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
     {
-        trace("<%s> error parsing parameters in /connect_to, "
+        trace("<%s> error parsing parameters in /connectTo, "
               "continuing anyway.\n", mapper_admin_name(admin));
     }
 
@@ -1489,9 +1488,9 @@ static int handler_signal_connect_to(const char *path, const char *types,
         mapper_router_find_by_dest_name(md->routers, dest_name);
 
     if (!router) {
-        trace("<%s> not linked to '%s' on /connect_to.\n",
+        trace("<%s> not linked to '%s' on /connectTo.\n",
               mapper_admin_name(admin), dest_name);
-        // TODO: Perform /link_to?
+        // TODO: Perform /linkTo?
 
         const char *host = mapper_msg_get_param_if_string(&params, AT_IP);
         int port;
@@ -1503,7 +1502,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
         }
         else {
             /* TO DO: send /link message to start process - should
-             * also cache /connect_to message for completion after
+             * also cache /connectTo message for completion after
              * link??? */
         }
 
@@ -1599,7 +1598,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
             
     if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
     {
-        trace("<%s> no output signal found for '%s' in /connect_to\n",
+        trace("<%s> no output signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), src_signal_name);
         return 0;
     }
@@ -1609,7 +1608,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
     {
-        trace("<%s> error parsing parameters in /connect_to, "
+        trace("<%s> error parsing parameters in /connectTo, "
               "continuing anyway.\n", mapper_admin_name(admin));
     }
     
