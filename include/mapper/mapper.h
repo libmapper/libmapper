@@ -10,6 +10,9 @@ extern "C" {
 
 /*** Signals ***/
 
+/*! @defgroup signals Signals
+    @{ */
+
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 
@@ -146,7 +149,12 @@ void msig_update(mapper_signal sig, mapper_signal_value_t *value);
  *          in some cases the name may not be available. */
 int msig_full_name(mapper_signal sig, char *name, int len);
 
+/* @} */
+
 /*** Devices ***/
+
+/*! @defgroup devices Devices
+    @{ */
 
 /*! Allocate and initialize a mapper device.
  * \param name_prefix   A short descriptive string to identify the device.
@@ -245,7 +253,12 @@ const char *mdev_name(mapper_device device);
  *  not available. */
 unsigned int mdev_port(mapper_device device);
 
+/* @} */
+
 /*** Admins ***/
+
+/*! @defgroup admins Admins
+    @{ */
 
 /*! Create an admin with custom parameters.  Creating an admin object
  *  manually is only required if you wish to specify custom network
@@ -268,10 +281,12 @@ mapper_admin mapper_admin_new(const char *iface, const char *ip, int port);
 /*! Free an admin created with mapper_admin_new(). */
 void mapper_admin_free(mapper_admin admin);
 
-/**** Local device database ****/
+/* @} */
 
-/*! The set of possible actions on a database record, used to inform
- *  callbacks of what is happening to a record. */
+/**** Device database ****/
+
+/*! The set of possible actions on a database record, used
+ *  to inform callbacks of what is happening to a record. */
 typedef enum {
     MDB_MODIFY,
     MDB_NEW,
@@ -279,6 +294,9 @@ typedef enum {
 } mapper_db_action_t;
 
 /***** Devices *****/
+
+/*! @defgroup devicedb Device database
+    @{ */
 
 /*! A callback function prototype for when a device record is added or
  *  updated in the database. Such a function is passed in to
@@ -338,7 +356,12 @@ mapper_db_device_t **mapper_db_device_next(mapper_db_device_t**);
  *  \param The previous device record pointer. */
 void mapper_db_device_done(mapper_db_device_t **);
 
+/* @} */
+
 /***** Signals *****/
+
+/*! @defgroup signaldb Signal database
+    @{ */
 
 /*! A callback function prototype for when a signal record is added or
  *  updated in the database. Such a function is passed in to
@@ -425,7 +448,12 @@ mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t**);
  *  \param The previous signal record pointer. */
 void mapper_db_signal_done(mapper_db_signal_t **s);
 
+/* @} */
+
 /***** Mappings *****/
+
+/*! @defgroup mappingdb Mappings database
+    @{ */
 
 /*! Interface to add a mapping between two signals.
  *  \param source_signal_path Source signal name (OSC path).
@@ -572,7 +600,12 @@ mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t**);
  *  \param The previous mapping record pointer. */
 void mapper_db_mapping_done(mapper_db_mapping_t **);
 
+/* @} */
+
 /***** Links *****/
+
+/*! @defgroup linkdb Links database
+    @{ */
 
 /*! A callback function prototype for when a link record is added or
  *  updated in the database. Such a function is passed in to
@@ -659,7 +692,12 @@ mapper_db_link_t **mapper_db_link_next(mapper_db_link_t**);
  *  \param The previous link record double-pointer. */
 void mapper_db_link_done(mapper_db_link_t **s);
 
+/* @} */
+
 /***** Monitors *****/
+
+/*! @defgroup monitor Monitors
+    @{ */
 
 /*! Create a network monitor. */
 mapper_monitor mapper_monitor_new();
@@ -686,6 +724,8 @@ int mapper_monitor_request_links_by_name(
 int mapper_monitor_request_mappings_by_name(
     mapper_monitor mon, const char* name);
 
+/* @} */
+
 /***** String tables *****/
 
 /* For accessing named parameters of signals and devices. */
@@ -699,7 +739,8 @@ int mapper_monitor_request_mappings_by_name(
  *  \param type Address of a character to receive the property value
  *              type.
  *  \param value Address of a lo_arg* to receive the property value.
- *  \return Zero if found, otherwise non-zero. */
+ *  \return Zero if found, otherwise non-zero.
+ *  @ingroup signaldb */
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
                                     const char **property, char *type,
                                     const lo_arg **value);
@@ -711,7 +752,8 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
  *              property value. (Required.)
  *  \param value A pointer a location to receive the address of the
  *               property's value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
+ *  \return Zero if found, otherwise non-zero.
+ *  @ingroup signaldb */
 int mapper_db_signal_property_lookup(mapper_db_signal sig,
                                      const char *property,
                                      char *type,
@@ -726,7 +768,8 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
  *  \param type Address of a character to receive the property value
  *              type.
  *  \param value Address of a lo_arg* to receive the property value.
- *  \return Zero if found, otherwise non-zero. */
+ *  \return Zero if found, otherwise non-zero.
+ *  @ingroup devicedb */
 int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     const char **property, char *type,
                                     const lo_arg **value);
@@ -738,7 +781,8 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
  *              property value. (Required.)
  *  \param value A pointer a location to receive the address of the
  *               property's value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
+ *  \return Zero if found, otherwise non-zero.
+ *  @ingroup devicedb */
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
                                      char *type,

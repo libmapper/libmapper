@@ -14,7 +14,8 @@ struct _mapper_string_table;
 
 #include <lo/lo.h>
 
-/*! A record that keeps information about a device on the network. */
+/*! A record that keeps information about a device on the network.
+ *  @ingroup devicedb */
 typedef struct _mapper_db_device {
     char *name;   //!< Device name.
     char *host;   //!< Device network host name.
@@ -34,6 +35,9 @@ typedef struct _mapper_db_device {
 #define MAPPING_RANGE_DEST_MAX 0x08
 #define MAPPING_RANGE_KNOWN    0x0F
 
+/*! A structure to keep range information, with a bitfield indicating
+ *  which parts of the range are known.
+ *  @ingroup mappingdb */
 typedef struct _mapper_mapping_range {
     float src_min;              //!< Source minimum.
     float src_max;              //!< Source maximum.
@@ -44,7 +48,8 @@ typedef struct _mapper_mapping_range {
 } mapper_mapping_range_t;
 
 /*! Describes what happens when the clipping boundaries are
- *  exceeded. */
+ *  exceeded.
+ *  @ingroup mappingdb */
 typedef enum _mapper_clipping_type {
     CT_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
@@ -56,7 +61,8 @@ typedef enum _mapper_clipping_type {
     N_MAPPER_CLIPPING_TYPES
 } mapper_clipping_type;
 
-/*! Describes the mapping mode. */
+/*! Describes the mapping mode.
+ *  @ingroup mappingdb */
 typedef enum _mapper_mode_type {
     SC_UNDEFINED,    //!< Not yet defined
     SC_BYPASS,       //!< Direct throughput
@@ -66,7 +72,8 @@ typedef enum _mapper_mode_type {
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
-/*! A record that describes the properties of a connection mapping. */
+/*! A record that describes the properties of a connection mapping.
+ *  @ingroup mappingdb */
 typedef struct _mapper_db_mapping {
     char *src_name;                 //!< Source signal name (OSC path).
     char *dest_name;                //!< Destination signal name (OSC path).
@@ -90,7 +97,8 @@ typedef struct _mapper_db_mapping {
 
 /*! A signal value may be one of several different types, so we use a
  *  union to represent this.  The appropriate selection from this
- *  union is determined by the mapper_signal::type variable. */
+ *  union is determined by the mapper_signal::type variable.
+ *  @ingroup signaldb */
 
 typedef union _mapper_signal_value {
     float f;
@@ -98,7 +106,8 @@ typedef union _mapper_signal_value {
     int i32;
 } mapper_signal_value_t, mval;
 
-/*! A record that describes properties of a signal. */
+/*! A record that describes properties of a signal.
+ *  @ingroup signaldb */
 typedef struct _mapper_db_signal
 {
 	/*! Flag to indicate whether signal is source or destination */
@@ -131,7 +140,8 @@ typedef struct _mapper_db_signal
     struct _mapper_string_table *extra;
 } mapper_db_signal_t, *mapper_db_signal;
 
-/*! A record that describes the properties of a link between devices. */
+/*! A record that describes the properties of a link between devices.
+ *  @ingroup linkdb */
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
