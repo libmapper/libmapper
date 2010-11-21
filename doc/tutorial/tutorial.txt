@@ -1,0 +1,429 @@
+% libmapper tutorial
+% Stephen Sinclair
+
+Introduction
+============
+
+This tutorial introduces a new user to _libmapper_, providing steps to
+construct _devices_ that are compatible with the _libmapper_ network
+protocol.  Programs that implement a _device_ interface provide
+_signals_, which can be inputs or outputs, which are announced on the
+network.  A compatible GUI program can then be used to _map_ signals
+between devices.
+
+Conceptually, a device typically consists only of outputs, for example
+in the case of a program that gets information from a human input
+device like a joystick, or only of inputs, for example a
+software-controlled synthesizer.  For convenience, we will call output
+devices "controllers", or "senders", and input devices "synthesizers",
+or "receivers".  This betrays the use case that was in mind when the
+_libmapper_ system was conceived, but of course receivers could just
+as well be programs that control motors, lights, or anything else that
+might need control information.  Similarly, senders could easily be
+programs that generate trajectory data based on algorithmic
+composition, or whatever you can imagine.
+
+It is also possible to create devices which have inputs and outputs,
+and these can be mapped "in between" senders and receivers in order to
+perform some intermediate processing for example.  However, this is a
+more advanced topic that won't be covered in this tutorial.
+
+First we will cover how to create a sender, and then how to create a
+receiver.  This should be enough for you to try creating a mapping and
+explore the possibilities afforded by dynamic mapping design.
+
+Getting started
+===============
+
+Since _libmapper_ uses GNU autoconf, getting started with the library
+is the same as any other library on Linux; use `./configure` and then
+`make` to compile it.  You'll need `swig` available if you want to
+compile the Python bindings.  On Mac OS X, we provide a precompiled
+Framework bundle for 32- and 64-bit Intel platforms, so using it with
+XCode should be a matter of including it in your project.
+
+Overview of the API organization
+================================
+
+If you take a look at the API documentation, there is a section called
+"modules".  This is divided into the following sections:
+
+* Signals
+* Devices
+* Admins
+* Device database
+* Signal database
+* Mappings database
+* Links database
+* Monitors
+
+For this tutorial, the only sections to pay attention to are Devices
+and Signals.  Admins is reserved for providing custom networking
+configurations, but in general you don't need to worry about it.
+
+Monitor and the various database modules are used to keep track of
+what devices, signals and mappings are on the network.  Devices do not
+need to worry about this.  It is used mainly for creating user
+interfaces for mapping design and will also not be covered here.
+
+Functions and types from each module are prefixed with
+`mapper_<module>_`, in order to avoid namespace clashing.  However,
+since this is a bit verbose, it is shortened to `mdev_` and `msig` for
+device and signal functions respectively.
+
+Devices
+=======
+
+Creating a device
+-----------------
+
+To create a _libmapper_ device, it is necessary to provide a few
+parameters to `mdev_new`:
+
+    mapper_device mdev_new( const char *name_prefix,
+                            int initial_port,
+                            mapper_admin admin )
+
+Every device on the network needs a name and port.  In fact the
+requested name and port are only "starting values".  There is an
+initialization period after a device is created where a unique ordinal
+is chosen to append to the device name.  This allows multiple devices
+with the same name to exist on the network.
+
+Similarly, each device gets a unique port to use for exchanging signal
+data.  The provided port number is the "starting port", but the
+allocation algorithm will possibly choose another port number close to
+it if someone else on the network is already using it.  We usually use
+a port number of 9000, and let the system decide if this is
+appropriate.^[Strictly this is only necessary for devices on the same
+computer, but port numbers are in abundance so we just allocate one
+per device to keep things consistant.]
+
+The third parameter of mdev_new is an optional admin instance.  It is
+not necessary to provide this, but can be used to specify different
+networking parameters, such as specifying the name of the network
+interface to use.
+
+An example of creating a device:
+
+    mapper_device my_device = mdev_new("test", 9000, 0);
+
+Polling the device
+------------------
+
+The device lifecycle looks like this, in terrible ASCII diagram art:
+
+    mdev_new -> mdev_poll +-> mdev_free
+                  |       |
+                  +----<--+
+
+In other words, after a device is created, it must be continuously
+polled during its lifetime, and then explicitly freed when it is no
+longer needed.
+
+The polling is necessary for several reasons: to respond to requests
+on the admin bus; to check for incoming signals; to update outgoing
+signals.  Therefore even a device that does not have signals must be
+polled.  The user program must organize to have a timer or idle
+handler which can poll the device often enough.  Polling interval is
+not extremely sensitive, but should be at least 100 ms or less.  The
+faster it is polled, the faster it can handle incoming and outgoing
+signals.
+
+The `mdev_poll` function can be blocking or non-blocking, depending on
+how you want your application to behave.  It takes a number of
+milliseconds during which it should do some work, or 0 if it should
+check for any immediate actions and then return without waiting:
+
+    int mdev_poll( mapper_device md,
+                   int block_ms )
+
+TODO: what does it return?
+
+An example of calling it with non-blocking behaviour:
+
+    mdev_poll( my_device, 0 );
+
+If your polling is in the middle of a processing function or in
+response to a GUI event for example, non-blocking behaviour is
+desired.  On the other hand if you put it in the middle of a loop
+which reads incoming data at intervals or steps through a simulation
+for example, you can use `mdev_poll` as your "sleep" function, so that
+it will wait on network activity while
+
+Since there is a delay before the device is completely initialized, it
+is sometimes useful to be able to determine this using `mdev_ready`.
+Only when `mdev_ready` returns non-zero is it valid to use the
+device's name.
+
+Freeing the device
+------------------
+
+It is necessary to explicitly free the device at the end of your
+program.  This not only frees memory, but also sends some messages to
+"politely" remove itself from the network.
+
+An example of freeing a device:
+
+    mdev_free( my_device );
+
+Signals
+=======
+
+Now that we know how to create a device, poll it, and free it, we only
+need to know how to add signals in order to give our program some
+input/output functionality.
+
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.
+
+Creating a signal
+-----------------
+
+A signal requires a bit more information than a device, much of which
+is optional:
+
+    mapper_signal msig_new( int length,
+                            const char *name,
+                            const char *unit,
+                            char type,
+                            mapper_signal_value_t *minimum,
+                            mapper_signal_value_t *maximum,
+                            mapper_signal_value_t *value,
+                            mapper_signal_handler *handler,
+                            void *user_data )
+
+The only _required_ parameters here are the signal "length", its name,
+and data type.  Signals are assumed to be vectors of values, so for
+usual single-valued signals, a length of 1 should be specified.  A
+signal name should start with "/", as this is how it is represented in
+the OSC address.  Finally, supported types are currently 'i' or 'f'
+(specified as characters in C, not strings), for `int` or `float`
+values, respectively.
+
+The other parameters are not strictly required, but the more
+information you provide, the more the mapper can do some things
+automatically.  For example, if `minimum` and `maximum` are provided,
+it will be possible to create linear-scaled mappings very quickly.  If
+`unit` is provided, the mapper will be able to similarly figure out a
+linear scaling based on unit conversion. (Centimeters to inches for
+example.)^[Currently automatic unit scaling is not a supported
+feature, but will be added in the future.  You can take advantage of
+this future development by simply providing unit information whenever
+it is available.]
+
+Notice that values are provided as pointers to
+`mapper_signal_value_t`.  This is simply a C union which contains the
+various supported types.  Therefore a pointer to `float` or pointer to
+`int` can be converted to a pointer to `mapper_signal_value_t` by
+pointer conversion.  The macro `MSIGVALP` is provided for converting
+pointers, while `MSIGVAL` should be used for converting `float` or
+`int` variables.
+
+The `value` parameter is a pointer to a value that can be used for
+"auto-update".  As we'll see, outgoing signal values must be
+explicitly updated in order to send them out to mapped devices.
+However, if a pointer to a variable is provided here, the value can be
+auto-updated whenever a change is noticed in its value, avoiding the
+need to explicitly call `msig_update` for every value. _(This feature
+still under development, provide 0 for now.)_
+
+Lastly, it is usually useful to be informed when input signal values
+change.  This is done by providing a function to be called whenever
+its value is modified by a mapping.  It is passed in the `handler`
+parameter, with context information to be passed to that function
+during callback in `user_data`.
+
+An example of creating a "barebones" `int` scalar signal:
+
+    mapper_signal outputA = msig_new( 1, "/outA", 0, 'i', 0, 0, 0, 0, 0 );
+
+An example of a `float` signal where some more information is provided:
+
+    float minimum = 0.0f;
+    float maximum = 5.0f;
+    mapper_signal sensor1_voltage = msig_new( 1, "/sensor1", "V", 'f',
+                                              MSIGVALP(&minimum), MSIGVALP(&maximum),
+                                              0, 0, 0 );
+
+For some common cases, specifically `int` or `float` scalar signals,
+some short-hand functions are provided.  The above call to `msig_new`
+could be equivalently replaced by:
+
+    mapper_signal sensor1_voltage = msig_float( "/sensor1", "V",
+                                                MSIGVALP(&minimum), MSIGVALP(&maximum),
+                                                0, 0, 0 );
+
+Registering our output signal
+-----------------------------
+
+So far we know how to create a device and a signal.  We need to tell
+the device to use this signal as an output.  This is done simply by
+calling `mdev_register_output` with the device and the signal as
+arguments.  It can be called at any time, before or after the device
+has been completely initialized.  To recap, let's review the code so
+far:
+ 
+    mapper_device my_sender = mdev_new("test_sender", 9000, 0);
+    mapper_signal sensor1_voltage = msig_float( "/sensor1", "V",
+                                                MSIGVALP(&minimum), MSIGVALP(&maximum),
+                                                0, 0, 0 );
+    mdev_register_output(my_sender, sensor1_voltage);
+    
+    while (!done) {
+        mdev_poll(my_sender, 50);
+        ... do stuff ...
+        ... update signals ...
+    }
+    
+    mdev_free(my_sender);
+
+Note that once you have registered a signal, its memory "owned" by the
+device.  In other words, you should not call `msig_free` on signals
+that are registered.  When a device is free, it will free all its
+signals, so after creating and registering signals you can "forget"
+about them without issue.  It is possible to retrieve a device's
+inputs or outputs by name or by index at a later time using
+`mdev_find_input_by_name` or `mdev_find_output_by_name`.
+
+TODO: add find_<in/out>_by_index? change "find" to "get"?
+
+Updating signals
+----------------
+
+We can imagine the above program getting sensor information in a loop.
+It could be running on an network-enable ARM device and reading the
+ADC register directly, or it could be running on a computer and
+reading data from an Arduino over a USB serial port, or it could just
+be a mouse-controlled GUI slider.  However it's getting the data, it
+must provide it to _libmapper_ so that it will be sent to other
+devices if that signal is mapped.
+
+This is accomplished by the `msig_update` function:
+
+    void msig_update( mapper_signal sig,
+                      mapper_signal_value_t *value )
+
+As you can see, a pointer to `mapper_signal_value_t` must be provided.
+This must point to a data structure identified by the signal's
+`length` and `type`.  In other words, if the signal is a 10-vector of
+`int`, then `value` should point to the first item in a C array of 10
+`int`s.  If it is a scalar `float`, it should be provided with the
+address of a `float` variable.
+
+Again, a short-hand is provided for scalar signals:
+
+    void msig_update_scalar( mapper_signal sig,
+                             mapper_signal_value_t value )
+
+So in the "sensor 1 voltage" example, assuming in "do stuff" we have
+some code which reads sensor 1's value into a float variable called
+`v1`, the loop becomes:
+
+    while (!done) {
+        mdev_poll(my_device, 50);
+        float v1 = read_sensor_1();
+        msig_update_scalar( sensor1_voltage, MSIGVAL(v1) );
+    }
+
+This is about all that is needed to expose sensor 1's voltage to the
+network as a mappable parameter.  The _libmapper_ GUI can now map this
+value to a receiver, where it could control a synthesizer parameter or
+change the brightness of an LED, or whatever else you want to do.
+
+Signal conditioning
+-------------------
+
+Most synthesizers of course will not know what to do with
+"voltage"--it is an electrical property that has nothing to do with
+sound or music.  This is where _libmapper_ really becomes useful.
+
+Scaling or other signal conditioning can be taken care of _before_
+exposing the signal, or it can be performed as part of the mapping.
+Since the end user can demand any mathematical operation be performed
+on the signal, he can perform whatever mappings between signals as he
+wishes.
+
+As a developer, it is therefore your job to provide information that
+will be useful to the end user.
+
+For example, if sensor 1 is a position sensor, instead of publishing
+"voltage", you could convert it to centimeters or meters based on the
+known dimensions of the sensor, and publish a "/sensor1/position"
+signal instead, providing the unit information as well.
+
+We call such signals "semantic", because they provide information with
+more meaning than a relatively uninformative value based on the
+electrical properties of the sensing technqiue.  Some sensors can
+benefit from low-pass filtering or other measures to reduce noise.
+Some sensors may need to be combined in order to derive physical
+meaning.  What you choose to expose as outputs of your device is
+entirely application-dependent.
+
+You can even publish both "/sensor1/position" and "/sensor1/voltage"
+if desired, in order to expose both processed and raw data.  Keep in
+mind that these will not take up significant processing time, and
+_zero_ network bandwidth, if they are not mapped.
+
+Receiving signals
+-----------------
+
+Now that we know how to create a sender, it would be useful to also
+know how to receive signals, so that we can create a sender-receiver
+pair to test out the provided mapping functionality.
+
+As mentioned above, the `msig_new` function takes an optional
+`handler` and `user_data`.  This is a function that will be called
+whenever the value of that signal changes.  To create a receiver for a
+synthesizer parameter "pulse width" (given as a ratio between 0 and
+1), specify a handler and called `mdev_register_input`.  We'll imagine
+there is some C++ synthesizer implemented as a class `Synthesizer`
+which has functions `setPulseWidth()` which sets the pulse width in a
+thread-safe manner, and `startAudioInBackground()` which sets up the
+audio thread.
+
+    void pulsewidth_handler ( struct _mapper_signal *msig,
+                              mapper_signal_value_t *v )
+    {
+        Synthesizer *s = (Synthesizer*) msig->user_data;
+        s->setPulseWidth(v->f);
+    }
+
+and in `main()`,
+
+    Synthesizer synth;
+    synth.startAudioInBackground();
+    
+    float min_pw = 0.0f;
+    float max_pw = 1.0f;
+    
+    mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
+    
+    mapper_signal synth_pulsewidth = msig_float( "/synth/pulsewidth, 0,
+                                                 MSIGVALP(&min_pw), MSIGVALP(&max_pw),
+                                                 0, pulsewidth_handler, &synth );
+    
+    mdev_register_input(my_receiver, osc1_pulsewidth);
+    
+    while (!done)
+        mdev_poll(my_receiver, 50);
+    
+    mdev_free(my_receiver);
+
+Publishing metadata
+===================
+
+Things like device names, signal units, and ranges, are examples of
+metadata--information about the data you are exposing on the network.
+
+_libmapper_ also provides the ability to specify arbitrary extra
+metadata in the form of name-value pairs.  These are not interpreted
+by _libmapper_ in any way, but can be retrieved over the network.
+This can be used for instance to give a device X and Y information, or
+to perhaps give a signal some property like "reliability", or some
+category like "light", "motor", "shaker", etc.
+
+Some GUI implementing a Monitor could then use this information to
+display information about the network in an intelligent manner.
+
+TODO: finish this section
