@@ -24,6 +24,15 @@ struct _mapper_device;
 
 /**** String tables ****/
 
+/*! A pair representing an arbitrary parameter value and its
+ *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
+ *  type is a string, the allocated size may be longer than
+ *  sizeof(mapper_osc_arg_t). */
+typedef struct _mapper_osc_value {
+    char type;
+    lo_arg value;
+} mapper_osc_value_t;
+
 /*! Used to hold string look-up table nodes. */
 typedef struct {
     const char *key;

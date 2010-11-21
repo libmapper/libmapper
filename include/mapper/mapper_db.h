@@ -14,15 +14,6 @@ struct _mapper_string_table;
 
 #include <lo/lo.h>
 
-/*! A pair representing an arbitrary parameter value and its
- *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
- *  type is a string, the allocated size may be longer than
- *  sizeof(mapper_osc_arg_t). */
-typedef struct _mapper_osc_value {
-    char type;
-    lo_arg value;
-} mapper_osc_value_t;
-
 /*! A record that keeps information about a device on the network. */
 typedef struct _mapper_db_device {
     char *name;   //!< Device name.
