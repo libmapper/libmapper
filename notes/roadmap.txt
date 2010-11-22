@@ -45,50 +45,40 @@ Target release date: November 15, 2010.
 The following tasks currently need to be accomplished before initial
 release:
 
-* Code review of the database API. 
-    * Check clarity, as it is somewhat cluttered and verbose with various 
-      query types.
-    * Extensible attributes of signals and devices. Effect on database
-      API?  Perhaps using string-based names of attributes can
-      simplify the API. (Steve, 1 week)
-
-* Should input/output be a simple parameter of signals, or specified
-  at creation time? Means changing protocol. (Done)
-
-* Merge signal-creation API with adding signal to device as input/output.
-
-* Implement allocation "suggestions" to speed up port/ordinal
-  allocation. (Done)
-
 * Create a concise but convincing example for both controller and
   synth sides.  Optional support for audio output, perhaps using RtAudio,
-  would be beneficial here. (Steve: 3/4 Done)
+  would be beneficial here. (Steve: 4/5 Done)
 
 * Create example program for interfacing with Wiimote, HID? Try to do 
-  this through pd objects with libmapper external. (Joe)
+  this through pd objects with libmapper external. Kinect? (Joe)
 
-* Develop the SWIG bindings, tested at least against Python.  In fact
-  there would be several benefits to doing this with higher priority,
-  as it would help in developing examples.  For sources and destinations,
-  it would provide a cross-platform GUI (tkinter).  It would also ease
-  the development of testmonitor as a barebones example of a network
-  monitor/UI (see the previous point), by providing GUI and/or ncurses
-  bindings. (Steve, 2 weeks: Done for device but not monitor)
+* Figure out what to do about namespace changes (@rev?)
 
 * Include some Max/MSP standalone versions of controllers, Granul8,
-  etc? Need 32/64bit, windows? (Joe)
+  etc? (Joe)
 
 * Are we including the Max/MSP GUI, standalone? 
     * Check licenses, size, etc. Binary release for Mac OS X.  (Joe)
+      (Done: removed all 3rd-party dependencies so licence ok)
+    * Need multicast object for maxmsp (or include libmapper external)
     * We need some sort of interface for Linux - webmapper? Qt?
 
 * Documentation, tutorials. 
-    * External API. (Steve) 
-    * Textual tutorial. (Vijay)
+    * External API. (Steve)
+    * How to create a signal-combining device?
     * Videos.
+        * Connect slider
+        * Wiimote library
+        * Kinect OpenFrameworks
+        * maxmsp
+        * puredata
+        * using expressions
     * Move code hosting to GitHub?
     * Enable download counting on idmil.org?
     * Explicitly state known deficiencies
+        * No many-to-one mapping
+        * Explicit mapping only (no destination state queries)
+        * No stored curves or tables
 
 Lower priority tasks
 ====================
@@ -96,8 +86,6 @@ Lower priority tasks
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered, or devices disappear and reappear. (Depends on
   namespace hashing, save for later.)
-
-* Implement namespace hashing.
 
 * Implement OSC aliasing for signal connections.
 
@@ -131,15 +119,15 @@ External tasks
 There are some tasks which address uses of the library/protocol rather
 than being tasks for the library development itself.
 
-* Development of Max external. Generate binaries for 32/64bit OSX, Windows.
+* Development of Max external. Generate binaries for OSX, Windows.
   Should try to statically link libmapper, liblo. (In progress)
 
-* Development of Pure Data external. (Joe)
+* Development of Pure Data external. (In progress)
 
 * Development of SuperCollider usage, either using library or
   reimplemented in SC to some extent.
 
-* Development of Qt GUI. (In progress.)
+* Development of Qt GUI. (In progress)
 
 * Development of browser-based GUI.
 
