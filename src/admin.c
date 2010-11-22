@@ -162,6 +162,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"/connectTo",              NULL,       handler_signal_connectTo},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
     {"/disconnect",             "ss",       handler_signal_disconnect},
+    {"/logout",                 NULL,       handler_logout},
 };
 const int N_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -340,9 +341,7 @@ void mapper_admin_free(mapper_admin admin)
 
     if (admin->port.locked && admin->ordinal.locked) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_send_osc(admin, "/logout", "s", mapper_admin_name(admin),
-                              AT_IP, inet_ntoa(admin->interface_ip),
-                              AT_PORT, admin->port.value);
+        mapper_admin_send_osc(admin, "/logout", "s", mapper_admin_name(admin));
     }
 
     if (admin->identifier)
@@ -721,6 +720,8 @@ static int handler_logout(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
+    int diff, ordinal;
+    char *s;
 
     if (argc < 1)
         return 0;
@@ -728,11 +729,37 @@ static int handler_logout(const char *path, const char *types,
     if (types[0] != 's' && types[0] != 'S')
         return 0;
 
-    const char *name = &argv[0]->s;
+    char *name = &argv[0]->s;
 
     trace("got /logout %s\n", name);
-
-    mapper_db_remove_device(db, name);
+    
+    if (mon) {
+        mapper_db_remove_device(db, name);
+    }
+    
+    // If device exists and is registered
+    if (admin->ordinal.locked) {
+        /* Parse the ordinal from the complete name which is in the
+         * format: /<name>.<n> */
+        s = name;
+        if (*s++ != '/')
+            return 0;
+        while (*s != '.' && *s++) {
+        }
+        ordinal = atoi(++s);
+        
+        // If device name matches
+        strtok(name, ".");
+        name++;
+        if (strcmp(name, admin->identifier) == 0) {
+        
+            // if registered ordinal is within my block, free it
+            diff = ordinal - admin->ordinal.value;
+            if (diff > 0 && diff < 9) {
+                admin->ordinal.suggestion[diff-1] = 0;
+            }
+        }
+    }
 
     return 0;
 }
