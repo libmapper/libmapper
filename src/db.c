@@ -545,15 +545,14 @@ static property_table_value_t devdb_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
-    { "can_alias", &devdb_values[0] },
-    { "host",      &devdb_values[1] },
-    { "port",      &devdb_values[2] },
-    { "name",      &devdb_values[3] },
-    { "user_data", &devdb_values[4] },
+    { "host",      &devdb_values[0] },
+    { "port",      &devdb_values[1] },
+    { "name",      &devdb_values[2] },
+    { "user_data", &devdb_values[3] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 5, 5 };
+  { devdb_nodes, 4, 4 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
