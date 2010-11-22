@@ -14,23 +14,20 @@ mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
-int recvport = 9000;
-int sendport = 9001;
+int port = 9000;
 
 int sent = 0;
 int received = 0;
 
 int setup_source()
 {
-    source = mdev_new("testsend", sendport, 0);
+    source = mdev_new("testsend", port, 0);
     if (!source)
         goto error;
     printf("source created.\n");
 
     float mn=0, mx=1;
-    sendsig = msig_float(1, "/outsig", 0, &mn, &mx, 0, 0, 0);
-
-    mdev_register_output(source, sendsig);
+    sendsig = mdev_add_float_output(source, "/outsig", 0, &mn, &mx, 0, 0, 0);
 
     printf("Output signal /outsig registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -64,15 +61,13 @@ void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", recvport, 0);
+    destination = mdev_new("testrecv", port, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = msig_float(1, "/insig", 0, &mn, &mx, 0, insig_handler, 0);
-
-    mdev_register_input(destination, recvsig);
+    recvsig = mdev_add_float_input(destination, "/insig", 0, &mn, &mx, 0, insig_handler, 0);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -98,7 +93,7 @@ int setup_router()
     router = mapper_router_new(source, host, destination->admin->port.value, 
                                mdev_name(destination));
     mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, recvport);
+    printf("Router to %s:%d added.\n", host, port);
 
     char signame_in[1024];
     if (!msig_full_name(recvsig, signame_in, 1024)) {

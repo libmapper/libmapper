@@ -171,11 +171,51 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device device);
 
-//! Register a signal with a mapper device.
-void mdev_register_input(mapper_device device, mapper_signal signal);
+//! Add an input signal to a mapper device.
+mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
+                             const char *unit, char type,
+                             mapper_signal_value_t *minimum,
+                             mapper_signal_value_t *maximum,
+                             mapper_signal_value_t *value,
+                             mapper_signal_handler *handler,
+                             void *user_data);
+    
+//! Add an integer (scalar) input signal to a mapper device.
+mapper_signal mdev_add_int_input(mapper_device md, const char *name, 
+                                 const char *unit, int *minimum, 
+                                 int *maximum, int *value,
+                                 mapper_signal_handler *handler, 
+                                 void *user_data);
+    
+//! Add a float (scalar) input signal to a mapper device.
+mapper_signal mdev_add_float_input(mapper_device md, const char *name, 
+                                   const char *unit, float *minimum, 
+                                   float *maximum, float *value,
+                                   mapper_signal_handler *handler, 
+                                   void *user_data);
 
-//! Unregister a signal with a mapper device.
-void mdev_register_output(mapper_device device, mapper_signal signal);
+//! Add an output signal to a mapper device.
+mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
+                              const char *unit, char type,
+                              mapper_signal_value_t *minimum,
+                              mapper_signal_value_t *maximum,
+                              mapper_signal_value_t *value,
+                              mapper_signal_handler *handler,
+                              void *user_data);
+    
+//! Add an integer (scalar) output signal to a mapper device.
+mapper_signal mdev_add_int_output(mapper_device md, const char *name, 
+                                  const char *unit, int *minimum, 
+                                  int *maximum, int *value,
+                                  mapper_signal_handler *handler, 
+                                  void *user_data);
+    
+//! Add a float (scalar) output signal to a mapper device.
+mapper_signal mdev_add_float_output(mapper_device md, const char *name, 
+                                    const char *unit, float *minimum, 
+                                    float *maximum, float *value,
+                                    mapper_signal_handler *handler, 
+                                    void *user_data);
 
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device device);

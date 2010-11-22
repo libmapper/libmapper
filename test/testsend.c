@@ -15,10 +15,8 @@ int test_controller()
     printf("Mapper device created.\n");
 
     float mn=0, mx=1;
-    mapper_signal sig =
-        msig_float(1, "/testsig", 0, &mn, &mx, 0, 0, 0);
-
-    mdev_register_output(md, sig);
+    mapper_signal sig = 
+        mdev_add_float_output(md, "/testsig", 0, &mn, &mx, 0, 0, 0);
 
     printf("Output signal /testsig registered.\n");
 

@@ -22,8 +22,7 @@ mapper_device source_device_list[num_sources];
 mapper_device dest_device_list[num_dests];
 int num_signals[num_sources + num_dests];
 
-int recvport = 9000;
-int sendport = 9000;
+int port = 9000;
 
 int sent = 0;
 int received = 0;
@@ -40,22 +39,20 @@ static double get_current_time()
 int setup_sources() {
 
 	char str[20];
-	mapper_signal signal_pointer;
 	int number;
 
 	for ( int i=0; i<num_sources; i++ ) {
 
 		sprintf( str, "qtsource%d", i );
 		
-		source_device_list[i] = mdev_new(str, sendport, 0);
+		source_device_list[i] = mdev_new(str, port, 0);
 		number = num_signals[i+num_dests];
 
 		for ( int j=0; j<number; j++ ) {
 
 			sprintf( str, "/outsig%d", j );
             float mn=0, mx=1;
-			signal_pointer = msig_float(1, str, 0, &mn, &mx, 0, 0, 0);
-			mdev_register_output(source_device_list[i], signal_pointer);
+			mdev_add_float_output(source_device_list[i], str, 0, &mn, &mx, 0, 0, 0);
 
 		}
 
@@ -108,7 +105,6 @@ void insig_handler(mapper_signal sig, mapper_signal_value_t *v) {
 int setup_destinations() {
 
 	char str[20];
-	mapper_signal signal_pointer;
 	int number;
 	float mn=0, mx=1;
 
@@ -116,14 +112,13 @@ int setup_destinations() {
 
 		sprintf( str, "qtdest%d", i );
 		
-		dest_device_list[i] = mdev_new(str, recvport, 0);
+		dest_device_list[i] = mdev_new(str, port, 0);
 		number = num_signals[i];
 
 		for ( int j=0; j<number; j++ ) {
 
 			sprintf( str, "/insig%d", j );
-			signal_pointer = msig_float(1, str, 0, &mn, &mx, 0, 0, 0);
-			mdev_register_input(dest_device_list[i], signal_pointer);
+			mdev_add_float_input(dest_device_list[i], str, 0, &mn, &mx, 0, 0, 0);
 
 		}
 
