@@ -223,8 +223,6 @@ typedef enum {
     AT_TYPE,
     AT_MIN,
     AT_MAX,
-    AT_MINIMUM,
-    AT_MAXIMUM,
     AT_MODE,
     AT_EXPRESSION,
     AT_CLIPMIN,

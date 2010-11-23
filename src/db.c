@@ -526,8 +526,8 @@ static string_table_node_t sigdb_nodes[] = {
     { "device_name", &sigdb_values[0] },
     { "direction",   &sigdb_values[1] },
     { "length",      &sigdb_values[2] },
-    { "maximum",     &sigdb_values[3] },
-    { "minimum",     &sigdb_values[4] },
+    { "max",         &sigdb_values[3] },
+    { "min",         &sigdb_values[4] },
     { "name",        &sigdb_values[5] },
     { "type",        &sigdb_values[6] },
     { "unit",        &sigdb_values[7] },
@@ -918,10 +918,10 @@ static void update_signal_record_params(mapper_db_signal sig,
 
     update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
-    update_signal_value_if_arg(params, AT_MAXIMUM,
+    update_signal_value_if_arg(params, AT_MAX,
                                sig->type, &sig->maximum);
 
-    update_signal_value_if_arg(params, AT_MINIMUM,
+    update_signal_value_if_arg(params, AT_MIN,
                                sig->type, &sig->minimum);
 
     int is_output = mapper_msg_get_direction(params);

@@ -14,8 +14,6 @@ const char* mapper_msg_param_strings[] =
     "@type",       /* AT_TYPE */
     "@min",        /* AT_MIN */
     "@max",        /* AT_MAX */
-    "@minimum",    /* AT_MINIMUM */
-    "@maximum",    /* AT_MAXIMUM */
     "@mode",       /* AT_MODE */
     "@expression", /* AT_EXPRESSION */
     "@clipMin",    /* AT_CLIPMIN */
