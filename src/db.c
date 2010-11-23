@@ -924,6 +924,10 @@ static void update_signal_record_params(mapper_db_signal sig,
     update_signal_value_if_arg(params, AT_MINIMUM,
                                sig->type, &sig->minimum);
 
+    int is_output = mapper_msg_get_direction(params);
+    if (is_output != -1)
+        sig->is_output = is_output;
+
     add_or_update_extra_params(sig->extra, params);
 }
 
