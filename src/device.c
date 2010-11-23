@@ -105,6 +105,7 @@ mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
     mapper_signal sig = msig_new(length, name, unit, type, minimum, 
                                  maximum, value, handler, user_data);
     md->n_inputs++;
+    md->version++;
     grow_ptr_array((void **) &md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
 
@@ -156,6 +157,7 @@ mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
     mapper_signal sig = msig_new(length, name, unit, type, minimum, 
                                  maximum, value, handler, user_data);
     md->n_outputs++;
+    md->version++;
     grow_ptr_array((void **) &md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
 

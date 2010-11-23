@@ -172,6 +172,7 @@ typedef struct _mapper_device {
     int n_outputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
+    int version;
     int update;   //!< True if attributes have changed since last update.
     mapper_router routers;
 
@@ -218,7 +219,7 @@ typedef enum {
     AT_PORT,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
-    AT_HASH,
+    AT_REV,
     AT_TYPE,
     AT_MIN,
     AT_MAX,

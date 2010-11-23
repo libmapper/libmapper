@@ -481,7 +481,7 @@ int mapper_admin_poll(mapper_admin admin)
               AT_PORT, admin->port.value,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-              AT_HASH, 0,
+              AT_REV, admin->device->version,
               AT_EXTRA, admin->device->extra);
     }
     return count;
@@ -668,7 +668,7 @@ void mapper_admin_send_osc_with_params(mapper_admin admin,
 /* Internal OSC message handlers. */
 /**********************************/
 
-/*! Respond to /who by announcing the current port. */
+/*! Respond to /who by announcing the current device information. */
 static int handler_who(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data)
 {
@@ -680,7 +680,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-        AT_HASH, 0);
+        AT_REV, admin->device->version,
+        AT_EXTRA, admin->device->extra);
 
     return 0;
 }

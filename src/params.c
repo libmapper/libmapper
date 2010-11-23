@@ -10,7 +10,7 @@ const char* mapper_msg_param_strings[] =
     "@port",       /* AT_PORT */
     "@numInputs",  /* AT_NUMINPUTS */
     "@numOutputs", /* AT_NUMOUTPUTS */
-    "@hash",       /* AT_HASH */
+    "@rev",        /* AT_REV */
     "@type",       /* AT_TYPE */
     "@min",        /* AT_MIN */
     "@max",        /* AT_MAX */
@@ -254,7 +254,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
-        case AT_HASH:
+        case AT_REV:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
