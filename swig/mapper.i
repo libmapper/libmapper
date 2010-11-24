@@ -8,6 +8,7 @@
     $1 = $input;
  }
 %typemap(in) maybeSigVal %{
+    {
     sigval val;
     if ($input == Py_None)
         $1 = 0;
@@ -25,6 +26,7 @@
             }
         }
         $1 = &val;
+    }
     }
 %}
 %typemap(out) maybeSigVal {
@@ -122,8 +124,8 @@ typedef struct _signal {} signal;
     ~device() {
         mdev_free($self);
     }
-    void poll(int timeout) {
-        mdev_poll($self, timeout);
+    int poll(int timeout) {
+        return mdev_poll($self, timeout);
     }
     int ready() {
         return mdev_ready($self);
@@ -133,7 +135,7 @@ typedef struct _signal {} signal;
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
     signal* add_int_input(const char *name, const char *unit,
-                         int *minimum, int *maximum,
+                         maybeSigVal minimum, maybeSigVal maximum,
                          PyObject *PyFunc)
     {
         void *h = 0;
@@ -141,12 +143,28 @@ typedef struct _signal {} signal;
             h = msig_handler_py;
             Py_XINCREF(PyFunc);
         }
+        int mn, mx, *pmn=0, *pmx=0;
+        if (minimum) {
+            if (minimum->t == 'i')
+                pmn = &minimum->v.i32;
+            else {
+                mn = (int)minimum->v.f;
+                pmn = &mn;
+            }
+        }
+        if (maximum) {
+            if (maximum->t == 'i')
+                pmx = &maximum->v.i32;
+            else {
+                mx = (int)maximum->v.f;
+                pmx = &mx;
+            }
+        }
         return mdev_add_int_input($self, name, unit,
-                                  minimum, maximum, 0,
-                                  h, PyFunc);
+                                  pmn, pmx, 0, h, PyFunc);
     }
     signal* add_float_input(const char *name, const char *unit,
-                           float *minimum, float *maximum,
+                           maybeSigVal minimum, maybeSigVal maximum,
                            PyObject *PyFunc)
     {
         void *h = 0;
@@ -154,35 +172,69 @@ typedef struct _signal {} signal;
             h = msig_handler_py;
             Py_XINCREF(PyFunc);
         }
+        float mn, mx, *pmn=0, *pmx=0;
+        if (minimum) {
+            if (minimum->t == 'f')
+                pmn = &minimum->v.f;
+            else {
+                mn = (float)minimum->v.i32;
+                pmn = &mn;
+            }
+        }
+        if (maximum) {
+            if (maximum->t == 'f')
+                pmx = &maximum->v.f;
+            else {
+                mx = (float)maximum->v.i32;
+                pmx = &mx;
+            }
+        }
         return mdev_add_float_input($self, name, unit,
-                                    minimum, maximum, 0,
-                                    h, PyFunc);
+                                    pmn, pmx, 0, h, PyFunc);
     }
     signal* add_int_output(const char *name, const char *unit,
-                          int *minimum, int *maximum,
-                          PyObject *PyFunc)
+                           maybeSigVal minimum, maybeSigVal maximum)
     {
-        void *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
+        int mn, mx, *pmn=0, *pmx=0;
+        if (minimum) {
+            if (minimum->t == 'i')
+                pmn = &minimum->v.i32;
+            else {
+                mn = (int)minimum->v.f;
+                pmn = &mn;
+            }
         }
-        return mdev_add_int_output($self, name, unit,
-                                   minimum, maximum, 0,
-                                   h, PyFunc);
+        if (maximum) {
+            if (maximum->t == 'i')
+                pmx = &maximum->v.i32;
+            else {
+                mx = (int)maximum->v.f;
+                pmx = &mx;
+            }
+        }
+        return mdev_add_int_output($self, name, unit, pmn, pmx, 0, 0, 0);
     }
     signal* add_float_output(const char *name, const char *unit,
-                            float *minimum, float *maximum,
-                            PyObject *PyFunc)
+                             maybeSigVal minimum, maybeSigVal maximum)
     {
-        void *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
+        float mn, mx, *pmn=0, *pmx=0;
+        if (minimum) {
+            if (minimum->t == 'f')
+                pmn = &minimum->v.f;
+            else {
+                mn = (float)minimum->v.i32;
+                pmn = &mn;
+            }
         }
-        return mdev_add_float_output($self, name, unit,
-                                     minimum, maximum, 0,
-                                     h, PyFunc);
+        if (maximum) {
+            if (maximum->t == 'f')
+                pmx = &maximum->v.f;
+            else {
+                mx = (float)maximum->v.i32;
+                pmx = &mx;
+            }
+        }
+        return mdev_add_float_output($self, name, unit, pmn, pmx, 0, 0, 0);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;

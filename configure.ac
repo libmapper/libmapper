@@ -50,6 +50,7 @@ AC_TYPE_SIZE_T
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CC_C99
+AC_PROG_CXX
 
 # libtool
 AM_PROG_LIBTOOL
@@ -66,6 +67,10 @@ AC_ARG_ENABLE(tests,
 AC_ARG_ENABLE(docs,
    [  --disable-docs          don't build the documentation.],,
    enable_docs=yes)
+
+AC_ARG_ENABLE(audio,
+   [  --disable-audio         don't build the audio examples.],,
+   enable_audio=yes)
 
 swig_enabled=yes
 AC_ARG_ENABLE(swig,
@@ -95,6 +100,35 @@ if test x$swig_enabled = xyes; then
      fi
    fi
 fi
+
+# Check for audio libraries supported by RtAudio
+if test x$enable_audio = xyes; then
+
+  # Try ALSA
+  AC_CHECK_LIB(asound, snd_ctl_open,
+    [RTAUDIO_CFLAGS="-D__LINUX_ALSA__ -D__LITTLE_ENDIAN__"
+     RTAUDIO_LIBS=-lasound
+     audio_explain="(ALSA)"])
+
+  # Look for CoreAudio (This could be more sophisticated)
+  echo -n Checking for CoreAudio...
+  if test -e /System/Library/Frameworks/CoreAudio.framework; then
+    RTAUDIO_CFLAGS="-D__MACOSX_CORE__ -D__LITTLE_ENDIAN__"
+    RTAUDIO_LIBS="-framework CoreAudio -framework CoreFoundation"
+    audio_explain="(CoreAudio)"
+    echo yes
+  else
+    echo no
+  fi
+
+  if test -z "$RTAUDIO_CFLAGS"; then
+    enable_audio=no
+    audio_explain="(no supported audio system found.)"
+  fi
+fi
+
+AC_SUBST(RTAUDIO_CFLAGS)
+AC_SUBST(RTAUDIO_LIBS)
 
 # Doxygen
 if test x$enable_docs = xyes; then
@@ -146,6 +180,10 @@ AC_CONFIG_FILES([
     doc/libmapper.doxyfile
     swig/Makefile
     swig/setup.py
+    examples/Makefile
+    examples/pwm_synth/Makefile
+    examples/py_tk_gui/Makefile
+    examples/py_tk_gui/setup.py
     libmapper.pc
 ])
 AC_OUTPUT
@@ -154,9 +192,10 @@ AC_OUTPUT
 echo
 echo libmapper configured:
 echo --------------------------------------------------
-echo "building documention...   " $enable_docs $docs_explain
-echo "building tests...         " $enable_tests
-echo "building SWIG bindings... " $swig_enabled $swig_explain
+echo "building documention...    " $enable_docs $docs_explain
+echo "building tests...          " $enable_tests
+echo "building SWIG bindings...  " $swig_enabled $swig_explain
+echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
 echo --------------------------------------------------

@@ -12,8 +12,8 @@ def on_mapper_change(sig, x):
 
 dev = mapper.device("tkgui", 9000)
 
-sig_in = dev.add_int_input("/signal0", None, None, None, on_mapper_change)
-sig_out = dev.add_int_output("/signal0", None, None, None, lambda x: x)
+sig_in = dev.add_int_input("/signal0", None, 0, 100, on_mapper_change)
+sig_out = dev.add_int_output("/signal0", None, 0, 100)
 
 master = Tkinter.Tk()
 master.title("libmapper Python GUI demo")

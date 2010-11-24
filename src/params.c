@@ -410,7 +410,7 @@ mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
     if (!a || !*a)
         return -1;
-    
+
     if (strcmp(&(*a)->s, "input") == 0)
         return 0;
     else if (strcmp(&(*a)->s, "output") == 0)

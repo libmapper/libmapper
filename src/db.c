@@ -954,8 +954,8 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
     else {
         sig = (mapper_db_signal) list_new_item(sizeof(mapper_db_signal_t));
 
-        // Defaults (length=1, is_output=1)
-        mapper_db_signal_init(sig, 0, 'i', 1, 0, 0);
+        // Defaults (int, length=1)
+        mapper_db_signal_init(sig, is_output, 'i', 1, 0, 0);
     }
 
     if (sig) {

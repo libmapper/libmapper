@@ -382,6 +382,8 @@ which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
 audio thread.
 
+Create the handler function, which is fairly simple,
+
     void pulsewidth_handler ( struct _mapper_signal *msig,
                               mapper_signal_value_t *v )
     {
@@ -389,26 +391,31 @@ audio thread.
         s->setPulseWidth(v->f);
     }
 
-and in `main()`,
+First, the pointer to the `Synthesizer` instance is extracted from the `user_data` pointer, then it is dereferenced to set the pulse width.
 
-    Synthesizer synth;
-    synth.startAudioInBackground();
-    
-    float min_pw = 0.0f;
-    float max_pw = 1.0f;
-    
-    mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
-    
-    mapper_signal synth_pulsewidth = msig_float( "/synth/pulsewidth, 0,
-                                                 MSIGVALP(&min_pw), MSIGVALP(&max_pw),
-                                                 0, pulsewidth_handler, &synth );
-    
-    mdev_register_input(my_receiver, osc1_pulsewidth);
-    
-    while (!done)
-        mdev_poll(my_receiver, 50);
-    
-    mdev_free(my_receiver);
+and then `main()` will look like,
+
+    void main()
+    {
+        Synthesizer synth;
+        synth.startAudioInBackground();
+        
+        float min_pw = 0.0f;
+        float max_pw = 1.0f;
+        
+        mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
+        
+        mapper_signal synth_pulsewidth = msig_float( "/synth/pulsewidth, 0,
+                                                     MSIGVALP(&min_pw), MSIGVALP(&max_pw),
+                                                     0, pulsewidth_handler, &synth );
+        
+        mdev_register_input(my_receiver, osc1_pulsewidth);
+        
+        while (!done)
+            mdev_poll(my_receiver, 50);
+        
+        mdev_free(my_receiver);
+    }
 
 Publishing metadata
 ===================
