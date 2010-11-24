@@ -178,3 +178,16 @@ In accordance with the LGPL, you are allowed to use it in commercial
 products provided it remains dynamically linked, such that libmapper
 always remains free to modify.  If you'd like to use it in an
 outstanding context, please contact the AUTHORS to seek an agreement.
+
+Dependencies of libmapper are:
+
+* liblo (LGPL), http://liblo.sourceforge.net
+
+Optional dependencies for the Python bindings:
+
+* SWIG (GPL3), http://www.swig.org
+* Python (Python license, GPL-compatible), http://docs.python.org/license.html
+
+Used only in the examples:
+
+* RtAudio (MIT license), http://www.music.mcgill.ca/~gary/rtaudio
