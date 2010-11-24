@@ -77,12 +77,32 @@ course not the be-all and end-all of mapping.  We assume homogeneous
 vectors of floating-point or integer numbers, while in reality more
 complex structured data might be useful to transmit.
 
-Particular if libmapper is to be used for visual art, transmission of
-matrixes or even image formats might be interesting, although there is
-no standard way to represent this in Open Sound Control other than as
-a binary 'blob'.  It's possible that in this case a protocol such as
-HTTP that supports MIME type headers is simply a more appropriate
+Particularly if libmapper is to be used for visual art, transmission
+of matrixes or even image formats might be interesting, although there
+is no standard way to represent this in Open Sound Control other than
+as a binary 'blob'.  It's possible that in this case a protocol such
+as HTTP that supports MIME type headers is simply a more appropriate
 choice.
+
+That aside, mapping techniques based on table-lookup or other
+data-oriented processes don't fit directly into the 'connection'
+paradigm used here.  Of course, many of these techniques can easily be
+implemented as 'intermediate' devices that sit between a sender and
+receiver.  Another category of mappings that can currently only be
+solved this way include many-to-one mappings--libmapper currently has
+no special handling of multiple devices sending to one receiver, and
+the values are simply interleaved, whereas what is intended is
+probably some combining function such as addition, multiplication, or
+thresholding.  It may however be possible to solve this latter issue
+by using some form of receiver-side routers which can handle
+expressions containing multiple input variables.  As an explanation
+for why we have not yet handled the case of many-to-one mapping, we
+feel that in practise it is actually quite rare to have a case where
+such a combining function should be arbitrarily modifiable by a user.
+In the real world, dependencies between signals often have a semantic
+significance which would be better handled internally to the receiver
+rather than in the mapper layer.  Nonetheless, we hope to tackle this
+problem eventually.
 
 One impact of peer-to-peer messaging is that it may suffer from
 redundancy.  In general it may be more efficient to send all data once
