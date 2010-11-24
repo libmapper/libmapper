@@ -128,11 +128,61 @@ typedef struct _signal {} signal;
     int ready() {
         return mdev_ready($self);
     }
-    void register_input(signal *DISOWN) {
-        mdev_register_input($self, DISOWN);
+
+    // Note, these functions return memory which is _not_ owned by
+    // Python.  Correspondingly, the SWIG default is to set thisown to
+    // False, which is correct for this case.
+    signal* add_int_input(const char *name, const char *unit,
+                         int *minimum, int *maximum,
+                         PyObject *PyFunc)
+    {
+        void *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        return mdev_add_int_input($self, name, unit,
+                                  minimum, maximum, 0,
+                                  h, PyFunc);
     }
-    void register_output(signal *DISOWN) {
-        mdev_register_output($self, DISOWN);
+    signal* add_float_input(const char *name, const char *unit,
+                           float *minimum, float *maximum,
+                           PyObject *PyFunc)
+    {
+        void *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        return mdev_add_float_input($self, name, unit,
+                                    minimum, maximum, 0,
+                                    h, PyFunc);
+    }
+    signal* add_int_output(const char *name, const char *unit,
+                          int *minimum, int *maximum,
+                          PyObject *PyFunc)
+    {
+        void *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        return mdev_add_int_output($self, name, unit,
+                                   minimum, maximum, 0,
+                                   h, PyFunc);
+    }
+    signal* add_float_output(const char *name, const char *unit,
+                            float *minimum, float *maximum,
+                            PyObject *PyFunc)
+    {
+        void *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        return mdev_add_float_output($self, name, unit,
+                                     minimum, maximum, 0,
+                                     h, PyFunc);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -156,27 +206,6 @@ typedef struct _signal {} signal;
 }
 
 %extend signal {
-    signal(unsigned int length, const char *name, const char *type,
-           const char *unit, PyObject *PyFunc) {
-        void *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        signal *s=0;
-        if (!type || type[0] == 'f')
-            s = msig_float(length, name, unit, 0, 0, 0, h, PyFunc);
-        else if (type[0] == 'i')
-            s = msig_int(length, name, unit, 0, 0, 0, h, PyFunc);
-        return s;
-    }
-    ~signal() {
-        printf("in ~signal()\n");
-        mapper_signal s = (mapper_signal)$self;
-        if (s->handler && s->user_data)
-            Py_XDECREF(s->user_data);
-        msig_free($self);
-    }
     const char *get_name() {
         return ((mapper_signal)$self)->props.name;
     }

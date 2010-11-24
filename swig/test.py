@@ -9,9 +9,7 @@ def h(sig, f):
         print sig, f
 
 def setup(d):
-    sig = mapper.signal(1, "/freq", "i", "Hz", h)
-    print 'inputs',d.num_inputs
-    d.register_input(sig)
+    sig = d.add_int_input("/freq", "Hz", None, None, h)
     print 'inputs',d.num_inputs
     print 'minimum',sig.minimum
     sig.minimum = 34.0
