@@ -247,21 +247,40 @@ int mdev_find_output_by_name(mapper_device md, const char *name,
 
 int mdev_poll(mapper_device md, int block_ms)
 {
-    double then = get_current_time();
-    int count = mapper_admin_poll(md->admin);
-    int count2 = 0;
+    int admin_count = mapper_admin_poll(md->admin);
+    int count = 0;
 
     if (md->server) {
-        while (count2 < md->n_inputs 
-               && lo_server_recv_noblock(md->server, 0)
-               && get_current_time() - then < block_ms * 1000) {
-            count2++;
+
+        /* If a timeout is specified, loop until the time is up. */
+        if (block_ms)
+        {
+            double then = get_current_time();
+            int left_ms = block_ms;
+            while (left_ms > 0)
+            {
+                if (lo_server_recv_noblock(md->server, left_ms))
+                    count++;
+                double elapsed = get_current_time() - then;
+                left_ms = block_ms - (int)(elapsed*1000);
+            }
         }
-        return count + count2;
+
+        /* When done, or if non-blocking, check for remaining messages
+         * up to a proportion of the number of input
+         * signals. Arbitrarily choosing 1 for now, since we don't
+         * support "combining" multiple incoming streams, so there's
+         * no point.  Perhaps if this is supported in the future it
+         * can be a heuristic based on a recent number of messages per
+         * channel per poll. */
+        while (count < md->n_inputs*1
+               && lo_server_recv_noblock(md->server, 0))
+            count++;
     }
-    else
-        usleep(block_ms * 1000 - (get_current_time() - then));
-    return 0;
+    else if (block_ms)
+        usleep(block_ms * 1000);
+
+    return admin_count + count;
 }
 
 void mdev_route_signal(mapper_device md, mapper_signal sig,

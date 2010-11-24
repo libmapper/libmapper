@@ -114,7 +114,7 @@ void wait_local_devices()
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
 
-        usleep(500 * 1000);
+        usleep(50 * 1000);
     }
 }
 
@@ -156,9 +156,7 @@ void loop()
                            (mval) ((i % 10) * 1.0f));
         printf("source value updated to %d -->\n", i % 10);
 
-        usleep(500 * 1000);
-        printf("Received %i messages.\n\n", mdev_poll(destination, 1));
-
+        printf("Received %i messages.\n\n", mdev_poll(destination, 100));
         i++;
     }
 }

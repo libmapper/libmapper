@@ -429,7 +429,7 @@ int mapper_admin_poll(mapper_admin admin)
     }
 
     if (!admin->device)
-        return 0;
+        return count;
 
     /* If the port is not yet locked, process collision timing.  Once
      * the port is locked it won't change. */

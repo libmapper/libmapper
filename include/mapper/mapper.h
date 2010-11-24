@@ -262,8 +262,14 @@ void mdev_set_property(mapper_device dev, const char *property,
 void mdev_remove_property(mapper_device dev, const char *property);
 
 /*! Poll this device for new messages.
+ *  Note, if you have multiple devices, the right thing to do is call
+ *  this function for each of them with block_ms=0, and add your own
+ *  sleep if necessary.
+ *  \param md The device to check messages for.
  *  \param block_ms Number of milliseconds to block waiting for
- *  messages, or 0 for non-blocking behaviour. */
+ *                  messages, or 0 for non-blocking behaviour.
+ *  \return The number of handled messages. May be zero if there was
+ *          nothing to do. */
 int mdev_poll(mapper_device md, int block_ms);
 
 /*! Send the current value of a signal.
@@ -745,8 +751,9 @@ mapper_monitor mapper_monitor_new();
 /*! Free a network monitor. */
 void mapper_monitor_free(mapper_monitor mon);
 
-/*! Poll a network monitor. */
-void mapper_monitor_poll(mapper_monitor mon, int block_ms);
+/*! Poll a network monitor.
+ *  \return The number of handled messages. */
+int mapper_monitor_poll(mapper_monitor mon, int block_ms);
 
 /*! Get the database associated with a monitor. This can be used as
  *  long as the monitor remains alive. */

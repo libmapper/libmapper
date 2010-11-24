@@ -138,8 +138,6 @@ check for any immediate actions and then return without waiting:
     int mdev_poll( mapper_device md,
                    int block_ms )
 
-TODO: what does it return?
-
 An example of calling it with non-blocking behaviour:
 
     mdev_poll( my_device, 0 );
@@ -150,6 +148,19 @@ desired.  On the other hand if you put it in the middle of a loop
 which reads incoming data at intervals or steps through a simulation
 for example, you can use `mdev_poll` as your "sleep" function, so that
 it will wait on network activity while
+
+It returns the number of messages handled, so optionally you could
+continue to call it until there are no more messages waiting.  Of
+course, you should be careful doing that without limiting the time it
+will loop for, since if the incoming stream is fast enough you might
+never get anything else done!
+
+Note that an important difference between blocking and non-blocking
+polling is that during the blocking period, messages will be handled
+immediately as they are received.  On the other hand, if you use your
+own sleep, messages will be queued up until you can call poll();
+stated differently, it will "time-quantize" the message handling.
+This is not necessarily bad, but you should be aware of this effect.
 
 Since there is a delay before the device is completely initialized, it
 is sometimes useful to be able to determine this using `mdev_ready`.

@@ -1,7 +1,22 @@
 
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/time.h>
 
+#include "config.h"
 #include "mapper_internal.h"
+
+/*! Internal function to get the current time. */
+static double get_current_time()
+{
+#ifdef HAVE_GETTIMEOFDAY
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
+#else
+#error No timing method known on this platform.
+#endif
+}
 
 mapper_monitor mapper_monitor_new()
 {
@@ -19,9 +34,17 @@ void mapper_monitor_free(mapper_monitor mon)
         free(mon);
 }
 
-void mapper_monitor_poll(mapper_monitor mon, int block_ms)
+int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 {
-    mapper_admin_poll(mon->admin);
+    int admin_count = mapper_admin_poll(mon->admin);
+    if (block_ms) {
+        double then = get_current_time();
+        while ((get_current_time() - then) < block_ms*1000) {
+            admin_count += mapper_admin_poll(mon->admin);
+            usleep(block_ms * 100);
+        }
+    }
+    return admin_count;
 }
 
 mapper_db mapper_monitor_get_db(mapper_monitor mon)
