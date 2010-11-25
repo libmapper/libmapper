@@ -108,12 +108,16 @@ do
 	echo "Running autoheader..."
 	autoheader
       fi
-      if test -z "$NO_GIT" && git branch; then
+      if test -z "$NO_GIT" && git branch >/dev/null; then
           echo "Generating ChangeLog using git ..."
           git log >ChangeLog
       else
           echo "No git, generating stub ChangeLog ..."
           touch ChangeLog
+      fi
+      # Copy README.markdown for README to make automake happy
+      if ! [ -e README ]; then
+          ln -sv README.markdown README || cp README.markdown README
       fi
       echo "Running automake --gnu $am_opt ..."
       automake --add-missing --gnu $am_opt
