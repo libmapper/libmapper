@@ -6,6 +6,9 @@ This library is a system for representing input and output signals on
 a network and allowing arbitrary "mappings" to be dynamically created
 between them using an external interface.
 
+To get started quickly with libmapper, be sure to read the tutorial,
+found in the "doc" folder in this distribution.
+
 This project began life as a tool for helping composers and performers
 to more easily play with custom-built musical instruments, such that a
 program that reads data from the instrument (e.g. from an Arduino USB
@@ -64,10 +67,12 @@ idea that each "driver" can be a separate process, on the same or
 different machines in the network.  By creating a C library with a
 basic interface and by providing SWIG bindings, we hope to enable a
 very wide variety of programming language bindings, to allow any
-choice of development strategy.
-
-(At this time, the SWIG bindings only work for Python.  Support for
-more languages, particularly Java, is in the works.)
+choice of development strategy.^[At this time, the SWIG bindings only
+work for Python.  Support for more languages, particularly Java, is in
+the works.]  Another advantage of a C library is portability: we have
+had libmapper working on a Gumstix device, an ethernet-enabled
+ARM-based microcomputer running Linux that can be easily embedded
+directly into an instrument.
 
 Known conceptual limitations
 ----------------------------
@@ -163,9 +168,13 @@ indexing previous values to allow basic filter construction.  This is
 done by index, but we also implemented a syntax for accessing previous
 state according to time in seconds.  This feature is not yet useable,
 but in the future interpolation will be performed to allow referencing
-of time-accurate values.  (Currently any "filter" implemented by an
-expression will suffer somewhat from unknown jitter, particularly when
-signal updates are not regular.)
+of time-accurate values.
+
+Currently any "filter" implemented by an expression may suffer
+somewhat from jitter due to irregular timing in the sender, network
+delay, etc.  We plan to tackle this problem by allowing timestamped
+signals using OSC bundles, which will likely require some changes to
+liblo, the OSC implementation used by libmapper.
 
 License
 -------
@@ -186,9 +195,9 @@ Dependencies of libmapper are:
 
 Optional dependencies for the Python bindings:
 
-* SWIG (GPL3), http://www.swig.org
-* Python (Python license, GPL-compatible), http://docs.python.org/license.html
+* SWIG (GPL3, LGPL-compatible for generated code), http://www.swig.org
+* Python (Python license, LGPL-compatible), http://www.python.org
 
 Used only in the examples:
 
-* RtAudio (MIT license), http://www.music.mcgill.ca/~gary/rtaudio
+* RtAudio (MIT license, LGPL-compatible), http://www.music.mcgill.ca/~gary/rtaudio
