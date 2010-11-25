@@ -5,4 +5,4 @@ libmapper_@MAJOR_VERSION@_la_SOURCES = expression.c device.c admin.c	\
     signal.c router.c mapping.c db.c params.c monitor.c table.c
 libmapper_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
 
-EXTRA_DIST = operation.h expression.h mapper_internal.h types_internal.h
+EXTRA_DIST = mapper_internal.h types_internal.h
