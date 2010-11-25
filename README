@@ -11,14 +11,14 @@ to more easily play with custom-built musical instruments, such that a
 program that reads data from the instrument (e.g. from an Arduino USB
 serial port) can be connected to the inputs of a sound synthesizer.
 The first version of this software was written entirely in Cycling
-74's Max/MSP, but in ordre to make it more universally useful and
+74's Max/MSP, but in order to make it more universally useful and
 cross-platform, we decided to re-implement the protocol in C; hence,
 libmapper.
 
 We were already using Open Sound Control for this purpose, but needed
 a way to dynamically change the mappings--not only to modify the
 destinations of OSC messages, but also to change scaling, or to
-introduce derivatives, integration, frequency filter and smoothing,
+introduce derivatives, integration, frequency filtering, smoothing,
 etc.  Eventually this grew into the use of a multicast bus to publish
 signal metadata and administrate peer-to-peer connections between
 machines on a local subnet, with the ability to specify arbitrary
@@ -110,8 +110,8 @@ to a central node, and then out once more to nodes that request it, at
 the expense of weighing down the bandwidth of that particular central
 node.  In libmapper's case, if 50 nodes subscribe to a particular
 signal, it will be repeated that many times by the place where it
-originated.  Dealing with this central-vs-decentralized by
-automatically optizing decisions of how messages are distributed is
+originated.  Dealing with this central-vs-decentralized ___ by
+automatically optimizing decisions of how messages are distributed is
 not impossible, but represents non-trivial work--for example, in
 libmapper the conception of a 'router' is actually an independent node
 that a device sends messages to, which it then translates and
@@ -136,7 +136,8 @@ High-frequency data for example might be better transmitted using the
 JACK Audio Connection Kit or something similar.  In addition, on
 embedded devices, it might make sense to "transmit" data between
 sensors and synthesizers through shared memory, while still allowing
-the use of the libmapper GUI to dynamically experiment with mapping.
+the use of the libmapper admin protocol and GUIs to dynamically 
+experiment with mapping.
 
 Although we provide a basic cross-platform GUI using Qt, the most
 advanced user interface is still the Max/MSP implementation.  Although
@@ -150,8 +151,8 @@ For implementing intermediate devices that "learn" mappings
 automatically, a useful feature would be to request snapshots of the
 states of all inputs on a destination device.  This has already been
 implemented in the previous Max/MSP version, and we have examples of
-neural network and SVM intermediates, but this feature did not yet
-make it into the C version of libmapper.
+neural network and SVM intermediates, but this feature has not yet
+made it into the C version of libmapper.
 
 Currently the only supported data types are 32-bit integers and 32-bit
 floating point.  This covers most of our use cases, but we hope to
