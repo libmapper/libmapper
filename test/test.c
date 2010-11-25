@@ -36,7 +36,7 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mn=0, mx=1;
+    float mn=0, mx=10;
 
     sendsig_1 = mdev_add_float_output(source, "/outsig_1", 0, &mn, &mx, 0, 0, 0);
     sendsig_2 = mdev_add_float_output(source, "/outsig_2", 0, &mn, &mx, 0, 0, 0);
