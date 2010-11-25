@@ -11,12 +11,13 @@ found in the "doc" folder in this distribution.
 
 This project began life as a tool for helping composers and performers
 to more easily play with custom-built musical instruments, such that a
-program that reads data from the instrument (e.g. from an Arduino USB
-serial port) can be connected to the inputs of a sound synthesizer.
-The first version of this software was written entirely in Cycling
-74's [Max/MSP](http://www.cycling74.com/), but in order to make it
-more universally useful and cross-platform, we decided to re-implement
-the protocol in C; hence, libmapper.
+program that reads data from the instrument (e.g. from an
+[Arduino](http://www.arduino.cc/) USB serial port) can be connected to
+the inputs of a sound synthesizer.  The first version of this software
+was written entirely in Cycling 74's
+[Max/MSP](http://www.cycling74.com/), but in order to make it more
+universally useful and cross-platform, we decided to re-implement the
+protocol in C; hence, libmapper.
 
 We were already using [Open Sound Control](http://opensoundcontrol.org/)
 for this purpose, but needed a way to dynamically change the
