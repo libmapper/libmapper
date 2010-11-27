@@ -1,7 +1,7 @@
 %module mapper
 %include "typemaps.i"
 %typemap(in) PyObject *PyFunc {
-    if (!PyCallable_Check($input)) {
+    if ($input!=Py_None && !PyCallable_Check($input)) {
         PyErr_SetString(PyExc_TypeError, "Need a callable object!");
         return NULL;
     }
@@ -117,14 +117,14 @@ typedef struct _device {} device;
 typedef struct _signal {} signal;
 
 %extend device {
-    device(const char *name, int port) {
+    device(const char *name, int port=9000) {
         device *d = mdev_new(name, port, 0);
         return d;
     }
     ~device() {
         mdev_free($self);
     }
-    int poll(int timeout) {
+    int poll(int timeout=0) {
         return mdev_poll($self, timeout);
     }
     int ready() {
@@ -134,9 +134,9 @@ typedef struct _signal {} signal;
     // Note, these functions return memory which is _not_ owned by
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
-    signal* add_input(const char *name, const char *unit, char type,
-                      maybeSigVal minimum, maybeSigVal maximum,
-                      PyObject *PyFunc)
+    signal* add_input(const char *name, const char *unit=0, char type='f',
+                      maybeSigVal minimum=0, maybeSigVal maximum=0,
+                      PyObject *PyFunc=0)
     {
         void *h = 0;
         if (PyFunc) {
@@ -185,8 +185,8 @@ typedef struct _signal {} signal;
         return mdev_add_input($self, 1, name, unit, type,
                               pmn, pmx, 0, h, PyFunc);
     }
-    signal* add_output(const char *name, const char *unit, char type,
-                       maybeSigVal minimum, maybeSigVal maximum)
+    signal* add_output(const char *name, const char *unit=0, char type='f',
+                       maybeSigVal minimum=0, maybeSigVal maximum=0)
     {
         float mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
