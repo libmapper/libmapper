@@ -96,12 +96,12 @@ static void grow_ptr_array(void **array, int length, int *size)
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
-                             void *minimum, void *maximum, void *value,
+                             void *minimum, void *maximum,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
-                                 maximum, value, handler, user_data);
+                                 maximum, handler, user_data);
     md->n_inputs++;
     md->version++;
     grow_ptr_array((void **) &md->inputs, md->n_inputs,
@@ -122,10 +122,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 // Add an output signal to a mapper device.
 mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               char type, const char *unit,
-                              void *minimum, void *maximum, void *value)
+                              void *minimum, void *maximum)
 {
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
-                                 maximum, value, 0, 0);
+                                 maximum, 0, 0);
     md->n_outputs++;
     md->version++;
     grow_ptr_array((void **) &md->outputs, md->n_outputs,

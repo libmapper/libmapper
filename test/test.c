@@ -38,10 +38,10 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'f', 0, &mn, &mx, 0);
-    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', 0, &mn, &mx, 0);
-    sendsig_3 = mdev_add_output(source, "/outsig_3", 1, 'f', 0, &mn, &mx, 0);
-    sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, &mn, &mx, 0);
+    sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'f', 0, &mn, &mx);
+    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', 0, &mn, &mx);
+    sendsig_3 = mdev_add_output(source, "/outsig_3", 1, 'f', 0, &mn, &mx);
+    sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, &mn, &mx);
 
     printf("Output signal /outsig registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -84,13 +84,13 @@ int setup_destination()
     float mn=0, mx=1;
 
     recvsig_1 = mdev_add_input(destination, "/insig_1", 1, 'f',
-                               0, &mn, &mx, 0, insig_handler, 0);
+                               0, &mn, &mx, insig_handler, 0);
     recvsig_2 = mdev_add_input(destination, "/insig_2", 1, 'f',
-                               0, &mn, &mx, 0, insig_handler, 0);
+                               0, &mn, &mx, insig_handler, 0);
     recvsig_3 = mdev_add_input(destination, "/insig_3", 1, 'f',
-                               0, &mn, &mx, 0, insig_handler, 0);
+                               0, &mn, &mx, insig_handler, 0);
     recvsig_4 = mdev_add_input(destination, "/insig_4", 1, 'f',
-                               0, &mn, &mx, 0, insig_handler, 0);
+                               0, &mn, &mx, insig_handler, 0);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));

@@ -10,7 +10,7 @@
 
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
-                       void *minimum, void *maximum, void *value,
+                       void *minimum, void *maximum,
                        mapper_signal_handler *handler, void *user_data)
 {
     if (length < 1) return 0;
@@ -23,7 +23,6 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
 
-    sig->value = (mapper_signal_value_t *) value;
     sig->handler = handler;
     sig->user_data = user_data;
     msig_set_minimum(sig, minimum);

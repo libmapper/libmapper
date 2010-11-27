@@ -16,7 +16,7 @@ int test_controller()
 
     float mn=0, mx=1;
     mapper_signal sig = 
-        mdev_add_output(md, "/testsig", 1, 'f', 0, &mn, &mx, 0);
+        mdev_add_output(md, "/testsig", 1, 'f', 0, &mn, &mx);
 
     printf("Output signal /testsig registered.\n");
 

@@ -62,8 +62,7 @@ int check_keys(mapper_db_signal sigprop)
 int main()
 {
     int seen, rc=0;
-    //mapper_signal sig = msig_float(1, "/test", "Hz", 0, 0, 0, 0, 0);
-    mapper_signal sig = msig_new("/test", 1, 'f', 1, "Hz", 0, 0, 0, 0, 0);
+    mapper_signal sig = msig_new("/test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
     mapper_db_signal sigprop = msig_get_properties(sig);
 
     /* Test that default parameters are all listed. */

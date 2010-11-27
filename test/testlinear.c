@@ -27,7 +27,7 @@ int setup_source()
 
     float mn=0, mx=1;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx, 0);
+    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
 
     printf("Output signal /outsig registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -69,7 +69,7 @@ int setup_destination()
     float mn=0, mx=1;
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f', 0,
-                             &mn, &mx, 0, insig_handler, 0);
+                             &mn, &mx, insig_handler, 0);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));

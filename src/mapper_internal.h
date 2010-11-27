@@ -15,10 +15,6 @@ struct _mapper_signal
     /*! Properties of this signal. */
     mapper_db_signal_t props;
 
-    /*! An optional pointer to a C variable containing the actual
-     *  vector. */
-    mapper_signal_value_t *value;
-
     /*! The device associated with this signal. */
     struct _mapper_device *device;
 
@@ -121,14 +117,12 @@ mapper_router mapper_router_find_by_dest_name(mapper_router routers,
  *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum Pointer to a minimum value, or 0 for none.
  *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param value The address of a float value (or array) this signal
- *               implicitly reflects, or 0 for none.
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
-                       void *minimum, void *maximum, void *value,
+                       void *minimum, void *maximum,
                        mapper_signal_handler *handler, void *user_data);
 
 /*! Free memory used by a mapper_signal. Call this only for signals
