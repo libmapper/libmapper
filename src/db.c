@@ -987,9 +987,23 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
     sig->is_output = is_output;
     sig->type = type;
     sig->length = length;
-    sig->name = name ? strdup(name) : 0;
     sig->unit = unit ? strdup(unit) : 0;
     sig->extra = table_new();
+
+    if (!name)
+        return;
+
+    if (name[0]=='/')
+        sig->name = strdup(name);
+    else {
+        char *str = malloc(strlen(name)+2);
+        if (str) {
+            str[0] = '/';
+            str[1] = 0;
+            strcat(str, name);
+            sig->name = str;
+        }
+    }
 }
 
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
