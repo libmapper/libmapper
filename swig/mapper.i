@@ -182,8 +182,8 @@ typedef struct _signal {} signal;
                 }
             }
         }
-        return mdev_add_input($self, 1, name, unit, type,
-                              pmn, pmx, 0, h, PyFunc);
+        return mdev_add_input($self, name, 1, type, unit,
+                              pmn, pmx, h, PyFunc);
     }
     signal* add_output(const char *name, char type='f', const char *unit=0,
                        maybeSigVal minimum=0, maybeSigVal maximum=0)
@@ -227,8 +227,7 @@ typedef struct _signal {} signal;
                 }
             }
         }
-        return mdev_add_output($self, 1, name, unit, type,
-                               pmn, pmx, 0);
+        return mdev_add_output($self, name, 1, type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
