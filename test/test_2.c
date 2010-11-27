@@ -52,7 +52,8 @@ int setup_sources() {
 
 			sprintf( str, "/outsig%d", j );
             float mn=0, mx=1;
-			mdev_add_float_output(source_device_list[i], str, 0, &mn, &mx, 0, 0, 0);
+			mdev_add_output(source_device_list[i], 1, str, 0, 'f',
+                            &mn, &mx, 0);
 
 		}
 
@@ -118,7 +119,8 @@ int setup_destinations() {
 		for ( int j=0; j<number; j++ ) {
 
 			sprintf( str, "/insig%d", j );
-			mdev_add_float_input(dest_device_list[i], str, 0, &mn, &mx, 0, 0, 0);
+			mdev_add_input(dest_device_list[i], 1, str, 0, 'f',
+                           &mn, &mx, 0, 0, 0);
 
 		}
 

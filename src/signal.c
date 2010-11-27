@@ -21,7 +21,6 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
-    /* TODO signal direction */
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
 
     sig->value = (mapper_signal_value_t *) value;

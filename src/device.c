@@ -93,12 +93,10 @@ static void grow_ptr_array(void **array, int length, int *size)
     *array = realloc(*array, sizeof(void *) * (*size));
 }
 
-//! Add an input signal to a mapper device.
+// Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
                              const char *unit, char type,
-                             mapper_signal_value_t *minimum,
-                             mapper_signal_value_t *maximum,
-                             mapper_signal_value_t *value,
+                             void *minimum, void *maximum, void *value,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
@@ -121,41 +119,13 @@ mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
     return sig;
 }
 
-//! Add an integer (scalar) input signal to a mapper device.
-mapper_signal mdev_add_int_input(mapper_device md, const char *name, 
-                                 const char *unit, int *minimum, 
-                                 int *maximum, int *value,
-                                 mapper_signal_handler *handler, 
-                                 void *user_data)
-{
-    return mdev_add_input(md, 1, name, unit, 'i', MSIGVALP(minimum), 
-                          MSIGVALP(maximum), MSIGVALP(value), 
-                          handler, user_data);
-}
-
-//! Add a float (scalar) input signal to a mapper device.
-mapper_signal mdev_add_float_input(mapper_device md, const char *name, 
-                                   const char *unit, float *minimum, 
-                                   float *maximum, float *value,
-                                   mapper_signal_handler *handler, 
-                                   void *user_data)
-{
-    return mdev_add_input(md, 1, name, unit, 'f', MSIGVALP(minimum), 
-                          MSIGVALP(maximum), MSIGVALP(value), 
-                          handler, user_data);
-}
-
-//! Add an output signal to a mapper device.
+// Add an output signal to a mapper device.
 mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
                               const char *unit, char type,
-                              mapper_signal_value_t *minimum,
-                              mapper_signal_value_t *maximum,
-                              mapper_signal_value_t *value,
-                              mapper_signal_handler *handler,
-                              void *user_data)
+                              void *minimum, void *maximum, void *value)
 {
     mapper_signal sig = msig_new(length, name, unit, type, 1, minimum, 
-                                 maximum, value, handler, user_data);
+                                 maximum, value, 0, 0);
     md->n_outputs++;
     md->version++;
     grow_ptr_array((void **) &md->outputs, md->n_outputs,
@@ -169,30 +139,6 @@ mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
         md->update = 1;
     }
     return sig;
-}
-
-//! Add an integer (scalar) output signal to a mapper device.
-mapper_signal mdev_add_int_output(mapper_device md, const char *name, 
-                                  const char *unit, int *minimum, 
-                                  int *maximum, int *value,
-                                  mapper_signal_handler *handler, 
-                                  void *user_data)
-{
-    return mdev_add_output(md, 1, name, unit, 'i', MSIGVALP(minimum), 
-                           MSIGVALP(maximum), MSIGVALP(value), 
-                           handler, user_data);
-}
-
-//! Add a float (scalar) output signal to a mapper device.
-mapper_signal mdev_add_float_output(mapper_device md, const char *name, 
-                                    const char *unit, float *minimum, 
-                                    float *maximum, float *value,
-                                    mapper_signal_handler *handler, 
-                                    void *user_data)
-{
-    return mdev_add_output(md, 1, name, unit, 'f', MSIGVALP(minimum), 
-                           MSIGVALP(maximum), MSIGVALP(value), 
-                           handler, user_data);
 }
 
 int mdev_num_inputs(mapper_device md)
