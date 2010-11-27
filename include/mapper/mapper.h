@@ -113,8 +113,8 @@ void mdev_free(mapper_device device);
  *  the given length.
  *  \param name The name of the signal.
  *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param unit The unit of the signal, or 0 for none.
  *  \param type The type fo the signal value.
+ *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum Pointer to a minimum value, or 0 for none.
  *  \param maximum Pointer to a maximum value, or 0 for none.
  *  \param value The address of a value (or array) this signal
@@ -122,9 +122,9 @@ void mdev_free(mapper_device device);
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
-mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
-                             const char *unit, char type,
-                             void *minimum, void *maximum, void *value,
+mapper_signal mdev_add_input(mapper_device md, const char *name,
+                             int length, char type, const char *unit,
+                             void *value, void *minimum, void *maximum,
                              mapper_signal_handler *handler,
                              void *user_data);
 
@@ -136,14 +136,14 @@ mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
  *  the given length.
  *  \param name The name of the signal.
  *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param unit The unit of the signal, or 0 for none.
  *  \param type The type fo the signal value.
+ *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum Pointer to a minimum value, or 0 for none.
  *  \param maximum Pointer to a maximum value, or 0 for none.
  *  \param value The address of a value (or array) this signal
  *               implicitly reflects, or 0 for none. */
-mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
-                              const char *unit, char type,
+mapper_signal mdev_add_output(mapper_device md, const char *name,
+                              int length, char type, const char *unit,
                               void *minimum, void *maximum, void *value);
 
 //! Return the number of inputs.

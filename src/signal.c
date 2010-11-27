@@ -8,8 +8,8 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mapper_signal msig_new(int length, const char *name, const char *unit,
-                       char type, int is_output,
+mapper_signal msig_new(const char *name, int length, char type,
+                       int is_output, const char *unit,
                        void *minimum, void *maximum, void *value,
                        mapper_signal_handler *handler, void *user_data)
 {

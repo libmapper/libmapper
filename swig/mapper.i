@@ -134,9 +134,9 @@ typedef struct _signal {} signal;
     // Note, these functions return memory which is _not_ owned by
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
-    signal* add_input(const char *name, const char *unit=0, char type='f',
-                      maybeSigVal minimum=0, maybeSigVal maximum=0,
-                      PyObject *PyFunc=0)
+    signal* add_input(const char *name, const char type='f',
+                      PyObject *PyFunc=0, char *unit=0,
+                      maybeSigVal minimum=0, maybeSigVal maximum=0)
     {
         void *h = 0;
         if (PyFunc) {
@@ -185,7 +185,7 @@ typedef struct _signal {} signal;
         return mdev_add_input($self, 1, name, unit, type,
                               pmn, pmx, 0, h, PyFunc);
     }
-    signal* add_output(const char *name, const char *unit=0, char type='f',
+    signal* add_output(const char *name, char type='f', const char *unit=0,
                        maybeSigVal minimum=0, maybeSigVal maximum=0)
     {
         float mn, mx, *pmn=0, *pmx=0;
