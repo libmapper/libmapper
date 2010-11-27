@@ -10,6 +10,7 @@
 
 mapper_signal msig_new(int length, const char *name, const char *unit,
                        char type,
+					   int is_output,
                        mapper_signal_value_t *minimum,
                        mapper_signal_value_t *maximum,
                        mapper_signal_value_t *value,
@@ -24,7 +25,7 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
     /* TODO signal direction */
-    mapper_db_signal_init(&sig->props, 0, type, length, name, unit);
+    mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
 
     sig->value = (mapper_signal_value_t *) value;
     sig->handler = handler;
@@ -34,6 +35,7 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
     return sig;
 }
 
+/*
 mapper_signal msig_float(int length, const char *name, const char *unit,
                          float *minimum, float *maximum, float *value,
                          mapper_signal_handler *handler, void *user_data)
@@ -51,6 +53,7 @@ mapper_signal msig_int(int length, const char *name, const char *unit,
                     MSIGVALP(maximum), MSIGVALP(value),
                     handler, user_data);
 }
+*/
 
 mapper_db_signal msig_get_properties(mapper_signal sig)
 {

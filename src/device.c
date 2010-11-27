@@ -102,7 +102,7 @@ mapper_signal mdev_add_input(mapper_device md, int length, const char *name,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
-    mapper_signal sig = msig_new(length, name, unit, type, minimum, 
+    mapper_signal sig = msig_new(length, name, unit, type, 0, minimum, 
                                  maximum, value, handler, user_data);
     md->n_inputs++;
     md->version++;
@@ -154,7 +154,7 @@ mapper_signal mdev_add_output(mapper_device md, int length, const char *name,
                               mapper_signal_handler *handler,
                               void *user_data)
 {
-    mapper_signal sig = msig_new(length, name, unit, type, minimum, 
+    mapper_signal sig = msig_new(length, name, unit, type, 1, minimum, 
                                  maximum, value, handler, user_data);
     md->n_outputs++;
     md->version++;

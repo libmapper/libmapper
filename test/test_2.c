@@ -12,9 +12,9 @@
 #include <arpa/inet.h>
 #include <signal.h>
 
-#define num_sources 10
-#define num_dests 10
-#define max_num_signals 10
+#define num_sources 5
+#define num_dests 5
+#define max_num_signals 4
 
 int automate = 0;
 

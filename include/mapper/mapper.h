@@ -46,6 +46,7 @@ typedef void mapper_signal_handler(struct _mapper_signal *msig,
  *  \param user_data User context pointer to be passed to handler. */
 mapper_signal msig_new(int length, const char *name, const char *unit,
                        char type,
+					   int is_output,
                        mapper_signal_value_t *minimum,
                        mapper_signal_value_t *maximum,
                        mapper_signal_value_t *value,
@@ -66,9 +67,11 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
+/*
 mapper_signal msig_float(int length, const char *name, const char *unit,
                          float *minimum, float *maximum, float *value,
                          mapper_signal_handler *handler, void *user_data);
+*/
 
 /*! Create a signal structure for a inting point scalar or
  *  vector. This is just a shortcut for msig_new() for the common case
@@ -85,9 +88,11 @@ mapper_signal msig_float(int length, const char *name, const char *unit,
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
+/*
 mapper_signal msig_int(int length, const char *name, const char *unit,
                          int *minimum, int *maximum, int *value,
                          mapper_signal_handler *handler, void *user_data);
+*/
 
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
