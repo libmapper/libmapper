@@ -194,23 +194,30 @@ Creating a signal
 A signal requires a bit more information than a device, much of which
 is optional:
 
-    mapper_signal msig_new( int length,
-                            const char *name,
-                            const char *unit,
-                            char type,
-                            mapper_signal_value_t *minimum,
-                            mapper_signal_value_t *maximum,
-                            mapper_signal_value_t *value,
-                            mapper_signal_handler *handler,
-                            void *user_data )
+    mapper_signal mdev_add_input( const char *name,
+                                  int length,
+                                  char type,
+                                  const char *unit,
+                                  void *minimum,
+                                  void *maximum,
+                                  mapper_signal_handler *handler,
+                                  void *user_data )
+
+    mapper_signal mdev_add_output( const char *name,
+                                   int length,
+                                   char type,
+                                   const char *unit,
+                                   void *minimum,
+                                   void *maximum )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
 usual single-valued signals, a length of 1 should be specified.  A
 signal name should start with "/", as this is how it is represented in
-the OSC address.  Finally, supported types are currently 'i' or 'f'
-(specified as characters in C, not strings), for `int` or `float`
-values, respectively.
+the OSC address.  (One will be added if you forget to do this.)
+Finally, supported types are currently 'i' or 'f' (specified as
+characters in C, not strings), for `int` or `float` values,
+respectively.
 
 The other parameters are not strictly required, but the more
 information you provide, the more the mapper can do some things
@@ -218,68 +225,41 @@ automatically.  For example, if `minimum` and `maximum` are provided,
 it will be possible to create linear-scaled mappings very quickly.  If
 `unit` is provided, the mapper will be able to similarly figure out a
 linear scaling based on unit conversion. (Centimeters to inches for
-example.)^[Currently automatic unit scaling is not a supported
+example.)^[Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of
 this future development by simply providing unit information whenever
-it is available.]
+it is available.  It is also helpful documentation for users.]
 
-Notice that values are provided as pointers to
-`mapper_signal_value_t`.  This is simply a C union which contains the
-various supported types.  Therefore a pointer to `float` or pointer to
-`int` can be converted to a pointer to `mapper_signal_value_t` by
-pointer conversion.  The macro `MSIGVALP` is provided for converting
-pointers, while `MSIGVAL` should be used for converting `float` or
-`int` variables.
+Notice that optional values are provided as `void*` pointers.  This is
+because a signal can either be `float` or `int`, and your maximum and
+minimum values should correspond in type.  So you should pass in a
+`float*` or `int*` by taking the address of a local variable.
 
-The `value` parameter is a pointer to a value that can be used for
-"auto-update".  As we'll see, outgoing signal values must be
-explicitly updated in order to send them out to mapped devices.
-However, if a pointer to a variable is provided here, the value can be
-auto-updated whenever a change is noticed in its value, avoiding the
-need to explicitly call `msig_update` for every value. _(This feature
-still under development, provide 0 for now.)_
+Lastly, it is usually necessary to be informed when input signal
+values change.  This is done by providing a function to be called
+whenever its value is modified by a mapping.  It is passed in the
+`handler` parameter, with context information to be passed to that
+function during callback in `user_data`.
 
-Lastly, it is usually useful to be informed when input signal values
-change.  This is done by providing a function to be called whenever
-its value is modified by a mapping.  It is passed in the `handler`
-parameter, with context information to be passed to that function
-during callback in `user_data`.
+An example of creating a "barebones" `int` scalar output signal with
+no unit, minimum, or maximum information:
 
-An example of creating a "barebones" `int` scalar signal:
-
-    mapper_signal outputA = msig_new( 1, "/outA", 0, 'i', 0, 0, 0, 0, 0 );
+    mapper_signal outputA = mdev_add_output( dev, "/outA", 1, 'i', 0, 0, 0 );
 
 An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper_signal sensor1_voltage = msig_new( 1, "/sensor1", "V", 'f',
-                                              MSIGVALP(&minimum), MSIGVALP(&maximum),
-                                              0, 0, 0 );
+    mapper_signal sensor1_voltage = mdev_add_output( dev, "/sensor1", 1, 'f',
+                                                     "V", &minimum, &maximum );
 
-For some common cases, specifically `int` or `float` scalar signals,
-some short-hand functions are provided.  The above call to `msig_new`
-could be equivalently replaced by:
-
-    mapper_signal sensor1_voltage = msig_float( "/sensor1", "V",
-                                                MSIGVALP(&minimum), MSIGVALP(&maximum),
-                                                0, 0, 0 );
-
-Registering our output signal
------------------------------
-
-So far we know how to create a device and a signal.  We need to tell
-the device to use this signal as an output.  This is done simply by
-calling `mdev_register_output` with the device and the signal as
-arguments.  It can be called at any time, before or after the device
-has been completely initialized.  To recap, let's review the code so
-far:
+So far we know how to create a device and to specify an output signal
+for it.  To recap, let's review the code so far:
  
     mapper_device my_sender = mdev_new("test_sender", 9000, 0);
-    mapper_signal sensor1_voltage = msig_float( "/sensor1", "V",
-                                                MSIGVALP(&minimum), MSIGVALP(&maximum),
-                                                0, 0, 0 );
-    mdev_register_output(my_sender, sensor1_voltage);
+    mapper_signal sensor1_voltage = mdev_add_output( my_sender, "/sensor1",
+                                                     1, 'f', "V",
+                                                     &minimum, &maximum )
     
     while (!done) {
         mdev_poll(my_sender, 50);
@@ -289,15 +269,13 @@ far:
     
     mdev_free(my_sender);
 
-Note that once you have registered a signal, its memory "owned" by the
-device.  In other words, you should not call `msig_free` on signals
-that are registered.  When a device is free, it will free all its
-signals, so after creating and registering signals you can "forget"
-about them without issue.  It is possible to retrieve a device's
-inputs or outputs by name or by index at a later time using
-`mdev_find_input_by_name` or `mdev_find_output_by_name`.
-
-TODO: add find_<in/out>_by_index? change "find" to "get"?
+Note that although you have a pointer to the mapper_signal structure,
+which was retuned by `mdev_add_output`, its memory "owned" by the
+device.  In other words, you should not worry about freeing its
+memory--this will happen automatically when the device is destroyed.
+It is possible to retrieve a device's inputs or outputs by name or by
+index at a later time using the functions
+`mdev_get_<input/output>_by_<name/index>`.
 
 Updating signals
 ----------------
@@ -312,20 +290,20 @@ devices if that signal is mapped.
 
 This is accomplished by the `msig_update` function:
 
-    void msig_update( mapper_signal sig,
-                      mapper_signal_value_t *value )
+    void msig_update( mapper_signal sig, void *value )
 
-As you can see, a pointer to `mapper_signal_value_t` must be provided.
-This must point to a data structure identified by the signal's
-`length` and `type`.  In other words, if the signal is a 10-vector of
-`int`, then `value` should point to the first item in a C array of 10
-`int`s.  If it is a scalar `float`, it should be provided with the
-address of a `float` variable.
+As you can see, a `void*` pointer must be provided.  This must point
+to a data structure identified by the signal's `length` and `type`.
+In other words, if the signal is a 10-vector of `int`, then `value`
+should point to the first item in a C array of 10 `int`s.  If it is a
+scalar `float`, it should be provided with the address of a `float`
+variable.
 
-Again, a short-hand is provided for scalar signals:
+A short-hand is provided for scalar signals of particular types:
 
-    void msig_update_scalar( mapper_signal sig,
-                             mapper_signal_value_t value )
+    void msig_update_int( mapper_signal sig, int value )
+
+    void msig_update_float( mapper_signal sig, float value )
 
 So in the "sensor 1 voltage" example, assuming in "do stuff" we have
 some code which reads sensor 1's value into a float variable called
@@ -334,7 +312,7 @@ some code which reads sensor 1's value into a float variable called
     while (!done) {
         mdev_poll(my_device, 50);
         float v1 = read_sensor_1();
-        msig_update_scalar( sensor1_voltage, MSIGVAL(v1) );
+        msig_update_float( sensor1_voltage, v1 );
     }
 
 This is about all that is needed to expose sensor 1's voltage to the
@@ -383,11 +361,11 @@ Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
 pair to test out the provided mapping functionality.
 
-As mentioned above, the `msig_new` function takes an optional
+As mentioned above, the `mdev_add_input` function takes an optional
 `handler` and `user_data`.  This is a function that will be called
 whenever the value of that signal changes.  To create a receiver for a
 synthesizer parameter "pulse width" (given as a ratio between 0 and
-1), specify a handler and called `mdev_register_input`.  We'll imagine
+1), specify a handler when calling `mdev_add_input`.  We'll imagine
 there is some C++ synthesizer implemented as a class `Synthesizer`
 which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
@@ -396,15 +374,17 @@ audio thread.
 Create the handler function, which is fairly simple,
 
     void pulsewidth_handler ( struct _mapper_signal *msig,
-                              mapper_signal_value_t *v )
+                              void *v )
     {
         Synthesizer *s = (Synthesizer*) msig->user_data;
-        s->setPulseWidth(v->f);
+        s->setPulseWidth(*(float*)v);
     }
 
-First, the pointer to the `Synthesizer` instance is extracted from the `user_data` pointer, then it is dereferenced to set the pulse width.
+First, the pointer to the `Synthesizer` instance is extracted from the
+`user_data` pointer, then it is dereferenced to set the pulse width
+according to the value pointed to by `v`.
 
-and then `main()` will look like,
+Then `main()` will look like,
 
     void main()
     {
@@ -416,11 +396,9 @@ and then `main()` will look like,
         
         mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
         
-        mapper_signal synth_pulsewidth = msig_float( "/synth/pulsewidth, 0,
-                                                     MSIGVALP(&min_pw), MSIGVALP(&max_pw),
-                                                     0, pulsewidth_handler, &synth );
-        
-        mdev_register_input(my_receiver, osc1_pulsewidth);
+        mapper_signal synth_pulsewidth = mdev_add_input( my_receiver, "/synth/pulsewidth",
+                                                         1, 'f', 0, &min_pw, &max_pw,
+                                                         pulsewidth_handler, &synth );
         
         while (!done)
             mdev_poll(my_receiver, 50);
