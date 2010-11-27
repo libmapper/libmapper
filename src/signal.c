@@ -93,16 +93,22 @@ void msig_free(mapper_signal sig)
     free(sig);
 }
 
-void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value)
+void msig_update_int(mapper_signal sig, int value)
 {
     if (sig->device)
-        mdev_route_signal(sig->device, sig, &value);
+        mdev_route_signal(sig->device, sig, MSIGVALP(&value));
 }
 
-void msig_update(mapper_signal sig, mapper_signal_value_t *value)
+void msig_update_float(mapper_signal sig, float value)
 {
     if (sig->device)
-        mdev_route_signal(sig->device, sig, value);
+        mdev_route_signal(sig->device, sig, MSIGVALP(&value));
+}
+
+void msig_update(mapper_signal sig, void *value)
+{
+    if (sig->device)
+        mdev_route_signal(sig->device, sig, MSIGVALP(value));
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,

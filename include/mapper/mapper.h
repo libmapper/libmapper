@@ -60,19 +60,30 @@ void msig_set_property(mapper_signal sig, const char *property,
  *  \param property  The name of the property to remove. */
 void msig_remove_property(mapper_signal sig, const char *property);
 
-/*! Update the value of a signal.
+/*! Update the value of a scalar signal of type int.
  *  This is a scalar equivalent to msig_update(), for when passing by
  *  value is more convenient than passing a pointer.
  *  The signal will be routed according to external requests.
  *  \param sig The signal to update.
  *  \param value A new scalar value for this signal. */
-void msig_update_scalar(mapper_signal sig, mapper_signal_value_t value);
+void msig_update_int(mapper_signal sig, int value);
+
+/*! Update the value of a scalar signal of type float.
+ *  This is a scalar equivalent to msig_update(), for when passing by
+ *  value is more convenient than passing a pointer.
+ *  The signal will be routed according to external requests.
+ *  \param sig The signal to update.
+ *  \param value A new scalar value for this signal. */
+void msig_update_float(mapper_signal sig, float value);
 
 /*! Update the value of a signal.
  *  The signal will be routed according to external requests.
  *  \param sig The signal to update.
- *  \param value A pointer to a new value for this signal. */
-void msig_update(mapper_signal sig, mapper_signal_value_t *value);
+ *  \param value A pointer to a new value for this signal.  If the
+ *         signal type is 'i', this should be int*; if the signal type
+ *         is 'f', this should be float*.  It should be an array at
+ *         least as long as the signal's length property. */
+void msig_update(mapper_signal sig, void *value);
 
 /*! Get the full OSC name of a signal, including device name
  *  prefix.

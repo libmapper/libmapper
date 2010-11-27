@@ -37,7 +37,7 @@ int test_controller()
         mdev_poll(md, 500);
         printf("Updating signal %s to %f\n",
                sig->props.name, (i * 1.0f));
-        msig_update_scalar(sig, (mval) (i * 1.0f));
+        msig_update_float(sig, (i * 1.0f));
     }
 
     mdev_remove_router(md, rt);

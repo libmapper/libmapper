@@ -154,10 +154,8 @@ void loop()
 
     while (i >= 0 && !done) {
         mdev_poll(source, 0);
-        msig_update_scalar(source->outputs[0],
-                           (mval) ((i % 10) * 1.0f));
-        msig_update_scalar(source->outputs[1],
-                           (mval) ((i % 10) * 1.0f));
+        msig_update_float(source->outputs[0], ((i % 10) * 1.0f));
+        msig_update_float(source->outputs[1], ((i % 10) * 1.0f));
         printf("source value updated to %d -->\n", i % 10);
 
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
