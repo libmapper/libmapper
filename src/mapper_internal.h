@@ -108,6 +108,34 @@ mapper_router mapper_router_find_by_dest_name(mapper_router routers,
 
 /**** Signals ****/
 
+/*! Create a signal structure and fill it with provided
+ *  arguments. Values and strings pointed to by this call (except
+ *  user_data) will be copied. Signals should be freed by msig_free()
+ *  only if they are not registered with a device.
+ *  For minimum, maximum, and value, if type='f', should be float*, or
+ *  if type='i', then should be int*.
+ *  \param name The name of the signal, starting with '/'.
+ *  \param length The length of the signal vector, or 1 for a scalar.
+ *  \param unit The unit of the signal, or 0 for none.
+ *  \param type The type fo the signal value.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none.
+ *  \param value The address of a float value (or array) this signal
+ *               implicitly reflects, or 0 for none.
+ *  \param handler Function to be called when the value of the
+ *                 signal is updated.
+ *  \param user_data User context pointer to be passed to handler. */
+mapper_signal msig_new(int length, const char *name, const char *unit,
+                       char type, int is_output,
+                       void *minimum, void *maximum, void *value,
+                       mapper_signal_handler *handler, void *user_data);
+
+/*! Free memory used by a mapper_signal. Call this only for signals
+ *  that are not registered with a device. Registered signals will be
+ *  freed by mdev_free().
+ *  \param sig The signal to free. */
+void msig_free(mapper_signal sig);
+
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
 

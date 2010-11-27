@@ -9,11 +9,8 @@
 #include <mapper/mapper.h>
 
 mapper_signal msig_new(int length, const char *name, const char *unit,
-                       char type,
-					   int is_output,
-                       mapper_signal_value_t *minimum,
-                       mapper_signal_value_t *maximum,
-                       mapper_signal_value_t *value,
+                       char type, int is_output,
+                       void *minimum, void *maximum, void *value,
                        mapper_signal_handler *handler, void *user_data)
 {
     if (length < 1) return 0;
@@ -34,26 +31,6 @@ mapper_signal msig_new(int length, const char *name, const char *unit,
     msig_set_maximum(sig, maximum);
     return sig;
 }
-
-/*
-mapper_signal msig_float(int length, const char *name, const char *unit,
-                         float *minimum, float *maximum, float *value,
-                         mapper_signal_handler *handler, void *user_data)
-{
-    return msig_new(length, name, unit, 'f', MSIGVALP(minimum),
-                    MSIGVALP(maximum),  MSIGVALP(value),
-                    handler, user_data);
-}
-
-mapper_signal msig_int(int length, const char *name, const char *unit,
-                         int *minimum, int *maximum, int *value,
-                         mapper_signal_handler *handler, void *user_data)
-{
-    return msig_new(length, name, unit, 'i', MSIGVALP(minimum), 
-                    MSIGVALP(maximum), MSIGVALP(value),
-                    handler, user_data);
-}
-*/
 
 mapper_db_signal msig_get_properties(mapper_signal sig)
 {
