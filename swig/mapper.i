@@ -134,38 +134,9 @@ typedef struct _signal {} signal;
     // Note, these functions return memory which is _not_ owned by
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
-    signal* add_int_input(const char *name, const char *unit,
-                         maybeSigVal minimum, maybeSigVal maximum,
-                         PyObject *PyFunc)
-    {
-        void *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        int mn, mx, *pmn=0, *pmx=0;
-        if (minimum) {
-            if (minimum->t == 'i')
-                pmn = &minimum->v.i32;
-            else {
-                mn = (int)minimum->v.f;
-                pmn = &mn;
-            }
-        }
-        if (maximum) {
-            if (maximum->t == 'i')
-                pmx = &maximum->v.i32;
-            else {
-                mx = (int)maximum->v.f;
-                pmx = &mx;
-            }
-        }
-        return mdev_add_int_input($self, name, unit,
-                                  pmn, pmx, 0, h, PyFunc);
-    }
-    signal* add_float_input(const char *name, const char *unit,
-                           maybeSigVal minimum, maybeSigVal maximum,
-                           PyObject *PyFunc)
+    signal* add_input(const char *name, const char *unit, char type,
+                      maybeSigVal minimum, maybeSigVal maximum,
+                      PyObject *PyFunc)
     {
         void *h = 0;
         if (PyFunc) {
@@ -173,68 +144,91 @@ typedef struct _signal {} signal;
             Py_XINCREF(PyFunc);
         }
         float mn, mx, *pmn=0, *pmx=0;
-        if (minimum) {
-            if (minimum->t == 'f')
-                pmn = &minimum->v.f;
-            else {
-                mn = (float)minimum->v.i32;
-                pmn = &mn;
+        if (type == 'f')
+        {
+            if (minimum) {
+                if (minimum->t == 'f')
+                    pmn = &minimum->v.f;
+                else {
+                    mn = (float)minimum->v.i32;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'f')
+                    pmx = &maximum->v.f;
+                else {
+                    mx = (float)maximum->v.i32;
+                    pmx = &mx;
+                }
             }
         }
-        if (maximum) {
-            if (maximum->t == 'f')
-                pmx = &maximum->v.f;
-            else {
-                mx = (float)maximum->v.i32;
-                pmx = &mx;
+        else if (type == 'i')
+        {
+            if (minimum) {
+                if (minimum->t == 'i')
+                    pmn = &minimum->v.i32;
+                else {
+                    mn = (int)minimum->v.f;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'i')
+                    pmx = &maximum->v.i32;
+                else {
+                    mx = (int)maximum->v.f;
+                    pmx = &mx;
+                }
             }
         }
-        return mdev_add_float_input($self, name, unit,
-                                    pmn, pmx, 0, h, PyFunc);
+        return mdev_add_input($self, 1, name, unit, type,
+                              pmn, pmx, 0, h, PyFunc);
     }
-    signal* add_int_output(const char *name, const char *unit,
-                           maybeSigVal minimum, maybeSigVal maximum)
-    {
-        int mn, mx, *pmn=0, *pmx=0;
-        if (minimum) {
-            if (minimum->t == 'i')
-                pmn = &minimum->v.i32;
-            else {
-                mn = (int)minimum->v.f;
-                pmn = &mn;
-            }
-        }
-        if (maximum) {
-            if (maximum->t == 'i')
-                pmx = &maximum->v.i32;
-            else {
-                mx = (int)maximum->v.f;
-                pmx = &mx;
-            }
-        }
-        return mdev_add_int_output($self, name, unit, pmn, pmx, 0, 0, 0);
-    }
-    signal* add_float_output(const char *name, const char *unit,
-                             maybeSigVal minimum, maybeSigVal maximum)
+    signal* add_output(const char *name, const char *unit, char type,
+                       maybeSigVal minimum, maybeSigVal maximum)
     {
         float mn, mx, *pmn=0, *pmx=0;
-        if (minimum) {
-            if (minimum->t == 'f')
-                pmn = &minimum->v.f;
-            else {
-                mn = (float)minimum->v.i32;
-                pmn = &mn;
+        if (type == 'f')
+        {
+            if (minimum) {
+                if (minimum->t == 'f')
+                    pmn = &minimum->v.f;
+                else {
+                    mn = (float)minimum->v.i32;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'f')
+                    pmx = &maximum->v.f;
+                else {
+                    mx = (float)maximum->v.i32;
+                    pmx = &mx;
+                }
             }
         }
-        if (maximum) {
-            if (maximum->t == 'f')
-                pmx = &maximum->v.f;
-            else {
-                mx = (float)maximum->v.i32;
-                pmx = &mx;
+        else if (type == 'i')
+        {
+            if (minimum) {
+                if (minimum->t == 'i')
+                    pmn = &minimum->v.i32;
+                else {
+                    mn = (int)minimum->v.f;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'i')
+                    pmx = &maximum->v.i32;
+                else {
+                    mx = (int)maximum->v.f;
+                    pmx = &mx;
+                }
             }
         }
-        return mdev_add_float_output($self, name, unit, pmn, pmx, 0, 0, 0);
+        return mdev_add_output($self, 1, name, unit, type,
+                               pmn, pmx, 0);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
