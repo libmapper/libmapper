@@ -242,6 +242,18 @@ typedef struct _signal {} signal;
     const char *get_name() { return mdev_name($self); }
     int get_num_inputs() { return mdev_num_inputs($self); }
     int get_num_outputs() { return mdev_num_outputs($self); }
+    signal *get_input_by_name(const char *name) {
+        return mdev_get_input_by_name($self, name, 0);
+    }
+    signal *get_output_by_name(const char *name) {
+        return mdev_get_output_by_name($self, name, 0);
+    }
+    signal *get_input_by_index(int index) {
+        return mdev_get_input_by_index($self, index);
+    }
+    signal *get_output_by_index(int index) {
+        return mdev_get_output_by_index($self, index);
+    }
     %pythoncode {
         port = property(get_port)
         name = property(get_name)

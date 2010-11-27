@@ -148,29 +148,41 @@ int mdev_num_inputs(mapper_device device);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device device);
 
-/*! Find an input signal by name.
- *  \param md Device to search in.
- *  \param name Name of output signal to search for. It may optionally
+/*! Get an input signal with a given name.
+ *  \param dev Device to search in.
+ *  \param name Name of input signal to search for. It may optionally
  *              begin with a '/' character.
- *  \param result Optional place to get the matching mapper_signal
- *                pointer. It will have a value of 0 if not found.
- *  \return Index of the signal in the device's input signal array, or
- *          -1 if not found.
+ *  \param index Optional place to receive the index of the matching signal.
+ *  \return Pointer to the mapper_signal describing the signal, or zero
+ *          if not found.
  */
-int mdev_find_input_by_name(mapper_device md, const char *name,
-                            mapper_signal *result);
+mapper_signal mdev_get_input_by_name(mapper_device dev, const char *name,
+                                     int *index);
 
-/*! Find an output signal by name.
- *  \param md Device to search in.
+/*! Get an output signal with a given name.
+ *  \param dev Device to search in.
  *  \param name Name of output signal to search for. It may optionally
  *              begin with a '/' character.
- *  \param result Optional place to get the matching mapper_signal
- *                pointer. It will have a value of 0 if not found.
- *  \return Index of the signal in the device's output signal array,
- *          or -1 if not found.
+ *  \param index Optional place to receive the index of the matching signal.
+ *  \return Pointer to the mapper_signal describing the signal, or zero
+ *          if not found.
  */
-int mdev_find_output_by_name(mapper_device md, const char *name,
-                             mapper_signal *result);
+mapper_signal mdev_get_output_by_name(mapper_device dev, const char *name,
+                                      int *index);
+
+/* Get an input signal with the given index.
+ * \param dev The device to search in.
+ * \param index Index of the signal to retrieve.
+ * \return Pointer to the mapper_signal describing the signal, or zero
+ *         if not found. */
+mapper_signal mdev_get_input_by_index(mapper_device dev, int index);
+
+/* Get an output signal with the given index.
+ * \param dev The device to search in.
+ * \param index Index of the signal to retrieve.
+ * \return Pointer to the mapper_signal describing the signal, or zero
+ *         if not found. */
+mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.

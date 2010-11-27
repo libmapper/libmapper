@@ -1431,7 +1431,7 @@ static int handler_signal_connect(const char *path, const char *types,
     trace("<%s> got /connect %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    if (mdev_find_input_by_name(md, dest_signal_name, &input) < 0)
+    if (!(input=mdev_get_input_by_name(md, dest_signal_name, 0)))
     {
         trace("<%s> no input signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), dest_signal_name);
@@ -1498,7 +1498,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
     trace("<%s> got /connectTo %s %s + %d arguments\n",
           mapper_admin_name(admin), src_name, dest_name, argc);
 
-    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
+    if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), src_signal_name);
@@ -1624,7 +1624,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
                        &src_signal_name))
         return 0;
             
-    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
+    if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /connectTo\n",
               mapper_admin_name(admin), src_signal_name);
@@ -1683,7 +1683,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
                        &src_signal_name))
         return 0;
     
-    if (mdev_find_output_by_name(md, src_signal_name, &output) < 0)
+    if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /disconnect\n",
               mapper_admin_name(admin), src_signal_name);

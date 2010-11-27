@@ -100,7 +100,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
-    if (mdev_find_input_by_name(md, name, 0) != -1)
+    if (mdev_get_input_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
                                  maximum, handler, user_data);
@@ -126,7 +126,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               char type, const char *unit,
                               void *minimum, void *maximum)
 {
-    if (mdev_find_output_by_name(md, name, 0) != -1)
+    if (mdev_get_output_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
                                  maximum, 0, 0);
@@ -155,8 +155,8 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
-int mdev_find_input_by_name(mapper_device md, const char *name,
-                            mapper_signal *result)
+mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
+                                     int *index)
 {
     int i;
     int slash = name[0]=='/' ? 1 : 0;
@@ -165,18 +165,16 @@ int mdev_find_input_by_name(mapper_device md, const char *name,
         if (strcmp(md->inputs[i]->props.name + 1,
                    name + slash)==0)
         {
-            if (result)
-                *result = md->inputs[i];
-            return i;
+            if (index)
+                *index = i;
+            return md->inputs[i];
         }
     }
-    if (result)
-        *result = 0;
-    return -1;
+    return 0;
 }
 
-int mdev_find_output_by_name(mapper_device md, const char *name,
-                             mapper_signal *result)
+mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
+                                      int *index)
 {
     int i;
     int slash = name[0]=='/' ? 1 : 0;
@@ -185,14 +183,26 @@ int mdev_find_output_by_name(mapper_device md, const char *name,
         if (strcmp(md->outputs[i]->props.name + 1,
                    name + slash)==0)
         {
-            if (result)
-                *result = md->outputs[i];
-            return i;
+            if (index)
+                *index = i;
+            return md->outputs[i];
         }
     }
-    if (result)
-        *result = 0;
-    return -1;
+    return 0;
+}
+
+mapper_signal mdev_get_input_by_index(mapper_device md, int index)
+{
+    if (index >= 0 && index < md->n_inputs)
+        return md->inputs[index];
+    return 0;
+}
+
+mapper_signal mdev_get_output_by_index(mapper_device md, int index)
+{
+    if (index >= 0 && index < md->n_outputs)
+        return md->outputs[index];
+    return 0;
 }
 
 int mdev_poll(mapper_device md, int block_ms)
