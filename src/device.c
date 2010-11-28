@@ -93,6 +93,14 @@ static void grow_ptr_array(void **array, int length, int *size)
     *array = realloc(*array, sizeof(void *) * (*size));
 }
 
+static void mdev_increment_version(mapper_device md)
+{
+    md->version ++;
+    if (md->admin->registered) {
+        md->update = 1;
+    }
+}
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -105,17 +113,15 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
                                  maximum, handler, user_data);
     md->n_inputs++;
-    md->version++;
     grow_ptr_array((void **) &md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
+
+    mdev_increment_version(md);
 
     md->inputs[md->n_inputs - 1] = sig;
     sig->device = md;
     if (md->admin->name)
         sig->props.device_name = md->admin->name;
-    if (md->admin->registered) {
-        md->update = 1;
-    }
 
     mdev_start_server(md);
     return sig;
@@ -131,18 +137,52 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
                                  maximum, 0, 0);
     md->n_outputs++;
-    md->version++;
     grow_ptr_array((void **) &md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
+
+    mdev_increment_version(md);
 
     md->outputs[md->n_outputs - 1] = sig;
     sig->device = md;
     if (md->admin->name)
         sig->props.device_name = md->admin->name;
-    if (md->admin->registered) {
-        md->update = 1;
-    }
     return sig;
+}
+
+void mdev_remove_input(mapper_device md, mapper_signal sig)
+{
+    int i, n;
+    for (i=0; i<md->n_inputs; i++) {
+        if (md->inputs[i] == sig)
+            break;
+    }
+    if (i==md->n_inputs)
+        return;
+
+    for (n=i; n<(md->n_inputs-1); n++) {
+        md->inputs[n] = md->inputs[n+1];
+    }
+    md->n_inputs --;
+    mdev_increment_version(md);
+    msig_free(sig);
+}
+
+void mdev_remove_output(mapper_device md, mapper_signal sig)
+{
+    int i, n;
+    for (i=0; i<md->n_outputs; i++) {
+        if (md->outputs[i] == sig)
+            break;
+    }
+    if (i==md->n_outputs)
+        return;
+
+    for (n=i; n<(md->n_outputs-1); n++) {
+        md->outputs[n] = md->outputs[n+1];
+    }
+    md->n_outputs --;
+    mdev_increment_version(md);
+    msig_free(sig);
 }
 
 int mdev_num_inputs(mapper_device md)

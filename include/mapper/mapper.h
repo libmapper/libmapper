@@ -155,6 +155,16 @@ mapper_signal mdev_add_output(mapper_device dev, const char *name,
                               int length, char type, const char *unit,
                               void *minimum, void *maximum);
 
+/* Remove a device's input signal.
+ * \param dev The device to remove a signal from.
+ * \param sig The signal to remove. */ 
+void mdev_remove_input(mapper_device dev, mapper_signal sig);
+
+/* Remove a device's output signal.
+ * \param dev The device to remove a signal from.
+ * \param sig The signal to remove. */
+void mdev_remove_output(mapper_device dev, mapper_signal sig);
+
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device device);
 
