@@ -259,6 +259,28 @@ const char *mdev_name(mapper_device device);
  *  not available. */
 unsigned int mdev_port(mapper_device device);
 
+/*! Return the IPv4 address used by a device to receive signals, if available.
+ *  \param device The device to query.
+ *  \return A pointer to an in_addr struct indicating the device's IP
+ *          address, or zero if it is not available.  In general this
+ *          will be the IPv4 address associated with the selected
+ *          local network interface.
+ */
+struct in_addr *mdev_ip4(mapper_device device);
+
+/*! Return a string indicating the name of the network interface this
+ *  device is listening on.
+ *  \param device The device to query.
+ *  \return A string containing the name of the network interface. */
+const char *mdev_interface(mapper_device md);
+
+/*! Return an allocated ordinal which is appended to this device's
+ *  network name.  In general the results of this function are not
+ *  valid unless mdev_ready() returns non-zero.
+ *  \param device The device to query.
+ *  \return A positive ordinal unique to this device (per name). */
+unsigned int mdev_ordinal(mapper_device md);
+
 /* @} */
 
 /*** Admins ***/

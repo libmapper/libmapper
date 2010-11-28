@@ -429,6 +429,27 @@ unsigned int mdev_port(mapper_device md)
         return 0;
 }
 
+struct in_addr *mdev_ip4(mapper_device md)
+{
+    if (md->admin->port.locked)
+        return &md->admin->interface_ip;
+    else
+        return 0;
+}
+
+const char *mdev_interface(mapper_device md)
+{
+    return md->admin->interface;
+}
+
+unsigned int mdev_ordinal(mapper_device md)
+{
+    if (md->admin->ordinal.locked)
+        return md->admin->ordinal.value;
+    else
+        return 0;
+}
+
 int mdev_ready(mapper_device device)
 {
     if (!device)
