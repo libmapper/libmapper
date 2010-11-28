@@ -30,7 +30,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     return sig;
 }
 
-mapper_db_signal msig_get_properties(mapper_signal sig)
+mapper_db_signal msig_properties(mapper_signal sig)
 {
     return &sig->props;
 }

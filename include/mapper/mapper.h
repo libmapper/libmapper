@@ -44,7 +44,7 @@ void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum);
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.
  *  \return     A structure containing the signal's properties. */
-mapper_db_signal msig_get_properties(mapper_signal sig);
+mapper_db_signal msig_properties(mapper_signal sig);
 
 /*! Set a property of a signal.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.

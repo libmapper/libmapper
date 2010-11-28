@@ -376,7 +376,7 @@ Create the handler function, which is fairly simple,
     void pulsewidth_handler ( mapper_signal msig,
                               void *v )
     {
-        mapper_db_signal props = msig_get_properties(msig);
+        mapper_db_signal props = msig_properties(msig);
         Synthesizer *s = (Synthesizer*) props->user_data;
         s->setPulseWidth(*(float*)v);
     }
