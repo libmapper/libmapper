@@ -373,10 +373,11 @@ audio thread.
 
 Create the handler function, which is fairly simple,
 
-    void pulsewidth_handler ( struct _mapper_signal *msig,
+    void pulsewidth_handler ( mapper_signal msig,
                               void *v )
     {
-        Synthesizer *s = (Synthesizer*) msig->user_data;
+        mapper_db_signal props = msig_get_properties(msig);
+        Synthesizer *s = (Synthesizer*) props->user_data;
         s->setPulseWidth(*(float*)v);
     }
 

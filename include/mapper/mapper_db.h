@@ -138,6 +138,9 @@ typedef struct _mapper_db_signal
 
     /*! Extra properties associated with this signal. */
     struct _mapper_string_table *extra;
+
+    /*! A pointer available for associating user context. */
+    void *user_data;
 } mapper_db_signal_t, *mapper_db_signal;
 
 /*! A record that describes the properties of a link between devices.

@@ -24,7 +24,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
 
     sig->handler = handler;
-    sig->user_data = user_data;
+    sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     return sig;

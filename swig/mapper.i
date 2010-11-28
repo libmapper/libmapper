@@ -90,7 +90,8 @@ void msig_handler_py(struct _mapper_signal *msig,
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
         return;
     }
-    result = PyEval_CallObject((PyObject*)msig->user_data, arglist);
+    mapper_db_signal props = msig_get_properties(msig);
+    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
 }

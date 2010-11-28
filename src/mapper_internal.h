@@ -21,9 +21,6 @@ struct _mapper_signal
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
-
-    /*! A pointer available for passing user context. */
-    void *user_data;
 };
 
 // Mapper internal functions
