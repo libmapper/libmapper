@@ -122,6 +122,7 @@ void mdev_free(mapper_device device);
  *  correspond to 'type'.  If type='i', then int*; if type='f', then
  *  float*.  If value is specified, it must point to an array of
  *  the given length.
+ *  \param dev The device to add a signal to.
  *  \param name The name of the signal.
  *  \param length The length of the signal vector, or 1 for a scalar.
  *  \param type The type fo the signal value.
@@ -131,7 +132,7 @@ void mdev_free(mapper_device device);
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
-mapper_signal mdev_add_input(mapper_device md, const char *name,
+mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              int length, char type, const char *unit,
                              void *minimum, void *maximum,
                              mapper_signal_handler *handler,
@@ -143,13 +144,14 @@ mapper_signal mdev_add_input(mapper_device md, const char *name,
  *  correspond to 'type'.  If type='i', then int*; if type='f', then
  *  float*.  If value is specified, it must point to an array of
  *  the given length.
+ *  \param dev The device to add a signal to.
  *  \param name The name of the signal.
  *  \param length The length of the signal vector, or 1 for a scalar.
  *  \param type The type fo the signal value.
  *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum Pointer to a minimum value, or 0 for none.
  *  \param maximum Pointer to a maximum value, or 0 for none. */
-mapper_signal mdev_add_output(mapper_device md, const char *name,
+mapper_signal mdev_add_output(mapper_device dev, const char *name,
                               int length, char type, const char *unit,
                               void *minimum, void *maximum);
 
