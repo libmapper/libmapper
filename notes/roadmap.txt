@@ -113,10 +113,6 @@ Lower priority tasks
 * Check for disallowed OSC characters. Security testing.
     * Add default MAX_CONNECTIONS, MAX_SIGNALS
 
-* enable extra signal parameters for incorporation into a 
-  new mapping. Nice example for audio gains: destination sends 
-  /connectTo <signal> @min 0 @max 1 @clipMin clamp @clipMax clamp.
-
 External tasks
 ==============
 
