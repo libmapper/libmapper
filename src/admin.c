@@ -1441,10 +1441,13 @@ static int handler_signal_connect(const char *path, const char *types,
     if (argc <= 2) {
         // use some default arguments related to the signal
         mapper_admin_send_osc(
-            admin, "/connectTo", "ss", src_name, dest_name,
-            AT_TYPE, input->props.type,
-            input->props.minimum ? AT_MIN : -1, input,
-            input->props.maximum ? AT_MAX : -1, input);
+                              admin, "/connectTo", "ss", 
+                              src_name, dest_name,
+                              AT_TYPE, input->props.type,
+                              AT_LENGTH, input->props.length,
+                              input->props.minimum ? AT_MIN : -1, input,
+                              input->props.maximum ? AT_MAX : -1, input,
+                              AT_EXTRA, input->props.extra);
     } else {
         // add the remaining arguments from /connect
         mapper_message_t params;
