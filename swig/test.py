@@ -21,12 +21,19 @@ def setup(d):
 
     print 'port',d.port
     print 'device name',d.name
+    print 'device port',d.port
+    print 'device ip',d.ip4
+    print 'device interface',d.interface
+    print 'device ordinal',d.ordinal
     print 'signal name',sig.name
     print 'signal full name',sig.full_name
     while not d.ready():
         d.poll(10)
     print 'port',d.port
     print 'device name',d.name
+    print 'device ip',d.ip4
+    print 'device interface',d.interface
+    print 'device ordinal',d.ordinal
     print 'signal name',sig.name
     print 'signal full name',sig.full_name
     print 'signal is_output',sig.is_output

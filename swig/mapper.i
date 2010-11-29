@@ -241,6 +241,12 @@ typedef struct _signal {} signal;
         return 0;
     }
     const char *get_name() { return mdev_name($self); }
+    const char *get_ip4() {
+        unsigned int *i = (unsigned int*)mdev_ip4($self);
+        return i ? inet_ntoa(*i) : 0;
+    }
+    const char *get_interface() { return mdev_interface($self); }
+    unsigned int get_ordinal() { return mdev_ordinal($self); }
     int get_num_inputs() { return mdev_num_inputs($self); }
     int get_num_outputs() { return mdev_num_outputs($self); }
     signal *get_input_by_name(const char *name) {
@@ -258,6 +264,9 @@ typedef struct _signal {} signal;
     %pythoncode {
         port = property(get_port)
         name = property(get_name)
+        ip4 = property(get_ip4)
+        interface = property(get_interface)
+        ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
     }
@@ -279,22 +288,20 @@ typedef struct _signal {} signal;
         }
         return 0;
     }
-    void update_scalar(float f) {
+    void update(float f) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
-            msig_update_scalar($self, *(mapper_signal_value_t*)&f);
+            msig_update_float($self, f);
         else if (sig->props.type == 'i') {
-            int i = (int)f;
-            msig_update_scalar($self, *(mapper_signal_value_t*)&i);
+            msig_update_int($self, (int)f);
         }
     }
-    void update_scalar(int i) {
+    void update(int i) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
-            msig_update_scalar($self, *(mapper_signal_value_t*)&i);
+            msig_update_int($self, i);
         else if (sig->props.type == 'f') {
-            float f = (float)i;
-            msig_update_scalar($self, *(mapper_signal_value_t*)&f);
+            msig_update_float($self, (float)i);
         }
     }
     void set_minimum(maybeSigVal v) {
