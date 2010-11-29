@@ -428,13 +428,13 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return -1;
 
     if (strcmp(&(*a)->s, "bypass") == 0)
-        return SC_BYPASS;
+        return MO_BYPASS;
     else if (strcmp(&(*a)->s, "linear") == 0)
-        return SC_LINEAR;
+        return MO_LINEAR;
     else if (strcmp(&(*a)->s, "expression") == 0)
-        return SC_EXPRESSION;
+        return MO_EXPRESSION;
     else if (strcmp(&(*a)->s, "calibrate") == 0)
-        return SC_CALIBRATE;
+        return MO_CALIBRATE;
     else
         return -1;
 

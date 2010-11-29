@@ -64,11 +64,11 @@ typedef enum _mapper_clipping_type {
 /*! Describes the mapping mode.
  *  @ingroup mappingdb */
 typedef enum _mapper_mode_type {
-    SC_UNDEFINED,    //!< Not yet defined
-    SC_BYPASS,       //!< Direct throughput
-    SC_LINEAR,       //!< Linear scaling
-    SC_EXPRESSION,   //!< Expression
-    SC_CALIBRATE,    //!< Calibrate to source signal
+    MO_UNDEFINED,    //!< Not yet defined
+    MO_BYPASS,       //!< Direct throughput
+    MO_LINEAR,       //!< Linear scaling
+    MO_EXPRESSION,   //!< Expression
+    MO_CALIBRATE,    //!< Calibrate to source signal
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 

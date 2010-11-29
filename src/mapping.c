@@ -18,11 +18,11 @@ const char* mapper_clipping_type_strings[] =
 
 const char* mapper_mode_type_strings[] =
 {
-    NULL,          /* SC_UNDEFINED */
-    "bypass",      /* SC_BYPASS */
-    "linear",      /* SC_LINEAR */
-    "expression",  /* SC_EXPRESSION */
-    "calibrate",   /* SC_CALIBRATE */
+    NULL,          /* MO__UNDEFINED */
+    "bypass",      /* MO_BYPASS */
+    "linear",      /* MO_LINEAR */
+    "expression",  /* MO_EXPRESSION */
+    "calibrate",   /* MO_CALIBRATE */
 };
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
@@ -53,17 +53,17 @@ int mapper_mapping_perform(mapper_mapping mapping,
     if (mapping->props.muted)
         return 0;
 
-    if (!mapping->props.mode || mapping->props.mode == SC_BYPASS)
+    if (!mapping->props.mode || mapping->props.mode == MO_BYPASS)
         *to_value = *from_value;
 
-    else if (mapping->props.mode == SC_EXPRESSION
-             || mapping->props.mode == SC_LINEAR)
+    else if (mapping->props.mode == MO_EXPRESSION
+             || mapping->props.mode == MO_LINEAR)
     {
         die_unless(mapping->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(mapping->expr, from_value);
     }
 
-    else if (mapping->props.mode == SC_CALIBRATE)
+    else if (mapping->props.mode == MO_CALIBRATE)
     {
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -92,7 +92,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
                                             &mapping->props.range);
 
             /* Stay in calibrate mode. */
-            mapping->props.mode = SC_CALIBRATE;
+            mapping->props.mode = MO_CALIBRATE;
         }
 
         if (mapping->expr)
@@ -264,7 +264,7 @@ static int replace_expression_string(mapper_mapping m,
 
 void mapper_mapping_set_direct(mapper_mapping m)
 {
-    m->props.mode = SC_BYPASS;
+    m->props.mode = MO_BYPASS;
 
     // TODO send /modify
 }
@@ -273,7 +273,7 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
                                      mapper_signal sig,
                                      mapper_mapping_range_t *r)
 {
-    m->props.mode = SC_LINEAR;
+    m->props.mode = MO_LINEAR;
 
     char expr[256] = "";
     const char *e = expr;
@@ -322,7 +322,7 @@ void mapper_mapping_set_expression(mapper_mapping m,
     if (replace_expression_string(m, sig, expr))
         return;
 
-    m->props.mode = SC_EXPRESSION;
+    m->props.mode = MO_EXPRESSION;
 
     // TODO send /modify
 }
@@ -331,7 +331,7 @@ void mapper_mapping_set_calibrate(mapper_mapping m,
                                   mapper_signal sig,
                                   float dest_min, float dest_max)
 {
-    m->props.mode = SC_CALIBRATE;
+    m->props.mode = MO_CALIBRATE;
 
     if (m->props.expression)
         free(m->props.expression);
@@ -513,7 +513,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     
     // TO DO: test if range has actually changed
     if (m->props.range.known == MAPPING_RANGE_KNOWN 
-        && m->props.mode == SC_LINEAR) {
+        && m->props.mode == MO_LINEAR) {
         mapper_mapping_set_linear_range(m, sig, &m->props.range);
     }
 
@@ -546,7 +546,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     case -1:
         /* No mode type specified; if mode not yet set, see if 
          we know the range and choose between linear or direct mapping. */
-            if (m->props.mode == SC_UNDEFINED) {
+            if (m->props.mode == MO_UNDEFINED) {
                 if (range_known == MAPPING_RANGE_KNOWN) {
                     /* We have enough information for a linear mapping. */
                     mapper_mapping_range_t r;
@@ -561,10 +561,10 @@ void mapper_mapping_set_from_message(mapper_mapping m,
                     mapper_mapping_set_direct(m);
             }
         break;
-    case SC_BYPASS:
+    case MO_BYPASS:
         mapper_mapping_set_direct(m);
         break;
-    case SC_LINEAR:
+    case MO_LINEAR:
         if (range_known == MAPPING_RANGE_KNOWN) {
             mapper_mapping_range_t r;
             r.src_min = range[0];
@@ -575,15 +575,15 @@ void mapper_mapping_set_from_message(mapper_mapping m,
             mapper_mapping_set_linear_range(m, sig, &r);
         }
         break;
-    case SC_CALIBRATE:
+    case MO_CALIBRATE:
         if (range_known & (MAPPING_RANGE_DEST_MIN
                            | MAPPING_RANGE_DEST_MAX))
             mapper_mapping_set_calibrate(m, sig, range[2], range[3]);
         break;
-    case SC_EXPRESSION:
+    case MO_EXPRESSION:
         {
             if (m->props.expression)
-                m->props.mode = SC_EXPRESSION;
+                m->props.mode = MO_EXPRESSION;
         }
         break;
     default:
