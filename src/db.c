@@ -873,8 +873,8 @@ void mapper_db_dump(mapper_db db)
               "      expression=%s, mode=%s, muted=%d\n",
               map->src_name, map->dest_name, map->src_type,
               map->dest_type,
-              mapper_get_clipping_type_string(map->clip_upper),
-              mapper_get_clipping_type_string(map->clip_lower),
+              mapper_get_clipping_type_string(map->clip_max),
+              mapper_get_clipping_type_string(map->clip_min),
               r, map->expression,
               mapper_get_mode_type_string(map->mode),
               map->muted);
@@ -1225,11 +1225,11 @@ static void update_mapping_record_params(mapper_db_mapping map,
     mapper_clipping_type clip;
     clip = mapper_msg_get_clipping(params, AT_CLIPMAX);
     if (clip!=-1)
-        map->clip_upper = clip;
+        map->clip_max = clip;
 
     clip = mapper_msg_get_clipping(params, AT_CLIPMIN);
     if (clip!=-1)
-        map->clip_lower = clip;
+        map->clip_min = clip;
 
     lo_arg **a_range = mapper_msg_get_param(params, AT_RANGE);
     const char *t_range = mapper_msg_get_type(params, AT_RANGE);

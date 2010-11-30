@@ -115,7 +115,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
     
     if (mapping->props.range.known) {
         if (v < mapping->props.range.dest_min) {
-            switch (mapping->props.clip_lower) {
+            switch (mapping->props.clip_min) {
                 case CT_MUTE:
                     // need to prevent value from being sent at all
                     muted = 1;
@@ -130,7 +130,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     v = mapping->props.range.dest_min + difference;
                     if (v > mapping->props.range.dest_max) {
                         // value now exceeds range maximum!
-                        switch (mapping->props.clip_upper) {
+                        switch (mapping->props.clip_max) {
                             case CT_MUTE:
                                 // need to prevent value from being sent at all
                                 muted = 1;
@@ -173,7 +173,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
         }
         
         else if (v > mapping->props.range.dest_max) {
-            switch (mapping->props.clip_upper) {
+            switch (mapping->props.clip_max) {
                 case CT_MUTE:
                     // need to prevent value from being sent at all
                     muted = 1;
@@ -188,7 +188,7 @@ int mapper_clipping_perform(mapper_mapping mapping,
                     v = mapping->props.range.dest_max - difference;
                     if (v < mapping->props.range.dest_min) {
                         // value now exceeds range minimum!
-                        switch (mapping->props.clip_lower) {
+                        switch (mapping->props.clip_min) {
                             case CT_MUTE:
                                 // need to prevent value from being sent at all
                                 muted = 1;
@@ -525,11 +525,11 @@ void mapper_mapping_set_from_message(mapper_mapping m,
     /* Clipping. */
     int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
     if (clip_min >= 0)
-        m->props.clip_lower = clip_min;
+        m->props.clip_min = clip_min;
 
     int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
     if (clip_max >= 0)
-        m->props.clip_upper = clip_max;
+        m->props.clip_max = clip_max;
     
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);

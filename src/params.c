@@ -398,9 +398,9 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
         lo_message_add_float(m, map->props.range.dest_max);
     }
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMIN]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_lower]);
+    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_min]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMAX]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_upper]);
+    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, map->props.muted);
 }

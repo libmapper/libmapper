@@ -116,8 +116,8 @@ mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig
     mapping->props.dest_name = strdup(name);
     mapping->props.mode = MO_UNDEFINED;
     mapping->props.expression = strdup("y=x");
-    mapping->props.clip_lower = CT_NONE;
-    mapping->props.clip_upper = CT_NONE;
+    mapping->props.clip_min = CT_NONE;
+    mapping->props.clip_max = CT_NONE;
     mapping->props.muted = 0;
     
     // find signal in signal mapping list
