@@ -213,11 +213,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
     int i;
-    float f;
     char t[] = " ";
     table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
+    mapper_mapping_range_t *range = 0;
 
     while (pa != N_AT_PARAMS)
     {
@@ -288,14 +288,23 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_RANGE:
-            f = va_arg(aq, double);
-            lo_message_add_float(m, f);
-            f = va_arg(aq, double);
-            lo_message_add_float(m, f);
-            f = va_arg(aq, double);
-            lo_message_add_float(m, f);
-            f = va_arg(aq, double);
-            lo_message_add_float(m, f);
+            range = va_arg(aq, mapper_mapping_range_t*);
+            if (range->known & MAPPING_RANGE_SRC_MIN)
+                lo_message_add_float(m, range->src_min);
+            else
+                lo_message_add_string(m, "-");
+            if (range->known & MAPPING_RANGE_SRC_MAX)
+                lo_message_add_float(m, range->src_max);
+            else
+                lo_message_add_string(m, "-");
+            if (range->known & MAPPING_RANGE_DEST_MIN)
+                lo_message_add_float(m, range->dest_min);
+            else
+                lo_message_add_string(m, "-");
+            if (range->known & MAPPING_RANGE_DEST_MAX)
+                lo_message_add_float(m, range->dest_max);
+            else
+                lo_message_add_string(m, "-");
             break;
         case AT_MUTE:
             i = va_arg(aq, int);

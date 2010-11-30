@@ -35,6 +35,17 @@ typedef struct _mapper_db_device {
 #define MAPPING_RANGE_DEST_MAX 0x08
 #define MAPPING_RANGE_KNOWN    0x0F
 
+/* Bit flags to identify which fields in a mapper_db_mapping structure
+ * are valid.  This is only used when specifying mapping properties
+ * via the mapper_monitor_connect() or mapper_monitor_modify()
+ * functions. Should be combined with the above range bitflags. */
+#define MAPPING_CLIPMIN       0x0010
+#define MAPPING_CLIPMAX       0x0020
+#define MAPPING_EXPRESSION    0x0040
+#define MAPPING_MODE          0x0080
+#define MAPPING_MUTED         0x0100
+#define MAPPING_ALL           0x01FF
+
 /*! A structure to keep range information, with a bitfield indicating
  *  which parts of the range are known.
  *  @ingroup mappingdb */

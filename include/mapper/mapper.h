@@ -483,18 +483,6 @@ void mapper_db_signal_done(mapper_db_signal_t **s);
 /*! @defgroup mappingdb Mappings database
     @{ */
 
-/*! Interface to add a mapping between two signals.
- *  \param source_signal_path Source signal name (OSC path).
- *  \param dest_signal_path   Destination signal name (OSC path). */
-void mapper_db_create_mapping( const char* source_signal_path, 
-		const char* dest_signal_path );
-
-/*! Interface to remove a mapping between two signals.
- *  \param source_signal_path Source signal name (OSC path).
- *  \param dest_signal_path   Destination signal name (OSC path). */
-void mapper_db_destroy_mapping( const char* source_signal_path, 
-		const char* dest_signal_path );
-
 /*! A callback function prototype for when a mapping record is added or
  *  updated in the database. Such a function is passed in to
  *  mapper_db_add_mapping_callback().
@@ -752,6 +740,46 @@ int mapper_monitor_request_links_by_name(
 /*! Request mappings for specific device. */
 int mapper_monitor_request_mappings_by_name(
     mapper_monitor mon, const char* name);
+
+/*! Interface to add a link between two devices.
+ *  \param mon The monitor to use for sending the message.
+ *  \param source_device_path Source device name.
+ *  \param dest_device_path   Destination device name. */
+void mapper_monitor_link(mapper_monitor mon,
+                         const char* source_device, 
+                         const char* dest_device);
+
+/*! Interface to remove a link between two devices.
+ *  \param mon The monitor to use for sending the message.
+ *  \param source_device Source device name.
+ *  \param dest_device   Destination device name. */
+void mapper_monitor_unlink(mapper_monitor mon,
+                           const char* source_device, 
+                           const char* dest_device);
+
+/*! Interface to add a mapping between two signals.
+ *  \param mon The monitor to use for sending the message.
+ *  \param source_signal Source signal name.
+ *  \param dest_signal   Destination signal name.
+ *  \param properties An optional data structure specifying the
+ *                    requested properties of this mapping.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_mapping_t should be
+ *                        applied to the new connection. See the flags
+ *                        prefixed by MAPPING_ in mapper_db.h. */
+void mapper_monitor_connect(mapper_monitor mon,
+                            const char* source_signal,
+                            const char* dest_signal,
+                            mapper_db_mapping_t *properties,
+                            unsigned int property_flags);
+
+/*! Interface to remove a mapping between two signals.
+ *  \param mon The monitor to use for sending the message.
+ *  \param source_signal Source signal name.
+ *  \param dest_signal   Destination signal name. */
+void mapper_monitor_disconnect(mapper_monitor mon,
+                               const char* source_signal, 
+                               const char* dest_signal);
 
 /* @} */
 

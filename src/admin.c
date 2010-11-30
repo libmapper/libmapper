@@ -14,68 +14,6 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
-void mapper_db_create_mapping( const char* source_signal_path, 
-		const char* dest_signal_path ) {
-
-	lo_address a = lo_address_new_from_url( "osc.udp://224.0.1.3:7570" );
-	lo_address_set_ttl( a, 1 );
-
-	char source_device[1024];
-	char dest_device[1024];
-
-	const char* source_suffix = strchr( source_signal_path+1, '/' );
-	int devnamelen = source_suffix-source_signal_path;
-	strncpy( source_device, source_signal_path, devnamelen );
-	source_device[devnamelen] = 0;
-
-	const char* dest_suffix = strchr( dest_signal_path+1, '/' );
-	devnamelen = dest_suffix-dest_signal_path;
-	strncpy( dest_device, dest_signal_path, devnamelen );
-	dest_device[devnamelen] = 0;
-
-	trace( "add mapping %s %s %s %s\n", 
-			source_device,
-			source_signal_path,
-			dest_device,
-			dest_signal_path );
-
-	lo_send( a, "/link", "ss", source_device, dest_device );
-	lo_send( a, "/connect", "ss", source_signal_path, dest_signal_path );
-	lo_address_free( a );
-
-}
-
-void mapper_db_destroy_mapping( const char* source_signal_path, 
-		const char* dest_signal_path ) {
-
-	lo_address a = lo_address_new_from_url( "osc.udp://224.0.1.3:7570" );
-	lo_address_set_ttl( a, 1 );
-
-	char source_device[1024];
-	char dest_device[1024];
-
-	const char* source_suffix = strchr( source_signal_path+1, '/' );
-	int devnamelen = source_suffix-source_signal_path;
-	strncpy( source_device, source_signal_path, devnamelen );
-	source_device[devnamelen] = 0;
-
-	const char* dest_suffix = strchr( dest_signal_path+1, '/' );
-	devnamelen = dest_suffix-dest_signal_path;
-	strncpy( dest_device, dest_signal_path, devnamelen );
-	dest_device[devnamelen] = 0;
-
-	trace( "remove mapping %s %s %s %s\n", 
-			source_device,
-			source_signal_path,
-			dest_device,
-			dest_signal_path );
-
-	//lo_send( a, "/link", "ss", source_device, dest_device );
-	lo_send( a, "/disconnect", "ss", source_signal_path, dest_signal_path );
-	lo_address_free( a );
-
-}
-
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
