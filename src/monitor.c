@@ -18,7 +18,7 @@ static double get_current_time()
 #endif
 }
 
-mapper_monitor mapper_monitor_new()
+mapper_monitor mapper_monitor_new(void)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
