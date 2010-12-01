@@ -39,11 +39,11 @@ int main()
     float max1 = 1;
     float max1000 = 1000;
 
-    mdev_add_input(dev, "/freq", 'f', 1, "Hz", &min0, &max1000,
+    mdev_add_input(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
                    (mapper_signal_handler*)handler_freq, 0);
-    mdev_add_input(dev, "/gain", 'f', 1, "Hz", &min0, &max1,
+    mdev_add_input(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
                    (mapper_signal_handler*)handler_gain, 0);
-    mdev_add_input(dev, "/duty", 'f', 1, "Hz", &min0, &max1,
+    mdev_add_input(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
                    (mapper_signal_handler*)handler_duty, 0);
 
     run_synth();

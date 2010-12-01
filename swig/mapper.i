@@ -13,13 +13,13 @@
     if ($input == Py_None)
         $1 = 0;
     else {
-        int ecode = SWIG_AsVal_float($input, &val.v.f);
+        int ecode = SWIG_AsVal_int($input, &val.v.i32);
         if (SWIG_IsOK(ecode))
-            val.t = 'f';
+            val.t = 'i';
         else {
-            ecode = SWIG_AsVal_int($input, &val.v.i32);
+            ecode = SWIG_AsVal_float($input, &val.v.f);
             if (SWIG_IsOK(ecode))
-                val.t = 'i';
+                val.t = 'f';
             else {
                 SWIG_exception_fail(SWIG_ArgError(ecode),
                              "argument $argnum of type 'float' or 'int'");
@@ -144,22 +144,22 @@ typedef struct _signal {} signal;
             h = msig_handler_py;
             Py_XINCREF(PyFunc);
         }
-        float mn, mx, *pmn=0, *pmx=0;
+        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
         {
             if (minimum) {
                 if (minimum->t == 'f')
-                    pmn = &minimum->v.f;
+                    pmn = &minimum->v;
                 else {
-                    mn = (float)minimum->v.i32;
+                    mn.f = (float)minimum->v.i32;
                     pmn = &mn;
                 }
             }
             if (maximum) {
                 if (maximum->t == 'f')
-                    pmx = &maximum->v.f;
+                    pmx = &maximum->v;
                 else {
-                    mx = (float)maximum->v.i32;
+                    mx.f = (float)maximum->v.i32;
                     pmx = &mx;
                 }
             }
@@ -168,17 +168,17 @@ typedef struct _signal {} signal;
         {
             if (minimum) {
                 if (minimum->t == 'i')
-                    pmn = &minimum->v.i32;
+                    pmn = &minimum->v;
                 else {
-                    mn = (int)minimum->v.f;
+                    mn.i32 = (int)minimum->v.f;
                     pmn = &mn;
                 }
             }
             if (maximum) {
                 if (maximum->t == 'i')
-                    pmx = &maximum->v.i32;
+                    pmx = &maximum->v;
                 else {
-                    mx = (int)maximum->v.f;
+                    mx.i32 = (int)maximum->v.f;
                     pmx = &mx;
                 }
             }
@@ -189,22 +189,22 @@ typedef struct _signal {} signal;
     signal* add_output(const char *name, char type='f', const char *unit=0,
                        maybeSigVal minimum=0, maybeSigVal maximum=0)
     {
-        float mn, mx, *pmn=0, *pmx=0;
+        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
         {
             if (minimum) {
                 if (minimum->t == 'f')
-                    pmn = &minimum->v.f;
+                    pmn = &minimum->v;
                 else {
-                    mn = (float)minimum->v.i32;
+                    mn.f = (float)minimum->v.i32;
                     pmn = &mn;
                 }
             }
             if (maximum) {
                 if (maximum->t == 'f')
-                    pmx = &maximum->v.f;
+                    pmx = &maximum->v;
                 else {
-                    mx = (float)maximum->v.i32;
+                    mx.f = (float)maximum->v.i32;
                     pmx = &mx;
                 }
             }
@@ -213,17 +213,17 @@ typedef struct _signal {} signal;
         {
             if (minimum) {
                 if (minimum->t == 'i')
-                    pmn = &minimum->v.i32;
+                    pmn = &minimum->v;
                 else {
-                    mn = (int)minimum->v.f;
+                    mn.i32 = (int)minimum->v.f;
                     pmn = &mn;
                 }
             }
             if (maximum) {
                 if (maximum->t == 'i')
-                    pmx = &maximum->v.i32;
+                    pmx = &maximum->v;
                 else {
-                    mx = (int)maximum->v.f;
+                    mx.i32 = (int)maximum->v.f;
                     pmx = &mx;
                 }
             }
