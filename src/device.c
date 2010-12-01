@@ -429,7 +429,7 @@ unsigned int mdev_port(mapper_device md)
         return 0;
 }
 
-struct in_addr *mdev_ip4(mapper_device md)
+const struct in_addr *mdev_ip4(mapper_device md)
 {
     if (md->admin->port.locked)
         return &md->admin->interface_ip;

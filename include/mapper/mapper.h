@@ -288,7 +288,7 @@ unsigned int mdev_port(mapper_device dev);
  *          will be the IPv4 address associated with the selected
  *          local network interface.
  */
-struct in_addr *mdev_ip4(mapper_device dev);
+const struct in_addr *mdev_ip4(mapper_device dev);
 
 /*! Return a string indicating the name of the network interface this
  *  device is listening on.
