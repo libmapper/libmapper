@@ -37,14 +37,6 @@ typedef struct _mapper_signal *mapper_signal;
  *  changes. */
 typedef void mapper_signal_handler(struct _mapper_signal *msig, void *v);
 
-/*! Macro to take a float or int value and cast it to a
- *  mapper_signal_value_t. */
-#define MSIGVAL(f) (*(mapper_signal_value_t*)&f)
-
-/*! Macro to take a float or int pointer and cast it to a
- *  mapper_signal_value_t pointer. */
-#define MSIGVALP(f) ((mapper_signal_value_t*)f)
-
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
  *  \param minimum  Must be the same type as the signal, or 0 to remove
