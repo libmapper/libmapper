@@ -49,13 +49,13 @@ typedef void mapper_signal_handler(struct _mapper_signal *msig, void *v);
  *  \param sig      The signal to operate on.
  *  \param minimum  Must be the same type as the signal, or 0 to remove
  *                  the minimum. */
-void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum);
+void msig_set_minimum(mapper_signal sig, void *minimum);
 
 /*! Set or remove the maximum of a signal.
  *  \param sig      The signal to operate on.
  *  \param maximum  Must be the same type as the signal, or 0 to remove
  *                  the maximum. */
-void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum);
+void msig_set_maximum(mapper_signal sig, void *maximum);
 
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.

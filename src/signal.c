@@ -47,13 +47,16 @@ void msig_remove_property(mapper_signal sig, const char *property)
     table_remove_key(sig->props.extra, property, 1);
 }
 
-void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum)
+void msig_set_minimum(mapper_signal sig, void *minimum)
 {
     if (minimum) {
         if (!sig->props.minimum)
             sig->props.minimum = (mapper_signal_value_t *)
                 malloc(sizeof(mapper_signal_value_t));
-        *sig->props.minimum = *minimum;
+        if (sig->props.type == 'f')
+            sig->props.minimum->f = *(float*)minimum;
+        else if (sig->props.type == 'i')
+            sig->props.minimum->i32 = *(int*)minimum;
     }
     else {
         if (sig->props.minimum)
@@ -62,13 +65,16 @@ void msig_set_minimum(mapper_signal sig, mapper_signal_value_t *minimum)
     }
 }
 
-void msig_set_maximum(mapper_signal sig, mapper_signal_value_t *maximum)
+void msig_set_maximum(mapper_signal sig, void *maximum)
 {
     if (maximum) {
         if (!sig->props.maximum)
             sig->props.maximum = (mapper_signal_value_t *)
                 malloc(sizeof(mapper_signal_value_t));
-        *sig->props.maximum = *maximum;
+        if (sig->props.type == 'f')
+            sig->props.maximum->f = *(float*)maximum;
+        else if (sig->props.type == 'i')
+            sig->props.maximum->i32 = *(int*)maximum;
     }
     else {
         if (sig->props.maximum)

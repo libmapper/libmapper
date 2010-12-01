@@ -80,7 +80,7 @@ int main()
     /* Test that adding maximum causes it to be listed. */
 
     float mx = 35.0;
-    msig_set_maximum(sig, MSIGVALP(&mx));
+    msig_set_maximum(sig, &mx);
 
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
