@@ -5,7 +5,7 @@ import sys
 import mapper
 
 def on_gui_change(x):
-    sig_out.update_scalar(int(x))
+    sig_out.update(int(x))
 
 def on_mapper_change(sig, x):
     w.set(int(x))
