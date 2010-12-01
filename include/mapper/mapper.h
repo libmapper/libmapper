@@ -35,8 +35,7 @@ typedef struct _mapper_signal *mapper_signal;
 
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(struct _mapper_signal *msig,
-                                   mapper_signal_value_t *v);
+typedef void mapper_signal_handler(struct _mapper_signal *msig, void *v);
 
 /*! Macro to take a float or int value and cast it to a
  *  mapper_signal_value_t. */

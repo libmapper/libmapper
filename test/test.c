@@ -73,9 +73,9 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_signal_value_t *v)
+void insig_handler(mapper_signal sig, void *v)
 {
-    printf("--> destination got %s %f\n", sig->props.name, (*v).f);
+    printf("--> destination got %s %f\n", sig->props.name, (*(float*)v));
     received++;
 }
 
