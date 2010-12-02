@@ -423,4 +423,68 @@ category like "light", "motor", "shaker", etc.
 Some GUI implementing a Monitor could then use this information to
 display information about the network in an intelligent manner.
 
-TODO: finish this section
+Any time there may be extra knowledge about a signal or device, it is
+a good idea to represent it by adding such properties, which can be of
+any OSC-compatible type.  (So, numbers and strings, etc.)
+
+The property interface is through the functions,
+
+    void mdev_set_property( mapper_device dev,
+                            const char *property,
+                            lo_type type,
+                            lo_arg *value );
+
+    void msig_set_property( mapper_signal sig,
+                            const char *property,
+                            lo_type type,
+                            lo_arg *value );
+
+As you can see, _libmapper_ reuses the `lo_arg` union from the _liblo_
+OSC library, which can be used to hold any OSC-compatible value.  The
+type of the `value` argument is specified by `type`, and can be any
+`lo_type` value; floats are `'f'` or `LO_FLOAT`, 32-bit integers are
+`'i'` or `LO_INT32`, and strings are `'s'` or `LO_STRING`, but you
+should consult the _liblo_ documentation for more information.
+
+For example, to store a `float` indicating the X position of a device,
+you can call it like this:
+
+    lo_arg x;
+    x.f = 12.5;
+    mdev_set_property( my_device, "x", 'f', &x);
+
+In practice it is safe to cast to `lo_arg*`:
+
+    float x = 12.5;
+    mdev_set_property( my_device, "x", 'f', (lo_arg*)&x);
+
+To specify strings, it is necessary to perform such a cast, since the
+`lo_arg*` you provide should actually point to the beginning of the
+string:
+
+    char *sensingMethod = "resistive";
+    msig_set_property( sensor1, "sensingMethod",
+                       's', (lo_arg*)sensingMethod);
+
+In general you can use any property name not already in use by the
+device or signal data structure.  Reserved words for signals are:
+
+    device_name, direction, length, max, min, name, type, unit, user_data;
+
+for devices, they are:
+
+    host, port, name, user_data.
+
+By the way, if you query or set signal properties using these
+keywords, you will get or modify the same information that is
+available directly from the `mapper_db_signal` data structure.
+Therefore this can provide a unified string-based method for accessing
+any signal property:
+
+    mapper_db_signal *props = msig_properties( sensor1 );
+    lo_type type;
+    const lo_arg *value;
+    mapper_db_signal_property_lookup( props, "sensingMethod", &type, &value );
+
+Primarily this is an interface meant for network monitors, but may
+come in useful for an application implementing a device.
