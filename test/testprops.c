@@ -13,8 +13,8 @@
 #define SEEN_DEVNAME  0x0010
 
 #define SEEN_UNIT     0x0020
-#define SEEN_MINIMUM  0x0040
-#define SEEN_MAXIMUM  0x0080
+#define SEEN_MIN      0x0040
+#define SEEN_MAX      0x0080
 
 #define SEEN_X        0x0100
 #define SEEN_Y        0x0200
@@ -31,8 +31,8 @@ int seen_code(const char *key)
         { "type",        SEEN_TYPE },
         { "device_name", SEEN_DEVNAME },
         { "unit",        SEEN_UNIT },
-        { "minimum",     SEEN_MINIMUM },
-        { "maximum",     SEEN_MAXIMUM },
+        { "min",         SEEN_MIN },
+        { "max",         SEEN_MAX },
         { "x",           SEEN_X },
         { "y",           SEEN_Y },
         { "test",        SEEN_TEST },
@@ -84,7 +84,7 @@ int main()
 
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAXIMUM))
+                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX))
     {
         printf("2: mapper_db_signal_property_index() did not "
                "return the expected keys.\n");
@@ -99,7 +99,7 @@ int main()
 
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAXIMUM | SEEN_TEST))
+                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX | SEEN_TEST))
     {
         printf("3: mapper_db_signal_property_index() did not "
                "return the expected keys.\n");
@@ -114,7 +114,7 @@ int main()
 
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAXIMUM))
+                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX))
     {
         printf("4: mapper_db_signal_property_index() did not "
                "return the expected keys.\n");
@@ -133,7 +133,7 @@ int main()
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
                  | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_MAXIMUM | SEEN_X | SEEN_Y))
+                 | SEEN_MAX | SEEN_X | SEEN_Y))
     {
         printf("5: mapper_db_signal_property_index() did not "
                "return the expected keys.\n");
@@ -227,16 +227,16 @@ int main()
     }
 
     /* Check that there is a string value associated with static,
-     * optional property "maximum". */
+     * optional property "max". */
 
-    if (mapper_db_signal_property_lookup(sigprop, "maximum", &type, &val)) {
+    if (mapper_db_signal_property_lookup(sigprop, "max", &type, &val)) {
         printf("10: mapper_db_signal_property_lookup() could not "
                "find a value for static, optional property `maximum'.\n");
         rc=1;
         goto cleanup;
     }
 
-    printf("maximum: "); lo_arg_pp(type, (lo_arg*)val); printf("\n");
+    printf("max: "); lo_arg_pp(type, (lo_arg*)val); printf("\n");
 
     if (type != 'f') {
         printf("10: property `maximum' is type '%c', expected 'f'.\n", type);
@@ -264,7 +264,7 @@ int main()
         goto cleanup;
     }
 
-    if (!mapper_db_signal_property_lookup(sigprop, "maximum", &type, &val)) {
+    if (!mapper_db_signal_property_lookup(sigprop, "max", &type, &val)) {
         printf("11: mapper_db_signal_property_lookup() unexpectedly "
                "found a value for `maximum' after it was removed.\n");
         rc=1;
