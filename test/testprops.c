@@ -49,7 +49,7 @@ int check_keys(mapper_db_signal sigprop)
 {
     const char *key;
     const lo_arg *val;
-    char type;
+    lo_type type;
     int i=0, seen=0;
     while (!mapper_db_signal_property_index(sigprop, i++,
                                             &key, &type, &val))
@@ -143,7 +143,7 @@ int main()
 
     /* Test the type and value associated with "x". */
 
-    char type;
+    lo_type type;
     const lo_arg *val;
     if (mapper_db_signal_property_lookup(sigprop, "x", &type, &val)) {
         printf("6: mapper_db_signal_property_lookup() did not "

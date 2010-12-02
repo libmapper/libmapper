@@ -139,7 +139,7 @@ int table_size(table t)
  * along with their type. */
 
 void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          char type, lo_arg *arg)
+                                          lo_type type, lo_arg *arg)
 {
     mapper_osc_value_t **pval =
         (mapper_osc_value_t**)table_find_pp(t, key);

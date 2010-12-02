@@ -430,7 +430,7 @@ void table_dump_osc_values(table t);
 
 /*! Add a typed OSC argument to a string table. */
 void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          char type, lo_arg *arg);
+                                          lo_type type, lo_arg *arg);
 
 /**** Debug macros ****/
 

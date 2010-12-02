@@ -61,7 +61,7 @@ mapper_db_signal msig_properties(mapper_signal sig);
  *  \param type      The property OSC type.
  *  \param value     The property OSC value. */
 void msig_set_property(mapper_signal sig, const char *property,
-                       char type, lo_arg *value);
+                       lo_type type, lo_arg *value);
 
 /*! Remove a property of a signal.
  *  \param sig       The signal to operate on.
@@ -227,7 +227,7 @@ mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
  *  \param type      The property OSC type.
  *  \param value     The property OSC value. */
 void mdev_set_property(mapper_device dev, const char *property,
-                       char type, lo_arg *value);
+                       lo_type type, lo_arg *value);
 
 /*! Remove a property of a device.
  *  \param dev       The device to operate on.
@@ -411,13 +411,13 @@ void mapper_db_device_done(mapper_db_device_t **);
  *  \param index Numerical index of a device property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type Address of a character to receive the property value
+ *  \param type Address of a lo_type to receive the property value
  *              type.
  *  \param value Address of a lo_arg* to receive the property value.
  *  \return Zero if found, otherwise non-zero.
  *  @ingroup devicedb */
 int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
-                                    const char **property, char *type,
+                                    const char **property, lo_type *type,
                                     const lo_arg **value);
 
 /*! Look up a device property by name.
@@ -431,7 +431,7 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
  *  @ingroup devicedb */
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
-                                     char *type,
+                                     lo_type *type,
                                      const lo_arg **value);
 
 /* @} */
@@ -535,13 +535,12 @@ void mapper_db_signal_done(mapper_db_signal_t **s);
  *  \param index Numerical index of a signal property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type Address of a character to receive the property value
- *              type.
+ *  \param type Address of a lo_type to receive the property value type.
  *  \param value Address of a lo_arg* to receive the property value.
  *  \return Zero if found, otherwise non-zero.
  *  @ingroup signaldb */
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
-                                    const char **property, char *type,
+                                    const char **property, lo_type *type,
                                     const lo_arg **value);
 
 /*! Look up a signal property by name.
@@ -555,7 +554,7 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
  *  @ingroup signaldb */
 int mapper_db_signal_property_lookup(mapper_db_signal sig,
                                      const char *property,
-                                     char *type,
+                                     lo_type *type,
                                      const lo_arg **value);
 
 /* @} */

@@ -560,7 +560,7 @@ static mapper_string_table_t devdb_table =
 static
 int mapper_db_property_index(void *thestruct, char o_type,
                              table extra, unsigned int index,
-                             const char **property, char *type,
+                             const char **property, lo_type *type,
                              const lo_arg **value, table proptable)
 {
     die_unless(type!=0, "type parameter cannot be null.\n");
@@ -624,7 +624,7 @@ int mapper_db_property_index(void *thestruct, char o_type,
 static
 int mapper_db_property_lookup(void *thestruct, char o_type,
                               table extra, const char *property,
-                              char *type, const lo_arg **value,
+                              lo_type *type, const lo_arg **value,
                               table proptable)
 {
     die_unless(type!=0, "type parameter cannot be null.\n");
@@ -706,7 +706,7 @@ int mapper_db_add_or_update_device_params(mapper_db db,
 }
 
 int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
-                                    const char **property, char *type,
+                                    const char **property, lo_type *type,
                                     const lo_arg **value)
 {
     return mapper_db_property_index(dev, 0, dev->extra,
@@ -717,7 +717,7 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
 
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
-                                     char *type,
+                                     lo_type *type,
                                      const lo_arg **value)
 {
     return mapper_db_property_lookup(dev, 0, dev->extra,
@@ -1007,7 +1007,7 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
 }
 
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
-                                    const char **property, char *type,
+                                    const char **property, lo_type *type,
                                     const lo_arg **value)
 {
     return mapper_db_property_index(sig, sig->type, sig->extra,
@@ -1017,7 +1017,7 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
 
 int mapper_db_signal_property_lookup(mapper_db_signal sig,
                                      const char *property,
-                                     char *type,
+                                     lo_type *type,
                                      const lo_arg **value)
 {
     return mapper_db_property_lookup(sig, sig->type, sig->extra,

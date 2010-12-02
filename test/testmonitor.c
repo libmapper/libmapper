@@ -35,7 +35,7 @@ void printsignal(mapper_db_signal sig)
 
     int i=0;
     const char *key;
-    char type;
+    lo_type type;
     const lo_arg *val;
     while(!mapper_db_signal_property_index(
               sig, i++, &key, &type, &val))
@@ -100,7 +100,7 @@ void loop()
         while (pdev) {
             int i=0;
             const char *key;
-            char type;
+            lo_type type;
             const lo_arg *val;
             printf("  device");
             while (!mapper_db_device_property_index(

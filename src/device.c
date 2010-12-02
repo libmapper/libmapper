@@ -459,7 +459,7 @@ int mdev_ready(mapper_device device)
 }
 
 void mdev_set_property(mapper_device dev, const char *property,
-                       char type, lo_arg *value)
+                       lo_type type, lo_arg *value)
 {
     mapper_table_add_or_update_osc_value(dev->extra,
                                          property, type, value);

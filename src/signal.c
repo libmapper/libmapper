@@ -36,7 +36,7 @@ mapper_db_signal msig_properties(mapper_signal sig)
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
-                       char type, lo_arg *value)
+                       lo_type type, lo_arg *value)
 {
     mapper_table_add_or_update_osc_value(sig->props.extra,
                                          property, type, value);

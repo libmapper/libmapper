@@ -29,7 +29,7 @@ struct _mapper_device;
  *  type is a string, the allocated size may be longer than
  *  sizeof(mapper_osc_arg_t). */
 typedef struct _mapper_osc_value {
-    char type;
+    lo_type type;
     lo_arg value;
 } mapper_osc_value_t;
 
