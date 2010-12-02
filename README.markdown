@@ -4,7 +4,7 @@ libmapper
 
 This library is a system for representing input and output signals on
 a network and allowing arbitrary "mappings" to be dynamically created
-between them using an external interface.
+between them.
 
 To get started quickly with libmapper, be sure to read the tutorial,
 found in the "doc" folder in this distribution.
@@ -12,7 +12,7 @@ found in the "doc" folder in this distribution.
 This project began life as a tool for helping composers and performers
 to more easily play with custom-built musical instruments, such that a
 program that reads data from the instrument (e.g. from an
-[Arduino](http://www.arduino.cc/) USB serial port) can be connected to
+[Arduino](http://www.arduino.cc/) embedded microcontroller) can be connected to
 the inputs of a sound synthesizer.  The first version of this software
 was written entirely in Cycling 74's
 [Max/MSP](http://www.cycling74.com/), but in order to make it more
@@ -46,12 +46,12 @@ Advantages of libmapper
 This library is, on one level, our response to the widely acknowledged
 lack of a "query" protocol for Open Sound Control.  We are aware for
 example of [current work on using the ZeroConf protocol for publishing
-OSC services](http://sourceforge.net/projects/osctools/), or various
+OSC services](http://sourceforge.net/projects/osctools/), and various
 efforts to standardize a certain set of OSC address conventions.
 
-However, we believe libmapper covers considerably more ground than
+However, libmapper covers considerably more ground than
 simply the ability to publish namespaces, and handles a direct need
-that we experienced in our daily work.  We did evaluate the use of
+that we experience in our daily work.  We evaluated the use of
 ZeroConf early on in this work, but we eventually decided that sending
 OSC messages over multicast was just as easy and required the
 integration of fewer dependencies.  With the addition of being able to
@@ -72,14 +72,14 @@ very wide variety of programming language bindings, to allow any
 choice of development strategy.^[At this time, the SWIG bindings only
 work for Python.  Support for more languages, particularly Java, is in
 the works.]  Another advantage of a C library is portability: we have
-had libmapper working on a Gumstix device, an ethernet-enabled
+demonstrated libmapper working on a Gumstix device, an ethernet-enabled
 ARM-based microcomputer running Linux that can be easily embedded
 directly into an instrument.
 
 We also provide an external to integrate libmapper support into
 Max/MSP or [PureData](http://puredata.info) patches.
 
-Known conceptual limitations
+Known limitations
 ----------------------------
 
 The "devices and signals" metaphor encapsulated by libmapper is of
@@ -103,24 +103,24 @@ solved this way include many-to-one mappings--libmapper currently has
 no special handling of multiple devices sending to one receiver, and
 the values are simply interleaved, whereas what is intended is
 probably some combining function such as addition, multiplication, or
-thresholding.  It may however be possible to solve this latter issue
+thresholding.  It will be possible to solve this latter issue
 by using some form of receiver-side routers which can handle
-expressions containing multiple input variables.  As an explanation
-for why we have not yet handled the case of many-to-one mapping, we
+expressions containing multiple input variables (See future plans below).  
+Many-to-one mapping functionality was not an immediate priority, since we
 feel that in practise it is actually quite rare to have a case where
 such a combining function should be arbitrarily modifiable by a user.
 In the real world, dependencies between signals often have a semantic
-significance which would be better handled internally to the receiver
-rather than in the mapper layer.  Nonetheless, we hope to tackle this
-problem eventually.
+significance which would be better handled internally to the sender or 
+the receiver rather than in the mapper layer.  Nonetheless, we hope 
+to tackle this problem eventually.
 
 One impact of peer-to-peer messaging is that it may suffer from
 redundancy.  In general it may be more efficient to send all data once
 to a central node, and then out once more to nodes that request it, at
 the expense of weighing down the bandwidth of that particular central
 node.  In libmapper's case, if 50 nodes subscribe to a particular
-signal, it will be repeated that many times by the place where it
-originated.  Dealing with centralized-vs-decentralized efficiency
+signal, it will be repeated that many times by the originating node.  
+Dealing with centralized-vs-decentralized efficiency
 issues by automatically optimizing decisions on how messages are
 distributed and where routing takes place is not impossible, but
 represents non-trivial work--for example, in libmapper the concept of
@@ -156,7 +156,7 @@ Although we provide a basic cross-platform GUI using
 [Qt](http://qt.nokia.com/), the most advanced user interface is still
 the Max/MSP implementation.  Although this works extremely well, it is
 limited to platforms supported by Max/MSP.  (In other words, not
-Linux.)  There currently are plans to create a web-based front-end
+Linux.)  There are currently plans to create a web-based front-end
 that will be cross-platform.  Better ways of visualizing and
 interacting with the network are also an active research topic.
 
@@ -183,6 +183,9 @@ somewhat from jitter due to irregular timing in the sender, network
 delay, etc.  We plan to tackle this problem by allowing timestamped
 signals using OSC bundles, which will likely require some changes to
 liblo, the OSC implementation used by libmapper.
+
+As mentioned above, the ability to design many-to-one mapping connections 
+will also be explored in future development of libmapper.
 
 License
 -------
