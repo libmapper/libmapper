@@ -519,6 +519,7 @@ static property_table_value_t sigdb_values[] = {
     { 's', 1, SIGDB_OFFSET(name) },
     { 'c', 0, SIGDB_OFFSET(type) },
     { 's', 1, SIGDB_OFFSET(unit) },
+    { 'i', 0, SIGDB_OFFSET(user_data) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -531,10 +532,11 @@ static string_table_node_t sigdb_nodes[] = {
     { "name",        &sigdb_values[5] },
     { "type",        &sigdb_values[6] },
     { "unit",        &sigdb_values[7] },
+    { "user_data",   &sigdb_values[8] },
 };
 
 static mapper_string_table_t sigdb_table =
-  { sigdb_nodes, 8, 8 };
+  { sigdb_nodes, 9, 9 };
 
 static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
