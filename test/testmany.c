@@ -12,15 +12,13 @@
 #include <arpa/inet.h>
 #include <signal.h>
 
-#define num_sources 5
-#define num_dests 5
-#define max_num_signals 4
+int num_sources = 5;
+int num_dests = 5;
+int max_num_signals = 4;
 
-int automate = 0;
-
-mapper_device source_device_list[num_sources];
-mapper_device dest_device_list[num_dests];
-int num_signals[num_sources + num_dests];
+mapper_device *source_device_list = 0;
+mapper_device *dest_device_list = 0;
+int *num_signals = 0;
 
 int port = 9000;
 
@@ -163,11 +161,11 @@ void cleanup_destinations() {
 
 }
 
-void wait_local_devices() {
+void wait_local_devices(int *cancel) {
 
 	int keep_waiting = 1;
 
-	while ( keep_waiting ) {
+	while ( keep_waiting && !*cancel ) {
 
 		keep_waiting = 0;
 
@@ -231,9 +229,40 @@ void ctrlc(int sig) {
 
 }
 
-int main() {
+int main(int argc, char *argv[])
+{
     double now = get_current_time();
     int result = 0;
+    int do_loop = 1;
+
+    if (argc > 1) {
+        if (strcmp(argv[1], "-h")==0
+            || strcmp(argv[1], "--help")==0)
+        {
+            printf("Usage: testmany [num_sources=5] [num_dests=5] "
+                   "[max_num_signals=4] [loop=1]\n");
+            exit(0);
+        }
+        else
+            num_sources = atoi(argv[1]);
+    }
+
+    if (argc > 2)
+        num_dests = atoi(argv[2]);
+
+    if (argc > 3)
+        max_num_signals = atoi(argv[3]);
+
+    if (argc > 4)
+        do_loop = atoi(argv[4]);
+
+    source_device_list = (mapper_device*)malloc(
+        sizeof(mapper_device)*num_sources);
+
+    dest_device_list = (mapper_device*)malloc(
+        sizeof(mapper_device)*num_dests);
+
+    num_signals = (int*)malloc(sizeof(int)*(num_sources + num_dests));
 
     signal(SIGINT, ctrlc);
 	srand( time(NULL) );
@@ -255,15 +284,20 @@ int main() {
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devices(&done);
     now = get_current_time() - now;
     printf("Allocated %d devices in %f seconds.\n", num_sources + num_dests, now);
 
-    loop();
+    if (do_loop)
+        loop();
 
   done:
     cleanup_destinations();
     cleanup_sources();
-    return result;
 
+    free(source_device_list);
+    free(dest_device_list);
+    free(num_signals);
+
+    return result;
 }
