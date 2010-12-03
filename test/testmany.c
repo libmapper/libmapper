@@ -40,10 +40,8 @@ int setup_sources() {
 	int number;
 
 	for ( int i=0; i<num_sources; i++ ) {
-
-		sprintf( str, "source%d", i );
 		
-		source_device_list[i] = mdev_new(str, port, 0);
+		source_device_list[i] = mdev_new("source", port, 0);
 		number = num_signals[i+num_dests];
 
 		for ( int j=0; j<number; j++ ) {
@@ -108,10 +106,8 @@ int setup_destinations() {
 	float mn=0, mx=1;
 
 	for ( int i=0; i<num_dests; i++ ) {
-
-		sprintf( str, "dest%d", i );
 		
-		dest_device_list[i] = mdev_new(str, port, 0);
+		dest_device_list[i] = mdev_new("dest", port, 0);
 		number = num_signals[i];
 
 		for ( int j=0; j<number; j++ ) {
