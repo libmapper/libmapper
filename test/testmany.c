@@ -43,7 +43,7 @@ int setup_sources() {
 
 	for ( int i=0; i<num_sources; i++ ) {
 
-		sprintf( str, "qtsource%d", i );
+		sprintf( str, "source%d", i );
 		
 		source_device_list[i] = mdev_new(str, port, 0);
 		number = num_signals[i+num_dests];
@@ -111,7 +111,7 @@ int setup_destinations() {
 
 	for ( int i=0; i<num_dests; i++ ) {
 
-		sprintf( str, "qtdest%d", i );
+		sprintf( str, "dest%d", i );
 		
 		dest_device_list[i] = mdev_new(str, port, 0);
 		number = num_signals[i];
