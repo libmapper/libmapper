@@ -265,8 +265,6 @@ static int replace_expression_string(mapper_mapping m,
 void mapper_mapping_set_direct(mapper_mapping m)
 {
     m->props.mode = MO_BYPASS;
-
-    // TODO send /modify
 }
 
 void mapper_mapping_set_linear_range(mapper_mapping m,
@@ -311,8 +309,6 @@ void mapper_mapping_set_linear_range(mapper_mapping m,
 
     // If everything is successful, replace the mapping's expression.
     if (e) replace_expression_string(m, sig, e);
-
-    // TODO send /modify
 }
 
 void mapper_mapping_set_expression(mapper_mapping m,
@@ -323,8 +319,6 @@ void mapper_mapping_set_expression(mapper_mapping m,
         return;
 
     m->props.mode = MO_EXPRESSION;
-
-    // TODO send /modify
 }
 
 void mapper_mapping_set_calibrate(mapper_mapping m,
@@ -344,8 +338,6 @@ void mapper_mapping_set_calibrate(mapper_mapping m,
     m->props.range.dest_max = dest_max;
     m->props.range.known |= MAPPING_RANGE_DEST_MIN | MAPPING_RANGE_DEST_MAX;
     m->calibrating = 0;
-
-    // TODO send /modify
 }
 
 /* Helper to fill in the range (src_min, src_max, dest_min, dest_max)
