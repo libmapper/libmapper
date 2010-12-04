@@ -55,10 +55,16 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
                                  const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
-void mapper_admin_send_osc_with_params(mapper_admin admin,
-                                       mapper_message_t *params,
-                                       const char *path,
-                                       const char *types, ...);
+void _real_mapper_admin_send_osc_with_params(const char *file, int line,
+                                             mapper_admin admin,
+                                             mapper_message_t *params,
+                                             const char *path,
+                                             const char *types, ...);
+
+#define mapper_admin_send_osc_with_params(...)                          \
+    _real_mapper_admin_send_osc_with_params(__FILE__, __LINE__,         \
+                                            __VA_ARGS__,                \
+                                            LO_MARKER_A, LO_MARKER_B)
 
 /***** Device *****/
 

@@ -574,10 +574,11 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
     lo_message_free(m);
 }
 
-void mapper_admin_send_osc_with_params(mapper_admin admin,
-                                       mapper_message_t *params,
-                                       const char *path,
-                                       const char *types, ...)
+void _real_mapper_admin_send_osc_with_params(const char *file, int line,
+                                             mapper_admin admin,
+                                             mapper_message_t *params,
+                                             const char *path,
+                                             const char *types, ...)
 {
     char namedpath[1024];
     snprintf(namedpath, 1024, path, mapper_admin_name(admin));
@@ -590,7 +591,7 @@ void mapper_admin_send_osc_with_params(mapper_admin admin,
 
     va_list aq;
     va_start(aq, types);
-    lo_message_add_varargs(m, types, aq);
+    lo_message_add_varargs_internal(m, types, aq, file, line);
 
     mapper_msg_prepare_params(m, params);
 
