@@ -30,6 +30,11 @@ def main():
         window = Tkinter.Tk()
         window.title("libmapper PWM synth demo")
 
+        name = [False, Tkinter.StringVar()]
+        name[1].set("Waiting for device name...")
+        label = Tkinter.Label(window, textvariable=name[1])
+        label.pack()
+
         gain = Tkinter.Scale(window, from_=0, to=100, label='gain',
                              orient=Tkinter.HORIZONTAL, length=300,
                              command=lambda n: pwm.set_gain(float(n)/100.0))
@@ -53,6 +58,10 @@ def main():
 
         def do_poll():
             dev.poll(0)
+            if not name[0] and dev.ready():
+                name[0] = True
+                name[1].set('Device name: %s, listening on port %d'
+                            %(dev.name, dev.port))
             window.after(5, do_poll)
 
         do_poll()
