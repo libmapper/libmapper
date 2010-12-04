@@ -262,10 +262,6 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
         return NULL;
     }
 
-    /* Resource allocation algorithm needs a seeded random number
-     * generator. */
-    srand(((unsigned int)(get_current_time()*1000000.0))%100000);
-
     return admin;
 }
 
