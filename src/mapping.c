@@ -124,12 +124,27 @@ int mapper_clipping_perform(mapper_mapping mapping,
                             mapper_signal_value_t *to_value)
 {
     int muted = 0;
-    // TODO: this doesn't check the value type, assumes float
-    float v = from_value->f;
+    float v = 0;
     float total_range = fabsf(mapping->props.range.dest_max
                               - mapping->props.range.dest_min);
     float difference, modulo_difference;
-    
+
+    if (mapping->props.clip_min == CT_NONE
+        && mapping->props.clip_max == CT_NONE)
+    {
+        *to_value = *from_value;
+        return 1;
+    }
+
+    if (mapping->props.dest_type == 'f')
+        v = from_value->f;
+    else if (mapping->props.dest_type == 'i')
+        v = (float)from_value->i32;
+    else {
+        trace("unknown type in mapper_clipping_perform()\n");
+        return 0;
+    }
+
     if (mapping->props.range.known) {
         if (v < mapping->props.range.dest_min) {
             switch (mapping->props.clip_min) {
@@ -246,14 +261,13 @@ int mapper_clipping_perform(mapper_mapping mapping,
             }
         }
     }
-    to_value->f = v;
-    if (muted) {
-        return 0;
-    }
-    else {
-        return 1;
-    }
-    
+
+    if (mapping->props.dest_type == 'f')
+        to_value->f = v;
+    else if (mapping->props.dest_type == 'i')
+        to_value->i32 = (int)v;
+
+    return !muted;
 }
 
 /* Helper to replace a mapping's expression only if the given string
