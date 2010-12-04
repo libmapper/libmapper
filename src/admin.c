@@ -577,6 +577,7 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
 void _real_mapper_admin_send_osc_with_params(const char *file, int line,
                                              mapper_admin admin,
                                              mapper_message_t *params,
+                                             mapper_string_table_t *extra,
                                              const char *path,
                                              const char *types, ...)
 {
@@ -594,6 +595,8 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     lo_message_add_varargs_internal(m, types, aq, file, line);
 
     mapper_msg_prepare_params(m, params);
+    if (extra)
+        mapper_msg_add_osc_value_table(m, extra);
 
     lo_send_message(admin->admin_addr, namedpath, m);
     lo_message_free(m);
@@ -1400,29 +1403,46 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
-    if (argc <= 2) {
-        // use some default arguments related to the signal
-        mapper_admin_send_osc(
-                              admin, "/connectTo", "ss", 
-                              src_name, dest_name,
-                              AT_TYPE, input->props.type,
-                              AT_LENGTH, input->props.length,
-                              input->props.minimum ? AT_MIN : -1, input,
-                              input->props.maximum ? AT_MAX : -1, input,
-                              AT_EXTRA, input->props.extra);
-    } else {
-        // add the remaining arguments from /connect
-        mapper_message_t params;
-        if (mapper_msg_parse_params(&params, path, &types[2],
-                                    argc-2, &argv[2]))
-        {
-            trace("<%s> error parsing message parameters in /connect.\n",
-                  mapper_admin_name(admin));
-            return 0;
-        }
-        mapper_admin_send_osc_with_params(
-            admin, &params, "/connectTo", "ss", src_name, dest_name);
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+
+    // add arguments from /connect if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /connect.\n",
+              mapper_admin_name(admin));
+        return 0;
     }
+
+    // substitute some missing parameters with known properties
+    lo_arg *arg_type = (lo_arg*) &input->props.type;
+    if (!params.values[AT_TYPE]) {
+        params.values[AT_TYPE] = &arg_type;
+        params.types[AT_TYPE] = "c";
+    }
+
+    lo_arg *arg_length = (lo_arg*) &input->props.length;
+    if (!params.values[AT_LENGTH]) {
+        params.values[AT_LENGTH] = &arg_length;
+        params.types[AT_LENGTH] = "i";
+    }
+
+    lo_arg *arg_min = (lo_arg*) input->props.minimum;
+    if (!params.values[AT_MIN] && input->props.minimum) {
+        params.values[AT_MIN] = &arg_min;
+        params.types[AT_MIN] = &input->props.type;
+    }
+
+    lo_arg *arg_max = (lo_arg*) input->props.maximum;
+    if (!params.values[AT_MAX] && input->props.maximum) {
+        params.values[AT_MAX] = &arg_max;
+        params.types[AT_MAX] = &input->props.type;
+    }
+
+    mapper_admin_send_osc_with_params(
+        admin, &params, input->props.extra,
+        "/connectTo", "ss", src_name, dest_name);
 
     return 0;
 }

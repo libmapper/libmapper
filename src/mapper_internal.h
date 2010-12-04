@@ -58,6 +58,7 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
 void _real_mapper_admin_send_osc_with_params(const char *file, int line,
                                              mapper_admin admin,
                                              mapper_message_t *params,
+                                             mapper_string_table_t *extra,
                                              const char *path,
                                              const char *types, ...);
 
@@ -438,6 +439,9 @@ void table_dump_osc_values(table t);
 /*! Add a typed OSC argument to a string table. */
 void mapper_table_add_or_update_osc_value(table t, const char *key,
                                           lo_type type, lo_arg *arg);
+
+/*! Add OSC arguments contained in a string table to a lo_message */
+void mapper_msg_add_osc_value_table(lo_message m, table t);
 
 /**** Debug macros ****/
 

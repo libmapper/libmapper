@@ -359,6 +359,12 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
     case 's':
         lo_message_add_string(m, &a->s);
         break;
+    case 'c':
+        lo_message_add_char(m, a->c);
+        break;
+    default:
+        trace("unknown type in msg_add_lo_arg()\n");
+        break;
     }
 }
 
