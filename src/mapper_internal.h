@@ -368,6 +368,7 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map);
 
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
+                                        int output_is_float,
                                         int vector_size);
 
 #ifdef DEBUG

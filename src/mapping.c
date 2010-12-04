@@ -246,7 +246,8 @@ static int replace_expression_string(mapper_mapping m,
                                      const char *expr_str)
 {
     mapper_expr expr = mapper_expr_new_from_string(
-        expr_str, s->props.type=='f', s->props.length);
+        expr_str, s->props.type=='f', m->props.dest_type=='f',
+        s->props.length);
 
     if (!expr)
         return 1;

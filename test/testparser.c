@@ -5,7 +5,7 @@
 int main()
 {
     const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{-6*2+12}[0])*3*4+cos(2.)";
-    mapper_expr e = mapper_expr_new_from_string(str, 1, 1);
+    mapper_expr e = mapper_expr_new_from_string(str, 1, 1, 1);
     printf("Parsing %s\n", str);
     if (!e) { printf("Test FAILED.\n"); return 1; }
 #ifdef DEBUG

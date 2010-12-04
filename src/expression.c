@@ -118,6 +118,7 @@ typedef struct _token {
         TOK_COMMA,
         TOK_END,
         TOK_TOFLOAT,
+        TOK_TOINT32,
     } type;
     union {
         float f;
@@ -348,6 +349,7 @@ void printtoken(token_t *tok)
     case TOK_COMMA:        printf(",");                   break;
     case TOK_END:          printf("END");                 break;
     case TOK_TOFLOAT:      printf("(float)");             break;
+    case TOK_TOINT32:      printf("(int32)");             break;
     default:               printf("(unknown token)");     break;
     }
 }
@@ -488,6 +490,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 /*! Create a new expression by parsing the given string. */
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
+                                        int output_is_float,
                                         int vector_size)
 {
     const char *s = str;
@@ -805,6 +808,22 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         goto cleanup;
     }
 
+    // Coerce the final output if necessary
+    exprnode e = result;
+    while (e->next) e = e->next;
+    if (e->is_float && !output_is_float) {
+        token_t coerce;
+        coerce.type = TOK_TOINT32;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->is_float = 0;
+    }
+    else if (!e->is_float && output_is_float) {
+        token_t coerce;
+        coerce.type = TOK_TOFLOAT;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->is_float = 1;
+    }
+
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
     expr->vector_size = vector_size;
@@ -873,6 +892,9 @@ mapper_signal_value_t mapper_expr_evaluate(
             break;
         case TOK_TOFLOAT:
             stack[top].f = (float)stack[top].i32;
+            break;
+        case TOK_TOINT32:
+            stack[top].i32 = (int)stack[top].f;
             break;
         case TOK_OP:
             right = stack[top--];

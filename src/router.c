@@ -113,6 +113,7 @@ mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     
     mapping->props.src_name = strdup(sig->props.name);
+    mapping->props.src_type = sig->props.type;
     mapping->props.dest_name = strdup(name);
     mapping->props.mode = MO_UNDEFINED;
     mapping->props.expression = strdup("y=x");
