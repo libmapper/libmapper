@@ -53,9 +53,26 @@ int mapper_mapping_perform(mapper_mapping mapping,
     if (mapping->props.muted)
         return 0;
 
-    if (!mapping->props.mode || mapping->props.mode == MO_BYPASS)
-        *to_value = *from_value;
+    /* If the destination type is unknown, we can't do anything
+     * intelligent here -- even bypass mode might screw up if we
+     * assume the types work out. */
+    if (mapping->props.dest_type != 'f'
+        && mapping->props.dest_type != 'i')
+    {
+        return 0;
+    }
 
+    if (!mapping->props.mode || mapping->props.mode == MO_BYPASS)
+    {
+        if (mapping->props.src_type == mapping->props.dest_type)
+            *to_value = *from_value;
+        else if (mapping->props.src_type == 'f'
+                 && mapping->props.dest_type == 'i')
+            to_value->i32 = (int)from_value->f;
+        else if (mapping->props.src_type == 'i'
+                 && mapping->props.dest_type == 'f')
+            to_value->f = (float)from_value->i32;
+    }
     else if (mapping->props.mode == MO_EXPRESSION
              || mapping->props.mode == MO_LINEAR)
     {
