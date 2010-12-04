@@ -599,6 +599,33 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     lo_message_free(m);
 }
 
+static void mapper_admin_send_connected(mapper_admin admin,
+                                        mapper_router router,
+                                        mapper_mapping m)
+{
+    // Send /connected message
+    lo_message mess = lo_message_new();
+    if (!mess) {
+        trace("couldn't allocate lo_message\n");
+    }
+
+    char src_name[1024], dest_name[1024];
+
+    snprintf(src_name, 1024, "%s%s",
+             mdev_name(router->device), m->props.src_name);
+
+    snprintf(dest_name, 1024, "%s%s",
+             router->dest_name, m->props.dest_name);
+
+    lo_message_add_string(mess, src_name);
+    lo_message_add_string(mess, dest_name);
+
+    mapper_mapping_prepare_osc_message(mess, m);
+
+    lo_send_message(admin->admin_addr, "/connected", mess);
+    lo_message_free(mess);
+}
+
 /**********************************/
 /* Internal OSC message handlers. */
 /**********************************/
@@ -1483,21 +1510,8 @@ static int handler_signal_connectTo(const char *path, const char *types,
         /* Set its properties. */
         mapper_mapping_set_from_message(m, output, &params);
     }
-    
-    // Send /connected message
-    lo_message mess = lo_message_new();
-    if (!mess) {
-        trace("couldn't allocate lo_message\n");
-        return 0;
-    }
-    
-    lo_message_add_string(mess, src_name);
-    lo_message_add_string(mess, dest_name);
-    
-    mapper_mapping_prepare_osc_message(mess, m);
-    
-    lo_send_message(admin->admin_addr, "/connected", mess);
-    lo_message_free(mess);
+
+    mapper_admin_send_connected(admin, router, m);
 
     return 0;
 }
@@ -1568,7 +1582,15 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               mapper_admin_name(admin), src_signal_name);
         return 0;
     }
-    
+
+    mapper_router router =
+        mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
+    if (!router)
+    {
+        trace("<%s> no router found for '%s' in /connectTo\n",
+              mapper_admin_name(admin), &argv[1]->s);
+    }
+
     mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
     
     mapper_message_t params;
@@ -1580,19 +1602,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     
     mapper_mapping_set_from_message(m, output, &params);
 
-    lo_message mess = lo_message_new();
-    if (!mess) {
-        trace("couldn't allocate lo_message\n");
-        return 0;
-    }
-    
-    lo_message_add_string(mess, src_name);
-    lo_message_add_string(mess, &argv[1]->s);
-    
-    mapper_mapping_prepare_osc_message(mess, m);
-    
-    lo_send_message(admin->admin_addr, "/connected", mess);
-    lo_message_free(mess);
+    mapper_admin_send_connected(admin, router, m);
 
     return 0;
 }
@@ -1677,7 +1687,6 @@ static int handler_device_connections_get(const char *path,
                                           lo_arg **argv, int argc,
                                           lo_message msg, void *user_data)
 {
-    char src_name[1024], dest_name[1024];
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
@@ -1696,24 +1705,7 @@ static int handler_device_connections_get(const char *path,
 			sig = sm->signal;
 
             while (m) {
-
-				msig_full_name(sig, src_name, 1024);
-                snprintf(dest_name, 1024, "%s%s",
-                         router->dest_name, m->props.dest_name);
-
-                lo_message mess = lo_message_new();
-                if (!mess) {
-                    trace("couldn't allocate lo_message\n");
-                    return 0;
-                }
-
-                lo_message_add_string(mess, src_name);
-                lo_message_add_string(mess, dest_name);
-
-                mapper_mapping_prepare_osc_message(mess, m);
-
-                lo_send_message(admin->admin_addr, "/connected", mess);
-                lo_message_free(mess);
+                mapper_admin_send_connected(admin, router, m);
                 m = m->next;
 
             }
