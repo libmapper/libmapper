@@ -86,8 +86,9 @@ demonstrated libmapper working on a Gumstix device, an
 ethernet-enabled ARM-based microcomputer running Linux that can be
 easily embedded directly into an instrument.
 
-We also provide an external to integrate libmapper support into
-Max/MSP or [PureData](http://puredata.info) patches.
+We also provide an "external" Max/MSP and [PureData](http://puredata.info)
+object, to help integrate libmapper support into programs created in
+these popular dataflow languages.
 
 Known limitations
 -----------------
