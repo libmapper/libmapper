@@ -13,4 +13,4 @@ _%.so: %_wrap.c
 clean-local:
 	-@rm -vf _pwm.so pwm.py pwm_wrap.c
 
-EXTRA_DIST = pwm.i
+EXTRA_DIST = pwm.i tk_pwm.py

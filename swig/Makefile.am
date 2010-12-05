@@ -13,4 +13,4 @@ _%.so: %_wrap.c
 clean-local:
 	-@rm -vf _mapper.so mapper.py mapper_wrap.c
 
-EXTRA_DIST = mapper.i
+EXTRA_DIST = mapper.i tkgui.py
