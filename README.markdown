@@ -22,9 +22,9 @@ History of the mapper project
 This project began life as a tool for helping composers and performers
 to more easily play with custom-built musical instruments, such that a
 program that reads data from the instrument (e.g. from an
-[Arduino](http://www.arduino.cc/) embedded microcontroller) can be connected to
-the inputs of a sound synthesizer.  The first version of this software
-was written entirely in Cycling 74's
+[Arduino](http://www.arduino.cc/) embedded microcontroller) can be
+connected to the inputs of a sound synthesizer.  The first version of
+this software was written entirely in Cycling 74's
 [Max/MSP](http://www.cycling74.com/), but in order to make it more
 universally useful and cross-platform, we decided to re-implement the
 protocol in C; hence, libmapper.
@@ -59,15 +59,15 @@ example of [current work on using the ZeroConf protocol for publishing
 OSC services](http://sourceforge.net/projects/osctools/), and various
 efforts to standardize a certain set of OSC address conventions.
 
-However, libmapper covers considerably more ground than
-simply the ability to publish namespaces, and handles a direct need
-that we experience in our daily work.  We evaluated the use of
-ZeroConf early on in this work, but we eventually decided that sending
-OSC messages over multicast was just as easy and required the
-integration of fewer dependencies.  With the addition of being able to
-control message routing and to dynamically specify signal conditioning
-equations, we feel this work represents a significant enough effort
-that it is worth making available to the general public.
+However, libmapper covers considerably more ground than simply the
+ability to publish namespaces, and handles a direct need that we
+experience in our daily work.  We evaluated the use of ZeroConf early
+on in this work, but we eventually decided that sending OSC messages
+over multicast was just as easy and required the integration of fewer
+dependencies.  With the addition of being able to control message
+routing and to dynamically specify signal conditioning equations, we
+feel this work represents a significant enough effort that it is worth
+making available to the general public.
 
 It can also be seen as an open source alternative to some commercial
 products such as Camille Troillard's [Osculator](http://www.osculator.net/)
@@ -82,15 +82,15 @@ very wide variety of programming language bindings, to allow any
 choice of development strategy.^[At this time, the SWIG bindings only
 work for Python.  Support for more languages, particularly Java, is in
 the works.]  Another advantage of a C library is portability: we have
-demonstrated libmapper working on a Gumstix device, an ethernet-enabled
-ARM-based microcomputer running Linux that can be easily embedded
-directly into an instrument.
+demonstrated libmapper working on a Gumstix device, an
+ethernet-enabled ARM-based microcomputer running Linux that can be
+easily embedded directly into an instrument.
 
 We also provide an external to integrate libmapper support into
 Max/MSP or [PureData](http://puredata.info) patches.
 
 Known limitations
-----------------------------
+-----------------
 
 The "devices and signals" metaphor encapsulated by libmapper is of
 course not the be-all and end-all of mapping.  We assume homogeneous
@@ -113,37 +113,36 @@ solved this way include many-to-one mappings--libmapper currently has
 no special handling of multiple devices sending to one receiver, and
 the values are simply interleaved, whereas what is intended is
 probably some combining function such as addition, multiplication, or
-thresholding.  It will be possible to solve this latter issue
-by using some form of receiver-side routers which can handle
-expressions containing multiple input variables (See future plans below).  
-Many-to-one mapping functionality was not an immediate priority, since we
-feel that in practise it is actually quite rare to have a case where
-such a combining function should be arbitrarily modifiable by a user.
-In the real world, dependencies between signals often have a semantic
-significance which would be better handled internally to the sender or 
-the receiver rather than in the mapper layer.  Nonetheless, we hope 
-to tackle this problem eventually.
+thresholding.  It will be possible to solve this latter issue by using
+some form of receiver-side routers which can handle expressions
+containing multiple input variables (See future plans below).
+Many-to-one mapping functionality was not an immediate priority, since
+we feel that in practise it is actually quite rare to have a case
+where such a combining function should be arbitrarily modifiable by a
+user.  In the real world, dependencies between signals often have a
+semantic significance which would be better handled internally to the
+sender or the receiver rather than in the mapper layer.  Nonetheless,
+we hope to tackle this problem eventually.
 
 One impact of peer-to-peer messaging is that it may suffer from
 redundancy.  In general it may be more efficient to send all data once
 to a central node, and then out once more to nodes that request it, at
 the expense of weighing down the bandwidth of that particular central
 node.  In libmapper's case, if 50 nodes subscribe to a particular
-signal, it will be repeated that many times by the originating node.  
-Dealing with centralized-vs-decentralized efficiency
-issues by automatically optimizing decisions on how messages are
-distributed and where routing takes place is not impossible, but
-represents non-trivial work--for example, in libmapper the concept of
-a "router" is actually an independent node that a device sends
-messages to, which then translates and rebroadcasts; it just happens
-that the router is embedded in the sender because that was the most
-efficient place to have it in our scenario.  In any case, given that
-optimal message passing efficiency is not a near-term goal, it goes
-without saying that your choice of using libmapper should depend on
-what type of network you envision: if you need a large number of
-receivers for the same signal you might consider one of the many
-alternatives, such as the [SenseWorld
-DataNetwork](http://sensestage.hexagram.ca), a
+signal, it will be repeated that many times by the originating node.
+Dealing with centralized-vs-decentralized efficiency issues by
+automatically optimizing decisions on how messages are distributed and
+where routing takes place is not impossible, but represents
+non-trivial work--for example, in libmapper the concept of a "router"
+is actually an independent node that a device sends messages to, which
+then translates and rebroadcasts; it just happens that the router is
+embedded in the sender because that was the most efficient place to
+have it in our scenario.  In any case, given that optimal message
+passing efficiency is not a near-term goal, it goes without saying
+that your choice of using libmapper should depend on what type of
+network you envision: if you need a large number of receivers for the
+same signal you might consider one of the many alternatives, such as
+the [SenseWorld DataNetwork](http://sensestage.hexagram.ca), a
 [SuperCollider](http://supercollider.sourceforge.net/)-based mapping
 framework based on the central-server approach.
 
