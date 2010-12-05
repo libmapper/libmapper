@@ -96,8 +96,11 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
 
-mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                                         const char *name);
+mapper_mapping mapper_router_add_mapping(mapper_router router,
+                                         mapper_signal sig,
+                                         const char *dest_name,
+                                         char dest_type,
+                                         int dest_length);
 
 int mapper_router_remove_mapping(mapper_router router,
                                   mapper_mapping mapping);

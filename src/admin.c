@@ -1521,10 +1521,29 @@ static int handler_signal_connectTo(const char *path, const char *types,
 
         return 0;
     }
+
+    /* Creation of a mapping requires the type and length info. */
+    if (!params.values[AT_TYPE] || !params.values[AT_LENGTH])
+        return 0;
+
+    char dest_type = 0;
+    if (*params.types[AT_TYPE] == 'c')
+        dest_type = (*params.values[AT_TYPE])->c;
+    else if (*params.types[AT_TYPE] == 's')
+        dest_type = (*params.values[AT_TYPE])->s;
+    else
+        return 0;
+
+    int dest_length = 0;
+    if (*params.types[AT_LENGTH] == 'i')
+        dest_length = (*params.values[AT_LENGTH])->i;
+    else
+        return 0;
     
     /* Add a flavourless mapping */
     mapper_mapping m = mapper_router_add_mapping(router, output,
-                                                 dest_signal_name);
+                                                 dest_signal_name,
+                                                 dest_type, dest_length);
 
     if (argc > 2) {
         /* Set its properties. */

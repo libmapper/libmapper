@@ -111,7 +111,8 @@ int setup_router()
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
     mapper_mapping m = mapper_router_add_mapping(router, sendsig,
-                                                 recvsig->props.name);
+                                                 recvsig->props.name,
+                                                 'f', 1);
     mapper_mapping_range_t range;
     range.src_min = 0;
     range.src_max = 1;

@@ -107,14 +107,19 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     return;
 }
 
-mapper_mapping mapper_router_add_mapping(mapper_router router, mapper_signal sig,
-                                         const char *name)
+mapper_mapping mapper_router_add_mapping(mapper_router router,
+                                         mapper_signal sig,
+                                         const char *dest_name,
+                                         char dest_type,
+                                         int dest_length)
 {
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.src_type = sig->props.type;
-    mapping->props.dest_name = strdup(name);
+    mapping->props.dest_name = strdup(dest_name);
+    mapping->props.dest_type = dest_type;
+    // TODO mapping->props.dest_length = dest_length;
     mapping->props.mode = MO_UNDEFINED;
     mapping->props.expression = strdup("y=x");
     mapping->props.clip_min = CT_NONE;
