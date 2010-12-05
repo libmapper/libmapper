@@ -70,14 +70,12 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
     }
     // for each mapping, construct a mapped signal and send it
     mapper_mapping m = sm->mapping;
-    int c = 1;
-    int i = 0;
     while (m) {
-        struct _mapper_signal signal = *sig;
-        c = 1;
-        i = 0;
-
-        signal.props.name = strdup(m->props.dest_name);
+        struct _mapper_signal signal;
+        signal.props.name = m->props.dest_name;
+        // TODO signal.props.length = m->props.dest_length;
+        signal.props.length = sig->props.length;
+        signal.props.type = m->props.dest_type;
 
         mapper_signal_value_t v, w;
         if (mapper_mapping_perform(m, sig, value, &v))
