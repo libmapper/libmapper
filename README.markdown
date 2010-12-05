@@ -6,8 +6,18 @@ This library is a system for representing input and output signals on
 a network and allowing arbitrary "mappings" to be dynamically created
 between them.
 
+A "mapping" consists of an Open Sound Control stream being established
+between an input and output signal--the input is translated to the
+output's expected format, with some mathematical expression used to
+condition the transmitted values as desired.  This can be used for
+example to connect a set of sensors to a synthesizer's input
+parameters.
+
 To get started quickly with libmapper, be sure to read the tutorial,
 found in the "doc" folder in this distribution.
+
+History of the mapper project
+-----------------------------
 
 This project began life as a tool for helping composers and performers
 to more easily play with custom-built musical instruments, such that a
