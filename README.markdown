@@ -145,7 +145,7 @@ network you envision: if you need a large number of receivers for the
 same signal you might consider one of the many alternatives, such as
 the [SenseWorld DataNetwork](http://sensestage.hexagram.ca), a
 [SuperCollider](http://supercollider.sourceforge.net/)-based mapping
-framework based on the central-server approach.
+framework using a central-server approach.
 
 Future plans
 ------------
