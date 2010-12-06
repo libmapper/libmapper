@@ -1500,25 +1500,13 @@ static int handler_signal_connectTo(const char *path, const char *types,
     mapper_router router =
         mapper_router_find_by_dest_name(md->routers, dest_name);
 
+    /* If no link found, we simply stop here. The idea was floated
+     * that we could automatically create links, but it was agreed
+     * that this kind of logic would be best left up to client
+     * applications. */
     if (!router) {
         trace("<%s> not linked to '%s' on /connectTo.\n",
               mapper_admin_name(admin), dest_name);
-        // TODO: Perform /linkTo?
-
-        const char *host = mapper_msg_get_param_if_string(&params, AT_IP);
-        int port;
-        if (host && !mapper_msg_get_param_if_int(&params, AT_PORT, &port))
-        {
-            // Port and host are valid
-            // TO DO: create routed using supplied host and port info
-            // TO DO: send /linked message
-        }
-        else {
-            /* TO DO: send /link message to start process - should
-             * also cache /connectTo message for completion after
-             * link??? */
-        }
-
         return 0;
     }
 
