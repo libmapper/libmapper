@@ -159,21 +159,10 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
     case MDB_NEW:
         printf("added.\n");
 
-        // Request signals for new devices.
-        // TODO: API function for this?
-        char cmd[1024];
-        snprintf(cmd, 1024, "%s/signals/get", dev->name);
-        mapper_admin_send_osc(mon->admin, cmd, "");
-
-        // Request links for new devices.
-        // TODO: API function for this?
-        snprintf(cmd, 1024, "%s/links/get", dev->name);
-        mapper_admin_send_osc(mon->admin, cmd, "");
-
-        // Request mappings for new devices.
-        // TODO: API function for this?
-        snprintf(cmd, 1024, "%s/connections/get", dev->name);
-        mapper_admin_send_osc(mon->admin, cmd, "");
+        // Request signals, links, mappings for new devices.
+        mapper_monitor_request_signals_by_name(mon, dev->name);
+        mapper_monitor_request_links_by_name(mon, dev->name);
+        mapper_monitor_request_mappings_by_name(mon, dev->name);
 
         break;
     case MDB_MODIFY:
