@@ -74,7 +74,6 @@ int mapper_msg_parse_params(mapper_message_t *msg,
         }
 
         /* special case: range has 4 float or int parameters */
-        // TODO: handle 'invert' and '-'
         if (j==AT_RANGE) {
             int k;
             msg->types[j] = &types[i+1];
@@ -86,7 +85,17 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                           "for @range.\n", path);
                     return 1;
                 }
-                if (types[i] != 'i' && types[i] != 'f') {
+                if (((types[i] == 's' || types[i] == 'S')
+                     && strcmp("-", &argv[i]->s)==0)
+                    || (types[i] == 'c' && argv[i]->c == '-'))
+                {
+                    /* The '-' character means "don't change this
+                     * value", and here we ignore it.  It will be
+                     * considered "unknown" during get_range(), and
+                     * therefore not modified if already known by some
+                     * other means. */
+                }
+                else if (types[i] != 'i' && types[i] != 'f') {
                     /* range parameter bad type */
 #ifdef DEBUG
                     trace("message %s, @range parameter ", path);
