@@ -1544,6 +1544,10 @@ static int handler_signal_connectTo(const char *path, const char *types,
     mapper_mapping m = mapper_router_add_mapping(router, output,
                                                  dest_signal_name,
                                                  dest_type, dest_length);
+    if (!m) {
+        trace("couldn't create mapper_mapping in handler_signal_connectTo\n");
+        return 0;
+    }
 
     if (argc > 2) {
         /* Set its properties. */
@@ -1630,8 +1634,11 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
-    
+    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s,
+                                                    &argv[1]->s);
+    if (!m)
+        return 0;
+
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
     {
