@@ -279,22 +279,23 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             mval_add_to_message(m, sig, sig->props.maximum);
             break;
         case AT_MODE:
-            // TODO: enumerate mode types
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
+            i = va_arg(aq, int);
+            if (i >= 0 && i < N_MAPPER_MODE_TYPES)
+                lo_message_add_string(m, mapper_mode_type_strings[i]);
+            else
+                lo_message_add_string(m, "unknown");
             break;
         case AT_EXPRESSION:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
         case AT_CLIPMIN:
-            // TODO: enumerate clipping types
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
-            break;
         case AT_CLIPMAX:
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
+            i = va_arg(aq, int);
+            if (i >= 0 && i < N_MAPPER_CLIPPING_TYPES)
+                lo_message_add_string(m, mapper_clipping_type_strings[i]);
+            else
+                lo_message_add_string(m, "unknown");
             break;
         case AT_RANGE:
             range = va_arg(aq, mapper_mapping_range_t*);
@@ -317,7 +318,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_MUTE:
             i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
+            lo_message_add_int32(m, i!=0);
             break;
         case AT_LENGTH:
             i = va_arg(aq, int);
