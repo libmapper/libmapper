@@ -73,9 +73,8 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
     while (m) {
         struct _mapper_signal signal;
         signal.props.name = m->props.dest_name;
-        // TODO signal.props.length = m->props.dest_length;
-        signal.props.length = sig->props.length;
         signal.props.type = m->props.dest_type;
+        signal.props.length = m->props.dest_length;
 
         mapper_signal_value_t v, w;
         if (mapper_mapping_perform(m, sig, value, &v))
@@ -115,9 +114,10 @@ mapper_mapping mapper_router_add_mapping(mapper_router router,
     
     mapping->props.src_name = strdup(sig->props.name);
     mapping->props.src_type = sig->props.type;
+    mapping->props.src_length = sig->props.length;
     mapping->props.dest_name = strdup(dest_name);
     mapping->props.dest_type = dest_type;
-    // TODO mapping->props.dest_length = dest_length;
+    mapping->props.dest_length = dest_length;
     mapping->props.mode = MO_UNDEFINED;
     mapping->props.expression = strdup("y=x");
     mapping->props.clip_min = CT_NONE;

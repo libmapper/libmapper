@@ -92,6 +92,9 @@ typedef struct _mapper_db_mapping {
     char src_type;              //!< Source signal type.
     char dest_type;             //!< Destination signal type.
 
+    int src_length;             //!< Source signal length.
+    int dest_length;            //!< Destination signal length.
+
     mapper_clipping_type clip_max;    /*!< Operation for exceeded
                                        *   upper boundary. */
     mapper_clipping_type clip_min;    /*!< Operation for exceeded
