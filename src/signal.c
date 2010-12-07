@@ -101,20 +101,61 @@ void msig_free(mapper_signal sig)
 
 void msig_update_int(mapper_signal sig, int value)
 {
-    if (sig->device)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
+#ifdef DEBUG
+    if (sig->props.type != 'i') {
+        trace("called msig_update_int() on non-int signal!\n");
+        return;
+    }
+
+    if (sig->props.length != 1) {
+        trace("called msig_update_int() on non-scalar signal!\n");
+        return;
+    }
+
+    if (!sig->device) {
+        trace("signal does not have a device in msig_update_int().\n");
+        return;
+    }
+#endif
+
+    mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
 
 void msig_update_float(mapper_signal sig, float value)
 {
-    if (sig->device)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
+#ifdef DEBUG
+    if (sig->props.type != 'f') {
+        trace("called msig_update_float() on non-float signal!\n");
+        return;
+    }
+
+    if (sig->props.length != 1) {
+        trace("called msig_update_float() on non-scalar signal!\n");
+        return;
+    }
+
+    if (!sig->device) {
+        trace("signal does not have a device in msig_update_float().\n");
+        return;
+    }
+#endif
+
+    mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
 
 void msig_update(mapper_signal sig, void *value)
 {
-    if (sig->device)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
+    /* We have to assume that value points to an array of correct type
+     * and size. */
+
+#ifdef DEBUG
+    if (!sig->device) {
+        trace("signal does not have a device in msig_update_float().\n");
+        return;
+    }
+#endif
+
+    mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
