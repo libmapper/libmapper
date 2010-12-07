@@ -4,7 +4,7 @@ TEST_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 noinst_PROGRAMS = test testmany testadmin testsend testrecv			\
                   testexpression testlinear testparams testmonitor	\
-                  testdb testparser testprops
+                  testdb testparser testprops testvector
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -21,6 +21,10 @@ testrecv_LDADD = $(TEST_LDADD)
 testlinear_CFLAGS = $(TEST_CFLAGS)
 testlinear_SOURCES = testlinear.c
 testlinear_LDADD = $(TEST_LDADD)
+
+testvector_CFLAGS = $(TEST_CFLAGS)
+testvector_SOURCES = testvector.c
+testvector_LDADD = $(TEST_LDADD)
 
 testexpression_CFLAGS = $(TEST_CFLAGS)
 testexpression_SOURCES = testexpression.c
