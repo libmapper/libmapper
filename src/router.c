@@ -110,6 +110,12 @@ mapper_mapping mapper_router_add_mapping(mapper_router router,
                                          char dest_type,
                                          int dest_length)
 {
+    /* Currently, fail is lengths don't match.  TODO: In the future,
+     * we'll have to examine the expresion to see if its input and
+     * output lengths are compatible. */
+    if (sig->props.length != dest_length)
+        return 0;
+
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     
     mapping->props.src_name = strdup(sig->props.name);
