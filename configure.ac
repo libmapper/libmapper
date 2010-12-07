@@ -46,6 +46,9 @@ AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettim
 AC_C_CONST
 AC_TYPE_SIZE_T
 
+# pthreads
+AX_PTHREAD
+
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O

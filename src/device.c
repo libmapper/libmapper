@@ -329,10 +329,46 @@ void mdev_on_port_and_ordinal(mapper_device md,
     mdev_start_server(md);
 }
 
+/* Note: any call to liblo where get_liblo_error will be called
+ * afterwards must lock this mutex, otherwise there is a race
+ * condition on receiving this information.  Could be fixed by the
+ * liblo error handler having a user context pointer. */
+static int liblo_error_num = 0;
 static void liblo_error_handler(int num, const char *msg, const char *path)
 {
-    printf("[libmapper] liblo server error %d in path %s: %s\n",
-           num, path, msg);
+    liblo_error_num = num;
+    if (num == LO_NOPORT) {
+        trace("liblo could not start a server because port unavailable\n");
+    } else
+        fprintf(stderr, "[libmapper] liblo server error %d in path %s: %s\n",
+               num, path, msg);
+}
+
+static int get_liblo_error()
+{
+    int num = liblo_error_num;
+    liblo_error_num = 0;
+    return num;
+}
+
+#ifdef HAVE_PTHREAD
+static pthread_mutex_t liblo_error_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+/* Use these functions to handle the liblo error mutex. (Avoids having
+ * to sprinkle ifdefs for HAVE_PTHREAD everywhere.) */
+static void lock_liblo_error_mutex()
+{
+#ifdef HAVE_PTHREAD
+    pthread_mutex_lock(&liblo_error_mutex);
+#endif
+}
+
+static void unlock_liblo_error_mutex()
+{
+#ifdef HAVE_PTHREAD
+    pthread_mutex_unlock(&liblo_error_mutex);
+#endif
 }
 
 static mapper_signal_value_t *sv = 0;
@@ -383,6 +419,8 @@ void mdev_start_server(mapper_device md)
         char port[16], *type = 0;
 
         sprintf(port, "%d", md->admin->port.value);
+
+        lock_liblo_error_mutex();
         md->server = lo_server_new(port, liblo_error_handler);
 
         if (md->server) {
@@ -392,8 +430,15 @@ void mdev_start_server(mapper_device md)
         } else {
             trace("error opening server on port %d for device '%s'\n",
                   md->admin->port.value, md->name_prefix);
+            if (get_liblo_error() == LO_NOPORT) {
+                md->admin->port.value++;
+                md->admin->port.locked = 0;
+                mapper_admin_port_probe(md->admin);
+            }
+            unlock_liblo_error_mutex();
             return;
         }
+        unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 1);
