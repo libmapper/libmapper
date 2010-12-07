@@ -116,6 +116,14 @@ mapper_mapping mapper_router_add_mapping(mapper_router router,
     if (sig->props.length != dest_length)
         return 0;
 
+    /* In fact, the expression compiler/evaluator needs some
+     * significant work before vectors are fully supported, so
+     * currently we only support scalar mapping. */
+    if (dest_length > 1) {
+        trace("vector mapping not yet implemented\n");
+        return 0;
+    }
+
     mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
     
     mapping->props.src_name = strdup(sig->props.name);
