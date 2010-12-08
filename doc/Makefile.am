@@ -15,7 +15,8 @@ DOC_DIR=$(HTML_DIR)
 
 all-local: doxygen-build.stamp
 
-doxygen-build.stamp: $(DOX) ../src/*.c ../src/*.h ../include/mapper/*.h
+doxygen-build.stamp: $(DOX) $(top_srcdir)/src/*.c $(top_srcdir)/src/*.h \
+	$(top_srcdir)/include/mapper/*.h
 	@echo '*** Running doxygen ***'
 	doxygen $(DOX)
 	touch doxygen-build.stamp

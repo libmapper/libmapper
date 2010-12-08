@@ -1,11 +1,12 @@
 
 all-local: _mapper.so
 
-%_wrap.c %.py: %.i
-	swig -I../include -python mapper.i
+$(builddir)/%_wrap.c %.py: %.i
+	swig -I$(top_srcdir)/include -python -o $(builddir)/mapper_wrap.c \
+		$(srcdir)/mapper.i
 
 # Don't interfere with distutils CFLAGS
-_%.so: %_wrap.c
+_%.so: $(builddir)/%_wrap.c
 	env CFLAGS="" python setup.py build_ext
 	-@mv -v build/lib.*/$@ .
 	-@rm -rf build

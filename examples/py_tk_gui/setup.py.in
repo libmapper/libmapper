@@ -8,11 +8,9 @@ from distutils.core import setup, Extension
 
 top = '..'
 pwm_module = Extension('_pwm',
-                       define_macros=[('__LINUX_ALSA__',1),
-                                      ('__LITTLE_ENDIAN__',1)],
                        sources=['pwm_wrap.cxx'],
-                       include_dirs=['../pwm_synth'],
-                       library_dirs=['../pwm_synth/.libs'],
+                       include_dirs=['@top_srcdir@/examples/pwm_synth'],
+                       library_dirs=['@top_builddir@/examples/pwm_synth/.libs'],
                        libraries=['pwm'],
                        extra_link_args='@RTAUDIO_LIBS@'.split(),
                        )

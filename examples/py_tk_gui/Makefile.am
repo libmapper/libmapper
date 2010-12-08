@@ -1,12 +1,14 @@
 
-all-local: _pwm.so ../pwm_synth/libpwm.la
+all-local: _pwm.so $(top_builddir)/examples/pwm_synth/libpwm.la
 
-%_wrap.c %.py: %.i
-	swig -I../pwm_synth -I../include -c++ -python pwm.i
+$(builddir)/%_wrap.cxx $(buildir)/%.py: %.i
+	swig -I$(top_srcdir)/examples/pwm_synth -I$(top_srcdir)/include -c++ \
+		-python -o $(builddir)/pwm_wrap.cxx $(srcdir)/pwm.i
 
 # Don't interfere with distutils CFLAGS
-_%.so: %_wrap.c
-	env CFLAGS="" python setup.py build_ext
+_%.so: $(builddir)/%_wrap.cxx
+	pwd
+	cd $(builddir) && env CFLAGS="" python setup.py build_ext
 	-@mv -v build/lib.*/$@ .
 	-@rm -rf build
 

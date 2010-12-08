@@ -1,6 +1,6 @@
 
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
-TEST_LDADD = $(top_srcdir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 noinst_PROGRAMS = test testmany testadmin testsend testrecv			\
                   testexpression testlinear testparams testmonitor	\
