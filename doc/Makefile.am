@@ -5,7 +5,7 @@ CLEANFILES=doxygen-build.stamp
 
 DOX=libmapper.doxyfile
 
-EXTRA_DIST=
+EXTRA_DIST=tutorial/tutorial.txt
 
 INSTIMAGES=html/doxygen.png
 
