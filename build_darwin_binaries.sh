@@ -199,7 +199,7 @@ function make_bundles()
         $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
     chmod 664 $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers
-    cp -rv i386/install/include/mapper-0/* \
+    cp -rv i386/install/include/mapper-$LIBMAPPER_MAJOR/mapper/* \
         $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers/
     find $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers -type f \
         -exec chmod 664 {} \;
