@@ -1239,31 +1239,31 @@ static void update_mapping_record_params(mapper_db_mapping map,
     // TODO: currently ignoring strings such as 'invert', '-'
     if (a_range && (*a_range)) {
         if (t_range[0] == 'f') {
-            map->range.src_min = (*a_range)->f;
+            map->range.src_min = a_range[0]->f;
             map->range.known |= MAPPING_RANGE_SRC_MIN;
         } else if (t_range[0] == 'i') {
-            map->range.src_min = (float)(*a_range)->i;
+            map->range.src_min = (float)a_range[0]->i;
             map->range.known |= MAPPING_RANGE_SRC_MIN;
         }
         if (t_range[1] == 'f') {
-            map->range.src_max = (*a_range)->f;
+            map->range.src_max = a_range[1]->f;
             map->range.known |= MAPPING_RANGE_SRC_MAX;
         } else if (t_range[1] == 'i') {
-            map->range.src_min = (float)(*a_range)->i;
+            map->range.src_min = a_range[1]->i;
             map->range.known |= MAPPING_RANGE_SRC_MAX;
         }
         if (t_range[2] == 'f') {
-            map->range.dest_min = (*a_range)->f;
+            map->range.dest_min = a_range[2]->f;
             map->range.known |= MAPPING_RANGE_DEST_MIN;
         } else if (t_range[2] == 'i') {
-            map->range.src_min = (float)(*a_range)->i;
+            map->range.src_min = (float)a_range[2]->i;
             map->range.known |= MAPPING_RANGE_DEST_MIN;
         }
         if (t_range[3] == 'f') {
-            map->range.dest_max = (*a_range)->f;
+            map->range.dest_max = a_range[3]->f;
             map->range.known |= MAPPING_RANGE_DEST_MAX;
         } else if (t_range[3] == 'i') {
-            map->range.src_min = (float)(*a_range)->i;
+            map->range.src_min = (float)a_range[3]->i;
             map->range.known |= MAPPING_RANGE_DEST_MAX;
         }
     }
