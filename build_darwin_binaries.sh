@@ -4,7 +4,11 @@
 # and builds app bundles for the examples and a framework.
 
 ARCHES="i386 x86_64"
-SDK="-iwithsysroot=/Developer/SDKs/MacOSX10.4u.sdk/"
+
+SDK="/Developer/SDKs/MacOSX10.5.sdk"
+
+SDKC="--sysroot=$SDK"
+SDKLD="-lgcc_s.1"
 
 # Build darwin binaries for libmapper
 # First argument must be the path to a libmapper source tarball.
@@ -12,7 +16,10 @@ LIBMAPPER_TAR="$1"
 LIBLO_TAR="$2"
 
 LIBMAPPER_VERSION=$(echo $LIBMAPPER_TAR|sed 's,.*libmapper-\(.*\).tar.gz,\1,')
-LIBMAPPER_MAJOR=$(echo $LIBMAPPER_VERSION|sed 's,\([0-9]\)\(\.[0-9]\)*,\1,')
+LIBMAPPER_MAJOR=$(echo $LIBMAPPER_VERSION|sed 's,\([0-9]\)\(\.[0-9]*\)*,\1,')
+
+LIBLO_VERSION=$(echo $LIBLO_TAR|sed 's,.*liblo-\(.*\).tar.gz,\1,')
+LIBLO_MAJOR=$(echo $LIBLO_VERSION|sed 's,\([0-9]\)\(\.[0-9]*\)*,\1,')
 
 if [ -z "$LIBMAPPER_TAR" ] || [ -z "$LIBLO_TAR" ]; then
     echo Usage: $0 '<libmapper-VERSION.tar.gz>' '<liblo-VERSION.tar.gz>'
@@ -36,7 +43,7 @@ function make_arch()
     tar -xzf "$LIBLO_TAR"
 
     cd $(basename "$LIBLO_TAR" .tar.gz)
-    if ./configure CFLAGS="-arch $ARCH $SDK" CXXFLAGS="-arch $ARCH $SDK" LDFLAGS="-arch $ARCH $SDK" --prefix=`pwd`/../install --enable-static --enable-dynamic && make && make install; then
+    if ./configure CFLAGS="-arch $ARCH $SDKC" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX" LDFLAGS="-arch $ARCH $SDKC $SDKLD" --prefix=`pwd`/../install --enable-static --enable-dynamic && make && make install; then
         cd ..
     else
         echo Build error in arch $ARCH
@@ -47,12 +54,32 @@ function make_arch()
 
     cd $(basename "$LIBMAPPER_TAR" .tar.gz)
     PREFIX=`pwd`/../install
-    if ./configure CFLAGS="-arch $ARCH $SDK -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDK -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDK -L$PREFIX/lib" --prefix=$PREFIX --enable-static --enable-dynamic && make && make install; then
-        cd ..
+    if ./configure CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
+
+        install_name_tool \
+            -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
+            ../install/lib/liblo.dylib
+        install_name_tool \
+            -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
+            ../install/lib/liblo.7.dylib
+
+        if make && make install; then
+            cd ..
+        else
+            echo Build error in arch $ARCH
+            exit 1
+        fi
     else
         echo Build error in arch $ARCH
         exit 1
     fi
+
+    install_name_tool \
+        -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
+        install/lib/libmapper-$LIBMAPPER_MAJOR.dylib
+    install_name_tool \
+        -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
+        install/lib/libmapper-$LIBMAPPER_VERSION.dylib
 
     cd ..
 }
@@ -68,14 +95,14 @@ function rebuild_python_extentions()
 
     gcc-4.2 -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../src -I../include -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c mapper_wrap.c -o mapper_wrap.o
 
-    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDK mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _mapper.so
+    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _mapper.so
 
     cd ../examples/py_tk_gui
     make pwm_wrap.c
 
     gcc-4.2 -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../../src -I../../include -I../pwm_synth -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c pwm_wrap.cxx -o pwm_wrap.o
 
-    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDK pwm_wrap.o ../pwm_synth/.libs/libpwm.a $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _pwm.so -framework CoreAudio -framework CoreFoundation
+    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD pwm_wrap.o ../pwm_synth/.libs/libpwm.a $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _pwm.so -framework CoreAudio -framework CoreFoundation
 
     cd ../../../..
 }
@@ -163,20 +190,20 @@ function make_bundles()
     echo 'APPL????' >$APP/Contents/PkgInfo
     info_plist $APP/Contents/Info.plist libmapper_Slider_Example tkgui.py
 
-    FRAMEWORK=bundles/libmapper.framework
+    FRAMEWORK=bundles/mapper.framework
     mkdir -v $FRAMEWORK
     mkdir -v $FRAMEWORK/Contents
     mkdir -v $FRAMEWORK/Versions
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR
     cp -v all/lib/libmapper-$LIBMAPPER_VERSION.dylib \
-        $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/libmapper
-    chmod 664 $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/libmapper
+        $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
+    chmod 664 $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers
     cp -rv i386/install/include/mapper-0/* \
         $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers/
     find $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers -type f \
         -exec chmod 664 {} \;
-    ln -s Versions/$LIBMAPPER_MAJOR/libmapper $FRAMEWORK/libmapper
+    ln -s Versions/$LIBMAPPER_MAJOR/mapper $FRAMEWORK/mapper
     ln -s Versions/$LIBMAPPER_MAJOR/Headers $FRAMEWORK/Headers
     ln -s $LIBMAPPER_MAJOR $FRAMEWORK/Versions/Current
 
@@ -193,7 +220,43 @@ function make_bundles()
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleExecutable</key>
-	<string>libmapper</string>
+	<string>mapper</string>
+</dict>
+</plist>
+EOF
+
+    # Subframework for liblo
+    mkdir $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Frameworks
+    ln -s Versions/$LIBMAPPER_MAJOR/Frameworks $FRAMEWORK/Frameworks
+    FRAMEWORK=$FRAMEWORK/Versions/0/Frameworks/lo.framework
+    mkdir -v $FRAMEWORK
+    mkdir -v $FRAMEWORK/Contents
+    mkdir -v $FRAMEWORK/Versions
+    mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR
+    cp -v all/lib/liblo.dylib $FRAMEWORK/Versions/$LIBLO_MAJOR/lo
+    chmod 664 $FRAMEWORK/Versions/$LIBLO_MAJOR/lo
+    mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers
+    cp -rv i386/install/include/lo/* \
+        $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers/
+    find $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers -type f -exec chmod 664 {} \;
+    ln -s Versions/$LIBLO_MAJOR/lo $FRAMEWORK/lo
+    ln -s Versions/$LIBLO_MAJOR/Headers $FRAMEWORK/Headers
+    ln -s $LIBLO_MAJOR $FRAMEWORK/Versions/Current
+
+    cat >$FRAMEWORK/Contents/Info.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+        <key>CFBundleShortVersionString</key>
+        <string>4.7</string>
+        <key>CFBundleGetInfoString</key>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleExecutable</key>
+	<string>lo</string>
 </dict>
 </plist>
 EOF
