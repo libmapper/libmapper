@@ -1,8 +1,0 @@
-
-Changed install_name to be @executable_path/../Frameworks/mapper.framework/mapper
-
-Put liblo as a subframework, mapper.framework/Frameworks -> Versions/0/Frameworks, mapper.framework/Versions/0/Frameworks/lo.framework
-
-Statically linked libmapper with liblo, not sure how to get it to link to the lo.framework version.
-
-Created Copy Files build phase, dragged framework there.
