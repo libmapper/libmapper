@@ -415,12 +415,27 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
         lo_message_add_string(m, map->props.expression);
     }
-    if (map->props.range.known == MAPPING_RANGE_KNOWN) {
+    if (map->props.range.known & MAPPING_RANGE_KNOWN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_RANGE]);
-        lo_message_add_float(m, map->props.range.src_min);
-        lo_message_add_float(m, map->props.range.src_max);
-        lo_message_add_float(m, map->props.range.dest_min);
-        lo_message_add_float(m, map->props.range.dest_max);
+        if (map->props.range.known & MAPPING_RANGE_SRC_MIN)
+            lo_message_add_float(m, map->props.range.src_min);
+        else
+            lo_message_add_char(m, '-');
+
+        if (map->props.range.known & MAPPING_RANGE_SRC_MAX)
+            lo_message_add_float(m, map->props.range.src_max);
+        else
+            lo_message_add_char(m, '-');
+
+        if (map->props.range.known & MAPPING_RANGE_DEST_MIN)
+            lo_message_add_float(m, map->props.range.dest_min);
+        else
+            lo_message_add_char(m, '-');
+
+        if (map->props.range.known & MAPPING_RANGE_DEST_MAX)
+            lo_message_add_float(m, map->props.range.dest_max);
+        else
+            lo_message_add_char(m, '-');
     }
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMIN]);
     lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_min]);
