@@ -151,6 +151,8 @@ function info_plist()
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$NAME</string>
+	<key>CFBundleIconFile</key>
+	<string>libmapper_doc.icns</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -172,6 +174,7 @@ function make_bundles()
     mkdir -v $APP
     mkdir -v $APP/Contents
     mkdir -v $APP/Contents/MacOS
+    mkdir -v $APP/Contents/Resources
     cp -v all/python/_mapper.so $APP/Contents/MacOS/
     cp -v all/python/_pwm.so $APP/Contents/MacOS/
     cp -v i386/libmapper-$LIBMAPPER_VERSION/swig/mapper.py $APP/Contents/MacOS/
@@ -179,16 +182,19 @@ function make_bundles()
     cp -v i386/libmapper-$LIBMAPPER_VERSION/examples/py_tk_gui/tk_pwm.py $APP/Contents/MacOS/
     echo 'APPL????' >$APP/Contents/PkgInfo
     info_plist $APP/Contents/Info.plist libmapper_PWM_Example tk_pwm.py
+    cp -v ../icons/libmapper_doc.icns $APP/Contents/Resources/
 
     APP=bundles/libmapper_Slider_Example.app
     mkdir -v $APP
     mkdir -v $APP/Contents
     mkdir -v $APP/Contents/MacOS
+    mkdir -v $APP/Contents/Resources
     cp -v all/python/_mapper.so $APP/Contents/MacOS/
     cp -v i386/libmapper-$LIBMAPPER_VERSION/swig/mapper.py $APP/Contents/MacOS/
     cp -v i386/libmapper-$LIBMAPPER_VERSION/swig/tkgui.py $APP/Contents/MacOS/
     echo 'APPL????' >$APP/Contents/PkgInfo
     info_plist $APP/Contents/Info.plist libmapper_Slider_Example tkgui.py
+    cp -v ../icons/libmapper_doc.icns $APP/Contents/Resources/
 
     FRAMEWORK=bundles/mapper.framework
     mkdir -v $FRAMEWORK
