@@ -1287,9 +1287,8 @@ int mapper_db_add_or_update_mapping_params(mapper_db db,
     mapper_db_mapping map;
     int found = 0;
 
-    mapper_db_mapping m =
-        mapper_db_get_mapping_by_signal_full_names(db, src_name, dest_name);
-    if (m)
+    map = mapper_db_get_mapping_by_signal_full_names(db, src_name, dest_name);
+    if (map)
         found = 1;
 
     if (!found)
