@@ -1287,7 +1287,10 @@ int mapper_db_add_or_update_mapping_params(mapper_db db,
     mapper_db_mapping map;
     int found = 0;
 
-    // TODO: get device by names
+    mapper_db_mapping m =
+        mapper_db_get_mapping_by_signal_full_names(db, src_name, dest_name);
+    if (m)
+        found = 1;
 
     if (!found)
         map = (mapper_db_mapping) list_new_item(sizeof(mapper_db_mapping_t));
