@@ -1,5 +1,4 @@
 % libmapper tutorial
-% Stephen Sinclair
 
 Introduction
 ============
