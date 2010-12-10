@@ -197,6 +197,14 @@ liblo, the OSC implementation used by libmapper.
 As mentioned above, the ability to design many-to-one mapping connections 
 will also be explored in future development of libmapper.
 
+Getting libmapper
+-----------------
+
+The latest version of libmapper source code and binaries can be
+downloaded from the IDMIL website at:
+
+http://idmil.org/software/libmapper
+
 License
 -------
 
