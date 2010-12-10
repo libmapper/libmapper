@@ -397,9 +397,10 @@ Then `main()` will look like,
         
         mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
         
-        mapper_signal synth_pulsewidth = mdev_add_input( my_receiver, "/synth/pulsewidth",
-                                                         1, 'f', 0, &min_pw, &max_pw,
-                                                         pulsewidth_handler, &synth );
+        mapper_signal synth_pulsewidth =
+            mdev_add_input( my_receiver, "/synth/pulsewidth",
+                            1, 'f', 0, &min_pw, &max_pw,
+                            pulsewidth_handler, &synth );
         
         while (!done)
             mdev_poll(my_receiver, 50);
