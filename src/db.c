@@ -1274,8 +1274,9 @@ static void update_mapping_record_params(mapper_db_mapping map,
     if (mode!=-1)
         map->mode = mode;
 
-    // TODO
-    /* int muted; */
+    int mute = mapper_msg_get_mute(params);
+    if (mute!=-1)
+        map->muted = mute;
 }
 
 int mapper_db_add_or_update_mapping_params(mapper_db db,

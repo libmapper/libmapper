@@ -503,3 +503,20 @@ mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
 
     return -1;
 }
+
+int mapper_msg_get_mute(mapper_message_t *msg)
+{
+    lo_arg **a = mapper_msg_get_param(msg, AT_MUTE);
+    const char *t = mapper_msg_get_type(msg, AT_MUTE);
+    if (!a || !*a || !t)
+        return -1;
+
+    if (*t == 'i')
+        return (*a)->i;
+    else if (*t == LO_TRUE)
+        return 1;
+    else if (*t == LO_FALSE)
+        return 0;
+    else
+        return -1;
+}
