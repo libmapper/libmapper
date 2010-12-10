@@ -85,20 +85,32 @@ int mapper_mapping_perform(mapper_mapping mapping,
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (!mapping->calibrating) {
-            mapping->props.range.src_min = from_value->f;
-            mapping->props.range.src_max = from_value->f;
+            if (mapping->props.src_type == 'f') {
+                mapping->props.range.src_min = from_value->f;
+                mapping->props.range.src_max = from_value->f;
+            }
+            else if (mapping->props.src_type == 'i') {
+                mapping->props.range.src_min = (float)from_value->i32;
+                mapping->props.range.src_max = (float)from_value->i32;
+            }
             mapping->props.range.known |=
                 MAPPING_RANGE_SRC_MIN | MAPPING_RANGE_SRC_MAX;
             mapping->calibrating = 1;
             changed = 1;
         } else {
             if (from_value->f < mapping->props.range.src_min) {
-                mapping->props.range.src_min = from_value->f;
+                if (mapping->props.src_type == 'f')
+                    mapping->props.range.src_min = from_value->f;
+                else if (mapping->props.src_type == 'i')
+                    mapping->props.range.src_min = (float)from_value->i32;
                 mapping->props.range.known |= MAPPING_RANGE_SRC_MIN;
                 changed = 1;
             }
             if (from_value->f > mapping->props.range.src_max) {
-                mapping->props.range.src_max = from_value->f;
+                if (mapping->props.src_type == 'f')
+                    mapping->props.range.src_max = from_value->f;
+                else if (mapping->props.src_type == 'i')
+                    mapping->props.range.src_max = (float)from_value->i32;
                 mapping->props.range.known |= MAPPING_RANGE_SRC_MAX;
                 changed = 1;
             }
