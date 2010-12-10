@@ -862,6 +862,20 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            const char* source_device, 
                            const char* dest_device);
 
+/*! Interface to modify a mapping between two signals.
+ *  \param mon The monitor to use for sending the message.
+ *  \param source_signal Source signal name.
+ *  \param dest_signal   Destination signal name.
+ *  \param properties An optional data structure specifying the
+ *                    requested properties of this mapping.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_mapping_t should be
+ *                        applied to the new connection. See the flags
+ *                        prefixed by MAPPING_ in mapper_db.h. */
+void mapper_monitor_mapping_modify(mapper_monitor mon,
+                            mapper_db_mapping_t *properties,
+                            unsigned int property_flags);
+
 /*! Interface to add a mapping between two signals.
  *  \param mon The monitor to use for sending the message.
  *  \param source_signal Source signal name.

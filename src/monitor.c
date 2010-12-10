@@ -95,6 +95,33 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            source_device, dest_device );
 }
 
+void mapper_monitor_mapping_modify(mapper_monitor mon,
+                            mapper_db_mapping_t *props,
+                            unsigned int props_flags)
+{
+
+    if (props) {
+        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
+                               props->src_name, props->dest_name,
+                               (props_flags & MAPPING_CLIPMIN)
+                               ? AT_CLIPMIN : -1, props->clip_min,
+                               (props_flags & MAPPING_CLIPMAX)
+                               ? AT_CLIPMAX : -1, props->clip_max,
+                               (props_flags & MAPPING_RANGE_KNOWN)
+                               ? AT_RANGE : -1, &props->range,
+                               (props_flags & MAPPING_EXPRESSION)
+                               ? AT_EXPRESSION : -1, props->expression,
+                               (props_flags & MAPPING_MODE)
+                               ? AT_MODE : -1, props->mode,
+                               (props_flags & MAPPING_MUTED)
+                               ? AT_MUTE : -1, props->muted );
+    } else {
+        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
+                               props->src_name, props->dest_name );
+	}
+
+}
+
 void mapper_monitor_connect(mapper_monitor mon,
                             const char* source_signal,
                             const char* dest_signal,
