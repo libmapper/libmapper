@@ -203,7 +203,7 @@ Getting libmapper
 The latest version of libmapper source code and binaries can be
 downloaded from the IDMIL website at:
 
-http://idmil.org/software/libmapper
+<http://idmil.org/software/libmapper>
 
 License
 -------
