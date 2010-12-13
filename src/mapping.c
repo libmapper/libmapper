@@ -623,9 +623,7 @@ void mapper_mapping_set_from_message(mapper_mapping m,
                 snprintf(expr, 256, "y=x");
                 m->props.expression = strdup(expr);
             }
-            if (!m->expr)
-                replace_expression_string(m, sig, m->props.expression);
-            m->props.mode = MO_EXPRESSION;
+            mapper_mapping_set_expression(m, sig, m->props.expression);
         }
         break;
     default:
