@@ -1510,6 +1510,16 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
     }
 
+    mapper_mapping mm = mapper_mapping_find_by_names(md, &argv[0]->s,
+                                                     &argv[1]->s);
+    /* If a mapping connection already exists between these two signals,
+     * forward the message to handler_signal_connection_modify() and stop. */
+    if (mm) {
+        handler_signal_connection_modify(path, types, argv, argc,
+                                         msg, user_data);
+        return 0;
+    }
+
     /* Creation of a mapping requires the type and length info. */
     if (!params.values[AT_TYPE] || !params.values[AT_LENGTH])
         return 0;
