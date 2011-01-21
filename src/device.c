@@ -101,6 +101,45 @@ static void mdev_increment_version(mapper_device md)
     }
 }
 
+static mapper_signal_value_t *sv = 0;
+static int handler_signal(const char *path, const char *types,
+                          lo_arg **argv, int argc, lo_message msg,
+                          void *user_data)
+{
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md = sig->device;
+
+    if (!md) {
+        trace("error, sig->device==0\n");
+        return 0;
+    }
+
+    if (sig->handler) {
+        int i;
+        sv = (mapper_signal_value_t*) realloc(
+                                              sv, sizeof(mapper_signal_value_t) * sig->props.length);
+        switch (sig->props.type) {
+            case 'f':
+                for (i = 0; i < sig->props.length; i++)
+                    sv[i].f = argv[i]->f;
+                break;
+            case 'd':
+                for (i = 0; i < sig->props.length; i++)
+                    sv[i].d = argv[i]->d;
+                break;
+            case 'i':
+                for (i = 0; i < sig->props.length; i++)
+                    sv[i].i32 = argv[i]->i;
+                break;
+            default:
+                assert(0);
+        }
+        sig->handler(sig, sv);
+    }
+
+    return 0;
+}
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -108,6 +147,8 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
+    int i;
+    char *type_string = 0;
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
@@ -123,7 +164,19 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (md->admin->name)
         sig->props.device_name = md->admin->name;
 
-    mdev_start_server(md);
+    if (!md->server)
+        mdev_start_server(md);
+    else {
+        type_string = (char*) realloc(type_string, sig->props.length + 1);
+        for (i = 0; i < sig->props.length; i++)
+            type_string[i] = sig->props.type;
+        type_string[i] = 0;
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             type_string,
+                             handler_signal, (void *) (sig));
+    }
+
     return sig;
 }
 
@@ -371,49 +424,8 @@ static void unlock_liblo_error_mutex()
 #endif
 }
 
-static mapper_signal_value_t *sv = 0;
-static int handler_signal(const char *path, const char *types,
-                          lo_arg **argv, int argc, lo_message msg,
-                          void *user_data)
-{
-    mapper_signal sig = (mapper_signal) user_data;
-    mapper_device md = sig->device;
-
-
-    if (!md) {
-        trace("error, sig->device==0\n");
-        return 0;
-    }
-
-    if (sig->handler) {
-        int i;
-        sv = (mapper_signal_value_t*) realloc(
-            sv, sizeof(mapper_signal_value_t) * sig->props.length);
-        switch (sig->props.type) {
-        case 'f':
-            for (i = 0; i < sig->props.length; i++)
-                sv[i].f = argv[i]->f;
-            break;
-        case 'd':
-            for (i = 0; i < sig->props.length; i++)
-                sv[i].d = argv[i]->d;
-            break;
-        case 'i':
-            for (i = 0; i < sig->props.length; i++)
-                sv[i].i32 = argv[i]->i;
-            break;
-        default:
-            assert(0);
-        }
-        sig->handler(sig, sv);
-    }
-
-    return 0;
-}
-
 void mdev_start_server(mapper_device md)
 {
-
     if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
         int i, j;
         char port[16], *type = 0;
