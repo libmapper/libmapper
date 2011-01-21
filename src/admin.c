@@ -356,7 +356,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
 int mapper_admin_poll(mapper_admin admin)
 {
 
-    int count = 0, status;
+    int count = 0, status, i = 0;
 
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
@@ -389,7 +389,15 @@ int mapper_admin_poll(mapper_admin admin)
             mapper_admin_name_probe(admin);
         }
         else if (status == 2) {
-            /* If the allocation routine has succeeded, send registered msg. */
+            /* If the allocation routine has succeeded, add device name to signals */
+            for (i = 0; i < admin->device->n_inputs; i++) {
+                admin->device->inputs[i]->props.device_name = mapper_admin_name(admin);
+            }
+            for (i = 0; i < admin->device->n_outputs; i++) {
+                admin->device->outputs[i]->props.device_name = mapper_admin_name(admin);
+            }
+            
+            /* ... and send registered msg. */
             lo_send(admin->admin_addr, "/name/registered",
                     "s", mapper_admin_name(admin));
         }
