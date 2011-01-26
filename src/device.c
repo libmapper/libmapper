@@ -113,27 +113,33 @@ static int handler_signal(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
-
+    sig->has_value = 1;
+    int i;
+    sv = (mapper_signal_value_t*) realloc(
+                                          sv, sizeof(mapper_signal_value_t) * sig->props.length);
+    switch (sig->props.type) {
+        case 'f':
+            for (i = 0; i < sig->props.length; i++) {
+                sv[i].f = argv[i]->f;
+                sig->value[i] = sv[i];
+            }
+            break;
+        case 'd':
+            for (i = 0; i < sig->props.length; i++) {
+                sv[i].d = argv[i]->d;
+                sig->value[i] = sv[i];
+            }
+            break;
+        case 'i':
+            for (i = 0; i < sig->props.length; i++) {
+                sv[i].i32 = argv[i]->i;
+                sig->value[i] = sv[i];
+            }
+            break;
+        default:
+            assert(0);
+    }
     if (sig->handler) {
-        int i;
-        sv = (mapper_signal_value_t*) realloc(
-                                              sv, sizeof(mapper_signal_value_t) * sig->props.length);
-        switch (sig->props.type) {
-            case 'f':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].f = argv[i]->f;
-                break;
-            case 'd':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].d = argv[i]->d;
-                break;
-            case 'i':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].i32 = argv[i]->i;
-                break;
-            default:
-                assert(0);
-        }
         sig->handler(sig, sv);
     }
 
@@ -339,7 +345,12 @@ int mdev_poll(mapper_device md, int block_ms)
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value)
 {
+    int i;
     mapper_router r = md->routers;
+    for (i = 0; i < sig->props.length; i++) {
+        sig->value[i] = value[i];
+    }
+    sig->has_value = 1;
     while (r) {
         mapper_router_receive_signal(r, sig, value);
         r = r->next;

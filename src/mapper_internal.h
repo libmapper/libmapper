@@ -17,6 +17,11 @@ struct _mapper_signal
 
     /*! The device associated with this signal. */
     struct _mapper_device *device;
+    
+    /*! The current value of this signal. */
+    mapper_signal_value_t *value;
+    
+    int has_value;
 
     /*! An optional function to be called when the signal value
      *  changes. */
@@ -302,7 +307,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
 /*! Look up the type of a message parameter by symbolic identifier.
  *  Note that it's possible the returned type string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
- *  function to ensure it only processes the apriori expected number
+ *  function to ensure it only processes the a priori expected number
  *  of parameters.  (e.g., @range has 4 parameters.)
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
