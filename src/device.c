@@ -153,8 +153,6 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              mapper_signal_handler *handler,
                              void *user_data)
 {
-    int i;
-    char *type_string = 0;
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
@@ -173,14 +171,14 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (!md->server)
         mdev_start_server(md);
     else {
-        type_string = (char*) realloc(type_string, sig->props.length + 1);
-        for (i = 0; i < sig->props.length; i++)
-            type_string[i] = sig->props.type;
-        type_string[i] = 0;
+        char *type_string = (char*) malloc(sig->props.length + 1);
+        memset(type_string, sig->props.type, sig->props.length);
+        type_string[sig->props.length] = 0;
         lo_server_add_method(md->server,
                              sig->props.name,
                              type_string,
                              handler_signal, (void *) (sig));
+        free(type_string);
     }
 
     return sig;
