@@ -219,6 +219,13 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
     }
+    if (md->server) {
+        char *type_string = (char*) malloc(sig->props.length + 1);
+        memset(type_string, sig->props.type, sig->props.length);
+        type_string[sig->props.length] = 0;
+        lo_server_del_method(md->server, sig->props.name, type_string);
+        free(type_string);
+    }
     md->n_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
