@@ -101,7 +101,6 @@ static void mdev_increment_version(mapper_device md)
     }
 }
 
-static mapper_signal_value_t *sv = 0;
 static int handler_signal(const char *path, const char *types,
                           lo_arg **argv, int argc, lo_message msg,
                           void *user_data)
@@ -114,28 +113,12 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    if (sig->handler) {
-        int i;
-        sv = (mapper_signal_value_t*) realloc(
-                                              sv, sizeof(mapper_signal_value_t) * sig->props.length);
-        switch (sig->props.type) {
-            case 'f':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].f = argv[i]->f;
-                break;
-            case 'd':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].d = argv[i]->d;
-                break;
-            case 'i':
-                for (i = 0; i < sig->props.length; i++)
-                    sv[i].i32 = argv[i]->i;
-                break;
-            default:
-                assert(0);
-        }
-        sig->handler(sig, sv);
-    }
+    /* This is cheating a bit since we know that the arguments pointed
+     * to by argv are layed out subsequently in memory.  It's not
+     * clear if liblo's semantics guarantee it, but known to be true
+     * on all platforms. */
+    if (sig->handler)
+        sig->handler(sig, argv[0]);
 
     return 0;
 }

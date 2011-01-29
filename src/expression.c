@@ -563,6 +563,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                             stack[top-2].node->vector_index = (int)stack[top].node->tok.f;
                         else
                             stack[top-2].node->vector_index = stack[top].node->tok.i;
+                        if (stack[top-2].node->vector_index > 0)
+                            {FAIL("Vector indexing not yet implemented.");}
                         if (stack[top-2].node->vector_index < 0
                             || stack[top-2].node->vector_index >= vector_size)
                             {FAIL("Vector index outside input size.");}
@@ -822,6 +824,23 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         coerce.type = TOK_TOFLOAT;
         e->next = exprnode_new(&coerce, 0);
         e->next->is_float = 1;
+    }
+
+    /* Special case: if this is a vector expression, we currently do
+     * not completely support it.  However, we can "fake" vector
+     * operations by performing the entire expression element-wise.
+     * In this case, we have to disallow any vector indexing, so here
+     * we scan the compiled expression and check for it.  This will be
+     * removed in a future version. */
+    if (vector_size > 1) {
+        e = result;
+        while (e) {
+            if (e->tok.type == TOK_VAR && e->vector_index > 0) {
+                trace("vector indexing not yet implemented\n");
+                goto cleanup;
+            }
+            e = e->next;
+        }
     }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));

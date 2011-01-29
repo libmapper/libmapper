@@ -76,10 +76,34 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         signal.props.type = m->props.dest_type;
         signal.props.length = m->props.dest_length;
 
-        mapper_signal_value_t v, w;
-        if (mapper_mapping_perform(m, sig, value, &v))
-            if (mapper_clipping_perform(m, &v, &w))
-                mapper_router_send_signal(router, &signal, &w);
+        mapper_signal_value_t applied[signal.props.length];
+        int i=0;
+        int s=4;
+        void *p = value;
+
+        /* Currently expressions on vectors are not supported by the
+         * evaluator.  For now, we half-support it by performing
+         * element-wise operations on each item in the vector. */
+        if (signal.props.type == 'i')
+            s = sizeof(int);
+        else if (signal.props.type == 'f')
+            s = sizeof(float);
+
+        for (i=0; i < signal.props.length; i++) {
+            mapper_signal_value_t v, w;
+            if (mapper_mapping_perform(m, sig, p, &v))
+            {
+                if (mapper_clipping_perform(m, &v, &w))
+                    applied[i] = w;
+                else
+                    break;
+            }
+            else
+                break;
+            p += s;
+        }
+        if (i == signal.props.length)
+            mapper_router_send_signal(router, &signal, applied);
         m = m->next;
     }
 }
@@ -113,14 +137,11 @@ mapper_mapping mapper_router_add_mapping(mapper_router router,
     /* Currently, fail is lengths don't match.  TODO: In the future,
      * we'll have to examine the expresion to see if its input and
      * output lengths are compatible. */
-    if (sig->props.length != dest_length)
-        return 0;
-
-    /* In fact, the expression compiler/evaluator needs some
-     * significant work before vectors are fully supported, so
-     * currently we only support scalar mapping. */
-    if (dest_length > 1) {
-        trace("vector mapping not yet implemented\n");
+    if (sig->props.length != dest_length) {
+        char n[1024];
+        msig_full_name(sig, n, 1024);
+        trace("rejecting mapping %s -> %s%s because lengths don't match (not yet supported)\n",
+              n, router->dest_name, dest_name);
         return 0;
     }
 
