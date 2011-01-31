@@ -483,4 +483,24 @@ static void die_unless(...) {};
 #endif
 #endif
 
+/*! Helper to find size of signal value types. */
+inline static int mapper_type_size(char type)
+{
+    mapper_signal_value_t v;
+    switch (type) {
+    case 'i': return sizeof(v.i32);
+    case 'f': return sizeof(v.f);
+    case 'd': return sizeof(v.d);
+    default:
+        die_unless(0, "getting size of unknown type %c\n", type);
+        return 0;
+    }
+}
+
+/*! Helper to find the size of a signal's full vector. */
+inline static int msig_size(mapper_signal sig)
+{
+    return mapper_type_size(sig->props.type) * sig->props.length;
+}
+
 #endif // __MAPPER_INTERNAL_H__

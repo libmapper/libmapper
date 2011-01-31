@@ -101,7 +101,6 @@ static void mdev_increment_version(mapper_device md)
     }
 }
 
-static mapper_signal_value_t *sv = 0;
 static int handler_signal(const char *path, const char *types,
                           lo_arg **argv, int argc, lo_message msg,
                           void *user_data)
@@ -113,35 +112,17 @@ static int handler_signal(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
+
+    /* This is cheating a bit since we know that the arguments pointed
+     * to by argv are layed out sequentially in memory.  It's not
+     * clear if liblo's semantics guarantee it, but known to be true
+     * on all platforms. */
+    memcpy(sig->value, argv[0], msig_vector_bytes(sig));
+
     sig->has_value = 1;
-    int i;
-    sv = (mapper_signal_value_t*) realloc(
-                                          sv, sizeof(mapper_signal_value_t) * sig->props.length);
-    switch (sig->props.type) {
-        case 'f':
-            for (i = 0; i < sig->props.length; i++) {
-                sv[i].f = argv[i]->f;
-                sig->value[i] = sv[i];
-            }
-            break;
-        case 'd':
-            for (i = 0; i < sig->props.length; i++) {
-                sv[i].d = argv[i]->d;
-                sig->value[i] = sv[i];
-            }
-            break;
-        case 'i':
-            for (i = 0; i < sig->props.length; i++) {
-                sv[i].i32 = argv[i]->i;
-                sig->value[i] = sv[i];
-            }
-            break;
-        default:
-            assert(0);
-    }
-    if (sig->handler) {
-        sig->handler(sig, sv);
-    }
+
+    if (sig->handler)
+        sig->handler(sig, sig->value);
 
     return 0;
 }
