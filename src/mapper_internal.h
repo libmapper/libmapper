@@ -19,7 +19,7 @@ struct _mapper_signal
     struct _mapper_device *device;
     
     /*! The current value of this signal. */
-    mapper_signal_value_t *value;
+    void *value;
     
     int has_value;
 
