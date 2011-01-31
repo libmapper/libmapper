@@ -332,7 +332,7 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value)
 {
     mapper_router r = md->routers;
-    memcpy(sig->value, value, msig_size(sig));
+    memcpy(sig->value, value, msig_vector_bytes(sig));
     sig->has_value = 1;
     while (r) {
         mapper_router_receive_signal(r, sig, value);
