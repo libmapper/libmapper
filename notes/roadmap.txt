@@ -1,23 +1,7 @@
 % Roadmap for libmapper
 
-This document contains information on what needs to be accomplished in
-the library before a first release, and thereafter what features might
-be added in the future.
-
-Requirements
-============
-
-Before initial release, the library must provide the following:
-
-* Allow defining a named device and input/output signals.
-
-* Allow allocation of a unique port and name for the device.
-
-* Allow automatically responding to GUI commands to set up routings
-  and mappings.
-
-* Allow monitoring of the network and querying of this information for
-  display and user interaction.
+This document contains information on what remains to be accomplished in
+the library, and what features might be added in the future.
 
 Current Status
 ==============
@@ -37,31 +21,22 @@ The current status is summarized here:
   about other devices, signals, links, and mappings, and this
   information can be queried.
 
+* MaxMSP and puredata external object working.
+
+* Python bindings working for end-device functionality.
+
 Tasks To Do
 ===========
 
-Target release date: November 15, 2010.
-
-The following tasks currently need to be accomplished before initial
-release:
-
-* Create a concise but convincing example for both controller and
-  synth sides.  Optional support for audio output, perhaps using RtAudio,
-  would be beneficial here. (Steve: 4/5 Done)
+The following tasks currently need to be accomplished:
 
 * Create example program for interfacing with Wiimote, HID? Try to do 
   this through pd objects with libmapper external. Kinect? (Joe)
 
-* Figure out what to do about namespace changes (@rev?)
-
 * Include some Max/MSP standalone versions of controllers, Granul8,
   etc? (Joe)
 
-* Are we including the Max/MSP GUI, standalone? 
-    * Check licenses, size, etc. Binary release for Mac OS X.  (Joe)
-      (Done: removed all 3rd-party dependencies so licence ok)
-    * Need multicast object for maxmsp (or include libmapper external)
-    * We need some sort of interface for Linux - webmapper? Qt?
+* We need some sort of interface for Linux - webmapper? Qt?
 
 * Documentation, tutorials. 
     * External API. (Steve)
@@ -83,6 +58,10 @@ release:
 Lower priority tasks
 ====================
 
+* Python bindings for monitor functionality.
+
+* Java bindings.
+
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered, or devices disappear and reappear. (Depends on
   namespace hashing, save for later.)
@@ -90,8 +69,6 @@ Lower priority tasks
 * Implement OSC aliasing for signal connections.
 
 * Implement bidirectional communication for state queries.
-
-* Add "fixed" processing type.
 
 * Port to Windows.
 
@@ -105,7 +82,7 @@ Lower priority tasks
 * Look into usage on embedded platforms. (Works on gumstix!)
 
 * In support of the previous point, implement the proposal for
-  pre-defined expressions.
+  pre-defined expressions ("fixed" processing type).
 
 * Consider using a back-end such as SQLite for database searching.
   (May be more efficient for supporting large networks.)
@@ -119,15 +96,8 @@ External tasks
 There are some tasks which address uses of the library/protocol rather
 than being tasks for the library development itself.
 
-* Development of Max external. Generate binaries for OSX, Windows.
-  Should try to statically link libmapper, liblo. (In progress)
-
-* Development of Pure Data external. (In progress)
-
 * Development of SuperCollider usage, either using library or
   reimplemented in SC to some extent.
-
-* Development of Qt GUI. (In progress)
 
 * Development of browser-based GUI.
 

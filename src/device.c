@@ -114,11 +114,15 @@ static int handler_signal(const char *path, const char *types,
     }
 
     /* This is cheating a bit since we know that the arguments pointed
-     * to by argv are layed out subsequently in memory.  It's not
+     * to by argv are layed out sequentially in memory.  It's not
      * clear if liblo's semantics guarantee it, but known to be true
      * on all platforms. */
+    memcpy(sig->value, argv[0], msig_vector_bytes(sig));
+
+    sig->has_value = 1;
+
     if (sig->handler)
-        sig->handler(sig, argv[0]);
+        sig->handler(sig, sig->value);
 
     return 0;
 }
@@ -195,6 +199,13 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 
     for (n=i; n<(md->n_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
+    }
+    if (md->server) {
+        char *type_string = (char*) malloc(sig->props.length + 1);
+        memset(type_string, sig->props.type, sig->props.length);
+        type_string[sig->props.length] = 0;
+        lo_server_del_method(md->server, sig->props.name, type_string);
+        free(type_string);
     }
     md->n_inputs --;
     mdev_increment_version(md);
@@ -321,6 +332,8 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value)
 {
     mapper_router r = md->routers;
+    memcpy(sig->value, value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     while (r) {
         mapper_router_receive_signal(r, sig, value);
         r = r->next;
@@ -408,7 +421,7 @@ static void unlock_liblo_error_mutex()
 void mdev_start_server(mapper_device md)
 {
     if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
-        int i, j;
+        int i;
         char port[16], *type = 0;
 
         sprintf(port, "%d", md->admin->port.value);
@@ -435,9 +448,9 @@ void mdev_start_server(mapper_device md)
 
         for (i = 0; i < md->n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 1);
-            for (j = 0; j < md->inputs[i]->props.length; j++)
-                type[j] = md->inputs[i]->props.type;
-            type[j] = 0;
+            memset(type, md->inputs[i]->props.type,
+                   md->inputs[i]->props.length);
+            type[md->inputs[i]->props.length] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type,

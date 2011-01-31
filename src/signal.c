@@ -22,7 +22,8 @@ mapper_signal msig_new(const char *name, int length, char type,
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
-
+    sig->value = calloc(1, msig_vector_bytes(sig));
+    sig->has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
@@ -86,6 +87,8 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
 void msig_free(mapper_signal sig)
 {
     if (!sig) return;
+    if (sig->value)
+        free(sig->value);
     if (sig->props.minimum)
         free(sig->props.minimum);
     if (sig->props.maximum)
