@@ -331,11 +331,8 @@ int mdev_poll(mapper_device md, int block_ms)
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value)
 {
-    int i;
     mapper_router r = md->routers;
-    for (i = 0; i < sig->props.length; i++) {
-        sig->value[i] = value[i];
-    }
+    memcpy(sig->value, value, msig_size(sig));
     sig->has_value = 1;
     while (r) {
         mapper_router_receive_signal(r, sig, value);
@@ -424,7 +421,7 @@ static void unlock_liblo_error_mutex()
 void mdev_start_server(mapper_device md)
 {
     if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
-        int i, j;
+        int i;
         char port[16], *type = 0;
 
         sprintf(port, "%d", md->admin->port.value);
@@ -451,9 +448,9 @@ void mdev_start_server(mapper_device md)
 
         for (i = 0; i < md->n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 1);
-            for (j = 0; j < md->inputs[i]->props.length; j++)
-                type[j] = md->inputs[i]->props.type;
-            type[j] = 0;
+            memset(type, md->inputs[i]->props.type,
+                   md->inputs[i]->props.length);
+            type[md->inputs[i]->props.length] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type,

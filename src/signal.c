@@ -22,7 +22,7 @@ mapper_signal msig_new(const char *name, int length, char type,
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
-    sig->value = (mapper_signal_value_t*) malloc(sizeof(mapper_signal_value_t) * sig->props.length);
+    sig->value = malloc(msig_size(sig));
     sig->has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
