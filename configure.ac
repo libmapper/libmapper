@@ -161,6 +161,8 @@ AS_IF([test x$with_liblo != xno],[
   LIBS="$LIBS $liblo_LIBS"
   AC_CHECK_FUNC([lo_address_set_iface],
     [AC_DEFINE([HAVE_LIBLO_SET_IFACE],[],[Define to use lo_address_set_iface function in liblo.])])
+  AC_CHECK_FUNC([lo_server_new_multicast_iface],
+    [AC_DEFINE([HAVE_LIBLO_SERVER_IFACE],[],[Define to use lo_server_new_multicast_iface function in liblo.])])
   LIBS="$tmpLIBS"
 ])
 
