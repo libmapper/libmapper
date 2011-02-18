@@ -196,6 +196,16 @@ function make_bundles()
     info_plist $APP/Contents/Info.plist libmapper_Slider_Example tkgui.py
     cp -v ../icons/libmapper_doc.icns $APP/Contents/Resources/
 
+    APP=bundles/libmapper_Slider_Launcher.app
+    mkdir -v $APP
+    mkdir -v $APP/Contents
+    mkdir -v $APP/Contents/MacOS
+    mkdir -v $APP/Contents/Resources
+    cp -v i386/libmapper-$LIBMAPPER_VERSION/extra/osx/libmapper_slider_launcher.py $APP/Contents/MacOS/
+    echo 'APPL????' >$APP/Contents/PkgInfo
+    info_plist $APP/Contents/Info.plist libmapper_Slider_Launcher libmapper_slider_launcher.py
+    cp -v ../icons/libmapper_doc.icns $APP/Contents/Resources/
+
     FRAMEWORK=bundles/mapper.framework
     mkdir -v $FRAMEWORK
     mkdir -v $FRAMEWORK/Contents

@@ -189,6 +189,8 @@ AC_CONFIG_FILES([
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
     examples/py_tk_gui/setup.py
+    extra/Makefile
+    extra/osx/Makefile
     libmapper.pc
 ])
 AC_OUTPUT
