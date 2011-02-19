@@ -1236,7 +1236,7 @@ static int handler_device_linked(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    trace("<%s> got /linked %s %s\n", mapper_admin_name(admin),
+    trace("<monitor> got /linked %s %s\n",
           src_name, dest_name);
 
     mapper_message_t params;
@@ -1329,7 +1329,7 @@ static int handler_device_unlinked(const char *path, const char *types,
     const char *src_name = &argv[0]->s;
     const char *dest_name = &argv[1]->s;
 
-    trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
+    trace("<monitor> got /unlink %s %s\n",
           src_name, dest_name);
 
     mapper_db_remove_mappings_by_query(db,
@@ -1592,7 +1592,7 @@ static int handler_signal_connected(const char *path, const char *types,
     src_signal_name = &argv[0]->s;
     dest_signal_name = &argv[1]->s;
 
-    trace("<%s> got /connected %s %s\n", mapper_admin_name(admin),
+    trace("<monitor> got /connected %s %s\n",
           src_signal_name, dest_signal_name);
 
     mapper_message_t params;
@@ -1730,7 +1730,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
     const char *src_signal_name = &argv[0]->s;
     const char *dest_signal_name = &argv[1]->s;
 
-    trace("<%s> got /disconnected %s %s\n", mapper_admin_name(admin),
+    trace("<monitor> got /disconnected %s %s\n",
           src_signal_name, dest_signal_name);
 
     mapper_db_remove_mapping(db,
