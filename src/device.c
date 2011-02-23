@@ -127,6 +127,42 @@ static int handler_signal(const char *path, const char *types,
     return 0;
 }
 
+static int handler_query(const char *path, const char *types,
+                         lo_arg **argv, int argc, lo_message msg,
+                         void *user_data)
+{
+    char *dest_name = 0;
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md = sig->device;
+    
+    if (!md) {
+        trace("error, sig->device==0\n");
+        return 0;
+    }
+
+    if (!argc)
+        return 0;
+    if (types[0] != 's' && types[0] != 'S')
+        return 0;
+
+    // get sender's OSC string
+    dest_name = &argv[0]->s;
+            
+    // send signal value back to sender
+    int i;
+    lo_message m;
+    m = lo_message_new();
+    if (!m)
+        return 0;
+    
+    for (i = 0; i < sig->props.length; i++)
+        mval_add_to_message(m, sig, &sig->value[i]);
+    
+    lo_send_message(lo_message_get_source(msg), dest_name, m);
+    lo_message_free(m);
+    
+    return 0;
+}
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -420,7 +456,7 @@ void mdev_start_server(mapper_device md)
 {
     if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
         int i;
-        char port[16], *type = 0;
+        char port[16], *type = 0, *signal_get = 0;
 
         sprintf(port, "%d", md->admin->port.value);
 
@@ -453,8 +489,12 @@ void mdev_start_server(mapper_device md)
                                  md->inputs[i]->props.name,
                                  type,
                                  handler_signal, (void *) (md->inputs[i]));
+            signal_get = strcat(md->inputs[i]->props.name, "/get");
+            lo_server_add_method(md->server,
+                                 signal_get, "s", handler_query, (void *) (md->inputs[i]));
         }
         free(type);
+        free(signal_get);
     }
 }
 

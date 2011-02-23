@@ -760,15 +760,17 @@ static int handler_id_n_signals_input_get(const char *path,
 
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
-        msig_full_name(sig, sig_name, 1024);
-        mapper_admin_send_osc(
-            admin, "/signal", "s", sig_name,
-            AT_DIRECTION, "input",
-            AT_TYPE, sig->props.type,
-            AT_LENGTH, sig->props.length,
-            sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig,
-            AT_EXTRA, sig->props.extra);
+        if (sig->props.hidden == 0) {
+            msig_full_name(sig, sig_name, 1024);
+            mapper_admin_send_osc(
+                admin, "/signal", "s", sig_name,
+                AT_DIRECTION, "input",
+                AT_TYPE, sig->props.type,
+                AT_LENGTH, sig->props.length,
+                sig->props.minimum ? AT_MIN : -1, sig,
+                sig->props.maximum ? AT_MAX : -1, sig,
+                AT_EXTRA, sig->props.extra);
+        }
     }
 
     return 0;
@@ -789,15 +791,17 @@ static int handler_id_n_signals_output_get(const char *path,
 
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
-        msig_full_name(sig, sig_name, 1024);
-        mapper_admin_send_osc(
-            admin, "/signal", "s", sig_name,
-            AT_DIRECTION, "output",
-            AT_TYPE, sig->props.type,
-            AT_LENGTH, sig->props.length,
-            sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig,
-            AT_EXTRA, sig->props.extra);
+        if (sig->props.hidden == 0) {
+            msig_full_name(sig, sig_name, 1024);
+            mapper_admin_send_osc(
+                admin, "/signal", "s", sig_name,
+                AT_DIRECTION, "output",
+                AT_TYPE, sig->props.type,
+                AT_LENGTH, sig->props.length,
+                sig->props.minimum ? AT_MIN : -1, sig,
+                sig->props.maximum ? AT_MAX : -1, sig,
+                AT_EXTRA, sig->props.extra);
+        }
     }
 
     return 0;
