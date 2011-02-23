@@ -489,9 +489,11 @@ void mdev_start_server(mapper_device md)
                                  md->inputs[i]->props.name,
                                  type,
                                  handler_signal, (void *) (md->inputs[i]));
-            signal_get = strcat(md->inputs[i]->props.name, "/get");
-            lo_server_add_method(md->server,
-                                 signal_get, "s", handler_query, (void *) (md->inputs[i]));
+            int len = strlen(md->inputs[i]->props.name) + 4;
+            signal_get = (char*) realloc(signal_get, len);
+            snprintf(signal_get, len, "%s%s", md->inputs[i]->props.name, "/get");
+            lo_server_add_method(md->server, signal_get, "s", handler_query,
+                                 (void *) (md->inputs[i]));
         }
         free(type);
         free(signal_get);
