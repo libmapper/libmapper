@@ -242,6 +242,11 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         type_string[sig->props.length] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
         free(type_string);
+        int len = strlen(sig->props.name + 4);
+        char *signal_get = (char*) malloc(len);
+        signal_get = snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+        lo_server_del_method(md->server, signal_get, "s");
+        free(signal_get);
     }
     md->n_inputs --;
     mdev_increment_version(md);
