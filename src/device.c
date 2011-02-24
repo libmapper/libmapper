@@ -141,28 +141,31 @@ static int handler_query(const char *path, const char *types,
     }
 
     if (!argc)
+        dest_name = strdup(path);
+    else if (types[0] != 's' && types[0] != 'S')
         return 0;
-    if (types[0] != 's' && types[0] != 'S')
-        return 0;
+    else {
+        // use OSC string provided as argument for return
+        dest_name = &argv[0]->s;
+        if (dest_name[0] != '/')
+            return 0;
+    }
 
-    // get sender's OSC string
-    dest_name = &argv[0]->s;
-            
-    // send signal value back to sender
     int i;
     lo_message m;
     m = lo_message_new();
     if (!m)
         return 0;
-    
+
     for (i = 0; i < sig->props.length; i++)
         mval_add_to_message(m, sig, &sig->value[i]);
-    
+
     lo_send_message(lo_message_get_source(msg), dest_name, m);
     lo_message_free(m);
     
     return 0;
 }
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -195,7 +198,15 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              sig->props.name,
                              type_string,
                              handler_signal, (void *) (sig));
+        int len = strlen(sig->props.name) + 4;
+        char *signal_get = (char*) realloc(signal_get, len);
+        snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+        lo_server_add_method(md->server, 
+                             signal_get, 
+                             "", 
+                             handler_query, (void *) (sig));
         free(type_string);
+        free(signal_get);
     }
 
     return sig;
@@ -242,10 +253,10 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         type_string[sig->props.length] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
         free(type_string);
-        int len = strlen(sig->props.name + 4);
+        int len = strlen(sig->props.name) + 4;
         char *signal_get = (char*) malloc(len);
         signal_get = snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-        lo_server_del_method(md->server, signal_get, "s");
+        lo_server_del_method(md->server, signal_get, "");
         free(signal_get);
     }
     md->n_inputs --;
@@ -497,8 +508,10 @@ void mdev_start_server(mapper_device md)
             int len = strlen(md->inputs[i]->props.name) + 4;
             signal_get = (char*) realloc(signal_get, len);
             snprintf(signal_get, len, "%s%s", md->inputs[i]->props.name, "/get");
-            lo_server_add_method(md->server, signal_get, "s", handler_query,
-                                 (void *) (md->inputs[i]));
+            lo_server_add_method(md->server, 
+                                 signal_get, 
+                                 "", 
+                                 handler_query, (void *) (md->inputs[i]));
         }
         free(type);
         free(signal_get);
