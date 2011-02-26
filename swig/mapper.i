@@ -772,6 +772,9 @@ typedef struct _db {} db;
     mapper_db_device_t **get_all_devices() {
         return mapper_db_get_all_devices($self);
     }
+    mapper_db_device_t **__match_devices_by_name(const char *device) {
+        return mapper_db_match_devices_by_name($self, device);
+    }
     mapper_db_device_t **device_next(int iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
@@ -780,6 +783,22 @@ typedef struct _db {} db;
     }
     mapper_db_signal_t **get_all_outputs() {
         return mapper_db_get_all_outputs($self);
+    }
+    mapper_db_signal_t **get_inputs_by_device_name(const char *device_name) {
+        return mapper_db_get_inputs_by_device_name($self, device_name);
+    }
+    mapper_db_signal_t **get_outputs_by_device_name(const char *device_name) {
+        return mapper_db_get_outputs_by_device_name($self, device_name);
+    }
+    mapper_db_signal_t **__match_inputs_by_device_name(
+        const char *device_name, const char *input_pattern) {
+        return mapper_db_match_inputs_by_device_name($self, device_name,
+                                                     input_pattern);
+    }
+    mapper_db_signal_t **__match_outputs_by_device_name(
+        const char *device_name, char const *output_pattern) {
+        return mapper_db_match_outputs_by_device_name($self, device_name,
+                                                      output_pattern);
     }
     mapper_db_signal_t **signal_next(int iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
@@ -807,12 +826,29 @@ typedef struct _db {} db;
         def all_devices(self):
             return self.make_iterator(self.get_all_devices,
                                       self.device_next)()
+        def match_devices_by_name(self, string):
+            return self.make_iterator(self.__match_devices_by_name,
+                                      self.device_next, string)()
         def all_inputs(self):
             return self.make_iterator(self.get_all_inputs,
                                       self.signal_next)()
         def all_outputs(self):
             return self.make_iterator(self.get_all_outputs,
                                       self.signal_next)()
+        def inputs_by_device_name(self, device_name):
+            return self.make_iterator(self.get_inputs_by_device_name,
+                                      self.signal_next, device_name)()
+        def outputs_by_device_name(self, device_name):
+            return self.make_iterator(self.get_outputs_by_device_name,
+                                      self.signal_next, device_name)()
+        def match_inputs_by_device_name(self, device_name, input_pattern):
+            return self.make_iterator(self.__match_inputs_by_device_name,
+                                      self.signal_next, device_name,
+                                      input_pattern)()
+        def match_outputs_by_device_name(self, device_name, output_pattern):
+            return self.make_iterator(self.__match_outputs_by_device_name,
+                                      self.signal_next, device_name,
+                                      output_pattern)()
         def all_mappings(self):
             return self.make_iterator(self.get_all_mappings,
                                       self.mapping_next)()

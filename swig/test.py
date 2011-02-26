@@ -66,6 +66,12 @@ for i in range(1000):
             print i[0],':'
             for j in i[1]():
                 print j
+        print 'devices matching "send":'
+        for i in mon.db.match_devices_by_name('send'):
+            print i
+        print 'outputs for device "/testsend.1" matching "3":'
+        for i in mon.db.match_outputs_by_device_name('/testsend.1', '3'):
+            print i
     if i==500:
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",
                     {'mode': mapper.MO_EXPRESSION,
