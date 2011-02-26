@@ -212,6 +212,25 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     return sig;
 }
 
+mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int length,
+                                    char type, const char *unit,
+                                    void *minimum, void *maximum,
+                                    mapper_signal_handler *handler,
+                                    void *user_data)
+{
+    int version = md->version;
+    int update = md->update;
+    mapper_signal sig = mdev_add_input(md, name, length, type, unit, 
+                                       minimum, maximum, handler, user_data);
+    sig->props.hidden = 1;
+    md->n_hidden_inputs++;
+    /* Addition of a hidden input should not affect version or update status, so
+     * we will restore them to their previous values */
+    md->version = version;
+    md->update = update;
+    return sig;
+}
+
 // Add an output signal to a mapper device.
 mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               char type, const char *unit,
@@ -285,7 +304,8 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 
 int mdev_num_inputs(mapper_device md)
 {
-    return md->n_inputs;
+    // Return only the number of public inputs
+    return md->n_inputs - md->n_hidden_inputs;
 }
 
 int mdev_num_outputs(mapper_device md)
