@@ -148,10 +148,12 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
         strncpy(query_string, m->props.dest_name, 1024);
         strncat(query_string, "/get", 1024);
         if (alias) {
-            lo_send(router->addr, query_string, "s", alias);
+            lo_send_from(router->addr, router->device->server, 
+                         LO_TT_IMMEDIATE, query_string, "s", alias);
         }
         else {
-            lo_send(router->addr, query_string, "");
+            lo_send_from(router->addr, router->device->server, 
+                         LO_TT_IMMEDIATE, query_string, "");
         }
         count++;
         m = m->next;

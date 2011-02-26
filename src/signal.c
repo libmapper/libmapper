@@ -209,6 +209,10 @@ int msig_query_remote(mapper_signal sig, void *receiver)
     // stick to output signals for now
     if (!sig->props.is_output)
         return -1;
+    if (!sig->device->server) {
+        // no server running so we cannot process query returns
+        return -1;
+    }
     if (receiver) {
         mapper_signal sig2 = (mapper_signal) receiver;
         const char *alias = sig2->props.name;

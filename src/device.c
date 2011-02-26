@@ -151,28 +151,18 @@ static int handler_query(const char *path, const char *types,
             return 0;
     }
 
-    //int i;
+    int i;
     lo_message m;
     m = lo_message_new();
     if (!m)
         return 0;
 
-    // ignore vector handling for now - this needs to be fixed!
-    mval_add_to_message(m, sig, sig->value);
-    //for (i = 0; i < sig->props.length; i++)
-    //    mval_add_to_message(m, sig, &sig->value[i]);
+    mapper_signal_value_t *value = sig->value;
+    for (i = 0; i < sig->props.length; i++)
+        mval_add_to_message(m, sig, &value[i]);
 
-    lo_address dest_address = lo_message_get_source(msg);
-
-    lo_send_message(dest_address, dest_name, m);
-    trace("query response sent: host %s, port %s, path %s, payload", 
-          lo_address_get_hostname(dest_address), 
-          lo_address_get_port(dest_address),
-          dest_name);
-    lo_message_pp(m);
-
+    lo_send_message(lo_message_get_source(msg), dest_name, m);
     lo_message_free(m);
-
     return 0;
 }
 

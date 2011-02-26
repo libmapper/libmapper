@@ -30,11 +30,9 @@ int done = 0;
 
 void query_response_handler(mapper_signal sig, void *v)
 {
-    printf("query_response_handler...");
     mapper_signal remote = (mapper_signal) sig->props.user_data;
     printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)v));
     received++;
-    printf("done!\n");
 }
 
 /*! Creation of a local source. */
