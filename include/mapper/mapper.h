@@ -389,8 +389,8 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
  *  \param str The substring to search for.
  *  \return    A double-pointer to the first item in a list of matching
  *             devices.  Use mapper_db_device_next() to iterate. */
-mapper_db_device_t **mapper_db_match_device_by_name(mapper_db db,
-                                                    char *device_pattern);
+mapper_db_device_t **mapper_db_match_devices_by_name(mapper_db db,
+                                                     const char *device_pattern);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_return_*() call, get the next item in the list.
@@ -834,6 +834,9 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms);
  *  long as the monitor remains alive. */
 mapper_db mapper_monitor_get_db(mapper_monitor mon);
 
+/*! Request that all devices report in. */
+int mapper_monitor_request_devices(mapper_monitor mon);
+
 /*! Request signals for specific device. */
 int mapper_monitor_request_signals_by_name(
     mapper_monitor mon, const char* name);
@@ -845,6 +848,12 @@ int mapper_monitor_request_links_by_name(
 /*! Request mappings for specific device. */
 int mapper_monitor_request_mappings_by_name(
     mapper_monitor mon, const char* name);
+
+/*! When auto-request is enabled (enable=1), the monitor automatically
+ *  makes requests for information on signals, links, and mappings
+ *  when it encounters a previously-unseen device. By default,
+ *  auto-request is enabled for monitors. */
+void mapper_monitor_autorequest(mapper_monitor mon, int enable);
 
 /*! Interface to add a link between two devices.
  *  \param mon The monitor to use for sending the message.

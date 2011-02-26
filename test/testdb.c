@@ -204,7 +204,7 @@ int main()
 
     printf("\nFind matching '__':\n");
 
-    pdev = mapper_db_match_device_by_name(db, "__");
+    pdev = mapper_db_match_devices_by_name(db, "__");
 
     count=0;
     if (!pdev) {
@@ -674,14 +674,14 @@ int main()
     printf("\nFind links with source matching 'db' and "
            "destination matching '__':\n");
 
-    pdev = mapper_db_match_device_by_name(db, "db");
+    pdev = mapper_db_match_devices_by_name(db, "db");
 
     if (!pdev) {
         printf("mapper_db_match_device_by_name() returned 0.\n");
         return 1;
     }
 
-    mapper_db_device_t **pdev2 = mapper_db_match_device_by_name(db, "__");
+    mapper_db_device_t **pdev2 = mapper_db_match_devices_by_name(db, "__");
 
     if (!pdev2) {
         printf("mapper_db_match_device_by_name() returned 0.\n");
@@ -717,7 +717,7 @@ int main()
 
     printf("\nFind any links with source matching '2':\n");
 
-    pdev = mapper_db_match_device_by_name(db, "2");
+    pdev = mapper_db_match_devices_by_name(db, "2");
 
     if (!pdev) {
         printf("mapper_db_match_device_by_name() returned 0.\n");

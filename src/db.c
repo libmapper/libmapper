@@ -782,26 +782,26 @@ mapper_db_device *mapper_db_get_all_devices(mapper_db db)
     return (mapper_db_device*)&lh->self;
 }
 
-static int cmp_query_match_device_by_name(void *context_data,
-                                          mapper_db_device dev)
+static int cmp_query_match_devices_by_name(void *context_data,
+                                           mapper_db_device dev)
 {
     const char *device_pattern = (const char*)context_data;
     return strstr(dev->name, device_pattern)!=0;
 }
 
-mapper_db_device *mapper_db_match_device_by_name(mapper_db db,
-                                                 char *str)
+mapper_db_device *mapper_db_match_devices_by_name(mapper_db db,
+                                                  const char *str)
 {
     mapper_db_device dev = db->registered_devices;
     if (!dev)
         return 0;
 
     list_header_t *lh = construct_query_context_from_strings(
-        (query_compare_func_t*)cmp_query_match_device_by_name, str, 0);
+        (query_compare_func_t*)cmp_query_match_devices_by_name, str, 0);
 
     lh->self = dev;
 
-    if (cmp_query_match_device_by_name((void*)str, dev))
+    if (cmp_query_match_devices_by_name((void*)str, dev))
         return (mapper_db_device*)&lh->self;
 
     return (mapper_db_device*)dynamic_query_continuation(lh);
