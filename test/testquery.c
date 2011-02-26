@@ -54,8 +54,8 @@ int setup_source()
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/dummysig_", i);
         dummysig[i] = mdev_add_hidden_input(source, sig_name, 1,
-                                            'f', 0, 0, 0, query_response_handler, 
-                                            &recvsig[i]);
+                                            'f', 0, 0, 0, query_response_handler,
+                                            sendsig[i]);
     }
 
     printf("Output signals registered.\n");
@@ -140,7 +140,7 @@ void wait_local_devices()
 void loop()
 {
     printf("-------------------- GO ! --------------------\n");
-    int i = 0, j = 0;
+    int i = 0, j = 0, count;
 
     if (automate) {
         char source_name[1024], destination_name[1024];
@@ -164,16 +164,16 @@ void loop()
     }
 
     while (i >= 0 && !done) {
-        mdev_poll(source, 0);
         for (j = 0; j < 4; j++) {
             msig_update_float(recvsig[j], ((i % 10) * 1.0f));
         }
-        printf("destination values updated to %d -->\n", i % 10);
+        printf("\ndestination values updated to %d -->\n", i % 10);
         for (j = 0; j < 4; j++) {
-            printf("Sent %i queries for sendsig[%i]\n", msig_query_remote(sendsig[j], dummysig[j]), j);
+            count = msig_query_remote(sendsig[j], dummysig[j]);
+            printf("Sent %i queries for sendsig[%i]\n", count, j);
         }
-
-        printf("Received %i messages.\n\n", mdev_poll(destination, 100));
+        mdev_poll(destination, 100);
+        mdev_poll(source, 0);
         i++;
         usleep(500 * 1000);
     }
