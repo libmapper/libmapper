@@ -389,8 +389,8 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
  *  \param str The substring to search for.
  *  \return    A double-pointer to the first item in a list of matching
  *             devices.  Use mapper_db_device_next() to iterate. */
-mapper_db_device_t **mapper_db_match_device_by_name(mapper_db db,
-                                                    char *device_pattern);
+mapper_db_device_t **mapper_db_match_devices_by_name(mapper_db db,
+                                                     const char *device_pattern);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_return_*() call, get the next item in the list.
