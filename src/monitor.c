@@ -61,6 +61,12 @@ int mapper_monitor_request_signals_by_name(mapper_monitor mon,
     return 0;
 }
 
+int mapper_monitor_request_devices(mapper_monitor mon)
+{
+    mapper_admin_send_osc(mon->admin, "/who", "");
+    return 0;
+}
+
 int mapper_monitor_request_links_by_name(mapper_monitor mon,
                                          const char* name)
 {

@@ -252,7 +252,7 @@ int main()
     mapper_db_add_mapping_callback(db, on_mapping, 0);
     mapper_db_add_link_callback(db, on_link, 0);
 
-    mapper_admin_send_osc(mon->admin, "/who", "");
+    mapper_monitor_request_devices(mon);
 
     loop();
 
