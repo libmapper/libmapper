@@ -849,6 +849,12 @@ int mapper_monitor_request_links_by_name(
 int mapper_monitor_request_mappings_by_name(
     mapper_monitor mon, const char* name);
 
+/*! When auto-request is enabled (enable=1), the monitor automatically
+ *  makes requests for information on signals, links, and mappings
+ *  when it encounters a previously-unseen device. By default,
+ *  auto-request is enabled for monitors. */
+void mapper_monitor_autorequest(mapper_monitor mon, int enable);
+
 /*! Interface to add a link between two devices.
  *  \param mon The monitor to use for sending the message.
  *  \param source_device_path Source device name.

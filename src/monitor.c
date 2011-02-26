@@ -24,6 +24,7 @@ mapper_monitor mapper_monitor_new(void)
         calloc(1, sizeof(struct _mapper_monitor));
     mon->admin = mapper_admin_new(0, 0, 0);
     mapper_admin_add_monitor(mon->admin, mon);
+    mapper_monitor_autorequest(mon, 1);
     return mon;
 }
 
@@ -161,4 +162,27 @@ void mapper_monitor_disconnect(mapper_monitor mon,
 {
     mapper_admin_send_osc( mon->admin, "/disconnect", "ss",
                            source_signal, dest_signal );
+}
+
+static void on_device_autorequest(mapper_db_device dev,
+                                  mapper_db_action_t a,
+                                  void *user)
+{
+    if (a == MDB_NEW)
+    {
+        mapper_monitor mon = (mapper_monitor)(user);
+
+        // Request signals, links, mappings for new devices.
+        mapper_monitor_request_signals_by_name(mon, dev->name);
+        mapper_monitor_request_links_by_name(mon, dev->name);
+        mapper_monitor_request_mappings_by_name(mon, dev->name);
+    }
+}
+
+void mapper_monitor_autorequest(mapper_monitor mon, int enable)
+{
+    if (enable)
+        mapper_db_add_device_callback(&mon->db, on_device_autorequest, mon);
+    else
+        mapper_db_remove_device_callback(&mon->db, on_device_autorequest, mon);
 }

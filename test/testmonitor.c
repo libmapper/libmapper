@@ -158,12 +158,6 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
-
-        // Request signals, links, mappings for new devices.
-        mapper_monitor_request_signals_by_name(mon, dev->name);
-        mapper_monitor_request_links_by_name(mon, dev->name);
-        mapper_monitor_request_mappings_by_name(mon, dev->name);
-
         break;
     case MDB_MODIFY:
         printf("modified.\n");
