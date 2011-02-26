@@ -41,12 +41,29 @@ def setup(d):
     print 'signal type', sig.type
     print 'signal is_output', sig.is_output
     print 'signal unit', sig.unit
+    print 'signal properties:', sig.properties
 
 dev = mapper.device("test", 9000)
 setup(dev)
 
+mon = mapper.monitor()
+
 while not dev.ready():
     dev.poll(10)
+    mon.poll()
 
 for i in range(1000):
     dev.poll(10)
+    mon.poll()
+    if i==500:
+        mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",
+                    {'mode': mapper.MO_EXPRESSION,
+                     'expression': 'y=x',
+                     'clip_min': mapper.CT_WRAP,
+                     'clip_max': mapper.CT_CLAMP})
+    if i==750:
+        mon.modify({'src_name':"/testsend.1/outsig_3",
+                    'dest_name':"/testrecv.1/insig_3",
+                    'range':[None,None,3,4],
+                    'muted':True,
+                    'mode': mapper.MO_LINEAR})
