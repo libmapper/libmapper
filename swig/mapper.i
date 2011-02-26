@@ -61,7 +61,7 @@
 %typemap(out) mapper_db_signal {
     PyObject *o = PyDict_New();
     if (!o)
-        return Py_None;
+        o = Py_None;
     else {
         int i=0;
         const char *property;
@@ -218,6 +218,48 @@
                             "argument $argnum must be 'dict'");
     }
  %}
+%typemap(out) mapper_db_device_t ** {
+    if ($1) {
+        PyObject *o = PyDict_New();
+        if (!o)
+            o = Py_None;
+        else {
+            int i=0;
+            const char *property;
+            lo_type type;
+            lo_arg *value;
+            while (!mapper_db_device_property_index(*$1, i, &property,
+                                                    &type, &value))
+            {
+                if (strcmp(property, "user_data")==0) {
+                    i++;
+                    continue;
+                }
+                PyObject *v = 0;
+                if (type=='s' || type=='S')
+                    v = PyString_FromString(&value->s);
+                else if (type=='c')
+                    v = Py_BuildValue("c", value->c);
+                else if (type=='i')
+                    v = Py_BuildValue("i", value->i32);
+                else if (type=='f')
+                    v = Py_BuildValue("f", value->f);
+                if (v) {
+                    PyDict_SetItemString(o, property, v);
+                    Py_DECREF(v);
+                }
+                i++;
+            }
+            // Return the dict and an opaque pointer.
+            // The pointer will be hidden by a Python generator interface.
+            o = Py_BuildValue("(Oi)", o, $1);
+        }
+        $result = o;
+    }
+    else {
+        $result = Py_BuildValue("(OO)", Py_None, Py_None);
+    }
+ }
 %{
 #include <mapper_internal.h>
 typedef struct _device {} device;
@@ -581,7 +623,7 @@ typedef struct _db {} db;
     int poll(int timeout=0) {
         return mapper_monitor_poll($self, timeout);
     }
-    db *get_db(mapper_monitor mon) {
+    db *get_db() {
         return mapper_monitor_get_db($self);
     }
     int request_signals_by_name(const char* name) {
@@ -626,7 +668,23 @@ typedef struct _db {} db;
                     const char* dest_signal) {
         mapper_monitor_disconnect($self, source_signal, dest_signal);
     }
+    %pythoncode {
+        db = property(get_db)
+    }
 }
 
 %extend db {
+    mapper_db_device_t **get_all_devices() {
+        return mapper_db_get_all_devices($self);
+    }
+    mapper_db_device_t **device_next(int iterator) {
+        return mapper_db_device_next((mapper_db_device_t**)iterator);
+    }
+    %pythoncode {
+        def all_devices(self):
+            (d, p) = self.get_all_devices()
+            while p:
+                yield d
+                (d, p) = self.device_next(p)
+    }
 }
