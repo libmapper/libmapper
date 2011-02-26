@@ -52,12 +52,18 @@ while not dev.ready():
     dev.poll(10)
     mon.poll()
 
+mon.request_devices()
+
 for i in range(1000):
     dev.poll(10)
     mon.poll()
     if i==250:
-        for d in mon.db.all_devices():
-            print d
+        for i in [('devices', mon.db.all_devices),
+                  ('inputs', mon.db.all_inputs),
+                  ('outputs', mon.db.all_outputs)]:
+            print i[0],':'
+            for j in i[1]():
+                print j
     if i==500:
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",
                     {'mode': mapper.MO_EXPRESSION,

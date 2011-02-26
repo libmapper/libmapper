@@ -260,6 +260,48 @@
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+%typemap(out) mapper_db_signal_t ** {
+    if ($1) {
+        PyObject *o = PyDict_New();
+        if (!o)
+            o = Py_None;
+        else {
+            int i=0;
+            const char *property;
+            lo_type type;
+            lo_arg *value;
+            while (!mapper_db_signal_property_index(*$1, i, &property,
+                                                    &type, &value))
+            {
+                if (strcmp(property, "user_data")==0) {
+                    i++;
+                    continue;
+                }
+                PyObject *v = 0;
+                if (type=='s' || type=='S')
+                    v = PyString_FromString(&value->s);
+                else if (type=='c')
+                    v = Py_BuildValue("c", value->c);
+                else if (type=='i')
+                    v = Py_BuildValue("i", value->i32);
+                else if (type=='f')
+                    v = Py_BuildValue("f", value->f);
+                if (v) {
+                    PyDict_SetItemString(o, property, v);
+                    Py_DECREF(v);
+                }
+                i++;
+            }
+            // Return the dict and an opaque pointer.
+            // The pointer will be hidden by a Python generator interface.
+            o = Py_BuildValue("(Oi)", o, $1);
+        }
+        $result = o;
+    }
+    else {
+        $result = Py_BuildValue("(OO)", Py_None, Py_None);
+    }
+ }
 %{
 #include <mapper_internal.h>
 typedef struct _device {} device;
@@ -626,6 +668,9 @@ typedef struct _db {} db;
     db *get_db() {
         return mapper_monitor_get_db($self);
     }
+    int request_devices() {
+        return mapper_monitor_request_devices($self);
+    }
     int request_signals_by_name(const char* name) {
         return mapper_monitor_request_signals_by_name($self, name);
     }
@@ -680,11 +725,31 @@ typedef struct _db {} db;
     mapper_db_device_t **device_next(int iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
+    mapper_db_signal_t **get_all_inputs() {
+        return mapper_db_get_all_inputs($self);
+    }
+    mapper_db_signal_t **get_all_outputs() {
+        return mapper_db_get_all_outputs($self);
+    }
+    mapper_db_signal_t **signal_next(int iterator) {
+        return mapper_db_signal_next((mapper_db_signal_t**)iterator);
+    }
     %pythoncode {
+        def make_iterator(self, first, next, *args):
+            def it():
+                (d, p) = first(*args)
+                while p:
+                    yield d
+                    (d, p) = next(p)
+            return it
         def all_devices(self):
-            (d, p) = self.get_all_devices()
-            while p:
-                yield d
-                (d, p) = self.device_next(p)
+            return self.make_iterator(self.get_all_devices,
+                                      self.device_next)()
+        def all_inputs(self):
+            return self.make_iterator(self.get_all_inputs,
+                                      self.signal_next)()
+        def all_outputs(self):
+            return self.make_iterator(self.get_all_outputs,
+                                      self.signal_next)()
     }
 }
