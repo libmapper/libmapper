@@ -302,6 +302,56 @@
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+%typemap(out) mapper_db_mapping_t ** {
+    if ($1) {
+        PyObject *o =
+        Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
+                      "src_name", (*$1)->src_name,
+                      "dest_name", (*$1)->dest_name,
+                      "src_type", (*$1)->src_type,
+                      "dest_type", (*$1)->dest_type,
+                      "src_length", (*$1)->src_length,
+                      "dest_length", (*$1)->dest_length,
+                      "clip_max", (*$1)->clip_max,
+                      "clip_min", (*$1)->clip_min,
+                      "range",
+                      ((*$1)->range.known & MAPPING_RANGE_SRC_MIN
+                       ? Py_BuildValue("f", (*$1)->range.src_min) : Py_None),
+                      ((*$1)->range.known & MAPPING_RANGE_SRC_MAX
+                       ? Py_BuildValue("f", (*$1)->range.src_max) : Py_None),
+                      ((*$1)->range.known & MAPPING_RANGE_DEST_MIN
+                       ? Py_BuildValue("f", (*$1)->range.dest_min) : Py_None),
+                      ((*$1)->range.known & MAPPING_RANGE_DEST_MAX
+                       ? Py_BuildValue("f", (*$1)->range.dest_max) : Py_None),
+                      "expression", (*$1)->expression,
+                      "mode", (*$1)->mode,
+                      "muted", (*$1)->muted);
+
+        // Return the dict and an opaque pointer.
+        // The pointer will be hidden by a Python generator interface.
+        o = Py_BuildValue("(Oi)", o, $1);
+        $result = o;
+    }
+    else {
+        $result = Py_BuildValue("(OO)", Py_None, Py_None);
+    }
+ }
+%typemap(out) mapper_db_link_t ** {
+    if ($1) {
+        PyObject *o =
+            Py_BuildValue("{s:s,s:s}",
+                          "src_name", (*$1)->src_name, 
+                          "dest_name", (*$1)->dest_name);
+
+        // Return the dict and an opaque pointer.
+        // The pointer will be hidden by a Python generator interface.
+        o = Py_BuildValue("(Oi)", o, $1);
+        $result = o;
+    }
+    else {
+        $result = Py_BuildValue("(OO)", Py_None, Py_None);
+    }
+ }
 %{
 #include <mapper_internal.h>
 typedef struct _device {} device;
@@ -734,6 +784,18 @@ typedef struct _db {} db;
     mapper_db_signal_t **signal_next(int iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
+    mapper_db_mapping_t **get_all_mappings() {
+        return mapper_db_get_all_mappings($self);
+    }
+    mapper_db_mapping_t **mapping_next(int iterator) {
+        return mapper_db_mapping_next((mapper_db_mapping_t**)iterator);
+    }
+    mapper_db_link_t **get_all_links() {
+        return mapper_db_get_all_links($self);
+    }
+    mapper_db_link_t **link_next(int iterator) {
+        return mapper_db_link_next((mapper_db_link_t**)iterator);
+    }
     %pythoncode {
         def make_iterator(self, first, next, *args):
             def it():
@@ -751,5 +813,11 @@ typedef struct _db {} db;
         def all_outputs(self):
             return self.make_iterator(self.get_all_outputs,
                                       self.signal_next)()
+        def all_mappings(self):
+            return self.make_iterator(self.get_all_mappings,
+                                      self.mapping_next)()
+        def all_links(self):
+            return self.make_iterator(self.get_all_links,
+                                      self.link_next)()
     }
 }

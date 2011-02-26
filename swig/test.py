@@ -60,7 +60,9 @@ for i in range(1000):
     if i==250:
         for i in [('devices', mon.db.all_devices),
                   ('inputs', mon.db.all_inputs),
-                  ('outputs', mon.db.all_outputs)]:
+                  ('outputs', mon.db.all_outputs),
+                  ('mappings', mon.db.all_mappings),
+                  ('links', mon.db.all_links)]:
             print i[0],':'
             for j in i[1]():
                 print j
