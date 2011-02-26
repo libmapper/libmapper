@@ -203,3 +203,19 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     strncat(name, sig->props.name, len);
     return strlen(name);
 }
+
+int msig_query_remote(mapper_signal sig, void *receiver)
+{
+    // stick to output signals for now
+    if (!sig->props.is_output)
+        return -1;
+    if (receiver) {
+        mapper_signal sig2 = (mapper_signal) receiver;
+        const char *alias = sig2->props.name;
+        if (alias)
+            return mdev_route_query(sig->device, sig, alias);
+    }
+    else
+        return mdev_route_query(sig->device, sig, 0);
+    return 0;
+}

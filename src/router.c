@@ -128,6 +128,37 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     return;
 }
 
+int mapper_router_send_query(mapper_router router, mapper_signal sig,
+                                const char *alias)
+{
+    // find this signal in list of mappings
+    mapper_signal_mapping sm = router->mappings;
+    while (sm && sm->signal != sig)
+        sm = sm->next;
+
+    // exit without failure if signal is not mapped
+    if (!sm) {
+        return 0;
+    }
+    // for each mapping, query the remote signal
+    mapper_mapping m = sm->mapping;
+    int count = 0;
+    char query_string[1024];
+    while (m) {
+        strncpy(query_string, m->props.dest_name, 1024);
+        strncat(query_string, "/get", 1024);
+        if (alias) {
+            lo_send(router->addr, query_string, "s", alias);
+        }
+        else {
+            lo_send(router->addr, query_string, "");
+        }
+        count++;
+        m = m->next;
+    }
+    return count;
+}
+
 mapper_mapping mapper_router_add_mapping(mapper_router router,
                                          mapper_signal sig,
                                          const char *dest_name,

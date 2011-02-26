@@ -134,14 +134,14 @@ static int handler_query(const char *path, const char *types,
     char *dest_name = 0;
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    
+
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
     }
 
     if (!argc)
-        dest_name = strdup(path);
+        dest_name = (char *)path;
     else if (types[0] != 's' && types[0] != 'S')
         return 0;
     else {
@@ -151,18 +151,28 @@ static int handler_query(const char *path, const char *types,
             return 0;
     }
 
-    int i;
+    //int i;
     lo_message m;
     m = lo_message_new();
     if (!m)
         return 0;
 
-    for (i = 0; i < sig->props.length; i++)
-        mval_add_to_message(m, sig, &sig->value[i]);
+    // ignore vector handling for now - this needs to be fixed!
+    mval_add_to_message(m, sig, sig->value);
+    //for (i = 0; i < sig->props.length; i++)
+    //    mval_add_to_message(m, sig, &sig->value[i]);
 
-    lo_send_message(lo_message_get_source(msg), dest_name, m);
+    lo_address dest_address = lo_message_get_source(msg);
+
+    lo_send_message(dest_address, dest_name, m);
+    trace("query response sent: host %s, port %s, path %s, payload", 
+          lo_address_get_hostname(dest_address), 
+          lo_address_get_port(dest_address),
+          dest_name);
+    lo_message_pp(m);
+
     lo_message_free(m);
-    
+
     return 0;
 }
 
@@ -198,12 +208,12 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              sig->props.name,
                              type_string,
                              handler_signal, (void *) (sig));
-        int len = strlen(sig->props.name) + 4;
+        int len = strlen(sig->props.name) + 5;
         char *signal_get = (char*) realloc(signal_get, len);
         snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
         lo_server_add_method(md->server, 
                              signal_get, 
-                             "", 
+                             NULL, 
                              handler_query, (void *) (sig));
         free(type_string);
         free(signal_get);
@@ -253,10 +263,11 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         type_string[sig->props.length] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
         free(type_string);
-        int len = strlen(sig->props.name) + 4;
+        int len = strlen(sig->props.name) + 5;
         char *signal_get = (char*) malloc(len);
-        signal_get = snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-        lo_server_del_method(md->server, signal_get, "");
+        strncpy(signal_get, sig->props.name, len);
+        strncat(signal_get, "/get", len);
+        lo_server_del_method(md->server, signal_get, NULL);
         free(signal_get);
     }
     md->n_inputs --;
@@ -390,6 +401,18 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
     }
 }
 
+int mdev_route_query(mapper_device md, mapper_signal sig,
+                     const char *alias)
+{
+    int count = 0;
+    mapper_router r = md->routers;
+    while (r) {
+        count += mapper_router_send_query(r, sig, alias);
+        r = r->next;
+    }
+    return count;
+}
+
 void mdev_add_router(mapper_device md, mapper_router rt)
 {
     mapper_router *r = &md->routers;
@@ -505,12 +528,12 @@ void mdev_start_server(mapper_device md)
                                  md->inputs[i]->props.name,
                                  type,
                                  handler_signal, (void *) (md->inputs[i]));
-            int len = strlen(md->inputs[i]->props.name) + 4;
+            int len = (int) strlen(md->inputs[i]->props.name) + 5;
             signal_get = (char*) realloc(signal_get, len);
             snprintf(signal_get, len, "%s%s", md->inputs[i]->props.name, "/get");
             lo_server_add_method(md->server, 
                                  signal_get, 
-                                 "", 
+                                 NULL, 
                                  handler_query, (void *) (md->inputs[i]));
         }
         free(type);

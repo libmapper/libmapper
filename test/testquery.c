@@ -20,6 +20,7 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig[4] = {0, 0, 0, 0};
 mapper_signal recvsig[4] = {0, 0, 0, 0};
+mapper_signal dummysig[4] = {0, 0, 0, 0};
 
 int port = 9000;
 
@@ -27,10 +28,19 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
+void query_response_handler(mapper_signal sig, void *v)
+{
+    printf("query_response_handler...");
+    mapper_signal remote = (mapper_signal) sig->props.user_data;
+    printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)v));
+    received++;
+    printf("done!\n");
+}
+
 /*! Creation of a local source. */
 int setup_source()
 {
-    char sig_name[10];
+    char sig_name[20];
     source = mdev_new("testsend", port, 0);
     if (!source)
         goto error;
@@ -39,8 +49,14 @@ int setup_source()
     float mn=0, mx=10;
 
     for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 10, "%s%i", "/outsig_", i);
+        snprintf(sig_name, 20, "%s%i", "/outsig_", i);
         sendsig[i] = mdev_add_output(source, sig_name, 1, 'f', 0, &mn, &mx);
+    }
+    
+    for (int i = 0; i < 4; i++) {
+        snprintf(sig_name, 20, "%s%i", "/dummysig_", i);
+        dummysig[i] = mdev_add_input(source, sig_name, 1, 
+                                    'f', 0, 0, 0, query_response_handler, &recvsig[i]);
     }
 
     printf("Output signals registered.\n");
@@ -155,7 +171,7 @@ void loop()
         }
         printf("destination values updated to %d -->\n", i % 10);
         for (j = 0; j < 4; j++) {
-            //msig_value_get_remote(sendsig[j]);
+            printf("Sent %i queries for sendsig[%i]\n", msig_query_remote(sendsig[j], dummysig[j]), j);
         }
 
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
