@@ -58,40 +58,7 @@
     Py_INCREF(o);
     return o;
  }
-%typemap(out) mapper_db_signal {
-    PyObject *o = PyDict_New();
-    if (!o)
-        o = Py_None;
-    else {
-        int i=0;
-        const char *property;
-        lo_type type;
-        lo_arg *value;
-        while (!mapper_db_signal_property_index($1, i, &property,
-                                                &type, &value))
-        {
-            if (strcmp(property, "user_data")==0) {
-                i++;
-                continue;
-            }
-            PyObject *v = 0;
-            if (type=='s' || type=='S')
-                v = PyString_FromString(&value->s);
-            else if (type=='c')
-                v = Py_BuildValue("c", value->c);
-            else if (type=='i')
-                v = Py_BuildValue("i", value->i32);
-            else if (type=='f')
-                v = Py_BuildValue("f", value->f);
-            if (v) {
-                PyDict_SetItemString(o, property, v);
-                Py_DECREF(v);
-            }
-            i++;
-        }
-    }
-    $result = o;
- }
+
 %typemap(in) mapper_db_mapping_with_flags_t* %{
     mapper_db_mapping_with_flags_t p;
     $1 = 0;
@@ -218,146 +185,201 @@
                             "argument $argnum must be 'dict'");
     }
  %}
+
 %typemap(out) mapper_db_device_t ** {
     if ($1) {
-        PyObject *o = PyDict_New();
-        if (!o)
-            o = Py_None;
-        else {
-            int i=0;
-            const char *property;
-            lo_type type;
-            lo_arg *value;
-            while (!mapper_db_device_property_index(*$1, i, &property,
-                                                    &type, &value))
-            {
-                if (strcmp(property, "user_data")==0) {
-                    i++;
-                    continue;
-                }
-                PyObject *v = 0;
-                if (type=='s' || type=='S')
-                    v = PyString_FromString(&value->s);
-                else if (type=='c')
-                    v = Py_BuildValue("c", value->c);
-                else if (type=='i')
-                    v = Py_BuildValue("i", value->i32);
-                else if (type=='f')
-                    v = Py_BuildValue("f", value->f);
-                if (v) {
-                    PyDict_SetItemString(o, property, v);
-                    Py_DECREF(v);
-                }
-                i++;
-            }
-            // Return the dict and an opaque pointer.
-            // The pointer will be hidden by a Python generator interface.
-            o = Py_BuildValue("(Oi)", o, $1);
-        }
-        $result = o;
+        // Return the dict and an opaque pointer.
+        // The pointer will be hidden by a Python generator interface.
+        PyObject *o = device_to_py(*$1);
+        if (o!=Py_None)
+            $result = Py_BuildValue("(Oi)", o, $1);
+        else
+            $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
     else {
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+
+%typemap(out) mapper_db_device {
+    return device_to_py($1);
+ }
+
 %typemap(out) mapper_db_signal_t ** {
     if ($1) {
-        PyObject *o = PyDict_New();
-        if (!o)
-            o = Py_None;
-        else {
-            int i=0;
-            const char *property;
-            lo_type type;
-            lo_arg *value;
-            while (!mapper_db_signal_property_index(*$1, i, &property,
-                                                    &type, &value))
-            {
-                if (strcmp(property, "user_data")==0) {
-                    i++;
-                    continue;
-                }
-                PyObject *v = 0;
-                if (type=='s' || type=='S')
-                    v = PyString_FromString(&value->s);
-                else if (type=='c')
-                    v = Py_BuildValue("c", value->c);
-                else if (type=='i')
-                    v = Py_BuildValue("i", value->i32);
-                else if (type=='f')
-                    v = Py_BuildValue("f", value->f);
-                if (v) {
-                    PyDict_SetItemString(o, property, v);
-                    Py_DECREF(v);
-                }
-                i++;
-            }
-            // Return the dict and an opaque pointer.
-            // The pointer will be hidden by a Python generator interface.
-            o = Py_BuildValue("(Oi)", o, $1);
-        }
-        $result = o;
+        // Return the dict and an opaque pointer.
+        // The pointer will be hidden by a Python generator interface.
+        PyObject *o = signal_to_py(*$1);
+        if (o!=Py_None)
+            $result = Py_BuildValue("(Oi)", o, $1);
+        else
+            $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
     else {
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+
+%typemap(out) mapper_db_signal {
+    return signal_to_py($1);
+ }
+
 %typemap(out) mapper_db_mapping_t ** {
     if ($1) {
-        PyObject *o =
-        Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
-                      "src_name", (*$1)->src_name,
-                      "dest_name", (*$1)->dest_name,
-                      "src_type", (*$1)->src_type,
-                      "dest_type", (*$1)->dest_type,
-                      "src_length", (*$1)->src_length,
-                      "dest_length", (*$1)->dest_length,
-                      "clip_max", (*$1)->clip_max,
-                      "clip_min", (*$1)->clip_min,
-                      "range",
-                      ((*$1)->range.known & MAPPING_RANGE_SRC_MIN
-                       ? Py_BuildValue("f", (*$1)->range.src_min) : Py_None),
-                      ((*$1)->range.known & MAPPING_RANGE_SRC_MAX
-                       ? Py_BuildValue("f", (*$1)->range.src_max) : Py_None),
-                      ((*$1)->range.known & MAPPING_RANGE_DEST_MIN
-                       ? Py_BuildValue("f", (*$1)->range.dest_min) : Py_None),
-                      ((*$1)->range.known & MAPPING_RANGE_DEST_MAX
-                       ? Py_BuildValue("f", (*$1)->range.dest_max) : Py_None),
-                      "expression", (*$1)->expression,
-                      "mode", (*$1)->mode,
-                      "muted", (*$1)->muted);
-
         // Return the dict and an opaque pointer.
         // The pointer will be hidden by a Python generator interface.
-        o = Py_BuildValue("(Oi)", o, $1);
-        $result = o;
+        PyObject *o = mapping_to_py(*$1);
+        if (o!=Py_None)
+            $result = Py_BuildValue("(Oi)", o, $1);
+        else
+            $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
     else {
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+
+%typemap(out) mapper_db_mapping {
+    return mapping_to_py($1);
+ }
+
 %typemap(out) mapper_db_link_t ** {
     if ($1) {
-        PyObject *o =
-            Py_BuildValue("{s:s,s:s}",
-                          "src_name", (*$1)->src_name, 
-                          "dest_name", (*$1)->dest_name);
-
         // Return the dict and an opaque pointer.
         // The pointer will be hidden by a Python generator interface.
-        o = Py_BuildValue("(Oi)", o, $1);
-        $result = o;
+        PyObject *o = link_to_py(*$1);
+        if (o!=Py_None)
+            $result = Py_BuildValue("(Oi)", o, $1);
+        else
+            $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
     else {
         $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
  }
+
+%typemap(out) mapper_db_link {
+    return link_to_py($1);
+ }
+
 %{
 #include <mapper_internal.h>
 typedef struct _device {} device;
 typedef struct _signal {} signal__;
 typedef struct _monitor {} monitor;
 typedef struct _db {} db;
+
+static PyObject *device_to_py(mapper_db_device_t *dev)
+{
+    if (!dev) return Py_None;
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        lo_arg *value;
+        while (!mapper_db_device_property_index(dev, i, &property,
+                                                &type, &value))
+        {
+            if (strcmp(property, "user_data")==0) {
+                i++;
+                continue;
+            }
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+    }
+    return o;
+}
+
+static PyObject *signal_to_py(mapper_db_signal_t *sig)
+{
+    if (!sig) return Py_None;
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        lo_arg *value;
+        while (!mapper_db_signal_property_index(sig, i, &property,
+                                                &type, &value))
+        {
+            if (strcmp(property, "user_data")==0) {
+                i++;
+                continue;
+            }
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+    }
+    return o;
+}
+
+static PyObject *mapping_to_py(mapper_db_mapping_t *map)
+{
+    if (!map) return Py_None;
+    PyObject *o;
+    o = Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
+                      "src_name", map->src_name,
+                      "dest_name", map->dest_name,
+                      "src_type", map->src_type,
+                      "dest_type", map->dest_type,
+                      "src_length", map->src_length,
+                      "dest_length", map->dest_length,
+                      "clip_max", map->clip_max,
+                      "clip_min", map->clip_min,
+                      "range",
+                      (map->range.known & MAPPING_RANGE_SRC_MIN
+                       ? Py_BuildValue("f", map->range.src_min) : Py_None),
+                      (map->range.known & MAPPING_RANGE_SRC_MAX
+                       ? Py_BuildValue("f", map->range.src_max) : Py_None),
+                      (map->range.known & MAPPING_RANGE_DEST_MIN
+                       ? Py_BuildValue("f", map->range.dest_min) : Py_None),
+                      (map->range.known & MAPPING_RANGE_DEST_MAX
+                       ? Py_BuildValue("f", map->range.dest_max) : Py_None),
+                      "expression", map->expression,
+                      "mode", map->mode,
+                      "muted", map->muted);
+    return o;
+}
+
+static PyObject *link_to_py(mapper_db_link_t *link)
+{
+    if (!link) return Py_None;
+    PyObject *o =
+        Py_BuildValue("{s:s,s:s}",
+                      "src_name", link->src_name, 
+                      "dest_name", link->dest_name);
+    return o;
+}
 
 /* Note: We want to call the signal object 'signal', but there is
  * already a function in the C standard library called signal().
