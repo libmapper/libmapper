@@ -806,11 +806,67 @@ typedef struct _db {} db;
     mapper_db_mapping_t **get_all_mappings() {
         return mapper_db_get_all_mappings($self);
     }
+    mapper_db_mapping_t **get_mappings_by_device_name(
+        const char *device_name) {
+        return mapper_db_get_mappings_by_device_name($self, device_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_input_name(
+        const char *input_name) {
+        return mapper_db_get_mappings_by_input_name($self, input_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_device_and_input_name(
+        const char *device_name, const char *input_name) {
+        return mapper_db_get_mappings_by_device_and_input_name(
+            $self, device_name, input_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_output_name(
+        const char *output_name) {
+        return mapper_db_get_mappings_by_output_name($self, output_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_device_and_output_name(
+        const char *device_name, const char *output_name) {
+        return mapper_db_get_mappings_by_device_and_output_name(
+            $self, device_name, output_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_device_and_signal_names(
+        const char *input_device_name,  const char *input_name,
+        const char *output_device_name, const char *output_name) {
+        return mapper_db_get_mappings_by_device_and_signal_names(
+            $self, input_device_name, input_name,
+            output_device_name, output_name);
+    }
+    mapper_db_mapping mapping_by_signal_full_names(
+        const char *src_name, const char *dest_name) {
+        return mapper_db_get_mapping_by_signal_full_names(
+            $self, src_name, dest_name);
+    }
+    mapper_db_mapping_t **get_mappings_by_src_dest_device_names(
+        const char *src_device_name, const char *dest_device_name) {
+        return mapper_db_get_mappings_by_src_dest_device_names(
+            $self, src_device_name, dest_device_name);
+    }
     mapper_db_mapping_t **mapping_next(int iterator) {
         return mapper_db_mapping_next((mapper_db_mapping_t**)iterator);
     }
     mapper_db_link_t **get_all_links() {
         return mapper_db_get_all_links($self);
+    }
+    mapper_db_link_t **get_links_by_device_name(const char *dev_name) {
+        return mapper_db_get_links_by_device_name($self, dev_name);
+    }
+    mapper_db_link_t **get_links_by_src_device_name(
+        const char *src_device_name) {
+        return mapper_db_get_links_by_src_device_name($self, src_device_name);
+    }
+    mapper_db_link_t **get_links_by_dest_device_name(
+        const char *dest_device_name) {
+        return mapper_db_get_links_by_dest_device_name($self,
+                                                       dest_device_name);
+    }
+    mapper_db_link link_by_src_dest_names(const char *src_device_name,
+                                          const char *dest_device_name) {
+        return mapper_db_get_link_by_src_dest_names($self, src_device_name,
+                                                    dest_device_name);
     }
     mapper_db_link_t **link_next(int iterator) {
         return mapper_db_link_next((mapper_db_link_t**)iterator);
@@ -852,8 +908,44 @@ typedef struct _db {} db;
         def all_mappings(self):
             return self.make_iterator(self.get_all_mappings,
                                       self.mapping_next)()
+        def mappings_by_device_name(self, device_name):
+            return self.make_iterator(self.get_mappings_by_device_name,
+                                      self.mapping_next, device_name)()
+        def mappings_by_input_name(self, input_name):
+            return self.make_iterator(self.get_mappings_by_input_name,
+                                      self.mapping_next, input_name)()
+        def mappings_by_device_and_input_name(self, device_name, input_name):
+            return self.make_iterator(self.get_mappings_by_device_and_input_name,
+                                      self.mapping_next,
+                                      device_name, input_name)()
+        def mappings_by_output_name(self, output_name):
+            return self.make_iterator(self.get_mappings_by_output_name,
+                                      self.mapping_next, output_name)()
+        def mappings_by_device_and_output_name(self, device_name, output_name):
+            return self.make_iterator(self.get_mappings_by_device_and_output_name,
+                                      self.mapping_next, device_name,
+                                      output_name)()
+        def mappings_by_device_and_signal_names(self, input_device_name,
+                                                input_name, output_device_name,
+                                                output_name):
+            return self.make_iterator(self.get_mappings_by_device_and_signal_names,
+                                      self.mapping_next)()
+        def mappings_by_src_dest_device_names(self, src_device_name,
+                                              dest_device_name):
+            return self.make_iterator(self.get_mappings_by_src_dest_device_names,
+                                      self.mapping_next, src_device_name,
+                                      dest_device_name)()
         def all_links(self):
             return self.make_iterator(self.get_all_links,
                                       self.link_next)()
+        def links_by_device_name(self, dev_name):
+            return self.make_iterator(self.get_links_by_device_name,
+                                      self.link_next, dev_name)()
+        def links_by_src_device_name(self, src_device_name):
+            return self.make_iterator(self.get_links_by_src_device_name,
+                                      self.link_next, src_device_name)()
+        def links_by_dest_device_name(self, dest_device_name):
+            return self.make_iterator(self.get_links_by_dest_device_name,
+                                      self.link_next, dest_device_name)()
     }
 }
