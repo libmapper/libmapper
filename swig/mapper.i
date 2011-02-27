@@ -392,8 +392,8 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
-void msig_handler_py(struct _mapper_signal *msig,
-                     mapper_signal_value_t *v)
+static void msig_handler_py(struct _mapper_signal *msig,
+                            mapper_signal_value_t *v)
 {
     PyObject *arglist=0;
     PyObject *result=0;
@@ -428,7 +428,7 @@ typedef struct {
     int flags;
 } mapper_db_mapping_with_flags_t;
 
-void sigval_coerce(mapper_signal_value_t *out, sigval *v, char type)
+static void sigval_coerce(mapper_signal_value_t *out, sigval *v, char type)
 {
     if (v->t == 'i' && type == 'f')
         out->f = (float)v->v.i32;
