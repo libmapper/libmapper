@@ -268,6 +268,7 @@ typedef struct _device {} device;
 typedef struct _signal {} signal__;
 typedef struct _monitor {} monitor;
 typedef struct _db {} db;
+typedef struct _admin {} admin;
 
 static PyObject *device_to_py(mapper_db_device_t *dev)
 {
@@ -463,10 +464,11 @@ typedef struct _device {} device;
 typedef struct _signal {} signal;
 typedef struct _monitor {} monitor;
 typedef struct _db {} db;
+typedef struct _admin {} admin;
 
 %extend device {
-    device(const char *name, int port=9000) {
-        device *d = mdev_new(name, port, 0);
+    device(const char *name, int port=9000, admin *DISOWN=0) {
+        device *d = mdev_new(name, port, DISOWN);
         return d;
     }
     ~device() {
@@ -936,5 +938,14 @@ typedef struct _db {} db;
             get_links_by_src_device_name, link_next)
         links_by_dest_device_name = make_iterator(
             get_links_by_dest_device_name, link_next)
+    }
+}
+
+%extend admin {
+    admin(const char *iface=0, const char *ip=0, int port=7570) {
+        return mapper_admin_new(iface, ip, port);
+    }
+    ~admin() {
+        mapper_admin_free($self);
     }
 }
