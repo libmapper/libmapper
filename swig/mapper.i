@@ -436,6 +436,71 @@ static void sigval_coerce(mapper_signal_value_t *out, sigval *v, char type)
         out->i32 = (int)v->v.f;
 }
 
+
+/* Wrapper for callback back to python when a mapper_db_device handler
+ * is called. */
+static void device_db_handler_py(mapper_db_device record,
+                                 mapper_db_action_t action,
+                                 void *user)
+{
+    PyObject *arglist = Py_BuildValue("(Oi)", device_to_py(record), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_db_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+}
+
+/* Wrapper for callback back to python when a mapper_db_signal handler
+ * is called. */
+static void signal_db_handler_py(mapper_db_signal record,
+                                 mapper_db_action_t action,
+                                 void *user)
+{
+    PyObject *arglist = Py_BuildValue("(Oi)", signal_to_py(record), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (signal_db_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+}
+
+/* Wrapper for callback back to python when a mapper_db_mapping handler
+ * is called. */
+static void mapping_db_handler_py(mapper_db_mapping record,
+                                  mapper_db_action_t action,
+                                  void *user)
+{
+    PyObject *arglist = Py_BuildValue("(Oi)", mapping_to_py(record), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (mapping_db_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+}
+
+/* Wrapper for callback back to python when a mapper_db_link handler
+ * is called. */
+static void link_db_handler_py(mapper_db_link record,
+                               mapper_db_action_t action,
+                               void *user)
+{
+    PyObject *arglist = Py_BuildValue("(Oi)", link_to_py(record), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (link_db_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+}
+
 %}
 
 typedef enum _mapper_clipping_type {
@@ -459,6 +524,14 @@ typedef enum _mapper_mode_type {
     MO_CALIBRATE,    //!< Calibrate to source signal
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
+
+/*! The set of possible actions on a database record, used
+ *  to inform callbacks of what is happening to a record. */
+typedef enum {
+    MDB_MODIFY,
+    MDB_NEW,
+    MDB_REMOVE,
+} mapper_db_action_t;
 
 typedef struct _device {} device;
 typedef struct _signal {} signal;
@@ -793,6 +866,38 @@ typedef struct _admin {} admin;
 }
 
 %extend db {
+    void add_device_callback(PyObject *PyFunc) {
+        Py_XINCREF(PyFunc);
+        mapper_db_add_device_callback($self, device_db_handler_py, PyFunc);
+    }
+    void remove_device_callback(PyObject *PyFunc) {
+        mapper_db_remove_device_callback($self, device_db_handler_py, PyFunc);
+        Py_XDECREF(PyFunc);
+    }
+    void add_signal_callback(PyObject *PyFunc) {
+        Py_XINCREF(PyFunc);
+        mapper_db_add_signal_callback($self, signal_db_handler_py, PyFunc);
+    }
+    void remove_signal_callback(PyObject *PyFunc) {
+        mapper_db_remove_signal_callback($self, signal_db_handler_py, PyFunc);
+        Py_XDECREF(PyFunc);
+    }
+    void add_mapping_callback(PyObject *PyFunc) {
+        Py_XINCREF(PyFunc);
+        mapper_db_add_mapping_callback($self, mapping_db_handler_py, PyFunc);
+    }
+    void remove_mapping_callback(PyObject *PyFunc) {
+        mapper_db_remove_mapping_callback($self, mapping_db_handler_py, PyFunc);
+        Py_XDECREF(PyFunc);
+    }
+    void add_link_callback(PyObject *PyFunc) {
+        Py_XINCREF(PyFunc);
+        mapper_db_add_link_callback($self, link_db_handler_py, PyFunc);
+    }
+    void remove_link_callback(PyObject *PyFunc) {
+        mapper_db_remove_link_callback($self, link_db_handler_py, PyFunc);
+        Py_XDECREF(PyFunc);
+    }
     mapper_db_device_t **get_all_devices() {
         return mapper_db_get_all_devices($self);
     }

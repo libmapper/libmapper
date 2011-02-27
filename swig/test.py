@@ -46,7 +46,19 @@ def setup(d):
 dev = mapper.device("test", 9000)
 setup(dev)
 
+def db_cb(rectype, record, action):
+    print rectype,'callback -'
+    print '  record:',record
+    print '  action:',["MODIFY","NEW","REMOVE"][action]
+
 mon = mapper.monitor()
+
+mon.db.add_device_callback(lambda x,y:db_cb('device',x,y))
+mon.db.add_signal_callback(lambda x,y:db_cb('signal',x,y))
+mon.db.add_mapping_callback(lambda x,y:db_cb('mapping',x,y))
+l = lambda x,y:db_cb('link',x,y)
+mon.db.add_link_callback(l)
+mon.db.remove_link_callback(l)
 
 while not dev.ready():
     dev.poll(10)
