@@ -691,6 +691,28 @@ typedef struct _admin {} admin;
     signal *get_output_by_index(int index) {
         return mdev_get_output_by_index($self, index);
     }
+    void set_property(const char *key, void* val=0) {
+        if (!val)
+            mdev_remove_property($self, key);
+    }
+    void set_property(const char *key, int val) {
+        mdev_set_property($self, key, 'i', (lo_arg*)&val);
+    }
+    void set_property(const char *key, int64_t val) {
+        mdev_set_property($self, key, 'h', (lo_arg*)&val);
+    }
+    void set_property(const char *key, double val) {
+        mdev_set_property($self, key, 'd', (lo_arg*)&val);
+    }
+    void set_property(const char *key, float val) {
+        mdev_set_property($self, key, 'f', (lo_arg*)&val);
+    }
+    void set_property(const char *key, const char *val) {
+        mdev_set_property($self, key, 's', (lo_arg*)val);
+    }
+    void remove_property(const char *key) {
+        mdev_remove_property($self, key);
+    }
     %pythoncode {
         port = property(get_port)
         name = property(get_name)
@@ -789,6 +811,28 @@ typedef struct _admin {} admin;
     }
     mapper_db_signal get_properties() {
         return msig_properties($self);
+    }
+    void set_property(const char *key, void* val=0) {
+        if (!val)
+            msig_remove_property($self, key);
+    }
+    void set_property(const char *key, int val) {
+        msig_set_property($self, key, 'i', (lo_arg*)&val);
+    }
+    void set_property(const char *key, int64_t val) {
+        msig_set_property($self, key, 'h', (lo_arg*)&val);
+    }
+    void set_property(const char *key, double val) {
+        msig_set_property($self, key, 'd', (lo_arg*)&val);
+    }
+    void set_property(const char *key, float val) {
+        msig_set_property($self, key, 'f', (lo_arg*)&val);
+    }
+    void set_property(const char *key, const char *val) {
+        msig_set_property($self, key, 's', (lo_arg*)val);
+    }
+    void remove_property(const char *key) {
+        msig_remove_property($self, key);
     }
     %pythoncode {
         minimum = property(get_minimum, set_minimum)

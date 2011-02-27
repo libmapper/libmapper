@@ -41,6 +41,16 @@ def setup(d):
     print 'signal type', sig.type
     print 'signal is_output', sig.is_output
     print 'signal unit', sig.unit
+    sig.set_property("testInt",5)
+    sig.set_property("testFloat",12.7)
+    sig.set_property("testString","test")
+    dev.set_property("testInt",5)
+    dev.set_property("testFloat",12.7)
+    dev.set_property("testString","test")
+    dev.set_property("removed1",None)
+    dev.set_property("removed1",None)
+    dev.set_property("removed2","test")
+    dev.remove_property("removed2")
     print 'signal properties:', sig.properties
 
 dev = mapper.device("test", 9000)
