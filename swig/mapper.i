@@ -87,11 +87,11 @@
                         }
                     }
                     else if (strcmp(s, "range")==0) {
-                        if (PyList_Check(v)) {
-                            int len = PyList_Size(v), j, n;
+                        if (PySequence_Check(v)) {
+                            int len = PySequence_Size(v), j, n;
                             float *f;
                             for (j=0; j<len && j<4; j++) {
-                                PyObject *r = PyList_GetItem(v, j);
+                                PyObject *r = PySequence_GetItem(v, j);
                                 switch (j) {
                                 case 0: f = &p.props.range.src_min;
                                     k = MAPPING_RANGE_SRC_MIN; break;
