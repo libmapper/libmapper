@@ -106,7 +106,7 @@
                                 if (SWIG_IsOK(ecode))
                                     p.props.range.known |= k;
                                 else {
-                                    ecode = SWIG_AsVal_float(r, &n);
+                                    ecode = SWIG_AsVal_int(r, &n);
                                     if (SWIG_IsOK(ecode)) {
                                         *f = (float)n;
                                         p.props.range.known |= k;
