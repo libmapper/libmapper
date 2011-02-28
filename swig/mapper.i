@@ -295,8 +295,12 @@ static PyObject *device_to_py(mapper_db_device_t *dev)
                 v = Py_BuildValue("c", value->c);
             else if (type=='i')
                 v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
             else if (type=='f')
                 v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
             if (v) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
@@ -332,8 +336,12 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
                 v = Py_BuildValue("c", value->c);
             else if (type=='i')
                 v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
             else if (type=='f')
                 v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
             if (v) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
