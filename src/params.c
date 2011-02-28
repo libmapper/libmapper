@@ -341,10 +341,28 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                     char type[] = "s ";
                     strncpy(&key[1], k, 254);
                     type[1] = val->type;
-                    if (val->type == 's' || val->type == 'S')
-                        lo_message_add(m, type, key, &val->value);
-                    else
-                        lo_message_add(m, type, key, val->value);
+
+                    /* Apparently calling lo_message_add simply with
+                     * val->value causes errors, so... */
+                    switch (val->type) {
+                    case 's':
+                    case 'S':
+                        lo_message_add(m, type, key, &val->value.s); break;
+                    case 'f':
+                        lo_message_add(m, type, key, val->value.f); break;
+                    case 'd':
+                        lo_message_add(m, type, key, val->value.d); break;
+                    case 'i':
+                        lo_message_add(m, type, key, val->value.i); break;
+                    case 'h':
+                        lo_message_add(m, type, key, val->value.h); break;
+                    case 't':
+                        lo_message_add(m, type, key, val->value.t); break;
+                    case 'c':
+                        lo_message_add(m, type, key, val->value.c); break;
+                    default:
+                        lo_message_add(m, type, key, 0); break;
+                    }
                     val = table_value_at_index_p(tab, i++);
                 }
             }
