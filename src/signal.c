@@ -26,6 +26,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
+    sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     return sig;
