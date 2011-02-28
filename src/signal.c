@@ -122,6 +122,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -146,6 +147,7 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -163,6 +165,7 @@ void msig_update(mapper_signal sig, void *value)
 #endif
 
     memcpy(sig->value, value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
