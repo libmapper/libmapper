@@ -139,6 +139,8 @@ static int handler_query(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
+    if (!sig->has_value)
+        return 0;
 
     if (!argc)
         dest_name = (char *)path;
