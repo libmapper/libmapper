@@ -158,7 +158,10 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
             strcpy(&(*pval)->value.s, &arg->s);
         } else {
             (*pval)->type = type;
-            (*pval)->value = *arg;
+            if (arg)
+                (*pval)->value = *arg;
+            else
+                (*pval)->value.h = 0;
         }
     }
     else {
@@ -171,7 +174,10 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
         }
         else {
             val = malloc(sizeof(mapper_osc_value_t));
-            val->value = *arg;
+            if (arg)
+                val->value = *arg;
+            else
+                val->value.h = 0;
         }
         val->type = type;
         table_add(t, key, val);
