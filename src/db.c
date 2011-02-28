@@ -676,6 +676,8 @@ static void update_device_record_params(mapper_db_device reg,
 
     if (a_port && t_port[0]=='i')
         reg->port = (*a_port)->i;
+
+    add_or_update_extra_params(reg->extra, params);
 }
 
 int mapper_db_add_or_update_device_params(mapper_db db,
