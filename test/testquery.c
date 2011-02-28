@@ -1,9 +1,3 @@
-// instantiate 2 devices: one querier, one queriee
-// queriee has some inputs with some values (use msig_update())
-
-// querier creates matching outputs for queriee and calls destination_query() or something (should this function pass a callback?)
-// msig_value_get() vs msig_value_get_remote(sig, callback)?
-
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
