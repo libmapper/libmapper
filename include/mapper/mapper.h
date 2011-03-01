@@ -102,6 +102,12 @@ void msig_update(mapper_signal sig, void *value);
  *          in some cases the name may not be available. */
 int msig_full_name(mapper_signal sig, char *name, int len);
 
+/*! Query the values of any signals connected via mapping connections. 
+ *  \param sig      A local output signal. We will be querying the remote 
+ *                  ends of this signal's mapping connections.
+ *  \param receiver A local input signal for receiving query responses. */
+int msig_query_remote(mapper_signal sig, void *receiver);
+
 /* @} */
 
 /*** Devices ***/

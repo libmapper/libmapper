@@ -148,9 +148,6 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Query the values of any signals connected via mapping connections. */
-int msig_query_remote(mapper_signal sig, void *receiver);
-
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
 
