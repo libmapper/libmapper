@@ -721,6 +721,16 @@ typedef struct _admin {} admin;
         ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
+        def __propgetter(self):
+            signal = self
+            props = {}
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    signal.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
     }
@@ -845,14 +855,22 @@ typedef struct _admin {} admin;
         type = property(get_type)
         is_output = property(get_is_output)
         unit = property(get_unit)
+        def __propgetter(self):
+            signal = self
+            props = self.get_properties()
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    signal.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
-        properties = property(get_properties, set_properties)
         def __setattr__(self, name, value):
             try:
                 {'minimum': self.set_minimum,
-                 'maximum': self.set_maximum,
-                 'properties': self.set_properties}[name](value)
+                 'maximum': self.set_maximum}[name](value)
             except KeyError:
                 _swig_setattr(self, signal, name, value)
     }

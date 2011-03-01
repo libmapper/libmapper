@@ -43,10 +43,11 @@ def setup(d):
     print 'signal unit', sig.unit
     dev.set_properties({"testInt":5, "testFloat":12.7, "testString":"test",
                         'removed1':"shouldn't see this"})
+    dev.properties['testInt'] = 7
     dev.set_properties({"removed1":None, "removed2":"test"})
     dev.remove_property("removed2")
     print 'signal properties:', sig.properties
-    sig.properties = {"testInt":5, "testFloat":12.7, "testString":"test"}
+    sig.properties['testInt'] = 3
     print 'signal properties:', sig.properties
 
 dev = mapper.device("test", 9000)
