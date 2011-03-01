@@ -282,6 +282,8 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         free(signal_get);
     }
     md->n_inputs --;
+    if (sig->props.hidden)
+        md->n_hidden_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
