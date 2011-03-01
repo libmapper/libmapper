@@ -743,7 +743,7 @@ typedef struct _admin {} admin;
                 def __setitem__(self, key, value):
                     props[key] = value
                     signal.set_property(key, value)
-            return propsetter(self.get_properties())
+            return propsetter({})
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
