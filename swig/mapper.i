@@ -270,6 +270,8 @@ typedef struct _monitor {} monitor;
 typedef struct _db {} db;
 typedef struct _admin {} admin;
 
+PyThreadState *_save;
+
 static PyObject *device_to_py(mapper_db_device_t *dev)
 {
     if (!dev) return Py_None;
@@ -403,6 +405,7 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 static void msig_handler_py(struct _mapper_signal *msig,
                             mapper_signal_value_t *v)
 {
+    PyEval_RestoreThread(_save);
     PyObject *arglist=0;
     PyObject *result=0;
 
@@ -421,6 +424,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
     result = PyEval_CallObject((PyObject*)props->user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
+    _save = PyEval_SaveThread();
 }
 
 typedef struct {
@@ -451,6 +455,7 @@ static void device_db_handler_py(mapper_db_device record,
                                  mapper_db_action_t action,
                                  void *user)
 {
+    PyEval_RestoreThread(_save);
     PyObject *arglist = Py_BuildValue("(Oi)", device_to_py(record), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_db_handler_py).\n");
@@ -459,6 +464,7 @@ static void device_db_handler_py(mapper_db_device record,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
+    _save = PyEval_SaveThread();
 }
 
 /* Wrapper for callback back to python when a mapper_db_signal handler
@@ -467,6 +473,7 @@ static void signal_db_handler_py(mapper_db_signal record,
                                  mapper_db_action_t action,
                                  void *user)
 {
+    PyEval_RestoreThread(_save);
     PyObject *arglist = Py_BuildValue("(Oi)", signal_to_py(record), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (signal_db_handler_py).\n");
@@ -475,6 +482,7 @@ static void signal_db_handler_py(mapper_db_signal record,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
+    _save = PyEval_SaveThread();
 }
 
 /* Wrapper for callback back to python when a mapper_db_mapping handler
@@ -483,6 +491,7 @@ static void mapping_db_handler_py(mapper_db_mapping record,
                                   mapper_db_action_t action,
                                   void *user)
 {
+    PyEval_RestoreThread(_save);
     PyObject *arglist = Py_BuildValue("(Oi)", mapping_to_py(record), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (mapping_db_handler_py).\n");
@@ -491,6 +500,7 @@ static void mapping_db_handler_py(mapper_db_mapping record,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
+    _save = PyEval_SaveThread();
 }
 
 /* Wrapper for callback back to python when a mapper_db_link handler
@@ -499,6 +509,7 @@ static void link_db_handler_py(mapper_db_link record,
                                mapper_db_action_t action,
                                void *user)
 {
+    PyEval_RestoreThread(_save);
     PyObject *arglist = Py_BuildValue("(Oi)", link_to_py(record), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (link_db_handler_py).\n");
@@ -507,6 +518,7 @@ static void link_db_handler_py(mapper_db_link record,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
+    _save = PyEval_SaveThread();
 }
 
 %}
@@ -556,7 +568,9 @@ typedef struct _admin {} admin;
         mdev_free($self);
     }
     int poll(int timeout=0) {
-        return mdev_poll($self, timeout);
+        _save = PyEval_SaveThread();
+        int rc = mdev_poll($self, timeout);
+        PyEval_RestoreThread(_save);
     }
     int ready() {
         return mdev_ready($self);
@@ -885,7 +899,10 @@ typedef struct _admin {} admin;
         mapper_monitor_free($self);
     }
     int poll(int timeout=0) {
-        return mapper_monitor_poll($self, timeout);
+        _save = PyEval_SaveThread();
+        int rc = mapper_monitor_poll($self, timeout);
+        PyEval_RestoreThread(_save);
+        return rc;
     }
     db *get_db() {
         return mapper_monitor_get_db($self);
