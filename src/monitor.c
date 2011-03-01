@@ -40,7 +40,7 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
     int admin_count = mapper_admin_poll(mon->admin);
     if (block_ms) {
         double then = get_current_time();
-        while ((get_current_time() - then) < block_ms*1000) {
+        while ((get_current_time() - then)*1000 < block_ms) {
             admin_count += mapper_admin_poll(mon->admin);
             usleep(block_ms * 100);
         }
