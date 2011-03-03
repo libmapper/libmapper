@@ -26,6 +26,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
+    sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     return sig;
@@ -122,6 +123,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -146,6 +148,7 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -163,6 +166,7 @@ void msig_update(mapper_signal sig, void *value)
 #endif
 
     memcpy(sig->value, value, msig_vector_bytes(sig));
+    sig->has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
@@ -202,4 +206,24 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     strncpy(name, mdname, len);
     strncat(name, sig->props.name, len);
     return strlen(name);
+}
+
+int msig_query_remote(mapper_signal sig, void *receiver)
+{
+    // stick to output signals for now
+    if (!sig->props.is_output)
+        return -1;
+    if (!sig->device->server) {
+        // no server running so we cannot process query returns
+        return -1;
+    }
+    if (receiver) {
+        mapper_signal sig2 = (mapper_signal) receiver;
+        const char *alias = sig2->props.name;
+        if (alias)
+            return mdev_route_query(sig->device, sig, alias);
+    }
+    else
+        return mdev_route_query(sig->device, sig, 0);
+    return 0;
 }

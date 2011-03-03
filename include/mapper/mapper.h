@@ -102,6 +102,12 @@ void msig_update(mapper_signal sig, void *value);
  *          in some cases the name may not be available. */
 int msig_full_name(mapper_signal sig, char *name, int len);
 
+/*! Query the values of any signals connected via mapping connections. 
+ *  \param sig      A local output signal. We will be querying the remote 
+ *                  ends of this signal's mapping connections.
+ *  \param receiver A local input signal for receiving query responses. */
+int msig_query_remote(mapper_signal sig, void *receiver);
+
 /* @} */
 
 /*** Devices ***/
@@ -151,6 +157,29 @@ mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              void *minimum, void *maximum,
                              mapper_signal_handler *handler,
                              void *user_data);
+
+/*! Add a hidden input to a mapper device. Hidden inputs can receive
+ *  signals but are not reported on the admin bus; they are intended
+ *  as local receivers for remote value queries. Values and strings
+ *  pointed to by this call (except value and user_data) will be
+ *  copied.  For minimum, maximum, and value, actual type must
+ *  correspond to 'type'.  If type='i', then int*; if type='f', then
+ *  float*.
+ *  \param dev The device to add a signal to.
+ *  \param name The name of the signal.
+ *  \param length The length of the signal vector, or 1 for a scalar.
+ *  \param type The type fo the signal value.
+ *  \param unit The unit of the signal, or 0 for none.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none.
+ *  \param handler Function to be called when the value of the
+ *                 signal is updated.
+ *  \param user_data User context pointer to be passed to handler. */
+mapper_signal mdev_add_hidden_input(mapper_device dev, const char *name,
+                                    int length, char type, const char *unit,
+                                    void *minimum, void *maximum,
+                                    mapper_signal_handler *handler,
+                                    void *user_data);
 
 /*! Add an output signal to a mapper device.  Values and strings
  *  pointed to by this call (except value and user_data) will be

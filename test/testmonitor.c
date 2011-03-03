@@ -236,7 +236,7 @@ int main()
     signal(SIGINT, ctrlc);
 
     if (setup_monitor()) {
-        printf("Done initializing mon device.\n");
+        printf("Error initializing monitor.\n");
         result = 1;
         goto done;
     }

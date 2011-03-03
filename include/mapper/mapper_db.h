@@ -124,6 +124,9 @@ typedef union _mapper_signal_value {
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal
 {
+    /*! Flag to indicate whether signal should be hidden or public */
+    int hidden;
+
 	/*! Flag to indicate whether signal is source or destination */
 	int is_output;
 

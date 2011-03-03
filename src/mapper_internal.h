@@ -77,6 +77,8 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
 
+int mdev_route_query(mapper_device md, mapper_signal sig, const char *alias);
+
 void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
@@ -100,6 +102,9 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
+
+int mapper_router_send_query(mapper_router router, mapper_signal sig,
+                             const char *alias);
 
 mapper_mapping mapper_router_add_mapping(mapper_router router,
                                          mapper_signal sig,
