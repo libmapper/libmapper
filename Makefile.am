@@ -1,4 +1,4 @@
-SUBDIRS = src include test examples @SWIG@ @DOXYGEN@ extra
+SUBDIRS = src include test examples @SWIG@ @JNI@ @DOXYGEN@ extra
 
 EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 

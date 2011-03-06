@@ -80,6 +80,11 @@ AC_ARG_ENABLE(swig,
    [  --disable-swig          don't build the SWIG bindings.],
    swig_enabled=$enableval)
 
+jni_enabled=yes
+AC_ARG_ENABLE(jni,
+   [  --disable-jni          don't build the Java JNI bindings.],
+   jni_enabled=$enableval)
+
 if test x$swig_enabled = xyes; then
    AC_CHECK_PROG([SWIG], [swig], [swig])
    if test x$SWIG = x; then
@@ -101,6 +106,28 @@ if test x$swig_enabled = xyes; then
        swig_enabled=no
        swig_explain="(python not found)"
      fi
+   fi
+fi
+
+# Check for JNI
+if test x$jni_enabled = xyes; then
+   AC_CHECK_PROG([JAVAC], [javac], [javac])
+   AC_CHECK_PROG([JAVAH], [javac], [javac])
+   if test x$JAVAC = x; then
+     jni_enabled=no
+     jni_explain="(javac not found)"
+   else
+      if test x$JAVAC = x; then
+        jni_enabled=no
+        jni_explain="(javah not found)"
+      else
+        JNI=jni
+        AC_SUBST(JNI)
+
+        # TODO detect this
+        JNIPATH=/usr/lib/jvm/java-6-openjdk/include
+        AC_SUBST(JNIPATH)
+      fi
    fi
 fi
 
@@ -185,6 +212,7 @@ AC_CONFIG_FILES([
     doc/libmapper.doxyfile
     swig/Makefile
     swig/setup.py
+    jni/Makefile
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
@@ -202,6 +230,7 @@ echo --------------------------------------------------
 echo "building documention...    " $enable_docs $docs_explain
 echo "building tests...          " $enable_tests
 echo "building SWIG bindings...  " $swig_enabled $swig_explain
+echo "building Java bindings...  " $jni_enabled $jni_explain
 echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
