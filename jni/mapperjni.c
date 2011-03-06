@@ -1,7 +1,7 @@
 
-#include "Mapper.h"
+#include "Mapper_Device.h"
 
-JNIEXPORT jdouble JNICALL Java_Mapper_t
+JNIEXPORT jdouble JNICALL Java_Mapper_Device_t
   (JNIEnv *env, jobject obj, jint i, jstring s)
 {
     printf("i: %d\n", i);
