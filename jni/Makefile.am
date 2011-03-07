@@ -12,7 +12,7 @@ Mapper_%.h: Mapper/%.class
 Mapper/%.class: Mapper/%.java
 	javac $<
 
-test.class: test.java Mapper/Device.class
+test.class: test.java Mapper/Device.class Mapper/InputListener.class
 	javac $<
 
 EXTRA_DIST = Mapper/Device.java
