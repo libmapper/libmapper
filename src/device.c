@@ -107,22 +107,25 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
+    int has_value = 0;
 
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
     }
 
-    /* This is cheating a bit since we know that the arguments pointed
-     * to by argv are layed out sequentially in memory.  It's not
-     * clear if liblo's semantics guarantee it, but known to be true
-     * on all platforms. */
-    memcpy(sig->value, argv[0], msig_vector_bytes(sig));
-
-    sig->has_value = 1;
+    if (types[0] != LO_NIL) {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
+        memcpy(sig->value, argv[0], msig_vector_bytes(sig));
+        sig->has_value = 1;
+        has_value = 1;
+    }
 
     if (sig->handler)
-        sig->handler(sig, sig->value);
+        sig->handler(sig, has_value);
 
     return 0;
 }
@@ -139,8 +142,6 @@ static int handler_query(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
-    if (!sig->has_value)
-        return 0;
 
     if (!argc)
         dest_name = (char *)path;
@@ -159,9 +160,14 @@ static int handler_query(const char *path, const char *types,
     if (!m)
         return 0;
 
-    mapper_signal_value_t *value = sig->value;
-    for (i = 0; i < sig->props.length; i++)
-        mval_add_to_message(m, sig, &value[i]);
+    if (sig->has_value) {
+        mapper_signal_value_t *value = sig->value;
+        for (i = 0; i < sig->props.length; i++)
+            mval_add_to_message(m, sig, &value[i]);
+    }
+    else {
+        lo_message_add_nil(m);
+    }
 
     lo_send_message(lo_message_get_source(msg), dest_name, m);
     lo_message_free(m);
@@ -200,6 +206,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         lo_server_add_method(md->server,
                              sig->props.name,
                              type_string,
+                             handler_signal, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "N",
                              handler_signal, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
@@ -542,6 +552,10 @@ void mdev_start_server(mapper_device md)
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type,
+                                 handler_signal, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "N",
                                  handler_signal, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             signal_get = (char*) realloc(signal_get, len);

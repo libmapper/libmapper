@@ -37,6 +37,14 @@ mapper_db_signal msig_properties(mapper_signal sig)
     return &sig->props;
 }
 
+mapper_signal_value_t *msig_value(mapper_signal sig)
+{
+    if (sig->has_value)
+        return sig->value;
+    else
+        return 0;
+}
+
 void msig_set_property(mapper_signal sig, const char *property,
                        lo_type type, lo_arg *value)
 {

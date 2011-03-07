@@ -12,9 +12,11 @@
 int sent = 0;
 int received = 0;
 
-void handler(mapper_signal sig, void *v)
+void handler(mapper_signal sig, int has_value)
 {
-    printf("handler: Got %f\n", (*(float*)v));
+    if (has_value) {
+        printf("handler: Got %f\n", (*(float*)sig->value));
+    }
     received++;
 }
 

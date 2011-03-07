@@ -53,10 +53,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, void *v)
+void insig_handler(mapper_signal sig, int has_value)
 {
-    float *f = v;
-    printf("handler: Got [%f, %f, %f]\n", f[0], f[1], f[2]);
+    if (has_value) {
+        float *f = sig->value;
+        printf("handler: Got [%f, %f, %f]\n", f[0], f[1], f[2]);
+    }
     received++;
 }
 
