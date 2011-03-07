@@ -8,7 +8,9 @@ public class Device
     }
 
     public void free() {
-        device_free(_device);
+        if (_device!=0)
+            device_free(_device);
+        _device = 0;
     }
 
     public int poll(int timeout) {
