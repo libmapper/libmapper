@@ -40,7 +40,7 @@ void query_response_handler(mapper_signal sig, int has_value)
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testquery-send", port, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -96,7 +96,7 @@ void insig_handler(mapper_signal sig, int has_value)
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testquery-recv", port, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -167,7 +167,7 @@ void loop()
     }
 
     while (i >= 0 && !done) {
-        for (j = 0; j < 4; j++) {
+        for (j = 0; j < 2; j++) {
             msig_update_float(recvsig[j], ((i % 10) * 1.0f));
         }
         printf("\ndestination values updated to %d -->\n", i % 10);
