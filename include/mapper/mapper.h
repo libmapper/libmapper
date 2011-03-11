@@ -216,8 +216,25 @@ void mdev_remove_output(mapper_device dev, mapper_signal sig);
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device dev);
 
+//! Return the number of hidden inputs.
+int mdev_num_hidden_inputs(mapper_device dev);
+
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
+
+/*! Get input signals.
+ *  \param dev Device to search in.
+ *  \return Pointer to the linked list of input mapper_signals, or zero
+ *          if not found.
+ */
+mapper_signal *mdev_get_inputs(mapper_device dev);
+
+/*! Get output signals.
+ *  \param dev Device to search in.
+ *  \return Pointer to the linked list of output mapper_signals, or zero
+ *          if not found.
+ */
+mapper_signal *mdev_get_outputs(mapper_device dev);
 
 /*! Get an input signal with a given name.
  *  \param dev Device to search in.

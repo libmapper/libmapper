@@ -323,9 +323,24 @@ int mdev_num_inputs(mapper_device md)
     return md->n_inputs - md->n_hidden_inputs;
 }
 
+int mdev_num_hidden_inputs(mapper_device md)
+{
+    return md->n_hidden_inputs;
+}
+
 int mdev_num_outputs(mapper_device md)
 {
     return md->n_outputs;
+}
+
+mapper_signal *mdev_get_inputs(mapper_device md)
+{
+    return md->inputs;
+}
+
+mapper_signal *mdev_get_outputs(mapper_device md)
+{
+    return md->outputs;
 }
 
 mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
