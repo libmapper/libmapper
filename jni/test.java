@@ -16,11 +16,13 @@ class test {
                     }
             });
 
-        dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
-                      new InputListener() {
-                          public void onInput() {
-                              System.out.println("in onInput()");
-                          }});
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
+            new InputListener() {
+                public void onInput() {
+                    System.out.println("in onInput()");
+                }});
+
+        System.out.println("Input signal name: "+inp1.name());
 
         dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
 

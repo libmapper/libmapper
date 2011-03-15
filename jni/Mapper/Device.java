@@ -17,9 +17,11 @@ public class Device
         return mdev_poll(_device, timeout);
     }
 
-    private class Signal {
-        public Signal(long s) { _signal = s; }
+    public class Signal {
+        private Signal(long s) { _signal = s; }
         private long _signal;
+        public native String full_name();
+        public native String name();
     };
 
     public Signal add_input(String name, int length, char type,
