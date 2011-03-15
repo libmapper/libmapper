@@ -22,6 +22,8 @@ class test {
                               System.out.println("in onInput()");
                           }});
 
+        dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
+
         int i = 100;
         while (i >= 0) {
             dev.poll(100);

@@ -31,6 +31,15 @@ public class Device
         return msig==0 ? null : new Signal(msig);
     }
 
+    public Signal add_output(String name, int length, char type,
+                             String unit, Double minimum,
+                             Double maximum)
+    {
+        long msig = mdev_add_output(_device, name, length, type, unit,
+                                    minimum, maximum);
+        return msig==0 ? null : new Signal(msig);
+    }
+
     // Note: this is _not_ guaranteed to run, the user should still
     // call free() explicitly when the device is no longer needed.
     protected void finalize() throws Throwable {
@@ -48,6 +57,9 @@ public class Device
                                        char type, String unit,
                                        Double minimum, Double maximum,
                                        InputListener handler);
+    private native long mdev_add_output(long _d, String name, int length,
+                                        char type, String unit,
+                                        Double minimum, Double maximum);
 
     private long _device;
 
