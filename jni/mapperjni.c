@@ -167,19 +167,11 @@ JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1add_1output
 
 /**** Mapper.Device.Signal ****/
 
-JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_full_1name
-  (JNIEnv *env, jobject obj)
+JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1full_1name
+  (JNIEnv *env, jobject obj, jlong s)
 {
-    mapper_signal sig=0;
+    mapper_signal sig=(mapper_signal)s;
     char str[1024];
-
-    jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID val = (*env)->GetFieldID(env, cls, "_signal", "J");
-        if (val) {
-            sig = (mapper_signal)(*env)->GetLongField(env, obj, val);
-        }
-    }
 
     if (sig) {
         msig_full_name(sig, str, 1024);
@@ -189,19 +181,10 @@ JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_full_1name
         return 0;
 }
 
-JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_name
-  (JNIEnv *env, jobject obj)
+JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1name
+  (JNIEnv *env, jobject obj, jlong s)
 {
-    mapper_signal sig=0;
-    char str[1024];
-
-    jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID val = (*env)->GetFieldID(env, cls, "_signal", "J");
-        if (val) {
-            sig = (mapper_signal)(*env)->GetLongField(env, obj, val);
-        }
-    }
+    mapper_signal sig=(mapper_signal)s;
 
     if (sig) {
         mapper_db_signal p = msig_properties(sig);
