@@ -146,7 +146,7 @@ response to a GUI event for example, non-blocking behaviour is
 desired.  On the other hand if you put it in the middle of a loop
 which reads incoming data at intervals or steps through a simulation
 for example, you can use `mdev_poll` as your "sleep" function, so that
-it will wait on network activity while
+it will react to network activity while waiting.
 
 It returns the number of messages handled, so optionally you could
 continue to call it until there are no more messages waiting.  Of
