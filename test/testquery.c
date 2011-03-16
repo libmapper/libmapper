@@ -22,12 +22,12 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, int has_value)
+void query_response_handler(mapper_signal sig, mapper_db_signal props, void *value)
 {
-    mapper_signal remote = (mapper_signal) sig->props.user_data;
+    mapper_signal remote = (mapper_signal) props->user_data;
 
-    if (has_value) {
-        printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)sig->value));
+    if (value) {
+        printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)value));
     }
     else {
         printf("--> source got empty query response: %s\n", remote->props.name);
@@ -84,10 +84,10 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int has_value)
+void insig_handler(mapper_signal sig, mapper_db_signal props, void *value)
 {
-    if (has_value) {
-        printf("--> destination got %s %f\n", sig->props.name, (*(float*)sig->value));
+    if (value) {
+        printf("--> destination got %s %f\n", props->name, (*(float*)value));
     }
     received++;
 }

@@ -107,25 +107,26 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    int has_value = 0;
 
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
     }
 
-    if (types[0] != LO_NIL) {
+    if (types[0] == LO_NIL) {
+        sig->props.has_value = 0;
+    }
+    else {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
         memcpy(sig->value, argv[0], msig_vector_bytes(sig));
         sig->props.has_value = 1;
-        has_value = 1;
     }
 
     if (sig->handler)
-        sig->handler(sig, has_value);
+        sig->handler(sig, &sig->props, sig->props.has_value ? sig->value : 0);
 
     return 0;
 }

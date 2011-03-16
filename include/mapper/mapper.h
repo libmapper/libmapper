@@ -35,7 +35,7 @@ typedef struct _mapper_signal *mapper_signal;
 
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(struct _mapper_signal *msig, int has_value);
+typedef void mapper_signal_handler(struct _mapper_signal *msig, mapper_db_signal props, void *value);
 
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
