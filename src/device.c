@@ -120,7 +120,7 @@ static int handler_signal(const char *path, const char *types,
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
         memcpy(sig->value, argv[0], msig_vector_bytes(sig));
-        sig->has_value = 1;
+        sig->props.has_value = 1;
         has_value = 1;
     }
 
@@ -160,7 +160,7 @@ static int handler_query(const char *path, const char *types,
     if (!m)
         return 0;
 
-    if (sig->has_value) {
+    if (sig->props.has_value) {
         mapper_signal_value_t *value = sig->value;
         for (i = 0; i < sig->props.length; i++)
             mval_add_to_message(m, sig, &value[i]);
