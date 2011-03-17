@@ -1,5 +1,6 @@
 
 import Mapper.*;
+import Mapper.Device.*;
 
 class test {
     public static void main(String [] args) {
@@ -24,7 +25,21 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
+        System.out.println("Output signal index: "+out1.index());
+        System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
+
+        System.out.println("Waiting for ready...");
+        while (!dev.ready()) {
+            dev.poll(100);
+        }
+        System.out.println("Device is ready.");
+
+        System.out.println("Device name: "+dev.name());
+        System.out.println("Device port: "+dev.port());
+        System.out.println("Device ordinal: "+dev.ordinal());
+        System.out.println("Device interface: "+dev.iface());
+        System.out.println("Device ip4: "+dev.ip4());
 
         int i = 100;
         while (i >= 0) {
