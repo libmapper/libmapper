@@ -8,6 +8,7 @@
 #define ptr_jlong(a) ((void *)(uintptr_t)(a))
 
 JNIEnv *genv=0;
+int bailing=0;
 
 /**** Mapper.Device ****/
 
@@ -33,12 +34,16 @@ JNIEXPORT int JNICALL Java_Mapper_Device_mdev_1poll
   (JNIEnv *env, jobject obj, jlong d, jint timeout)
 {
     genv = env;
+    bailing = 0;
     mapper_device dev = (mapper_device)ptr_jlong(d);
     return mdev_poll(dev, timeout);
 }
 
 static void java_msig_input_cb(mapper_signal sig, void *v)
 {
+    if (bailing)
+        return;
+
     printf("in callback, genv=%p\n", genv);
     mapper_db_signal props = msig_properties(sig);
     jobject listener = (jobject)props->user_data;
@@ -50,6 +55,8 @@ static void java_msig_input_cb(mapper_signal sig, void *v)
             if (val) {
                 printf("got onInput: %p\n", val);
                 (*genv)->CallVoidMethod(genv, listener, val);
+                if ((*genv)->ExceptionOccurred(genv))
+                    bailing = 1;
             }
             else
                 printf("couldn't get onInput\n");
