@@ -19,22 +19,28 @@ public class Device
 
     public class Signal {
         private Signal(long s, Device d) { _signal = s; _device = d; }
-        private long _signal;
-        private Device _device;
-        public String name() throws NullPointerException
+
+        public String name()
         {
-            if (_device._device == 0)
-                throw new NullPointerException("Signal object associated with invalid Device");
+            checkDevice();
             return msig_name(_signal);
         }
-        public String full_name() throws NullPointerException
+        public String full_name()
         {
-            if (_device._device == 0)
-                throw new NullPointerException("Signal object associated with invalid Device");
+            checkDevice();
             return msig_full_name(_signal);
         }
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
+
+        private void checkDevice() {
+            if (_device._device == 0)
+                throw new NullPointerException(
+                    "Signal object associated with invalid Device");
+        }
+
+        private long _signal;
+        private Device _device;
     };
 
     public Signal add_input(String name, int length, char type,
