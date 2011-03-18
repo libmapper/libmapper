@@ -1,5 +1,6 @@
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <mapper/mapper.h>
 
@@ -350,4 +351,237 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_msig_1is_1output
         return p->is_output;
     }
     return 0;
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1minimum
+  (JNIEnv *env, jobject obj, jlong s, jobject minimum)
+{
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
+    if (sig) {
+        mapper_db_signal p = msig_properties(sig);
+
+        union {
+            float f;
+            int i;
+        } mn;
+
+        if (minimum) {
+            jclass cls = (*env)->GetObjectClass(env, minimum);
+            if (cls) {
+                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
+                if (val) {
+                    if (p->type == 'f')
+                        mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
+                    else if (p->type == 'i')
+                        mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
+                    msig_set_minimum(sig, &mn);
+                }
+            }
+        }
+        else
+            msig_set_minimum(sig, 0);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
+  (JNIEnv *env, jobject obj, jlong s, jobject maximum)
+{
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
+    if (sig) {
+        mapper_db_signal p = msig_properties(sig);
+
+        union {
+            float f;
+            int i;
+        } mx;
+
+        if (maximum) {
+            jclass cls = (*env)->GetObjectClass(env, maximum);
+            if (cls) {
+                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
+                if (val) {
+                    if (p->type == 'f')
+                        mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
+                    else if (p->type == 'i')
+                        mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
+                    msig_set_minimum(sig, &mx);
+                }
+            }
+        }
+        else
+            msig_set_maximum(sig, 0);
+    }
+}
+
+static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
+{
+    // TODO check device here
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID val = (*env)->GetFieldID(env, cls, "_signal", "J");
+        if (val) {
+            jlong s = (*env)->GetLongField(env, obj, val);
+            return (mapper_signal)ptr_jlong(s);
+        }
+    }
+    return 0;
+}
+
+static void throwIllegalArgumentTruncate(JNIEnv *env, mapper_signal sig)
+{
+    jclass newExcCls =
+        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (newExcCls) {
+        char msg[1024];
+        snprintf(msg, 1024,
+                 "Signal %s has integer type, floating-"
+                 "point value would truncate.",
+                 msig_properties(sig)->name);
+        (*env)->ThrowNew(env, newExcCls, msg);
+    }
+}
+
+static void throwIllegalArgumentLength(JNIEnv *env, mapper_signal sig, int al)
+{
+    jclass newExcCls =
+        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (newExcCls) {
+        char msg[1024];
+        mapper_db_signal p = msig_properties(sig);
+        snprintf(msg, 1024,
+                 "Signal %s length is %d, but array argument has length %d.",
+                 p->name, p->length, al);
+        (*env)->ThrowNew(env, newExcCls, msg);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__I
+  (JNIEnv *env, jobject obj, jint value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+    if (props->type == 'i')
+        msig_update_int(sig, value);
+    else if (props->type == 'f')
+        msig_update_float(sig, (float)value);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__F
+  (JNIEnv *env, jobject obj, jfloat value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+    if (props->type == 'i')
+        throwIllegalArgumentTruncate(env, sig);
+    else if (props->type == 'f')
+        msig_update_float(sig, value);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__D
+  (JNIEnv *env, jobject obj, jdouble value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+    if (props->type == 'i')
+        throwIllegalArgumentTruncate(env, sig);
+    else if (props->type == 'f')
+        msig_update_float(sig, (float)value);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3I
+  (JNIEnv *env, jobject obj, jintArray value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+    jint *array = (*env)->GetIntArrayElements(env, value, 0);
+    if (array) {
+        if (props->type == 'i') {
+            msig_update(sig, array);
+        }
+        else if (props->type == 'f') {
+            float *arraycopy = malloc(sizeof(float)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (float)array[i];
+            msig_update(sig, arraycopy);
+            free(arraycopy);
+        }
+        (*env)->ReleaseIntArrayElements(env, value, array, JNI_ABORT);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3F
+  (JNIEnv *env, jobject obj, jfloatArray value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+    if (props->type != 'f') {
+        throwIllegalArgumentTruncate(env, sig);
+        return;
+    }
+    jfloat *array = (*env)->GetFloatArrayElements(env, value, 0);
+    if (array) {
+        msig_update(sig, array);
+        (*env)->ReleaseFloatArrayElements(env, value, array, JNI_ABORT);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3D
+  (JNIEnv *env, jobject obj, jdoubleArray value)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+    if (props->type != 'f') {
+        throwIllegalArgumentTruncate(env, sig);
+        return;
+    }
+    jdouble *array = (*env)->GetDoubleArrayElements(env, value, 0);
+    if (array) {
+        float *arraycopy = malloc(sizeof(float)*length);
+        int i;
+        for (i=0; i<length; i++)
+            arraycopy[i] = (float)array[i];
+        (*env)->ReleaseDoubleArrayElements(env, value, array, JNI_ABORT);
+        msig_update(sig, arraycopy);
+        free(arraycopy);
+    }
 }

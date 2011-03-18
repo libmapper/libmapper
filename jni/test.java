@@ -25,7 +25,7 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
 
@@ -45,6 +45,7 @@ class test {
         while (i >= 0) {
             dev.poll(100);
             --i;
+            out1.update(new int[] {i});
         }
         dev.free();
     }

@@ -35,9 +35,27 @@ public class Device
             checkDevice();
             return msig_is_output(_signal);
         }
+        public void set_minimum(Double minimum) {
+            checkDevice();
+            msig_set_minimum(_signal, minimum);
+        }
+        public void set_maximum(Double maximum) {
+            checkDevice();
+            msig_set_maximum(_signal, maximum);
+        }
+
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
         private native boolean msig_is_output(long sig);
+        private native void msig_set_minimum(long sig, Double minimum);
+        private native void msig_set_maximum(long sig, Double maximum);
+
+        public native void update(int value);
+        public native void update(float value);
+        public native void update(double value);
+        public native void update(int[] value);
+        public native void update(float[] value);
+        public native void update(double[] value);
 
         public int index()
         {
