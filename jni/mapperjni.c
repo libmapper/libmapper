@@ -317,7 +317,7 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1ordinal
 JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1full_1name
   (JNIEnv *env, jobject obj, jlong s)
 {
-    mapper_signal sig=(mapper_signal)s;
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
     char str[1024];
 
     if (sig) {
@@ -331,7 +331,7 @@ JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1full_1name
 JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1name
   (JNIEnv *env, jobject obj, jlong s)
 {
-    mapper_signal sig=(mapper_signal)s;
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
 
     if (sig) {
         mapper_db_signal p = msig_properties(sig);
@@ -344,7 +344,7 @@ JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1name
 JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_msig_1is_1output
   (JNIEnv *env, jobject obj, jlong s)
 {
-    mapper_signal sig=(mapper_signal)s;
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
     if (sig) {
         mapper_db_signal p = msig_properties(sig);
         return p->is_output;
