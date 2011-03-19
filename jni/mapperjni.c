@@ -262,6 +262,60 @@ JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1get_1output_1by_1index
     return jlong_ptr(sig);
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1set_1property
+  (JNIEnv *env, jobject obj, jlong d, jstring key, jobject value)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    jclass cls = (*env)->GetObjectClass(env, value);
+    if (cls) {
+        jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+        if (typeid) {
+            char type;
+            lo_arg a, *pa=&a;
+            jfieldID valf = 0;
+            jobject o;
+            type = (*env)->GetCharField(env, value, typeid);
+            switch (type)
+            {
+            case 'i':
+                valf = (*env)->GetFieldID(env, cls, "_i", "I");
+                a.i = (*env)->GetIntField(env, value, valf);
+                break;
+            case 'f':
+                valf = (*env)->GetFieldID(env, cls, "_f", "F");
+                a.f = (*env)->GetFloatField(env, value, valf);
+                break;
+            case 'd':
+                valf = (*env)->GetFieldID(env, cls, "_d", "D");
+                a.d = (*env)->GetDoubleField(env, value, valf);
+                break;
+            case 's':
+            case 'S':
+                valf = (*env)->GetFieldID(env, cls, "_s", "Ljava/lang/String;");
+                o = (*env)->GetObjectField(env, value, valf);
+                pa = (lo_arg*)(*env)->GetStringUTFChars(env, o, 0);
+                break;
+            }
+            if (valf) {
+                mdev_set_property(dev, ckey, type, pa);
+                if (pa != &a)
+                    (*env)->ReleaseStringUTFChars(env, o, (const char*)pa);
+            }
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, key, ckey);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1remove_1property
+  (JNIEnv *env, jobject obj, jlong d, jstring key)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    mdev_remove_property(dev, ckey);
+    (*env)->ReleaseStringUTFChars(env, key, ckey);
+}
+
 JNIEXPORT jboolean JNICALL Java_Mapper_Device_mdev_1ready
   (JNIEnv *env, jobject obj, jlong d)
 {

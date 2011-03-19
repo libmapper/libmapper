@@ -15,7 +15,7 @@ Mapper_%.h: Mapper/%.class
 Mapper/%.class: Mapper/%.java
 	javac $<
 
-test.class: test.java Mapper/Device.class Mapper/InputListener.class
+test.class: test.java Mapper/Device.class Mapper/PropertyValue.class
 	javac $<
 
-EXTRA_DIST = Mapper/Device.java
+EXTRA_DIST = Mapper/Device.java Mapper/Property.java

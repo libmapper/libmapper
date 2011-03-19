@@ -29,6 +29,12 @@ class test {
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
 
+        dev.set_property("width", new PropertyValue(256));
+        dev.set_property("height", new PropertyValue(12.5));
+        dev.set_property("depth", new PropertyValue("67"));
+        dev.set_property("deletethis", new PropertyValue("should not see me"));
+        dev.remove_property("deletethis");
+
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
             dev.poll(100);

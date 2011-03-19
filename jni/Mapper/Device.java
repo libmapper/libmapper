@@ -1,6 +1,8 @@
 
 package Mapper;
 
+import Mapper.PropertyValue;
+
 public class Device
 {
     public Device(String name, int port) {
@@ -150,16 +152,15 @@ public class Device
         return msig==0 ? null : new Signal(msig, this);
     }
 
-    /* TODO: Properties, need a class to represent lo_arg.
-    public void set_property(String property, char type, double value)
+    public void set_property(String property, PropertyValue p)
     {
-        mdev_set_property(_device, property, type, double value);
+        mdev_set_property(_device, property, p);
     }
+
     public void remove_property(String property)
     {
-        mdev_remove_property(_device, String property);
+        mdev_remove_property(_device, property);
     }
-    */
 
     public boolean ready()
     {
@@ -221,11 +222,9 @@ public class Device
                                                 Integer index);
     private native long mdev_get_input_by_index(long _d, int index);
     private native long mdev_get_output_by_index(long _d, int index);
-    /*
     private native void mdev_set_property(long _d, String property,
-                                          lo_type type, lo_arg *value);
+                                          PropertyValue p);
     private native void mdev_remove_property(long _d, String property);
-    */
     private native boolean mdev_ready(long _d);
     private native String mdev_name(long _d);
     private native int mdev_port(long _d);
