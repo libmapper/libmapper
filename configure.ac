@@ -80,6 +80,11 @@ AC_ARG_ENABLE(swig,
    [  --disable-swig          don't build the SWIG bindings.],
    swig_enabled=$enableval)
 
+jni_enabled=yes
+AC_ARG_ENABLE(jni,
+   [  --disable-jni          don't build the Java JNI bindings.],
+   jni_enabled=$enableval)
+
 if test x$swig_enabled = xyes; then
    AC_CHECK_PROG([SWIG], [swig], [swig])
    if test x$SWIG = x; then
@@ -100,6 +105,46 @@ if test x$swig_enabled = xyes; then
      else
        swig_enabled=no
        swig_explain="(python not found)"
+     fi
+   fi
+fi
+
+# Check for JNI
+if test x$jni_enabled = xyes; then
+   JDKPATH=
+   JDKBINPATH=
+   if test -d /usr/lib/jvm/java-6-openjdk; then
+      JDKPATH=/usr/lib/jvm/java-6-openjdk
+   elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
+      JDKPATH=/System/Library/Frameworks/JavaVM.framework/Headers
+   fi
+
+   AC_ARG_WITH([jdk-path],
+     AS_HELP_STRING([--with-jdk-path],[specify the path to the JDK]),
+     [JDKPATH="$withval"; JDKBINPATH="$withval/bin"])
+
+   JNIPATH="$JDKPATH/include"
+
+   AC_PATH_PROG([JAVAC], [javac], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
+   AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
+   AC_PATH_PROG([JAR],   [jar],   [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
+   if test x$JAVAC = x; then
+     jni_enabled=no
+     jni_explain="(javac not found)"
+   elif test x$JAVAH = x; then
+     jni_enabled=no
+     jni_explain="(javah not found)"
+   elif test x$JAR = x; then
+     jni_enabled=no
+     jni_explain="(jar not found)"
+   else
+     AC_CHECK_HEADER([$JNIPATH/jni.h],
+       [jni_enabled=yes],
+       [jni_enabled=no; jni_explain="(jni.h not found)"])
+     if test x$jni_enabled = xyes; then
+       JNI=jni
+       AC_SUBST(JNIPATH)
+       AC_SUBST(JNI)
      fi
    fi
 fi
@@ -185,6 +230,8 @@ AC_CONFIG_FILES([
     doc/libmapper.doxyfile
     swig/Makefile
     swig/setup.py
+    jni/Makefile
+    jni/Mapper/NativeLib.java
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
@@ -202,6 +249,7 @@ echo --------------------------------------------------
 echo "building documention...    " $enable_docs $docs_explain
 echo "building tests...          " $enable_tests
 echo "building SWIG bindings...  " $swig_enabled $swig_explain
+echo "building Java bindings...  " $jni_enabled $jni_explain
 echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
