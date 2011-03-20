@@ -27,6 +27,17 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
   (JNIEnv *env, jobject obj, jlong d)
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
+
+    /* Free all references to registered listener objects. */
+    int i, n = mdev_num_inputs(dev);
+    for (i=0; i<n; i++) {
+        mapper_signal sig = mdev_get_input_by_index(dev, i);
+        mapper_db_signal props = msig_properties(sig);
+        jobject listener = props->user_data;
+        if (listener)
+            (*env)->DeleteGlobalRef(env, listener);
+    }
+
     mdev_free(dev);
 }
 
