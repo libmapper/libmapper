@@ -14,7 +14,7 @@ JCLASSES = Mapper/Db/Signal.class Mapper/Device$$Signal.class		\
            Mapper/InputListener.class Mapper/PropertyValue.class	\
            Mapper/Device.class Mapper/NativeLib.class
 
-BUILT_SOURCES = $(JHEADERS) test.class libmapper.jar
+BUILT_SOURCES = $(JHEADERS) test.class libmapper-@MAJOR_VERSION@.jar
 CLEANFILES = $(JHEADERS) $(subst $$,\$$,$(wildcard *.class Mapper/*.class Mapper/*/*.class))
 
 Mapper_%.h: Mapper/%.class
@@ -31,7 +31,7 @@ Mapper/%.class: Mapper/%.java
 test.class: test.java $(JCLASSES)
 	$(JAVAC) $<
 
-libmapper.jar: $(JCLASSES)
+libmapper-@MAJOR_VERSION@.jar: $(JCLASSES)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
 EXTRA_DIST = Mapper/Device.java Mapper/Property.java
