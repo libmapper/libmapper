@@ -35,6 +35,12 @@ class test {
         dev.set_property("deletethis", new PropertyValue("should not see me"));
         dev.remove_property("deletethis");
 
+        out1.set_property("width", new PropertyValue(128));
+        out1.set_property("height", new PropertyValue(6.25));
+        out1.set_property("depth", new PropertyValue("test"));
+        out1.set_property("deletethis", new PropertyValue("or me"));
+        out1.remove_property("deletethis");
+
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
             dev.poll(100);

@@ -45,12 +45,25 @@ public class Device
             checkDevice();
             msig_set_maximum(_signal, maximum);
         }
+        public void set_property(String property, PropertyValue p)
+        {
+            checkDevice();
+            msig_set_property(_signal, property, p);
+        }
+        public void remove_property(String property)
+        {
+            checkDevice();
+            msig_remove_property(_signal, property);
+        }
 
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
         private native boolean msig_is_output(long sig);
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
+        private native void msig_set_property(long sig, String property,
+                                              PropertyValue p);
+        private native void msig_remove_property(long sig, String property);
 
         public native void update(int value);
         public native void update(float value);

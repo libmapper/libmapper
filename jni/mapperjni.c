@@ -467,6 +467,60 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1property
+  (JNIEnv *env, jobject obj, jlong s, jstring key, jobject value)
+{
+    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    jclass cls = (*env)->GetObjectClass(env, value);
+    if (cls) {
+        jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+        if (typeid) {
+            char type;
+            lo_arg a, *pa=&a;
+            jfieldID valf = 0;
+            jobject o;
+            type = (*env)->GetCharField(env, value, typeid);
+            switch (type)
+            {
+            case 'i':
+                valf = (*env)->GetFieldID(env, cls, "_i", "I");
+                a.i = (*env)->GetIntField(env, value, valf);
+                break;
+            case 'f':
+                valf = (*env)->GetFieldID(env, cls, "_f", "F");
+                a.f = (*env)->GetFloatField(env, value, valf);
+                break;
+            case 'd':
+                valf = (*env)->GetFieldID(env, cls, "_d", "D");
+                a.d = (*env)->GetDoubleField(env, value, valf);
+                break;
+            case 's':
+            case 'S':
+                valf = (*env)->GetFieldID(env, cls, "_s", "Ljava/lang/String;");
+                o = (*env)->GetObjectField(env, value, valf);
+                pa = (lo_arg*)(*env)->GetStringUTFChars(env, o, 0);
+                break;
+            }
+            if (valf) {
+                msig_set_property(sig, ckey, type, pa);
+                if (pa != &a)
+                    (*env)->ReleaseStringUTFChars(env, o, (const char*)pa);
+            }
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, key, ckey);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1remove_1property
+  (JNIEnv *env, jobject obj, jlong s, jstring key)
+{
+    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    msig_remove_property(sig, ckey);
+    (*env)->ReleaseStringUTFChars(env, key, ckey);
+}
+
 static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
 {
     // TODO check device here
