@@ -111,29 +111,41 @@ fi
 
 # Check for JNI
 if test x$jni_enabled = xyes; then
-   AC_CHECK_PROG([JAVAC], [javac], [javac])
-   AC_CHECK_PROG([JAVAH], [javah], [javah])
+   JDKPATH=
+   JDKBINPATH=
+   if test -d /usr/lib/jvm/java-6-openjdk; then
+      JDKPATH=/usr/lib/jvm/java-6-openjdk
+   elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
+      JDKPATH=/System/Library/Frameworks/JavaVM.framework/Headers
+   fi
+
+   AC_ARG_WITH([jdk-path],
+     AS_HELP_STRING([--with-jdk-path],[specify the path to the JDK]),
+     [JDKPATH="$withval"; JDKBINPATH="$withval/bin"])
+
+   JNIPATH="$JDKPATH/include"
+
+   AC_PATH_PROG([JAVAC], [javac], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
+   AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
+   AC_PATH_PROG([JAR],   [jar],   [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    if test x$JAVAC = x; then
      jni_enabled=no
      jni_explain="(javac not found)"
+   elif test x$JAVAH = x; then
+     jni_enabled=no
+     jni_explain="(javah not found)"
+   elif test x$JAR = x; then
+     jni_enabled=no
+     jni_explain="(jar not found)"
    else
-      if test x$JAVAH = x; then
-        jni_enabled=no
-        jni_explain="(javah not found)"
-      else
-        JNIPATH=/usr/lib/jvm/java-6-openjdk/include
-        AC_CHECK_HEADER([$JNIPATH/jni.h],
-          [jni_enabled=yes],
-          [JNIPATH=/System/Library/Frameworks/JavaVM.framework/Headers
-           AC_CHECK_HEADER([$JNIPATH/jni.h],
-             [jni_enabled=yes],
-             [jni_enabled=no; jni_explain="(jni.h not found)"])])
-        if test x$jni_enabled = xyes; then
-          JNI=jni
-          AC_SUBST(JNIPATH)
-          AC_SUBST(JNI)
-        fi
-      fi
+     AC_CHECK_HEADER([$JNIPATH/jni.h],
+       [jni_enabled=yes],
+       [jni_enabled=no; jni_explain="(jni.h not found)"])
+     if test x$jni_enabled = xyes; then
+       JNI=jni
+       AC_SUBST(JNIPATH)
+       AC_SUBST(JNI)
+     fi
    fi
 fi
 

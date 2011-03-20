@@ -18,20 +18,20 @@ BUILT_SOURCES = $(JHEADERS) test.class libmapper.jar
 CLEANFILES = $(JHEADERS) $(subst $$,\$$,$(wildcard *.class Mapper/*.class Mapper/*/*.class))
 
 Mapper_%.h: Mapper/%.class
-	javah $(subst /,.,$(<:%.class=%))
+	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
 Mapper_Db_%.h: Mapper/Db/%.class
-	javah $(subst /,.,$(<:%.class=%))
+	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
 Mapper/%.class: Mapper/%.java
-	javac $<
+	$(JAVAC) $<
 
 test.class: test.java $(JCLASSES)
-	javac $<
+	$(JAVAC) $<
 
 libmapper.jar: $(JCLASSES)
-	jar cvf $@ $(subst $$,\$$,$^)
+	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
 EXTRA_DIST = Mapper/Device.java Mapper/Property.java
