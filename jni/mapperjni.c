@@ -20,7 +20,6 @@ JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1new
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     mapper_device d = mdev_new(cname, port, 0);
     (*env)->ReleaseStringUTFChars(env, name, cname);
-    printf("mapper device allocated\n");
     return jlong_ptr(d);
 }
 
@@ -29,7 +28,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
     mdev_free(dev);
-    printf("mapper device freed\n");
 }
 
 JNIEXPORT int JNICALL Java_Mapper_Device_mdev_1poll
@@ -46,22 +44,17 @@ static void java_msig_input_cb(mapper_signal sig, void *v)
     if (bailing)
         return;
 
-    printf("in callback, genv=%p\n", genv);
     mapper_db_signal props = msig_properties(sig);
     jobject listener = (jobject)props->user_data;
     if (listener) {
         jclass cls = (*genv)->GetObjectClass(genv, listener);
-        printf("listener class: %p\n", cls);
         if (cls) {
             jmethodID val = (*genv)->GetMethodID(genv, cls, "onInput", "()V");
             if (val) {
-                printf("got onInput: %p\n", val);
                 (*genv)->CallVoidMethod(genv, listener, val);
                 if ((*genv)->ExceptionOccurred(genv))
                     bailing = 1;
             }
-            else
-                printf("couldn't get onInput\n");
         }
     }
 }
