@@ -29,6 +29,14 @@ class test {
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
 
+        Signal inp2 = dev.add_hidden_input("insig2", 1, 'f', "Hz", 2.0, null,
+            new InputListener() {
+                public void onInput() {
+                    System.out.println("in onInput() for inp2");
+                }});
+
+        out1.query_remote(inp2);
+
         dev.set_property("width", new PropertyValue(256));
         dev.set_property("height", new PropertyValue(12.5));
         dev.set_property("depth", new PropertyValue("67"));
