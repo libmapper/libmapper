@@ -1,0 +1,6 @@
+
+package Mapper;
+
+public class NativeLib {
+    public static final String name = "mapperjni-@MAJOR_VERSION@";
+}

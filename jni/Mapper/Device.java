@@ -1,6 +1,7 @@
 
 package Mapper;
 
+import Mapper.NativeLib;
 import Mapper.PropertyValue;
 import Mapper.Db.*;
 
@@ -282,6 +283,6 @@ public class Device
     }
 
     static { 
-        System.loadLibrary("mapperjni-0");
+        System.loadLibrary(NativeLib.name);
     } 
 }
