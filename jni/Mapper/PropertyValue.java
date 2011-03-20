@@ -137,6 +137,19 @@ public class PropertyValue
         type = _type;
     }
 
+    public String toString() {
+        String s;
+        switch (type) {
+        case 'i': s = String.valueOf(_i); break;
+        case 'f': s = String.valueOf(_f); break;
+        case 'd': s = String.valueOf(_d); break;
+        case 's':s = '\''+_s+'\''; break;
+        case 'S': s = '"'+_s+'"'; break;
+        default: s = null;
+        }
+        return "<type="+type+", value="+s+">";
+    }
+
     public char type;
 
     private int _i;

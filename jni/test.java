@@ -49,6 +49,17 @@ class test {
         out1.set_property("deletethis", new PropertyValue("or me"));
         out1.remove_property("deletethis");
 
+        System.out.println("Setting name of out1 to `/out1test'.");
+        out1.properties().set_name("/out1test");
+        System.out.println("Name of out1: " + out1.properties().name());
+
+        System.out.println("Looking up `height': "
+                           + out1.properties().property_lookup("height"));
+        System.out.println("Looking up `width': "
+                           + out1.properties().property_lookup("width"));
+        System.out.println("Looking up `depth': "
+                           + out1.properties().property_lookup("depth"));
+
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
             dev.poll(100);

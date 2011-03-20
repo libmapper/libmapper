@@ -6,16 +6,22 @@ libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERS
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 	$(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
-BUILT_SOURCES = Mapper_Device.h Mapper_Device_Signal.h
-CLEANFILES = Mapper_Device.h Mapper_Device_Signal.h
+JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
+
+BUILT_SOURCES = $(JHEADERS)
+CLEANFILES = $(JHEADERS)
 
 Mapper_%.h: Mapper/%.class
+	javah $(subst /,.,$(<:%.class=%))
+
+Mapper_Db_%.h: Mapper/Db/%.class
 	javah $(subst /,.,$(<:%.class=%))
 
 Mapper/%.class: Mapper/%.java
 	javac $<
 
-test.class: test.java Mapper/Device.class Mapper/PropertyValue.class
+test.class: test.java Mapper/Device.class Mapper/PropertyValue.class	\
+	        Mapper/Db/Signal.class
 	javac $<
 
 EXTRA_DIST = Mapper/Device.java Mapper/Property.java

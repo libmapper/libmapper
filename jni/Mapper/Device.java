@@ -2,6 +2,7 @@
 package Mapper;
 
 import Mapper.PropertyValue;
+import Mapper.Db.*;
 
 public class Device
 {
@@ -45,6 +46,10 @@ public class Device
             checkDevice();
             msig_set_maximum(_signal, maximum);
         }
+        public Mapper.Db.Signal properties() {
+            checkDevice();
+            return new Mapper.Db.Signal(msig_properties(_signal), this);
+        }
         public void set_property(String property, PropertyValue p)
         {
             checkDevice();
@@ -67,6 +72,7 @@ public class Device
         private native boolean msig_is_output(long sig);
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
+        private native long msig_properties(long sig);
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
         private native void msig_remove_property(long sig, String property);
@@ -103,6 +109,10 @@ public class Device
             if (_device._device == 0)
                 throw new NullPointerException(
                     "Signal object associated with invalid Device");
+        }
+
+        public boolean valid() {
+            return _device._device != 0;
         }
 
         private long _signal;
@@ -267,6 +277,9 @@ public class Device
     private native int mdev_ordinal(long _d);
 
     private long _device;
+    public boolean valid() {
+        return _device != 0;
+    }
 
     static { 
         System.loadLibrary("mapperjni-0");

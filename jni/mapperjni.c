@@ -1,6 +1,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <arpa/inet.h>
 #include <mapper/mapper.h>
 
@@ -527,6 +528,13 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
+JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+  (JNIEnv *env, jobject obj, jlong s)
+{
+    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    return jlong_ptr(msig_properties(sig));
+}
+
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1property
   (JNIEnv *env, jobject obj, jlong s, jstring key, jobject value)
 {
@@ -760,4 +768,172 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3D
         msig_update(sig, arraycopy);
         free(arraycopy);
     }
+}
+
+/**** Mapper.Db.Signal ****/
+
+JNIEXPORT void JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1set_1name
+  (JNIEnv *env, jobject obj, jlong p, jstring name)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    const char *cname = (*env)->GetStringUTFChars(env, name, 0);
+    free((char*)props->name);
+    props->name = strdup(cname);
+    (*env)->ReleaseStringUTFChars(env, name, cname);
+}
+
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1name
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return (*env)->NewStringUTF(env, props->name);
+}
+
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1device_1name
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return (*env)->NewStringUTF(env, props->device_name);
+}
+
+JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1hidden
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return props->hidden!=0;
+}
+
+JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1is_1output
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return props->is_output!=0;
+}
+
+JNIEXPORT jchar JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1type
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return props->type!=0;
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1length
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return props->length;
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1set_1unit
+  (JNIEnv *env, jobject obj, jlong p, jstring unit)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    const char *cunit = (*env)->GetStringUTFChars(env, unit, 0);
+    free((char*)props->unit);
+    props->unit = strdup(cunit);
+    (*env)->ReleaseStringUTFChars(env, unit, cunit);
+}
+
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1unit
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return (*env)->NewStringUTF(env, props->unit);
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1minimum
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+
+    if (props->minimum)
+    {
+        jclass cls = (*env)->FindClass(env, "java/lang/Double");
+        if (cls) {
+            jmethodID methodID = (*env)->GetMethodID(env, cls,
+                                                     "<init>", "(D)V");
+            if (methodID)
+                return (*env)->NewObject(env, cls, methodID,
+                                         *(props->minimum));
+        }
+    }
+
+    return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1maximum
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+
+    if (props->maximum)
+    {
+        jclass cls = (*env)->FindClass(env, "java/lang/Double");
+        if (cls) {
+            jmethodID methodID = (*env)->GetMethodID(env, cls,
+                                                     "<init>", "(D)V");
+            if (methodID)
+                return (*env)->NewObject(env, cls, methodID,
+                                         *(props->maximum));
+        }
+    }
+
+    return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mapper_1db_1signal_1property_1lookup
+  (JNIEnv *env, jobject obj, jlong p, jstring property)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    const char *cprop = (*env)->GetStringUTFChars(env, property, 0);
+    lo_type t;
+    const lo_arg *a;
+    jobject o = 0;
+
+    if (mapper_db_signal_property_lookup(props, cprop, &t, &a))
+        goto done;
+
+    jmethodID methodID;
+    jclass cls = (*env)->FindClass(env, "Mapper/PropertyValue");
+    if (cls) {
+        switch (t) {
+        case 'i':
+            methodID = (*env)->GetMethodID(env, cls,
+                                           "<init>", "(CI)V");
+            if (methodID)
+                return (*env)->NewObject(env, cls, methodID, t, a->i);
+            break;
+        case 'f':
+            methodID = (*env)->GetMethodID(env, cls,
+                                           "<init>", "(CF)V");
+            if (methodID)
+                return (*env)->NewObject(env, cls, methodID, t, a->f);
+            break;
+        case 'd':
+            methodID = (*env)->GetMethodID(env, cls,
+                                           "<init>", "(CD)V");
+            if (methodID)
+                return (*env)->NewObject(env, cls, methodID, t, a->d);
+            break;
+        case 's':
+        case 'S':
+            methodID = (*env)->GetMethodID(env, cls,
+                                           "<init>", "(CLjava/lang/String;)V");
+            if (methodID) {
+                jobject s = (*env)->NewStringUTF(env, &a->s);
+                if (s)
+                    return (*env)->NewObject(env, cls, methodID, t, s);
+            }
+            break;
+        default:
+            // TODO handle all OSC types
+            // Not throwing an exception here because this data comes
+            // from the network: just ignore unknown types.
+            break;
+        }
+    }
+
+  done:
+    (*env)->ReleaseStringUTFChars(env, property, cprop);
+    return o;
 }
