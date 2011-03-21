@@ -208,7 +208,7 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     return strlen(name);
 }
 
-int msig_query_remote(mapper_signal sig, void *receiver)
+int msig_query_remote(mapper_signal sig, mapper_signal receiver)
 {
     // stick to output signals for now
     if (!sig->props.is_output)

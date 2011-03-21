@@ -105,8 +105,9 @@ int msig_full_name(mapper_signal sig, char *name, int len);
 /*! Query the values of any signals connected via mapping connections. 
  *  \param sig      A local output signal. We will be querying the remote 
  *                  ends of this signal's mapping connections.
- *  \param receiver A local input signal for receiving query responses. */
-int msig_query_remote(mapper_signal sig, void *receiver);
+ *  \param receiver A local input signal for receiving query responses.
+ *  \return The number of queries sent, or -1 for error. */
+int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 
 /* @} */
 
