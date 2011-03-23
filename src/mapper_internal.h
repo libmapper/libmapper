@@ -17,11 +17,9 @@ struct _mapper_signal
 
     /*! The device associated with this signal. */
     struct _mapper_device *device;
-    
+
     /*! The current value of this signal. */
     void *value;
-    
-    int has_value;
 
     /*! An optional function to be called when the signal value
      *  changes. */

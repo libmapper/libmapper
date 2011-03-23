@@ -12,9 +12,11 @@
 int sent = 0;
 int received = 0;
 
-void handler(mapper_signal sig, void *v)
+void handler(mapper_signal sig, mapper_db_signal props, void *value)
 {
-    printf("handler: Got %f\n", (*(float*)v));
+    if (value) {
+        printf("handler: Got %f\n", (*(float*)value));
+    }
     received++;
 }
 

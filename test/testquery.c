@@ -22,10 +22,17 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, void *v)
+void query_response_handler(mapper_signal sig, mapper_db_signal props, void *value)
 {
-    mapper_signal remote = (mapper_signal) sig->props.user_data;
-    printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)v));
+    mapper_signal remote = (mapper_signal) props->user_data;
+
+    if (value) {
+        printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)value));
+    }
+    else {
+        printf("--> source got empty query response: %s\n", remote->props.name);
+    }
+
     received++;
 }
 
@@ -33,7 +40,7 @@ void query_response_handler(mapper_signal sig, void *v)
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testquery-send", port, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -77,9 +84,11 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, void *v)
+void insig_handler(mapper_signal sig, mapper_db_signal props, void *value)
 {
-    printf("--> destination got %s %f\n", sig->props.name, (*(float*)v));
+    if (value) {
+        printf("--> destination got %s %f\n", props->name, (*(float*)value));
+    }
     received++;
 }
 
@@ -87,7 +96,7 @@ void insig_handler(mapper_signal sig, void *v)
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testquery-recv", port, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -158,7 +167,7 @@ void loop()
     }
 
     while (i >= 0 && !done) {
-        for (j = 0; j < 4; j++) {
+        for (j = 0; j < 2; j++) {
             msig_update_float(recvsig[j], ((i % 10) * 1.0f));
         }
         printf("\ndestination values updated to %d -->\n", i % 10);

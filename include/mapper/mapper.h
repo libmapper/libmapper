@@ -35,7 +35,7 @@ typedef struct _mapper_signal *mapper_signal;
 
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(struct _mapper_signal *msig, void *v);
+typedef void mapper_signal_handler(struct _mapper_signal *msig, mapper_db_signal props, void *value);
 
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
@@ -53,6 +53,12 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
  *  \param sig  The signal to operate on.
  *  \return     A structure containing the signal's properties. */
 mapper_db_signal msig_properties(mapper_signal sig);
+
+/*! Get a signal's value.
+ *  \param sig  The signal to operate on.
+ *  \return     The value of the signal, or 0 if the signal has no 
+ *              value. */
+mapper_signal_value_t *msig_value(mapper_signal sig);
 
 /*! Set a property of a signal.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
@@ -211,8 +217,25 @@ void mdev_remove_output(mapper_device dev, mapper_signal sig);
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device dev);
 
+//! Return the number of hidden inputs.
+int mdev_num_hidden_inputs(mapper_device dev);
+
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
+
+/*! Get input signals.
+ *  \param dev Device to search in.
+ *  \return Pointer to the linked list of input mapper_signals, or zero
+ *          if not found.
+ */
+mapper_signal *mdev_get_inputs(mapper_device dev);
+
+/*! Get output signals.
+ *  \param dev Device to search in.
+ *  \return Pointer to the linked list of output mapper_signals, or zero
+ *          if not found.
+ */
+mapper_signal *mdev_get_outputs(mapper_device dev);
 
 /*! Get an input signal with a given name.
  *  \param dev Device to search in.
