@@ -1208,6 +1208,10 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Creation of a new router added to the source.
     router = mapper_router_new(md, host, port, dest_name);
+    if (!router) {
+        trace("can't perform /linkTo, NULL router\n");
+        return 0;
+    }
     mdev_add_router(md, router);
 
     // Announce the result.
