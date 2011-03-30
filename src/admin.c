@@ -323,7 +323,6 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
             admin->ordinal.suggestion[i] = 0;
             admin->port.suggestion[i] = 0;
         }
-        admin->device->update = 0;
         admin->device->flags = 0;
         
         /* Choose a random ID for allocation speedup */
@@ -366,7 +365,7 @@ int mapper_admin_poll(mapper_admin admin)
     int count = 0, status, i = 0;
 
     if (admin->device)
-        admin->device->flags = 0;
+        admin->device->flags &= ~FLAGS_ADMIN_MESSAGES;
 
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
@@ -423,10 +422,10 @@ int mapper_admin_poll(mapper_admin admin)
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
               admin->identifier, admin, mapper_admin_name(admin));
-        admin->device->update = 1;
+        admin->device->flags |= FLAGS_ATTRIBS_CHANGED;
     }
-    if (admin->registered && admin->device->update) {
-        admin->device->update = 0;
+    if (admin->registered && (admin->device->flags & FLAGS_ATTRIBS_CHANGED)) {
+        admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
               AT_IP, inet_ntoa(admin->interface_ip),

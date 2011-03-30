@@ -97,7 +97,7 @@ static void mdev_increment_version(mapper_device md)
 {
     md->version ++;
     if (md->admin->registered) {
-        md->update = 1;
+        md->flags |= FLAGS_ATTRIBS_CHANGED;
     }
 }
 
@@ -233,7 +233,7 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
                                     void *user_data)
 {
     int version = md->version;
-    int update = md->update;
+    int flags = md->flags;
     mapper_signal sig = mdev_add_input(md, name, length, type, unit, 
                                        minimum, maximum, handler, user_data);
     sig->props.hidden = 1;
@@ -241,7 +241,7 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
     /* Addition of a hidden input should not affect version or update status, so
      * we will restore them to their previous values */
     md->version = version;
-    md->update = update;
+    md->flags = flags;
     return sig;
 }
 

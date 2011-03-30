@@ -174,7 +174,6 @@ typedef struct _mapper_device {
     int n_alloc_inputs;
     int n_alloc_outputs;
     int version;
-    int update;   //!< True if attributes have changed since last update.
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
@@ -195,6 +194,8 @@ typedef struct _mapper_device {
 #define FLAGS_OUTPUTS_GET       0x04
 #define FLAGS_LINKS_GET         0x08
 #define FLAGS_CONNECTIONS_GET   0x10
+#define FLAGS_ADMIN_MESSAGES    0x1F
+#define FLAGS_ATTRIBS_CHANGED   0x20
 
 /**** Monitor ****/
 
