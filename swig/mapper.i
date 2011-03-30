@@ -264,6 +264,10 @@
 
 %{
 #include <mapper_internal.h>
+
+// Note: inet_ntoa() crashes on OS X if this header isn't included!
+#include <arpa/inet.h>
+
 typedef struct _device {} device;
 typedef struct _signal {} signal__;
 typedef struct _monitor {} monitor;
@@ -686,8 +690,8 @@ typedef struct _admin {} admin;
     }
     const char *get_name() { return mdev_name($self); }
     const char *get_ip4() {
-        unsigned int *i = (unsigned int*)mdev_ip4($self);
-        return i ? inet_ntoa(*i) : 0;
+        const struct in_addr *a = (unsigned int*)mdev_ip4($self);
+        return a ? inet_ntoa(*a) : 0;
     }
     const char *get_interface() { return mdev_interface($self); }
     unsigned int get_ordinal() { return mdev_ordinal($self); }
