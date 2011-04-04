@@ -192,7 +192,7 @@
         // The pointer will be hidden by a Python generator interface.
         PyObject *o = device_to_py(*$1);
         if (o!=Py_None)
-            $result = Py_BuildValue("(Oi)", o, $1);
+            $result = Py_BuildValue("(Ol)", o, $1);
         else
             $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
@@ -211,7 +211,7 @@
         // The pointer will be hidden by a Python generator interface.
         PyObject *o = signal_to_py(*$1);
         if (o!=Py_None)
-            $result = Py_BuildValue("(Oi)", o, $1);
+            $result = Py_BuildValue("(Ol)", o, $1);
         else
             $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
@@ -230,7 +230,7 @@
         // The pointer will be hidden by a Python generator interface.
         PyObject *o = mapping_to_py(*$1);
         if (o!=Py_None)
-            $result = Py_BuildValue("(Oi)", o, $1);
+            $result = Py_BuildValue("(Ol)", o, $1);
         else
             $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
@@ -249,7 +249,7 @@
         // The pointer will be hidden by a Python generator interface.
         PyObject *o = link_to_py(*$1);
         if (o!=Py_None)
-            $result = Py_BuildValue("(Oi)", o, $1);
+            $result = Py_BuildValue("(Ol)", o, $1);
         else
             $result = Py_BuildValue("(OO)", Py_None, Py_None);
     }
@@ -1000,7 +1000,7 @@ typedef struct _admin {} admin;
     mapper_db_device_t **__match_devices_by_name(const char *device) {
         return mapper_db_match_devices_by_name($self, device);
     }
-    mapper_db_device_t **device_next(int iterator) {
+    mapper_db_device_t **device_next(long iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
     mapper_db_signal_t **get_all_inputs() {
@@ -1025,7 +1025,7 @@ typedef struct _admin {} admin;
         return mapper_db_match_outputs_by_device_name($self, device_name,
                                                       output_pattern);
     }
-    mapper_db_signal_t **signal_next(int iterator) {
+    mapper_db_signal_t **signal_next(long iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
     mapper_db_mapping_t **get_all_mappings() {
@@ -1070,7 +1070,7 @@ typedef struct _admin {} admin;
         return mapper_db_get_mappings_by_src_dest_device_names(
             $self, src_device_name, dest_device_name);
     }
-    mapper_db_mapping_t **mapping_next(int iterator) {
+    mapper_db_mapping_t **mapping_next(long iterator) {
         return mapper_db_mapping_next((mapper_db_mapping_t**)iterator);
     }
     mapper_db_link_t **get_all_links() {
@@ -1093,7 +1093,7 @@ typedef struct _admin {} admin;
         return mapper_db_get_link_by_src_dest_names($self, src_device_name,
                                                     dest_device_name);
     }
-    mapper_db_link_t **link_next(int iterator) {
+    mapper_db_link_t **link_next(long iterator) {
         return mapper_db_link_next((mapper_db_link_t**)iterator);
     }
     %pythoncode {
