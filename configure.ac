@@ -57,7 +57,10 @@ AC_PROG_CXX
 
 # libtool
 AM_PROG_LIBTOOL
+
+# Check for the math library
 LT_LIB_M
+LIBS="$LIBS $LIBM"
 
 # Check options
 AC_ARG_ENABLE(debug,
