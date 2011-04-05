@@ -33,9 +33,16 @@ libmapper concepts.
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 
+/*! A 64-bit data structure containing an NTP-compatible time tag, as
+ *  used by OSC. */
+typedef lo_timetag mapper_timetag_t;
+
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(struct _mapper_signal *msig, mapper_db_signal props, void *value);
+typedef void mapper_signal_handler(mapper_signal msig,
+                                   mapper_db_signal props,
+                                   mapper_timetag_t *timetag,
+                                   void *value);
 
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
@@ -55,10 +62,12 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
 mapper_db_signal msig_properties(mapper_signal sig);
 
 /*! Get a signal's value.
- *  \param sig  The signal to operate on.
- *  \return     The value of the signal, or 0 if the signal has no 
- *              value. */
-mapper_signal_value_t *msig_value(mapper_signal sig);
+ *  \param sig      The signal to operate on.
+ *  \param timetag  A location to receive the value's time tag.
+ *                  May be 0.
+ *  \return         A pointer to an array containing the value
+ *                  of the signal, or 0 if the signal has no value. */
+void *msig_value(mapper_signal sig, mapper_timetag_t *timetag);
 
 /*! Set a property of a signal.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
@@ -346,6 +355,47 @@ const char *mdev_interface(mapper_device dev);
  *  \param dev The device to query.
  *  \return A positive ordinal unique to this device (per name). */
 unsigned int mdev_ordinal(mapper_device dev);
+
+
+/*! Set the time associated with signal values emitted from a device.
+ *
+ * Behaviour is defined as follows: If timetag = {0, 0}, signals are
+ * deferred until the next call to mdev_poll(), bundled and tagged
+ * with the current time.  This is the default behaviour.  If timetag
+ * = {0, 1}, corresponding to OSC's "immediate" semantics, signals are
+ * sent immediately in an unbundled format.  If timetag has any other
+ * value, signals are deferred until the next call to mdev_poll(),
+ * bundled, and tagged with the given time.  In this last case, the
+ * user is responsible for updating the time by calling
+ * mdev_set_timetag() before each mdev_poll().  If mdev_set_timetag()
+ * is called more than once between calls to mdev_poll(), the bundle
+ * will be tagged according to the last provided time.  If
+ * mdev_set_timetag() is used to switch to immediate mode,
+ * (timetag={0,1}), then all currently deferred messages are sent as a
+ * bundle before switching modes.
+ *
+ * \param dev      The device to address.
+ * \param timetag  The time to use for sent signals, or a special value
+ *                 indicating some behaviour as described in the
+ *                 summary.
+ */
+void mdev_set_timetag(mapper_device dev, mapper_timetag_t timetag);
+
+/*! Specify the size of the queue for incoming timetagged signals.  In
+ *  the case where incoming signal values are associated with time
+ *  tags, and that time has not yet been reached, the user may choose
+ *  whether the values should be kept in a queue and delivered at the
+ *  given time (the default case), or whether they should be delivered
+ *  immediately.  In both cases, the signal's time can be discovered
+ *  by the timetag signal callback parameter.  Incoming signals that
+ *  do not have a timetag will always be immediately delivered.
+ *
+ *  \param sig         A local input signal.
+ *  \param queue_size  The maximum number of incoming values that may
+ *                     be for later delivery. If zero, queueing is
+ *                     disabled.
+ */
+void mdev_set_queue_size(mapper_signal sig, int queue_size);
 
 /* @} */
 

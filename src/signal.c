@@ -37,11 +37,14 @@ mapper_db_signal msig_properties(mapper_signal sig)
     return &sig->props;
 }
 
-mapper_signal_value_t *msig_value(mapper_signal sig)
+void *msig_value(mapper_signal sig,
+                 mapper_timetag_t *timetag)
 {
-    if (sig->props.has_value)
+    if (sig->props.has_value) {
+        if (timetag)
+            *timetag = sig->value_tt;
         return sig->value;
-    else
+    } else
         return 0;
 }
 

@@ -21,6 +21,10 @@ struct _mapper_signal
     /*! The current value of this signal. */
     void *value;
 
+    /*! The timetag associated with the current value of this
+     *  signal. */
+    mapper_timetag_t value_tt;
+
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;

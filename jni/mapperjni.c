@@ -51,12 +51,12 @@ JNIEXPORT int JNICALL Java_Mapper_Device_mdev_1poll
     return mdev_poll(dev, timeout);
 }
 
-static void java_msig_input_cb(mapper_signal sig, void *v)
+static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
+                               mapper_timetag_t *tt, void *v)
 {
     if (bailing)
         return;
 
-    mapper_db_signal props = msig_properties(sig);
     jobject listener = (jobject)props->user_data;
     if (listener) {
         jclass cls = (*genv)->GetObjectClass(genv, listener);

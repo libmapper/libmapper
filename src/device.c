@@ -126,7 +126,8 @@ static int handler_signal(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, &sig->props, sig->props.has_value ? sig->value : 0);
+        sig->handler(sig, &sig->props, &sig->value_tt,
+                     sig->props.has_value ? sig->value : 0);
 
     return 0;
 }
@@ -645,4 +646,14 @@ void mdev_set_property(mapper_device dev, const char *property,
 void mdev_remove_property(mapper_device dev, const char *property)
 {
     table_remove_key(dev->extra, property, 1);
+}
+
+void mdev_set_timetag(mapper_device dev, mapper_timetag_t timetag)
+{
+    // To be implemented.
+}
+
+void mdev_set_queue_size(mapper_signal sig, int queue_size)
+{
+    // To be implemented.
 }

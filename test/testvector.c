@@ -53,7 +53,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props, void *value)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   mapper_timetag_t *timetag, void *value)
 {
     if (value) {
         float *f = value;

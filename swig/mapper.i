@@ -407,7 +407,9 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
-                            mapper_signal_value_t *v)
+                            mapper_db_signal props,
+                            mapper_timetag_t tt,
+                            void *v)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
@@ -417,14 +419,13 @@ static void msig_handler_py(struct _mapper_signal *msig,
                                           SWIGTYPE_p__signal, 0);
 
     if (msig->props.type == 'i')
-        arglist = Py_BuildValue("(Oi)", py_msig, v->i32);
+        arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
     else if (msig->props.type == 'f')
-        arglist = Py_BuildValue("(Of)", py_msig, v->f);
+        arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
         return;
     }
-    mapper_db_signal props = msig_properties(msig);
     result = PyEval_CallObject((PyObject*)props->user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
@@ -587,7 +588,7 @@ typedef struct _admin {} admin;
                       PyObject *PyFunc=0, char *unit=0,
                       maybeSigVal minimum=0, maybeSigVal maximum=0)
     {
-        void *h = 0;
+        mapper_signal_handler *h = 0;
         if (PyFunc) {
             h = msig_handler_py;
             Py_XINCREF(PyFunc);

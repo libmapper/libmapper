@@ -22,10 +22,14 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, void *v)
+void query_response_handler(mapper_signal sig, mapper_db_signal props,
+                            mapper_timetag_t *timetag, void *v)
 {
-    mapper_signal remote = (mapper_signal) sig->props.user_data;
-    printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)v));
+    mapper_signal remote = (mapper_signal) props->user_data;
+    mapper_db_signal remote_props = msig_properties(remote);
+    printf("--> source got query response: %s %f\n",
+           remote_props->name,
+           (*(float*)v));
     received++;
 }
 
@@ -77,9 +81,10 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, void *v)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   mapper_timetag_t *timetag, void *v)
 {
-    printf("--> destination got %s %f\n", sig->props.name, (*(float*)v));
+    printf("--> destination got %s %f\n", props->name, (*(float*)v));
     received++;
 }
 
