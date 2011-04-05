@@ -57,6 +57,7 @@ AC_PROG_CXX
 
 # libtool
 AM_PROG_LIBTOOL
+LT_LIB_M
 
 # Check options
 AC_ARG_ENABLE(debug,
