@@ -49,6 +49,7 @@ int mapper_mapping_perform(mapper_mapping mapping,
                            mapper_signal_value_t *to_value)
 {
     int changed = 0;
+    float f;
     
     if (mapping->props.muted)
         return 0;
@@ -82,35 +83,28 @@ int mapper_mapping_perform(mapper_mapping mapping,
 
     else if (mapping->props.mode == MO_CALIBRATE)
     {
+        if (mapping->props.src_type == 'f')
+            f = from_value->f;
+        else if (mapping->props.src_type == 'i')
+            f = (float)from_value->i32;
+
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (!mapping->calibrating) {
-            if (mapping->props.src_type == 'f') {
-                mapping->props.range.src_min = from_value->f;
-                mapping->props.range.src_max = from_value->f;
-            }
-            else if (mapping->props.src_type == 'i') {
-                mapping->props.range.src_min = (float)from_value->i32;
-                mapping->props.range.src_max = (float)from_value->i32;
-            }
+            mapping->props.range.src_min = f;
+            mapping->props.range.src_max = f;
             mapping->props.range.known |=
                 MAPPING_RANGE_SRC_MIN | MAPPING_RANGE_SRC_MAX;
             mapping->calibrating = 1;
             changed = 1;
         } else {
-            if (from_value->f < mapping->props.range.src_min) {
-                if (mapping->props.src_type == 'f')
-                    mapping->props.range.src_min = from_value->f;
-                else if (mapping->props.src_type == 'i')
-                    mapping->props.range.src_min = (float)from_value->i32;
+            if (f < mapping->props.range.src_min) {
+                mapping->props.range.src_min = f;
                 mapping->props.range.known |= MAPPING_RANGE_SRC_MIN;
                 changed = 1;
             }
-            if (from_value->f > mapping->props.range.src_max) {
-                if (mapping->props.src_type == 'f')
-                    mapping->props.range.src_max = from_value->f;
-                else if (mapping->props.src_type == 'i')
-                    mapping->props.range.src_max = (float)from_value->i32;
+            if (f > mapping->props.range.src_max) {
+                mapping->props.range.src_max = f;
                 mapping->props.range.known |= MAPPING_RANGE_SRC_MAX;
                 changed = 1;
             }

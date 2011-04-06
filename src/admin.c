@@ -323,7 +323,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
             admin->ordinal.suggestion[i] = 0;
             admin->port.suggestion[i] = 0;
         }
-        admin->device->update = 0;
+        admin->device->flags = 0;
         
         /* Choose a random ID for allocation speedup */
         admin->random_id = rand();
@@ -362,8 +362,10 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
  */
 int mapper_admin_poll(mapper_admin admin)
 {
-
     int count = 0, status, i = 0;
+
+    if (admin->device)
+        admin->device->flags &= ~FLAGS_ADMIN_MESSAGES;
 
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
@@ -420,10 +422,10 @@ int mapper_admin_poll(mapper_admin admin)
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
               admin->identifier, admin, mapper_admin_name(admin));
-        admin->device->update = 1;
+        admin->device->flags |= FLAGS_ATTRIBS_CHANGED;
     }
-    if (admin->registered && admin->device->update) {
-        admin->device->update = 0;
+    if (admin->registered && (admin->device->flags & FLAGS_ATTRIBS_CHANGED)) {
+        admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
               AT_IP, inet_ntoa(admin->interface_ip),
@@ -654,6 +656,9 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 {
     mapper_admin admin = (mapper_admin) user_data;
 
+    if (admin->device->flags & FLAGS_WHO)
+        return 0;
+
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
         AT_IP, inet_ntoa(admin->interface_ip),
@@ -662,6 +667,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_REV, admin->device->version,
         AT_EXTRA, admin->device->extra);
+
+    admin->device->flags |= FLAGS_WHO;
 
     return 0;
 }
@@ -758,6 +765,9 @@ static int handler_id_n_signals_input_get(const char *path,
     char sig_name[1024];
     int i;
 
+    if (md->flags & FLAGS_INPUTS_GET)
+        return 0;
+
     for (i = 0; i < md->n_inputs; i++) {
         mapper_signal sig = md->inputs[i];
         if (sig->props.hidden == 0) {
@@ -772,6 +782,8 @@ static int handler_id_n_signals_input_get(const char *path,
                 AT_EXTRA, sig->props.extra);
         }
     }
+
+    md->flags |= FLAGS_INPUTS_GET;
 
     return 0;
 }
@@ -789,6 +801,9 @@ static int handler_id_n_signals_output_get(const char *path,
     char sig_name[1024];
     int i;
 
+    if (md->flags & FLAGS_OUTPUTS_GET)
+        return 0;
+
     for (i = 0; i < md->n_outputs; i++) {
         mapper_signal sig = md->outputs[i];
         if (sig->props.hidden == 0) {
@@ -803,6 +818,8 @@ static int handler_id_n_signals_output_get(const char *path,
                 AT_EXTRA, sig->props.extra);
         }
     }
+
+    md->flags |= FLAGS_OUTPUTS_GET;
 
     return 0;
 }
@@ -1208,6 +1225,10 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Creation of a new router added to the source.
     router = mapper_router_new(md, host, port, dest_name);
+    if (!router) {
+        trace("can't perform /linkTo, NULL router\n");
+        return 0;
+    }
     mdev_add_router(md, router);
 
     // Announce the result.
@@ -1263,12 +1284,18 @@ static int handler_device_links_get(const char *path, const char *types,
     trace("<%s> got %s/links/get\n", mapper_admin_name(admin),
           mapper_admin_name(admin));
 
+    if (md->flags & FLAGS_LINKS_GET)
+        return 0;
+
     /*Search through linked devices */
     while (router != NULL) {
         mapper_admin_send_osc(admin, "/linked", "ss", mapper_admin_name(admin),
                               router->dest_name);
         router = router->next;
     }
+
+    md->flags |= FLAGS_LINKS_GET;
+
     return 0;
 }
 
@@ -1756,6 +1783,8 @@ static int handler_device_connections_get(const char *path,
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
+    if (md->flags & FLAGS_CONNECTIONS_GET)
+        return 0;
 
     while (router) {
 
@@ -1779,5 +1808,6 @@ static int handler_device_connections_get(const char *path,
 
     }
 
+    md->flags |= FLAGS_CONNECTIONS_GET;
     return 0;
 }

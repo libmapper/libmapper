@@ -23,7 +23,7 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->value = calloc(1, msig_vector_bytes(sig));
-    sig->has_value = 0;
+    sig->props.has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
@@ -35,6 +35,14 @@ mapper_signal msig_new(const char *name, int length, char type,
 mapper_db_signal msig_properties(mapper_signal sig)
 {
     return &sig->props;
+}
+
+mapper_signal_value_t *msig_value(mapper_signal sig)
+{
+    if (sig->props.has_value)
+        return sig->value;
+    else
+        return 0;
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
@@ -123,7 +131,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
-    sig->has_value = 1;
+    sig->props.has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -148,7 +156,7 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     memcpy(sig->value, &value, msig_vector_bytes(sig));
-    sig->has_value = 1;
+    sig->props.has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -166,7 +174,7 @@ void msig_update(mapper_signal sig, void *value)
 #endif
 
     memcpy(sig->value, value, msig_vector_bytes(sig));
-    sig->has_value = 1;
+    sig->props.has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
@@ -208,7 +216,7 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     return strlen(name);
 }
 
-int msig_query_remote(mapper_signal sig, void *receiver)
+int msig_query_remote(mapper_signal sig, mapper_signal receiver)
 {
     // stick to output signals for now
     if (!sig->props.is_output)

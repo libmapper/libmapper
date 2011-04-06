@@ -74,6 +74,11 @@ products such as Camille Troillard's [Osculator](http://www.osculator.net/)
 and STEIM's [Junxion](http://www.steim.org/steim/junxion_v4.html),
 albeit certainly more "barebones" for the moment.
 
+In addition to passing signal data through mapping connections, libmapper
+provides the ability to query the state of the inputs on a destination device.
+This permits the use of intermediate devices that use supervised machine
+learning techniques to "learn" mappings automatically.
+
 A major difference in libmapper's approach to handling devices is the
 idea that each "driver" can be a separate process, on the same or
 different machines in the network.  By creating a C library with a
@@ -169,13 +174,6 @@ limited to platforms supported by Max/MSP.  (In other words, not
 Linux.)  There are currently plans to create a web-based front-end
 that will be cross-platform.  Better ways of visualizing and
 interacting with the network are also an active research topic.
-
-For implementing intermediate devices that "learn" mappings
-automatically, a useful feature would be to request snapshots of the
-states of all inputs on a destination device.  This has already been
-implemented in the previous Max/MSP version, and we have examples of
-neural network and SVM intermediates, but this feature has not yet
-made it into the C version of libmapper.
 
 Currently the only supported data types are 32-bit integers and 32-bit
 floating point.  This covers most of our use cases, but we hope to

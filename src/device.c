@@ -97,7 +97,7 @@ static void mdev_increment_version(mapper_device md)
 {
     md->version ++;
     if (md->admin->registered) {
-        md->update = 1;
+        md->flags |= FLAGS_ATTRIBS_CHANGED;
     }
 }
 
@@ -113,16 +113,20 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    /* This is cheating a bit since we know that the arguments pointed
-     * to by argv are layed out sequentially in memory.  It's not
-     * clear if liblo's semantics guarantee it, but known to be true
-     * on all platforms. */
-    memcpy(sig->value, argv[0], msig_vector_bytes(sig));
-
-    sig->has_value = 1;
+    if (types[0] == LO_NIL) {
+        sig->props.has_value = 0;
+    }
+    else {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
+        memcpy(sig->value, argv[0], msig_vector_bytes(sig));
+        sig->props.has_value = 1;
+    }
 
     if (sig->handler)
-        sig->handler(sig, sig->value);
+        sig->handler(sig, &sig->props, sig->props.has_value ? sig->value : 0);
 
     return 0;
 }
@@ -139,8 +143,6 @@ static int handler_query(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
-    if (!sig->has_value)
-        return 0;
 
     if (!argc)
         dest_name = (char *)path;
@@ -159,9 +161,14 @@ static int handler_query(const char *path, const char *types,
     if (!m)
         return 0;
 
-    mapper_signal_value_t *value = sig->value;
-    for (i = 0; i < sig->props.length; i++)
-        mval_add_to_message(m, sig, &value[i]);
+    if (sig->props.has_value) {
+        mapper_signal_value_t *value = sig->value;
+        for (i = 0; i < sig->props.length; i++)
+            mval_add_to_message(m, sig, &value[i]);
+    }
+    else {
+        lo_message_add_nil(m);
+    }
 
     lo_send_message(lo_message_get_source(msg), dest_name, m);
     lo_message_free(m);
@@ -201,6 +208,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              sig->props.name,
                              type_string,
                              handler_signal, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "N",
+                             handler_signal, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
         snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
@@ -222,7 +233,7 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
                                     void *user_data)
 {
     int version = md->version;
-    int update = md->update;
+    int flags = md->flags;
     mapper_signal sig = mdev_add_input(md, name, length, type, unit, 
                                        minimum, maximum, handler, user_data);
     sig->props.hidden = 1;
@@ -230,7 +241,7 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
     /* Addition of a hidden input should not affect version or update status, so
      * we will restore them to their previous values */
     md->version = version;
-    md->update = update;
+    md->flags = flags;
     return sig;
 }
 
@@ -313,9 +324,24 @@ int mdev_num_inputs(mapper_device md)
     return md->n_inputs - md->n_hidden_inputs;
 }
 
+int mdev_num_hidden_inputs(mapper_device md)
+{
+    return md->n_hidden_inputs;
+}
+
 int mdev_num_outputs(mapper_device md)
 {
     return md->n_outputs;
+}
+
+mapper_signal *mdev_get_inputs(mapper_device md)
+{
+    return md->inputs;
+}
+
+mapper_signal *mdev_get_outputs(mapper_device md)
+{
+    return md->outputs;
 }
 
 mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
@@ -542,6 +568,10 @@ void mdev_start_server(mapper_device md)
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type,
+                                 handler_signal, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "N",
                                  handler_signal, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             signal_get = (char*) realloc(signal_get, len);
