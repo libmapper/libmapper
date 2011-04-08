@@ -270,6 +270,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             t[0] = (char)i;
             lo_message_add_string(m, t);
             break;
+        case AT_UNITS:
+            sig = va_arg(aq, mapper_signal);
+            lo_message_add_string(m, sig->props.unit);
+            break;
         case AT_MIN:
             sig = va_arg(aq, mapper_signal);
             mval_add_to_message(m, sig, sig->props.minimum);

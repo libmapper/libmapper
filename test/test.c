@@ -38,8 +38,8 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'f', 0, &mn, &mx);
-    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', 0, &mn, &mx);
+    sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'f', "Hz", &mn, &mx);
+    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', "mm", &mn, &mx);
     sendsig_3 = mdev_add_output(source, "/outsig_3", 1, 'f', 0, &mn, &mx);
     sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, &mn, &mx);
 
