@@ -13,7 +13,7 @@ _%.so: $(builddir)/%_wrap.c
 clean-local:
 	-@rm -vf _mapper.so mapper.py mapper_wrap.c
 
-install-exec-hook:
+install-exec-hook: $(builddir)/mapper_wrap.c
 	python setup.py install --prefix=$(prefix)
 
 EXTRA_DIST = mapper.i tkgui.py
