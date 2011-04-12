@@ -244,6 +244,10 @@ typedef enum {
     AT_MUTE,
     AT_LENGTH,
     AT_DIRECTION,
+    AT_SRCTYPE,
+    AT_DESTTYPE,
+    AT_SRCLENGTH,
+    AT_DESTLENGTH,
     AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;

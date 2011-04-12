@@ -158,7 +158,7 @@
                     }
                     else if (strcmp(s, "src_type")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_type = PyString_AsString(v)[0];
+                            p.props.src_type = PyString_AsString(v)[0];
                     }
                     else if (strcmp(s, "dest_type")==0) {
                         if (PyString_Check(v))
