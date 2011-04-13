@@ -945,7 +945,7 @@ typedef struct _admin {} admin;
     }
     void connect(const char* source_signal,
                  const char* dest_signal,
-                 mapper_db_mapping_with_flags_t *properties) {
+                 mapper_db_mapping_with_flags_t *properties=0) {
         if (properties) {
             mapper_monitor_connect($self, source_signal, dest_signal,
                                    &properties->props, properties->flags);
