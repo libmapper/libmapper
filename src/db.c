@@ -450,6 +450,17 @@ static void update_char_if_arg(char *pdest_char,
         (*pdest_char) = (*a)->c;
 }
 
+static void update_int_if_arg(int *pdest_int,
+                              mapper_message_t *params,
+                              mapper_msg_param_t field)
+{
+    lo_arg **a = mapper_msg_get_param(params, field);
+    const char *type = mapper_msg_get_type(params, field);
+
+    if (a && (*a) && (type[0]=='i'))
+        (*pdest_int) = (&(*a)->i)[0];
+}
+
 static void add_or_update_extra_params(table t,
                                        mapper_message_t *params)
 {
@@ -1272,6 +1283,10 @@ static void update_mapping_record_params(mapper_db_mapping map,
     }
 
     update_string_if_arg(&map->expression, params, AT_EXPRESSION);
+    update_char_if_arg(&map->src_type, params, AT_SRCTYPE);
+    update_char_if_arg(&map->dest_type, params, AT_DESTTYPE);
+    update_int_if_arg(&map->src_length, params, AT_SRCLENGTH);
+    update_int_if_arg(&map->dest_length, params, AT_DESTLENGTH);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
     if (mode!=-1)

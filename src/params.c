@@ -23,6 +23,10 @@ const char* mapper_msg_param_strings[] =
     "@mute",       /* AT_MUTE */
     "@length",     /* AT_LENGTH */
     "@direction",  /* AT_DIRECTION */
+    "@srcType",    /* AT_SRCTYPE */
+    "@destType",   /* AT_DESTTYPE */
+    "@srcLength",  /* AT_SRCLENGTH */
+    "@destLength", /* AT_DESTLENGTH */
     "",            /* AT_EXTRA (special case, does not represent a
                     * specific property name) */
 };
@@ -266,6 +270,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_int32(m, i);
             break;
         case AT_TYPE:
+        case AT_SRCTYPE:
+        case AT_DESTTYPE:
             i = va_arg(aq, int);
             t[0] = (char)i;
             lo_message_add_string(m, t);
@@ -325,6 +331,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_int32(m, i!=0);
             break;
         case AT_LENGTH:
+        case AT_SRCLENGTH:
+        case AT_DESTLENGTH:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
@@ -465,6 +473,14 @@ void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
     lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, map->props.muted);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SRCTYPE]);
+    lo_message_add_char(m, map->props.src_type);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_DESTTYPE]);
+    lo_message_add_char(m, map->props.dest_type);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SRCLENGTH]);
+    lo_message_add_int32(m, map->props.src_length);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
+    lo_message_add_int32(m, map->props.dest_length);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)

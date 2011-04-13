@@ -158,7 +158,7 @@
                     }
                     else if (strcmp(s, "src_type")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_type = PyString_AsString(v)[0];
+                            p.props.src_type = PyString_AsString(v)[0];
                     }
                     else if (strcmp(s, "dest_type")==0) {
                         if (PyString_Check(v))
@@ -945,7 +945,7 @@ typedef struct _admin {} admin;
     }
     void connect(const char* source_signal,
                  const char* dest_signal,
-                 mapper_db_mapping_with_flags_t *properties) {
+                 mapper_db_mapping_with_flags_t *properties=0) {
         if (properties) {
             mapper_monitor_connect($self, source_signal, dest_signal,
                                    &properties->props, properties->flags);
