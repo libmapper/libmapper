@@ -1731,8 +1731,18 @@ static int handler_signal_disconnect(const char *path, const char *types,
     }
     
     mapper_router router = mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
-    
+    if (!router) {
+        trace("<%s> ignoring /disconnect, no router found for '%s'\n",
+              mapper_admin_name(admin), &argv[1]->s);
+        return 0;
+    }
+
     mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
+    if (!m) {
+        trace("<%s> ignoring /disconnect, no mapping found for '%s' -> '%s'\n",
+              mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
+        return 0;
+    }
     
     /*The mapping is removed */
     if (mapper_router_remove_mapping(router, m)) {
