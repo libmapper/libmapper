@@ -931,6 +931,8 @@ static void update_signal_record_params(mapper_db_signal sig,
 
     update_char_if_arg(&sig->type, params, AT_TYPE);
 
+    update_int_if_arg(&sig->length, params, AT_LENGTH);
+
     update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
     update_signal_value_if_arg(params, AT_MAX,
