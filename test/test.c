@@ -40,7 +40,7 @@ int setup_source()
 
     sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'f', "Hz", &mn, &mx);
     sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', "mm", &mn, &mx);
-    sendsig_3 = mdev_add_output(source, "/outsig_3", 1, 'f', 0, &mn, &mx);
+    sendsig_3 = mdev_add_output(source, "/outsig_3", 3, 'f', 0, &mn, &mx);
     sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, &mn, &mx);
 
     printf("Output signal /outsig registered.\n");
@@ -77,7 +77,12 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag, void *value)
 {
     if (value) {
-        printf("--> destination got %s %f\n", props->name, (*(float*)value));
+        printf("--> destination got %s", props->name);
+        float *v = value;
+        for (int i = 0; i < props->length; i++) {
+            printf(" %f", v[i]);
+        }
+        printf("\n");
     }
     received++;
 }
@@ -96,7 +101,7 @@ int setup_destination()
                                0, &mn, &mx, insig_handler, 0);
     recvsig_2 = mdev_add_input(destination, "/insig_2", 1, 'f',
                                0, &mn, &mx, insig_handler, 0);
-    recvsig_3 = mdev_add_input(destination, "/insig_3", 1, 'f',
+    recvsig_3 = mdev_add_input(destination, "/insig_3", 3, 'f',
                                0, &mn, &mx, insig_handler, 0);
     recvsig_4 = mdev_add_input(destination, "/insig_4", 1, 'f',
                                0, &mn, &mx, insig_handler, 0);
