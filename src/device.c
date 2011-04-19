@@ -188,6 +188,8 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     char *type_string = 0, *signal_get = 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
                                  maximum, handler, user_data);
+    if (!sig)
+        return 0;
     md->n_inputs++;
     grow_ptr_array((void **) &md->inputs, md->n_inputs,
                    &md->n_alloc_inputs);
@@ -237,6 +239,8 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
     int flags = md->flags;
     mapper_signal sig = mdev_add_input(md, name, length, type, unit, 
                                        minimum, maximum, handler, user_data);
+    if (!sig)
+        return 0;
     sig->props.hidden = 1;
     md->n_hidden_inputs++;
     /* Addition of a hidden input should not affect version or update status, so
@@ -255,6 +259,8 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
         return 0;
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
                                  maximum, 0, 0);
+    if (!sig)
+        return 0;
     md->n_outputs++;
     grow_ptr_array((void **) &md->outputs, md->n_outputs,
                    &md->n_alloc_outputs);
