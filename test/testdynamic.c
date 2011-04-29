@@ -5,7 +5,6 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <signal.h>
 
 int automate = 1;

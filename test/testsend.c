@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 
 int test_controller()
 {

@@ -7,7 +7,6 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 
 int sent = 0;
 int received = 0;

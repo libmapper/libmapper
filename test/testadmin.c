@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 
 mapper_admin my_admin = NULL;
 mapper_device my_device = NULL;
@@ -30,7 +29,7 @@ int test_admin()
 
     printf("Device structure initialized.\n");
 
-    printf("Found interface %s has IP %s\n", my_admin->interface,
+    printf("Found interface %s has IP %s\n", my_admin->interface_name,
            inet_ntoa(my_admin->interface_ip));
 
     while (!my_admin->port.locked || !my_admin->ordinal.locked) {

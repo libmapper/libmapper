@@ -7,7 +7,6 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <signal.h>
 
 mapper_monitor mon = 0;

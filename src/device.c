@@ -617,7 +617,7 @@ const struct in_addr *mdev_ip4(mapper_device md)
 
 const char *mdev_interface(mapper_device md)
 {
-    return md->admin->interface;
+    return md->admin->interface_name;
 }
 
 unsigned int mdev_ordinal(mapper_device md)

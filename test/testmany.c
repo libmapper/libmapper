@@ -9,7 +9,6 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <signal.h>
 
 int num_sources = 5;

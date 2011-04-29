@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 
 mapper_device source = 0;
 mapper_device destination = 0;
