@@ -207,18 +207,7 @@ PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([liblo],
   AS_HELP_STRING([--without-liblo],[compile without liblo, disable OSC]))
 AS_IF([test x$with_liblo != xno],[
-  # Unless cross-compiling, use pkg-config.
-  AS_IF([test x$host = x$build],[
-    PKG_CHECK_MODULES([liblo], [liblo >= 0.26])
-  ],[
-    AC_CHECK_LIB([lo],[lo_server_new])
-    AC_CHECK_HEADER([lo/lo.h])
-    case $host in
-      *mingw*)
-        liblo_LIBS="$liblo_LIBS -lws2_32 -liphlpapi -lpthread"
-        ;;
-    esac
-  ])])
+  PKG_CHECK_MODULES([liblo], [liblo >= 0.26])])
 AS_IF([test "x$liblo_LIBS" = x],
   [with_liblo=no])
 AS_IF([test x$with_liblo != xno],[
