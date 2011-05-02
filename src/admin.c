@@ -203,6 +203,7 @@ static int get_interface_addr(const char* pref,
 #else // !HAVE_GETIFADDRS
 
 #ifdef HAVE_LIBIPHLPAPI
+    // TODO consider "pref" as well
 
     /* Start with recommended 15k buffer for GetAdaptersAddresses. */
     ULONG size = 15*1024/2;
@@ -221,18 +222,23 @@ static int get_interface_addr(const char* pref,
     PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
     while (aa && rc==ERROR_SUCCESS) {
         PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
-        if (pua) {
+	// Skip adapters that are not "Up".
+        if (pua && aa->OperStatus == IfOperStatusUp) {
             if (aa->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
                 loaa = aa;
                 lopua = pua;
             }
             else {
-                if (*iface) free(*iface);
-                *iface = strdup(aa->AdapterName);
+		// Skip addresses starting with 0.X.X.X or 169.X.X.X.
                 sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
-                *addr = sa->sin_addr;
-                free(paa);
-                return 0;
+		unsigned char prefix = sa->sin_addr.s_addr&0xFF;
+		if (prefix!=0xA9 && prefix!=0) {
+		    if (*iface) free(*iface);
+		    *iface = strdup(aa->AdapterName);
+		    *addr = sa->sin_addr;
+		    free(paa);
+		    return 0;
+		}
             }
         }
         aa = aa->Next;
