@@ -45,9 +45,13 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
       # Need some functions not available before Windows XP
       CFLAGS="$CFLAGS -DWIN32 -D_WIN32_WINNT=0x501"
       AC_DEFINE([HAVE_LIBIPHLPAPI],[],[Define if iphlpapi library is available. (Windows)])
+      is_windows=yes
     ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
+
+AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
+AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
