@@ -427,8 +427,13 @@ int mdev_poll(mapper_device md, int block_ms)
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
-    else if (block_ms)
+    else if (block_ms) {
+#ifdef WIN32
+        Sleep(block_ms);
+#else
         usleep(block_ms * 1000);
+#endif
+    }
 
     return admin_count + count;
 }

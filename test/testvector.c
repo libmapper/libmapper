@@ -7,6 +7,10 @@
 
 #include <unistd.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 mapper_device source = 0;
 mapper_device destination = 0;
 mapper_router router = 0;

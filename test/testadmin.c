@@ -6,6 +6,10 @@
 
 #include <unistd.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 mapper_admin my_admin = NULL;
 mapper_device my_device = NULL;
 

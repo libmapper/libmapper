@@ -7,6 +7,10 @@
 #include <unistd.h>
 #include <signal.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 int automate = 1;
 
 mapper_device source = 0;

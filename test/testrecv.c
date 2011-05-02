@@ -8,6 +8,10 @@
 
 #include <unistd.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 int sent = 0;
 int received = 0;
 

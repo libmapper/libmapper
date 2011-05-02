@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <signal.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 mapper_monitor mon = 0;
 mapper_db db = 0;
 

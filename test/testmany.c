@@ -11,6 +11,10 @@
 #include <unistd.h>
 #include <signal.h>
 
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
+
 int num_sources = 5;
 int num_dests = 5;
 int max_num_signals = 4;
