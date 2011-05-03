@@ -188,6 +188,7 @@ static int expr_lex(const char **str, token_t *tok)
     case '-':
     case '/':
     case '*':
+    case '%':
     case '=':
         tok->type = TOK_OP;
         tok->op = c;
@@ -627,7 +628,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         case TERM_RIGHT:
             if (tok.type == TOK_OP) {
                 POP();
-                if (tok.op == '*' || tok.op == '/') {
+                if (tok.op == '*' || tok.op == '/' || tok.op == '%') {
                     APPEND_OP(tok);
                     PUSHSTATE(TERM);
                     next_token = 1;
@@ -925,6 +926,7 @@ mapper_signal_value_t mapper_expr_evaluate(
                 case '-': stack[++top].f = left.f - right.f; break;
                 case '*': stack[++top].f = left.f * right.f; break;
                 case '/': stack[++top].f = left.f / right.f; break;
+                case '%': stack[++top].f = fmod(left.f, right.f); break;
                 default: goto error;
                 }
                 trace_eval("%f\n", stack[top].f);
@@ -935,6 +937,7 @@ mapper_signal_value_t mapper_expr_evaluate(
                 case '-': stack[++top].i32 = left.i32 - right.i32; break;
                 case '*': stack[++top].i32 = left.i32 * right.i32; break;
                 case '/': stack[++top].i32 = left.i32 / right.i32; break;
+                case '%': stack[++top].i32 = left.i32 % right.i32; break;
                 default: goto error;
                 }
                 trace_eval("%d\n", stack[top].i32);
