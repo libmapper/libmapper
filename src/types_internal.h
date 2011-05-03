@@ -4,6 +4,16 @@
 
 #include <lo/lo_lowlevel.h>
 
+#include "config.h"
+
+#ifdef HAVE_ARPA_INET_H
+ #include <arpa/inet.h>
+#else
+ #ifdef HAVE_WINSOCK2_H
+  #include <winsock2.h>
+ #endif
+#endif
+
 #include <mapper/mapper_db.h>
 
 /**** Defined in mapper.h ****/
@@ -76,7 +86,6 @@ typedef struct _mapper_admin_allocated_t {
     mapper_admin_resource_on_collision *on_collision;
 } mapper_admin_allocated_t;
 
-
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
     char *identifier;                 /*!< The identifier (prefix) for
@@ -92,7 +101,7 @@ typedef struct _mapper_admin {
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
                                        *   bus. */
-    char *interface;                  /*!< The name of the network
+    char *interface_name;             /*!< The name of the network
                                        *   interface for receiving
                                        *   messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */

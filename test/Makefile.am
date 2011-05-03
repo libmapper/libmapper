@@ -1,6 +1,11 @@
 
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
+
+if WINDOWS_DLL
+TEST_LDADD = $(top_builddir)/src/*.lo $(liblo_LIBS)
+else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+endif
 
 noinst_PROGRAMS = test testmany testadmin testsend testrecv			\
                   testexpression testlinear testparams testmonitor	\

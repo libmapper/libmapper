@@ -7,7 +7,10 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
+
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
 
 int sent = 0;
 int received = 0;

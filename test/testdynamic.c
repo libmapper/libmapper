@@ -5,8 +5,11 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <signal.h>
+
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
 
 int automate = 1;
 

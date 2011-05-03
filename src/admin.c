@@ -1,13 +1,27 @@
 
+#include "config.h"
+
 #include <lo/lo.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
 #include <sys/time.h>
-#include <net/if.h>
+
+#ifdef HAVE_GETIFADDRS
+ #include <ifaddrs.h>
+ #include <net/if.h>
+#endif
+
+#ifdef HAVE_ARPA_INET_H
+ #include <arpa/inet.h>
+#else
+ #ifdef HAVE_WINSOCK2_H
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #include <iphlpapi.h>
+ #endif
+#endif
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -134,16 +148,19 @@ static int check_collisions(mapper_admin admin,
 static int get_interface_addr(const char* pref,
                               struct in_addr* addr, char **iface)
 {
-    struct ifaddrs *ifaphead;
-    struct ifaddrs *ifap;
-    struct ifaddrs *iflo=0, *ifchosen=0;
     struct in_addr zero;
     struct sockaddr_in *sa;
 
+    *(unsigned int *)&zero = inet_addr("0.0.0.0");
+
+#ifdef HAVE_GETIFADDRS
+
+    struct ifaddrs *ifaphead;
+    struct ifaddrs *ifap;
+    struct ifaddrs *iflo=0, *ifchosen=0;
+
     if (getifaddrs(&ifaphead) != 0)
         return 1;
-
-    inet_aton("0.0.0.0", &zero);
 
     ifap = ifaphead;
     while (ifap) {
@@ -182,6 +199,69 @@ static int get_interface_addr(const char* pref,
     }
 
     freeifaddrs(ifaphead);
+
+#else // !HAVE_GETIFADDRS
+
+#ifdef HAVE_LIBIPHLPAPI
+    // TODO consider "pref" as well
+
+    /* Start with recommended 15k buffer for GetAdaptersAddresses. */
+    ULONG size = 15*1024/2;
+    int tries = 3;
+    PIP_ADAPTER_ADDRESSES paa = malloc(size*2);
+    DWORD rc = ERROR_SUCCESS-1;
+    while (rc!=ERROR_SUCCESS && paa && tries-- > 0) {
+        size *= 2;
+        paa = realloc(paa, size);
+        rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
+    }
+    if (rc!=ERROR_SUCCESS)
+        return 2;
+
+    PIP_ADAPTER_ADDRESSES loaa=0, aa = paa;
+    PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
+    while (aa && rc==ERROR_SUCCESS) {
+        PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
+	// Skip adapters that are not "Up".
+        if (pua && aa->OperStatus == IfOperStatusUp) {
+            if (aa->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
+                loaa = aa;
+                lopua = pua;
+            }
+            else {
+		// Skip addresses starting with 0.X.X.X or 169.X.X.X.
+                sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
+		unsigned char prefix = sa->sin_addr.s_addr&0xFF;
+		if (prefix!=0xA9 && prefix!=0) {
+		    if (*iface) free(*iface);
+		    *iface = strdup(aa->AdapterName);
+		    *addr = sa->sin_addr;
+		    free(paa);
+		    return 0;
+		}
+            }
+        }
+        aa = aa->Next;
+    }
+
+    if (loaa && lopua) {
+        if (*iface) free(*iface);
+        *iface = strdup(loaa->AdapterName);
+        sa = (struct sockaddr_in *) lopua->Address.lpSockaddr;
+        *addr = sa->sin_addr;
+        free(paa);
+        return 0;
+    }
+
+    if (paa) free(paa);
+
+#else
+
+  #error No known method on this system to get the network interface address.
+
+#endif // HAVE_LIBIPHLPAPI
+#endif // !HAVE_GETIFADDRS
+
     return 2;
 }
 
@@ -219,7 +299,7 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     if (!admin)
         return NULL;
 
-    admin->interface = 0;
+    admin->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
     char port_str[10], *s_port = port_str;
@@ -229,10 +309,9 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     else
         snprintf(port_str, 10, "%d", port);
 
-    /* Initialize interface information.  We'll use defaults for now,
-     * perhaps this should be configurable in the future. */
+    /* Initialize interface information. */
     if (get_interface_addr(iface, &admin->interface_ip,
-                           &admin->interface))
+                           &admin->interface_name))
         trace("no interface found\n");
 
     /* Open address */
@@ -249,14 +328,14 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     /* Specify the interface to use for multicasting */
 #ifdef HAVE_LIBLO_SET_IFACE
     lo_address_set_iface(admin->admin_addr,
-                         admin->interface, 0);
+                         admin->interface_name, 0);
 #endif
 
     /* Open server for multicast group 224.0.1.3, port 7570 */
     admin->admin_server =
 #ifdef HAVE_LIBLO_SERVER_IFACE
         lo_server_new_multicast_iface(group, s_port,
-                                      admin->interface, 0,
+                                      admin->interface_name, 0,
                                       handler_error);
 #else
         lo_server_new_multicast(group, s_port, handler_error);
@@ -291,8 +370,8 @@ void mapper_admin_free(mapper_admin admin)
     if (admin->name)
         free(admin->name);
 
-    if (admin->interface)
-        free(admin->interface);
+    if (admin->interface_name)
+        free(admin->interface_name);
 
     if (admin->admin_server)
         lo_server_free(admin->admin_server);

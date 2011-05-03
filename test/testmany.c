@@ -9,8 +9,11 @@
 #include <lo/lo.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <signal.h>
+
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
 
 int num_sources = 5;
 int num_dests = 5;

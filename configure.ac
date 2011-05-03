@@ -38,9 +38,20 @@ AM_SANITY_CHECK
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
-AC_CHECK_FUNC([inet_ntoa],[],[AC_ERROR([This is not a POSIX system!])])
+AC_CHECK_HEADERS([winsock2.h])
+AC_CHECK_FUNC([inet_ptoa],[AC_DEFINE([HAVE_INET_PTOA],[],[Define if inet_ptoa() is available.])],[])
+AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs() is available.])],[
+  AC_CHECK_LIB([iphlpapi],[exit],[
+      # Need some functions not available before Windows XP
+      CFLAGS="$CFLAGS -DWIN32 -D_WIN32_WINNT=0x501"
+      AC_DEFINE([HAVE_LIBIPHLPAPI],[],[Define if iphlpapi library is available. (Windows)])
+      is_windows=yes
+    ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
+
+AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
+AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -56,6 +67,7 @@ AC_PROG_CC_C99
 AC_PROG_CXX
 
 # libtool
+AC_LIBTOOL_WIN32_DLL
 AM_PROG_LIBTOOL
 
 # Check for the math library
@@ -217,13 +229,14 @@ AS_IF([test x$with_liblo != xno],[
 
 # Debug mode
 AS_IF([test x$enable_debug = xyes],
-      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG"],
+      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"],
       [CFLAGS="$CFLAGS -DNDEBUG"])
 
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$swig_enabled" = xyes)
+AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 
 AC_CONFIG_FILES([
     Makefile

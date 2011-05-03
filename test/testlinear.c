@@ -5,7 +5,10 @@
 #include <math.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
+
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
 
 mapper_device source = 0;
 mapper_device destination = 0;
