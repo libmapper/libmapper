@@ -30,6 +30,16 @@ static float pif()
     return M_PI;
 }
 
+static float midi2hz(float x)
+{
+    return 440. * pow(2.0, (x - 69) / 12.0);
+}
+
+static float hz2midi(float x)
+{
+    return 69. + 12. * log2(x / 440.);
+}
+
 typedef enum {
     FUNC_UNKNOWN=-1,
     FUNC_POW=0,
@@ -60,6 +70,8 @@ typedef enum {
     FUNC_MIN,
     FUNC_MAX,
     FUNC_PI,
+    FUNC_MIDI2HZ,
+    FUNC_HZ2MIDI,
     N_FUNCS
 } expr_func_t;
 
@@ -96,6 +108,8 @@ static struct {
     { "min", 2, minf },
     { "max", 2, maxf },
     { "pi", 0, pif },
+    { "midi2hz", 1, midi2hz },
+    { "hz2midi", 1, hz2midi },
 };
 
 typedef float func_float_arity0();
