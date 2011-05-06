@@ -408,7 +408,7 @@ static PyObject *link_to_py(mapper_db_link_t *link)
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
                             mapper_db_signal props,
-                            mapper_timetag_t tt,
+                            mapper_timetag_t *tt,
                             void *v)
 {
     PyEval_RestoreThread(_save);
