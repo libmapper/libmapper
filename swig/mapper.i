@@ -418,10 +418,15 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    if (msig->props.type == 'i')
-        arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
-    else if (msig->props.type == 'f')
-        arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+    if (v) {
+        if (msig->props.type == 'i')
+            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+        else if (msig->props.type == 'f')
+            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+    }
+    else {
+        arglist = Py_BuildValue("(Os)", py_msig, 0);
+    }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
         return;
