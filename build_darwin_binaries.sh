@@ -58,10 +58,10 @@ function make_arch()
 
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
-            ../install/lib/liblo.dylib
+            ../install/lib/liblo.dylib || exit 1
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
-            ../install/lib/liblo.7.dylib
+            ../install/lib/liblo.7.dylib || exit 1
 
         if make && make install; then
             cd ..
@@ -76,10 +76,10 @@ function make_arch()
 
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
-        install/lib/libmapper-$LIBMAPPER_MAJOR.dylib
+        install/lib/libmapper-$LIBMAPPER_MAJOR.dylib || exit 1
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
-        install/lib/libmapper-$LIBMAPPER_VERSION.dylib
+        install/lib/libmapper-$LIBMAPPER_VERSION.dylib || exit 1
 
     cd ..
 }
