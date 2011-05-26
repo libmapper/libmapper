@@ -128,18 +128,30 @@ fi
 # Check for JNI
 if test x$jni_enabled = xyes; then
    JDKPATH=
-   JDKBINPATH=
    if test -d /usr/lib/jvm/java-6-openjdk; then
       JDKPATH=/usr/lib/jvm/java-6-openjdk
    elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
-      JDKPATH=/System/Library/Frameworks/JavaVM.framework/Headers
+      JDKPATH=/System/Library/Frameworks/JavaVM.framework
    fi
 
    AC_ARG_WITH([jdk-path],
      AS_HELP_STRING([--with-jdk-path],[specify the path to the JDK]),
-     [JDKPATH="$withval"; JDKBINPATH="$withval/bin"])
+     [JDKPATH="$withval"])
 
-   JNIPATH="$JDKPATH/include"
+   if test x"$JNIPATH" = x; then
+     if test -f "$JDKPATH"/Headers/jni.h; then
+       JNIPATH="$JDKPATH"/Headers
+     elif test -f "$JDKPATH"/include/jni.h; then
+       JNIPATH="$JDKPATH"/include
+     fi
+   fi
+   if test x"$JDKBINPATH" = x; then
+     if test -f "$JDKPATH"/Commands/javac; then
+       JDKBINPATH="$JDKPATH"/Commands
+     elif test -f "$JDKPATH"/bin/javac; then
+       JDKBINPATH="$JDKPATH"/bin
+     fi
+   fi
 
    AC_PATH_PROG([JAVAC], [javac], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
