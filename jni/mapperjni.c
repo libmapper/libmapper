@@ -42,7 +42,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
     mdev_free(dev);
 }
 
-JNIEXPORT int JNICALL Java_Mapper_Device_mdev_1poll
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1poll
   (JNIEnv *env, jobject obj, jlong d, jint timeout)
 {
     genv = env;
