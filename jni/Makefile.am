@@ -8,14 +8,17 @@ libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 
 JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
 
-JCLASSES = Mapper/Db/Signal.class Mapper/Device$$Signal.class		\
-           Mapper/Device$$1.class									\
-           Mapper/PropertyValue$$PropertyException.class			\
-           Mapper/InputListener.class Mapper/PropertyValue.class	\
-           Mapper/Device.class Mapper/NativeLib.class
+JCLASSES = Mapper/Db/Signal.class Mapper/InputListener.class	\
+           Mapper/PropertyValue.class Mapper/Device.class		\
+           Mapper/NativeLib.class
+
+JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
+                   Mapper/PropertyValue$$PropertyException.class
+
+JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class libmapper-@MAJOR_VERSION@.jar
-CLEANFILES = $(JHEADERS) $(subst $$,\$$,$(wildcard *.class Mapper/*.class Mapper/*/*.class))
+CLEANFILES = $(JHEADERS) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL))
 
 Mapper_%.h: Mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
@@ -34,4 +37,4 @@ test.class: test.java $(JCLASSES)
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
-EXTRA_DIST = Mapper/Device.java Mapper/Property.java
+EXTRA_DIST = $(JJAVA) test.java $(JHEADERS)
