@@ -1,6 +1,6 @@
 AC_PREREQ(2.61)
 
-AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
+AC_INIT([libmapper],[0.2],[sinclair@music.mcgill.ca])
 
 # libtool version: current:revision:age
 #
@@ -15,7 +15,7 @@ AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
 #
 # If any interfaces have been removed since the last public release, then set
 # age to 0.
-SO_VERSION=1:0:0
+SO_VERSION=2:0:0
 
 AC_CONFIG_SRCDIR([src/device.c])
 AC_CONFIG_HEADERS([src/config.h])

@@ -1,0 +1,58 @@
+
+# libmapper NEWS
+
+Changes from 0.1 to 0.2
+-----------------------
+
+Released May 26, 2011.
+
+New features:
+
+- State queries from inputs to outputs.  Allows for "learning" devices
+  to know the state of their destinations.
+
+- Element-wise vector mapping.
+
+- Removal of misleading "mapper_signal_value_t" union.  Replaced
+  everywhere with void*.
+
+- Allow setting the multicasting interface.
+
+- Launcher to allow multiple copies of Python Slider example on OS X.
+
+- SWIG/Python "monitor" and "db" bindings.
+
+- JNI/Java bindings for "device" and "signal".
+
+- Representation of "null" signal values.  (Signals are "off", or
+  value is "unknown".)
+
+- Windows support.
+
+- Functions "midiToHz" and "hzToMidi".
+
+- API stubs for timetag support.  Not yet implemented.
+
+Bug fixes:
+
+- Crash on uninitialized expressions.
+
+- Set device name property of existing signals after initialization.
+
+- Add input signal handlers added after initialization.
+
+- Small memory leak in mdev_add_input.
+
+- Remove liblo server method when signal is removed.
+
+- Set the multicasting interface to loopback as last resort, making it
+  work on Linux if not connected to network.
+
+- Fix erroneous calculation of blocking time in mapper_monitor_poll.
+
+- Crash when non-existant signal receives /disconnect.
+
+Initial release 0.1 
+-------------------
+
+Released Dec. 10, 2010.
