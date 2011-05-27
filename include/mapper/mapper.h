@@ -662,90 +662,98 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
 
 /* @} */
 
-/***** Mappings *****/
+/***** Connections *****/
 
-/*! @defgroup mappingdb Mappings database
+/*! @defgroup connectiondb Connections database
 
-    @{ A monitor may query information about mappings (connections)
-       between signals on the network through this interface.  It is
-       also used to specify mapping properties during connection
-       requests. */
+    @{ A monitor may query information about connections between
+       signals on the network through this interface.  It is also used
+       to specify properties during connection requests. */
 
-/*! A callback function prototype for when a mapping record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_mapping_callback().
- *  \param record  Pointer to the mapping record.
+/*! A callback function prototype for when a connection record is
+ *  added or updated in the database. Such a function is passed in to
+ *  mapper_db_add_connection_callback().
+ *  \param record  Pointer to the connection record.
  *  \param action  A value of mapper_db_action_t indicating what
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void mapping_callback_func(mapper_db_mapping record,
-                                   mapper_db_action_t action,
-                                   void *user);
+typedef void connection_callback_func(mapper_db_connection record,
+                                      mapper_db_action_t action,
+                                      void *user);
 
-/*! Register a callback for when a mapping record is added or updated
- *  in the database.
+/*! Register a callback for when a connection record is added or
+ *  updated in the database.
  *  \param cb   Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_mapping_callback(mapper_db db,
-                                    mapping_callback_func *f, void *user);
+void mapper_db_add_connection_callback(mapper_db db,
+                                       connection_callback_func *f,
+                                       void *user);
 
-/*! Remove a mapping record callback from the database service.
+/*! Remove a connection record callback from the database service.
  *  \param cb   Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_mapping_callback(mapper_db db,
-                                       mapping_callback_func *f, void *user);
+void mapper_db_remove_connection_callback(mapper_db db,
+                                          connection_callback_func *f,
+                                          void *user);
 
-/*! Return a list of all registered mappings.
+/*! Return a list of all registered connections.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_all_mappings(mapper_db db);
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
 
-/*! Return the list of mappings that touch the given device name.
+mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
+
+/*! Return the list of connections that touch the given device name.
  *  \param dev_name Name of the device to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_name(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_device_name(
     mapper_db db, const char *device_name);
 
-/*! Return the list of mappings for a given input name.
+/*! Return the list of connections for a given input name.
  *  \param input_name Name of the input to find.
  *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_input_name(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_input_name(
     mapper_db db, const char *input_name);
 
-/*! Return the list of mappings for a given device and input name.
+/*! Return the list of connections for a given device and input name.
  *  \param dev_name Exact name of the device to find, including the
  *                  leading '/'.
  *  \param input_name Exact name of the input to find, including the
  *                    leading '/'.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_input_name(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_device_and_input_name(
     mapper_db db, const char *device_name, const char *input_name);
 
-/*! Return the list of mappings for a given output name.
+/*! Return the list of connections for a given output name.
  *  \param output_name Name of the output to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_output_name(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_output_name(
     mapper_db db, const char *output_name);
 
-/*! Return the list of mappings for a given device and output name.
+/*! Return the list of connections for a given device and output name.
  *  \param dev_name Exact name of the device to find, including the
  *                  leading '/'.
  *  \param output_name Exact name of the output to find, including the
  *                     leading '/'.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_device_and_output_name(
     mapper_db db, const char *device_name, const char *output_name);
 
-/*! Return the list of mappings that touch any signals in the lists of
- *  inputs, outputs, and devices provided.
+/*! Return the list of connections that touch any signals in the lists
+ *  of inputs, outputs, and devices provided.
  *  \param input_devices Double-pointer to the first item in a list
  *                       returned from a previous database query.
  *  \param output_devices Double-pointer to the first item in a list
@@ -755,54 +763,56 @@ mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_output_name(
  *  \param outputs Double-pointer to the first item in a list
  *                 returned from a previous database query.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_device_and_signal_names(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
     mapper_db db,
     const char *input_device_name,  const char *input_name,
     const char *output_device_name, const char *output_name);
 
-/*! Return the mapping that match the exact source and destination
+/*! Return the connection that match the exact source and destination
  *  specified by their full names ("/<device>/<signal>").
  *  \param src_name  Full name of source signal.
  *  \param dest_name Full name of destination signal.
  *  \return A pointer to a structure containing information on the
- *          found mapping, or 0 if not found. */
-mapper_db_mapping mapper_db_get_mapping_by_signal_full_names(
+ *          found connection, or 0 if not found. */
+mapper_db_connection mapper_db_get_connection_by_signal_full_names(
     mapper_db db, const char *src_name, const char *dest_name);
 
-/*! Return mappings that have the specified source and destination
+/*! Return connections that have the specified source and destination
  *  devices.
  *  \param src_name  Name of source device.
  *  \param dest_name Name of destination device.
  *  \return A double-pointer to the first item in a list of results,
  *          or 0 if not found. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_src_dest_device_names(
+mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
     mapper_db db,
     const char *src_device_name, const char *dest_device_name);
 
-/*! Return the list of mappings that touch any signals in the lists of
- *  inputs and outputs provided.
+/*! Return the list of connections that touch any signals in the lists
+ *  of inputs and outputs provided.
  *  \param inputs Double-pointer to the first item in a list
  *                returned from a previous database query.
  *  \param outputs Double-pointer to the first item in a list
  *                 returned from a previous database query.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_mapping_next() to iterate. */
-mapper_db_mapping_t **mapper_db_get_mappings_by_signal_queries(
+ *          or zero if none.  Use mapper_db_connection_next() to
+ *          iterate. */
+mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
     mapper_db db,
     mapper_db_signal_t **inputs, mapper_db_signal_t **outputs);
 
-/*! Given a mapping record pointer returned from a previous
+/*! Given a connection record pointer returned from a previous
  *  mapper_db_get_mappings*() call, get the next item in the list.
- *  \param  The previous mapping record pointer.
- *  \return A double-pointer to the next mapping record in the list, or
- *          zero if no more mappings. */
-mapper_db_mapping_t **mapper_db_mapping_next(mapper_db_mapping_t**);
+ *  \param  The previous connection record pointer.
+ *  \return A double-pointer to the next connection record in the
+ *          list, or zero if no more connections. */
+mapper_db_connection_t **mapper_db_connection_next(mapper_db_connection_t**);
 
-/*! Given a mapping record pointer returned from a previous
+/*! Given a connection record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param The previous mapping record pointer. */
-void mapper_db_mapping_done(mapper_db_mapping_t **);
+ *  \param The previous connection record pointer. */
+void mapper_db_connection_done(mapper_db_connection_t **);
 
 /* @} */
 
@@ -915,8 +925,8 @@ void mapper_db_link_done(mapper_db_link_t **s);
     @{ Monitors are the primary interface through which a program may
        observe the network and store information about devices and
        signals that are present.  Each monitor has a database of
-       devices, signals, mappings, and links, which can be queried.  A
-       monitor can also make link and connection requests.  In
+       devices, signals, connections, and links, which can be queried.
+       A monitor can also make link and connection requests.  In
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
@@ -948,12 +958,12 @@ int mapper_monitor_request_signals_by_name(
 int mapper_monitor_request_links_by_name(
     mapper_monitor mon, const char* name);
 
-/*! Request mappings for specific device. */
-int mapper_monitor_request_mappings_by_name(
+/*! Request connections for specific device. */
+int mapper_monitor_request_connections_by_name(
     mapper_monitor mon, const char* name);
 
 /*! When auto-request is enabled (enable=1), the monitor automatically
- *  makes requests for information on signals, links, and mappings
+ *  makes requests for information on signals, links, and connections
  *  when it encounters a previously-unseen device. By default,
  *  auto-request is enabled for monitors. */
 void mapper_monitor_autorequest(mapper_monitor mon, int enable);
@@ -974,37 +984,37 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            const char* source_device, 
                            const char* dest_device);
 
-/*! Interface to modify a mapping between two signals.
+/*! Interface to modify a connection between two signals.
  *  \param mon The monitor to use for sending the message.
  *  \param source_signal Source signal name.
  *  \param dest_signal   Destination signal name.
  *  \param properties An optional data structure specifying the
- *                    requested properties of this mapping.
+ *                    requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_mapping_t should be
+ *                        provided mapper_db_connection_t should be
  *                        applied to the new connection. See the flags
- *                        prefixed by MAPPING_ in mapper_db.h. */
-void mapper_monitor_mapping_modify(mapper_monitor mon,
-                            mapper_db_mapping_t *properties,
-                            unsigned int property_flags);
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
+void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      mapper_db_connection_t *properties,
+                                      unsigned int property_flags);
 
-/*! Interface to add a mapping between two signals.
+/*! Interface to add a connection between two signals.
  *  \param mon The monitor to use for sending the message.
  *  \param source_signal Source signal name.
  *  \param dest_signal   Destination signal name.
  *  \param properties An optional data structure specifying the
- *                    requested properties of this mapping.
+ *                    requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_mapping_t should be
+ *                        provided mapper_db_connection_t should be
  *                        applied to the new connection. See the flags
- *                        prefixed by MAPPING_ in mapper_db.h. */
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mapper_monitor_connect(mapper_monitor mon,
                             const char* source_signal,
                             const char* dest_signal,
-                            mapper_db_mapping_t *properties,
+                            mapper_db_connection_t *properties,
                             unsigned int property_flags);
 
-/*! Interface to remove a mapping between two signals.
+/*! Interface to remove a connection between two signals.
  *  \param mon The monitor to use for sending the message.
  *  \param source_signal Source signal name.
  *  \param dest_signal   Destination signal name. */

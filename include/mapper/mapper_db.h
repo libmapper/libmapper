@@ -28,39 +28,40 @@ typedef struct _mapper_db_device {
 
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
- * are known, and a linear mapping can be calculated. */
-#define MAPPING_RANGE_SRC_MIN  0x01
-#define MAPPING_RANGE_SRC_MAX  0x02
-#define MAPPING_RANGE_DEST_MIN 0x04
-#define MAPPING_RANGE_DEST_MAX 0x08
-#define MAPPING_RANGE_KNOWN    0x0F
+ * are known, and a linear connection can be calculated. */
+#define CONNECTION_RANGE_SRC_MIN  0x01
+#define CONNECTION_RANGE_SRC_MAX  0x02
+#define CONNECTION_RANGE_DEST_MIN 0x04
+#define CONNECTION_RANGE_DEST_MAX 0x08
+#define CONNECTION_RANGE_KNOWN    0x0F
 
-/* Bit flags to identify which fields in a mapper_db_mapping structure
- * are valid.  This is only used when specifying mapping properties
- * via the mapper_monitor_connect() or mapper_monitor_modify()
- * functions. Should be combined with the above range bitflags. */
-#define MAPPING_CLIPMIN       0x0010
-#define MAPPING_CLIPMAX       0x0020
-#define MAPPING_EXPRESSION    0x0040
-#define MAPPING_MODE          0x0080
-#define MAPPING_MUTED         0x0100
-#define MAPPING_ALL           0x01FF
+/* Bit flags to identify which fields in a mapper_db_connection
+ * structure are valid.  This is only used when specifying connection
+ * properties via the mapper_monitor_connect() or
+ * mapper_monitor_modify() functions. Should be combined with the
+ * above range bitflags. */
+#define CONNECTION_CLIPMIN       0x0010
+#define CONNECTION_CLIPMAX       0x0020
+#define CONNECTION_EXPRESSION    0x0040
+#define CONNECTION_MODE          0x0080
+#define CONNECTION_MUTED         0x0100
+#define CONNECTION_ALL           0x01FF
 
 /*! A structure to keep range information, with a bitfield indicating
  *  which parts of the range are known.
- *  @ingroup mappingdb */
-typedef struct _mapper_mapping_range {
+ *  @ingroup connectiondb */
+typedef struct _mapper_connection_range {
     float src_min;              //!< Source minimum.
     float src_max;              //!< Source maximum.
     float dest_min;             //!< Destination minimum.
     float dest_max;             //!< Destination maximum.
     int known;                  /*!< Bitfield identifying which range
                                  *   extremities are known. */
-} mapper_mapping_range_t;
+} mapper_connection_range_t;
 
 /*! Describes what happens when the clipping boundaries are
  *  exceeded.
- *  @ingroup mappingdb */
+ *  @ingroup connectiondb */
 typedef enum _mapper_clipping_type {
     CT_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
@@ -72,8 +73,8 @@ typedef enum _mapper_clipping_type {
     N_MAPPER_CLIPPING_TYPES
 } mapper_clipping_type;
 
-/*! Describes the mapping mode.
- *  @ingroup mappingdb */
+/*! Describes the connection mode.
+ *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_BYPASS,       //!< Direct throughput
@@ -84,8 +85,8 @@ typedef enum _mapper_mode_type {
 } mapper_mode_type;
 
 /*! A record that describes the properties of a connection mapping.
- *  @ingroup mappingdb */
-typedef struct _mapper_db_mapping {
+ *  @ingroup connectiondb */
+typedef struct _mapper_db_connection {
     char *src_name;                 //!< Source signal name (OSC path).
     char *dest_name;                //!< Destination signal name (OSC path).
 
@@ -100,14 +101,14 @@ typedef struct _mapper_db_mapping {
     mapper_clipping_type clip_min;    /*!< Operation for exceeded
                                        *   lower boundary. */
 
-    mapper_mapping_range_t range;     //!< Range information.
+    mapper_connection_range_t range;  //!< Range information.
     char *expression;
 
-    mapper_mode_type mode;   /*!< Bypass, linear, calibrate, or
-                                    *   expression mapping */
+    mapper_mode_type mode;      /*!< Bypass, linear, calibrate, or
+                                 *   expression connection */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
-} mapper_db_mapping_t, *mapper_db_mapping;
+} mapper_db_connection_t, *mapper_db_connection;
 
 /*! A signal value may be one of several different types, so we use a
  *  union to represent this.  The appropriate selection from this

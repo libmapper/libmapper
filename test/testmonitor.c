@@ -133,12 +133,12 @@ void loop()
 
         printf("------------------------------\n");
 
-        printf("Registered mappings:\n");
-        mapper_db_mapping *pmap = mapper_db_get_all_mappings(db);
-        while (pmap) {
+        printf("Registered connections:\n");
+        mapper_db_connection *pcon = mapper_db_get_all_connections(db);
+        while (pcon) {
             printf("  %s -> %s\n",
-                   (*pmap)->src_name, (*pmap)->dest_name);
-            pmap = mapper_db_mapping_next(pmap);
+                   (*pcon)->src_name, (*pcon)->dest_name);
+            pcon = mapper_db_connection_next(pcon);
         }
 
         printf("------------------------------\n");
@@ -191,9 +191,9 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     update = 1;
 }
 
-void on_mapping(mapper_db_mapping map, mapper_db_action_t a, void *user)
+void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
 {
-    printf("Mapping %s -> %s ", map->src_name, map->dest_name);
+    printf("Connecting %s -> %s ", con->src_name, con->dest_name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
@@ -246,7 +246,7 @@ int main()
 
     mapper_db_add_device_callback(db, on_device, 0);
     mapper_db_add_signal_callback(db, on_signal, 0);
-    mapper_db_add_mapping_callback(db, on_mapping, 0);
+    mapper_db_add_connection_callback(db, on_connection, 0);
     mapper_db_add_link_callback(db, on_link, 0);
 
     mapper_monitor_request_devices(mon);
@@ -256,7 +256,7 @@ int main()
   done:
     mapper_db_remove_device_callback(db, on_device, 0);
     mapper_db_remove_signal_callback(db, on_signal, 0);
-    mapper_db_remove_mapping_callback(db, on_mapping, 0);
+    mapper_db_remove_connection_callback(db, on_connection, 0);
     mapper_db_remove_link_callback(db, on_link, 0);
     cleanup_monitor();
     return result;

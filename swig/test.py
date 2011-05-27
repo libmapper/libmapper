@@ -62,7 +62,7 @@ mon = mapper.monitor()
 
 mon.db.add_device_callback(lambda x,y:db_cb('device',x,y))
 mon.db.add_signal_callback(lambda x,y:db_cb('signal',x,y))
-mon.db.add_mapping_callback(lambda x,y:db_cb('mapping',x,y))
+mon.db.add_connection_callback(lambda x,y:db_cb('connection',x,y))
 l = lambda x,y:db_cb('link',x,y)
 mon.db.add_link_callback(l)
 mon.db.remove_link_callback(l)
@@ -80,7 +80,7 @@ for i in range(1000):
         for i in [('devices', mon.db.all_devices),
                   ('inputs', mon.db.all_inputs),
                   ('outputs', mon.db.all_outputs),
-                  ('mappings', mon.db.all_mappings),
+                  ('connections', mon.db.all_connections),
                   ('links', mon.db.all_links)]:
             print i[0],':'
             for j in i[1]():

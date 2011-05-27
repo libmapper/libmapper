@@ -700,7 +700,7 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
-                                        mapper_mapping m)
+                                        mapper_connection m)
 {
     // Send /connected message
     lo_message mess = lo_message_new();
@@ -719,7 +719,7 @@ static void mapper_admin_send_connected(mapper_admin admin,
     lo_message_add_string(mess, src_name);
     lo_message_add_string(mess, dest_name);
 
-    mapper_mapping_prepare_osc_message(mess, m);
+    mapper_connection_prepare_osc_message(mess, m);
 
     lo_send_message(admin->admin_addr, "/connected", mess);
     lo_message_free(mess);
@@ -1444,9 +1444,9 @@ static int handler_device_unlinked(const char *path, const char *types,
     trace("<monitor> got /unlink %s %s\n",
           src_name, dest_name);
 
-    mapper_db_remove_mappings_by_query(db,
-        mapper_db_get_mappings_by_src_dest_device_names(db, src_name,
-                                                        dest_name));
+    mapper_db_remove_connections_by_query(db,
+        mapper_db_get_connections_by_src_dest_device_names(db, src_name,
+                                                           dest_name));
 
     mapper_db_remove_link(db,
         mapper_db_get_link_by_src_dest_names(db, src_name,
@@ -1637,9 +1637,9 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
     }
 
-    mapper_mapping mm = mapper_mapping_find_by_names(md, &argv[0]->s,
-                                                     &argv[1]->s);
-    /* If a mapping connection already exists between these two signals,
+    mapper_connection mm = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                           &argv[1]->s);
+    /* If a connection connection already exists between these two signals,
      * forward the message to handler_signal_connection_modify() and stop. */
     if (mm) {
         handler_signal_connection_modify(path, types, argv, argc,
@@ -1647,7 +1647,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
     }
 
-    /* Creation of a mapping requires the type and length info. */
+    /* Creation of a connection requires the type and length info. */
     if (!params.values[AT_TYPE] || !params.values[AT_LENGTH])
         return 0;
 
@@ -1665,18 +1665,19 @@ static int handler_signal_connectTo(const char *path, const char *types,
     else
         return 0;
     
-    /* Add a flavourless mapping */
-    mapper_mapping m = mapper_router_add_mapping(router, output,
-                                                 dest_signal_name,
-                                                 dest_type, dest_length);
+    /* Add a flavourless connection */
+    mapper_connection m = mapper_router_add_connection(router, output,
+                                                       dest_signal_name,
+                                                       dest_type, dest_length);
     if (!m) {
-        trace("couldn't create mapper_mapping in handler_signal_connectTo\n");
+        trace("couldn't create mapper_connection "
+              "in handler_signal_connectTo\n");
         return 0;
     }
 
     if (argc > 2) {
         /* Set its properties. */
-        mapper_mapping_set_from_message(m, output, &params);
+        mapper_connection_set_from_message(m, output, &params);
     }
 
     mapper_admin_send_connected(admin, router, m);
@@ -1712,8 +1713,8 @@ static int handler_signal_connected(const char *path, const char *types,
         lo_message_pp(msg);
         return 0;
     }
-    mapper_db_add_or_update_mapping_params(db, src_signal_name,
-                                           dest_signal_name, &params);
+    mapper_db_add_or_update_connection_params(db, src_signal_name,
+                                              dest_signal_name, &params);
 
     return 0;
 }
@@ -1759,8 +1760,8 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s,
-                                                    &argv[1]->s);
+    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                          &argv[1]->s);
     if (!m)
         return 0;
 
@@ -1771,7 +1772,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               "continuing anyway.\n", mapper_admin_name(admin));
     }
     
-    mapper_mapping_set_from_message(m, output, &params);
+    mapper_connection_set_from_message(m, output, &params);
 
     mapper_admin_send_connected(admin, router, m);
 
@@ -1816,15 +1817,17 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
+    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                          &argv[1]->s);
     if (!m) {
-        trace("<%s> ignoring /disconnect, no mapping found for '%s' -> '%s'\n",
+        trace("<%s> ignoring /disconnect, "
+              "no connection found for '%s' -> '%s'\n",
               mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
         return 0;
     }
     
-    /*The mapping is removed */
-    if (mapper_router_remove_mapping(router, m)) {
+    /* The connection is removed. */
+    if (mapper_router_remove_connection(router, m)) {
         return 0;
     }
     
@@ -1855,9 +1858,9 @@ static int handler_signal_disconnected(const char *path, const char *types,
     trace("<monitor> got /disconnected %s %s\n",
           src_signal_name, dest_signal_name);
 
-    mapper_db_remove_mapping(db,
-        mapper_db_get_mapping_by_signal_full_names(db, src_signal_name,
-                                                   dest_signal_name));
+    mapper_db_remove_connection(db,
+        mapper_db_get_connection_by_signal_full_names(db, src_signal_name,
+                                                      dest_signal_name));
 
     return 0;
 }
@@ -1879,20 +1882,20 @@ static int handler_device_connections_get(const char *path,
 
     while (router) {
 
-        mapper_signal_mapping sm = router->mappings;
+        mapper_signal_connection sc = router->connections;
         mapper_signal sig;
 
-        while (sm) {
+        while (sc) {
 
-			mapper_mapping m = sm->mapping;
-			sig = sm->signal;
+			mapper_connection c = sc->connection;
+			sig = sc->signal;
 
-            while (m) {
-                mapper_admin_send_connected(admin, router, m);
-                m = m->next;
+            while (c) {
+                mapper_admin_send_connected(admin, router, c);
+                c = c->next;
 
             }
-            sm = sm->next;
+            sc = sc->next;
 
         }
         router = router->next;

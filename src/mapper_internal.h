@@ -108,14 +108,14 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias);
 
-mapper_mapping mapper_router_add_mapping(mapper_router router,
-                                         mapper_signal sig,
-                                         const char *dest_name,
-                                         char dest_type,
-                                         int dest_length);
+mapper_connection mapper_router_add_connection(mapper_router router,
+                                               mapper_signal sig,
+                                               const char *dest_name,
+                                               char dest_type,
+                                               int dest_length);
 
-int mapper_router_remove_mapping(mapper_router router,
-                                  mapper_mapping mapping);
+int mapper_router_remove_connection(mapper_router router,
+                                    mapper_connection connection);
 
 /*! Find a router by destination name in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
@@ -153,46 +153,46 @@ void msig_free(mapper_signal sig);
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
 
-/**** Mappings ****/
+/**** connections ****/
 
-/*! Perform the mapping from a value vector to a scalar.  The result
- *  of this operation should be sent to the destination.
- *  \param mapping    The mapping to perform.
+/*! Perform the connection from a value vector to a scalar.  The
+ *  result of this operation should be sent to the destination.
+ *  \param connection The mapping process to perform.
  *  \param from_value Pointer to first value in a vector of the
  *                    expected size.
  *  \param from_value Pointer to a value to receive the scalar result.
  *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_mapping_perform(mapper_mapping mapping,
-                           mapper_signal sig,
-                           mapper_signal_value_t *from_value,
-                           mapper_signal_value_t *to_value);
+int mapper_connection_perform(mapper_connection connection,
+                              mapper_signal sig,
+                              mapper_signal_value_t *from_value,
+                              mapper_signal_value_t *to_value);
 
-int mapper_clipping_perform(mapper_mapping mapping,
+int mapper_clipping_perform(mapper_connection connection,
                             mapper_signal_value_t *from_value,
                             mapper_signal_value_t *to_value);
 
-mapper_mapping mapper_mapping_find_by_names(mapper_device md,
-                                                    const char* src_name,
-                                                    const char* dest_name);
+mapper_connection mapper_connection_find_by_names(mapper_device md,
+                                                  const char* src_name,
+                                                  const char* dest_name);
 
-/*! Set a mapping's properties based on message parameters. */
-void mapper_mapping_set_from_message(mapper_mapping mapping,
+/*! Set a connection's properties based on message parameters. */
+void mapper_connection_set_from_message(mapper_connection connection,
+                                        mapper_signal sig,
+                                        mapper_message_t *msg);
+
+void mapper_connection_set_direct(mapper_connection connection);
+
+void mapper_connection_set_linear_range(mapper_connection connection,
+                                        mapper_signal sig,
+                                        mapper_connection_range_t *range);
+
+void mapper_connection_set_expression(mapper_connection connection,
+                                      mapper_signal sig,
+                                      const char *expr);
+
+void mapper_connection_set_calibrate(mapper_connection connection,
                                      mapper_signal sig,
-                                     mapper_message_t *msg);
-
-void mapper_mapping_set_direct(mapper_mapping mapping);
-
-void mapper_mapping_set_linear_range(mapper_mapping mapping,
-                                     mapper_signal sig,
-                                     mapper_mapping_range_t *range);
-
-void mapper_mapping_set_expression(mapper_mapping mapping,
-                                   mapper_signal sig,
-                                   const char *expr);
-
-void mapper_mapping_set_calibrate(mapper_mapping mapping,
-                                  mapper_signal sig,
-                                  float dest_min, float dest_max);
+                                     float dest_min, float dest_max);
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
 
@@ -231,19 +231,19 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
                            char type, int length,
                            const char *name, const char *unit);
 
-/*! Add or update an entry in the mapping database using parsed message
- *  parameters.
+/*! Add or update an entry in the connection database using parsed
+ *  message parameters.
  *  \param db     The database to operate on.
  *  \param name   The full name of the source signal.
  *  \param name   The full name of the destination signal.
- *  \param params The parsed message parameters containing new mapping
- *                information.
- *  \return       Non-zero if mapping was added to the database, or
- *                zero if it was already present. */
-int mapper_db_add_or_update_mapping_params(mapper_db db,
-                                           const char *src_name,
-                                           const char *dest_name,
-                                           mapper_message_t *params);
+ *  \param params The parsed message parameters containing new
+ *                connection information.
+ *  \return       Non-zero if connection was added to the database,
+ *                or zero if it was already present. */
+int mapper_db_add_or_update_connection_params(mapper_db db,
+                                              const char *src_name,
+                                              const char *dest_name,
+                                              mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device(mapper_db db, const char *name);
@@ -256,13 +256,13 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
 void mapper_db_remove_outputs_by_query(mapper_db db,
                                        mapper_db_signal_t **s);
 
-/*! Remove mappings in the provided query. */
-void mapper_db_remove_mappings_by_query(mapper_db db,
-                                        mapper_db_mapping_t **s);
+/*! Remove connections in the provided query. */
+void mapper_db_remove_connections_by_query(mapper_db db,
+                                           mapper_db_connection_t **c);
 
-/*! Remove a specific mapping from the database. */
-void mapper_db_remove_mapping(mapper_db db,
-                              mapper_db_mapping map);
+/*! Remove a specific connection from the database. */
+void mapper_db_remove_connection(mapper_db db,
+                                 mapper_db_connection map);
 
 /*! Remove links in the provided query. */
 void mapper_db_remove_links_by_query(mapper_db db,
@@ -388,8 +388,9 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq);
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
-/*! Prepare a lo_message for sending based on a mapping struct. */
-void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map);
+/*! Prepare a lo_message for sending based on a connection struct. */
+void mapper_connection_prepare_osc_message(lo_message m,
+                                           mapper_connection map);
 
 /**** Expression parser/evaluator ****/
 
