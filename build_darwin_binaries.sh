@@ -54,7 +54,7 @@ function make_arch()
 
     cd $(basename "$LIBMAPPER_TAR" .tar.gz)
     PREFIX=`pwd`/../install
-    if ./configure CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
+    if env PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig ./configure --enable-debug CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
 
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
