@@ -146,7 +146,7 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
     char query_string[1024];
     while (c) {
         strncpy(query_string, c->props.dest_name, 1024);
-        strncat(query_string, "/get", 1024);
+        strncat(query_string, "/get", 4);
         if (alias) {
             lo_send_from(router->addr, router->device->server, 
                          LO_TT_IMMEDIATE, query_string, "s", alias);

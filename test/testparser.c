@@ -1,6 +1,7 @@
 
 #include <../src/mapper_internal.h>
 #include <math.h>
+#include <stdio.h>
 
 int main()
 {

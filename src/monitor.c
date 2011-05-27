@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdio.h>
 
 #include "config.h"
 #include "mapper_internal.h"

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -49,7 +50,7 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_value_t *to_value)
 {
     int changed = 0;
-    float f;
+    float f = 0;
     
     if (connection->props.muted)
         return 0;
