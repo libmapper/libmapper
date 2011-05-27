@@ -120,10 +120,10 @@ function use_lipo()
     done
 
     mkdir -v all/python
-    for i in $(find i386 -name _*.so); do
+    for i in libmapper-0.2/examples/py_tk_gui/_pwm.so libmapper-0.2/swig/_mapper.so; do
         ARCHFILES=""
         for a in $ARCHES; do
-            ARCHFILES="$ARCHFILES -arch $a $(echo $i | sed s/i386/$a/)"
+            ARCHFILES="$ARCHFILES -arch $a $a/$i"
         done
         lipo -create -output all/python/$(basename $i) $ARCHFILES
     done
