@@ -4,6 +4,16 @@
 
 #include <lo/lo_lowlevel.h>
 
+#include "config.h"
+
+#ifdef HAVE_ARPA_INET_H
+ #include <arpa/inet.h>
+#else
+ #ifdef HAVE_WINSOCK2_H
+  #include <winsock2.h>
+ #endif
+#endif
+
 #include <mapper/mapper_db.h>
 
 /**** Defined in mapper.h ****/
@@ -76,7 +86,6 @@ typedef struct _mapper_admin_allocated_t {
     mapper_admin_resource_on_collision *on_collision;
 } mapper_admin_allocated_t;
 
-
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
     char *identifier;                 /*!< The identifier (prefix) for
@@ -92,7 +101,7 @@ typedef struct _mapper_admin {
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
                                        *   bus. */
-    char *interface;                  /*!< The name of the network
+    char *interface_name;             /*!< The name of the network
                                        *   interface for receiving
                                        *   messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */
@@ -110,46 +119,46 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! The mapping structure is a linked list of mappings for a given
- *  signal.  Each signal can be associated with multiple outputs. This
- *  structure only contains state information used for performing
- *  mapping, the mapping properties are publically defined in
- *  mapper_db.h. */
+/*! The connection structure is a linked list of connections for a
+ *  given signal.  Each signal can be associated with multiple
+ *  outputs. This structure only contains state information used for
+ *  performing mapping, the connection properties are publically
+ *  defined in mapper_db.h. */
 
-typedef struct _mapper_mapping {
-    mapper_db_mapping_t props;      //!< Properties.
-    struct _mapper_mapping *next;   //!< Next mapping in the list.
+typedef struct _mapper_connection {
+    mapper_db_connection_t props;      //!< Properties.
+    struct _mapper_connection *next;   //!< Next connection in the list.
 
     int calibrating;   /*!< 1 if the source range is currently being
                         *   calibrated, 0 otherwise. */
 
     mapper_expr expr;  //!< The mapping expression.
-} *mapper_mapping;
+} *mapper_connection;
 
 
-/*! The signal mapping is a linked list containing a signal and a list
- *  of mappings.  For each router, there is one per signal of the
- *  associated device.  TODO: This should be replaced with a more
+/*! The signal connection is a linked list containing a signal and a
+ *  list of connections.  For each router, there is one per signal of
+ *  the associated device.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
-typedef struct _mapper_signal_mapping {
-    struct _mapper_signal *signal;       //!< The associated signal.
-    mapper_mapping mapping;              /*!< The first mapping for
-                                          *   this signal. */
-    struct _mapper_signal_mapping *next; /*!< The next signal mapping
-                                          *   in the list. */
-} *mapper_signal_mapping;
+typedef struct _mapper_signal_connection {
+    struct _mapper_signal *signal;          //!< The associated signal.
+    mapper_connection connection;           /*!< The first connection for
+                                             *   this signal. */
+    struct _mapper_signal_connection *next; /*!< The next signal connection
+                                             *   in the list. */
+} *mapper_signal_connection;
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    const char *dest_name;          /*!< Router name given by the
-                                     *   destination name. */
-    struct _mapper_device *device;  /*!< The device associated with
-                                     *   this router */
-    lo_address addr;                //!< Sending address.
-    struct _mapper_router *next;    //!< Next router in the list.
-    mapper_signal_mapping mappings; /*!< The list of mappings for each
-                                     *   signal. */
+    const char *dest_name;                /*!< Router name given by the
+                                           *   destination name. */
+    struct _mapper_device *device;        /*!< The device associated with
+                                           *   this router */
+    lo_address addr;                      //!< Sending address.
+    struct _mapper_router *next;          //!< Next router in the list.
+    mapper_signal_connection connections; /*!< The list of connections
+                                            *  for each signal. */
 } *mapper_router;
 
 /**** Device ****/
@@ -207,15 +216,15 @@ typedef struct _fptr_list {
 } *fptr_list;
 
 typedef struct _mapper_db {
-    mapper_db_device  registered_devices;  //<! List of devices.
-    mapper_db_signal  registered_inputs;   //<! List of inputs.
-    mapper_db_signal  registered_outputs;  //<! List of outputs.
-    mapper_db_mapping registered_mappings; //<! List of mappings.
-    mapper_db_link    registered_links;    //<! List of links.
-    fptr_list         device_callbacks;  //<! List of device record callbacks.
-    fptr_list         signal_callbacks;  //<! List of signal record callbacks.
-    fptr_list         mapping_callbacks; //<! List of mapping record callbacks.
-    fptr_list         link_callbacks;    //<! List of link record callbacks.
+    mapper_db_device     registered_devices;     //<! List of devices.
+    mapper_db_signal     registered_inputs;      //<! List of inputs.
+    mapper_db_signal     registered_outputs;     //<! List of outputs.
+    mapper_db_connection registered_connections; //<! List of connections.
+    mapper_db_link       registered_links;       //<! List of links.
+    fptr_list   device_callbacks;     //<! List of device record callbacks.
+    fptr_list   signal_callbacks;     //<! List of signal record callbacks.
+    fptr_list   connection_callbacks; //<! List of connection record callbacks.
+    fptr_list   link_callbacks;       //<! List of link record callbacks.
 } mapper_db_t, *mapper_db;
 
 typedef struct _mapper_monitor {

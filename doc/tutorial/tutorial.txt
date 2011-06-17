@@ -28,8 +28,8 @@ perform some intermediate processing for example.  However, this is a
 more advanced topic that won't be covered in this tutorial.
 
 First we will cover how to create a sender, and then how to create a
-receiver.  This should be enough for you to try creating a mapping and
-explore the possibilities afforded by dynamic mapping design.
+receiver.  This should be enough for you to try creating a connection
+and explore the possibilities afforded by dynamic mapping design.
 
 Getting started
 ===============
@@ -52,7 +52,7 @@ If you take a look at the API documentation, there is a section called
 * Admins
 * Device database
 * Signal database
-* Mappings database
+* Connections database
 * Links database
 * Monitors
 
@@ -61,8 +61,8 @@ and Signals.  Admins is reserved for providing custom networking
 configurations, but in general you don't need to worry about it.
 
 Monitor and the various database modules are used to keep track of
-what devices, signals and mappings are on the network.  Devices do not
-need to worry about this.  It is used mainly for creating user
+what devices, signals and connections are on the network.  Devices do
+not need to worry about this.  It is used mainly for creating user
 interfaces for mapping design and will also not be covered here.
 
 Functions and types from each module are prefixed with
@@ -221,9 +221,9 @@ respectively.
 The other parameters are not strictly required, but the more
 information you provide, the more the mapper can do some things
 automatically.  For example, if `minimum` and `maximum` are provided,
-it will be possible to create linear-scaled mappings very quickly.  If
-`unit` is provided, the mapper will be able to similarly figure out a
-linear scaling based on unit conversion. (Centimeters to inches for
+it will be possible to create linear-scaled connections very quickly.
+If `unit` is provided, the mapper will be able to similarly figure out
+a linear scaling based on unit conversion. (Centimeters to inches for
 example.)^[Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of
 this future development by simply providing unit information whenever
@@ -236,9 +236,9 @@ minimum values should correspond in type.  So you should pass in a
 
 Lastly, it is usually necessary to be informed when input signal
 values change.  This is done by providing a function to be called
-whenever its value is modified by a mapping.  It is passed in the
-`handler` parameter, with context information to be passed to that
-function during callback in `user_data`.
+whenever its value is modified by an incoming message.  It is passed
+in the `handler` parameter, with context information to be passed to
+that function during callback in `user_data`.
 
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:

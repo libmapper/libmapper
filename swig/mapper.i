@@ -59,11 +59,11 @@
     return o;
  }
 
-%typemap(in) mapper_db_mapping_with_flags_t* %{
-    mapper_db_mapping_with_flags_t p;
+%typemap(in) mapper_db_connection_with_flags_t* %{
+    mapper_db_connection_with_flags_t p;
     $1 = 0;
     if (PyDict_Check($input)) {
-        memset(&p, 0, sizeof(mapper_db_mapping_with_flags_t));
+        memset(&p, 0, sizeof(mapper_db_connection_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
             int i = PyList_GET_SIZE(keys), k;
@@ -76,14 +76,14 @@
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p.props.clip_max = k;
-                            p.flags |= MAPPING_CLIPMAX;
+                            p.flags |= CONNECTION_CLIPMAX;
                         }
                     }
                     else if (strcmp(s, "clip_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p.props.clip_min = k;
-                            p.flags |= MAPPING_CLIPMIN;
+                            p.flags |= CONNECTION_CLIPMIN;
                         }
                     }
                     else if (strcmp(s, "range")==0) {
@@ -94,13 +94,13 @@
                                 PyObject *r = PySequence_GetItem(v, j);
                                 switch (j) {
                                 case 0: f = &p.props.range.src_min;
-                                    k = MAPPING_RANGE_SRC_MIN; break;
+                                    k = CONNECTION_RANGE_SRC_MIN; break;
                                 case 1: f = &p.props.range.src_max;
-                                    k = MAPPING_RANGE_SRC_MAX; break;
+                                    k = CONNECTION_RANGE_SRC_MAX; break;
                                 case 2: f = &p.props.range.dest_min;
-                                    k = MAPPING_RANGE_DEST_MIN; break;
+                                    k = CONNECTION_RANGE_DEST_MIN; break;
                                 case 3: f = &p.props.range.dest_max;
-                                    k = MAPPING_RANGE_DEST_MAX; break;
+                                    k = CONNECTION_RANGE_DEST_MAX; break;
                                 }
                                 int ecode = SWIG_AsVal_float(r, f);
                                 if (SWIG_IsOK(ecode))
@@ -119,14 +119,14 @@
                     else if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
                             p.props.expression = PyString_AsString(v);
-                            p.flags |= MAPPING_EXPRESSION;
+                            p.flags |= CONNECTION_EXPRESSION;
                         }
                     }
                     else if (strcmp(s, "mode")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p.props.mode = k;
-                            p.flags |= MAPPING_MODE;
+                            p.flags |= CONNECTION_MODE;
                         }
                     }
                     else if (strcmp(s, "muted")==0) {
@@ -145,7 +145,7 @@
                         }
                         if (k>-1) {
                             p.props.muted = k;
-                            p.flags |= MAPPING_MUTED;
+                            p.flags |= CONNECTION_MUTED;
                         }
                     }
                     else if (strcmp(s, "src_name")==0) {
@@ -224,11 +224,11 @@
     return signal_to_py($1);
  }
 
-%typemap(out) mapper_db_mapping_t ** {
+%typemap(out) mapper_db_connection_t ** {
     if ($1) {
         // Return the dict and an opaque pointer.
         // The pointer will be hidden by a Python generator interface.
-        PyObject *o = mapping_to_py(*$1);
+        PyObject *o = connection_to_py(*$1);
         if (o!=Py_None)
             $result = Py_BuildValue("(Ol)", o, $1);
         else
@@ -239,8 +239,8 @@
     }
  }
 
-%typemap(out) mapper_db_mapping {
-    return mapping_to_py($1);
+%typemap(out) mapper_db_connection {
+    return connection_to_py($1);
  }
 
 %typemap(out) mapper_db_link_t ** {
@@ -358,31 +358,31 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
     return o;
 }
 
-static PyObject *mapping_to_py(mapper_db_mapping_t *map)
+static PyObject *connection_to_py(mapper_db_connection_t *con)
 {
-    if (!map) return Py_None;
+    if (!con) return Py_None;
     PyObject *o;
     o = Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
-                      "src_name", map->src_name,
-                      "dest_name", map->dest_name,
-                      "src_type", map->src_type,
-                      "dest_type", map->dest_type,
-                      "src_length", map->src_length,
-                      "dest_length", map->dest_length,
-                      "clip_max", map->clip_max,
-                      "clip_min", map->clip_min,
+                      "src_name", con->src_name,
+                      "dest_name", con->dest_name,
+                      "src_type", con->src_type,
+                      "dest_type", con->dest_type,
+                      "src_length", con->src_length,
+                      "dest_length", con->dest_length,
+                      "clip_max", con->clip_max,
+                      "clip_min", con->clip_min,
                       "range",
-                      (map->range.known & MAPPING_RANGE_SRC_MIN
-                       ? Py_BuildValue("f", map->range.src_min) : Py_None),
-                      (map->range.known & MAPPING_RANGE_SRC_MAX
-                       ? Py_BuildValue("f", map->range.src_max) : Py_None),
-                      (map->range.known & MAPPING_RANGE_DEST_MIN
-                       ? Py_BuildValue("f", map->range.dest_min) : Py_None),
-                      (map->range.known & MAPPING_RANGE_DEST_MAX
-                       ? Py_BuildValue("f", map->range.dest_max) : Py_None),
-                      "expression", map->expression,
-                      "mode", map->mode,
-                      "muted", map->muted);
+                      (con->range.known & CONNECTION_RANGE_SRC_MIN
+                       ? Py_BuildValue("f", con->range.src_min) : Py_None),
+                      (con->range.known & CONNECTION_RANGE_SRC_MAX
+                       ? Py_BuildValue("f", con->range.src_max) : Py_None),
+                      (con->range.known & CONNECTION_RANGE_DEST_MIN
+                       ? Py_BuildValue("f", con->range.dest_min) : Py_None),
+                      (con->range.known & CONNECTION_RANGE_DEST_MAX
+                       ? Py_BuildValue("f", con->range.dest_max) : Py_None),
+                      "expression", con->expression,
+                      "mode", con->mode,
+                      "muted", con->muted);
     return o;
 }
 
@@ -408,7 +408,7 @@ static PyObject *link_to_py(mapper_db_link_t *link)
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
                             mapper_db_signal props,
-                            mapper_timetag_t tt,
+                            mapper_timetag_t *tt,
                             void *v)
 {
     PyEval_RestoreThread(_save);
@@ -418,10 +418,15 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    if (msig->props.type == 'i')
-        arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
-    else if (msig->props.type == 'f')
-        arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+    if (v) {
+        if (msig->props.type == 'i')
+            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+        else if (msig->props.type == 'f')
+            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+    }
+    else {
+        arglist = Py_BuildValue("(Os)", py_msig, 0);
+    }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
         return;
@@ -441,9 +446,9 @@ typedef int* maybeInt;
 typedef int boolean;
 
 typedef struct {
-    mapper_db_mapping_t props;
+    mapper_db_connection_t props;
     int flags;
-} mapper_db_mapping_with_flags_t;
+} mapper_db_connection_with_flags_t;
 
 static void sigval_coerce(mapper_signal_value_t *out, sigval *v, char type)
 {
@@ -490,16 +495,17 @@ static void signal_db_handler_py(mapper_db_signal record,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_db_mapping handler
+/* Wrapper for callback back to python when a mapper_db_connection handler
  * is called. */
-static void mapping_db_handler_py(mapper_db_mapping record,
-                                  mapper_db_action_t action,
-                                  void *user)
+static void connection_db_handler_py(mapper_db_connection record,
+                                     mapper_db_action_t action,
+                                     void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", mapping_to_py(record), action);
+    PyObject *arglist = Py_BuildValue("(Oi)", connection_to_py(record),
+                                      action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (mapping_db_handler_py).\n");
+        printf("[mapper] Could not build arglist (connection_db_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -539,8 +545,8 @@ typedef enum _mapper_clipping_type {
     N_MAPPER_CLIPPING_TYPES
 } mapper_clipping_type;
 
-/*! Describes the mapping mode.
- *  @ingroup mappingdb */
+/*! Describes the connection mode.
+ *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_BYPASS,       //!< Direct throughput
@@ -921,8 +927,8 @@ typedef struct _admin {} admin;
     int request_links_by_name(const char* name) {
         return mapper_monitor_request_links_by_name($self, name);
     }
-    int request_mappings_by_name(const char* name) {
-        return mapper_monitor_request_mappings_by_name($self, name);
+    int request_connections_by_name(const char* name) {
+        return mapper_monitor_request_connections_by_name($self, name);
     }
     void link(const char* source_device, const char* dest_device) {
         mapper_monitor_link($self, source_device, dest_device);
@@ -930,22 +936,22 @@ typedef struct _admin {} admin;
     void unlink(const char* source_device, const char* dest_device) {
         mapper_monitor_unlink($self, source_device, dest_device);
     }
-    void modify(mapper_db_mapping_with_flags_t *properties) {
+    void modify(mapper_db_connection_with_flags_t *properties) {
         if (properties)
         {
             if (!properties->props.src_name || !properties->props.dest_name)
                 SWIG_exception_fail(SWIG_ValueError,
                                     "modify() requires 'src_name' and "
                                     "'dest_name' in properties dict");
-            mapper_monitor_mapping_modify($self, &properties->props,
-                                          properties->flags);
+            mapper_monitor_connection_modify($self, &properties->props,
+                                             properties->flags);
           fail:
             ;
         }
     }
     void connect(const char* source_signal,
                  const char* dest_signal,
-                 mapper_db_mapping_with_flags_t *properties=0) {
+                 mapper_db_connection_with_flags_t *properties=0) {
         if (properties) {
             mapper_monitor_connect($self, source_signal, dest_signal,
                                    &properties->props, properties->flags);
@@ -979,12 +985,14 @@ typedef struct _admin {} admin;
         mapper_db_remove_signal_callback($self, signal_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
-    void add_mapping_callback(PyObject *PyFunc) {
+    void add_connection_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_mapping_callback($self, mapping_db_handler_py, PyFunc);
+        mapper_db_add_connection_callback($self, connection_db_handler_py,
+                                          PyFunc);
     }
-    void remove_mapping_callback(PyObject *PyFunc) {
-        mapper_db_remove_mapping_callback($self, mapping_db_handler_py, PyFunc);
+    void remove_connection_callback(PyObject *PyFunc) {
+        mapper_db_remove_connection_callback($self, connection_db_handler_py,
+                                             PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_link_callback(PyObject *PyFunc) {
@@ -1029,50 +1037,50 @@ typedef struct _admin {} admin;
     mapper_db_signal_t **signal_next(long iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
-    mapper_db_mapping_t **get_all_mappings() {
-        return mapper_db_get_all_mappings($self);
+    mapper_db_connection_t **get_all_connections() {
+        return mapper_db_get_all_connections($self);
     }
-    mapper_db_mapping_t **get_mappings_by_device_name(
+    mapper_db_connection_t **get_connections_by_device_name(
         const char *device_name) {
-        return mapper_db_get_mappings_by_device_name($self, device_name);
+        return mapper_db_get_connections_by_device_name($self, device_name);
     }
-    mapper_db_mapping_t **get_mappings_by_input_name(
+    mapper_db_connection_t **get_connections_by_input_name(
         const char *input_name) {
-        return mapper_db_get_mappings_by_input_name($self, input_name);
+        return mapper_db_get_connections_by_input_name($self, input_name);
     }
-    mapper_db_mapping_t **get_mappings_by_device_and_input_name(
+    mapper_db_connection_t **get_connections_by_device_and_input_name(
         const char *device_name, const char *input_name) {
-        return mapper_db_get_mappings_by_device_and_input_name(
+        return mapper_db_get_connections_by_device_and_input_name(
             $self, device_name, input_name);
     }
-    mapper_db_mapping_t **get_mappings_by_output_name(
+    mapper_db_connection_t **get_connections_by_output_name(
         const char *output_name) {
-        return mapper_db_get_mappings_by_output_name($self, output_name);
+        return mapper_db_get_connections_by_output_name($self, output_name);
     }
-    mapper_db_mapping_t **get_mappings_by_device_and_output_name(
+    mapper_db_connection_t **get_connections_by_device_and_output_name(
         const char *device_name, const char *output_name) {
-        return mapper_db_get_mappings_by_device_and_output_name(
+        return mapper_db_get_connections_by_device_and_output_name(
             $self, device_name, output_name);
     }
-    mapper_db_mapping_t **get_mappings_by_device_and_signal_names(
+    mapper_db_connection_t **get_connections_by_device_and_signal_names(
         const char *input_device_name,  const char *input_name,
         const char *output_device_name, const char *output_name) {
-        return mapper_db_get_mappings_by_device_and_signal_names(
+        return mapper_db_get_connections_by_device_and_signal_names(
             $self, input_device_name, input_name,
             output_device_name, output_name);
     }
-    mapper_db_mapping mapping_by_signal_full_names(
+    mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
-        return mapper_db_get_mapping_by_signal_full_names(
+        return mapper_db_get_connection_by_signal_full_names(
             $self, src_name, dest_name);
     }
-    mapper_db_mapping_t **get_mappings_by_src_dest_device_names(
+    mapper_db_connection_t **get_connections_by_src_dest_device_names(
         const char *src_device_name, const char *dest_device_name) {
-        return mapper_db_get_mappings_by_src_dest_device_names(
+        return mapper_db_get_connections_by_src_dest_device_names(
             $self, src_device_name, dest_device_name);
     }
-    mapper_db_mapping_t **mapping_next(long iterator) {
-        return mapper_db_mapping_next((mapper_db_mapping_t**)iterator);
+    mapper_db_connection_t **connection_next(long iterator) {
+        return mapper_db_connection_next((mapper_db_connection_t**)iterator);
     }
     mapper_db_link_t **get_all_links() {
         return mapper_db_get_all_links($self);
@@ -1118,21 +1126,21 @@ typedef struct _admin {} admin;
             __match_inputs_by_device_name, signal_next)
         match_outputs_by_device_name = make_iterator(
             __match_outputs_by_device_name, signal_next)
-        all_mappings = make_iterator(get_all_mappings, mapping_next)
-        mappings_by_device_name = make_iterator(get_mappings_by_device_name,
-                                                mapping_next)
-        mappings_by_input_name = make_iterator(get_mappings_by_input_name,
-                                               mapping_next)
-        mappings_by_device_and_input_name = make_iterator(
-            get_mappings_by_device_and_input_name, mapping_next)
-        mappings_by_output_name = make_iterator(get_mappings_by_output_name,
-                                                mapping_next)
-        mappings_by_device_and_output_name = make_iterator(
-            get_mappings_by_device_and_output_name, mapping_next)
-        mappings_by_device_and_signal_names = make_iterator(
-            get_mappings_by_device_and_signal_names, mapping_next)
-        mappings_by_src_dest_device_names = make_iterator(
-            get_mappings_by_src_dest_device_names, mapping_next)
+        all_connections = make_iterator(get_all_connections, connection_next)
+        connections_by_device_name = make_iterator(get_connections_by_device_name,
+                                                connection_next)
+        connections_by_input_name = make_iterator(get_connections_by_input_name,
+                                               connection_next)
+        connections_by_device_and_input_name = make_iterator(
+            get_connections_by_device_and_input_name, connection_next)
+        connections_by_output_name = make_iterator(get_connections_by_output_name,
+                                                connection_next)
+        connections_by_device_and_output_name = make_iterator(
+            get_connections_by_device_and_output_name, connection_next)
+        connections_by_device_and_signal_names = make_iterator(
+            get_connections_by_device_and_signal_names, connection_next)
+        connections_by_src_dest_device_names = make_iterator(
+            get_connections_by_src_dest_device_names, connection_next)
         all_links = make_iterator(get_all_links, link_next)
         links_by_device_name = make_iterator(get_links_by_device_name,
                                              link_next)

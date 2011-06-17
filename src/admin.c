@@ -1,13 +1,27 @@
 
+#include "config.h"
+
 #include <lo/lo.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <ifaddrs.h>
-#include <arpa/inet.h>
 #include <sys/time.h>
-#include <net/if.h>
+
+#ifdef HAVE_GETIFADDRS
+ #include <ifaddrs.h>
+ #include <net/if.h>
+#endif
+
+#ifdef HAVE_ARPA_INET_H
+ #include <arpa/inet.h>
+#else
+ #ifdef HAVE_WINSOCK2_H
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
+  #include <iphlpapi.h>
+ #endif
+#endif
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -134,16 +148,19 @@ static int check_collisions(mapper_admin admin,
 static int get_interface_addr(const char* pref,
                               struct in_addr* addr, char **iface)
 {
-    struct ifaddrs *ifaphead;
-    struct ifaddrs *ifap;
-    struct ifaddrs *iflo=0, *ifchosen=0;
     struct in_addr zero;
     struct sockaddr_in *sa;
 
+    *(unsigned int *)&zero = inet_addr("0.0.0.0");
+
+#ifdef HAVE_GETIFADDRS
+
+    struct ifaddrs *ifaphead;
+    struct ifaddrs *ifap;
+    struct ifaddrs *iflo=0, *ifchosen=0;
+
     if (getifaddrs(&ifaphead) != 0)
         return 1;
-
-    inet_aton("0.0.0.0", &zero);
 
     ifap = ifaphead;
     while (ifap) {
@@ -182,6 +199,69 @@ static int get_interface_addr(const char* pref,
     }
 
     freeifaddrs(ifaphead);
+
+#else // !HAVE_GETIFADDRS
+
+#ifdef HAVE_LIBIPHLPAPI
+    // TODO consider "pref" as well
+
+    /* Start with recommended 15k buffer for GetAdaptersAddresses. */
+    ULONG size = 15*1024/2;
+    int tries = 3;
+    PIP_ADAPTER_ADDRESSES paa = malloc(size*2);
+    DWORD rc = ERROR_SUCCESS-1;
+    while (rc!=ERROR_SUCCESS && paa && tries-- > 0) {
+        size *= 2;
+        paa = realloc(paa, size);
+        rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
+    }
+    if (rc!=ERROR_SUCCESS)
+        return 2;
+
+    PIP_ADAPTER_ADDRESSES loaa=0, aa = paa;
+    PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
+    while (aa && rc==ERROR_SUCCESS) {
+        PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
+	// Skip adapters that are not "Up".
+        if (pua && aa->OperStatus == IfOperStatusUp) {
+            if (aa->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
+                loaa = aa;
+                lopua = pua;
+            }
+            else {
+		// Skip addresses starting with 0.X.X.X or 169.X.X.X.
+                sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
+		unsigned char prefix = sa->sin_addr.s_addr&0xFF;
+		if (prefix!=0xA9 && prefix!=0) {
+		    if (*iface) free(*iface);
+		    *iface = strdup(aa->AdapterName);
+		    *addr = sa->sin_addr;
+		    free(paa);
+		    return 0;
+		}
+            }
+        }
+        aa = aa->Next;
+    }
+
+    if (loaa && lopua) {
+        if (*iface) free(*iface);
+        *iface = strdup(loaa->AdapterName);
+        sa = (struct sockaddr_in *) lopua->Address.lpSockaddr;
+        *addr = sa->sin_addr;
+        free(paa);
+        return 0;
+    }
+
+    if (paa) free(paa);
+
+#else
+
+  #error No known method on this system to get the network interface address.
+
+#endif // HAVE_LIBIPHLPAPI
+#endif // !HAVE_GETIFADDRS
+
     return 2;
 }
 
@@ -219,7 +299,7 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     if (!admin)
         return NULL;
 
-    admin->interface = 0;
+    admin->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
     char port_str[10], *s_port = port_str;
@@ -229,10 +309,9 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     else
         snprintf(port_str, 10, "%d", port);
 
-    /* Initialize interface information.  We'll use defaults for now,
-     * perhaps this should be configurable in the future. */
+    /* Initialize interface information. */
     if (get_interface_addr(iface, &admin->interface_ip,
-                           &admin->interface))
+                           &admin->interface_name))
         trace("no interface found\n");
 
     /* Open address */
@@ -249,14 +328,14 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     /* Specify the interface to use for multicasting */
 #ifdef HAVE_LIBLO_SET_IFACE
     lo_address_set_iface(admin->admin_addr,
-                         admin->interface, 0);
+                         admin->interface_name, 0);
 #endif
 
     /* Open server for multicast group 224.0.1.3, port 7570 */
     admin->admin_server =
 #ifdef HAVE_LIBLO_SERVER_IFACE
         lo_server_new_multicast_iface(group, s_port,
-                                      admin->interface, 0,
+                                      admin->interface_name, 0,
                                       handler_error);
 #else
         lo_server_new_multicast(group, s_port, handler_error);
@@ -291,8 +370,8 @@ void mapper_admin_free(mapper_admin admin)
     if (admin->name)
         free(admin->name);
 
-    if (admin->interface)
-        free(admin->interface);
+    if (admin->interface_name)
+        free(admin->interface_name);
 
     if (admin->admin_server)
         lo_server_free(admin->admin_server);
@@ -621,7 +700,7 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
-                                        mapper_mapping m)
+                                        mapper_connection m)
 {
     // Send /connected message
     lo_message mess = lo_message_new();
@@ -640,7 +719,7 @@ static void mapper_admin_send_connected(mapper_admin admin,
     lo_message_add_string(mess, src_name);
     lo_message_add_string(mess, dest_name);
 
-    mapper_mapping_prepare_osc_message(mess, m);
+    mapper_connection_prepare_osc_message(mess, m);
 
     lo_send_message(admin->admin_addr, "/connected", mess);
     lo_message_free(mess);
@@ -1365,9 +1444,9 @@ static int handler_device_unlinked(const char *path, const char *types,
     trace("<monitor> got /unlink %s %s\n",
           src_name, dest_name);
 
-    mapper_db_remove_mappings_by_query(db,
-        mapper_db_get_mappings_by_src_dest_device_names(db, src_name,
-                                                        dest_name));
+    mapper_db_remove_connections_by_query(db,
+        mapper_db_get_connections_by_src_dest_device_names(db, src_name,
+                                                           dest_name));
 
     mapper_db_remove_link(db,
         mapper_db_get_link_by_src_dest_names(db, src_name,
@@ -1558,9 +1637,9 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
     }
 
-    mapper_mapping mm = mapper_mapping_find_by_names(md, &argv[0]->s,
-                                                     &argv[1]->s);
-    /* If a mapping connection already exists between these two signals,
+    mapper_connection mm = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                           &argv[1]->s);
+    /* If a connection connection already exists between these two signals,
      * forward the message to handler_signal_connection_modify() and stop. */
     if (mm) {
         handler_signal_connection_modify(path, types, argv, argc,
@@ -1568,7 +1647,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
     }
 
-    /* Creation of a mapping requires the type and length info. */
+    /* Creation of a connection requires the type and length info. */
     if (!params.values[AT_TYPE] || !params.values[AT_LENGTH])
         return 0;
 
@@ -1586,18 +1665,19 @@ static int handler_signal_connectTo(const char *path, const char *types,
     else
         return 0;
     
-    /* Add a flavourless mapping */
-    mapper_mapping m = mapper_router_add_mapping(router, output,
-                                                 dest_signal_name,
-                                                 dest_type, dest_length);
+    /* Add a flavourless connection */
+    mapper_connection m = mapper_router_add_connection(router, output,
+                                                       dest_signal_name,
+                                                       dest_type, dest_length);
     if (!m) {
-        trace("couldn't create mapper_mapping in handler_signal_connectTo\n");
+        trace("couldn't create mapper_connection "
+              "in handler_signal_connectTo\n");
         return 0;
     }
 
     if (argc > 2) {
         /* Set its properties. */
-        mapper_mapping_set_from_message(m, output, &params);
+        mapper_connection_set_from_message(m, output, &params);
     }
 
     mapper_admin_send_connected(admin, router, m);
@@ -1633,8 +1713,8 @@ static int handler_signal_connected(const char *path, const char *types,
         lo_message_pp(msg);
         return 0;
     }
-    mapper_db_add_or_update_mapping_params(db, src_signal_name,
-                                           dest_signal_name, &params);
+    mapper_db_add_or_update_connection_params(db, src_signal_name,
+                                              dest_signal_name, &params);
 
     return 0;
 }
@@ -1680,8 +1760,8 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s,
-                                                    &argv[1]->s);
+    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                          &argv[1]->s);
     if (!m)
         return 0;
 
@@ -1692,7 +1772,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               "continuing anyway.\n", mapper_admin_name(admin));
     }
     
-    mapper_mapping_set_from_message(m, output, &params);
+    mapper_connection_set_from_message(m, output, &params);
 
     mapper_admin_send_connected(admin, router, m);
 
@@ -1737,15 +1817,17 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_mapping m = mapper_mapping_find_by_names(md, &argv[0]->s, &argv[1]->s);
+    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                          &argv[1]->s);
     if (!m) {
-        trace("<%s> ignoring /disconnect, no mapping found for '%s' -> '%s'\n",
+        trace("<%s> ignoring /disconnect, "
+              "no connection found for '%s' -> '%s'\n",
               mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
         return 0;
     }
     
-    /*The mapping is removed */
-    if (mapper_router_remove_mapping(router, m)) {
+    /* The connection is removed. */
+    if (mapper_router_remove_connection(router, m)) {
         return 0;
     }
     
@@ -1776,9 +1858,9 @@ static int handler_signal_disconnected(const char *path, const char *types,
     trace("<monitor> got /disconnected %s %s\n",
           src_signal_name, dest_signal_name);
 
-    mapper_db_remove_mapping(db,
-        mapper_db_get_mapping_by_signal_full_names(db, src_signal_name,
-                                                   dest_signal_name));
+    mapper_db_remove_connection(db,
+        mapper_db_get_connection_by_signal_full_names(db, src_signal_name,
+                                                      dest_signal_name));
 
     return 0;
 }
@@ -1800,20 +1882,20 @@ static int handler_device_connections_get(const char *path,
 
     while (router) {
 
-        mapper_signal_mapping sm = router->mappings;
+        mapper_signal_connection sc = router->connections;
         mapper_signal sig;
 
-        while (sm) {
+        while (sc) {
 
-			mapper_mapping m = sm->mapping;
-			sig = sm->signal;
+			mapper_connection c = sc->connection;
+			sig = sc->signal;
 
-            while (m) {
-                mapper_admin_send_connected(admin, router, m);
-                m = m->next;
+            while (c) {
+                mapper_admin_send_connected(admin, router, c);
+                c = c->next;
 
             }
-            sm = sm->next;
+            sc = sc->next;
 
         }
         router = router->next;

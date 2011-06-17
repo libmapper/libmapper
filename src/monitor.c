@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdio.h>
 
 #include "config.h"
 #include "mapper_internal.h"
@@ -42,7 +43,11 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
         double then = get_current_time();
         while ((get_current_time() - then)*1000 < block_ms) {
             admin_count += mapper_admin_poll(mon->admin);
+#ifdef WIN32
+            Sleep(block_ms);
+#else
             usleep(block_ms * 100);
+#endif
         }
     }
     return admin_count;
@@ -77,8 +82,8 @@ int mapper_monitor_request_links_by_name(mapper_monitor mon,
     return 0;
 }
 
-int mapper_monitor_request_mappings_by_name(mapper_monitor mon,
-                                            const char* name)
+int mapper_monitor_request_connections_by_name(mapper_monitor mon,
+                                               const char* name)
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
@@ -102,25 +107,25 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            source_device, dest_device );
 }
 
-void mapper_monitor_mapping_modify(mapper_monitor mon,
-                            mapper_db_mapping_t *props,
-                            unsigned int props_flags)
+void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      mapper_db_connection_t *props,
+                                      unsigned int props_flags)
 {
 
     if (props) {
         mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
-                               (props_flags & MAPPING_CLIPMIN)
+                               (props_flags & CONNECTION_CLIPMIN)
                                ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & MAPPING_CLIPMAX)
+                               (props_flags & CONNECTION_CLIPMAX)
                                ? AT_CLIPMAX : -1, props->clip_max,
-                               (props_flags & MAPPING_RANGE_KNOWN)
+                               (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
-                               (props_flags & MAPPING_EXPRESSION)
+                               (props_flags & CONNECTION_EXPRESSION)
                                ? AT_EXPRESSION : -1, props->expression,
-                               (props_flags & MAPPING_MODE)
+                               (props_flags & CONNECTION_MODE)
                                ? AT_MODE : -1, props->mode,
-                               (props_flags & MAPPING_MUTED)
+                               (props_flags & CONNECTION_MUTED)
                                ? AT_MUTE : -1, props->muted );
     } else {
         mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
@@ -132,23 +137,23 @@ void mapper_monitor_mapping_modify(mapper_monitor mon,
 void mapper_monitor_connect(mapper_monitor mon,
                             const char* source_signal,
                             const char* dest_signal,
-                            mapper_db_mapping_t *props,
+                            mapper_db_connection_t *props,
                             unsigned int props_flags)
 {
     if (props) {
         mapper_admin_send_osc( mon->admin, "/connect", "ss",
                                source_signal, dest_signal,
-                               (props_flags & MAPPING_CLIPMIN)
+                               (props_flags & CONNECTION_CLIPMIN)
                                ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & MAPPING_CLIPMAX)
+                               (props_flags & CONNECTION_CLIPMAX)
                                ? AT_CLIPMAX : -1, props->clip_max,
-                               (props_flags & MAPPING_RANGE_KNOWN)
+                               (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
-                               (props_flags & MAPPING_EXPRESSION)
+                               (props_flags & CONNECTION_EXPRESSION)
                                ? AT_EXPRESSION : -1, props->expression,
-                               (props_flags & MAPPING_MODE)
+                               (props_flags & CONNECTION_MODE)
                                ? AT_MODE : -1, props->mode,
-                               (props_flags & MAPPING_MUTED)
+                               (props_flags & CONNECTION_MUTED)
                                ? AT_MUTE : -1, props->muted );
     }
     else
@@ -172,10 +177,10 @@ static void on_device_autorequest(mapper_db_device dev,
     {
         mapper_monitor mon = (mapper_monitor)(user);
 
-        // Request signals, links, mappings for new devices.
+        // Request signals, links, connections for new devices.
         mapper_monitor_request_signals_by_name(mon, dev->name);
         mapper_monitor_request_links_by_name(mon, dev->name);
-        mapper_monitor_request_mappings_by_name(mon, dev->name);
+        mapper_monitor_request_connections_by_name(mon, dev->name);
     }
 }
 

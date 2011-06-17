@@ -98,10 +98,10 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out2",
-                                           "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_mapping_params(db, "/testdb__.2/out1",
-                                           "/testdb.1/in1", &msg);
+    mapper_db_add_or_update_connection_params(db, "/testdb.1/out2",
+                                              "/testdb__.2/in1", &msg);
+    mapper_db_add_or_update_connection_params(db, "/testdb__.2/out1",
+                                              "/testdb.1/in1", &msg);
 
     args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"expression";
@@ -122,12 +122,12 @@ int main()
         return 1;
     }
 
-    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out1",
-                                           "/testdb__.2/in2", &msg);
-    mapper_db_add_or_update_mapping_params(db, "/testdb.1/out1",
-                                           "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_mapping_params(db, "/testdb__.2/out2",
-                                           "/testdb.1/in2", &msg);
+    mapper_db_add_or_update_connection_params(db, "/testdb.1/out1",
+                                              "/testdb__.2/in2", &msg);
+    mapper_db_add_or_update_connection_params(db, "/testdb.1/out1",
+                                              "/testdb__.2/in1", &msg);
+    mapper_db_add_or_update_connection_params(db, "/testdb__.2/out2",
+                                              "/testdb.1/in2", &msg);
 
     if (mapper_msg_parse_params(&msg, "/linked",
                                 "", 0, args))
@@ -418,29 +418,29 @@ int main()
 
     /*********/
 
-    printf("\n--- Mappings ---\n");
+    printf("\n--- connections ---\n");
 
-    printf("\nFind mappings with source 'out1':\n");
+    printf("\nFind connections with source 'out1':\n");
 
-    mapper_db_mapping* pmap =
-        mapper_db_get_mappings_by_input_name(db, "out1");
+    mapper_db_connection* pcon =
+        mapper_db_get_connections_by_input_name(db, "out1");
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_input_name() returned 0.\n");
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_input_name() returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_input_name() returned something "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_input_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 3) {
@@ -450,29 +450,29 @@ int main()
 
     /*********/
 
-    printf("\nFind mappings for device 'testdb.1', "
+    printf("\nFind connections for device 'testdb.1', "
            "source 'out1':\n");
 
-    pmap = mapper_db_get_mappings_by_device_and_input_name(db, "testdb.1",
-                                                           "/out1");
+    pcon = mapper_db_get_connections_by_device_and_input_name(db, "testdb.1",
+                                                              "/out1");
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_device_and_input_name() "
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_device_and_input_name() "
                "returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_device_and_input_name() "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_device_and_input_name() "
                "returned something which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 2) {
@@ -482,26 +482,26 @@ int main()
 
     /*********/
 
-    printf("\nFind mappings with destination 'in2':\n");
+    printf("\nFind connections with destination 'in2':\n");
 
-    pmap = mapper_db_get_mappings_by_output_name(db, "in2");
+    pcon = mapper_db_get_connections_by_output_name(db, "in2");
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_output_name() returned 0.\n");
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_output_name() returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_output_name() returned something "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_output_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 2) {
@@ -511,30 +511,30 @@ int main()
 
     /*********/
 
-    printf("\nFind mappings for device 'testdb__.2', "
+    printf("\nFind connections for device 'testdb__.2', "
            "destination 'in1':\n");
 
-    pmap = mapper_db_get_mappings_by_device_and_output_name(db,
-                                                            "testdb__.2",
-                                                            "/in1");
+    pcon = mapper_db_get_connections_by_device_and_output_name(db,
+                                                               "testdb__.2",
+                                                               "/in1");
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_device_and_output_name() "
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_device_and_output_name() "
                "returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_device_and_output_name() "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_device_and_output_name() "
                "returned something which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 2) {
@@ -544,29 +544,29 @@ int main()
 
     /*********/
 
-    printf("\nFind mappings for input device 'testdb__.2', signal 'out1',"
-           "\n              and output device 'testdb.1', signal 'in1':\n");
+    printf("\nFind connections for input device 'testdb__.2', signal 'out1',"
+           "\n                 and output device 'testdb.1', signal 'in1':\n");
 
-    pmap = mapper_db_get_mappings_by_device_and_signal_names(
+    pcon = mapper_db_get_connections_by_device_and_signal_names(
         db, "testdb__.2", "out1", "testdb.1", "in1");
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_device_and_signal_names() "
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_device_and_signal_names() "
                "returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_device_and_signal_names() "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_device_and_signal_names() "
                "returned something which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 1) {
@@ -576,31 +576,31 @@ int main()
 
     /*********/
 
-    printf("\nFind mappings for input device 'testdb__.2', signals "
+    printf("\nFind connections for input device 'testdb__.2', signals "
            "matching 'out',"
-           "\n              and output device 'testdb.1', all signals:\n");
+           "\n                 and output device 'testdb.1', all signals:\n");
 
-    pmap = mapper_db_get_mappings_by_signal_queries(db,
+    pcon = mapper_db_get_connections_by_signal_queries(db,
         mapper_db_match_outputs_by_device_name(db, "/testdb__.2", "out"),
         mapper_db_get_inputs_by_device_name(db, "/testdb.1"));
 
     count=0;
-    if (!pmap) {
-        printf("mapper_db_get_mappings_by_signal_queries() "
+    if (!pcon) {
+        printf("mapper_db_get_connections_by_signal_queries() "
                "returned 0.\n");
         return 1;
     }
-    if (!*pmap) {
-        printf("mapper_db_get_mappings_by_signal_queries() "
+    if (!*pcon) {
+        printf("mapper_db_get_connections_by_signal_queries() "
                "returned something which pointed to 0.\n");
         return 1;
     }
 
-    while (pmap) {
+    while (pcon) {
         count ++;
         printf("  source=%s, dest=%s\n",
-               (*pmap)->src_name, (*pmap)->dest_name);
-        pmap = mapper_db_mapping_next(pmap);
+               (*pcon)->src_name, (*pcon)->dest_name);
+        pcon = mapper_db_connection_next(pcon);
     }
 
     if (count != 1) {

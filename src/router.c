@@ -31,25 +31,25 @@ void mapper_router_free(mapper_router router)
     if (router) {
         if (router->addr)
             lo_address_free(router->addr);
-        if (router->mappings) {
-            mapper_signal_mapping sm = router->mappings;
-            while (sm) {
-                mapper_signal_mapping tmp = sm->next;
-                if (sm->mapping) {
+        if (router->connections) {
+            mapper_signal_connection sc = router->connections;
+            while (sc) {
+                mapper_signal_connection tmp = sc->next;
+                if (sc->connection) {
 
-                    mapper_mapping m = sm->mapping;
-                    while (m) {
-                        mapper_mapping tmp = m->next;
+                    mapper_connection c = sc->connection;
+                    while (c) {
+                        mapper_connection tmp = c->next;
                         if (tmp->props.src_name)
                             free(tmp->props.src_name);
                         if (tmp->props.dest_name)
                             free(tmp->props.dest_name);
-                        free(m);
-                        m = tmp;
+                        free(c);
+                        c = tmp;
                     }
                 }
-                free(sm);
-                sm = tmp;
+                free(sc);
+                sc = tmp;
             }
         }
         free(router);
@@ -59,22 +59,22 @@ void mapper_router_free(mapper_router router)
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value)
 {
-    // find this signal in list of mappings
-    mapper_signal_mapping sm = router->mappings;
-    while (sm && sm->signal != sig)
-        sm = sm->next;
+    // find this signal in list of connections
+    mapper_signal_connection sc = router->connections;
+    while (sc && sc->signal != sig)
+        sc = sc->next;
 
     // exit without failure if signal is not mapped
-    if (!sm) {
+    if (!sc) {
         return;
     }
-    // for each mapping, construct a mapped signal and send it
-    mapper_mapping m = sm->mapping;
-    while (m) {
+    // for each connection, construct a mapped signal and send it
+    mapper_connection c = sc->connection;
+    while (c) {
         struct _mapper_signal signal;
-        signal.props.name = m->props.dest_name;
-        signal.props.type = m->props.dest_type;
-        signal.props.length = m->props.dest_length;
+        signal.props.name = c->props.dest_name;
+        signal.props.type = c->props.dest_type;
+        signal.props.length = c->props.dest_length;
 
         mapper_signal_value_t applied[signal.props.length];
         int i=0;
@@ -91,9 +91,9 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
 
         for (i=0; i < signal.props.length; i++) {
             mapper_signal_value_t v, w;
-            if (mapper_mapping_perform(m, sig, p, &v))
+            if (mapper_connection_perform(c, sig, p, &v))
             {
-                if (mapper_clipping_perform(m, &v, &w))
+                if (mapper_clipping_perform(c, &v, &w))
                     applied[i] = w;
                 else
                     break;
@@ -104,7 +104,7 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         }
         if (i == signal.props.length)
             mapper_router_send_signal(router, &signal, applied);
-        m = m->next;
+        c = c->next;
     }
 }
 
@@ -129,24 +129,24 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 }
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                                const char *alias)
+                             const char *alias)
 {
-    // find this signal in list of mappings
-    mapper_signal_mapping sm = router->mappings;
-    while (sm && sm->signal != sig)
-        sm = sm->next;
+    // find this signal in list of connections
+    mapper_signal_connection sc = router->connections;
+    while (sc && sc->signal != sig)
+        sc = sc->next;
 
     // exit without failure if signal is not mapped
-    if (!sm) {
+    if (!sc) {
         return 0;
     }
-    // for each mapping, query the remote signal
-    mapper_mapping m = sm->mapping;
+    // for each connection, query the remote signal
+    mapper_connection c = sc->connection;
     int count = 0;
     char query_string[1024];
-    while (m) {
-        strncpy(query_string, m->props.dest_name, 1024);
-        strncat(query_string, "/get", 1024);
+    while (c) {
+        strncpy(query_string, c->props.dest_name, 1024);
+        strncat(query_string, "/get", 4);
         if (alias) {
             lo_send_from(router->addr, router->device->server, 
                          LO_TT_IMMEDIATE, query_string, "s", alias);
@@ -156,16 +156,16 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
                          LO_TT_IMMEDIATE, query_string, "");
         }
         count++;
-        m = m->next;
+        c = c->next;
     }
     return count;
 }
 
-mapper_mapping mapper_router_add_mapping(mapper_router router,
-                                         mapper_signal sig,
-                                         const char *dest_name,
-                                         char dest_type,
-                                         int dest_length)
+mapper_connection mapper_router_add_connection(mapper_router router,
+                                               mapper_signal sig,
+                                               const char *dest_name,
+                                               char dest_type,
+                                               int dest_length)
 {
     /* Currently, fail is lengths don't match.  TODO: In the future,
      * we'll have to examine the expresion to see if its input and
@@ -173,67 +173,69 @@ mapper_mapping mapper_router_add_mapping(mapper_router router,
     if (sig->props.length != dest_length) {
         char n[1024];
         msig_full_name(sig, n, 1024);
-        trace("rejecting mapping %s -> %s%s because lengths don't match (not yet supported)\n",
+        trace("rejecting connection %s -> %s%s because lengths "
+              "don't match (not yet supported)\n",
               n, router->dest_name, dest_name);
         return 0;
     }
 
-    mapper_mapping mapping = (mapper_mapping) calloc(1, sizeof(struct _mapper_mapping));
+    mapper_connection connection = (mapper_connection)
+        calloc(1, sizeof(struct _mapper_connection));
     
-    mapping->props.src_name = strdup(sig->props.name);
-    mapping->props.src_type = sig->props.type;
-    mapping->props.src_length = sig->props.length;
-    mapping->props.dest_name = strdup(dest_name);
-    mapping->props.dest_type = dest_type;
-    mapping->props.dest_length = dest_length;
-    mapping->props.mode = MO_UNDEFINED;
-    mapping->props.expression = strdup("y=x");
-    mapping->props.clip_min = CT_NONE;
-    mapping->props.clip_max = CT_NONE;
-    mapping->props.muted = 0;
-    
-    // find signal in signal mapping list
-    mapper_signal_mapping sm = router->mappings;
-    while (sm && sm->signal != sig)
-        sm = sm->next;
+    connection->props.src_name = strdup(sig->props.name);
+    connection->props.src_type = sig->props.type;
+    connection->props.src_length = sig->props.length;
+    connection->props.dest_name = strdup(dest_name);
+    connection->props.dest_type = dest_type;
+    connection->props.dest_length = dest_length;
+    connection->props.mode = MO_UNDEFINED;
+    connection->props.expression = strdup("y=x");
+    connection->props.clip_min = CT_NONE;
+    connection->props.clip_max = CT_NONE;
+    connection->props.muted = 0;
+
+    // find signal in signal connection list
+    mapper_signal_connection sc = router->connections;
+    while (sc && sc->signal != sig)
+        sc = sc->next;
 
     // if not found, create a new list entry
-    if (!sm) {
-        sm = (mapper_signal_mapping)
-            calloc(1, sizeof(struct _mapper_signal_mapping));
-        sm->signal = sig;
-        sm->next = router->mappings;
-        router->mappings = sm;
+    if (!sc) {
+        sc = (mapper_signal_connection)
+            calloc(1, sizeof(struct _mapper_signal_connection));
+        sc->signal = sig;
+        sc->next = router->connections;
+        router->connections = sc;
     }
-    // add new mapping to this signal's list
-    mapping->next = sm->mapping;
-    sm->mapping = mapping;
+    // add new connection to this signal's list
+    connection->next = sc->connection;
+    sc->connection = connection;
     
-    return mapping;
+    return connection;
 }
 
-int mapper_router_remove_mapping(mapper_router router, 
-								 mapper_mapping mapping)
+int mapper_router_remove_connection(mapper_router router, 
+                                    mapper_connection connection)
 {
-    // find signal in signal mapping list
-    mapper_signal_mapping sm = router->mappings;
-    while (sm) {
-        mapper_mapping *m = &sm->mapping;
-        while (*m) {
-            if (*m == mapping) {
-                *m = mapping->next;
-                free(mapping);
+    // find signal in signal connection list
+    mapper_signal_connection sc = router->connections;
+    while (sc) {
+        mapper_connection *c = &sc->connection;
+        while (*c) {
+            if (*c == connection) {
+                *c = connection->next;
+                free(connection);
                 return 0;
             }
-            m = &(*m)->next;
+            c = &(*c)->next;
         }
-        sm = sm->next;
+        sc = sc->next;
     }
     return 1;
 }
 
 mapper_router mapper_router_find_by_dest_name(mapper_router router,
-                                                const char* dest_name)
+                                              const char* dest_name)
 {
     int n = strlen(dest_name);
     const char *slash = strchr(dest_name+1, '/');

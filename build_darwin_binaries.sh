@@ -54,14 +54,14 @@ function make_arch()
 
     cd $(basename "$LIBMAPPER_TAR" .tar.gz)
     PREFIX=`pwd`/../install
-    if ./configure CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
+    if env PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig ./configure --enable-debug CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
 
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
-            ../install/lib/liblo.dylib
+            ../install/lib/liblo.dylib || exit 1
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
-            ../install/lib/liblo.7.dylib
+            ../install/lib/liblo.7.dylib || exit 1
 
         if make && make install; then
             cd ..
@@ -76,10 +76,10 @@ function make_arch()
 
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
-        install/lib/libmapper-$LIBMAPPER_MAJOR.dylib
+        install/lib/libmapper-$LIBMAPPER_MAJOR.dylib || exit 1
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
-        install/lib/libmapper-$LIBMAPPER_VERSION.dylib
+        install/lib/libmapper-$LIBMAPPER_VERSION.dylib || exit 1
 
     cd ..
 }
@@ -120,10 +120,10 @@ function use_lipo()
     done
 
     mkdir -v all/python
-    for i in $(find i386 -name _*.so); do
+    for i in libmapper-0.2/examples/py_tk_gui/_pwm.so libmapper-0.2/swig/_mapper.so; do
         ARCHFILES=""
         for a in $ARCHES; do
-            ARCHFILES="$ARCHFILES -arch $a $(echo $i | sed s/i386/$a/)"
+            ARCHFILES="$ARCHFILES -arch $a $a/$i"
         done
         lipo -create -output all/python/$(basename $i) $ARCHFILES
     done

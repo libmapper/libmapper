@@ -230,7 +230,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
-    mapper_mapping_range_t *range = 0;
+    mapper_connection_range_t *range = 0;
 
     while (pa != N_AT_PARAMS)
     {
@@ -308,20 +308,20 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, "unknown");
             break;
         case AT_RANGE:
-            range = va_arg(aq, mapper_mapping_range_t*);
-            if (range->known & MAPPING_RANGE_SRC_MIN)
+            range = va_arg(aq, mapper_connection_range_t*);
+            if (range->known & CONNECTION_RANGE_SRC_MIN)
                 lo_message_add_float(m, range->src_min);
             else
                 lo_message_add_string(m, "-");
-            if (range->known & MAPPING_RANGE_SRC_MAX)
+            if (range->known & CONNECTION_RANGE_SRC_MAX)
                 lo_message_add_float(m, range->src_max);
             else
                 lo_message_add_string(m, "-");
-            if (range->known & MAPPING_RANGE_DEST_MIN)
+            if (range->known & CONNECTION_RANGE_DEST_MIN)
                 lo_message_add_float(m, range->dest_min);
             else
                 lo_message_add_string(m, "-");
-            if (range->known & MAPPING_RANGE_DEST_MAX)
+            if (range->known & CONNECTION_RANGE_DEST_MAX)
                 lo_message_add_float(m, range->dest_max);
             else
                 lo_message_add_string(m, "-");
@@ -435,52 +435,53 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_mapping_prepare_osc_message(lo_message m, mapper_mapping map)
+void mapper_connection_prepare_osc_message(lo_message m,
+                                           mapper_connection con)
 {
-    if (map->props.mode) {
+    if (con->props.mode) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[map->props.mode]);
+        lo_message_add_string(m, mapper_mode_type_strings[con->props.mode]);
     }
-    if (map->props.expression) {
+    if (con->props.expression) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
-        lo_message_add_string(m, map->props.expression);
+        lo_message_add_string(m, con->props.expression);
     }
-    if (map->props.range.known & MAPPING_RANGE_KNOWN) {
+    if (con->props.range.known & CONNECTION_RANGE_KNOWN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_RANGE]);
-        if (map->props.range.known & MAPPING_RANGE_SRC_MIN)
-            lo_message_add_float(m, map->props.range.src_min);
+        if (con->props.range.known & CONNECTION_RANGE_SRC_MIN)
+            lo_message_add_float(m, con->props.range.src_min);
         else
             lo_message_add_char(m, '-');
 
-        if (map->props.range.known & MAPPING_RANGE_SRC_MAX)
-            lo_message_add_float(m, map->props.range.src_max);
+        if (con->props.range.known & CONNECTION_RANGE_SRC_MAX)
+            lo_message_add_float(m, con->props.range.src_max);
         else
             lo_message_add_char(m, '-');
 
-        if (map->props.range.known & MAPPING_RANGE_DEST_MIN)
-            lo_message_add_float(m, map->props.range.dest_min);
+        if (con->props.range.known & CONNECTION_RANGE_DEST_MIN)
+            lo_message_add_float(m, con->props.range.dest_min);
         else
             lo_message_add_char(m, '-');
 
-        if (map->props.range.known & MAPPING_RANGE_DEST_MAX)
-            lo_message_add_float(m, map->props.range.dest_max);
+        if (con->props.range.known & CONNECTION_RANGE_DEST_MAX)
+            lo_message_add_float(m, con->props.range.dest_max);
         else
             lo_message_add_char(m, '-');
     }
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMIN]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_min]);
+    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_min]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMAX]);
-    lo_message_add_string(m, mapper_clipping_type_strings[map->props.clip_max]);
+    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
-    lo_message_add_int32(m, map->props.muted);
+    lo_message_add_int32(m, con->props.muted);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SRCTYPE]);
-    lo_message_add_char(m, map->props.src_type);
+    lo_message_add_char(m, con->props.src_type);
     lo_message_add_string(m, mapper_msg_param_strings[AT_DESTTYPE]);
-    lo_message_add_char(m, map->props.dest_type);
+    lo_message_add_char(m, con->props.dest_type);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SRCLENGTH]);
-    lo_message_add_int32(m, map->props.src_length);
+    lo_message_add_int32(m, con->props.src_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
-    lo_message_add_int32(m, map->props.dest_length);
+    lo_message_add_int32(m, con->props.dest_length);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)

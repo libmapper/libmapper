@@ -1,6 +1,6 @@
 AC_PREREQ(2.61)
 
-AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
+AC_INIT([libmapper],[0.2],[sinclair@music.mcgill.ca])
 
 # libtool version: current:revision:age
 #
@@ -15,7 +15,7 @@ AC_INIT([libmapper],[0.1],[sinclair@music.mcgill.ca])
 #
 # If any interfaces have been removed since the last public release, then set
 # age to 0.
-SO_VERSION=1:0:0
+SO_VERSION=2:0:0
 
 AC_CONFIG_SRCDIR([src/device.c])
 AC_CONFIG_HEADERS([src/config.h])
@@ -38,9 +38,20 @@ AM_SANITY_CHECK
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
-AC_CHECK_FUNC([inet_ntoa],[],[AC_ERROR([This is not a POSIX system!])])
+AC_CHECK_HEADERS([winsock2.h])
+AC_CHECK_FUNC([inet_ptoa],[AC_DEFINE([HAVE_INET_PTOA],[],[Define if inet_ptoa() is available.])],[])
+AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs() is available.])],[
+  AC_CHECK_LIB([iphlpapi],[exit],[
+      # Need some functions not available before Windows XP
+      CFLAGS="$CFLAGS -DWIN32 -D_WIN32_WINNT=0x501"
+      AC_DEFINE([HAVE_LIBIPHLPAPI],[],[Define if iphlpapi library is available. (Windows)])
+      is_windows=yes
+    ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
+
+AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
+AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -56,6 +67,7 @@ AC_PROG_CC_C99
 AC_PROG_CXX
 
 # libtool
+AC_LIBTOOL_WIN32_DLL
 AM_PROG_LIBTOOL
 
 # Check for the math library
@@ -116,18 +128,30 @@ fi
 # Check for JNI
 if test x$jni_enabled = xyes; then
    JDKPATH=
-   JDKBINPATH=
    if test -d /usr/lib/jvm/java-6-openjdk; then
       JDKPATH=/usr/lib/jvm/java-6-openjdk
    elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
-      JDKPATH=/System/Library/Frameworks/JavaVM.framework/Headers
+      JDKPATH=/System/Library/Frameworks/JavaVM.framework
    fi
 
    AC_ARG_WITH([jdk-path],
      AS_HELP_STRING([--with-jdk-path],[specify the path to the JDK]),
-     [JDKPATH="$withval"; JDKBINPATH="$withval/bin"])
+     [JDKPATH="$withval"])
 
-   JNIPATH="$JDKPATH/include"
+   if test x"$JNIPATH" = x; then
+     if test -f "$JDKPATH"/Headers/jni.h; then
+       JNIPATH="$JDKPATH"/Headers
+     elif test -f "$JDKPATH"/include/jni.h; then
+       JNIPATH="$JDKPATH"/include
+     fi
+   fi
+   if test x"$JDKBINPATH" = x; then
+     if test -f "$JDKPATH"/Commands/javac; then
+       JDKBINPATH="$JDKPATH"/Commands
+     elif test -f "$JDKPATH"/bin/javac; then
+       JDKBINPATH="$JDKPATH"/bin
+     fi
+   fi
 
    AC_PATH_PROG([JAVAC], [javac], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
@@ -217,13 +241,14 @@ AS_IF([test x$with_liblo != xno],[
 
 # Debug mode
 AS_IF([test x$enable_debug = xyes],
-      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG"],
+      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"],
       [CFLAGS="$CFLAGS -DNDEBUG"])
 
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$swig_enabled" = xyes)
+AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 
 AC_CONFIG_FILES([
     Makefile

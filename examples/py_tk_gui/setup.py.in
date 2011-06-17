@@ -16,7 +16,7 @@ pwm_module = Extension('_pwm',
                        )
 
 setup (name = 'pwm',
-       version = '0.1',
+       version = '@VERSION@',
        author      = "IDMIL",
        description = """Simple PWM audio synth example for libmapper""",
        ext_modules = [pwm_module],

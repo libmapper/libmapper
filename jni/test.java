@@ -1,6 +1,7 @@
 
 import Mapper.*;
 import Mapper.Device.*;
+import java.util.Arrays;
 
 class test {
     public static void main(String [] args) {
@@ -19,8 +20,8 @@ class test {
 
         Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
             new InputListener() {
-                public void onInput() {
-                    System.out.println("in onInput()");
+                public void onInput(float[] v) {
+                    System.out.println("in onInput(): "+Arrays.toString(v));
                 }});
 
         System.out.println("Input signal name: "+inp1.name());
@@ -31,8 +32,9 @@ class test {
 
         Signal inp2 = dev.add_hidden_input("insig2", 1, 'f', "Hz", 2.0, null,
             new InputListener() {
-                public void onInput() {
-                    System.out.println("in onInput() for inp2");
+                public void onInput(float[] v) {
+                    System.out.println("in onInput() for inp2"
+                                       +Arrays.toString(v));
                 }});
 
         out1.query_remote(inp2);

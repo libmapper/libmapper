@@ -433,8 +433,13 @@ int mdev_poll(mapper_device md, int block_ms)
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
-    else if (block_ms)
+    else if (block_ms) {
+#ifdef WIN32
+        Sleep(block_ms);
+#else
         usleep(block_ms * 1000);
+#endif
+    }
 
     return admin_count + count;
 }
@@ -623,7 +628,7 @@ const struct in_addr *mdev_ip4(mapper_device md)
 
 const char *mdev_interface(mapper_device md)
 {
-    return md->admin->interface;
+    return md->admin->interface_name;
 }
 
 unsigned int mdev_ordinal(mapper_device md)

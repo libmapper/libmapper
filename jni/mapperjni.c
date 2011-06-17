@@ -42,7 +42,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
     mdev_free(dev);
 }
 
-JNIEXPORT int JNICALL Java_Mapper_Device_mdev_1poll
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1poll
   (JNIEnv *env, jobject obj, jlong d, jint timeout)
 {
     genv = env;
@@ -57,18 +57,52 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
     if (bailing)
         return;
 
+    jobject vobj = 0;
+    if (props->type == 'f') {
+        jfloatArray varr = (*genv)->NewFloatArray(genv, props->length);
+        if (varr)
+            (*genv)->SetFloatArrayRegion(genv, varr, 0, props->length, v);
+        vobj = (jobject) varr;
+    }
+    else if (props->type == 'i') {
+        jintArray varr = (*genv)->NewIntArray(genv, props->length);
+        if (varr)
+            (*genv)->SetIntArrayRegion(genv, varr, 0, props->length, v);
+        vobj = (jobject) varr;
+    }
+
+    if (!vobj) {
+        char msg[1024];
+        snprintf(msg, 1024,
+                 "Unknown signal type for %s in callback handler (%c,%d).",
+                 props->name, props->type, props->length);
+        jclass newExcCls =
+            (*genv)->FindClass(genv, "java/lang/IllegalArgumentException");
+        if (newExcCls)
+            (*genv)->ThrowNew(genv, newExcCls, msg);
+        bailing = 1;
+        return;
+    }
+
     jobject listener = (jobject)props->user_data;
     if (listener) {
         jclass cls = (*genv)->GetObjectClass(genv, listener);
         if (cls) {
-            jmethodID val = (*genv)->GetMethodID(genv, cls, "onInput", "()V");
+            jmethodID val=0;
+            if (props->type=='i')
+                val = (*genv)->GetMethodID(genv, cls, "onInput", "([I)V");
+            else if (props->type=='f')
+                val = (*genv)->GetMethodID(genv, cls, "onInput", "([F)V");
             if (val) {
-                (*genv)->CallVoidMethod(genv, listener, val);
+                (*genv)->CallVoidMethod(genv, listener, val, vobj);
                 if ((*genv)->ExceptionOccurred(genv))
                     bailing = 1;
             }
         }
     }
+
+    if (vobj)
+        (*genv)->DeleteLocalRef(genv, vobj);
 }
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1add_1input

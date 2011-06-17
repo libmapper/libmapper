@@ -6,10 +6,11 @@ This library is a system for representing input and output signals on
 a network and allowing arbitrary "mappings" to be dynamically created
 between them.
 
-A "mapping" consists of an Open Sound Control stream being established
-between a source and a destination signal--the source is translated to the
-destination's expected format, with some mathematical expression used to
-condition the transmitted values as desired.  This can be used for
+A "mapping", or "connection" associated with relational properties,
+consists of an Open Sound Control stream being established between a
+source and a destination signal--the source is translated to the
+destination's expected format, with some mathematical expression used
+to condition the transmitted values as desired.  This can be used for
 example to connect a set of sensors to a synthesizer's input
 parameters.
 

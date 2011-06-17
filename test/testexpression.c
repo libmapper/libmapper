@@ -6,7 +6,10 @@
 #include <math.h>
 
 #include <unistd.h>
-#include <arpa/inet.h>
+
+#ifdef WIN32
+#define usleep(x) Sleep(x/1000)
+#endif
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -112,11 +115,11 @@ int setup_router()
     }
 
     printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_mapping m = mapper_router_add_mapping(router, sendsig,
-                                                 recvsig->props.name,
-                                                 'f', 1);
+    mapper_connection c = mapper_router_add_connection(router, sendsig,
+                                                       recvsig->props.name,
+                                                       'f', 1);
     const char *expr = "y=x*10";
-    mapper_mapping_set_expression(m, sendsig, expr);
+    mapper_connection_set_expression(c, sendsig, expr);
 
     return 0;
 }
