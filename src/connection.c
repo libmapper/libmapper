@@ -134,7 +134,8 @@ int mapper_clipping_perform(mapper_connection connection,
     float v = 0;
     float total_range = fabsf(connection->props.range.dest_max
                               - connection->props.range.dest_min);
-    float difference, modulo_difference;
+    float dest_min, dest_max, difference, modulo_difference;
+    mapper_clipping_type clip_min, clip_max;
 
     if (connection->props.clip_min == CT_NONE
         && connection->props.clip_max == CT_NONE)
@@ -153,55 +154,62 @@ int mapper_clipping_perform(mapper_connection connection,
     }
 
     if (connection->props.range.known) {
-        if (v < connection->props.range.dest_min) {
-            switch (connection->props.clip_min) {
+        if (connection->props.range.dest_min <= connection->props.range.dest_max) {
+            clip_min = connection->props.clip_min;
+            clip_max = connection->props.clip_max;
+            dest_min = connection->props.range.dest_min;
+            dest_max = connection->props.range.dest_max;
+        }
+        else {
+            clip_min = connection->props.clip_max;
+            clip_max = connection->props.clip_min;
+            dest_min = connection->props.range.dest_max;
+            dest_max = connection->props.range.dest_min;
+        }
+        if (v < dest_min) {
+            switch (clip_min) {
                 case CT_MUTE:
                     // need to prevent value from being sent at all
                     muted = 1;
                     break;
                 case CT_CLAMP:
                     // clamp value to range minimum
-                    v = connection->props.range.dest_min;
+                    v = dest_min;
                     break;
                 case CT_FOLD:
                     // fold value around range minimum
-                    difference = fabsf(v - connection->props.range.dest_min);
-                    v = connection->props.range.dest_min + difference;
-                    if (v > connection->props.range.dest_max) {
+                    difference = fabsf(v - dest_min);
+                    v = dest_min + difference;
+                    if (v > dest_max) {
                         // value now exceeds range maximum!
-                        switch (connection->props.clip_max) {
+                        switch (clip_max) {
                             case CT_MUTE:
                                 // need to prevent value from being sent at all
                                 muted = 1;
                                 break;
                             case CT_CLAMP:
                                 // clamp value to range minimum
-                                v = connection->props.range.dest_max;
+                                v = dest_max;
                                 break;
                             case CT_FOLD:
                                 // both clip modes are set to fold!
-                                difference =
-                                    fabsf(v-connection->props.range.dest_max);
+                                difference = fabsf(v - dest_max);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
                                 if ((int)(difference / total_range) % 2 == 0) {
-                                    v = connection->props.range.dest_max
-                                        - modulo_difference;
+                                    v = dest_max - modulo_difference;
                                 }
                                 else
-                                    v = connection->props.range.dest_min
-                                        + modulo_difference;
+                                    v = dest_min + modulo_difference;
                                 break;
                             case CT_WRAP:
                                 // wrap value back from range minimum
-                                difference =
-                                    fabsf(v-connection->props.range.dest_max);
+                                difference = fabsf(v - dest_max);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
-                                v = connection->props.range.dest_min
-                                    + modulo_difference;
+                                v = dest_min + modulo_difference;
                                 break;
                             default:
                                 break;
@@ -210,10 +218,10 @@ int mapper_clipping_perform(mapper_connection connection,
                     break;
                 case CT_WRAP:
                     // wrap value back from range maximum
-                    difference = fabsf(v - connection->props.range.dest_min);
+                    difference = fabsf(v - dest_min);
                     modulo_difference = difference
                         - (int)(difference / total_range) * total_range;
-                    v = connection->props.range.dest_max - modulo_difference;
+                    v = dest_max - modulo_difference;
                     break;
                 default:
                     // leave the value unchanged
@@ -221,55 +229,50 @@ int mapper_clipping_perform(mapper_connection connection,
             }
         }
         
-        else if (v > connection->props.range.dest_max) {
-            switch (connection->props.clip_max) {
+        else if (v > dest_max) {
+            switch (clip_max) {
                 case CT_MUTE:
                     // need to prevent value from being sent at all
                     muted = 1;
                     break;
                 case CT_CLAMP:
                     // clamp value to range maximum
-                    v = connection->props.range.dest_max;
+                    v = dest_max;
                     break;
                 case CT_FOLD:
                     // fold value around range maximum
-                    difference = fabsf(v - connection->props.range.dest_max);
-                    v = connection->props.range.dest_max - difference;
-                    if (v < connection->props.range.dest_min) {
+                    difference = fabsf(v - dest_max);
+                    v = dest_max - difference;
+                    if (v < dest_min) {
                         // value now exceeds range minimum!
-                        switch (connection->props.clip_min) {
+                        switch (clip_min) {
                             case CT_MUTE:
                                 // need to prevent value from being sent at all
                                 muted = 1;
                                 break;
                             case CT_CLAMP:
                                 // clamp value to range minimum
-                                v = connection->props.range.dest_min;
+                                v = dest_min;
                                 break;
                             case CT_FOLD:
                                 // both clip modes are set to fold!
-                                difference =
-                                    fabsf(v-connection->props.range.dest_min);
+                                difference = fabsf(v - dest_min);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
                                 if ((int)(difference / total_range) % 2 == 0) {
-                                    v = connection->props.range.dest_max
-                                        + modulo_difference;
+                                    v = dest_max + modulo_difference;
                                 }
                                 else
-                                    v = connection->props.range.dest_min
-                                        - modulo_difference;
+                                    v = dest_min - modulo_difference;
                                 break;
                             case CT_WRAP:
                                 // wrap value back from range maximum
-                                difference =
-                                    fabsf(v-connection->props.range.dest_min);
+                                difference = fabsf(v - dest_min);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
-                                v = connection->props.range.dest_max
-                                    - modulo_difference;
+                                v = dest_max - modulo_difference;
                                 break;
                             default:
                                 break;
@@ -278,10 +281,10 @@ int mapper_clipping_perform(mapper_connection connection,
                     break;
                 case CT_WRAP:
                     // wrap value back from range minimum
-                    difference = fabsf(v - connection->props.range.dest_max);
+                    difference = fabsf(v - dest_max);
                     modulo_difference = difference
                         - (int)(difference / total_range) * total_range;
-                    v = connection->props.range.dest_min + modulo_difference;
+                    v = dest_min + modulo_difference;
                     break;
                 default:
                     break;
