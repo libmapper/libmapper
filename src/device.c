@@ -113,21 +113,25 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
+    // Default to updating first instance
     if (types[0] == LO_NIL) {
-        sig->props.has_value = 0;
+        sig->input->has_value = 0;
     }
     else {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        memcpy(sig->value, argv[0], msig_vector_bytes(sig));
-        sig->props.has_value = 1;
+        memcpy(sig->input->value + sig->input->position,
+               argv[0], msig_vector_bytes(sig));
+        sig->input->has_value = 1;
     }
 
     if (sig->handler)
-        sig->handler(sig, &sig->props, &sig->value_tt,
-                     sig->props.has_value ? sig->value : 0);
+        sig->handler(sig, &sig->props,
+                     sig->input->timetag + sig->input->position,
+                     sig->input->has_value ? 
+                     sig->input->value + sig->input->position : 0);
 
     return 0;
 }
@@ -162,8 +166,9 @@ static int handler_query(const char *path, const char *types,
     if (!m)
         return 0;
 
-    if (sig->props.has_value) {
-        mapper_signal_value_t *value = sig->value;
+    // TODO: need to iterate through instances here
+    if (sig->input->has_value) {
+        mapper_signal_value_t *value = sig->input->value + sig->input->position;
         for (i = 0; i < sig->props.length; i++)
             mval_add_to_message(m, sig, &value[i]);
     }

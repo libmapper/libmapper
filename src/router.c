@@ -167,8 +167,8 @@ mapper_connection mapper_router_add_connection(mapper_router router,
                                                char dest_type,
                                                int dest_length)
 {
-    /* Currently, fail is lengths don't match.  TODO: In the future,
-     * we'll have to examine the expresion to see if its input and
+    /* Currently, fail if lengths don't match.  TODO: In the future,
+     * we'll have to examine the expression to see if its input and
      * output lengths are compatible. */
     if (sig->props.length != dest_length) {
         char n[1024];
@@ -194,6 +194,15 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.clip_max = CT_NONE;
     connection->props.muted = 0;
 
+    // create output instances as necessary
+    mapper_instance mi = sig->input, output;
+    while (mi) {
+        output = msig_spawn_instance(sig, 1, 1);
+        output->next = connection->output;
+        connection->output = output;
+        mi = mi->next;
+    }
+
     // find signal in signal connection list
     mapper_signal_connection sc = router->connections;
     while (sc && sc->signal != sig)
@@ -217,6 +226,13 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router, 
                                     mapper_connection connection)
 {
+    // remove associated output instances
+    mapper_instance mi = connection->output;
+    while (mi) {
+        mapper_free_instance(mi);
+        mi = mi->next;
+    }
+    
     // find signal in signal connection list
     mapper_signal_connection sc = router->connections;
     while (sc) {

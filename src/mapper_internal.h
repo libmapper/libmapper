@@ -17,17 +17,39 @@ struct _mapper_signal
 
     /*! The device associated with this signal. */
     struct _mapper_device *device;
-
-    /*! The current value of this signal. */
-    void *value;
-
-    /*! The timetag associated with the current value of this
-     *  signal. */
-    mapper_timetag_t value_tt;
+    
+    /*! Pointer to input values. */
+    struct _mapper_instance *input;
 
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
+};
+
+/**** Instances ****/
+
+/*! A signal instance is defined as a vector of values, along with some
+ *  metadata. */
+
+struct _mapper_instance
+{
+    /*! Signal this instance belongs to. */
+    mapper_signal *signal;
+
+    /*! Flag to indicate whether instance has a value */
+	int has_value;
+
+    /*! The value of this instance. */    
+    int position;
+    int size;
+    mapper_signal_value_t *value;
+
+    /*! The timetags associated with the values of this
+     *  instance. */
+    mapper_timetag_t *timetag;
+
+    /*! Pointer to the next instance. */
+    struct _mapper_instance *next;
 };
 
 // Mapper internal functions
@@ -149,6 +171,9 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  freed by mdev_free().
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
+
+/*! Free memory used by a mapper_instance. */
+void msig_free_instance(mapper_instance instance);
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);

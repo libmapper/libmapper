@@ -131,9 +131,6 @@ typedef struct _mapper_db_signal
 	/*! Flag to indicate whether signal is source or destination */
 	int is_output;
 
-    /*! Flag to indicate whether signal has a value */
-	int has_value;
-
     /*! The type of this signal, specified as an OSC type
      *  character. */
     char type;

@@ -277,10 +277,6 @@ struct _mapper_expr
 {
     exprnode node;
     int vector_size;
-    int history_size;
-    int history_pos;
-    mapper_signal_value_t *input_history;
-    mapper_signal_value_t *output_history;
 };
 
 typedef enum {
@@ -339,8 +335,6 @@ static void exprnode_free(exprnode e)
 void mapper_expr_free(mapper_expr expr)
 {
     exprnode_free(expr->node);
-    free(expr->input_history);
-    free(expr->output_history);
     free(expr);
 }
 

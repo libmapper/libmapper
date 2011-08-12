@@ -32,6 +32,8 @@ libmapper concepts.
 
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
+struct _mapper_instance;
+typedef struct _mapper_instance *mapper_instance;
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -123,6 +125,30 @@ int msig_full_name(mapper_signal sig, char *name, int len);
  *  \param receiver A local input signal for receiving query responses.
  *  \return The number of queries sent, or -1 for error. */
 int msig_query_remote(mapper_signal sig, mapper_signal receiver);
+
+/*! Create a new instance of a signal.
+ *  \param sig The signal to which the instance will be added.
+ *  \param history_size The number of past samples to be stored.
+ *  \param is_output Whether the instance represents the output
+ *         of a connection.
+ *  \return A pointer to the new signal instance. */
+mapper_instance msig_spawn_instance(mapper_signal sig, int history_size,
+                                    int is_output);
+
+/*! Destroy a specific instance of a signal.
+ *  \param instance The instance to destroy.
+ *  \param is_output Whether the instance represents the output
+ *         of a connection. */
+void msig_kill_instance(mapper_instance instance, int is_output);
+
+/*! Update the value of a specific signal instance.
+ *  The signal will be routed according to external requests.
+ *  \param instance The instance to update.
+ *  \param value A pointer to a new value for this signal.  If the
+ *         signal type is 'i', this should be int*; if the signal type
+ *         is 'f', this should be float*.  It should be an array at
+ *         least as long as the signal's length property. */
+void msig_update_instance(mapper_instance instance, void *value);
 
 /* @} */
 

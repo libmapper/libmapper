@@ -24,6 +24,7 @@
  * struct name. */
 
 struct _mapper_signal;
+struct _mapper_instance;
 struct _mapper_admin;
 typedef struct _mapper_expr *mapper_expr;
 
@@ -127,6 +128,8 @@ typedef mapper_admin_t *mapper_admin;
 
 typedef struct _mapper_connection {
     mapper_db_connection_t props;      //!< Properties.
+    struct _mapper_instance *output;   /*!< The first instance for this
+                                        *   connection. */
     struct _mapper_connection *next;   //!< Next connection in the list.
 
     int calibrating;   /*!< 1 if the source range is currently being
