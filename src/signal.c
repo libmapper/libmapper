@@ -204,7 +204,7 @@ mapper_instance msig_spawn_instance(mapper_signal sig, int history_size, int is_
                                * history_size);
     instance->has_value = 0;
     instance->size = history_size;
-    instance->position = 0;
+    instance->position = -1;
     if (is_output) {
         // for each router...
         mapper_router r = sig->device->routers;
@@ -246,12 +246,27 @@ void msig_kill_instance(mapper_instance instance, int is_output)
         while (r) {
             // ...find signal connection
             mapper_signal_connection sc = r->connections;
-            while (sc && sc->signal != sig)
+            while (sc) {
+                if (sc->signal == instance->signal) {
+                    // For each connection...
+                    mapper_connection c = sc->connection;
+                    while (c) {
+                        // ...find the corresponding instance
+                        mapper_instance mi = c->output, last = c->output;
+                        while (mi) {
+                            if (mi->id == instance->id) {
+                                last->next = mi->next;
+                                msig_free_instance(mi);
+                                continue;
+                            }
+                            last = mi;
+                            mi = mi->next;
+                        }
+                        c = c->next;
+                    }
+                    continue;
+                }
                 sc = sc->next;
-            if (sc) {
-                // For each connection...
-                // Find the corresponding instance
-                // Fix linked-list pointers
             }
             r = r->next;
         }
@@ -267,12 +282,12 @@ void msig_update_instance(mapper_instance instance, void *value)
         return;
 }
 
-void msig_free_instance(mapper_instance instance)
+void msig_free_instance(mapper_instance mi)
 {
-    if (!instance)
+    if (!mi)
         return;
-    free(i->value);
-    free(i->timetag);
+    free(mi->value);
+    free(mi->timetag);
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,

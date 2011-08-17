@@ -855,12 +855,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
     expr->vector_size = vector_size;
-    expr->history_size = (int)ceilf(-oldest_samps)+1;
-    expr->history_pos = -1;
-    expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
-                                    * vector_size * expr->history_size);
-    expr->output_history = calloc(1, sizeof(mapper_signal_value_t)
-                                     * expr->history_size);
+    //expr->history_size = (int)ceilf(-oldest_samps)+1;
+    //expr->history_pos = -1;
+    //expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
+    //                                * vector_size * expr->history_size);
+    //expr->output_history = calloc(1, sizeof(mapper_signal_value_t)
+    //                                 * expr->history_size);
+    mapper_instance_reallocate((int)ceilf(-oldest_samps)+1);
     return expr;
 
   cleanup:
@@ -877,8 +878,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 static void trace_eval(const char *s,...) {}
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(
-    mapper_expr expr, mapper_signal_value_t* input_vector)
+mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
+                                           mapper_signal_value_t* input_vector,
+                                           mapper_instance instance)
 {
     mapper_signal_value_t stack[STACK_SIZE];
     mapper_signal_value_t left, right;
@@ -886,7 +888,7 @@ mapper_signal_value_t mapper_expr_evaluate(
     exprnode node = expr->node;
 
     if (input_vector) {
-        expr->history_pos = (expr->history_pos+1) % expr->history_size;
+        instance->position = (instance->position+1) % instance->size;
         memcpy(&expr->input_history[expr->history_pos*expr->vector_size],
                input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
     }

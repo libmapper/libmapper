@@ -33,8 +33,11 @@ struct _mapper_signal
 
 struct _mapper_instance
 {
+    /*! ID number of this instance. */
+    int id;
+
     /*! Signal this instance belongs to. */
-    mapper_signal *signal;
+    struct _mapper_signal *signal;
 
     /*! Flag to indicate whether instance has a value */
 	int has_value;
