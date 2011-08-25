@@ -121,6 +121,15 @@ typedef union _mapper_signal_value {
     int i32;
 } mapper_signal_value_t, mval;
 
+typedef struct _mapper_signal_history {
+    int position;
+    int size;
+    mapper_signal_value_t *value;
+    // TODO: switch to mapper_timetag_t;
+    //mapper_timetag_t *timetag;
+    lo_timetag *timetag;
+} mapper_signal_history_t;
+
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal

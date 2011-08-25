@@ -19,7 +19,7 @@ struct _mapper_signal
     struct _mapper_device *device;
     
     /*! Pointer to input values. */
-    struct _mapper_instance *input;
+    struct _mapper_signal_instance *input;
 
     /*! An optional function to be called when the signal value
      *  changes. */
@@ -31,7 +31,7 @@ struct _mapper_signal
 /*! A signal instance is defined as a vector of values, along with some
  *  metadata. */
 
-struct _mapper_instance
+struct _mapper_signal_instance
 {
     /*! ID number of this instance. */
     int id;
@@ -39,20 +39,40 @@ struct _mapper_instance
     /*! Signal this instance belongs to. */
     struct _mapper_signal *signal;
 
-    /*! Flag to indicate whether instance has a value */
-	int has_value;
-
     /*! The value of this instance. */    
-    int position;
-    int size;
-    mapper_signal_value_t *value;
+    mapper_signal_history_t history;
 
     /*! The timetags associated with the values of this
      *  instance. */
-    mapper_timetag_t *timetag;
+    //mapper_timetag_t *timetag;
 
     /*! Pointer to the next instance. */
-    struct _mapper_instance *next;
+    struct _mapper_signal_instance *next;
+};
+
+/*! A connection instance is defined as a vector of values, along with some
+ *  metadata. */
+
+struct _mapper_connection_instance
+{
+    /*! ID number of this instance. */
+    int id;
+    
+    /*! Pointer to input instance. */
+    struct _mapper_signal_instance *input;
+    
+    /*! Connection this instance belongs to. */
+    struct _mapper_connection *connection;
+    
+    /*! The value of this instance. */    
+    mapper_signal_history_t history;
+    
+    /*! The timetags associated with the values of this
+     *  instance. */
+    //mapper_timetag_t *timetag;
+    
+    /*! Pointer to the next instance. */
+    struct _mapper_connection_instance *next;
 };
 
 // Mapper internal functions
@@ -175,8 +195,11 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Free memory used by a mapper_instance. */
-void msig_free_instance(mapper_instance instance);
+/*! Free memory used by a mapper__signal_instance. */
+void mapper_signal_free_instance(mapper_signal_instance instance);
+
+/*! Free memory used by a mapper_connection_instance. */
+void mapper_connection_free_instance(mapper_connection_instance instance);
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
@@ -225,6 +248,17 @@ void mapper_connection_set_calibrate(mapper_connection connection,
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
+
+/*! Create a new instance of a signal connection.
+ *  \param sig The signal to which the instance will be added.
+ *  \param history_size The number of past samples to be stored.
+ *  \return A pointer to the new connection instance. */
+mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c,
+                                                            int history_size);
+
+/*! Destroy a specific instance of a signal connection.
+ *  \param instance The instance to destroy. */
+void mapper_connection_kill_instance(mapper_connection_instance instance);
 
 /**** Local device database ****/
 
@@ -431,8 +465,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 void printexpr(const char*, mapper_expr);
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(
-    mapper_expr expr, mapper_signal_value_t* input_vector);
+mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
+                                           mapper_signal_value_t* input_vector,
+                                           mapper_signal_history_t *input_history,
+                                           mapper_signal_history_t *output_history);
 
 void mapper_expr_free(mapper_expr expr);
 

@@ -79,7 +79,9 @@ int mapper_connection_perform(mapper_connection connection,
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        *to_value = mapper_expr_evaluate(connection->expr, from_value);
+        *to_value = mapper_expr_evaluate(connection->expr, from_value,
+                                         sig->input->history,
+                                         connection->output->history);
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -120,7 +122,9 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            *to_value = mapper_expr_evaluate(connection->expr, from_value);
+            *to_value = mapper_expr_evaluate(connection->expr, from_value,
+                                             sig->input->history,
+                                             connection->output->history);
     }
 
     return 1;
@@ -690,4 +694,55 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
         i++;
     }
     return NULL;
+}
+
+mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c,
+                                                            int history_size)
+{
+    if (!c)
+        return 0;
+    mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
+                                    sizeof(struct _mapper_connection_instance));
+    // allocate history vectors
+    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                               * c->props.dest_length * history_size);
+    /*ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                 * history_size);*/
+    ci->history.position = -1;
+    ci->history.size = history_size;
+
+    // add instance to connection
+    ci->next = c->output;
+    c->output = ci;
+    c = c->next;
+    return ci;
+}
+
+void mapper_connection_kill_instance(mapper_connection_instance ci)
+{
+    if (!ci)
+        return;
+
+    mapper_connection c = ci->connection;
+    while (c) {
+        // ...find the preceeding instance
+        mapper_connection_instance *mci = &c->output;
+        while (*mci) {
+            if (*mci == ci) {
+                *mci = ci->next;
+                mapper_connection_free_instance(*mci);
+                return;
+            }
+            mci = &(*mci)->next;
+        }
+        c = c->next;
+    }
+}
+
+void mapper_connection_free_instance(mapper_connection_instance mci)
+{
+    if (!mci)
+        return;
+    free(mci->history.value);
+    //free(mci->history.timetag);
 }

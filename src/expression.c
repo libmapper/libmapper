@@ -464,7 +464,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if (constant_folding && !refvar) {
         struct _mapper_expr e;
         e.node = *plhs;
-        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0);
+        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0, 0, 0);
 
         exprnode_free((*plhs)->next);
         (*plhs)->next = 0;
@@ -880,7 +880,8 @@ static void trace_eval(const char *s,...) {}
 
 mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
                                            mapper_signal_value_t* input_vector,
-                                           mapper_instance instance)
+                                           mapper_signal_history_t *input_history,
+                                           mapper_signal_history_t *output_history)
 {
     mapper_signal_value_t stack[STACK_SIZE];
     mapper_signal_value_t left, right;
@@ -888,7 +889,7 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
     exprnode node = expr->node;
 
     if (input_vector) {
-        instance->position = (instance->position+1) % instance->size;
+        output_history->position = (output_history->position+1) % output_history->size;
         memcpy(&expr->input_history[expr->history_pos*expr->vector_size],
                input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
     }

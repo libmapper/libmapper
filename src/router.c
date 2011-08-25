@@ -194,10 +194,11 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.clip_max = CT_NONE;
     connection->props.muted = 0;
 
-    // create output instances as necessary
-    mapper_instance mi = sig->input, output;
+    // create connection instances as necessary
+    mapper_signal_instance mi = sig->input;
+    mapper_connection_instance output;
     while (mi) {
-        output = msig_spawn_instance(sig, 1, 1);
+        output = mapper_connection_spawn_instance(connection, 1);
         output->next = connection->output;
         connection->output = output;
         mi = mi->next;
@@ -227,10 +228,10 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated output instances
-    mapper_instance mi = connection->output;
-    while (mi) {
-        mapper_free_instance(mi);
-        mi = mi->next;
+    mapper_connection_instance mci = connection->output;
+    while (mci) {
+        mapper_connection_free_instance(mci);
+        mci = mci->next;
     }
     
     // find signal in signal connection list

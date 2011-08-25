@@ -115,23 +115,25 @@ static int handler_signal(const char *path, const char *types,
 
     // Default to updating first instance
     if (types[0] == LO_NIL) {
-        sig->input->has_value = 0;
+        sig->input->history.position = -1;
     }
     else {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        memcpy(sig->input->value + sig->input->position,
-               argv[0], msig_vector_bytes(sig));
-        sig->input->has_value = 1;
+        sig->input->history.position = (sig->input->history.position + 1)
+                                        % sig->input->history.size;
+        memcpy(sig->input->history.value + sig->input->history.position
+               * sig->props.length, argv[0], msig_vector_bytes(sig));
     }
 
     if (sig->handler)
         sig->handler(sig, &sig->props,
-                     sig->input->timetag + sig->input->position,
-                     sig->input->has_value ? 
-                     sig->input->value + sig->input->position : 0);
+                     sig->input->history.timetag + sig->input->history.position,
+                     sig->input->history.position == -1 ? 0 :
+                     sig->input->history.value + sig->input->history.position
+                     * sig->props.length);
 
     return 0;
 }
@@ -167,13 +169,15 @@ static int handler_query(const char *path, const char *types,
         return 0;
 
     // TODO: need to iterate through instances here
-    if (sig->input->has_value) {
-        mapper_signal_value_t *value = sig->input->value + sig->input->position;
-        for (i = 0; i < sig->props.length; i++)
-            mval_add_to_message(m, sig, &value[i]);
+    if (sig->input->history.position == -1) {
+        lo_message_add_nil(m);
     }
     else {
-        lo_message_add_nil(m);
+        mapper_signal_value_t *value = sig->input->history.value
+                                       + sig->input->history.position
+                                       * sig->props.length;
+        for (i = 0; i < sig->props.length; i++)
+            mval_add_to_message(m, sig, &value[i]);
     }
 
     lo_send_message(lo_message_get_source(msg), dest_name, m);

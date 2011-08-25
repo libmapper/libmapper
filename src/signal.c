@@ -29,7 +29,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_maximum(sig, maximum);
 
     // Create one instance to start
-    sig->input = msig_spawn_instance(sig, 1, 0);
+    sig->input = msig_spawn_instance(sig, 1);
     sig->input->next = 0;
     return sig;
 }
@@ -42,12 +42,13 @@ mapper_db_signal msig_properties(mapper_signal sig)
 void *msig_value(mapper_signal sig,
                  mapper_timetag_t *timetag)
 {
-    if (sig->input->has_value) {
-        if (timetag)
-            timetag = sig->input->timetag + sig->input->position;
-        return sig->input->value + sig->input->position;
-    } else
+    if (!sig) return 0;
+    if (!sig->input) return 0;
+    if (sig->input->history.position == -1)
         return 0;
+    //if (timetag)
+    //    timetag = sig->input->timetag + sig->input->position;
+    return sig->input->history.value + sig->input->history.position;
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
@@ -102,10 +103,10 @@ void msig_free(mapper_signal sig)
 {
     if (!sig) return;
 
-    mapper_instance mi = sig->input;
-    while (mi) {
-        msig_free_instance(mi);
-        mi = mi->next;
+    mapper_signal_instance si = sig->input;
+    while (si) {
+        mapper_signal_free_instance(si);
+        si = si->next;
     }
     // TODO: free connection instances
     if (sig->props.minimum)
@@ -140,9 +141,11 @@ void msig_update_int(mapper_signal sig, int value)
     }
 #endif
 
-    memcpy(sig->input->value + sig->input->position,
-           &value, msig_vector_bytes(sig));
-    sig->input->has_value = 1;
+    sig->input->history.position = (sig->input->history.position + 1)
+                                    % sig->input->history.size;
+
+    memcpy(sig->input->history.value + sig->input->history.position
+           * sig->props.length, &value, msig_vector_bytes(sig));
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -166,9 +169,10 @@ void msig_update_float(mapper_signal sig, float value)
     }
 #endif
 
-    sig->input->position = (sig->input->position + 1) % sig->input->size;
-    memcpy(sig->input->value + sig->input->position, &value, msig_vector_bytes(sig));
-    sig->input->has_value = 1;
+    sig->input->history.position = (sig->input->history.position + 1)
+                                    % sig->input->history.size;
+    memcpy(sig->input->history.value + sig->input->history.position
+           * sig->props.length, &value, msig_vector_bytes(sig));
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
@@ -185,109 +189,77 @@ void msig_update(mapper_signal sig, void *value)
     }
 #endif
 
-    // TODO: need to check vector packing
-    memcpy(sig->input->value + sig->input->position, value, msig_vector_bytes(sig));
-    sig->input->has_value = 1;
+    sig->input->history.position = (sig->input->history.position + 1)
+                                    % sig->input->history.size;
+    memcpy(sig->input->history.value + sig->input->history.position
+           * sig->props.length, value, msig_vector_bytes(sig));
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
 
-mapper_instance msig_spawn_instance(mapper_signal sig, int history_size, int is_output)
+mapper_signal_instance mapper_signal_spawn_instance(mapper_signal sig, int history_size)
 {
     if (!sig)
         return 0;
-    mapper_instance instance = (mapper_instance) calloc(1, sizeof(struct _mapper_instance));
+    mapper_signal_instance si = (mapper_signal_instance) calloc(1,
+                                sizeof(struct _mapper_signal_instance));
     // allocate history vectors
-    instance->value = calloc(1, sizeof(mapper_signal_value_t)
-                             * sig->props.length * history_size);
-    instance->timetag = calloc(1, sizeof(mapper_timetag_t)
-                               * history_size);
-    instance->has_value = 0;
-    instance->size = history_size;
-    instance->position = -1;
-    if (is_output) {
-        // for each router...
-        mapper_router r = sig->device->routers;
-        while (r) {
-            // ... and each connection ...
-            mapper_signal_connection sc = r->connections;
-            while (sc && sc->signal != sig)
-                sc = sc->next;
-            if (sc) {
-                mapper_connection c = sc->connection;
-                while (c) {
-                    // add instance to connection
-                    instance->next = c->output;
-                    c->output = instance;
-                    c = c->next;
-                }
-            }
-            r = r->next;
-        }
-    }
-    else {
-        // add instance to signal
-        instance->next = sig->input;
-        sig->input = instance;
-    }
-    return instance;
+    si->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                               * sig->props.length * history_size);
+    si->history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                 * history_size);
+    si->history.position = -1;
+    si->history.size = history_size;
+
+    // add instance to signal
+    si->next = sig->input;
+    sig->input = si;
+    return si;
 }
 
-void msig_kill_instance(mapper_instance instance, int is_output)
+void mapper_signal_kill_instance(mapper_signal_instance si)
 {
-    if (!instance)
+    if (!si)
         return;
     // First send zero signal
-    msig_update_instance(instance, NULL);
+    msig_update_instance(si, NULL);
 
-    if (is_output) {
-        // for each router...
-        mapper_router r = instance->signal->device->routers;
-        while (r) {
-            // ...find signal connection
-            mapper_signal_connection sc = r->connections;
-            while (sc) {
-                if (sc->signal == instance->signal) {
-                    // For each connection...
-                    mapper_connection c = sc->connection;
-                    while (c) {
-                        // ...find the corresponding instance
-                        mapper_instance mi = c->output, last = c->output;
-                        while (mi) {
-                            if (mi->id == instance->id) {
-                                last->next = mi->next;
-                                msig_free_instance(mi);
-                                continue;
-                            }
-                            last = mi;
-                            mi = mi->next;
-                        }
-                        c = c->next;
-                    }
-                    continue;
+    // for each router...
+    mapper_router r = si->signal->device->routers;
+    while (r) {
+        // ...find signal connection
+        mapper_signal_connection sc = r->connections;
+        while (sc) {
+            if (sc->signal == si->signal) {
+                // For each connection...
+                mapper_connection c = sc->connection;
+                while (c) {
+                    mapper_connection_kill_instance(c);
+                    c = c->next;
                 }
-                sc = sc->next;
+                continue;
             }
-            r = r->next;
+            sc = sc->next;
         }
+        r = r->next;
     }
     // Kill signal instance
-    instance->signal->input = instance->next;
-    msig_free_instance(instance);
+    si->signal->input = si->next;
+    mapper_signal_free_instance(si);
 }
 
-void msig_update_instance(mapper_instance instance, void *value)
+void msig_update_instance(mapper_signal_instance instance, void *value)
 {
     if (!instance)
         return;
 }
 
-void msig_free_instance(mapper_instance mi)
+void msig_free_instance(mapper_signal_instance mi)
 {
     if (!mi)
         return;
-    free(mi->value);
-    free(mi->timetag);
+    free(mi->history.value);
+    //free(mi->history.timetag);
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
