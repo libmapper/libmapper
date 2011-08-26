@@ -80,8 +80,8 @@ int mapper_connection_perform(mapper_connection connection,
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                         sig->input->history,
-                                         connection->output->history);
+                                         &sig->input->history,
+                                         &connection->output->history);
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -123,8 +123,8 @@ int mapper_connection_perform(mapper_connection connection,
 
         if (connection->expr)
             *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                             sig->input->history,
-                                             connection->output->history);
+                                             &sig->input->history,
+                                             &connection->output->history);
     }
 
     return 1;
@@ -322,6 +322,13 @@ static int replace_expression_string(mapper_connection c,
     if (!c->props.expression || len > strlen(c->props.expression))
         c->props.expression = realloc(c->props.expression, len);
     strncpy(c->props.expression, expr_str, len);
+    // find maximum input history size required
+    if (expr->input_history_size > s->props.history_size) {
+        s->props.history_size = expr->input_history_size;
+        msig_reallocate_instances(s);
+    }
+    // reallocate connection instances
+    mapper_connection_reallocate_instances(c);
     return 0;
 }
 
@@ -696,20 +703,19 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
     return NULL;
 }
 
-mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c,
-                                                            int history_size)
+mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c)
 {
     if (!c)
         return 0;
     mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
                                     sizeof(struct _mapper_connection_instance));
     // allocate history vectors
+    // TODO: make sure that connection properties are updated when expression changes
     ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * c->props.dest_length * history_size);
+                               * c->props.dest_length * c->props.dest_history_size);
     /*ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                  * history_size);*/
     ci->history.position = -1;
-    ci->history.size = history_size;
 
     // add instance to connection
     ci->next = c->output;

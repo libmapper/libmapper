@@ -197,7 +197,7 @@ void msig_update(mapper_signal sig, void *value)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
 }
 
-mapper_signal_instance mapper_signal_spawn_instance(mapper_signal sig, int history_size)
+mapper_signal_instance msig_spawn_instance(mapper_signal sig)
 {
     if (!sig)
         return 0;
@@ -205,7 +205,7 @@ mapper_signal_instance mapper_signal_spawn_instance(mapper_signal sig, int histo
                                 sizeof(struct _mapper_signal_instance));
     // allocate history vectors
     si->history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * sig->props.length * history_size);
+                               * sig->props.length * sig->props.history_size);
     si->history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                  * history_size);
     si->history.position = -1;
@@ -214,10 +214,32 @@ mapper_signal_instance mapper_signal_spawn_instance(mapper_signal sig, int histo
     // add instance to signal
     si->next = sig->input;
     sig->input = si;
+    
+    // add instance to connections
+    // for each router...
+    mapper_router r = si->signal->device->routers;
+    while (r) {
+        // ...find signal connection
+        mapper_signal_connection sc = r->connections;
+        while (sc) {
+            if (sc->signal == si->signal) {
+                // For each connection...
+                mapper_connection c = sc->connection;
+                while (c) {
+                    mapper_connection_spawn_instance(c);
+                    c = c->next;
+                }
+                continue;
+            }
+            sc = sc->next;
+        }
+        r = r->next;
+    }
+    
     return si;
 }
 
-void mapper_signal_kill_instance(mapper_signal_instance si)
+void msig_kill_instance(mapper_signal_instance si)
 {
     if (!si)
         return;
@@ -246,6 +268,11 @@ void mapper_signal_kill_instance(mapper_signal_instance si)
     // Kill signal instance
     si->signal->input = si->next;
     mapper_signal_free_instance(si);
+}
+
+void msig_reallocate_instances(history_size)
+{
+    foo;
 }
 
 void msig_update_instance(mapper_signal_instance instance, void *value)

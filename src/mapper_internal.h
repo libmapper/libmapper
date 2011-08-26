@@ -196,10 +196,10 @@ mapper_signal msig_new(const char *name, int length, char type,
 void msig_free(mapper_signal sig);
 
 /*! Free memory used by a mapper__signal_instance. */
-void mapper_signal_free_instance(mapper_signal_instance instance);
+void msig_free_instance(mapper_signal_instance instance);
 
-/*! Free memory used by a mapper_connection_instance. */
-void mapper_connection_free_instance(mapper_connection_instance instance);
+/*! Reallocate memory used by signal instances. */
+void msig_reallocate_instances(mapper_signal sig);
 
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
@@ -253,12 +253,14 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
  *  \param sig The signal to which the instance will be added.
  *  \param history_size The number of past samples to be stored.
  *  \return A pointer to the new connection instance. */
-mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c,
-                                                            int history_size);
+mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c);
 
 /*! Destroy a specific instance of a signal connection.
  *  \param instance The instance to destroy. */
 void mapper_connection_kill_instance(mapper_connection_instance instance);
+
+/*! Free memory used by a mapper_connection_instance. */
+void mapper_connection_free_instance(mapper_connection_instance instance);
 
 /**** Local device database ****/
 
@@ -466,7 +468,7 @@ void printexpr(const char*, mapper_expr);
 #endif
 
 mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
-                                           mapper_signal_value_t* input_vector,
+                                           mapper_signal_value_t *input_vector,
                                            mapper_signal_history_t *input_history,
                                            mapper_signal_history_t *output_history);
 

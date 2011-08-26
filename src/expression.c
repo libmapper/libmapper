@@ -277,6 +277,8 @@ struct _mapper_expr
 {
     exprnode node;
     int vector_size;
+    int input_history_size;
+    int output_history_size;
 };
 
 typedef enum {
@@ -855,13 +857,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
     expr->vector_size = vector_size;
-    //expr->history_size = (int)ceilf(-oldest_samps)+1;
+    expr->history_size = (int)ceilf(-oldest_samps)+1;
     //expr->history_pos = -1;
     //expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
     //                                * vector_size * expr->history_size);
     //expr->output_history = calloc(1, sizeof(mapper_signal_value_t)
     //                                 * expr->history_size);
-    mapper_instance_reallocate((int)ceilf(-oldest_samps)+1);
     return expr;
 
   cleanup:
@@ -879,7 +880,7 @@ static void trace_eval(const char *s,...) {}
 #endif
 
 mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
-                                           mapper_signal_value_t* input_vector,
+                                           mapper_signal_value_t *input_vector,
                                            mapper_signal_history_t *input_history,
                                            mapper_signal_history_t *output_history)
 {
@@ -890,7 +891,7 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
 
     if (input_vector) {
         output_history->position = (output_history->position+1) % output_history->size;
-        memcpy(&expr->input_history[expr->history_pos*expr->vector_size],
+        memcpy(input_history->value + input_history->position * expr->vector_size,
                input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
     }
 
@@ -907,15 +908,18 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
                        "Input required but not provided for "
                        "expression evaluation.\n");
             {
-                int idx = ((node->history_index + expr->history_pos
-                            + expr->history_size) % expr->history_size);
+                int idx;
                 switch (node->tok.var) {
                 case 'x':
+                    idx = ((node->history_index + input_history->position
+                            + input_history->size) % input_history->size);
                     idx = idx * expr->vector_size + node->vector_index;
-                    stack[++top] = expr->input_history[idx];
+                    stack[++top] = input_history->value[idx];
                     break;
                 case 'y':
-                    stack[++top] = expr->output_history[idx];
+                    idx = ((node->history_index + output_history->position
+                            + output_history->size) % output_history->size);
+                    stack[++top] = output_history->value[idx];
                     break;
                 default: goto error;
                 }
@@ -985,7 +989,8 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
     }
 
     if (input_vector)
-        expr->output_history[expr->history_pos] = stack[0];
+        output_history->value[output_history->position] = stack[0];
+        // TODO: increment output position?
     return stack[0];
 
   error:

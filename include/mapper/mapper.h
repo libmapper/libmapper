@@ -132,7 +132,7 @@ int msig_query_remote(mapper_signal sig, mapper_signal receiver);
  *  \param sig The signal to which the instance will be added.
  *  \param history_size The number of past samples to be stored.
  *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_spawn_instance(mapper_signal sig, int history_size);
+mapper_signal_instance msig_spawn_instance(mapper_signal sig);
 
 /*! Destroy a specific instance of a signal.
  *  \param instance The instance to destroy. */

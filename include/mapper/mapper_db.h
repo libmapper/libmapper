@@ -95,6 +95,8 @@ typedef struct _mapper_db_connection {
 
     int src_length;             //!< Source signal length.
     int dest_length;            //!< Destination signal length.
+    int src_history_size;       //!< Source history size.
+    int dest_history_size;      //!< Destination history size.
 
     mapper_clipping_type clip_max;    /*!< Operation for exceeded
                                        *   upper boundary. */
@@ -146,6 +148,9 @@ typedef struct _mapper_db_signal
 
     /*! Length of the signal vector, or 1 for scalars. */
     int length;
+
+    /*! Size of the history vector. */
+    int history_size;
 
     /*! The name of this signal, an OSC path.  Must start with '/'. */
     const char *name;
