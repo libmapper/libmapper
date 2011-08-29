@@ -128,15 +128,31 @@ int msig_full_name(mapper_signal sig, char *name, int len);
  *  \return The number of queries sent, or -1 for error. */
 int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 
-/*! Create a new instance of a signal.
+/*! Add a new instance of a signal.
  *  \param sig The signal to which the instance will be added.
- *  \param history_size The number of past samples to be stored.
  *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_spawn_instance(mapper_signal sig);
+mapper_signal_instance msig_add_instance(mapper_signal sig);
 
-/*! Destroy a specific instance of a signal.
+/*! Add a new connection instance to a signal.
+ *  \param si The signal instance corresponding to the new connection instance.
+ *  \param c The connection correspoding to the new connection instance.
+ *  \return The new connection instance. */
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si, mapper_connection c);
+
+/*! Suspend a specific instance of a signal by removing it from the list 
+ *  of active instances and adding it to the reserve list. 
+ *  \param instance The instance to suspend. */
+void msig_suspend_instance(mapper_signal_instance instance);
+
+/*! Retrieve a reserved (preallocated) signal instance.
+ *  \param sig The signal owning the desired instance.
+ *  \return The retrieved signal instance, or NULL if no reserved
+ *          instances exist. */
+mapper_signal_instance msig_resume_instance(mapper_signal sig);
+
+/*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */
-void msig_kill_instance(mapper_signal_instance instance);
+void msig_remove_instance(mapper_signal_instance instance);
 
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.

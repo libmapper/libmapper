@@ -56,58 +56,6 @@ void mapper_router_free(mapper_router router)
     }
 }
 
-void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
-                                  mapper_signal_value_t *value)
-{
-    // find this signal in list of connections
-    mapper_signal_connection sc = router->connections;
-    while (sc && sc->signal != sig)
-        sc = sc->next;
-
-    // exit without failure if signal is not mapped
-    if (!sc) {
-        return;
-    }
-    // for each connection, construct a mapped signal and send it
-    mapper_connection c = sc->connection;
-    while (c) {
-        struct _mapper_signal signal;
-        signal.props.name = c->props.dest_name;
-        signal.props.type = c->props.dest_type;
-        signal.props.length = c->props.dest_length;
-
-        mapper_signal_value_t applied[signal.props.length];
-        int i=0;
-        int s=4;
-        void *p = value;
-
-        /* Currently expressions on vectors are not supported by the
-         * evaluator.  For now, we half-support it by performing
-         * element-wise operations on each item in the vector. */
-        if (signal.props.type == 'i')
-            s = sizeof(int);
-        else if (signal.props.type == 'f')
-            s = sizeof(float);
-
-        for (i=0; i < signal.props.length; i++) {
-            mapper_signal_value_t v, w;
-            if (mapper_connection_perform(c, sig, p, &v))
-            {
-                if (mapper_clipping_perform(c, &v, &w))
-                    applied[i] = w;
-                else
-                    break;
-            }
-            else
-                break;
-            p += s;
-        }
-        if (i == signal.props.length)
-            mapper_router_send_signal(router, &signal, applied);
-        c = c->next;
-    }
-}
-
 void mapper_router_send_signal(mapper_router router, mapper_signal sig,
                                mapper_signal_value_t *value)
 {
@@ -193,15 +141,21 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.clip_min = CT_NONE;
     connection->props.clip_max = CT_NONE;
     connection->props.muted = 0;
+    connection->signal = sig;
+    connection->router = router;
 
     // create connection instances as necessary
-    mapper_signal_instance mi = sig->input;
-    mapper_connection_instance output;
-    while (mi) {
-        output = mapper_connection_spawn_instance(connection, 1);
-        output->next = connection->output;
-        connection->output = output;
-        mi = mi->next;
+    mapper_signal_instance si = sig->input;
+    while (si) {
+        msig_add_connection_instance(si, connection);
+        si = si->next;
+    }
+
+    // do the same for reserved instances
+    si = sig->reserve;
+    while (si) {
+        msig_add_connection_instance(si, connection);
+        si = si->next;
     }
 
     // find signal in signal connection list
@@ -227,13 +181,30 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router, 
                                     mapper_connection connection)
 {
-    // remove associated output instances
-    mapper_connection_instance mci = connection->output;
-    while (mci) {
-        mapper_connection_free_instance(mci);
-        mci = mci->next;
+    // remove associated connection instances
+    mapper_signal_instance si = connection->signal->input;
+    while (si) {
+        mapper_connection_instance *ci = &si->connections;
+        if ((*ci)->connection == connection) {
+            *ci = (*ci)->next;
+            mapper_connection_free_instance(*ci);
+            continue;
+        }
+        si = si->next;
     }
-    
+
+    // do the same for reserved instances of this signal
+    si = connection->signal->reserve;
+    while (si) {
+        mapper_connection_instance *ci = &si->connections;
+        if ((*ci)->connection == connection) {
+            *ci = (*ci)->next;
+            mapper_connection_free_instance(*ci);
+            continue;
+        }
+        si = si->next;
+    }
+
     // find signal in signal connection list
     mapper_signal_connection sc = router->connections;
     while (sc) {

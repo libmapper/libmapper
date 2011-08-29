@@ -29,7 +29,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_maximum(sig, maximum);
 
     // Create one instance to start
-    sig->input = msig_spawn_instance(sig, 1);
+    sig->input = msig_add_instance(sig);
     sig->input->next = 0;
     return sig;
 }
@@ -105,7 +105,7 @@ void msig_free(mapper_signal sig)
 
     mapper_signal_instance si = sig->input;
     while (si) {
-        mapper_signal_free_instance(si);
+        msig_free_instance(si);
         si = si->next;
     }
     // TODO: free connection instances
@@ -194,10 +194,10 @@ void msig_update(mapper_signal sig, void *value)
     memcpy(sig->input->history.value + sig->input->history.position
            * sig->props.length, value, msig_vector_bytes(sig));
     if (sig->props.is_output)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
+        msig_send_signal(sig->input, (mapper_signal_value_t*)value);
 }
 
-mapper_signal_instance msig_spawn_instance(mapper_signal sig)
+mapper_signal_instance msig_add_instance(mapper_signal sig)
 {
     if (!sig)
         return 0;
@@ -207,17 +207,19 @@ mapper_signal_instance msig_spawn_instance(mapper_signal sig)
     si->history.value = calloc(1, sizeof(mapper_signal_value_t)
                                * sig->props.length * sig->props.history_size);
     si->history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * history_size);
+                                 * sig->props.history_size);
     si->history.position = -1;
-    si->history.size = history_size;
+    si->history.size = sig->props.history_size;
+    si->signal = sig;
 
-    // add instance to signal
+    // add signal instance to signal
     si->next = sig->input;
     sig->input = si;
+    si->connections = 0;
     
-    // add instance to connections
+    // add connection instances to signal instance
     // for each router...
-    mapper_router r = si->signal->device->routers;
+    mapper_router r = sig->device->routers;
     while (r) {
         // ...find signal connection
         mapper_signal_connection sc = r->connections;
@@ -225,8 +227,18 @@ mapper_signal_instance msig_spawn_instance(mapper_signal sig)
             if (sc->signal == si->signal) {
                 // For each connection...
                 mapper_connection c = sc->connection;
+                mapper_connection_instance mci = 0;
                 while (c) {
-                    mapper_connection_spawn_instance(c);
+                    mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
+                                                    sizeof(struct _mapper_connection_instance));
+                    // allocate history vectors
+                    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                                               * c->props.dest_length * c->props.dest_history_size);
+                    ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                                 * c->props.dest_history_size);
+                    ci->history.position = -1;
+                    ci->next = mci;
+                    si->connections = mci = ci;
                     c = c->next;
                 }
                 continue;
@@ -235,42 +247,79 @@ mapper_signal_instance msig_spawn_instance(mapper_signal sig)
         }
         r = r->next;
     }
-    
     return si;
 }
 
-void msig_kill_instance(mapper_signal_instance si)
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
+                                                        mapper_connection c)
 {
-    if (!si)
-        return;
+    mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
+                                    sizeof(struct _mapper_connection_instance));
+    // allocate history vectors
+    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                               * c->props.dest_length * c->props.dest_history_size);
+    ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                 * c->props.dest_history_size);
+    ci->history.position = -1;
+    ci->next = si->connections;
+    si->connections = ci;
+    return ci;
+}
+
+void msig_suspend_instance(mapper_signal_instance si)
+{
+    if (!si) return;
+
     // First send zero signal
     msig_update_instance(si, NULL);
 
-    // for each router...
-    mapper_router r = si->signal->device->routers;
-    while (r) {
-        // ...find signal connection
-        mapper_signal_connection sc = r->connections;
-        while (sc) {
-            if (sc->signal == si->signal) {
-                // For each connection...
-                mapper_connection c = sc->connection;
-                while (c) {
-                    mapper_connection_kill_instance(c);
-                    c = c->next;
-                }
-                continue;
-            }
-            sc = sc->next;
+    // Remove instance from active list, place in reserve
+    mapper_signal_instance *msi = &si->signal->input;
+    while (*msi) {
+        if (*msi == si) {
+            si->next = si->signal->reserve;
+            si->signal->reserve = si;
+            *msi = si->next;
+            continue;
         }
-        r = r->next;
+        msi = &(*msi)->next;
     }
-    // Kill signal instance
-    si->signal->input = si->next;
-    mapper_signal_free_instance(si);
 }
 
-void msig_reallocate_instances(history_size)
+mapper_signal_instance msig_resume_instance(mapper_signal sig)
+{
+    mapper_signal_instance si = sig->reserve;
+    if (si) {
+        sig->reserve = si->next;
+        si->next = sig->input;
+        sig->input = si;
+        return si;
+    }
+    else {
+        return 0;
+    }
+}
+
+void msig_remove_instance(mapper_signal_instance si)
+{
+    if (!si) return;
+
+    // First send zero signal
+    msig_update_instance(si, NULL);
+
+    // Remove connection instances
+    mapper_connection_instance ci = si->connections;
+    while (si->connections) {
+        si->connections = ci->next;
+        mapper_connection_free_instance(ci);
+    }
+    
+    // Remove signal instance
+    si->signal->input = si->next;
+    msig_free_instance(si);
+}
+
+void msig_reallocate_instances(mapper_signal sig)
 {
     foo;
 }
@@ -279,6 +328,7 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
 {
     if (!instance)
         return;
+    foo;
 }
 
 void msig_free_instance(mapper_signal_instance mi)
@@ -286,7 +336,48 @@ void msig_free_instance(mapper_signal_instance mi)
     if (!mi)
         return;
     free(mi->history.value);
-    //free(mi->history.timetag);
+    free(mi->history.timetag);
+}
+
+void msig_send_signal(mapper_signal_instance si, void *value)
+{
+    // for each connection, construct a mapped signal and send it
+    mapper_connection_instance ci = si->connections;
+    while (ci) {
+        struct _mapper_signal signal;
+        signal.props.name = ci->connection->props.dest_name;
+        signal.props.type = ci->connection->props.dest_type;
+        signal.props.length = ci->connection->props.dest_length;
+
+        mapper_signal_value_t applied[signal.props.length];
+        int i = 0;
+        int s = 4;
+        void *p = value;
+
+        /* Currently expressions on vectors are not supported by the
+         * evaluator.  For now, we half-support it by performing
+         * element-wise operations on each item in the vector. */
+        if (signal.props.type == 'i')
+            s = sizeof(int);
+        else if (signal.props.type == 'f')
+            s = sizeof(float);
+
+        for (i = 0; i < signal.props.length; i++) {
+            mapper_signal_value_t v, w;
+            if (mapper_connection_perform(ci->connection, ci, &v, &w)) {
+                if (mapper_clipping_perform(ci->connection, &v, &w))
+                    applied[i] = w;
+                else
+                    break;
+            }
+            else
+                break;
+            p += s;
+        }
+        if (i == signal.props.length)
+            mapper_router_send_signal(ci->connection->router, &signal, applied);
+        ci = ci->next;
+    }
 }
 
 void mval_add_to_message(lo_message m, mapper_signal sig,

@@ -45,7 +45,7 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
 }
 
 int mapper_connection_perform(mapper_connection connection,
-                              mapper_signal sig,
+                              mapper_connection_instance ci,
                               mapper_signal_value_t *from_value,
                               mapper_signal_value_t *to_value)
 {
@@ -80,8 +80,8 @@ int mapper_connection_perform(mapper_connection connection,
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                         &sig->input->history,
-                                         &connection->output->history);
+                                         &ci->signal->input->history,
+                                         &ci->history);
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -325,10 +325,8 @@ static int replace_expression_string(mapper_connection c,
     // find maximum input history size required
     if (expr->input_history_size > s->props.history_size) {
         s->props.history_size = expr->input_history_size;
-        msig_reallocate_instances(s);
     }
-    // reallocate connection instances
-    mapper_connection_reallocate_instances(c);
+    msig_reallocate_instances(s);
     return 0;
 }
 
@@ -701,48 +699,6 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
         i++;
     }
     return NULL;
-}
-
-mapper_connection_instance mapper_connection_spawn_instance(mapper_connection c)
-{
-    if (!c)
-        return 0;
-    mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
-                                    sizeof(struct _mapper_connection_instance));
-    // allocate history vectors
-    // TODO: make sure that connection properties are updated when expression changes
-    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * c->props.dest_length * c->props.dest_history_size);
-    /*ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * history_size);*/
-    ci->history.position = -1;
-
-    // add instance to connection
-    ci->next = c->output;
-    c->output = ci;
-    c = c->next;
-    return ci;
-}
-
-void mapper_connection_kill_instance(mapper_connection_instance ci)
-{
-    if (!ci)
-        return;
-
-    mapper_connection c = ci->connection;
-    while (c) {
-        // ...find the preceeding instance
-        mapper_connection_instance *mci = &c->output;
-        while (*mci) {
-            if (*mci == ci) {
-                *mci = ci->next;
-                mapper_connection_free_instance(*mci);
-                return;
-            }
-            mci = &(*mci)->next;
-        }
-        c = c->next;
-    }
 }
 
 void mapper_connection_free_instance(mapper_connection_instance mci)

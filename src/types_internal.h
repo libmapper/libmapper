@@ -128,11 +128,10 @@ typedef mapper_admin_t *mapper_admin;
  *  defined in mapper_db.h. */
 
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;               //!< Properties.
-    struct _mapper_connection_instance *output; /*!< The first instance for this
-                                                 *   connection. */
+    mapper_db_connection_t props;               //!< Properties
     struct _mapper_connection *next;            //!< Next connection in the list.
-
+    struct _mapper_signal *source;              //!< Source signal
+    struct _mapper_router *router;              //!< Parent router
     int calibrating;   /*!< 1 if the source range is currently being
                         *   calibrated, 0 otherwise. */
 
