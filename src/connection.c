@@ -44,14 +44,15 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
     return mapper_mode_type_strings[mode];
 }
 
-int mapper_connection_perform(mapper_connection connection,
-                              mapper_connection_instance ci,
+int mapper_connection_perform(mapper_connection_instance ci,
                               mapper_signal_value_t *from_value,
                               mapper_signal_value_t *to_value)
 {
     int changed = 0;
     float f = 0;
-    
+    if (!ci) return 0;
+
+    mapper_connection connection = ci->connection;
     if (connection->props.muted)
         return 0;
 
@@ -80,7 +81,7 @@ int mapper_connection_perform(mapper_connection connection,
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                         &ci->signal->input->history,
+                                         &connection->source->input->history,
                                          &ci->history);
     }
 
@@ -114,7 +115,7 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (changed) {
-            mapper_connection_set_linear_range(connection, sig,
+            mapper_connection_set_linear_range(connection, connection->source,
                                                &connection->props.range);
 
             /* Stay in calibrate mode. */
@@ -123,8 +124,8 @@ int mapper_connection_perform(mapper_connection connection,
 
         if (connection->expr)
             *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                             &sig->input->history,
-                                             &connection->output->history);
+                                             &connection->source->input->history,
+                                             &ci->history);
     }
 
     return 1;

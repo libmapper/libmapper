@@ -128,9 +128,6 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
-void mdev_route_signal(mapper_device md, mapper_signal sig,
-                       mapper_signal_value_t *value);
-
 int mdev_route_query(mapper_device md, mapper_signal sig, const char *alias);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
@@ -214,13 +211,12 @@ void msig_send_signal(mapper_signal_instance si, void *value);
 
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
- *  \param connection The mapping process to perform.
+ *  \param ci         The mapping process to perform.
  *  \param from_value Pointer to first value in a vector of the
  *                    expected size.
  *  \param from_value Pointer to a value to receive the scalar result.
  *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_connection_perform(mapper_connection connection,
-                              mapper_signal sig,
+int mapper_connection_perform(mapper_connection_instance ci,
                               mapper_signal_value_t *from_value,
                               mapper_signal_value_t *to_value);
 

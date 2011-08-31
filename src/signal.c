@@ -147,7 +147,7 @@ void msig_update_int(mapper_signal sig, int value)
     memcpy(sig->input->history.value + sig->input->history.position
            * sig->props.length, &value, msig_vector_bytes(sig));
     if (sig->props.is_output)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
+        msig_send_signal(sig->input, (mapper_signal_value_t*)&value);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -174,7 +174,7 @@ void msig_update_float(mapper_signal sig, float value)
     memcpy(sig->input->history.value + sig->input->history.position
            * sig->props.length, &value, msig_vector_bytes(sig));
     if (sig->props.is_output)
-        mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
+        msig_send_signal(sig->input, (mapper_signal_value_t*)&value);
 }
 
 void msig_update(mapper_signal sig, void *value)
@@ -321,14 +321,32 @@ void msig_remove_instance(mapper_signal_instance si)
 
 void msig_reallocate_instances(mapper_signal sig)
 {
+    // Find maximum input length needed for connections
     foo;
 }
 
 void msig_update_instance(mapper_signal_instance instance, void *value)
 {
-    if (!instance)
+    if (!instance) return;
+    if (!instance->signal) return;
+
+    /* We have to assume that value points to an array of correct type
+     * and size. */
+    
+#ifdef DEBUG
+    if (!instance->signal->device) {
+        trace("signal does not have a device in msig_update_float().\n");
         return;
-    foo;
+    }
+#endif
+    
+    // TODO: check if this is the appropriate place to update instance value
+    instance->history.position = (instance->history.position + 1)
+                                  % instance->history.size;
+    memcpy(instance->history.value + instance->history.position
+           * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
+    if (instance->signal->props.is_output)
+        msig_send_signal(instance, (mapper_signal_value_t*)value);
 }
 
 void msig_free_instance(mapper_signal_instance mi)
@@ -364,7 +382,7 @@ void msig_send_signal(mapper_signal_instance si, void *value)
 
         for (i = 0; i < signal.props.length; i++) {
             mapper_signal_value_t v, w;
-            if (mapper_connection_perform(ci->connection, ci, &v, &w)) {
+            if (mapper_connection_perform(ci, &v, &w)) {
                 if (mapper_clipping_perform(ci->connection, &v, &w))
                     applied[i] = w;
                 else

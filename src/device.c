@@ -453,16 +453,6 @@ int mdev_poll(mapper_device md, int block_ms)
     return admin_count + count;
 }
 
-void mdev_route_signal(mapper_device md, mapper_signal sig,
-                       mapper_signal_value_t *value)
-{
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_receive_signal(r, sig, value);
-        r = r->next;
-    }
-}
-
 int mdev_route_query(mapper_device md, mapper_signal sig,
                      const char *alias)
 {

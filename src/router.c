@@ -141,7 +141,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.clip_min = CT_NONE;
     connection->props.clip_max = CT_NONE;
     connection->props.muted = 0;
-    connection->signal = sig;
+    connection->source = sig;
     connection->router = router;
 
     // create connection instances as necessary
@@ -182,7 +182,7 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated connection instances
-    mapper_signal_instance si = connection->signal->input;
+    mapper_signal_instance si = connection->source->input;
     while (si) {
         mapper_connection_instance *ci = &si->connections;
         if ((*ci)->connection == connection) {
@@ -194,7 +194,7 @@ int mapper_router_remove_connection(mapper_router router,
     }
 
     // do the same for reserved instances of this signal
-    si = connection->signal->reserve;
+    si = connection->source->reserve;
     while (si) {
         mapper_connection_instance *ci = &si->connections;
         if ((*ci)->connection == connection) {
