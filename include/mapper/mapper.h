@@ -36,6 +36,7 @@ struct _mapper_signal_instance;
 typedef struct _mapper_signal_instance *mapper_signal_instance;
 struct _mapper_connection_instance;
 typedef struct _mapper_connection_instance *mapper_connection_instance;
+struct _mapper_connection;
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -137,7 +138,8 @@ mapper_signal_instance msig_add_instance(mapper_signal sig);
  *  \param si The signal instance corresponding to the new connection instance.
  *  \param c The connection correspoding to the new connection instance.
  *  \return The new connection instance. */
-mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si, mapper_connection c);
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
+                                                        struct _mapper_connection *c);
 
 /*! Suspend a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list. 

@@ -40,41 +40,6 @@ static float hzToMidi(float x)
     return 69. + 12. * log2(x / 440.);
 }
 
-typedef enum {
-    FUNC_UNKNOWN=-1,
-    FUNC_POW=0,
-    FUNC_SIN,
-    FUNC_COS,
-    FUNC_TAN,
-    FUNC_ABS,
-    FUNC_SQRT,
-    FUNC_LOG,
-    FUNC_LOG10,
-    FUNC_EXP,
-    FUNC_FLOOR,
-    FUNC_ROUND,
-    FUNC_CEIL,
-    FUNC_ASIN,
-    FUNC_ACOS,
-    FUNC_ATAN,
-    FUNC_ATAN2,
-    FUNC_SINH,
-    FUNC_COSH,
-    FUNC_TANH,
-    FUNC_LOGB,
-    FUNC_EXP2,
-    FUNC_LOG2,
-    FUNC_HYPOT,
-    FUNC_CBRT,
-    FUNC_TRUNC,
-    FUNC_MIN,
-    FUNC_MAX,
-    FUNC_PI,
-    FUNC_MIDITOHZ,
-    FUNC_HZTOMIDI,
-    N_FUNCS
-} expr_func_t;
-
 static struct {
     const char *name;
     unsigned int arity;
@@ -115,33 +80,6 @@ static struct {
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
-
-typedef struct _token {
-    enum {
-        TOK_FLOAT,
-        TOK_INT,
-        TOK_OP,
-        TOK_OPEN_PAREN,
-        TOK_CLOSE_PAREN,
-        TOK_VAR,
-        TOK_OPEN_SQUARE,
-        TOK_CLOSE_SQUARE,
-        TOK_OPEN_CURLY,
-        TOK_CLOSE_CURLY,
-        TOK_FUNC,
-        TOK_COMMA,
-        TOK_END,
-        TOK_TOFLOAT,
-        TOK_TOINT32,
-    } type;
-    union {
-        float f;
-        int i;
-        char var;
-        char op;
-        expr_func_t func;
-    };
-} token_t;
 
 static expr_func_t function_lookup(const char *s, int len)
 {
@@ -263,23 +201,6 @@ static int expr_lex(const char **str, token_t *tok)
 
     return 1;
 }
-
-typedef struct _exprnode
-{
-    token_t tok;
-    int is_float;
-    int history_index;  // when tok.type==TOK_VAR
-    int vector_index;   // when tok.type==TOK_VAR
-    struct _exprnode *next;
-} *exprnode;
-
-struct _mapper_expr
-{
-    exprnode node;
-    int vector_size;
-    int input_history_size;
-    int output_history_size;
-};
 
 typedef enum {
     YEQUAL_Y,

@@ -323,10 +323,7 @@ static int replace_expression_string(mapper_connection c,
     if (!c->props.expression || len > strlen(c->props.expression))
         c->props.expression = realloc(c->props.expression, len);
     strncpy(c->props.expression, expr_str, len);
-    // find maximum input history size required
-    if (expr->input_history_size > s->props.history_size) {
-        s->props.history_size = expr->input_history_size;
-    }
+
     msig_reallocate_instances(s);
     return 0;
 }
