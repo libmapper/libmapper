@@ -188,14 +188,17 @@ mapper_signal_instance msig_add_instance(mapper_signal sig)
     si->history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                  * sig->props.history_size);
     si->history.position = -1;
-    si->history.size = sig->props.history_size;
+    si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
 
     // add signal instance to signal
     si->next = sig->input;
     sig->input = si;
     si->connections = 0;
-    
+
+    if (!sig->device)
+        return si;
+
     // add connection instances to signal instance
     // for each router...
     mapper_router r = sig->device->routers;
@@ -240,7 +243,9 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
     ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                  * c->props.dest_history_size);
     ci->history.position = -1;
+    ci->history.size = c->props.dest_history_size > 1 ? c->props.dest_history_size : 1;
     ci->next = si->connections;
+    ci->connection = c;
     si->connections = ci;
     return ci;
 }
@@ -400,7 +405,6 @@ void msig_send_instance(mapper_signal_instance si, void *value)
         signal.props.name = ci->connection->props.dest_name;
         signal.props.type = ci->connection->props.dest_type;
         signal.props.length = ci->connection->props.dest_length;
-
         mapper_signal_value_t applied[signal.props.length];
         int i = 0;
         int s = 4;
@@ -413,17 +417,16 @@ void msig_send_instance(mapper_signal_instance si, void *value)
             s = sizeof(int);
         else if (signal.props.type == 'f')
             s = sizeof(float);
-
         /* TODO: move instance history update to mapper_expr_evaluate
          * (once full vector support has been added) */
-        // update history vector position
-        si->history.position = (si->history.position + 1) % si->history.size;
-
+        ci->history.position = (ci->history.position + 1)
+                                % ci->history.size;
         for (i = 0; i < signal.props.length; i++) {
             mapper_signal_value_t v, w;
             if (mapper_connection_perform(ci, p, &v)) {
                 // copy result to history vector
-                memcpy(ci->history.value + ci->history.position * i,
+                memcpy(ci->history.value + ci->history.position
+                       * ci->connection->source->props.length + i,
                        &v, sizeof(mapper_signal_value_t));
                 // copy timetag from signal instance
                 memcpy(ci->history.timetag + ci->history.position * sizeof(mapper_timetag_t),
