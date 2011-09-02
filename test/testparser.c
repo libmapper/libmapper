@@ -2,6 +2,7 @@
 #include <../src/mapper_internal.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int main()
 {
@@ -26,6 +27,9 @@ int main()
     inh.size = outh.size = 1;
     inh.position = outh.position = -1;
 
+    inh.value[0] = inp;
+    inh.position = 0;
+
     outp = mapper_expr_evaluate(e, &inp, &inh, &outh);
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
@@ -33,6 +37,10 @@ int main()
            26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp.f)*3*4+cosf(2.0f));
 
     mapper_expr_free(e);
+    free(inh.value);
+    free(inh.timetag);
+    free(outh.value);
+    free(outh.timetag);
 
     return 0;
 }
