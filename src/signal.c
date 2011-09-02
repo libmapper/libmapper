@@ -397,6 +397,8 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
                                   % instance->history.size;
     memcpy(instance->history.value + instance->history.position
            * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
+    lo_timetag_now(instance->history.timetag + instance->history.position
+                   * sizeof(mapper_timetag_t));
     if (instance->signal->props.is_output)
         msig_send_signal(instance, (mapper_signal_value_t*)value);
 }
@@ -432,9 +434,18 @@ void msig_send_signal(mapper_signal_instance si, void *value)
         else if (signal.props.type == 'f')
             s = sizeof(float);
 
+        // update history vector position
+        si->history.position = (si->history.position + 1) % si->history.size;
+
         for (i = 0; i < signal.props.length; i++) {
             mapper_signal_value_t v, w;
-            if (mapper_connection_perform(ci, &v, &w)) {
+            if (mapper_connection_perform(ci, p, &v)) {
+                // copy result to history vector
+                memcpy(ci->history.value + ci->history.position * i,
+                       &v, sizeof(mapper_signal_value_t));
+                // copy timetag from signal instance
+                memcpy(ci->history.timetag + ci->history.position * sizeof(mapper_timetag_t),
+                       si->history.timetag, sizeof(mapper_timetag_t));
                 if (mapper_clipping_perform(ci->connection, &v, &w))
                     applied[i] = w;
                 else

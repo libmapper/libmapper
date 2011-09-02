@@ -811,12 +811,6 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
     int top = -1;
     exprnode node = expr->node;
 
-    if (input_vector) {
-        output_history->position = (output_history->position+1) % output_history->size;
-        memcpy(input_history->value + input_history->position * expr->vector_size,
-               input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
-    }
-
     while (node) {
         switch (node->tok.type) {
         case TOK_INT:
@@ -910,9 +904,6 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
         node = node->next;
     }
 
-    if (input_vector)
-        output_history->value[output_history->position] = stack[0];
-        // TODO: increment output position?
     return stack[0];
 
   error:
