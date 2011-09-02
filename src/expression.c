@@ -810,6 +810,12 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
     mapper_signal_value_t left, right;
     int top = -1;
     exprnode node = expr->node;
+    
+    /* TODO: This should be where the input vector is copied to input_history,
+     * however for now we lack full vector support and this function is called
+     * on scalar elements of signal vectors. Since we don't know the vector index
+     * being processed, for now updating input history is performed in
+     * msig_update_instance. */
 
     while (node) {
         switch (node->tok.type) {
@@ -904,6 +910,11 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
         node = node->next;
     }
 
+    /* TODO: This should be where the output vector is copied to output_history,
+     * however for now we lack full vector support and this function is called
+     * on scalar elements of signal vectors. Since we don't know the vector index
+     * being processed, for now updating output history is performed in
+     * msig_send_instance. */
     return stack[0];
 
   error:
