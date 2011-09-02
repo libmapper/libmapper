@@ -323,14 +323,14 @@ void msig_reallocate_instances(mapper_signal sig)
     }
     // If input history size has changed...
     if (oldest_samps != sig->input->history.size) {
+        sig->input->history.size = oldest_samps > 1 ? oldest_samps : 1;
         // ...allocate a new array...
         mapper_signal_history_t history;
         history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * sig->props.length * sig->props.history_size);
+                               * sig->props.length * sig->input->history.size);
         history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * sig->props.history_size);
+                                 * sig->input->history.size);
         // ... TODO: copy the current history to new arrays...
-        sig->input->history.size = oldest_samps;
         sig->input->history.position = -1;
         // ... and free the old array
         free(sig->input->history.value);
