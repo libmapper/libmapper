@@ -141,13 +141,8 @@ void msig_update_int(mapper_signal sig, int value)
     }
 #endif
 
-    sig->input->history.position = (sig->input->history.position + 1)
-                                    % sig->input->history.size;
-
-    memcpy(sig->input->history.value + sig->input->history.position
-           * sig->props.length, &value, msig_vector_bytes(sig));
-    if (sig->props.is_output)
-        msig_send_signal(sig->input, (mapper_signal_value_t*)&value);
+    if (sig)
+        msig_update_instance(sig->input, (mapper_signal_value_t*)&value);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -169,32 +164,16 @@ void msig_update_float(mapper_signal sig, float value)
     }
 #endif
 
-    sig->input->history.position = (sig->input->history.position + 1)
-                                    % sig->input->history.size;
-    memcpy(sig->input->history.value + sig->input->history.position
-           * sig->props.length, &value, msig_vector_bytes(sig));
-    if (sig->props.is_output)
-        msig_send_signal(sig->input, (mapper_signal_value_t*)&value);
+    if (sig)
+        msig_update_instance(sig->input, (mapper_signal_value_t*)&value);
 }
 
 void msig_update(mapper_signal sig, void *value)
 {
     /* We have to assume that value points to an array of correct type
      * and size. */
-
-#ifdef DEBUG
-    if (!sig->device) {
-        trace("signal does not have a device in msig_update_float().\n");
-        return;
-    }
-#endif
-
-    sig->input->history.position = (sig->input->history.position + 1)
-                                    % sig->input->history.size;
-    memcpy(sig->input->history.value + sig->input->history.position
-           * sig->props.length, value, msig_vector_bytes(sig));
-    if (sig->props.is_output)
-        msig_send_signal(sig->input, (mapper_signal_value_t*)value);
+    if (sig)
+        msig_update_instance(sig->input, value);
 }
 
 mapper_signal_instance msig_add_instance(mapper_signal sig)
@@ -392,7 +371,8 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
     }
 #endif
     
-    // TODO: check if this is the appropriate place to update instance value
+    /* TODO: move instance history update value to mapper_expr_evaluate
+     * (once full vector support has been added) */
     instance->history.position = (instance->history.position + 1)
                                   % instance->history.size;
     memcpy(instance->history.value + instance->history.position
@@ -400,7 +380,7 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
     lo_timetag_now(instance->history.timetag + instance->history.position
                    * sizeof(mapper_timetag_t));
     if (instance->signal->props.is_output)
-        msig_send_signal(instance, (mapper_signal_value_t*)value);
+        msig_send_instance(instance, (mapper_signal_value_t*)value);
 }
 
 void msig_free_instance(mapper_signal_instance mi)
@@ -411,7 +391,7 @@ void msig_free_instance(mapper_signal_instance mi)
     free(mi->history.timetag);
 }
 
-void msig_send_signal(mapper_signal_instance si, void *value)
+void msig_send_instance(mapper_signal_instance si, void *value)
 {
     // for each connection, construct a mapped signal and send it
     mapper_connection_instance ci = si->connections;
@@ -434,6 +414,8 @@ void msig_send_signal(mapper_signal_instance si, void *value)
         else if (signal.props.type == 'f')
             s = sizeof(float);
 
+        /* TODO: move instance history update to mapper_expr_evaluate
+         * (once full vector support has been added) */
         // update history vector position
         si->history.position = (si->history.position + 1) % si->history.size;
 

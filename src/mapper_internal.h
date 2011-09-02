@@ -205,7 +205,7 @@ void msig_reallocate_instances(mapper_signal sig);
 void mval_add_to_message(lo_message m, mapper_signal sig,
                          mapper_signal_value_t *value);
 
-void msig_send_signal(mapper_signal_instance si, void *value);
+void msig_send_instance(mapper_signal_instance si, void *value);
 
 /**** connections ****/
 
