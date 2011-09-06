@@ -15,31 +15,20 @@ int automate = 1;
 
 mapper_device source = 0;
 mapper_device destination = 0;
-mapper_signal sendsig[4] = {0, 0, 0, 0};
-mapper_signal recvsig[4] = {0, 0, 0, 0};
-mapper_signal dummysig[4] = {0, 0, 0, 0};
+mapper_signal sendsig = 0;
+mapper_signal recvsig = 0;
+mapper_signal_instance sendinst[5] = {0, 0, 0, 0, 0};
+mapper_signal_instance recvinst[5] = {0, 0, 0, 0, 0};
 
 int port = 9000;
 
 int sent = 0;
-int received = 0;
+int received[5] = {0, 0, 0, 0, 0};
 int done = 0;
-
-void query_response_handler(mapper_signal sig, mapper_db_signal props,
-                            mapper_timetag_t *timetag, void *v)
-{
-    mapper_signal remote = (mapper_signal) props->user_data;
-    mapper_db_signal remote_props = msig_properties(remote);
-    printf("--> source got query response: %s %f\n",
-           remote_props->name,
-           (*(float*)v));
-    received++;
-}
 
 /*! Creation of a local source. */
 int setup_source()
 {
-    char sig_name[20];
     source = mdev_new("testsend", port, 0);
     if (!source)
         goto error;
@@ -47,17 +36,11 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, 1, 'f', 0, &mn, &mx);
-    }
-    
-    for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 20, "%s%i", "/dummysig_", i);
-        dummysig[i] = mdev_add_hidden_input(source, sig_name, 1,
-                                            'f', 0, 0, 0, query_response_handler,
-                                            sendsig[i]);
-    }
+    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    // reserve an appropriate number of instances
+    // these instances will be allocated immediately but placed in the reserve
+    // can optionally indicate voice-stealing logic (oldest/newest, least/greatest, etc)
+    msig_reserve_instances(sendsig, 5, 0);
 
     printf("Output signals registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -87,14 +70,31 @@ void cleanup_source()
 void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag, void *v)
 {
-    printf("--> destination got %s %f\n", props->name, (*(float*)v));
+    printf("--> destination %s got %f\n", props->name, (*(float*)v));
     received++;
+}
+
+void instance_handler(mapper_signal_instance si, mapper_db_signal props,
+                      mapper_timetag_t *timetag, void *v)
+{
+    printf("--> destination %s instance %i got %f\n",
+           props->name, si->id, (*(float*)v));
+    received[si->id]++;
+}
+
+void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
+                          mapper_timetag_t *timetag, void *v)
+{
+    printf("--> destination %s got new instance %i\n",
+           props->name, si->id);
+    si->handler = instance_handler;
+    instance_handler(si, props, timetag, v);
+    received[si->id]++;
 }
 
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    char sig_name[10];
     destination = mdev_new("testrecv", port, 0);
     if (!destination)
         goto error;
@@ -102,11 +102,9 @@ int setup_destination()
 
     float mn=0, mx=1;
         
-    for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mdev_add_input(destination, sig_name, 1, 
-                                    'f', 0, &mn, &mx, insig_handler, 0);
-    }
+    recvsig = mdev_add_input(destination, "/insig", 1, 
+                             'f', 0, &mn, &mx, insig_handler, 0);
+    msig_reserve_instances(recvsig, 5, 0);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -166,14 +164,12 @@ void loop()
     }
 
     while (i >= 0 && !done) {
-        for (j = 0; j < 4; j++) {
-            msig_update_float(recvsig[j], ((i % 10) * 1.0f));
+        // here we should randomly create, update and destroy some instances
+        for (j = 0; j < 5; j++) {
+            msig_update_instance(sendinst[j], ((i % 10) * 1.0f));
         }
+        
         printf("\ndestination values updated to %d -->\n", i % 10);
-        for (j = 0; j < 4; j++) {
-            count = msig_query_remote(sendsig[j], dummysig[j]);
-            printf("Sent %i queries for sendsig[%i]\n", count, j);
-        }
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
