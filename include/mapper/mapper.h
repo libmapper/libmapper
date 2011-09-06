@@ -49,6 +49,13 @@ typedef void mapper_signal_handler(mapper_signal msig,
                                    mapper_timetag_t *timetag,
                                    void *value);
 
+/*! A signal instance handler function can be called whenever a signal
+ *  instance value changes. */
+typedef void mapper_signal_instance_handler(mapper_signal_instance si,
+                                            mapper_db_signal props,
+                                            mapper_timetag_t *timetag,
+                                            void *value);
+
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
  *  \param minimum  Must be the same type as the signal, or 0 to remove

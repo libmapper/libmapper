@@ -27,6 +27,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
+    sig->instance_count = 0;
 
     // Create one instance to start
     sig->input = msig_add_instance(sig);
@@ -190,6 +191,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig)
     si->history.position = -1;
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
+    si->id = sig->instance_count++;
 
     // add signal instance to signal
     si->next = sig->input;
@@ -237,6 +239,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 {
     mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
                                     sizeof(struct _mapper_connection_instance));
+    ci->id = si->id;
     // allocate history vectors
     ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
                                * c->props.dest_length * c->props.dest_history_size);
@@ -287,6 +290,9 @@ mapper_signal_instance msig_resume_instance(mapper_signal sig)
 void msig_remove_instance(mapper_signal_instance si)
 {
     if (!si) return;
+
+    // do not allow instance 0 to be removed
+    if (si->id == 0) return;
 
     // First send zero signal
     msig_update_instance(si, NULL);
@@ -441,15 +447,15 @@ void msig_send_instance(mapper_signal_instance si, void *value)
             p += s;
         }
         if (i == signal.props.length)
-            mapper_router_send_signal(ci->connection->router, &signal, applied);
+            mapper_router_send_signal(ci, applied);
         ci = ci->next;
     }
 }
 
-void mval_add_to_message(lo_message m, mapper_signal sig,
+void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value)
 {
-    switch (sig->props.type) {
+    switch (type) {
     case 'f':
         lo_message_add_float(m, value->f);
         break;

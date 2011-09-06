@@ -17,16 +17,23 @@ struct _mapper_signal
 
     /*! The device associated with this signal. */
     struct _mapper_device *device;
-    
+
     /*! The first instance of this signal. */
     struct _mapper_signal_instance *input;
 
     /*! Reserved instances ready for use. */
     struct _mapper_signal_instance *reserve;
 
+    /*! Counter for generating instance ids. */
+    int instance_count;
+
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
+
+    /*! An optional function to be called when a signal instance
+     *  without its own handler is updated. */
+    mapper_signal_instance_handler *instance_handler;
 };
 
 /**** Instances ****/
@@ -38,20 +45,16 @@ struct _mapper_connection_instance
 {
     /*! ID number of this instance. */
     int id;
-    
+
     /*! Pointer to input instance. */
     //struct _mapper_signal_instance *input;
-    
+
     /*! Connection this instance belongs to. */
     struct _mapper_connection *connection;
-    
+
     /*! The value of this instance. */    
     mapper_signal_history_t history;
-    
-    /*! The timetags associated with the values of this
-     *  instance. */
-    mapper_timetag_t *timetag;
-    
+
     /*! Pointer to the next instance. */
     struct _mapper_connection_instance *next;
 };
@@ -63,21 +66,24 @@ struct _mapper_signal_instance
 {
     /*! ID number of this instance. */
     int id;
-    
+
     /*! Signal this instance belongs to. */
     struct _mapper_signal *signal;
-    
+
     /*! The value of this instance. */    
     mapper_signal_history_t history;
-    
-    /*! The timetags associated with the values of this
-     *  instance. */
-    mapper_timetag_t *timetag;
-    
+
+    /*! The instance's creation timestamp. */
+    mapper_timetag_t creation_time;
+
     /*! Linked list of connection instances corresponding to this 
      *  signal instance. */
     struct _mapper_connection_instance *connections;
-    
+
+    /*! An optional function to be called when the instance value
+     *  changes. */
+    mapper_signal_instance_handler *handler;
+
     /*! Pointer to the next instance. */
     struct _mapper_signal_instance *next;
 };
@@ -148,7 +154,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
-void mapper_router_send_signal(mapper_router router, mapper_signal sig,
+void mapper_router_send_signal(mapper_connection_instance ci,
                                mapper_signal_value_t *value);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
@@ -202,7 +208,7 @@ void msig_free_instance(mapper_signal_instance instance);
 /*! Reallocate memory used by signal instances. */
 void msig_reallocate_instances(mapper_signal sig);
 
-void mval_add_to_message(lo_message m, mapper_signal sig,
+void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value);
 
 void msig_send_instance(mapper_signal_instance si, void *value);

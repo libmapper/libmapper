@@ -138,6 +138,55 @@ static int handler_signal(const char *path, const char *types,
     return 0;
 }
 
+static int handler_signal_instance(const char *path, const char *types,
+                                   lo_arg **argv, int argc, lo_message msg,
+                                   void *user_data)
+{
+    mapper_signal_instance si = (mapper_signal_instance) user_data;
+    mapper_signal sig = si->signal;
+    mapper_device md = sig->device;
+    
+    if (!md) {
+        trace("error, sig->device==0\n");
+        return 0;
+    }
+    if (argc < 2)
+        return 0;
+
+    if (types[1] == LO_NIL) {
+        si->history.position = -1;
+    }
+    else {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
+        si->history.position = (si->history.position + 1)
+                                % si->history.size;
+        memcpy(si->history.value + si->history.position
+               * sig->props.length, argv[0], msig_vector_bytes(sig));
+    }
+
+    if (si->handler) {
+        // There is a handler associated with this specific instance.
+        si->handler(si, &sig->props, si->history.timetag + si->history.position,
+                    si->history.position == -1 ? 0 : si->history.value
+                    + si->history.position * sig->props.length);
+    }
+    else if (sig->instance_handler) {
+        // Use the generic signal instance handler
+        sig->instance_handler(si, &sig->props,
+                              si->history.timetag
+                              + si->history.position,
+                              si->history.position == -1 ? 0 :
+                              si->history.value
+                              + si->history.position
+                              * sig->props.length);
+    }
+
+    return 0;
+}
+
 static int handler_query(const char *path, const char *types,
                          lo_arg **argv, int argc, lo_message msg,
                          void *user_data)
@@ -177,7 +226,7 @@ static int handler_query(const char *path, const char *types,
                                        + sig->input->history.position
                                        * sig->props.length;
         for (i = 0; i < sig->props.length; i++)
-            mval_add_to_message(m, sig, &value[i]);
+            mval_add_to_message(m, sig->props.type, &value[i]);
     }
 
     lo_send_message(lo_message_get_source(msg), dest_name, m);
@@ -547,7 +596,7 @@ void mdev_start_server(mapper_device md)
 {
     if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
         int i;
-        char port[16], *type = 0, *signal_get = 0;
+        char port[16], *type_string = 0, *signal_get = 0;
 
         sprintf(port, "%d", md->admin->port.value);
 
@@ -572,13 +621,13 @@ void mdev_start_server(mapper_device md)
         unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
-            type = (char*) realloc(type, md->inputs[i]->props.length + 1);
-            memset(type, md->inputs[i]->props.type,
+            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 1);
+            memset(type_string, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
-            type[md->inputs[i]->props.length] = 0;
+            type_string[md->inputs[i]->props.length] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 type,
+                                 type_string,
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
@@ -592,7 +641,7 @@ void mdev_start_server(mapper_device md)
                                  NULL, 
                                  handler_query, (void *) (md->inputs[i]));
         }
-        free(type);
+        free(type_string);
         free(signal_get);
     }
 }

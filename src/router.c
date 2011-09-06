@@ -56,22 +56,26 @@ void mapper_router_free(mapper_router router)
     }
 }
 
-void mapper_router_send_signal(mapper_router router, mapper_signal sig,
+void mapper_router_send_signal(mapper_connection_instance ci,
                                mapper_signal_value_t *value)
 {
     int i;
     lo_message m;
-    if (!router->addr)
+    if (!ci->connection->router->addr)
         return;
 
     m = lo_message_new();
     if (!m)
         return;
 
-    for (i = 0; i < sig->props.length; i++)
-        mval_add_to_message(m, sig, &value[i]);
+    if (ci->id)
+        lo_message_add_int32(m, ci->id);
 
-    lo_send_message(router->addr, sig->props.name, m);
+    for (i = 0; i < ci->connection->props.dest_length; i++)
+        mval_add_to_message(m, ci->connection->props.dest_type, &value[i]);
+
+    lo_send_message(ci->connection->router->addr,
+                    ci->connection->props.dest_name, m);
     lo_message_free(m);
     return;
 }
