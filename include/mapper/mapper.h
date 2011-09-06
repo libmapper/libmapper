@@ -139,7 +139,9 @@ int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 /*! Add a new instance of a signal.
  *  \param sig The signal to which the instance will be added.
  *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_add_instance(mapper_signal sig);
+mapper_signal_instance msig_add_instance(mapper_signal sig,
+                                         mapper_signal_instance_handler *handler,
+                                         void *user_data);
 
 /*! Add a new connection instance to a signal.
  *  \param si The signal instance corresponding to the new connection instance.

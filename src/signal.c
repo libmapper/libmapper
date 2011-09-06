@@ -30,7 +30,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->instance_count = 0;
 
     // Create one instance to start
-    sig->input = msig_add_instance(sig);
+    sig->input = msig_add_instance(sig, 0, 0);
     sig->input->next = 0;
     return sig;
 }
@@ -177,7 +177,9 @@ void msig_update(mapper_signal sig, void *value)
         msig_update_instance(sig->input, value);
 }
 
-mapper_signal_instance msig_add_instance(mapper_signal sig)
+mapper_signal_instance msig_add_instance(mapper_signal sig,
+                                         mapper_signal_instance_handler *handler,
+                                         void *user_data)
 {
     if (!sig)
         return 0;

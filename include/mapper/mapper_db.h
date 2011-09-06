@@ -84,6 +84,17 @@ typedef enum _mapper_mode_type {
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
+/*! Describes the voice-stealing mode for instances.
+ *  @ingroup connectiondb */
+typedef enum _mapper_stealing_type {
+    ST_UNDEFINED,    //!< Not yet defined
+    ST_OLDEST,       //!< Direct throughput
+    ST_NEWEST,       //!< Linear scaling
+    ST_GREATEST,   //!< Expression
+    ST_LEAST,    //!< Calibrate to source signal
+    N_MAPPER_STEALING_TYPES
+} mapper_stealing_type;
+
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {

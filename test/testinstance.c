@@ -26,6 +26,11 @@ int sent = 0;
 int received[5] = {0, 0, 0, 0, 0};
 int done = 0;
 
+void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
+                          mapper_timetag_t *timetag, void *v);
+void instance_handler(mapper_signal_instance si, mapper_db_signal props,
+                      mapper_timetag_t *timetag, void *v);
+
 /*! Creation of a local source. */
 int setup_source()
 {
@@ -38,9 +43,9 @@ int setup_source()
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     // reserve an appropriate number of instances
-    // these instances will be allocated immediately but placed in the reserve
-    // can optionally indicate voice-stealing logic (oldest/newest, least/greatest, etc)
-    msig_reserve_instances(sendsig, 5, 0);
+    for (int i = 0; i < 5; i++) {
+        msig_add_instance(sendsig, new_instance_handler, 0);
+    }
 
     printf("Output signals registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -67,13 +72,6 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *v)
-{
-    printf("--> destination %s got %f\n", props->name, (*(float*)v));
-    received++;
-}
-
 void instance_handler(mapper_signal_instance si, mapper_db_signal props,
                       mapper_timetag_t *timetag, void *v)
 {
@@ -88,6 +86,7 @@ void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
     printf("--> destination %s got new instance %i\n",
            props->name, si->id);
     si->handler = instance_handler;
+    //si->user_data = my_instance[i];
     instance_handler(si, props, timetag, v);
     received[si->id]++;
 }
@@ -103,8 +102,10 @@ int setup_destination()
     float mn=0, mx=1;
         
     recvsig = mdev_add_input(destination, "/insig", 1, 
-                             'f', 0, &mn, &mx, insig_handler, 0);
-    msig_reserve_instances(recvsig, 5, 0);
+                             'f', 0, &mn, &mx, 0, 0);
+    for (int i = 0; i < 5; i++) {
+        msig_add_instance(recvsig, new_instance_handler, 0);
+    }
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -140,7 +141,7 @@ void wait_local_devices()
 void loop()
 {
     printf("-------------------- GO ! --------------------\n");
-    int i = 0, j = 0, count;
+    int i = 0, j = 0, value;
 
     if (automate) {
         char source_name[1024], destination_name[1024];
@@ -153,12 +154,10 @@ void loop()
 
         lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
 
-        for (int i = 0; i < 4; i++) {
-            msig_full_name(sendsig[i], source_name, 1024);
-            msig_full_name(recvsig[i], destination_name, 1024);
+        msig_full_name(sendsig, source_name, 1024);
+        msig_full_name(recvsig, destination_name, 1024);
 
-            lo_send(a, "/connect", "ss", source_name, destination_name);
-        }
+        lo_send(a, "/connect", "ss", source_name, destination_name);
 
         lo_address_free(a);
     }
@@ -166,7 +165,14 @@ void loop()
     while (i >= 0 && !done) {
         // here we should randomly create, update and destroy some instances
         for (j = 0; j < 5; j++) {
-            msig_update_instance(sendinst[j], ((i % 10) * 1.0f));
+            sendinst[j] = msig_resume_instance(sendsig);
+            if (sendinst[j]) {
+                value = i * j;
+                msig_update_instance(sendinst[j], &value);
+            }
+        }
+        for (j = 0; j < 5; j++) {
+            msig_suspend_instance(sendinst[j]);
         }
         
         printf("\ndestination values updated to %d -->\n", i % 10);
