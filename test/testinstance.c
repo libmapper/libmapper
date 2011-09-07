@@ -141,7 +141,8 @@ void wait_local_devices()
 void loop()
 {
     printf("-------------------- GO ! --------------------\n");
-    int i = 0, j = 0, value;
+    int i = 0, j = 0;
+    float value = 0;
 
     if (automate) {
         char source_name[1024], destination_name[1024];
@@ -163,19 +164,35 @@ void loop()
     }
 
     while (i >= 0 && !done) {
-        // here we should randomly create, update and destroy some instances
-        for (j = 0; j < 5; j++) {
-            sendinst[j] = msig_resume_instance(sendsig);
-            if (sendinst[j]) {
-                value = i * j;
-                msig_update_instance(sendinst[j], &value);
-            }
+        // here we should create, update and destroy some instances
+        switch (i % 3) {
+            case 0:
+                // try to create a new instance
+                for (j = 0; j < 5; j++) {
+                    if (!sendinst[j]) {
+                        sendinst[j] = msig_resume_instance(sendsig);
+                        if (sendinst[j])
+                            printf("Created new instance: %i", sendinst[j]->id);
+                        break;
+                    }
+                }
+                break;
+            case 1:
+                // try to destroy an instance
+                for (j = 0; j < 5; j++) {
+                    if (sendinst[j]) {
+                        msig_suspend_instance(sendinst[j]);
+                        sendinst[j] = 0;
+                    }
+                }
+                break;
+            default:
+                // try to update an instance
+                value = (i % 10) * 1.0f;
+                msig_update_instance(sendinst[i % 5], &value);
+                printf("Instance %i updated to %d -->\n", i % 5, i % 10);
+                break;
         }
-        for (j = 0; j < 5; j++) {
-            msig_suspend_instance(sendinst[j]);
-        }
-        
-        printf("\ndestination values updated to %d -->\n", i % 10);
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
