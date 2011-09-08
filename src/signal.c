@@ -193,7 +193,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->history.position = -1;
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
-    si->id = sig->instance_count++;
+    si->id = sig->props.is_output ? sig->instance_count++ : -1;
     lo_timetag_now(&si->creation_time);
 
     // add signal instance to signal
@@ -247,16 +247,9 @@ void msig_reserve_instances(mapper_signal sig, int num,
         si = msig_add_instance(sig, handler, user_data);
         if (si) {
             // Remove instance from active list, place in reserve
-            mapper_signal_instance *msi = &si->signal->input;
-            while (*msi) {
-                if (*msi == si) {
-                    si->next = si->signal->reserve;
-                    si->signal->reserve = si;
-                    *msi = si->next;
-                    continue;
-                }
-                msi = &(*msi)->next;
-            }
+            sig->input = si->next;
+            si->next = sig->reserve;
+            sig->reserve = si;
         }
     }
 }

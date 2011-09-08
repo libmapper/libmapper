@@ -142,6 +142,7 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
+    printf("handler_signal_instance! ");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     
@@ -152,21 +153,37 @@ static int handler_signal_instance(const char *path, const char *types,
     if (argc < 2)
         return 0;
 
-    // Find or map instance
+    // Find instance
+    // TODO: use hash table instead?
+    int id = argv[0]->i32;
+
+    printf("got id %i\n", id);
+
     mapper_signal_instance si = sig->input;
-    int found = 0;
-    while (si) {
-        if (si->id == argv[0]) {
-            found = 1;
-            break;
-        }
+    while (si && (si->id != id)) {
+        printf("trying si: %i\n", si);
         si = si->next;
     }
-    if (found) {
-        if (types[1] == LO_NIL) {
-            si->history.position = -1;
+
+    if (!si) {
+        printf("no associated instance, trying to resume one... ");
+        // try to resume a reserved instance
+        si = msig_resume_instance(sig);
+        if (si) {
+            printf("got one!\n");
+            si->id = id;
         }
         else {
+            printf("failed :(\n");
+            // TODO: need notification handler to indicate no more instances are available
+        }
+    }
+    else {
+        printf("already mapped to instance: %i\n", si);
+    }
+
+    if (si) {
+        if (types[1] != LO_NIL) {
             /* This is cheating a bit since we know that the arguments pointed
              * to by argv are layed out sequentially in memory.  It's not
              * clear if liblo's semantics guarantee it, but known to be true
@@ -174,7 +191,7 @@ static int handler_signal_instance(const char *path, const char *types,
             si->history.position = (si->history.position + 1)
                                     % si->history.size;
             memcpy(si->history.value + si->history.position
-                   * sig->props.length, argv[0], msig_vector_bytes(sig));
+                   * sig->props.length, argv[1], msig_vector_bytes(sig));
         }
 
         if (si->handler) {
@@ -183,18 +200,11 @@ static int handler_signal_instance(const char *path, const char *types,
                         si->history.position == -1 ? 0 : si->history.value
                         + si->history.position * sig->props.length);
         }
-    }
-    /*else if (sig->instance_handler) {
-        // Use the generic signal instance handler
-        sig->instance_handler(si, &sig->props,
-                              si->history.timetag
-                              + si->history.position,
-                              si->history.position == -1 ? 0 :
-                              si->history.value
-                              + si->history.position
-                              * sig->props.length);
-    }*/
 
+        if (types[1] == LO_NIL) {
+            msig_suspend_instance(si);
+        }
+    }
     return 0;
 }
 
