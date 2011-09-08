@@ -142,8 +142,7 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
-    mapper_signal_instance si = (mapper_signal_instance) user_data;
-    mapper_signal sig = si->signal;
+    mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     
     if (!md) {
@@ -153,27 +152,39 @@ static int handler_signal_instance(const char *path, const char *types,
     if (argc < 2)
         return 0;
 
-    if (types[1] == LO_NIL) {
-        si->history.position = -1;
+    // Find or map instance
+    mapper_signal_instance si = sig->input;
+    int found = 0;
+    while (si) {
+        if (si->id == argv[0]) {
+            found = 1;
+            break;
+        }
+        si = si->next;
     }
-    else {
-        /* This is cheating a bit since we know that the arguments pointed
-         * to by argv are layed out sequentially in memory.  It's not
-         * clear if liblo's semantics guarantee it, but known to be true
-         * on all platforms. */
-        si->history.position = (si->history.position + 1)
-                                % si->history.size;
-        memcpy(si->history.value + si->history.position
-               * sig->props.length, argv[0], msig_vector_bytes(sig));
-    }
+    if (found) {
+        if (types[1] == LO_NIL) {
+            si->history.position = -1;
+        }
+        else {
+            /* This is cheating a bit since we know that the arguments pointed
+             * to by argv are layed out sequentially in memory.  It's not
+             * clear if liblo's semantics guarantee it, but known to be true
+             * on all platforms. */
+            si->history.position = (si->history.position + 1)
+                                    % si->history.size;
+            memcpy(si->history.value + si->history.position
+                   * sig->props.length, argv[0], msig_vector_bytes(sig));
+        }
 
-    if (si->handler) {
-        // There is a handler associated with this specific instance.
-        si->handler(si, &sig->props, si->history.timetag + si->history.position,
-                    si->history.position == -1 ? 0 : si->history.value
-                    + si->history.position * sig->props.length);
+        if (si->handler) {
+            // There is a handler associated with this specific instance.
+            si->handler(si, &sig->props, si->history.timetag + si->history.position,
+                        si->history.position == -1 ? 0 : si->history.value
+                        + si->history.position * sig->props.length);
+        }
     }
-    else if (sig->instance_handler) {
+    /*else if (sig->instance_handler) {
         // Use the generic signal instance handler
         sig->instance_handler(si, &sig->props,
                               si->history.timetag
@@ -182,7 +193,7 @@ static int handler_signal_instance(const char *path, const char *types,
                               si->history.value
                               + si->history.position
                               * sig->props.length);
-    }
+    }*/
 
     return 0;
 }
@@ -262,17 +273,26 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (!md->server)
         mdev_start_server(md);
     else {
-        type_string = (char*) realloc(type_string, sig->props.length + 1);
-        memset(type_string, sig->props.type, sig->props.length);
-        type_string[sig->props.length] = 0;
+        type_string = (char*) realloc(type_string, sig->props.length + 2);
+        type_string[0] = 'i';
+        memset(type_string + 1, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 1] = 0;
         lo_server_add_method(md->server,
                              sig->props.name,
-                             type_string,
+                             type_string + 1,
                              handler_signal, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
                              "N",
                              handler_signal, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             type_string,
+                             handler_signal_instance, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "iN",
+                             handler_signal_instance, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
         snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
@@ -621,18 +641,27 @@ void mdev_start_server(mapper_device md)
         unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
-            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 1);
-            memset(type_string, md->inputs[i]->props.type,
+            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 2);
+            type_string[0] = 'i';
+            memset(type_string + 1, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
-            type_string[md->inputs[i]->props.length] = 0;
+            type_string[md->inputs[i]->props.length + 1] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 type_string,
+                                 type_string + 1,
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  "N",
                                  handler_signal, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 type_string,
+                                 handler_signal_instance, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "iN",
+                                 handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             signal_get = (char*) realloc(signal_get, len);
             snprintf(signal_get, len, "%s%s", md->inputs[i]->props.name, "/get");
