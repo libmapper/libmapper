@@ -1,5 +1,6 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -43,11 +44,9 @@ int setup_source()
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     // reserve an appropriate number of instances
-    for (int i = 0; i < 5; i++) {
-        msig_add_instance(sendsig, new_instance_handler, 0);
-    }
+    msig_reserve_instances(sendsig, 5, 0, 0);
 
-    printf("Output signals registered.\n");
+    printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
 
     return 0;
@@ -86,7 +85,6 @@ void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
     printf("--> destination %s got new instance %i\n",
            props->name, si->id);
     si->handler = instance_handler;
-    //si->user_data = my_instance[i];
     instance_handler(si, props, timetag, v);
     received[si->id]++;
 }
@@ -103,11 +101,9 @@ int setup_destination()
         
     recvsig = mdev_add_input(destination, "/insig", 1, 
                              'f', 0, &mn, &mx, 0, 0);
-    for (int i = 0; i < 5; i++) {
-        msig_add_instance(recvsig, new_instance_handler, 0);
-    }
+    msig_reserve_instances(recvsig, 5, new_instance_handler, 0);
 
-    printf("Input signal /insig registered.\n");
+    printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
 
     return 0;
@@ -165,32 +161,39 @@ void loop()
 
     while (i >= 0 && !done) {
         // here we should create, update and destroy some instances
-        switch (i % 3) {
+        switch (rand() % 5) {
             case 0:
+                printf("0\n");
                 // try to create a new instance
                 for (j = 0; j < 5; j++) {
                     if (!sendinst[j]) {
                         sendinst[j] = msig_resume_instance(sendsig);
                         if (sendinst[j])
-                            printf("Created new instance: %i", sendinst[j]->id);
+                            printf("Created new sender instance: %i\n", sendinst[j]->id);
                         break;
                     }
                 }
                 break;
             case 1:
+                printf("1\n");
                 // try to destroy an instance
-                for (j = 0; j < 5; j++) {
+                /*for (j = 0; j < 5; j++) {
+                    printf("try to suspend %i: %i\n", j, sendinst[j]);
                     if (sendinst[j]) {
+                        printf("Retiring sender instance %i\n", sendinst[j]->id);
                         msig_suspend_instance(sendinst[j]);
                         sendinst[j] = 0;
+                        printf("sendinst[%i] now = %i\n", j, sendinst[j]);
+                        break;
                     }
-                }
+                }*/
                 break;
             default:
+                printf("default\n", i % 5);
                 // try to update an instance
                 value = (i % 10) * 1.0f;
                 msig_update_instance(sendinst[i % 5], &value);
-                printf("Instance %i updated to %d -->\n", i % 5, i % 10);
+                printf("sender instance %i updated to %d -->\n", i % 5, i % 10);
                 break;
         }
         mdev_poll(destination, 100);

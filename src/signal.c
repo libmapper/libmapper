@@ -194,6 +194,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
     si->id = sig->instance_count++;
+    lo_timetag_now(&si->creation_time);
 
     // add signal instance to signal
     si->next = sig->input;
@@ -234,6 +235,30 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
         r = r->next;
     }
     return si;
+}
+
+void msig_reserve_instances(mapper_signal sig, int num,
+                            mapper_signal_instance_handler *handler,
+                            void *user_data)
+{
+    int i;
+    mapper_signal_instance si;
+    for (i = 0; i < num; i++) {
+        si = msig_add_instance(sig, handler, user_data);
+        if (si) {
+            // Remove instance from active list, place in reserve
+            mapper_signal_instance *msi = &si->signal->input;
+            while (*msi) {
+                if (*msi == si) {
+                    si->next = si->signal->reserve;
+                    si->signal->reserve = si;
+                    *msi = si->next;
+                    continue;
+                }
+                msi = &(*msi)->next;
+            }
+        }
+    }
 }
 
 mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
@@ -282,6 +307,7 @@ mapper_signal_instance msig_resume_instance(mapper_signal sig)
         sig->reserve = si->next;
         si->next = sig->input;
         sig->input = si;
+        lo_timetag_now(&si->creation_time);
         return si;
     }
     else {
@@ -383,15 +409,20 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
         return;
     }
 #endif
-    
+
     /* TODO: move instance history update value to mapper_expr_evaluate
      * (once full vector support has been added) */
-    instance->history.position = (instance->history.position + 1)
-                                  % instance->history.size;
-    memcpy(instance->history.value + instance->history.position
-           * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
-    lo_timetag_now(instance->history.timetag + instance->history.position
-                   * sizeof(mapper_timetag_t));
+    if (value) {
+        instance->history.position = (instance->history.position + 1)
+                                      % instance->history.size;
+        memcpy(instance->history.value + instance->history.position
+               * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
+        lo_timetag_now(instance->history.timetag + instance->history.position
+                       * sizeof(mapper_timetag_t));
+    }
+    else {
+        instance->history.position = -1;
+    }
     if (instance->signal->props.is_output)
         msig_send_instance(instance, (mapper_signal_value_t*)value);
 }

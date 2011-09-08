@@ -143,6 +143,16 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
                                          mapper_signal_instance_handler *handler,
                                          void *user_data);
 
+/*! Add new instances to the reserve list.
+ *  \param sig          The signal to which the instances will be added.
+ *  \param num          The number of instances to add.
+ *  \param handler      Function to be called when the value of the
+ *                      signal is updated.
+ *  \param user_data    User context pointer to be passed to handler. */
+void msig_reserve_instances(mapper_signal sig, int num,
+                            mapper_signal_instance_handler *handler,
+                            void *user_data);
+
 /*! Add a new connection instance to a signal.
  *  \param si The signal instance corresponding to the new connection instance.
  *  \param c The connection correspoding to the new connection instance.
