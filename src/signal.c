@@ -30,8 +30,9 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->instance_count = 0;
 
     // Create one instance to start
+    sig->input = 0;
     sig->input = msig_add_instance(sig, 0, 0);
-    sig->input->next = 0;
+    sig->reserve = 0;
     return sig;
 }
 
@@ -269,6 +270,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
     ci->history.position = -1;
     ci->history.size = c->props.dest_history_size > 1 ? c->props.dest_history_size : 1;
     ci->next = si->connections;
+    ci->parent = si;
     ci->connection = c;
     si->connections = ci;
     return ci;
@@ -278,12 +280,14 @@ void msig_suspend_instance(mapper_signal_instance si)
 {
     if (!si) return;
 
-    // First send zero signal
-    msig_update_instance(si, NULL);
-
-    // Set destination instance ids to -1
-    if (!si->signal->props.is_output)
+    if (si->signal->props.is_output) {
+        // First send zero signal
+        msig_update_instance(si, NULL);
+    }
+    else {
+        // Set instance ids of input signals to -1
         si->id = -1;
+    }
 
     // Remove instance from active list, place in reserve
     mapper_signal_instance *msi = &si->signal->input;
@@ -292,10 +296,27 @@ void msig_suspend_instance(mapper_signal_instance si)
             si->next = si->signal->reserve;
             si->signal->reserve = si;
             *msi = si->next;
-            continue;
+            break;
         }
         msi = &(*msi)->next;
     }
+    // ***************
+    if (!si->signal->props.is_output) {
+        printf("\nACTIVE: ");
+        mapper_signal_instance temp = si->signal->input;
+        while (temp) {
+            printf("%i ", temp);
+            temp = temp->next;
+        }
+        printf("\nRESERVE:");
+        temp = si->signal->reserve;
+        while (temp) {
+            printf("%i ", temp);
+            temp = temp->next;
+        }
+        printf("\n");
+    }
+    // ***************
 }
 
 mapper_signal_instance msig_resume_instance(mapper_signal sig)
@@ -306,6 +327,23 @@ mapper_signal_instance msig_resume_instance(mapper_signal sig)
         si->next = sig->input;
         sig->input = si;
         lo_timetag_now(&si->creation_time);
+        // ***************
+        if (!si->signal->props.is_output) {
+            printf("ACTIVE: ");
+            mapper_signal_instance temp = si->signal->input;
+            while (temp) {
+                printf("%i", temp);
+                temp = temp->next;
+            }
+            printf("\nRESERVE:");
+            temp = si->signal->reserve;
+            while (temp) {
+                printf("%i", temp);
+                temp = temp->next;
+            }
+            printf("\n");
+        }
+        // ***************
         return si;
     }
     else {
@@ -471,7 +509,7 @@ void msig_send_instance(mapper_signal_instance si, void *value)
             if (mapper_connection_perform(ci, p, &v)) {
                 // copy result to history vector
                 memcpy(ci->history.value + ci->history.position
-                       * ci->connection->source->props.length + i,
+                       * ci->parent->signal->props.length + i,
                        &v, sizeof(mapper_signal_value_t));
                 // copy timetag from signal instance
                 memcpy(ci->history.timetag + ci->history.position * sizeof(mapper_timetag_t),

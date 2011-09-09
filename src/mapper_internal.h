@@ -47,7 +47,7 @@ struct _mapper_connection_instance
     int id;
 
     /*! Pointer to input instance. */
-    //struct _mapper_signal_instance *input;
+    struct _mapper_signal_instance *parent;
 
     /*! Connection this instance belongs to. */
     struct _mapper_connection *connection;

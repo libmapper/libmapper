@@ -167,37 +167,33 @@ void loop()
         // here we should create, update and destroy some instances
         switch (rand() % 5) {
             case 0:
-                printf("0\n");
                 // try to create a new instance
                 for (j = 0; j < 5; j++) {
                     if (!sendinst[j]) {
                         sendinst[j] = msig_resume_instance(sendsig);
                         if (sendinst[j])
-                            printf("Created new sender instance: %i\n", sendinst[j]->id);
+                            printf("--> Created new sender instance: %i\n", sendinst[j]->id);
                         break;
                     }
                 }
                 break;
             case 1:
-                printf("1\n");
                 // try to destroy an instance
-                for (j = 0; j < 5; j++) {
-                    if (sendinst[j]) {
-                        printf("Retiring sender instance %i\n", sendinst[j]->id);
-                        msig_suspend_instance(sendinst[j]);
-                        sendinst[j] = 0;
-                        printf("sendinst[%i] now = %i\n", j, sendinst[j]);
-                        break;
-                    }
+                j = rand() % 5;
+                if (sendinst[j]) {
+                    printf("--> Retiring sender instance %i\n", sendinst[j]->id);
+                    msig_suspend_instance(sendinst[j]);
+                    sendinst[j] = 0;
+                    break;
                 }
                 break;
             default:
-                printf("%i\n", i % 5);
-                if (sendinst[i % 5]) {
+                j = rand() % 5;
+                if (sendinst[j]) {
                     // try to update an instance
-                    value = (i % 10) * 1.0f;
-                    msig_update_instance(sendinst[i % 5], &value);
-                    printf("sender instance %i updated to %d -->\n", sendinst[i % 5]->id, i % 10);
+                    value = (rand() % 10) * 1.0f;
+                    msig_update_instance(sendinst[j], &value);
+                    printf("--> sender instance %i updated to %f\n", sendinst[j]->id, value);
                 }
                 break;
         }

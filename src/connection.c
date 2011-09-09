@@ -64,7 +64,6 @@ int mapper_connection_perform(mapper_connection_instance ci,
     {
         return 0;
     }
-
     if (!connection->props.mode || connection->props.mode == MO_BYPASS)
     {
         if (connection->props.src_type == connection->props.dest_type)
@@ -81,7 +80,7 @@ int mapper_connection_perform(mapper_connection_instance ci,
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
         *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                         &connection->source->input->history,
+                                         &ci->parent->history,
                                          &ci->history);
     }
 
@@ -124,7 +123,7 @@ int mapper_connection_perform(mapper_connection_instance ci,
 
         if (connection->expr)
             *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                             &connection->source->input->history,
+                                             &ci->parent->history,
                                              &ci->history);
     }
 
