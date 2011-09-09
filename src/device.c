@@ -188,6 +188,7 @@ static int handler_signal_instance(const char *path, const char *types,
              * to by argv are layed out sequentially in memory.  It's not
              * clear if liblo's semantics guarantee it, but known to be true
              * on all platforms. */
+            printf("copying data!\n");
             si->history.position = (si->history.position + 1)
                                     % si->history.size;
             memcpy(si->history.value + si->history.position
@@ -195,13 +196,17 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         if (si->handler) {
+            printf("instance handler exists!\n");
             // There is a handler associated with this specific instance.
-            si->handler(si, &sig->props, si->history.timetag + si->history.position,
-                        si->history.position == -1 ? 0 : si->history.value
+            // TODO: perhaps we should still pass a real timetag in the event that signal is NULL
+            si->handler(si, &sig->props,
+                        types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
+                        types[1] == LO_NIL ? 0 : si->history.value
                         + si->history.position * sig->props.length);
         }
 
         if (types[1] == LO_NIL) {
+            printf("suspending instance!\n");
             msig_suspend_instance(si);
         }
     }

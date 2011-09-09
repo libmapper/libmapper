@@ -185,6 +185,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
         return 0;
     mapper_signal_instance si = (mapper_signal_instance) calloc(1,
                                 sizeof(struct _mapper_signal_instance));
+    si->handler = handler;
     // allocate history vectors
     si->history.value = calloc(1, sizeof(mapper_signal_value_t)
                                * sig->props.length * sig->props.history_size);
@@ -279,6 +280,10 @@ void msig_suspend_instance(mapper_signal_instance si)
 
     // First send zero signal
     msig_update_instance(si, NULL);
+
+    // Set destination instance ids to -1
+    if (!si->signal->props.is_output)
+        si->id = -1;
 
     // Remove instance from active list, place in reserve
     mapper_signal_instance *msi = &si->signal->input;
@@ -432,6 +437,14 @@ void msig_send_instance(mapper_signal_instance si, void *value)
 {
     // for each connection, construct a mapped signal and send it
     mapper_connection_instance ci = si->connections;
+    if (!value) {
+        while (ci) {
+            ci->history.position = -1;
+            mapper_router_send_signal(ci, 0);
+            ci = ci->next;
+        }
+        return;
+    }
     while (ci) {
         struct _mapper_signal signal;
         signal.props.name = ci->connection->props.dest_name;

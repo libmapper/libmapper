@@ -74,9 +74,13 @@ void cleanup_source()
 void instance_handler(mapper_signal_instance si, mapper_db_signal props,
                       mapper_timetag_t *timetag, void *v)
 {
-    printf("--> destination %s instance %i got %f\n",
-           props->name, si->id, (*(float*)v));
-    received[si->id]++;
+    if (v)
+        printf("--> destination %s instance %i got %f\n",
+               props->name, si->id, (*(float*)v));
+    else
+        printf("--> destination %s instance %i got NULL\n",
+               props->name, si->id);
+    //received[si->id]++;
 }
 
 void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
@@ -86,7 +90,7 @@ void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
            props->name, si->id);
     si->handler = instance_handler;
     instance_handler(si, props, timetag, v);
-    received[si->id]++;
+    //received[si->id]++;
 }
 
 /*! Creation of a local destination. */
@@ -177,8 +181,7 @@ void loop()
             case 1:
                 printf("1\n");
                 // try to destroy an instance
-                /*for (j = 0; j < 5; j++) {
-                    printf("try to suspend %i: %i\n", j, sendinst[j]);
+                for (j = 0; j < 5; j++) {
                     if (sendinst[j]) {
                         printf("Retiring sender instance %i\n", sendinst[j]->id);
                         msig_suspend_instance(sendinst[j]);
@@ -186,14 +189,16 @@ void loop()
                         printf("sendinst[%i] now = %i\n", j, sendinst[j]);
                         break;
                     }
-                }*/
+                }
                 break;
             default:
-                printf("default\n", i % 5);
-                // try to update an instance
-                value = (i % 10) * 1.0f;
-                msig_update_instance(sendinst[i % 5], &value);
-                printf("sender instance %i updated to %d -->\n", i % 5, i % 10);
+                printf("%i\n", i % 5);
+                if (sendinst[i % 5]) {
+                    // try to update an instance
+                    value = (i % 10) * 1.0f;
+                    msig_update_instance(sendinst[i % 5], &value);
+                    printf("sender instance %i updated to %d -->\n", sendinst[i % 5]->id, i % 10);
+                }
                 break;
         }
         mdev_poll(destination, 100);

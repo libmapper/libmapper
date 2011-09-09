@@ -71,8 +71,13 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (ci->id)
         lo_message_add_int32(m, ci->id);
 
-    for (i = 0; i < ci->connection->props.dest_length; i++)
-        mval_add_to_message(m, ci->connection->props.dest_type, &value[i]);
+    if (value) {        
+        for (i = 0; i < ci->connection->props.dest_length; i++)
+            mval_add_to_message(m, ci->connection->props.dest_type, &value[i]);
+    }
+    else {
+        lo_message_add_nil(m);
+    }
 
     lo_send_message(ci->connection->router->addr,
                     ci->connection->props.dest_name, m);
