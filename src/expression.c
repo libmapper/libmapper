@@ -780,11 +780,6 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     expr->vector_size = vector_size;
     // TODO: need to separate input and out history sizes
     expr->history_size = (int)ceilf(-oldest_samps)+1;
-    //expr->history_pos = -1;
-    //expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
-    //                                * vector_size * expr->history_size);
-    //expr->output_history = calloc(1, sizeof(mapper_signal_value_t)
-    //                                 * expr->history_size);
     return expr;
 
   cleanup:

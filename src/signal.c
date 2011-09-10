@@ -110,7 +110,6 @@ void msig_free(mapper_signal sig)
         msig_free_instance(si);
         si = si->next;
     }
-    // TODO: free connection instances
     if (sig->props.minimum)
         free(sig->props.minimum);
     if (sig->props.maximum)

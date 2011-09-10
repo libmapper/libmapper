@@ -186,7 +186,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
         if (si->handler) {
             // There is a handler associated with this specific instance.
-            // TODO: perhaps we should still pass a real timetag in the event that signal is NULL
+            // TODO: we should still pass a real timetag in the event that signal is NULL
             si->handler(si, &sig->props,
                         types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
                         types[1] == LO_NIL ? 0 : si->history.value
