@@ -282,11 +282,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_MIN:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->props.minimum);
+            mval_add_to_message(m, sig->props.type, sig->props.minimum);
             break;
         case AT_MAX:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->props.maximum);
+            mval_add_to_message(m, sig->props.type, sig->props.maximum);
             break;
         case AT_MODE:
             i = va_arg(aq, int);
