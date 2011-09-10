@@ -142,7 +142,6 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
-    printf("handler_signal_instance! ");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     
@@ -157,29 +156,20 @@ static int handler_signal_instance(const char *path, const char *types,
     // TODO: use hash table instead?
     int id = argv[0]->i32;
 
-    printf("got id %i\n", id);
-
     mapper_signal_instance si = sig->input;
     while (si && (si->id != id)) {
-        printf("trying si: %i\n", si);
         si = si->next;
     }
 
     if (!si) {
-        printf("trying to resume instance... ");
         // try to resume a reserved instance
         si = msig_resume_instance(sig);
         if (si) {
-            printf("OK!\n");
             si->id = id;
         }
         else {
-            printf("failed!\n");
             // TODO: need notification handler to indicate no more instances are available
         }
-    }
-    else {
-        printf("mapped to instance %i\n", si);
     }
 
     if (si) {
@@ -204,7 +194,6 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         if (types[1] == LO_NIL) {
-            printf("suspending instance!\n");
             msig_suspend_instance(si);
         }
     }

@@ -80,7 +80,7 @@ void instance_handler(mapper_signal_instance si, mapper_db_signal props,
     else
         printf("--> destination %s instance %i got NULL\n",
                props->name, si->id);
-    //received[si->id]++;
+    received[si->id]++;
 }
 
 void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
@@ -90,7 +90,6 @@ void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
            props->name, si->id);
     si->handler = instance_handler;
     instance_handler(si, props, timetag, v);
-    //received[si->id]++;
 }
 
 /*! Creation of a local destination. */

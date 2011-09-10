@@ -293,30 +293,13 @@ void msig_suspend_instance(mapper_signal_instance si)
     mapper_signal_instance *msi = &si->signal->input;
     while (*msi) {
         if (*msi == si) {
+            *msi = si->next;
             si->next = si->signal->reserve;
             si->signal->reserve = si;
-            *msi = si->next;
             break;
         }
         msi = &(*msi)->next;
     }
-    // ***************
-    if (!si->signal->props.is_output) {
-        printf("\nACTIVE: ");
-        mapper_signal_instance temp = si->signal->input;
-        while (temp) {
-            printf("%i ", temp);
-            temp = temp->next;
-        }
-        printf("\nRESERVE:");
-        temp = si->signal->reserve;
-        while (temp) {
-            printf("%i ", temp);
-            temp = temp->next;
-        }
-        printf("\n");
-    }
-    // ***************
 }
 
 mapper_signal_instance msig_resume_instance(mapper_signal sig)
@@ -327,23 +310,6 @@ mapper_signal_instance msig_resume_instance(mapper_signal sig)
         si->next = sig->input;
         sig->input = si;
         lo_timetag_now(&si->creation_time);
-        // ***************
-        if (!si->signal->props.is_output) {
-            printf("ACTIVE: ");
-            mapper_signal_instance temp = si->signal->input;
-            while (temp) {
-                printf("%i", temp);
-                temp = temp->next;
-            }
-            printf("\nRESERVE:");
-            temp = si->signal->reserve;
-            while (temp) {
-                printf("%i", temp);
-                temp = temp->next;
-            }
-            printf("\n");
-        }
-        // ***************
         return si;
     }
     else {
