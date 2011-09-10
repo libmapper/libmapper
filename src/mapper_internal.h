@@ -202,8 +202,11 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Free memory used by a mapper__signal_instance. */
+/*! Free memory used by a mapper_signal_instance. */
 void msig_free_instance(mapper_signal_instance instance);
+
+/*! Free memory used by a mapper_connection_instance. */
+void msig_free_connection_instance(mapper_connection_instance instance);
 
 /*! Reallocate memory used by signal instances. */
 void msig_reallocate_instances(mapper_signal sig);
@@ -256,9 +259,6 @@ void mapper_connection_set_calibrate(mapper_connection connection,
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
-
-/*! Free memory used by a mapper_connection_instance. */
-void mapper_connection_free_instance(mapper_connection_instance instance);
 
 /**** Local device database ****/
 

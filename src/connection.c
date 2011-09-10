@@ -697,11 +697,3 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
     }
     return NULL;
 }
-
-void mapper_connection_free_instance(mapper_connection_instance mci)
-{
-    if (!mci)
-        return;
-    free(mci->history.value);
-    //free(mci->history.timetag);
-}

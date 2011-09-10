@@ -331,7 +331,7 @@ void msig_remove_instance(mapper_signal_instance si)
     mapper_connection_instance ci = si->connections;
     while (si->connections) {
         si->connections = ci->next;
-        mapper_connection_free_instance(ci);
+        msig_free_connection_instance(ci);
     }
     
     // Remove signal instance
@@ -429,12 +429,25 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
         msig_send_instance(instance, (mapper_signal_value_t*)value);
 }
 
-void msig_free_instance(mapper_signal_instance mi)
+void msig_free_instance(mapper_signal_instance si)
 {
-    if (!mi)
+    if (!si)
         return;
-    free(mi->history.value);
-    free(mi->history.timetag);
+    mapper_connection_instance ci = si->connections;
+    while (si->connections) {
+        si->connections = ci->next;
+        msig_free_connection_instance(ci);
+    }
+    free(si->history.value);
+    free(si->history.timetag);
+}
+
+void msig_free_connection_instance(mapper_connection_instance ci)
+{
+    if (!ci)
+        return;
+    free(ci->history.value);
+    free(ci->history.timetag);
 }
 
 void msig_send_instance(mapper_signal_instance si, void *value)
