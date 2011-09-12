@@ -197,7 +197,6 @@ int mapper_router_remove_connection(mapper_router router,
         if ((*ci)->connection == connection) {
             *ci = (*ci)->next;
             msig_free_connection_instance(*ci);
-            continue;
         }
         si = si->next;
     }
@@ -209,7 +208,6 @@ int mapper_router_remove_connection(mapper_router router,
         if ((*ci)->connection == connection) {
             *ci = (*ci)->next;
             msig_free_connection_instance(*ci);
-            continue;
         }
         si = si->next;
     }
