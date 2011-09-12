@@ -24,7 +24,7 @@ mapper_signal_instance recvinst[5] = {0, 0, 0, 0, 0};
 int port = 9000;
 
 int sent = 0;
-int received[5] = {0, 0, 0, 0, 0};
+int received = 0;
 int done = 0;
 
 void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
@@ -74,13 +74,14 @@ void cleanup_source()
 void instance_handler(mapper_signal_instance si, mapper_db_signal props,
                       mapper_timetag_t *timetag, void *v)
 {
-    if (v)
+    if (v) {
         printf("--> destination %s instance %i got %f\n",
                props->name, si->id, (*(float*)v));
+        received++;
+    }
     else
         printf("--> destination %s instance %i got NULL\n",
                props->name, si->id);
-    received[si->id]++;
 }
 
 void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
@@ -124,8 +125,6 @@ void cleanup_destination()
         printf("ok\n");
     }
 }
-
-
 
 void wait_local_devices()
 {
@@ -193,13 +192,14 @@ void loop()
                     value = (rand() % 10) * 1.0f;
                     msig_update_instance(sendinst[j], &value);
                     printf("--> sender instance %i updated to %f\n", sendinst[j]->id, value);
+                    sent++;
                 }
                 break;
         }
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
-        usleep(500 * 1000);
+        usleep(100 * 1000);
     }
 }
 
@@ -230,8 +230,16 @@ int main()
 
     loop();
 
+    if (sent != received) {
+        printf("Not all sent messages were received.\n");
+        printf("Updated value %d time%s, but received %d of them.\n",
+               sent, sent == 1 ? "" : "s", received);
+        result = 1;
+    }
+
   done:
     cleanup_destination();
     cleanup_source();
+    printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }
