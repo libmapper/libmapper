@@ -340,64 +340,73 @@ void msig_remove_instance(mapper_signal_instance si)
 
 void msig_reallocate_instances(mapper_signal sig)
 {
+printf("REALLOCATING INSTANCES\n");
+    // At least for now, exit if this is an input signal
     // Find maximum input length needed for connections
-    int oldest_samps = 0;
+    int input_history_size = 1;
     // Iterate through instances
     mapper_signal_instance si = sig->input;
     while (si) {
         mapper_connection_instance ci = si->connections;
         while (ci) {
             if (ci->connection->props.mode == MO_EXPRESSION) {
-                if (ci->connection->expr->history_size > oldest_samps) {
-                    oldest_samps = ci->connection->expr->history_size;
+                if (ci->connection->expr->history_size > input_history_size) {
+                    // TODO: separate input and output history sizes
+                    input_history_size = ci->connection->expr->history_size;
                 }
             }
             ci = ci->next;
         }
         si = si->next;
     }
-    // If input history size has changed...
-    if (oldest_samps != sig->input->history.size) {
-        sig->input->history.size = oldest_samps > 1 ? oldest_samps : 1;
-        // ...allocate a new array...
-        mapper_signal_history_t history;
-        history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * sig->props.length * sig->input->history.size);
-        history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * sig->input->history.size);
-        // ... TODO: copy the current history to new arrays...
-        sig->input->history.position = -1;
-        // ... and free the old array
-        free(sig->input->history.value);
-        free(sig->input->history.timetag);
-        sig->input->history.value = history.value;
-        sig->input->history.timetag = history.timetag;
-    }
-    
-    // If connection histories have changed...
-    mapper_connection_instance ci = sig->input->connections;
-    while (ci) {
-        int new_size = ci->connection->expr->history_size;
-        if (ci->history.size != new_size) {
+printf("check1: input_history_size = %i\n", input_history_size);
+    si = sig->input;
+    while (si) {
+        // Check if input history size has changed
+        if ((si->history.size != input_history_size) && (input_history_size > 0)) {
+            si->history.size = input_history_size;
             mapper_signal_history_t history;
             history.value = calloc(1, sizeof(mapper_signal_value_t)
-                                   * ci->connection->props.dest_length
-                                   * ci->connection->props.dest_history_size);
-            history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                     * ci->connection->props.dest_history_size);
-            ci->history.size = new_size;
-            ci->history.position = -1;
-            free(ci->history.value);
-            free(ci->history.timetag);
-            ci->history.value = history.value;
-            ci->history.timetag = history.timetag;
+                                   * sig->props.length * si->history.size);
+            history.timetag = calloc(1, sizeof(mapper_signal_value_t)
+                                     * si->history.size);
+            // TODO: copy the current history into new arrays
+            si->history.position = -1;
+            free(si->history.value);
+            free(si->history.timetag);
+            si->history.value = history.value;
+            si->history.timetag = history.timetag;
         }
-        ci = ci->next;
+        // Check if output history sizes have changed
+        mapper_connection_instance ci = si->connections;
+        while (ci) {
+            if (ci->connection->props.mode == MO_EXPRESSION) {
+                if ((ci->history.size != ci->connection->expr->history_size)
+                    && (ci->connection->expr->history_size > 0)) {
+                    ci->history.size = ci->connection->expr->history_size;
+                    mapper_signal_history_t history;
+                    history.value = calloc(1, sizeof(mapper_signal_value_t)
+                                           * sig->props.length * ci->history.size);
+                    history.timetag = calloc(1, sizeof(mapper_signal_value_t)
+                                             * ci->history.size);
+                    // TODO: copy the current history into new arrays
+                    ci->history.position = -1;
+                    free(ci->history.value);
+                    free(ci->history.timetag);
+                    ci->history.value = history.value;
+                    ci->history.timetag = history.timetag;
+                }
+            }
+            ci = ci->next;
+        }
+        si = si->next;
     }
+printf("check2\n");
 }
 
 void msig_update_instance(mapper_signal_instance instance, void *value)
 {
+printf("MSIG_UPDATE_INSTANCE\n");
     if (!instance) return;
     if (!instance->signal) return;
 
@@ -487,11 +496,12 @@ void msig_send_instance(mapper_signal_instance si, void *value)
             if (mapper_connection_perform(ci, p, &v)) {
                 // copy result to history vector
                 memcpy(ci->history.value + ci->history.position
-                       * ci->parent->signal->props.length + i,
+                       * si->signal->props.length + i,
                        &v, sizeof(mapper_signal_value_t));
                 // copy timetag from signal instance
                 memcpy(ci->history.timetag + ci->history.position * sizeof(mapper_timetag_t),
-                       si->history.timetag, sizeof(mapper_timetag_t));
+                       si->history.timetag + si->history.position * sizeof(mapper_timetag_t),
+                       sizeof(mapper_timetag_t));
                 if (mapper_clipping_perform(ci->connection, &v, &w))
                     applied[i] = w;
                 else
