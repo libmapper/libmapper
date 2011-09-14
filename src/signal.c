@@ -194,7 +194,8 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->history.position = -1;
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
-    si->id = sig->props.is_output ? sig->instance_count++ : -1;
+    si->id = sig->instance_count++;
+    //si->id = sig->props.is_output ? sig->instance_count++ : -1;
     lo_timetag_now(&si->creation_time);
 
     // add signal instance to signal
@@ -426,8 +427,7 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
                                       % instance->history.size;
         memcpy(instance->history.value + instance->history.position
                * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
-        lo_timetag_now(instance->history.timetag + instance->history.position
-                       * sizeof(mapper_timetag_t));
+        lo_timetag_now(&instance->history.timetag[instance->history.position]);
     }
     else {
         instance->history.position = -1;
@@ -445,16 +445,20 @@ void msig_free_instance(mapper_signal_instance si)
         si->connections = ci->next;
         msig_free_connection_instance(ci);
     }
-    free(si->history.value);
-    free(si->history.timetag);
+    if (si->history.value)
+        free(si->history.value);
+    if (si->history.timetag)
+        free(si->history.timetag);
 }
 
 void msig_free_connection_instance(mapper_connection_instance ci)
 {
     if (!ci)
         return;
-    free(ci->history.value);
-    free(ci->history.timetag);
+    if (ci->history.value)
+        free(ci->history.value);
+    if (ci->history.timetag)
+        free(ci->history.timetag);
 }
 
 void msig_send_instance(mapper_signal_instance si, void *value)
@@ -498,8 +502,8 @@ void msig_send_instance(mapper_signal_instance si, void *value)
                        * si->signal->props.length + i,
                        &v, sizeof(mapper_signal_value_t));
                 // copy timetag from signal instance
-                memcpy(ci->history.timetag + ci->history.position * sizeof(mapper_timetag_t),
-                       si->history.timetag + si->history.position * sizeof(mapper_timetag_t),
+                memcpy(&ci->history.timetag[ci->history.position],
+                       &si->history.timetag[si->history.position],
                        sizeof(mapper_timetag_t));
                 if (mapper_clipping_perform(ci->connection, &v, &w))
                     applied[i] = w;
