@@ -192,6 +192,13 @@ static int handler_signal_instance(const char *path, const char *types,
                         types[1] == LO_NIL ? 0 : si->history.value
                         + si->history.position * sig->props.length);
         }
+        else if (si->signal->handler) {
+            // There is no handler for this instance, but a generic signal handler exists
+            si->signal->handler(sig, &sig->props,
+                                types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
+                                types[1] == LO_NIL ? 0 : si->history.value
+                                + si->history.position * sig->props.length);
+        }
 
         if (types[1] == LO_NIL) {
             msig_suspend_instance(si);
@@ -368,10 +375,14 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         md->inputs[n] = md->inputs[n+1];
     }
     if (md->server) {
-        char *type_string = (char*) malloc(sig->props.length + 1);
-        memset(type_string, sig->props.type, sig->props.length);
-        type_string[sig->props.length] = 0;
+        char *type_string = (char*) malloc(sig->props.length + 2);
+        type_string[0] = 'i';
+        memset(type_string + 1, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 1] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
+        lo_server_del_method(md->server, sig->props.name, type_string + 1);
+        lo_server_del_method(md->server, sig->props.name, "N");
+        lo_server_del_method(md->server, sig->props.name, "iN");
         free(type_string);
         int len = strlen(sig->props.name) + 5;
         char *signal_get = (char*) malloc(len);
