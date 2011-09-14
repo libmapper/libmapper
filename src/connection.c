@@ -325,14 +325,13 @@ static int replace_expression_string(mapper_connection c,
     if (!c->props.expression || len > strlen(c->props.expression))
         c->props.expression = realloc(c->props.expression, len);
     strncpy(c->props.expression, expr_str, len);
-
-    msig_reallocate_instances(s);
     return 0;
 }
 
 void mapper_connection_set_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
+    msig_reallocate_instances(c->source);
 }
 
 void mapper_connection_set_linear_range(mapper_connection c,
@@ -376,7 +375,10 @@ void mapper_connection_set_linear_range(mapper_connection c,
                sizeof(mapper_connection_range_t));
 
     // If everything is successful, replace the connection's expression.
-    if (e) replace_expression_string(c, sig, e);
+    if (e) {
+        if (replace_expression_string(c, sig, e))
+            msig_reallocate_instances(sig);
+    }
 }
 
 void mapper_connection_set_expression(mapper_connection c,
@@ -387,6 +389,7 @@ void mapper_connection_set_expression(mapper_connection c,
         return;
 
     c->props.mode = MO_EXPRESSION;
+    msig_reallocate_instances(sig);
 }
 
 void mapper_connection_set_calibrate(mapper_connection c,
