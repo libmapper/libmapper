@@ -596,8 +596,11 @@ void mapper_connection_set_from_message(mapper_connection c,
     
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    if (expr)
+    if (expr) {
         replace_expression_string(c, sig, expr);
+        if (c->props.mode == MO_EXPRESSION)
+            msig_reallocate_instances(sig);
+    }
 
     /* Now set the mode type depending on the requested type and
      * the known properties. */
