@@ -436,7 +436,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int i, next_token = 1;
 
     int var_allowed = 1;
-    float oldest_samps = 0;
+    int oldest_input = 0, oldest_output = 0;
 
     PUSHSTATE(EXPR);
     PUSHSTATE(YEQUAL_EQ);
@@ -477,8 +477,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         /* Track the oldest history reference in order
                          * to know how much buffer needs to be
                          * allocated for this expression. */
-                        if (oldest_samps > stack[top-2].node->history_index)
-                            oldest_samps = stack[top-2].node->history_index;
+                        if (stack[top-2].node->tok.var == 'x'
+                            && oldest_input > stack[top-2].node->history_index) {
+                            oldest_input = stack[top-2].node->history_index;
+                        }
+                        else if (stack[top-2].node->tok.var == 'y'
+                                 && oldest_output > stack[top-2].node->history_index) {
+                            oldest_output = stack[top-2].node->history_index;
+                        }
 
                         exprnode_free(stack[top].node);
                         POP();
@@ -737,8 +743,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     }
 
     // We need a limit, but this is a bit arbitrary.
-    if (oldest_samps < -100) {
-        trace("Expression contains history reference of %f\n", oldest_samps);
+    if (oldest_input < -100) {
+        trace("Expression contains history references of %i\n", oldest_input);
+        goto cleanup;
+    }
+    if (oldest_output < -100) {
+        trace("Expression contains history references of %i\n", oldest_output);
         goto cleanup;
     }
 
@@ -778,8 +788,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
     expr->vector_size = vector_size;
-    // TODO: need to separate input and out history sizes
-    expr->history_size = (int)ceilf(-oldest_samps)+1;
+    expr->input_history_size = (int)ceilf(-oldest_input)+1;
+    expr->output_history_size = (int)ceilf(-oldest_output)+1;
     return expr;
 
   cleanup:

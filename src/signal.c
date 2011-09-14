@@ -308,6 +308,7 @@ mapper_signal_instance msig_resume_instance(mapper_signal sig)
         sig->reserve = si->next;
         si->next = sig->input;
         sig->input = si;
+        si->history.position = -1;
         lo_timetag_now(&si->creation_time);
         return si;
     }
@@ -340,8 +341,10 @@ void msig_remove_instance(mapper_signal_instance si)
 
 void msig_reallocate_instances(mapper_signal sig)
 {
-printf("REALLOCATING INSTANCES\n");
     // At least for now, exit if this is an input signal
+    if (!sig->props.is_output)
+        return;
+
     // Find maximum input length needed for connections
     int input_history_size = 1;
     // Iterate through instances
@@ -350,16 +353,14 @@ printf("REALLOCATING INSTANCES\n");
         mapper_connection_instance ci = si->connections;
         while (ci) {
             if (ci->connection->props.mode == MO_EXPRESSION) {
-                if (ci->connection->expr->history_size > input_history_size) {
-                    // TODO: separate input and output history sizes
-                    input_history_size = ci->connection->expr->history_size;
+                if (ci->connection->expr->input_history_size > input_history_size) {
+                    input_history_size = ci->connection->expr->input_history_size;
                 }
             }
             ci = ci->next;
         }
         si = si->next;
     }
-printf("check1: input_history_size = %i\n", input_history_size);
     si = sig->input;
     while (si) {
         // Check if input history size has changed
@@ -381,9 +382,9 @@ printf("check1: input_history_size = %i\n", input_history_size);
         mapper_connection_instance ci = si->connections;
         while (ci) {
             if (ci->connection->props.mode == MO_EXPRESSION) {
-                if ((ci->history.size != ci->connection->expr->history_size)
-                    && (ci->connection->expr->history_size > 0)) {
-                    ci->history.size = ci->connection->expr->history_size;
+                if ((ci->history.size != ci->connection->expr->output_history_size)
+                    && (ci->connection->expr->output_history_size > 0)) {
+                    ci->history.size = ci->connection->expr->output_history_size;
                     mapper_signal_history_t history;
                     history.value = calloc(1, sizeof(mapper_signal_value_t)
                                            * sig->props.length * ci->history.size);
@@ -401,12 +402,10 @@ printf("check1: input_history_size = %i\n", input_history_size);
         }
         si = si->next;
     }
-printf("check2\n");
 }
 
 void msig_update_instance(mapper_signal_instance instance, void *value)
 {
-printf("MSIG_UPDATE_INSTANCE\n");
     if (!instance) return;
     if (!instance->signal) return;
 

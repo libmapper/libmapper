@@ -371,9 +371,8 @@ struct _mapper_expr
 {
     exprnode node;
     int vector_size;
-    int history_size;
-    //int input_history_size;
-    //int output_history_size;
+    int input_history_size;
+    int output_history_size;
 };
 
 #endif // __MAPPER_TYPES_H__
