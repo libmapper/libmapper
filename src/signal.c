@@ -362,6 +362,7 @@ void msig_reallocate_instances(mapper_signal sig)
         }
         si = si->next;
     }
+    sig->props.history_size = input_history_size;
     si = sig->input;
     while (si) {
         // Check if input history size has changed
