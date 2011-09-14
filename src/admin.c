@@ -1219,7 +1219,6 @@ static int handler_device_link(const char *path, const char *types,
                                lo_arg **argv, int argc, lo_message msg,
                                void *user_data)
 {
-    printf("got /link\n");
     mapper_admin admin = (mapper_admin) user_data;
     const char *src_name, *dest_name;
 
