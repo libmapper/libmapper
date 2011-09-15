@@ -184,6 +184,16 @@ void msig_remove_instance(mapper_signal_instance instance);
  *         least as long as the signal's length property. */
 void msig_update_instance(mapper_signal_instance instance, void *value);
 
+/*! Update the value of a specific signal instance by id.
+ *  The signal will be routed according to external requests.
+ *  \param sig  The signal containing the instance to update
+ *  \param id   The id of the instance to update.
+ *  \param value A pointer to a new value for this signal.  If the
+ *         signal type is 'i', this should be int*; if the signal type
+ *         is 'f', this should be float*.  It should be an array at
+ *         least as long as the signal's length property. */
+void msig_update_instance_by_id(mapper_signal sig, int id, void *value);
+
 /* @} */
 
 /*** Devices ***/

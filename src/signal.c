@@ -181,6 +181,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
                                          mapper_signal_instance_handler *handler,
                                          void *user_data)
 {
+    // TODO: ensure sig->instance_count doesn't exceed some maximum
     if (!sig)
         return 0;
     mapper_signal_instance si = (mapper_signal_instance) calloc(1,
@@ -435,6 +436,23 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
     }
     if (instance->signal->props.is_output)
         msig_send_instance(instance, (mapper_signal_value_t*)value);
+}
+
+void msig_update_instance_by_id(mapper_signal sig, int id, void *value)
+{
+    if (!sig)
+        return;
+    if (id < 0)
+        return;
+    // find signal instance
+    mapper_signal_instance si = sig->input;
+    while (si) {
+        if (si->id == id) {
+            msig_update_instance(si, value);
+            return;
+        }
+        si = si->next;
+    }
 }
 
 void msig_free_instance(mapper_signal_instance si)
