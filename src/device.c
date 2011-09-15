@@ -163,7 +163,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (!si) {
         // try to resume a reserved instance
-        si = msig_resume_instance(sig);
+        si = msig_fetch_reserved_instance(sig);
         if (si) {
             si->id = id;
         }

@@ -165,11 +165,15 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
  *  \param instance The instance to suspend. */
 void msig_suspend_instance(mapper_signal_instance instance);
 
-/*! Retrieve a reserved (preallocated) signal instance.
- *  \param sig The signal owning the desired instance.
+/*! Resume a reserved (preallocated) signal instance.
+ *  \param  si The signal owning the desired instance. */
+void msig_resume_instance(mapper_signal_instance si);
+
+/*! Fetch a reserved (preallocated) signal instance.
+ *  \param  sig The signal owning the desired instance.
  *  \return The retrieved signal instance, or NULL if no reserved
  *          instances exist. */
-mapper_signal_instance msig_resume_instance(mapper_signal sig);
+mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */
@@ -188,11 +192,13 @@ void msig_update_instance(mapper_signal_instance instance, void *value);
  *  The signal will be routed according to external requests.
  *  \param sig  The signal containing the instance to update
  *  \param id   The id of the instance to update.
- *  \param value A pointer to a new value for this signal.  If the
- *         signal type is 'i', this should be int*; if the signal type
- *         is 'f', this should be float*.  It should be an array at
- *         least as long as the signal's length property. */
-void msig_update_instance_by_id(mapper_signal sig, int id, void *value);
+ *  \return The matching signal instance, 0 if no match found. */
+mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id);
+
+/*! Get the ID of a specific signal instance.
+ *  \param si The signal instance.
+ *  \return The id of the instance. */
+int msig_get_instance_id(mapper_signal_instance si);
 
 /* @} */
 

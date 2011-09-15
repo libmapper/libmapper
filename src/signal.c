@@ -196,7 +196,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
     si->id = sig->instance_count++;
-    //si->id = sig->props.is_output ? sig->instance_count++ : -1;
+    si->is_active = 1;
     lo_timetag_now(&si->creation_time);
 
     // add signal instance to signal
@@ -250,6 +250,7 @@ void msig_reserve_instances(mapper_signal sig, int num,
         si = msig_add_instance(sig, handler, user_data);
         if (si) {
             // Remove instance from active list, place in reserve
+            si->is_active = 0;
             sig->input = si->next;
             si->next = sig->reserve;
             sig->reserve = si;
@@ -279,7 +280,10 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 
 void msig_suspend_instance(mapper_signal_instance si)
 {
-    if (!si) return;
+    if (!si)
+        return;
+    if (!si->is_active)
+        return;
 
     if (si->signal->props.is_output) {
         // First send zero signal
@@ -287,6 +291,7 @@ void msig_suspend_instance(mapper_signal_instance si)
     }
     else {
         // Set instance ids of input signals to -1
+        // TODO: this should no longer be necessary
         si->id = -1;
     }
 
@@ -295,6 +300,7 @@ void msig_suspend_instance(mapper_signal_instance si)
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
+            si->is_active = 0;
             si->next = si->signal->reserve;
             si->signal->reserve = si;
             break;
@@ -303,13 +309,37 @@ void msig_suspend_instance(mapper_signal_instance si)
     }
 }
 
-mapper_signal_instance msig_resume_instance(mapper_signal sig)
+void msig_resume_instance(mapper_signal_instance si)
+{
+    if (!si)
+        return;
+    if (si->is_active)
+        return;
+
+    // Remove instance from reserve list, place in active
+    mapper_signal_instance *msi = &si->signal->reserve;
+    while (*msi) {
+        if (*msi == si) {
+            *msi = si->next;
+            si->is_active = 1;
+            si->history.position = -1;
+            lo_timetag_now(&si->creation_time);
+            si->next = si->signal->input;
+            si->signal->input = si;
+            break;
+        }
+        msi = &(*msi)->next;
+    }
+}
+
+mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig)
 {
     mapper_signal_instance si = sig->reserve;
     if (si) {
         sig->reserve = si->next;
         si->next = sig->input;
         sig->input = si;
+        si->is_active = 1;
         si->history.position = -1;
         lo_timetag_now(&si->creation_time);
         return si;
@@ -411,6 +441,7 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
 {
     if (!instance) return;
     if (!instance->signal) return;
+    if (!instance->is_active) return;
 
     /* We have to assume that value points to an array of correct type
      * and size. */
@@ -438,21 +469,36 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
         msig_send_instance(instance, (mapper_signal_value_t*)value);
 }
 
-void msig_update_instance_by_id(mapper_signal sig, int id, void *value)
+mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id)
 {
     if (!sig)
-        return;
+        return 0;
     if (id < 0)
-        return;
+        return 0;
     // find signal instance
     mapper_signal_instance si = sig->input;
     while (si) {
         if (si->id == id) {
-            msig_update_instance(si, value);
-            return;
+            return si;
         }
         si = si->next;
     }
+    // check reserved instances
+    si = sig->reserve;
+    while (si) {
+        if (si->id == id) {
+            return si;
+        }
+        si = si->next;
+    }
+    return 0;
+}
+
+int msig_get_instance_id(mapper_signal_instance si)
+{
+    if (!si)
+        return 0;
+    return si->id;
 }
 
 void msig_free_instance(mapper_signal_instance si)

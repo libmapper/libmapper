@@ -67,6 +67,9 @@ struct _mapper_signal_instance
     /*! ID number of this instance. */
     int id;
 
+    /*! Flag to show if this instance is active */
+    int is_active;
+
     /*! Signal this instance belongs to. */
     struct _mapper_signal *signal;
 
