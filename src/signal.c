@@ -105,10 +105,18 @@ void msig_free(mapper_signal sig)
 {
     if (!sig) return;
 
-    mapper_signal_instance si = sig->input;
-    while (si) {
+    // Free active instances
+    mapper_signal_instance si;
+    while (sig->input) {
+        si = sig->input;
+        sig->input = si->next;
         msig_free_instance(si);
-        si = si->next;
+    }
+    // Free reserved instances
+    while (sig->input) {
+        si = sig->reserve;
+        sig->reserve = si->next;
+        msig_free_instance(si);
     }
     if (sig->props.minimum)
         free(sig->props.minimum);
@@ -360,15 +368,23 @@ void msig_remove_instance(mapper_signal_instance si)
     msig_update_instance(si, NULL);
 
     // Remove connection instances
-    mapper_connection_instance ci = si->connections;
+    mapper_connection_instance ci;
     while (si->connections) {
+        ci = si->connections;
         si->connections = ci->next;
         msig_free_connection_instance(ci);
     }
-    
+
     // Remove signal instance
-    si->signal->input = si->next;
-    msig_free_instance(si);
+    mapper_signal_instance *msi = &si->signal->input;
+    while (*msi) {
+        if (*msi == si) {
+            *msi = si->next;
+            msig_free_instance(si);
+            break;
+        }
+        msi = &(*msi)->next;
+    }
 }
 
 void msig_reallocate_instances(mapper_signal sig)
@@ -505,8 +521,9 @@ void msig_free_instance(mapper_signal_instance si)
 {
     if (!si)
         return;
-    mapper_connection_instance ci = si->connections;
+    mapper_connection_instance ci;
     while (si->connections) {
+        ci = si->connections;
         si->connections = ci->next;
         msig_free_connection_instance(ci);
     }
