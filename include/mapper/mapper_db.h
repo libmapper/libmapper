@@ -134,10 +134,23 @@ typedef union _mapper_signal_value {
     int i32;
 } mapper_signal_value_t, mval;
 
-typedef struct _mapper_signal_history {
+/*! A structure that stores the current and historical values and timetags
+ *  of a signal. The size of the history arrays is determined by the needs
+ *  of connection expressions.
+ *  @ingroup signals */
+
+typedef struct _mapper_signal_history
+{
+    /*! Current position in the circular buffer. */
     int position;
+
+    /*! History size of the buffer. */
     int size;
+
+    /*! Value of the signal for each sample of stored history. */
     mapper_signal_value_t *value;
+
+    /*! Timetag for each sample of stored history. */
     // TODO: switch to mapper_timetag_t;
     //mapper_timetag_t *timetag;
     lo_timetag *timetag;

@@ -155,7 +155,7 @@ void msig_reserve_instances(mapper_signal sig, int num,
 
 /*! Add a new connection instance to a signal.
  *  \param si The signal instance corresponding to the new connection instance.
- *  \param c The connection correspoding to the new connection instance.
+ *  \param c The connection corresponding to the new connection instance.
  *  \return The new connection instance. */
 mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
                                                         struct _mapper_connection *c);
@@ -166,7 +166,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 void msig_suspend_instance(mapper_signal_instance instance);
 
 /*! Resume a reserved (preallocated) signal instance.
- *  \param  si The signal owning the desired instance. */
+ *  \param  si The signal instance to resume. */
 void msig_resume_instance(mapper_signal_instance si);
 
 /*! Fetch a reserved (preallocated) signal instance.
