@@ -23,7 +23,15 @@ The current status is summarized here:
 
 * MaxMSP and puredata external object working.
 
-* Python bindings working for end-device functionality.
+* Python bindings working.
+
+* Java bindings working for end-device functionality.
+
+* Signal queries for implicit mappers working
+
+* Demos working on Linux, OSX, Windows
+
+* Instances working
 
 Tasks To Do
 ===========
@@ -36,7 +44,9 @@ The following tasks currently need to be accomplished:
 * Include some Max/MSP standalone versions of controllers, Granul8,
   etc? (Joe)
 
-* We need some sort of interface for Linux - webmapper? Qt?
+* Add saving/loading of json mapping files
+
+* webmapper GUI needs CSS work, saving/loading
 
 * Documentation, tutorials. 
     * External API. (Steve)
@@ -48,29 +58,27 @@ The following tasks currently need to be accomplished:
         * maxmsp
         * puredata
         * using expressions
-    * Move code hosting to GitHub?
-    * Enable download counting on idmil.org?
     * Explicitly state known deficiencies
         * No many-to-one mapping
-        * Explicit mapping only (no destination state queries)
         * No stored curves or tables
 
 Lower priority tasks
 ====================
 
-* Python bindings for monitor functionality.
+* finish timetag integration (delays, destination interpolation,
+  timetag manipulation, timed filters)
 
-* Java bindings.
+* full vector support in expressions
+
+* conditionals in expressions
+
+* Java bindings for monitor functionality.
 
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered, or devices disappear and reappear. (Depends on
   namespace hashing, save for later.)
 
 * Implement OSC aliasing for signal connections.
-
-* Implement bidirectional communication for state queries.
-
-* Port to Windows.
 
 * Add a user interaction to "testmonitor", allowing users to create
   connections in a text-based environment.  Although there will be
@@ -90,6 +98,12 @@ Lower priority tasks
 * Check for disallowed OSC characters. Security testing.
     * Add default MAX_CONNECTIONS, MAX_SIGNALS
 
+* TCP transport
+
+* Shared memory
+
+* Many-to-one mapping
+
 External tasks
 ==============
 
@@ -99,7 +113,7 @@ than being tasks for the library development itself.
 * Development of SuperCollider usage, either using library or
   reimplemented in SC to some extent.
 
-* Development of browser-based GUI.
+* Development of Processing demos
 
 * Modify some of the FAUST architectures (e.g., Jack) to automatically
   create a libmapper interface for input and output signals.
