@@ -437,17 +437,57 @@ void msig_reallocate_instances(mapper_signal sig)
     }
     sig->props.history_size = input_history_size;
     si = sig->input;
+    unsigned int sample_size = sizeof(mapper_signal_value_t) * sig->props.length;
     while (si) {
         // Check if input history size has changed
         if ((si->history.size != input_history_size) && (input_history_size > 0)) {
-            si->history.size = input_history_size;
             mapper_signal_history_t history;
-            history.value = calloc(1, sizeof(mapper_signal_value_t)
-                                   * sig->props.length * si->history.size);
-            history.timetag = calloc(1, sizeof(mapper_signal_value_t)
-                                     * si->history.size);
-            // TODO: copy the current history into new arrays
-            si->history.position = -1;
+            history.value = calloc(1, sample_size * input_history_size);
+            history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                     * input_history_size);
+            if (si->history.size > input_history_size) {
+                // copying data into smaller array
+                if (si->history.position < input_history_size) {
+                    memcpy(history.value, si->history.value,
+                           sample_size * si->history.position);
+                    memcpy(history.value + sample_size * si->history.position,
+                           si->history.value + sample_size
+                           * (si->history.size - input_history_size + si->history.position),
+                           sample_size * (input_history_size - si->history.position));
+                    memcpy(history.timetag, si->history.timetag,
+                           sizeof(mapper_timetag_t) * si->history.position);
+                    memcpy(&history.timetag[si->history.position],
+                           &si->history.timetag[si->history.size - input_history_size
+                           + si->history.position], sizeof(mapper_timetag_t)
+                           * (input_history_size - si->history.position));
+                }
+                else {
+                    memcpy(history.value, si->history.value + sample_size
+                           * (si->history.position - input_history_size),
+                           sample_size * input_history_size);
+                    memcpy(history.timetag,
+                           &si->history.timetag[si->history.position - input_history_size],
+                           sizeof(mapper_timetag_t) * input_history_size);
+                    si->history.position = input_history_size - 1;
+                }
+
+            }
+            else {
+                // copying data into larger array
+                memcpy(history.value, si->history.value,
+                       sample_size * si->history.position);
+                memcpy(history.value + sample_size
+                       * (input_history_size - si->history.size + si->history.position),
+                       si->history.value + sample_size * si->history.position,
+                       sample_size * (si->history.size - si->history.position));
+                memcpy(history.timetag, si->history.timetag,
+                       sizeof(mapper_timetag_t) * si->history.position);
+                memcpy(&history.timetag[input_history_size - si->history.size
+                       + si->history.position],
+                       &si->history.timetag[si->history.position], sizeof(mapper_timetag_t)
+                       * (si->history.size - si->history.position));
+            }
+            si->history.size = input_history_size;
             free(si->history.value);
             free(si->history.timetag);
             si->history.value = history.value;
@@ -463,7 +503,7 @@ void msig_reallocate_instances(mapper_signal sig)
                     mapper_signal_history_t history;
                     history.value = calloc(1, sizeof(mapper_signal_value_t)
                                            * sig->props.length * ci->history.size);
-                    history.timetag = calloc(1, sizeof(mapper_signal_value_t)
+                    history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                              * ci->history.size);
                     // TODO: copy the current history into new arrays
                     ci->history.position = -1;
