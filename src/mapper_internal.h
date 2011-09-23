@@ -27,6 +27,9 @@ struct _mapper_signal
     /*! Counter for generating instance ids. */
     int instance_count;
 
+    /*! Type of voice stealing to perform on instances. */
+    mapper_stealing_type stealing_type;
+
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;

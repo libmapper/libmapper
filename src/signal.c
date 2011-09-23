@@ -28,6 +28,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     sig->instance_count = 0;
+    sig->stealing_type = ST_UNDEFINED;
 
     // Create one instance to start
     sig->input = 0;
@@ -297,11 +298,6 @@ void msig_suspend_instance(mapper_signal_instance si)
         // First send zero signal
         msig_update_instance(si, NULL);
     }
-    else {
-        // Set instance ids of input signals to -1
-        // TODO: this should no longer be necessary
-        si->id = -1;
-    }
 
     // Remove instance from active list, place in reserve
     mapper_signal_instance *msi = &si->signal->input;
@@ -340,7 +336,8 @@ void msig_resume_instance(mapper_signal_instance si)
     }
 }
 
-mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig)
+mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig,
+                                                    mapper_stealing_type steal)
 {
     mapper_signal_instance si = sig->reserve;
     if (si) {
@@ -352,9 +349,38 @@ mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig)
         lo_timetag_now(&si->creation_time);
         return si;
     }
-    else {
-        return 0;
+
+    // If no reserved instance is available, steal an active instance
+    si = sig->input;
+    mapper_signal_instance stolen = si;
+    if (si && steal) {
+        switch (steal) {
+            case ST_OLDEST:
+                while (si) {
+                    if ((si->creation_time.sec < stolen->creation_time.sec) ||
+                        (si->creation_time.sec == stolen->creation_time.sec &&
+                         si->creation_time.frac < stolen->creation_time.frac))
+                        stolen = si;
+                    si = si->next;
+                }
+                return stolen;
+                break;
+            case ST_NEWEST:
+                while (si) {
+                    if ((si->creation_time.sec > stolen->creation_time.sec) ||
+                        (si->creation_time.sec == stolen->creation_time.sec &&
+                         si->creation_time.frac > stolen->creation_time.frac))
+                        stolen = si;
+                    si = si->next;
+                }
+                return stolen;
+                break;
+            default:
+                return 0;
+                break;
+        }
     }
+    return 0;
 }
 
 void msig_remove_instance(mapper_signal_instance si)

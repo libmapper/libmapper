@@ -173,7 +173,8 @@ void msig_resume_instance(mapper_signal_instance si);
  *  \param  sig The signal owning the desired instance.
  *  \return The retrieved signal instance, or NULL if no reserved
  *          instances exist. */
-mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig);
+mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig,
+                                                    mapper_stealing_type steal);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */

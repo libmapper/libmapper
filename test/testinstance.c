@@ -168,7 +168,7 @@ void loop()
                 // try to create a new instance
                 for (j = 0; j < 5; j++) {
                     if (!sendinst[j]) {
-                        sendinst[j] = msig_fetch_reserved_instance(sendsig);
+                        sendinst[j] = msig_fetch_reserved_instance(sendsig, 0);
                         if (sendinst[j])
                             printf("--> Created new sender instance: %i\n", sendinst[j]->id);
                         break;
