@@ -201,6 +201,12 @@ mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id);
  *  \return The id of the instance. */
 int msig_get_instance_id(mapper_signal_instance si);
 
+/*! Return the containing signal of a signal_instance.
+ *  \param si The signal instance.
+ *  \return A pointer to the containing signal. */
+    
+mapper_signal msig_instance_get_signal(mapper_signal_instance si);
+
 /* @} */
 
 /*** Devices ***/

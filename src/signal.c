@@ -505,7 +505,10 @@ void msig_reallocate_instances(mapper_signal sig)
                                            * sig->props.length * ci->history.size);
                     history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                              * ci->history.size);
-                    // TODO: copy the current history into new arrays
+                    /* We could copy output history data to the new arrays here,
+                     * but this would result in initializing IIR filters with
+                     * unexpected/unwanted data. Leaving them initialized to zero
+                     * will result in more easily-predictable results. */
                     ci->history.position = -1;
                     free(ci->history.value);
                     free(ci->history.timetag);
@@ -581,6 +584,14 @@ int msig_get_instance_id(mapper_signal_instance si)
     if (!si)
         return 0;
     return si->id;
+}
+
+mapper_signal msig_instance_get_signal(mapper_signal_instance si)
+{
+    if (si)
+        return si->signal;
+    else
+        return 0;
 }
 
 void msig_free_instance(mapper_signal_instance si)
