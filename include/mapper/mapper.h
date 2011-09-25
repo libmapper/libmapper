@@ -142,6 +142,13 @@ int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 mapper_signal_instance msig_add_instance(mapper_signal sig,
                                          mapper_signal_instance_handler *handler,
                                          void *user_data);
+/*! Get a signal_instance's value.
+ *  \param si      The signal instance to operate on.
+ *  \param timetag  A location to receive the value's time tag.
+ *                  May be 0.
+ *  \return         A pointer to an array containing the value
+ *                  of the signal instance, or 0 if the signal instance has no value. */
+void *msig_instance_value(mapper_signal_instance si, mapper_timetag_t *timetag);
 
 /*! Add new instances to the reserve list.
  *  \param sig          The signal to which the instances will be added.

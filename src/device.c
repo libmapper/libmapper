@@ -124,16 +124,16 @@ static int handler_signal(const char *path, const char *types,
          * on all platforms. */
         sig->input->history.position = (sig->input->history.position + 1)
                                         % sig->input->history.size;
-        memcpy(sig->input->history.value + sig->input->history.position
-               * sig->props.length, argv[0], msig_vector_bytes(sig));
+        memcpy(sig->input->history.value + msig_vector_bytes(sig)
+               * sig->input->history.position, argv[0], msig_vector_bytes(sig));
     }
 
     if (sig->handler)
         sig->handler(sig, &sig->props,
                      sig->input->history.timetag + sig->input->history.position,
                      sig->input->history.position == -1 ? 0 :
-                     sig->input->history.value + sig->input->history.position
-                     * sig->props.length);
+                     sig->input->history.value + msig_vector_bytes(sig)
+                     * sig->input->history.position);
 
     return 0;
 }
@@ -189,15 +189,15 @@ static int handler_signal_instance(const char *path, const char *types,
             // TODO: we should still pass a real timetag in the event that signal is NULL
             si->handler(si, &sig->props,
                         types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
-                        types[1] == LO_NIL ? 0 : si->history.value
-                        + si->history.position * sig->props.length);
+                        types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
+                        * si->history.position);
         }
         else if (si->signal->handler) {
             // There is no handler for this instance, but a generic signal handler exists
             si->signal->handler(sig, &sig->props,
                                 types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
-                                types[1] == LO_NIL ? 0 : si->history.value
-                                + si->history.position * sig->props.length);
+                                types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
+                                * si->history.position);
         }
 
         if (types[1] == LO_NIL) {

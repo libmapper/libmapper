@@ -49,9 +49,9 @@ void *msig_value(mapper_signal sig,
     if (!sig->input) return 0;
     if (sig->input->history.position == -1)
         return 0;
-    //if (timetag)
-    //    timetag = sig->input->timetag + sig->input->position;
-    return sig->input->history.value + sig->input->history.position;
+    if (timetag)
+        timetag = &sig->input->history.timetag[sig->input->history.position];
+    return sig->input->history.value + msig_vector_bytes(sig) * sig->input->history.position;
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
@@ -247,6 +247,17 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
         r = r->next;
     }
     return si;
+}
+
+void *msig_instance_value(mapper_signal_instance si,
+                          mapper_timetag_t *timetag)
+{
+    if (!si) return 0;
+    if (si->history.position == -1)
+        return 0;
+    if (timetag)
+        timetag = &si->history.timetag[si->history.position];
+    return si->history.value + msig_vector_bytes(si->signal) * si->history.position;
 }
 
 void msig_reserve_instances(mapper_signal sig, int num,
@@ -543,8 +554,8 @@ void msig_update_instance(mapper_signal_instance instance, void *value)
     if (value) {
         instance->history.position = (instance->history.position + 1)
                                       % instance->history.size;
-        memcpy(instance->history.value + instance->history.position
-               * instance->signal->props.length, value, msig_vector_bytes(instance->signal));
+        memcpy(instance->history.value + msig_vector_bytes(instance->signal)
+               * instance->history.position, value, msig_vector_bytes(instance->signal));
         lo_timetag_now(&instance->history.timetag[instance->history.position]);
     }
     else {
