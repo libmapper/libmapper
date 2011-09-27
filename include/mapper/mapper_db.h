@@ -147,6 +147,9 @@ typedef struct _mapper_signal_history
     /*! History size of the buffer. */
     int size;
 
+    /*! Vector length. */
+    int length;
+
     /*! Value of the signal for each sample of stored history. */
     mapper_signal_value_t *value;
 

@@ -69,7 +69,7 @@ int mapper_connection_perform(mapper_connection connection,
 
     if (!connection->props.mode || connection->props.mode == MO_BYPASS)
     {
-        // Increment index position of output data structure
+        /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
         if (connection->props.src_type == connection->props.dest_type) {
             memcpy(&to->value[to->position * connection->props.dest_length],
@@ -90,6 +90,7 @@ int mapper_connection_perform(mapper_connection connection,
                 = (float)from->value[from->position * connection->props.src_length + i].i32;
             }
         }
+        return 1;
     }
     else if (connection->props.mode == MO_EXPRESSION
              || connection->props.mode == MO_LINEAR)
@@ -100,11 +101,15 @@ int mapper_connection_perform(mapper_connection connection,
 
     else if (connection->props.mode == MO_CALIBRATE)
     {
-        // For now we will not store vector min and max
+        /* For now we will not store vector min and max */
+        /* Increment index position of output data structure. */
+        to->position = (to->position + 1) % to->size;
         if (connection->props.src_type == 'f')
-            f = from_value[vector_index].f;
+            for (i = 0; i < connection->props.dest_length; i++)
+                f = from->value[from->position * connection->props.src_length + i].f;
         else if (connection->props.src_type == 'i')
-            f = (float)from_value[vector_index].i32;
+            for (i = 0; i < connection->props.dest_length; i++)
+                f = (float)from->value[from->position * connection->props.src_length + i].i32;
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -137,10 +142,9 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                             &ci->parent->history,
-                                             &ci->history,
-                                             vector_index);
+            return (mapper_expr_evaluate(connection->expr, from, to));
+        else
+            return 0;
     }
     return 1;
 }
@@ -148,8 +152,8 @@ int mapper_connection_perform(mapper_connection connection,
 int mapper_clipping_perform(mapper_connection connection,
                             mapper_signal_history_t *history)
 {
-    int muted = 0;
-    float v = 0;
+    int i, muted = 0;
+    float v[connection->props.dest_length];
     float total_range = fabsf(connection->props.range.dest_max
                               - connection->props.range.dest_min);
     float dest_min, dest_max, difference, modulo_difference;
@@ -162,9 +166,13 @@ int mapper_clipping_perform(mapper_connection connection,
     }
 
     if (connection->props.dest_type == 'f')
-        v = from_value[vector_index].f;
+        for (i = 0; i < connection->props.dest_length; i++)
+            v[i] = history->value[history->position
+                                  * connection->props.dest_length + i].f;
     else if (connection->props.dest_type == 'i')
-        v = (float)from_value[vector_index].i32;
+        for (i = 0; i < connection->props.dest_length; i++)
+            v[i] = (float)history->value[history->position
+                                         * connection->props.dest_length + i].i32;
     else {
         trace("unknown type in mapper_clipping_perform()\n");
         return 0;
@@ -183,137 +191,141 @@ int mapper_clipping_perform(mapper_connection connection,
             dest_min = connection->props.range.dest_max;
             dest_max = connection->props.range.dest_min;
         }
-        if (v < dest_min) {
-            switch (clip_min) {
-                case CT_MUTE:
-                    // need to prevent value from being sent at all
-                    muted = 1;
-                    break;
-                case CT_CLAMP:
-                    // clamp value to range minimum
-                    v = dest_min;
-                    break;
-                case CT_FOLD:
-                    // fold value around range minimum
-                    difference = fabsf(v - dest_min);
-                    v = dest_min + difference;
-                    if (v > dest_max) {
-                        // value now exceeds range maximum!
-                        switch (clip_max) {
-                            case CT_MUTE:
-                                // need to prevent value from being sent at all
-                                muted = 1;
-                                break;
-                            case CT_CLAMP:
-                                // clamp value to range minimum
-                                v = dest_max;
-                                break;
-                            case CT_FOLD:
-                                // both clip modes are set to fold!
-                                difference = fabsf(v - dest_max);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                if ((int)(difference / total_range) % 2 == 0) {
-                                    v = dest_max - modulo_difference;
-                                }
-                                else
-                                    v = dest_min + modulo_difference;
-                                break;
-                            case CT_WRAP:
-                                // wrap value back from range minimum
-                                difference = fabsf(v - dest_max);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                v = dest_min + modulo_difference;
-                                break;
-                            default:
-                                break;
+        for (i = 0; i < connection->props.dest_length; i++) {
+            if (v[i] < dest_min) {
+                switch (clip_min) {
+                    case CT_MUTE:
+                        // need to prevent value from being sent at all
+                        muted = 1;
+                        break;
+                    case CT_CLAMP:
+                        // clamp value to range minimum
+                        v[i] = dest_min;
+                        break;
+                    case CT_FOLD:
+                        // fold value around range minimum
+                        difference = fabsf(v[i] - dest_min);
+                        v[i] = dest_min + difference;
+                        if (v[i] > dest_max) {
+                            // value now exceeds range maximum!
+                            switch (clip_max) {
+                                case CT_MUTE:
+                                    // need to prevent value from being sent at all
+                                    muted = 1;
+                                    break;
+                                case CT_CLAMP:
+                                    // clamp value to range minimum
+                                    v[i] = dest_max;
+                                    break;
+                                case CT_FOLD:
+                                    // both clip modes are set to fold!
+                                    difference = fabsf(v[i] - dest_max);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    if ((int)(difference / total_range) % 2 == 0) {
+                                        v[i] = dest_max - modulo_difference;
+                                    }
+                                    else
+                                        v[i] = dest_min + modulo_difference;
+                                    break;
+                                case CT_WRAP:
+                                    // wrap value back from range minimum
+                                    difference = fabsf(v[i] - dest_max);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    v[i] = dest_min + modulo_difference;
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
-                    }
-                    break;
-                case CT_WRAP:
-                    // wrap value back from range maximum
-                    difference = fabsf(v - dest_min);
-                    modulo_difference = difference
-                        - (int)(difference / total_range) * total_range;
-                    v = dest_max - modulo_difference;
-                    break;
-                default:
-                    // leave the value unchanged
-                    break;
+                        break;
+                    case CT_WRAP:
+                        // wrap value back from range maximum
+                        difference = fabsf(v[i] - dest_min);
+                        modulo_difference = difference
+                            - (int)(difference / total_range) * total_range;
+                        v[i] = dest_max - modulo_difference;
+                        break;
+                    default:
+                        // leave the value unchanged
+                        break;
+                }
             }
-        }
-        
-        else if (v > dest_max) {
-            switch (clip_max) {
-                case CT_MUTE:
-                    // need to prevent value from being sent at all
-                    muted = 1;
-                    break;
-                case CT_CLAMP:
-                    // clamp value to range maximum
-                    v = dest_max;
-                    break;
-                case CT_FOLD:
-                    // fold value around range maximum
-                    difference = fabsf(v - dest_max);
-                    v = dest_max - difference;
-                    if (v < dest_min) {
-                        // value now exceeds range minimum!
-                        switch (clip_min) {
-                            case CT_MUTE:
-                                // need to prevent value from being sent at all
-                                muted = 1;
-                                break;
-                            case CT_CLAMP:
-                                // clamp value to range minimum
-                                v = dest_min;
-                                break;
-                            case CT_FOLD:
-                                // both clip modes are set to fold!
-                                difference = fabsf(v - dest_min);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                if ((int)(difference / total_range) % 2 == 0) {
-                                    v = dest_max + modulo_difference;
-                                }
-                                else
-                                    v = dest_min - modulo_difference;
-                                break;
-                            case CT_WRAP:
-                                // wrap value back from range maximum
-                                difference = fabsf(v - dest_min);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                v = dest_max - modulo_difference;
-                                break;
-                            default:
-                                break;
+            else if (v[i] > dest_max) {
+                switch (clip_max) {
+                    case CT_MUTE:
+                        // need to prevent value from being sent at all
+                        muted = 1;
+                        break;
+                    case CT_CLAMP:
+                        // clamp value to range maximum
+                        v[i] = dest_max;
+                        break;
+                    case CT_FOLD:
+                        // fold value around range maximum
+                        difference = fabsf(v[i] - dest_max);
+                        v[i] = dest_max - difference;
+                        if (v[i] < dest_min) {
+                            // value now exceeds range minimum!
+                            switch (clip_min) {
+                                case CT_MUTE:
+                                    // need to prevent value from being sent at all
+                                    muted = 1;
+                                    break;
+                                case CT_CLAMP:
+                                    // clamp value to range minimum
+                                    v[i] = dest_min;
+                                    break;
+                                case CT_FOLD:
+                                    // both clip modes are set to fold!
+                                    difference = fabsf(v[i] - dest_min);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    if ((int)(difference / total_range) % 2 == 0) {
+                                        v[i] = dest_max + modulo_difference;
+                                    }
+                                    else
+                                        v[i] = dest_min - modulo_difference;
+                                    break;
+                                case CT_WRAP:
+                                    // wrap value back from range maximum
+                                    difference = fabsf(v[i] - dest_min);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    v[i] = dest_max - modulo_difference;
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
-                    }
-                    break;
-                case CT_WRAP:
-                    // wrap value back from range minimum
-                    difference = fabsf(v - dest_max);
-                    modulo_difference = difference
-                        - (int)(difference / total_range) * total_range;
-                    v = dest_min + modulo_difference;
-                    break;
-                default:
-                    break;
+                        break;
+                    case CT_WRAP:
+                        // wrap value back from range minimum
+                        difference = fabsf(v[i] - dest_max);
+                        modulo_difference = difference
+                            - (int)(difference / total_range) * total_range;
+                        v[i] = dest_min + modulo_difference;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
 
     if (connection->props.dest_type == 'f')
-        to_value->f = v;
+        for (i = 0; i < connection->props.dest_length; i++)
+            history->value[history->position
+                           * connection->props.dest_length + i].f = v[i];
     else if (connection->props.dest_type == 'i')
-        to_value->i32 = (int)v;
-
+        for (i = 0; i < connection->props.dest_length; i++)
+            history->value[history->position
+                           * connection->props.dest_length + i].i32 = (int)v;
     return !muted;
 }
 

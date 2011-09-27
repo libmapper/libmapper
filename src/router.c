@@ -56,8 +56,7 @@ void mapper_router_free(mapper_router router)
     }
 }
 
-void mapper_router_send_signal(mapper_connection_instance ci,
-                               mapper_signal_value_t *value)
+void mapper_router_send_signal(mapper_connection_instance ci)
 {
     int i;
     lo_message m;
@@ -71,9 +70,12 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (ci->id)
         lo_message_add_int32(m, ci->id);
 
-    if (value) {        
-        for (i = 0; i < ci->connection->props.dest_length; i++)
-            mval_add_to_message(m, ci->connection->props.dest_type, &value[i]);
+    if (ci->history.position != -1) {        
+        for (i = 0; i < ci->history.length; i++) {
+            mval_add_to_message(m, ci->connection->props.dest_type,
+                                &ci->history.value[ci->history.position
+                                * ci->history.length + i]);
+        }
     }
     else {
         lo_message_add_nil(m);

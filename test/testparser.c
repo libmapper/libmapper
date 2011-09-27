@@ -20,17 +20,17 @@ int main()
 
     // create signal_history structures
     mapper_signal_history_t inh, outh;
-    inh.value = calloc(1, sizeof(mapper_signal_value_t));
+    inh.size = 1;
+    inh.value = &inp;
     inh.timetag = calloc(1, sizeof(mapper_timetag_t));
-    outh.value = calloc(1, sizeof(mapper_signal_value_t));
-    outh.timetag = calloc(1, sizeof(mapper_signal_value_t));
-    inh.size = outh.size = 1;
-    inh.position = outh.position = -1;
-
-    inh.value = &inp.f;
     inh.position = 0;
 
-    outp = mapper_expr_evaluate(e, &inp, &inh, &outh, 0);
+    outh.size = 1;
+    outh.value = &outp;
+    outh.timetag = calloc(1, sizeof(mapper_signal_value_t));
+    outh.position = -1;
+
+    mapper_expr_evaluate(e, &inh, &outh);
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
            inp.f, outp.f,
