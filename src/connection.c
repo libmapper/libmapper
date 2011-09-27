@@ -44,15 +44,17 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
     return mapper_mode_type_strings[mode];
 }
 
-int mapper_connection_perform(mapper_connection_instance ci,
-                              mapper_signal_value_t *from_value,
-                              mapper_signal_value_t *to_value)
+int mapper_connection_perform(mapper_connection connection,
+                              mapper_signal_history_t *from,
+                              mapper_signal_history_t *to)
 {
-    int changed = 0;
+    /* Currently expressions on vectors are not supported by the
+     * evaluator.  For now, we half-support it by performing
+     * element-wise operations on each item in the vector. */
+    
+    int changed = 0, i;
     float f = 0;
-    if (!ci) return 0;
 
-    mapper_connection connection = ci->connection;
     if (connection->props.muted)
         return 0;
 
@@ -64,32 +66,45 @@ int mapper_connection_perform(mapper_connection_instance ci,
     {
         return 0;
     }
+
     if (!connection->props.mode || connection->props.mode == MO_BYPASS)
     {
-        if (connection->props.src_type == connection->props.dest_type)
-            *to_value = *from_value;
+        // Increment index position of output data structure
+        to->position = (to->position + 1) % to->size;
+        if (connection->props.src_type == connection->props.dest_type) {
+            memcpy(&to->value[to->position * connection->props.dest_length],
+                   &from->value[from->position * connection->props.src_length],
+                   sizeof(mapper_signal_value_t) * connection->props.dest_length);
+        }
         else if (connection->props.src_type == 'f'
-                 && connection->props.dest_type == 'i')
-            to_value->i32 = (int)from_value->f;
+                 && connection->props.dest_type == 'i') {
+            for (i = 0; i < connection->props.dest_length; i++) {
+                to->value[to->position * connection->props.dest_length + i].i32
+                = (int)from->value[from->position * connection->props.src_length + i].f;
+            }
+        }
         else if (connection->props.src_type == 'i'
-                 && connection->props.dest_type == 'f')
-            to_value->f = (float)from_value->i32;
+                 && connection->props.dest_type == 'f') {
+            for (i = 0; i < connection->props.dest_length; i++) {
+                to->value[to->position * connection->props.dest_length + i].f
+                = (float)from->value[from->position * connection->props.src_length + i].i32;
+            }
+        }
     }
     else if (connection->props.mode == MO_EXPRESSION
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        *to_value = mapper_expr_evaluate(connection->expr, from_value,
-                                         &ci->parent->history,
-                                         &ci->history);
+        return (mapper_expr_evaluate(connection->expr, from, to));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
     {
+        // For now we will not store vector min and max
         if (connection->props.src_type == 'f')
-            f = from_value->f;
+            f = from_value[vector_index].f;
         else if (connection->props.src_type == 'i')
-            f = (float)from_value->i32;
+            f = (float)from_value[vector_index].i32;
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -124,15 +139,14 @@ int mapper_connection_perform(mapper_connection_instance ci,
         if (connection->expr)
             *to_value = mapper_expr_evaluate(connection->expr, from_value,
                                              &ci->parent->history,
-                                             &ci->history);
+                                             &ci->history,
+                                             vector_index);
     }
-
     return 1;
 }
 
 int mapper_clipping_perform(mapper_connection connection,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value)
+                            mapper_signal_history_t *history)
 {
     int muted = 0;
     float v = 0;
@@ -144,14 +158,13 @@ int mapper_clipping_perform(mapper_connection connection,
     if (connection->props.clip_min == CT_NONE
         && connection->props.clip_max == CT_NONE)
     {
-        *to_value = *from_value;
         return 1;
     }
 
     if (connection->props.dest_type == 'f')
-        v = from_value->f;
+        v = from_value[vector_index].f;
     else if (connection->props.dest_type == 'i')
-        v = (float)from_value->i32;
+        v = (float)from_value[vector_index].i32;
     else {
         trace("unknown type in mapper_clipping_perform()\n");
         return 0;

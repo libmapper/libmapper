@@ -130,7 +130,7 @@ static int handler_signal(const char *path, const char *types,
 
     if (sig->handler)
         sig->handler(sig, &sig->props,
-                     sig->input->history.timetag + sig->input->history.position,
+                     &sig->input->history.timetag[sig->input->history.position],
                      sig->input->history.position == -1 ? 0 :
                      sig->input->history.value + msig_vector_bytes(sig)
                      * sig->input->history.position);
@@ -180,22 +180,21 @@ static int handler_signal_instance(const char *path, const char *types,
              * on all platforms. */
             si->history.position = (si->history.position + 1)
                                     % si->history.size;
-            memcpy(si->history.value + si->history.position
-                   * sig->props.length, argv[1], msig_vector_bytes(sig));
+            memcpy(si->history.value + msig_vector_bytes(sig) * si->history.position,
+                   argv[1], msig_vector_bytes(sig));
         }
 
         if (si->handler) {
             // There is a handler associated with this specific instance.
-            // TODO: we should still pass a real timetag in the event that signal is NULL
             si->handler(si, &sig->props,
-                        types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
+                        &si->history.timetag[si->history.position],
                         types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
                         * si->history.position);
         }
         else if (si->signal->handler) {
             // There is no handler for this instance, but a generic signal handler exists
             si->signal->handler(sig, &sig->props,
-                                types[1] == LO_NIL ? 0 : si->history.timetag + si->history.position,
+                                &si->history.timetag[si->history.position],
                                 types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
                                 * si->history.position);
         }

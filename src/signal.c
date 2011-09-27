@@ -47,11 +47,7 @@ void *msig_value(mapper_signal sig,
 {
     if (!sig) return 0;
     if (!sig->input) return 0;
-    if (sig->input->history.position == -1)
-        return 0;
-    if (timetag)
-        timetag = &sig->input->history.timetag[sig->input->history.position];
-    return sig->input->history.value + msig_vector_bytes(sig) * sig->input->history.position;
+    return msig_instance_value(sig->input, timetag);
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
@@ -199,8 +195,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     // allocate history vectors
     si->history.value = calloc(1, sizeof(mapper_signal_value_t)
                                * sig->props.length * sig->props.history_size);
-    si->history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * sig->props.history_size);
+    si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * sig->props.history_size);
     si->history.position = -1;
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->signal = sig;
@@ -236,6 +231,8 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
                     ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                                  * c->props.dest_history_size);
                     ci->history.position = -1;
+                    ci->parent = si;
+                    ci->connection = c;
                     ci->next = mci;
                     si->connections = mci = ci;
                     c = c->next;
@@ -257,7 +254,8 @@ void *msig_instance_value(mapper_signal_instance si,
         return 0;
     if (timetag)
         timetag = &si->history.timetag[si->history.position];
-    return si->history.value + msig_vector_bytes(si->signal) * si->history.position;
+    // TODO: This is actually passing a mapper_signal_value_t pointer
+    return &si->history.value[si->history.position * si->signal->props.length * si->history.size];
 }
 
 void msig_reserve_instances(mapper_signal sig, int num,
@@ -513,7 +511,8 @@ void msig_reallocate_instances(mapper_signal sig)
                     ci->history.size = ci->connection->expr->output_history_size;
                     mapper_signal_history_t history;
                     history.value = calloc(1, sizeof(mapper_signal_value_t)
-                                           * sig->props.length * ci->history.size);
+                                           * ci->connection->props.dest_length
+                                           * ci->history.size);
                     history.timetag = calloc(1, sizeof(mapper_timetag_t)
                                              * ci->history.size);
                     /* We could copy output history data to the new arrays here,
@@ -533,36 +532,46 @@ void msig_reallocate_instances(mapper_signal sig)
     }
 }
 
-void msig_update_instance(mapper_signal_instance instance, void *value)
+void msig_update_instance(mapper_signal_instance si, void *value)
 {
-    if (!instance) return;
-    if (!instance->signal) return;
-    if (!instance->is_active) return;
+    if (!si) return;
+    if (!si->signal) return;
+    if (!si->is_active) return;
 
     /* We have to assume that value points to an array of correct type
      * and size. */
-    
-#ifdef DEBUG
-    if (!instance->signal->device) {
-        trace("signal does not have a device in msig_update_float().\n");
-        return;
-    }
-#endif
 
-    /* TODO: move instance history update value to mapper_expr_evaluate
-     * (once full vector support has been added) */
     if (value) {
-        instance->history.position = (instance->history.position + 1)
-                                      % instance->history.size;
-        memcpy(instance->history.value + msig_vector_bytes(instance->signal)
-               * instance->history.position, value, msig_vector_bytes(instance->signal));
-        lo_timetag_now(&instance->history.timetag[instance->history.position]);
+        int i, index;
+        si->history.position = (si->history.position + 1)
+                                % si->history.size;
+        index = si->history.position * si->signal->props.length * si->history.size;
+        
+        if (si->signal->props.type == 'i') {
+            int *v = value;
+            for (i = 0; i < si->signal->props.length; i++) {
+                si->history.value[index + i].i32 = v[i];
+            }
+        }
+        else if (si->signal->props.type == 'f') {
+            float *v = value;
+            for (i = 0; i < si->signal->props.length; i++) {
+                si->history.value[index + i].f = v[i];
+            }
+        }
+        else if (si->signal->props.type == 'd') {
+            double *v = value;
+            for (i = 0; i < si->signal->props.length; i++) {
+                si->history.value[index + i].d = v[i];
+            }
+        }
+        lo_timetag_now(&si->history.timetag[si->history.position]);
     }
     else {
-        instance->history.position = -1;
+        si->history.position = -1;
     }
-    if (instance->signal->props.is_output)
-        msig_send_instance(instance, (mapper_signal_value_t*)value);
+    if (si->signal->props.is_output)
+        msig_send_instance(si);
 }
 
 mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id)
@@ -631,61 +640,22 @@ void msig_free_connection_instance(mapper_connection_instance ci)
         free(ci->history.timetag);
 }
 
-void msig_send_instance(mapper_signal_instance si, void *value)
+void msig_send_instance(mapper_signal_instance si)
 {
     // for each connection, construct a mapped signal and send it
     mapper_connection_instance ci = si->connections;
-    if (!value) {
+    if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
-            mapper_router_send_signal(ci, 0);
+            mapper_router_send_signal(ci);
             ci = ci->next;
         }
         return;
     }
     while (ci) {
-        struct _mapper_signal signal;
-        signal.props.name = ci->connection->props.dest_name;
-        signal.props.type = ci->connection->props.dest_type;
-        signal.props.length = ci->connection->props.dest_length;
-        mapper_signal_value_t applied[signal.props.length];
-        int i = 0;
-        int s = 4;
-        void *p = value;
-
-        /* Currently expressions on vectors are not supported by the
-         * evaluator.  For now, we half-support it by performing
-         * element-wise operations on each item in the vector. */
-        if (signal.props.type == 'i')
-            s = sizeof(int);
-        else if (signal.props.type == 'f')
-            s = sizeof(float);
-        /* TODO: move instance history update to mapper_expr_evaluate
-         * (once full vector support has been added) */
-        ci->history.position = (ci->history.position + 1)
-                                % ci->history.size;
-        for (i = 0; i < signal.props.length; i++) {
-            mapper_signal_value_t v, w;
-            if (mapper_connection_perform(ci, p, &v)) {
-                // copy result to history vector
-                memcpy(ci->history.value + ci->history.position
-                       * si->signal->props.length + i,
-                       &v, sizeof(mapper_signal_value_t));
-                // copy timetag from signal instance
-                memcpy(&ci->history.timetag[ci->history.position],
-                       &si->history.timetag[si->history.position],
-                       sizeof(mapper_timetag_t));
-                if (mapper_clipping_perform(ci->connection, &v, &w))
-                    applied[i] = w;
-                else
-                    break;
-            }
-            else
-                break;
-            p += s;
-        }
-        if (i == signal.props.length)
-            mapper_router_send_signal(ci, applied);
+        if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
+            if (mapper_clipping_perform(ci->connection, &ci->history))
+                mapper_router_send_signal(ci);
         ci = ci->next;
     }
 }

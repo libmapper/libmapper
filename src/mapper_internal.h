@@ -160,8 +160,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
-void mapper_router_send_signal(mapper_connection_instance ci,
-                               mapper_signal_value_t *value);
+void mapper_router_send_signal(mapper_connection_instance ci);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias);
@@ -220,7 +219,7 @@ void msig_reallocate_instances(mapper_signal sig);
 void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value);
 
-void msig_send_instance(mapper_signal_instance si, void *value);
+void msig_send_instance(mapper_signal_instance si);
 
 /**** connections ****/
 
@@ -231,13 +230,12 @@ void msig_send_instance(mapper_signal_instance si, void *value);
  *                    expected size.
  *  \param from_value Pointer to a value to receive the scalar result.
  *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_connection_perform(mapper_connection_instance ci,
-                              mapper_signal_value_t *from_value,
-                              mapper_signal_value_t *to_value);
+int mapper_connection_perform(mapper_connection connection,
+                              mapper_signal_history_t *from_value,
+                              mapper_signal_history_t *to_value);
 
 int mapper_clipping_perform(mapper_connection connection,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value);
+                            mapper_signal_history_t *from_value);
 
 mapper_connection mapper_connection_find_by_names(mapper_device md,
                                                   const char* src_name,
@@ -471,10 +469,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 void printexpr(const char*, mapper_expr);
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
-                                           mapper_signal_value_t *input_vector,
-                                           mapper_signal_history_t *input_history,
-                                           mapper_signal_history_t *output_history);
+int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_signal_history_t *input_history,
+                         mapper_signal_history_t *output_history);
 
 void mapper_expr_free(mapper_expr expr);
 

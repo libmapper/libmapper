@@ -306,7 +306,7 @@ void printexprnode(const char *s, exprnode list)
     }
 }
 
-void printexpr(const char*s, mapper_expr e)
+void printexpr(const char *s, mapper_expr e)
 {
     printexprnode(s, e->node);
 }
@@ -387,7 +387,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if (constant_folding && !refvar) {
         struct _mapper_expr e;
         e.node = *plhs;
-        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0, 0, 0);
+        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0, 0, 0, 0);
 
         exprnode_free((*plhs)->next);
         (*plhs)->next = 0;
@@ -806,16 +806,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 static void trace_eval(const char *s,...) {}
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
-                                           mapper_signal_value_t *input_vector,
-                                           mapper_signal_history_t *input_history,
-                                           mapper_signal_history_t *output_history)
+int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_signal_history_t *input_history,
+                         mapper_signal_history_t *output_history)
 {
     mapper_signal_value_t stack[STACK_SIZE];
     mapper_signal_value_t left, right;
     int top = -1;
     exprnode node = expr->node;
-    
+
     /* TODO: This should be where the input vector is copied to input_history,
      * however for now we lack full vector support and this function is called
      * on scalar elements of signal vectors. Since we don't know the vector index
@@ -840,13 +839,18 @@ mapper_signal_value_t mapper_expr_evaluate(mapper_expr expr,
                 case 'x':
                     idx = ((node->history_index + input_history->position
                             + input_history->size) % input_history->size);
-                    idx = idx * expr->vector_size + node->vector_index;
-                    stack[++top] = input_history->value[idx];
+                    idx = idx * expr->vector_size + vector_index;
+                        float *temp = (float*)input_history->value;
+                        mapper_signal_value_t foo;
+                        foo.f = temp[idx];
+                        printf("using value %f\n", foo.f);
+                    stack[++top] = foo;
                     break;
                 case 'y':
                     idx = ((node->history_index + output_history->position
                             + output_history->size) % output_history->size);
-                    stack[++top] = output_history->value[idx];
+                    idx = idx * expr->vector_size + vector_index;
+                    //stack[++top] = output_history->value[idx];
                     break;
                 default: goto error;
                 }

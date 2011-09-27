@@ -27,10 +27,10 @@ int main()
     inh.size = outh.size = 1;
     inh.position = outh.position = -1;
 
-    inh.value[0] = inp;
+    inh.value = &inp.f;
     inh.position = 0;
 
-    outp = mapper_expr_evaluate(e, &inp, &inh, &outh);
+    outp = mapper_expr_evaluate(e, &inp, &inh, &outh, 0);
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
            inp.f, outp.f,
