@@ -182,7 +182,7 @@ static int handler_signal_instance(const char *path, const char *types,
             si->history.position = (si->history.position + 1)
                                     % si->history.size;
             memcpy(msig_history_value_pointer(si->history),
-                   argv[0], msig_vector_bytes(sig));
+                   argv[1], msig_vector_bytes(sig));
         }
 
         if (si->handler) {
