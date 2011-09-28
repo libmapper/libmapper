@@ -21,11 +21,13 @@ int main()
     // create signal_history structures
     mapper_signal_history_t inh, outh;
     inh.size = 1;
+    inh.length = 1;
     inh.value = &inp;
     inh.timetag = calloc(1, sizeof(mapper_timetag_t));
     inh.position = 0;
 
     outh.size = 1;
+    outh.length = 1;
     outh.value = &outp;
     outh.timetag = calloc(1, sizeof(mapper_signal_value_t));
     outh.position = -1;
@@ -37,9 +39,7 @@ int main()
            26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp.f)*3*4+cosf(2.0f));
 
     mapper_expr_free(e);
-    free(inh.value);
     free(inh.timetag);
-    free(outh.value);
     free(outh.timetag);
 
     return 0;
