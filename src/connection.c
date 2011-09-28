@@ -72,22 +72,22 @@ int mapper_connection_perform(mapper_connection connection,
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
         if (connection->props.src_type == connection->props.dest_type) {
-            memcpy(&to->value[to->position * connection->props.dest_length],
-                   &from->value[from->position * connection->props.src_length],
-                   sizeof(mapper_signal_value_t) * connection->props.dest_length);
+            memcpy(&to->value[to->position * to->length],
+                   &from->value[from->position * from->length],
+                   sizeof(mapper_signal_value_t) * to->length);
         }
         else if (connection->props.src_type == 'f'
                  && connection->props.dest_type == 'i') {
-            for (i = 0; i < connection->props.dest_length; i++) {
-                to->value[to->position * connection->props.dest_length + i].i32
-                = (int)from->value[from->position * connection->props.src_length + i].f;
+            for (i = 0; i < to->length; i++) {
+                to->value[to->position * to->length + i].i32
+                = (int)from->value[from->position * from->length + i].f;
             }
         }
         else if (connection->props.src_type == 'i'
                  && connection->props.dest_type == 'f') {
-            for (i = 0; i < connection->props.dest_length; i++) {
-                to->value[to->position * connection->props.dest_length + i].f
-                = (float)from->value[from->position * connection->props.src_length + i].i32;
+            for (i = 0; i < to->length; i++) {
+                to->value[to->position * to->length + i].f
+                = (float)from->value[from->position * from->length + i].i32;
             }
         }
         return 1;
@@ -105,11 +105,11 @@ int mapper_connection_perform(mapper_connection connection,
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
         if (connection->props.src_type == 'f')
-            for (i = 0; i < connection->props.dest_length; i++)
-                f = from->value[from->position * connection->props.src_length + i].f;
+            for (i = 0; i < to->length; i++)
+                f = from->value[from->position * from->length + i].f;
         else if (connection->props.src_type == 'i')
-            for (i = 0; i < connection->props.dest_length; i++)
-                f = (float)from->value[from->position * connection->props.src_length + i].i32;
+            for (i = 0; i < to->length; i++)
+                f = (float)from->value[from->position * from->length + i].i32;
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -166,13 +166,13 @@ int mapper_clipping_perform(mapper_connection connection,
     }
 
     if (connection->props.dest_type == 'f')
-        for (i = 0; i < connection->props.dest_length; i++)
+        for (i = 0; i < history->length; i++)
             v[i] = history->value[history->position
-                                  * connection->props.dest_length + i].f;
+                                  * history->length + i].f;
     else if (connection->props.dest_type == 'i')
-        for (i = 0; i < connection->props.dest_length; i++)
+        for (i = 0; i < history->length; i++)
             v[i] = (float)history->value[history->position
-                                         * connection->props.dest_length + i].i32;
+                                         * history->length + i].i32;
     else {
         trace("unknown type in mapper_clipping_perform()\n");
         return 0;
@@ -191,7 +191,7 @@ int mapper_clipping_perform(mapper_connection connection,
             dest_min = connection->props.range.dest_max;
             dest_max = connection->props.range.dest_min;
         }
-        for (i = 0; i < connection->props.dest_length; i++) {
+        for (i = 0; i < history->length; i++) {
             if (v[i] < dest_min) {
                 switch (clip_min) {
                     case CT_MUTE:
@@ -319,13 +319,13 @@ int mapper_clipping_perform(mapper_connection connection,
     }
 
     if (connection->props.dest_type == 'f')
-        for (i = 0; i < connection->props.dest_length; i++)
+        for (i = 0; i < history->length; i++)
             history->value[history->position
-                           * connection->props.dest_length + i].f = v[i];
+                           * history->length + i].f = v[i];
     else if (connection->props.dest_type == 'i')
-        for (i = 0; i < connection->props.dest_length; i++)
+        for (i = 0; i < history->length; i++)
             history->value[history->position
-                           * connection->props.dest_length + i].i32 = (int)v;
+                           * history->length + i].i32 = (int)v;
     return !muted;
 }
 

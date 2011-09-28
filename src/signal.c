@@ -192,13 +192,13 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     mapper_signal_instance si = (mapper_signal_instance) calloc(1,
                                 sizeof(struct _mapper_signal_instance));
     si->handler = handler;
-    // allocate history vectors
-    si->history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * sig->props.length * sig->props.history_size);
-    si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * sig->props.history_size);
-    si->history.position = -1;
     si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
     si->history.length = sig->props.length;
+    // allocate history vectors
+    si->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                               * si->history.length * si->history.size);
+    si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
+    si->history.position = -1;
     si->signal = sig;
     si->id = sig->instance_count++;
     si->is_active = 1;
@@ -271,14 +271,14 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
     mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
                                     sizeof(struct _mapper_connection_instance));
     ci->id = si->id;
-    // allocate history vectors
-    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
-                               * c->props.dest_length * c->props.dest_history_size);
-    ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * c->props.dest_history_size);
-    ci->history.position = -1;
     ci->history.size = c->props.dest_history_size > 1 ? c->props.dest_history_size : 1;
     ci->history.length = c->props.dest_length;
+    // allocate history vectors
+    ci->history.value = calloc(1, sizeof(mapper_signal_value_t)
+                               * ci->history.length * ci->history.size);
+    ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
+                                 * ci->history.size);
+    ci->history.position = -1;
     ci->next = si->connections;
     ci->parent = si;
     ci->connection = c;
@@ -535,23 +535,22 @@ void msig_update_instance(mapper_signal_instance si, void *value)
         int i, idx;
         si->history.position = (si->history.position + 1)
                                 % si->history.size;
-        idx = si->history.position * si->signal->props.length;
-        
+        idx = si->history.position * si->history.length;
         if (si->signal->props.type == 'i') {
             int *v = value;
-            for (i = 0; i < si->signal->props.length; i++) {
+            for (i = 0; i < si->history.length; i++) {
                 si->history.value[idx + i].i32 = v[i];
             }
         }
         else if (si->signal->props.type == 'f') {
             float *v = value;
-            for (i = 0; i < si->signal->props.length; i++) {
+            for (i = 0; i < si->history.length; i++) {
                 si->history.value[idx + i].f = v[i];
             }
         }
         else if (si->signal->props.type == 'd') {
             double *v = value;
-            for (i = 0; i < si->signal->props.length; i++) {
+            for (i = 0; i < si->history.length; i++) {
                 si->history.value[idx + i].d = v[i];
             }
         }
