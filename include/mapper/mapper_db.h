@@ -141,6 +141,10 @@ typedef union _mapper_signal_value {
 
 typedef struct _mapper_signal_history
 {
+    /*! The type of this signal, specified as an OSC type
+     *  character. */
+    char type;
+
     /*! Current position in the circular buffer. */
     int position;
 
@@ -151,7 +155,7 @@ typedef struct _mapper_signal_history
     int length;
 
     /*! Value of the signal for each sample of stored history. */
-    mapper_signal_value_t *value;
+    void *value;
 
     /*! Timetag for each sample of stored history. */
     // TODO: switch to mapper_timetag_t;

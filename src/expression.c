@@ -389,6 +389,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
         e.node = *plhs;
         mapper_signal_history_t h;
         mapper_signal_value_t v;
+        h.type = is_float ? 'f' : 'i';
         h.value = &v;
         h.position = -1;
         h.length = 1;
@@ -845,15 +846,31 @@ int mapper_expr_evaluate(mapper_expr expr,
                     ++top;
                     idx = ((node->history_index + from->position
                             + from->size) % from->size);
-                    for (i = 0; i < to->length; i++)
-                        stack[i][top] = from->value[idx + i];
+                    if (from->type == 'f') {
+                        float *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].f = v[i];
+                    }
+                    else if (from->type == 'i') {
+                        int *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].i32 = v[i];
+                    }
                     break;
                 case 'y':
                     ++top;
                     idx = ((node->history_index + to->position
                             + to->size) % to->size);
-                    for (i = 0; i < to->length; i++)
-                        stack[i][top] = to->value[idx + i];
+                    if (to->type == 'f') {
+                        float *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].f = v[i];
+                    }
+                    else if (to->type == 'i') {
+                        int *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].i32 = v[i];
+                    }
                     break;
                 default: goto error;
                 }
@@ -928,8 +945,15 @@ int mapper_expr_evaluate(mapper_expr expr,
         node = node->next;
     }
 
-    for (i = 0; i < to->length; i++) {
-        to->value[to->position * to->length + i] = stack[i][top];
+    if (to->type == 'f') {
+        float *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].f;
+    }
+    else if (to->type == 'i') {
+        int *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].i32;
     }
     return 1;
 

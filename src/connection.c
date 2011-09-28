@@ -72,22 +72,24 @@ int mapper_connection_perform(mapper_connection connection,
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
         if (connection->props.src_type == connection->props.dest_type) {
-            memcpy(&to->value[to->position * to->length],
-                   &from->value[from->position * from->length],
-                   sizeof(mapper_signal_value_t) * to->length);
+            memcpy(msig_history_value_pointer(*to),
+                   msig_history_value_pointer(*from),
+                   mapper_type_size(to->type) * to->length);
         }
         else if (connection->props.src_type == 'f'
                  && connection->props.dest_type == 'i') {
+            float *vfrom = msig_history_value_pointer(*from);
+            int *vto = msig_history_value_pointer(*to);
             for (i = 0; i < to->length; i++) {
-                to->value[to->position * to->length + i].i32
-                = (int)from->value[from->position * from->length + i].f;
+                vto[i] = (int)vfrom[i];
             }
         }
         else if (connection->props.src_type == 'i'
                  && connection->props.dest_type == 'f') {
+            int *vfrom = msig_history_value_pointer(*from);
+            float *vto = msig_history_value_pointer(*to);
             for (i = 0; i < to->length; i++) {
-                to->value[to->position * to->length + i].f
-                = (float)from->value[from->position * from->length + i].i32;
+                vto[i] = (float)vfrom[i];
             }
         }
         return 1;
@@ -101,15 +103,19 @@ int mapper_connection_perform(mapper_connection connection,
 
     else if (connection->props.mode == MO_CALIBRATE)
     {
-        /* For now we will not store vector min and max */
+        /* TODO: Switch to vector min and max */
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
-        if (connection->props.src_type == 'f')
+        if (connection->props.src_type == 'f') {
+            float *v = msig_history_value_pointer(*from);
             for (i = 0; i < to->length; i++)
-                f = from->value[from->position * from->length + i].f;
-        else if (connection->props.src_type == 'i')
+                f = v[i];
+        }
+        else if (connection->props.src_type == 'i') {
+            int *v = msig_history_value_pointer(*from);
             for (i = 0; i < to->length; i++)
-                f = (float)from->value[from->position * from->length + i].i32;
+                f = (float)v[i];
+        }
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -152,6 +158,9 @@ int mapper_connection_perform(mapper_connection connection,
 int mapper_clipping_perform(mapper_connection connection,
                             mapper_signal_history_t *history)
 {
+    /* TODO: We are currently saving the clipped values to output history.
+     * it needs to be decided whether clipping should be inside the
+     * feedback loop when past samples are called in expressions. */
     int i, muted = 0;
     float v[connection->props.dest_length];
     float total_range = fabsf(connection->props.range.dest_max
@@ -165,14 +174,16 @@ int mapper_clipping_perform(mapper_connection connection,
         return 1;
     }
 
-    if (connection->props.dest_type == 'f')
+    if (connection->props.dest_type == 'f') {
+        float *vhistory = msig_history_value_pointer(*history);
         for (i = 0; i < history->length; i++)
-            v[i] = history->value[history->position
-                                  * history->length + i].f;
-    else if (connection->props.dest_type == 'i')
+            v[i] = vhistory[i];
+    }
+    else if (connection->props.dest_type == 'i') {
+        int *vhistory = msig_history_value_pointer(*history);
         for (i = 0; i < history->length; i++)
-            v[i] = (float)history->value[history->position
-                                         * history->length + i].i32;
+            v[i] = (float)vhistory[i];
+    }
     else {
         trace("unknown type in mapper_clipping_perform()\n");
         return 0;
@@ -318,14 +329,16 @@ int mapper_clipping_perform(mapper_connection connection,
         }
     }
 
-    if (connection->props.dest_type == 'f')
+    if (connection->props.dest_type == 'f') {
+        float *vhistory = msig_history_value_pointer(*history);
         for (i = 0; i < history->length; i++)
-            history->value[history->position
-                           * history->length + i].f = v[i];
-    else if (connection->props.dest_type == 'i')
+            vhistory[i] = v[i];
+    }
+    else if (connection->props.dest_type == 'i') {
+        int *vhistory = msig_history_value_pointer(*history);
         for (i = 0; i < history->length; i++)
-            history->value[history->position
-                           * history->length + i].i32 = (int)v;
+            vhistory[i] = (int)v;
+    }
     return !muted;
 }
 

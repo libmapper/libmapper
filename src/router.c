@@ -70,11 +70,21 @@ void mapper_router_send_signal(mapper_connection_instance ci)
     if (ci->id)
         lo_message_add_int32(m, ci->id);
 
-    if (ci->history.position != -1) {        
-        for (i = 0; i < ci->history.length; i++) {
-            mval_add_to_message(m, ci->connection->props.dest_type,
-                                &ci->history.value[ci->history.position
-                                * ci->history.length + i]);
+    if (ci->history.position != -1) {
+        if (ci->history.type == 'f') {
+            float *v = msig_history_value_pointer(ci->history);
+            for (i = 0; i < ci->history.length; i++)
+                lo_message_add_float(m, v[i]);
+        }
+        else if (ci->history.type == 'i') {
+            int *v = msig_history_value_pointer(ci->history);
+            for (i = 0; i < ci->history.length; i++)
+                lo_message_add_int32(m, v[i]);
+        }
+        else if (ci->history.type == 'd') {
+            double *v = msig_history_value_pointer(ci->history);
+            for (i = 0; i < ci->history.length; i++)
+                lo_message_add_double(m, v[i]);
         }
     }
     else {

@@ -108,7 +108,6 @@ static int handler_signal(const char *path, const char *types,
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     mapper_signal_instance si = sig->input;
-    int i;
 
     if (!md) {
         trace("error, sig->device==0\n");
@@ -120,23 +119,14 @@ static int handler_signal(const char *path, const char *types,
         si->history.position = -1;
     }
     else {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
         si->history.position = (si->history.position + 1)
                                 % si->history.size;
-        if (sig->props.type == 'i') {
-            for (i = 0; i < sig->props.length; i++)
-                si->history.value[si->history.position
-                                  * sig->props.length + i].i32 = argv[i]->i32;
-        }
-        else if (sig->props.type == 'f') {
-            for (i = 0; i < sig->props.length; i++)
-                si->history.value[si->history.position
-                                  * sig->props.length + i].f = argv[i]->f;
-        }
-        else if (sig->props.type == 'd') {
-            for (i = 0; i < sig->props.length; i++)
-                si->history.value[si->history.position
-                                  * sig->props.length + i].d = argv[i]->d;
-        }
+        memcpy(msig_history_value_pointer(si->history),
+               argv[0], msig_vector_bytes(sig));
     }
 
     if (sig->handler)
@@ -155,7 +145,6 @@ static int handler_signal_instance(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    int i;
     
     if (!md) {
         trace("error, sig->device==0\n");
@@ -186,25 +175,14 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (si) {
         if (types[1] != LO_NIL) {
-            si->history.position = (si->history.position + 1) % si->history.size;
-            if (sig->props.type == 'i') {
-                int *v = (int*)argv;
-                for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position
-                                      * sig->props.length + i].i32 = v[i];
-            }
-            else if (sig->props.type == 'f') {
-                float *v = (float*)argv;
-                for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position
-                                      * sig->props.length + i].f = v[i];
-            }
-            else if (sig->props.type == 'd') {
-                double *v = (double*)argv;
-                for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position
-                                      * sig->props.length + i].d = v[i];
-            }
+            /* This is cheating a bit since we know that the arguments pointed
+             * to by argv are layed out sequentially in memory.  It's not
+             * clear if liblo's semantics guarantee it, but known to be true
+             * on all platforms. */
+            si->history.position = (si->history.position + 1)
+                                    % si->history.size;
+            memcpy(msig_history_value_pointer(si->history),
+                   argv[0], msig_vector_bytes(sig));
         }
 
         if (si->handler) {

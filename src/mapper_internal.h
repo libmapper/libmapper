@@ -578,4 +578,10 @@ inline static int msig_vector_bytes(mapper_signal sig)
     return mapper_type_size(sig->props.type) * sig->props.length;
 }
 
+/*! Helper to find the pointer to the current value in a mapper_signal_history_t. */
+inline static void* msig_history_value_pointer(mapper_signal_history_t h)
+{
+    return h.value + h.position * h.length * mapper_type_size(h.type);
+}
+
 #endif // __MAPPER_INTERNAL_H__
