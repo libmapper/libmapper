@@ -107,6 +107,7 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
+    mapper_signal_instance si = sig->input;
     int i;
 
     if (!md) {
@@ -116,31 +117,34 @@ static int handler_signal(const char *path, const char *types,
 
     // Default to updating first instance
     if (types[0] == LO_NIL) {
-        sig->input->history.position = -1;
+        si->history.position = -1;
     }
     else {
-        sig->input->history.position = (sig->input->history.position + 1)
-                                        % sig->input->history.size;
+        si->history.position = (si->history.position + 1)
+                                % si->history.size;
         if (sig->props.type == 'i') {
             for (i = 0; i < sig->props.length; i++)
-                sig->input->history.value[sig->input->history.position * sig->props.length].i32 = argv[i]->i32;
+                si->history.value[si->history.position
+                                  * sig->props.length + i].i32 = argv[i]->i32;
         }
         else if (sig->props.type == 'f') {
             for (i = 0; i < sig->props.length; i++)
-                sig->input->history.value[sig->input->history.position * sig->props.length].f = argv[i]->f;
+                si->history.value[si->history.position
+                                  * sig->props.length + i].f = argv[i]->f;
         }
         else if (sig->props.type == 'd') {
             for (i = 0; i < sig->props.length; i++)
-                sig->input->history.value[sig->input->history.position * sig->props.length].d = argv[i]->d;
+                si->history.value[si->history.position
+                                  * sig->props.length + i].d = argv[i]->d;
         }
     }
 
     if (sig->handler)
         sig->handler(sig, &sig->props,
                      &sig->input->history.timetag[sig->input->history.position],
-                     sig->input->history.position == -1 ? 0 :
-                     sig->input->history.value + msig_vector_bytes(sig)
-                     * sig->input->history.position);
+                     si->history.position == -1 ? 0 :
+                     si->history.value + msig_vector_bytes(sig)
+                     * si->history.position);
 
     return 0;
 }
@@ -186,17 +190,20 @@ static int handler_signal_instance(const char *path, const char *types,
             if (sig->props.type == 'i') {
                 int *v = (int*)argv;
                 for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position * sig->props.length].i32 = v[i];
+                    si->history.value[si->history.position
+                                      * sig->props.length + i].i32 = v[i];
             }
             else if (sig->props.type == 'f') {
                 float *v = (float*)argv;
                 for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position * sig->props.length].f = v[i];
+                    si->history.value[si->history.position
+                                      * sig->props.length + i].f = v[i];
             }
             else if (sig->props.type == 'd') {
                 double *v = (double*)argv;
                 for (i = 0; i < sig->props.length; i++)
-                    si->history.value[si->history.position * sig->props.length].d = v[i];
+                    si->history.value[si->history.position
+                                      * sig->props.length + i].d = v[i];
             }
         }
 
