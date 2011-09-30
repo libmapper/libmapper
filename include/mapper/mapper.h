@@ -169,12 +169,14 @@ void msig_release_instance(mapper_signal_instance instance);
  *  \return The retrieved signal instance, or NULL if no reserved
  *          instances exist. */
 mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         mapper_stealing_type steal);
+                                         mapper_instance_allocation_type mode);
 
 /*! Set the voice-stealing mode for the specified signal.
  *  \param sig           The signal to operate on.
- *  \param stealing_mode Voice-stealing method to use (mapper_stealing_type). */
-void msig_set_stealing_mode(mapper_signal sig, mapper_stealing_type stealing_mode);
+ *  \param mode Method to use for adding or reallocating active instances
+ *              if no reserved instances are available. */
+void msig_set_stealing_mode(mapper_signal sig,
+                            mapper_instance_allocation_type mode);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */

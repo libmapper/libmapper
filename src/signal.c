@@ -29,7 +29,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     sig->instance_count = 0;
-    sig->stealing_type = ST_UNDEFINED;
+    sig->instance_allocation_type = IN_UNDEFINED;
 
     // Create one instance to start
     sig->input = 0;
@@ -351,14 +351,14 @@ void msig_resume_instance(mapper_signal_instance si)
 }
 
 void msig_set_stealing_mode(mapper_signal sig,
-                            mapper_stealing_type steal)
+                            mapper_instance_allocation_type mode)
 {
-    if (sig && steal >= 0 && steal < N_MAPPER_STEALING_TYPES)
-        sig->stealing_type = steal;
+    if (sig && mode >= 0 && mode < N_MAPPER_INSTANCE_ALLOCATION_TYPES)
+        sig->instance_allocation_type = mode;
 }
 
 mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         mapper_stealing_type steal)
+                                         mapper_instance_allocation_type mode)
 {
     if (!sig)
         return 0;
@@ -377,9 +377,9 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
     // If no reserved instance is available, steal an active instance
     si = sig->input;
     mapper_signal_instance stolen = si;
-    if (si && steal) {
-        switch (steal) {
-            case ST_OLDEST:
+    if (si && mode) {
+        switch (mode) {
+            case IN_STEAL_OLDEST:
                 while (si) {
                     if ((si->creation_time.sec < stolen->creation_time.sec) ||
                         (si->creation_time.sec == stolen->creation_time.sec &&
@@ -389,7 +389,7 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
                 }
                 return stolen;
                 break;
-            case ST_NEWEST:
+            case IN_STEAL_NEWEST:
                 while (si) {
                     if ((si->creation_time.sec > stolen->creation_time.sec) ||
                         (si->creation_time.sec == stolen->creation_time.sec &&

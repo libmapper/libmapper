@@ -164,7 +164,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (!si) {
         // try to resume a reserved instance
-        si = msig_get_instance(sig, sig->stealing_type);
+        si = msig_get_instance(sig, sig->instance_allocation_type);
         if (si) {
             si->id = id;
         }
