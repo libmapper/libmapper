@@ -207,19 +207,37 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
+/*! Add a new instance of a signal.
+ *  \param sig The signal to which the instance will be added.
+ *  \return A pointer to the new signal instance. */
+mapper_signal_instance msig_add_instance(mapper_signal sig,
+                                         mapper_signal_instance_handler *handler,
+                                         void *user_data);
+
+/*! Add a new connection instance to a signal.
+ *  \param si The signal instance corresponding to the new connection instance.
+ *  \param c The connection corresponding to the new connection instance.
+ *  \return The new connection instance. */
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
+                                                        struct _mapper_connection *c);
+
+/*! Resume a reserved (preallocated) signal instance.
+ *  \param  si The signal instance to resume. */
+void msig_resume_instance(mapper_signal_instance si);
+
+/*! Reallocate memory used by signal instances. */
+void msig_reallocate_instances(mapper_signal sig);
+
+void msig_send_instance(mapper_signal_instance si);
+
 /*! Free memory used by a mapper_signal_instance. */
 void msig_free_instance(mapper_signal_instance instance);
 
 /*! Free memory used by a mapper_connection_instance. */
 void msig_free_connection_instance(mapper_connection_instance instance);
 
-/*! Reallocate memory used by signal instances. */
-void msig_reallocate_instances(mapper_signal sig);
-
 void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value);
-
-void msig_send_instance(mapper_signal_instance si);
 
 /**** connections ****/
 

@@ -136,12 +136,6 @@ int msig_full_name(mapper_signal sig, char *name, int len);
  *  \return The number of queries sent, or -1 for error. */
 int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 
-/*! Add a new instance of a signal.
- *  \param sig The signal to which the instance will be added.
- *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_add_instance(mapper_signal sig,
-                                         mapper_signal_instance_handler *handler,
-                                         void *user_data);
 /*! Get a signal_instance's value.
  *  \param si      The signal instance to operate on.
  *  \param timetag  A location to receive the value's time tag.
@@ -160,28 +154,17 @@ void msig_reserve_instances(mapper_signal sig, int num,
                             mapper_signal_instance_handler *handler,
                             void *user_data);
 
-/*! Add a new connection instance to a signal.
- *  \param si The signal instance corresponding to the new connection instance.
- *  \param c The connection corresponding to the new connection instance.
- *  \return The new connection instance. */
-mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
-                                                        struct _mapper_connection *c);
-
-/*! Suspend a specific instance of a signal by removing it from the list 
+/*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list. 
  *  \param instance The instance to suspend. */
-void msig_suspend_instance(mapper_signal_instance instance);
-
-/*! Resume a reserved (preallocated) signal instance.
- *  \param  si The signal instance to resume. */
-void msig_resume_instance(mapper_signal_instance si);
+void msig_release_instance(mapper_signal_instance instance);
 
 /*! Fetch a reserved (preallocated) signal instance.
  *  \param  sig The signal owning the desired instance.
  *  \return The retrieved signal instance, or NULL if no reserved
  *          instances exist. */
-mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig,
-                                                    mapper_stealing_type steal);
+mapper_signal_instance msig_get_instance(mapper_signal sig,
+                                         mapper_stealing_type steal);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */
@@ -211,7 +194,6 @@ int msig_get_instance_id(mapper_signal_instance si);
 /*! Return the containing signal of a signal_instance.
  *  \param si The signal instance.
  *  \return A pointer to the containing signal. */
-    
 mapper_signal msig_instance_get_signal(mapper_signal_instance si);
 
 /* @} */

@@ -286,7 +286,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
     return ci;
 }
 
-void msig_suspend_instance(mapper_signal_instance si)
+void msig_release_instance(mapper_signal_instance si)
 {
     if (!si)
         return;
@@ -335,9 +335,12 @@ void msig_resume_instance(mapper_signal_instance si)
     }
 }
 
-mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig,
-                                                    mapper_stealing_type steal)
+mapper_signal_instance msig_get_instance(mapper_signal sig,
+                                         mapper_stealing_type steal)
 {
+    if (!sig)
+        return 0;
+
     mapper_signal_instance si = sig->reserve;
     if (si) {
         sig->reserve = si->next;
@@ -380,6 +383,39 @@ mapper_signal_instance msig_fetch_reserved_instance(mapper_signal sig,
         }
     }
     return 0;
+}
+
+mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id)
+{
+    if (!sig)
+        return 0;
+    if (id < 0)
+        return 0;
+    // find signal instance
+    mapper_signal_instance si = sig->input;
+    while (si) {
+        if (si->id == id) {
+            return si;
+        }
+        si = si->next;
+    }
+    // check reserved instances
+    si = sig->reserve;
+    while (si) {
+        if (si->id == id) {
+            msig_resume_instance(si);
+            return si;
+        }
+        si = si->next;
+    }
+    return 0;
+}
+
+int msig_get_instance_id(mapper_signal_instance si)
+{
+    if (!si)
+        return 0;
+    return si->id;
 }
 
 void msig_remove_instance(mapper_signal_instance si)
@@ -543,38 +579,6 @@ void msig_update_instance(mapper_signal_instance si, void *value)
     }
     if (si->signal->props.is_output)
         msig_send_instance(si);
-}
-
-mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id)
-{
-    if (!sig)
-        return 0;
-    if (id < 0)
-        return 0;
-    // find signal instance
-    mapper_signal_instance si = sig->input;
-    while (si) {
-        if (si->id == id) {
-            return si;
-        }
-        si = si->next;
-    }
-    // check reserved instances
-    si = sig->reserve;
-    while (si) {
-        if (si->id == id) {
-            return si;
-        }
-        si = si->next;
-    }
-    return 0;
-}
-
-int msig_get_instance_id(mapper_signal_instance si)
-{
-    if (!si)
-        return 0;
-    return si->id;
 }
 
 mapper_signal msig_instance_get_signal(mapper_signal_instance si)

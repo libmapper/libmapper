@@ -164,7 +164,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (!si) {
         // try to resume a reserved instance
-        si = msig_fetch_reserved_instance(sig, sig->stealing_type);
+        si = msig_get_instance(sig, sig->stealing_type);
         if (si) {
             si->id = id;
         }
@@ -201,7 +201,7 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         if (types[1] == LO_NIL) {
-            msig_suspend_instance(si);
+            msig_release_instance(si);
         }
     }
     return 0;

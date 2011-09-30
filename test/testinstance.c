@@ -168,7 +168,7 @@ void loop()
                 // try to create a new instance
                 for (j = 0; j < 5; j++) {
                     if (!sendinst[j]) {
-                        sendinst[j] = msig_fetch_reserved_instance(sendsig, 0);
+                        sendinst[j] = msig_get_instance(sendsig, 0);
                         if (sendinst[j])
                             printf("--> Created new sender instance: %i\n", sendinst[j]->id);
                         break;
@@ -180,7 +180,7 @@ void loop()
                 j = rand() % 5;
                 if (sendinst[j]) {
                     printf("--> Retiring sender instance %i\n", sendinst[j]->id);
-                    msig_suspend_instance(sendinst[j]);
+                    msig_release_instance(sendinst[j]);
                     sendinst[j] = 0;
                     break;
                 }
