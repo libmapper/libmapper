@@ -266,6 +266,19 @@ void msig_reserve_instances(mapper_signal sig, int num,
     }
 }
 
+int msig_num_reserved_instances(mapper_signal sig)
+{
+    if (!sig)
+        return -1;
+    mapper_signal_instance si = sig->reserve;
+    int i = 0;
+    while (si) {
+        i++;
+        si = si->next;
+    }
+    return i;
+}
+
 mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
                                                         mapper_connection c)
 {
@@ -335,6 +348,13 @@ void msig_resume_instance(mapper_signal_instance si)
         }
         msi = &(*msi)->next;
     }
+}
+
+void msig_set_stealing_mode(mapper_signal sig,
+                            mapper_stealing_type steal)
+{
+    if (sig && steal >= 0 && steal < N_MAPPER_STEALING_TYPES)
+        sig->stealing_type = steal;
 }
 
 mapper_signal_instance msig_get_instance(mapper_signal sig,

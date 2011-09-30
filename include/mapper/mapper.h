@@ -154,6 +154,11 @@ void msig_reserve_instances(mapper_signal sig, int num,
                             mapper_signal_instance_handler *handler,
                             void *user_data);
 
+/*! Get the number of inactive signal instances.
+ *  \param sig The signal to query.
+ *  \return    The number of reserved instances, or -1 for error. */
+int msig_num_reserved_instances(mapper_signal sig);
+
 /*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list. 
  *  \param instance The instance to suspend. */
@@ -165,6 +170,11 @@ void msig_release_instance(mapper_signal_instance instance);
  *          instances exist. */
 mapper_signal_instance msig_get_instance(mapper_signal sig,
                                          mapper_stealing_type steal);
+
+/*! Set the voice-stealing mode for the specified signal.
+ *  \param sig           The signal to operate on.
+ *  \param stealing_mode Voice-stealing method to use (mapper_stealing_type). */
+void msig_set_stealing_mode(mapper_signal sig, mapper_stealing_type stealing_mode);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */
