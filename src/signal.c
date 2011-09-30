@@ -23,6 +23,7 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
+    sig->props.instances = 0;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
@@ -208,6 +209,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->next = sig->input;
     sig->input = si;
     si->connections = 0;
+    ++sig->props.instances;
 
     if (!sig->device)
         return si;
@@ -441,6 +443,7 @@ void msig_remove_instance(mapper_signal_instance si)
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
+            --si->signal->props.instances;
             msig_free_instance(si);
             break;
         }

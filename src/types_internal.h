@@ -256,6 +256,7 @@ typedef enum {
     AT_MUTE,
     AT_LENGTH,
     AT_DIRECTION,
+    AT_INSTANCES,
     AT_SRCTYPE,
     AT_DESTTYPE,
     AT_SRCLENGTH,

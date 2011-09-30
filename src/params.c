@@ -23,6 +23,7 @@ const char* mapper_msg_param_strings[] =
     "@mute",       /* AT_MUTE */
     "@length",     /* AT_LENGTH */
     "@direction",  /* AT_DIRECTION */
+    "@instances",  /* AT_INSTANCES */
     "@srcType",    /* AT_SRCTYPE */
     "@destType",   /* AT_DESTTYPE */
     "@srcLength",  /* AT_SRCLENGTH */
@@ -339,6 +340,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_DIRECTION:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
+            break;
+        case AT_INSTANCES:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);

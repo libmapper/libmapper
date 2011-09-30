@@ -180,6 +180,9 @@ typedef struct _mapper_db_signal
     /*! Length of the signal vector, or 1 for scalars. */
     int length;
 
+    /*! Number of instances. */
+    int instances;
+
     /*! Size of the history vector. */
     int history_size;
 
