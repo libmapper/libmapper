@@ -233,24 +233,38 @@ static int handler_query(const char *path, const char *types,
 
     int i;
     lo_message m;
-    m = lo_message_new();
-    if (!m)
-        return 0;
 
-    // TODO: need to iterate through instances here
-    if (sig->active->history.position == -1) {
-        lo_message_add_nil(m);
+    mapper_signal_instance si = sig->active;
+    while (si) {
+        m = lo_message_new();
+        if (!m)
+            return 0;
+        if (si->id)
+            lo_message_add_int32(m, si->id);
+        if (si->history.position != -1) {
+            if (si->history.type == 'f') {
+                float *v = msig_history_value_pointer(si->history);
+                for (i = 0; i < si->history.length; i++)
+                    lo_message_add_float(m, v[i]);
+            }
+            else if (si->history.type == 'i') {
+                int *v = msig_history_value_pointer(si->history);
+                for (i = 0; i < si->history.length; i++)
+                    lo_message_add_int32(m, v[i]);
+            }
+            else if (si->history.type == 'd') {
+                double *v = msig_history_value_pointer(si->history);
+                for (i = 0; i < si->history.length; i++)
+                    lo_message_add_double(m, v[i]);
+            }
+        }
+        else {
+            lo_message_add_nil(m);
+        }
+        lo_send_message(lo_message_get_source(msg), dest_name, m);
+        lo_message_free(m);
+        si = si->next;
     }
-    else {
-        mapper_signal_value_t *value = sig->active->history.value
-                                       + sig->active->history.position
-                                       * sig->props.length;
-        for (i = 0; i < sig->props.length; i++)
-            mval_add_to_message(m, sig->props.type, &value[i]);
-    }
-
-    lo_send_message(lo_message_get_source(msg), dest_name, m);
-    lo_message_free(m);
     return 0;
 }
 
