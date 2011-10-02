@@ -208,6 +208,34 @@ int msig_get_instance_id(mapper_signal_instance si);
  *  \return A pointer to the containing signal. */
 mapper_signal msig_instance_get_signal(mapper_signal_instance si);
 
+/*! Return the list of active instances owned by a signal.
+ *  \param  sig The signal to query.
+ *  \return     The first signal instance in the list, or zero if none.
+ *              Use msig_instance_next() to iterate. */
+mapper_signal_instance msig_get_active_instances(mapper_signal sig);
+
+/*! Return the list of reserved instances owned by a signal.
+ *  \param  sig The signal to query.
+ *  \return     The first signal instance in the list, or zero if none.
+ *              Use msig_instance_next() to iterate. */
+mapper_signal_instance msig_get_reserved_instances(mapper_signal sig);
+
+/*! Return the next of instances in a list.
+ *  \param  sig The previous signal instance in the list.
+ *  \return     The next signal instance in the list, or zero if no
+ *              more instances. */
+mapper_signal_instance msig_instance_next(mapper_signal_instance si);
+
+/*! Return the number of active instances owned by a signal.
+ *  \param  sig The signal to query.
+ *  \return     The number of active instances. */
+int msig_num_active_instances(mapper_signal sig);
+
+/*! Return the number of reserved instances owned by a signal.
+ *  \param  sig The signal to query.
+ *  \return     The number of active instances. */
+int msig_num_reserved_instances(mapper_signal sig);
+
 /* @} */
 
 /*** Devices ***/

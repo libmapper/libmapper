@@ -266,6 +266,30 @@ void msig_reserve_instances(mapper_signal sig, int num,
     }
 }
 
+mapper_signal_instance msig_get_active_instances(mapper_signal sig)
+{
+    if (sig)
+        return sig->active;
+    else
+        return 0;
+}
+
+mapper_signal_instance msig_get_reserved_instances(mapper_signal sig)
+{
+    if (sig)
+        return sig->reserve;
+    else
+        return 0;
+}
+
+mapper_signal_instance msig_instance_next(mapper_signal_instance si)
+{
+    if (si)
+        return si->next;
+    else
+        return 0;
+}
+
 int msig_num_active_instances(mapper_signal sig)
 {
     if (!sig)
