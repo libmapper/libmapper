@@ -19,7 +19,7 @@ struct _mapper_signal
     struct _mapper_device *device;
 
     /*! The first instance of this signal. */
-    struct _mapper_signal_instance *input;
+    struct _mapper_signal_instance *active;
 
     /*! Reserved instances ready for use. */
     struct _mapper_signal_instance *reserve;

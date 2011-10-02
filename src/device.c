@@ -107,7 +107,7 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    mapper_signal_instance si = sig->input;
+    mapper_signal_instance si = sig->active;
 
     if (!md) {
         trace("error, sig->device==0\n");
@@ -131,7 +131,7 @@ static int handler_signal(const char *path, const char *types,
 
     if (sig->handler)
         sig->handler(sig, &sig->props,
-                     &sig->input->history.timetag[sig->input->history.position],
+                     &sig->active->history.timetag[sig->active->history.position],
                      si->history.position == -1 ? 0 :
                      si->history.value + msig_vector_bytes(sig)
                      * si->history.position);
@@ -157,7 +157,7 @@ static int handler_signal_instance(const char *path, const char *types,
     // TODO: use hash table instead?
     int id = argv[0]->i32;
 
-    mapper_signal_instance si = sig->input;
+    mapper_signal_instance si = sig->active;
     while (si && (si->id != id)) {
         si = si->next;
     }
@@ -238,12 +238,12 @@ static int handler_query(const char *path, const char *types,
         return 0;
 
     // TODO: need to iterate through instances here
-    if (sig->input->history.position == -1) {
+    if (sig->active->history.position == -1) {
         lo_message_add_nil(m);
     }
     else {
-        mapper_signal_value_t *value = sig->input->history.value
-                                       + sig->input->history.position
+        mapper_signal_value_t *value = sig->active->history.value
+                                       + sig->active->history.position
                                        * sig->props.length;
         for (i = 0; i < sig->props.length; i++)
             mval_add_to_message(m, sig->props.type, &value[i]);

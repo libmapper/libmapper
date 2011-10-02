@@ -166,7 +166,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->router = router;
 
     // create connection instances as necessary
-    mapper_signal_instance si = sig->input;
+    mapper_signal_instance si = sig->active;
     while (si) {
         msig_add_connection_instance(si, connection);
         si = si->next;
@@ -203,7 +203,7 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated connection instances
-    mapper_signal_instance si = connection->source->input;
+    mapper_signal_instance si = connection->source->active;
     while (si) {
         mapper_connection_instance *ci = &si->connections;
         if ((*ci)->connection == connection) {

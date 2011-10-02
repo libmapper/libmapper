@@ -32,8 +32,8 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->instance_allocation_type = IN_UNDEFINED;
 
     // Create one instance to start
-    sig->input = 0;
-    sig->input = msig_add_instance(sig, 0, 0);
+    sig->active = 0;
+    msig_add_instance(sig, 0, 0);
     sig->reserve = 0;
     return sig;
 }
@@ -47,8 +47,8 @@ void *msig_value(mapper_signal sig,
                  mapper_timetag_t *timetag)
 {
     if (!sig) return 0;
-    if (!sig->input) return 0;
-    return msig_instance_value(sig->input, timetag);
+    if (!sig->active) return 0;
+    return msig_instance_value(sig->active, timetag);
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
@@ -105,13 +105,13 @@ void msig_free(mapper_signal sig)
 
     // Free active instances
     mapper_signal_instance si;
-    while (sig->input) {
-        si = sig->input;
-        sig->input = si->next;
+    while (sig->active) {
+        si = sig->active;
+        sig->active = si->next;
         msig_free_instance(si);
     }
     // Free reserved instances
-    while (sig->input) {
+    while (sig->reserve) {
         si = sig->reserve;
         sig->reserve = si->next;
         msig_free_instance(si);
@@ -149,7 +149,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     if (sig)
-        msig_update_instance(sig->input, &value);
+        msig_update_instance(sig->active, &value);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -172,7 +172,7 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     if (sig)
-        msig_update_instance(sig->input, &value);
+        msig_update_instance(sig->active, &value);
 }
 
 void msig_update(mapper_signal sig, void *value)
@@ -180,7 +180,7 @@ void msig_update(mapper_signal sig, void *value)
     /* We have to assume that value points to an array of correct type
      * and size. */
     if (sig)
-        msig_update_instance(sig->input, value);
+        msig_update_instance(sig->active, value);
 }
 
 mapper_signal_instance msig_add_instance(mapper_signal sig,
@@ -206,8 +206,8 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     lo_timetag_now(&si->creation_time);
 
     // add signal instance to signal
-    si->next = sig->input;
-    sig->input = si;
+    si->next = sig->active;
+    sig->active = si;
     si->connections = 0;
     ++sig->props.instances;
 
@@ -259,13 +259,25 @@ void msig_reserve_instances(mapper_signal sig, int num,
         if (si) {
             // Remove instance from active list, place in reserve
             si->is_active = 0;
-            sig->input = si->next;
+            sig->active = si->next;
             si->next = sig->reserve;
             sig->reserve = si;
         }
     }
 }
 
+int msig_num_active_instances(mapper_signal sig)
+{
+    if (!sig)
+        return -1;
+    mapper_signal_instance si = sig->active;
+    int i = 0;
+    while (si) {
+        i++;
+        si = si->next;
+    }
+    return i;
+}
 int msig_num_reserved_instances(mapper_signal sig)
 {
     if (!sig)
@@ -314,7 +326,7 @@ void msig_release_instance(mapper_signal_instance si)
     }
 
     // Remove instance from active list, place in reserve
-    mapper_signal_instance *msi = &si->signal->input;
+    mapper_signal_instance *msi = &si->signal->active;
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
@@ -342,16 +354,16 @@ void msig_resume_instance(mapper_signal_instance si)
             si->is_active = 1;
             si->history.position = -1;
             lo_timetag_now(&si->creation_time);
-            si->next = si->signal->input;
-            si->signal->input = si;
+            si->next = si->signal->active;
+            si->signal->active = si;
             break;
         }
         msi = &(*msi)->next;
     }
 }
 
-void msig_set_stealing_mode(mapper_signal sig,
-                            mapper_instance_allocation_type mode)
+void msig_set_instance_allocation_mode(mapper_signal sig,
+                                       mapper_instance_allocation_type mode)
 {
     if (sig && mode >= 0 && mode < N_MAPPER_INSTANCE_ALLOCATION_TYPES)
         sig->instance_allocation_type = mode;
@@ -366,8 +378,8 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
     mapper_signal_instance si = sig->reserve;
     if (si) {
         sig->reserve = si->next;
-        si->next = sig->input;
-        sig->input = si;
+        si->next = sig->active;
+        sig->active = si;
         si->is_active = 1;
         si->history.position = -1;
         lo_timetag_now(&si->creation_time);
@@ -375,7 +387,7 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
     }
 
     // If no reserved instance is available, steal an active instance
-    si = sig->input;
+    si = sig->active;
     mapper_signal_instance stolen = si;
     if (si && mode) {
         switch (mode) {
@@ -414,7 +426,7 @@ mapper_signal_instance msig_get_instance_by_id(mapper_signal sig, int id)
     if (id < 0)
         return 0;
     // find signal instance
-    mapper_signal_instance si = sig->input;
+    mapper_signal_instance si = sig->active;
     while (si) {
         if (si->id == id) {
             return si;
@@ -459,7 +471,7 @@ void msig_remove_instance(mapper_signal_instance si)
     }
 
     // Remove signal instance
-    mapper_signal_instance *msi = &si->signal->input;
+    mapper_signal_instance *msi = &si->signal->active;
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
@@ -480,7 +492,7 @@ void msig_reallocate_instances(mapper_signal sig)
     // Find maximum input length needed for connections
     int input_history_size = 1;
     // Iterate through instances
-    mapper_signal_instance si = sig->input;
+    mapper_signal_instance si = sig->active;
     while (si) {
         mapper_connection_instance ci = si->connections;
         while (ci) {
@@ -494,7 +506,7 @@ void msig_reallocate_instances(mapper_signal sig)
         si = si->next;
     }
     sig->props.history_size = input_history_size;
-    si = sig->input;
+    si = sig->active;
     int sample_size = msig_vector_bytes(sig);
     while (si) {
         // Check if input history size has changed

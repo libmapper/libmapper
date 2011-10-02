@@ -175,8 +175,8 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
  *  \param sig           The signal to operate on.
  *  \param mode Method to use for adding or reallocating active instances
  *              if no reserved instances are available. */
-void msig_set_stealing_mode(mapper_signal sig,
-                            mapper_instance_allocation_type mode);
+void msig_set_instance_allocation_mode(mapper_signal sig,
+                                       mapper_instance_allocation_type mode);
 
 /*! Remove a specific instance of a signal.
  *  \param instance The instance to destroy. */
