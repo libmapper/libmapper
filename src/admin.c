@@ -107,6 +107,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
+    {"/linkTo",                 "sssi",     handler_device_linkTo},
     {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
     {"%s/connections/get",      "",         handler_device_connections_get},
@@ -532,7 +533,6 @@ int mapper_admin_poll(mapper_admin admin)
         admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
-              AT_IP, inet_ntoa(admin->interface_ip),
               AT_PORT, admin->port.value,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -765,7 +765,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
-        AT_IP, inet_ntoa(admin->interface_ip),
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -1266,7 +1265,6 @@ static int handler_device_link(const char *path, const char *types,
     if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
         mapper_admin_send_osc(
             admin, "/linkTo", "ss", src_name, dest_name,
-            AT_IP, inet_ntoa(admin->interface_ip),
             AT_PORT, admin->port.value);
     }
     return 0;
@@ -1319,22 +1317,20 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Check the results.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
-    if (!host) {
-        trace("can't perform /linkTo, host unknown\n");
-        return 0;
-    }
 
     if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
         trace("can't perform /linkTo, port unknown\n");
         return 0;
     }
 
-    // Find the sender's hostname
-    lo_address a = lo_message_get_source(msg);
+    if (!host) {
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        host = lo_address_get_hostname(a);
+    }
 
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, lo_address_get_hostname(a),
-                               port, dest_name);
+    router = mapper_router_new(md, host, port, dest_name);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
