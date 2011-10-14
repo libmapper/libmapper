@@ -1329,8 +1329,12 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
 
+    // Find the sender's hostname
+    lo_address a = lo_message_get_source(msg);
+
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name);
+    router = mapper_router_new(md, lo_address_get_hostname(a),
+                               port, dest_name);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
