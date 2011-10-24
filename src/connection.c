@@ -346,11 +346,13 @@ int mapper_clipping_perform(mapper_connection connection,
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expression_string(mapper_connection c,
                                      mapper_signal s,
-                                     const char *expr_str)
+                                     const char *expr_str,
+                                     int *input_history_size,
+                                     int *output_history_size)
 {
     mapper_expr expr = mapper_expr_new_from_string(
         expr_str, s->props.type=='f', c->props.dest_type=='f',
-        s->props.length);
+        s->props.length, input_history_size, output_history_size);
 
     if (!expr)
         return 1;
@@ -369,7 +371,7 @@ static int replace_expression_string(mapper_connection c,
 void mapper_connection_set_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
-    msig_reallocate_instances(c->source);
+    msig_reallocate_instances(c->source, 1, c, 1);
 }
 
 void mapper_connection_set_linear_range(mapper_connection c,
@@ -414,8 +416,10 @@ void mapper_connection_set_linear_range(mapper_connection c,
 
     // If everything is successful, replace the connection's expression.
     if (e) {
-        if (replace_expression_string(c, sig, e))
-            msig_reallocate_instances(sig);
+        int input_history_size, output_history_size;
+        if (replace_expression_string(c, sig, e, &input_history_size,
+                                      &output_history_size))
+            msig_reallocate_instances(sig, 1, c, 1);
     }
 }
 
@@ -423,11 +427,14 @@ void mapper_connection_set_expression(mapper_connection c,
                                       mapper_signal sig,
                                       const char *expr)
 {
-    if (replace_expression_string(c, sig, expr))
+    int input_history_size, output_history_size;    
+    if (replace_expression_string(c, sig, expr, &input_history_size,
+                                  &output_history_size))
         return;
 
     c->props.mode = MO_EXPRESSION;
-    msig_reallocate_instances(sig);
+    msig_reallocate_instances(sig, input_history_size,
+                              c, output_history_size);
 }
 
 void mapper_connection_set_calibrate(mapper_connection c,
@@ -635,9 +642,12 @@ void mapper_connection_set_from_message(mapper_connection c,
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr) {
-        replace_expression_string(c, sig, expr);
+        int input_history_size, output_history_size;
+        replace_expression_string(c, sig, expr, &input_history_size,
+                                  &output_history_size);
         if (c->props.mode == MO_EXPRESSION)
-            msig_reallocate_instances(sig);
+            msig_reallocate_instances(sig, input_history_size,
+                                      c, output_history_size);
     }
 
     /* Now set the mode type depending on the requested type and

@@ -430,7 +430,9 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
                                         int output_is_float,
-                                        int vector_size)
+                                        int vector_size,
+                                        int *input_history_size,
+                                        int *output_history_size)
 {
     const char *s = str;
     if (!str) return 0;
@@ -795,8 +797,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
     expr->vector_size = vector_size;
-    expr->input_history_size = (int)ceilf(-oldest_input)+1;
-    expr->output_history_size = (int)ceilf(-oldest_output)+1;
+    *input_history_size = (int)ceilf(-oldest_input)+1;
+    *output_history_size = (int)ceilf(-oldest_output)+1;
     return expr;
 
   cleanup:

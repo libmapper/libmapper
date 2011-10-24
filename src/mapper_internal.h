@@ -226,7 +226,11 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 void msig_resume_instance(mapper_signal_instance si);
 
 /*! Reallocate memory used by signal instances. */
-void msig_reallocate_instances(mapper_signal sig);
+void msig_reallocate_instances(mapper_signal sig, int input_history_size,
+                               mapper_connection c, int output_history_size);
+
+void mhist_realloc(mapper_signal_history_t *history, int history_size,
+                   int sample_size, int is_output);
 
 void msig_send_instance(mapper_signal_instance si);
 
@@ -481,7 +485,9 @@ void mapper_connection_prepare_osc_message(lo_message m,
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
                                         int output_is_float,
-                                        int vector_size);
+                                        int vector_size,
+                                        int *input_history_size,
+                                        int *output_history_size);
 
 #ifdef DEBUG
 void printexpr(const char*, mapper_expr);
