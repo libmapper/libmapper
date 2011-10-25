@@ -927,9 +927,6 @@ int mapper_expr_evaluate(mapper_expr expr,
                 stack[i][top].f = node->tok.f;
             break;
         case TOK_VAR:
-            die_unless(input_vector,
-                       "Input required but not provided for "
-                       "expression evaluation.\n");
             {
                 int idx;
                 switch (node->tok.var) {

@@ -337,7 +337,7 @@ int mapper_clipping_perform(mapper_connection connection,
     else if (connection->props.dest_type == 'i') {
         int *vhistory = msig_history_value_pointer(*history);
         for (i = 0; i < history->length; i++)
-            vhistory[i] = (int)v;
+            vhistory[i] = (int)v[i];
     }
     return !muted;
 }
