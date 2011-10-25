@@ -489,6 +489,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         int *input_history_size,
                                         int *output_history_size);
 
+int mapper_expr_input_history_size(mapper_expr expr);
+
+int mapper_expr_output_history_size(mapper_expr expr);
+
 #ifdef DEBUG
 void printexpr(const char*, mapper_expr);
 #endif

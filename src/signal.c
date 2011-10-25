@@ -544,7 +544,7 @@ void msig_reallocate_instances(mapper_signal sig, int input_history_size,
         }*/
     }
 
-    if (output_history_size > c->expr->output_history_size + 1) {
+    if (output_history_size > mapper_expr_output_history_size(c->expr)) {
         si = sig->active;
         while (si) {
             mapper_connection_instance ci = si->connections;
@@ -559,7 +559,7 @@ void msig_reallocate_instances(mapper_signal sig, int input_history_size,
             si = si->next;
         }
     }
-    else if (output_history_size < c->expr->output_history_size) {
+    else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
         // Do nothing for now...
     }
 }
