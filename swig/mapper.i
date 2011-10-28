@@ -641,6 +641,59 @@ typedef struct _admin {} admin;
         return mdev_add_input($self, name, length, type, unit,
                               pmn, pmx, h, PyFunc);
     }
+    signal* add_hidden_input(const char *name, int length=1, const char type='f',
+                             const char *unit=0, maybeSigVal minimum=0,
+                             maybeSigVal maximum=0, PyObject *PyFunc=0)
+    {
+        mapper_signal_handler *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
+        if (type == 'f')
+        {
+            if (minimum) {
+                if (minimum->t == 'f')
+                    pmn = &minimum->v;
+                else {
+                    mn.f = (float)minimum->v.i32;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'f')
+                    pmx = &maximum->v;
+                else {
+                    mx.f = (float)maximum->v.i32;
+                    pmx = &mx;
+                }
+            }
+        }
+        else if (type == 'i')
+        {
+            if (minimum) {
+                if (minimum->t == 'i')
+                    pmn = &minimum->v;
+                else {
+                    mn.i32 = (int)minimum->v.f;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'i')
+                    pmx = &maximum->v;
+                else {
+                    mx.i32 = (int)maximum->v.f;
+                    pmx = &mx;
+                }
+            }
+        }
+        signal *sig = mdev_add_input($self, name, length, type, unit,
+                                     pmn, pmx, h, PyFunc);
+        ((mapper_signal)sig)->props.hidden = 1;
+        return sig;
+    }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
                        maybeSigVal maximum=0)
@@ -793,6 +846,9 @@ typedef struct _admin {} admin;
         else if (sig->props.type == 'f') {
             msig_update_float($self, (float)i);
         }
+    }
+    int query_remote(signal *receiver=0) {
+        return msig_query_remote($self, receiver);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
