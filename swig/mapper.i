@@ -590,9 +590,9 @@ typedef struct _admin {} admin;
     // Note, these functions return memory which is _not_ owned by
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
-    signal* add_input(const char *name, const char type='f',
-                      PyObject *PyFunc=0, char *unit=0,
-                      maybeSigVal minimum=0, maybeSigVal maximum=0)
+    signal* add_input(const char *name, int length=1, const char type='f',
+                      const char *unit=0, maybeSigVal minimum=0,
+                      maybeSigVal maximum=0, PyObject *PyFunc=0)
     {
         mapper_signal_handler *h = 0;
         if (PyFunc) {
@@ -638,11 +638,12 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_input($self, name, 1, type, unit,
+        return mdev_add_input($self, name, length, type, unit,
                               pmn, pmx, h, PyFunc);
     }
-    signal* add_output(const char *name, char type='f', const char *unit=0,
-                       maybeSigVal minimum=0, maybeSigVal maximum=0)
+    signal* add_output(const char *name, int length=1, const char type='f',
+                       const char *unit=0, maybeSigVal minimum=0,
+                       maybeSigVal maximum=0)
     {
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -683,7 +684,7 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_output($self, name, 1, type, unit, pmn, pmx);
+        return mdev_add_output($self, name, length, type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
