@@ -101,9 +101,9 @@ struct handler_method_assoc {
 };
 static struct handler_method_assoc device_handlers[] = {
     {"/who",                    "",         handler_who},
-    {"%s/signals/get",          "",         handler_id_n_signals_get},
-    {"%s/signals/input/get",    "",         handler_id_n_signals_input_get},
-    {"%s/signals/output/get",   "",         handler_id_n_signals_output_get},
+    {"%s/signals/get",          NULL,       handler_id_n_signals_get},
+    {"%s/signals/input/get",    NULL,       handler_id_n_signals_input_get},
+    {"%s/signals/output/get",   NULL,       handler_id_n_signals_output_get},
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
@@ -867,12 +867,33 @@ static int handler_id_n_signals_input_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i;
+    int i = 0, j = md->n_inputs;
 
     if (md->flags & FLAGS_INPUTS_GET)
         return 0;
 
-    for (i = 0; i < md->n_inputs; i++) {
+    if (argc > 0) {
+        if (types[0] == 'i')
+            i = argv[0]->i;
+        else if (types[0] == 'f')
+            i = (int)argv[0]->f;
+        if (i < 0)
+            i = 0;
+        else if (i >= md->n_inputs)
+            i = md->n_inputs - 1;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            j = argv[1]->i;
+        else if (types[1] == 'f')
+            j = (int)argv[1]->f;
+        if (j > md->n_inputs)
+            j = md->n_inputs;
+        if (j < i)
+            j = i + 1;
+    }
+
+    for (; i < j; i++) {
         mapper_signal sig = md->inputs[i];
         if (sig->props.hidden == 0) {
             msig_full_name(sig, sig_name, 1024);
@@ -904,12 +925,33 @@ static int handler_id_n_signals_output_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i;
+    int i = 0, j = md->n_outputs;
 
     if (md->flags & FLAGS_OUTPUTS_GET)
         return 0;
 
-    for (i = 0; i < md->n_outputs; i++) {
+    if (argc > 0) {
+        if (types[0] == 'i')
+            i = argv[0]->i;
+        else if (types[0] == 'f')
+            i = (int)argv[0]->f;
+        if (i < 0)
+            i = 0;
+        else if (i >= md->n_outputs)
+            i = md->n_outputs - 1;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            j = argv[1]->i;
+        else if (types[1] == 'f')
+            j = (int)argv[1]->f;
+        if (j > md->n_outputs)
+            j = md->n_outputs;
+        if (j < i)
+            j = i + 1;
+    }
+
+    for (; i < j; i++) {
         mapper_signal sig = md->outputs[i];
         if (sig->props.hidden == 0) {
             msig_full_name(sig, sig_name, 1024);
