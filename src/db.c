@@ -1268,21 +1268,21 @@ static void update_connection_record_params(mapper_db_connection con,
             con->range.src_max = a_range[1]->f;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         } else if (t_range[1] == 'i') {
-            con->range.src_min = a_range[1]->i;
+            con->range.src_max = (float)a_range[1]->i;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         }
         if (t_range[2] == 'f') {
             con->range.dest_min = a_range[2]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         } else if (t_range[2] == 'i') {
-            con->range.src_min = (float)a_range[2]->i;
+            con->range.dest_min = (float)a_range[2]->i;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         }
         if (t_range[3] == 'f') {
             con->range.dest_max = a_range[3]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         } else if (t_range[3] == 'i') {
-            con->range.src_min = (float)a_range[3]->i;
+            con->range.dest_max = (float)a_range[3]->i;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         }
     }

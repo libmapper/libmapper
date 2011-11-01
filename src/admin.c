@@ -265,6 +265,28 @@ static int get_interface_addr(const char* pref,
     return 2;
 }
 
+/*! A helper function to seed the random number generator. */
+static void seed_srand()
+{
+    unsigned int s;
+
+#ifndef WIN32
+    FILE *f = fopen("/dev/random", "rb");
+    if (f) {
+        if (fread(&s, 4, 1, f)==1) {
+            srand(s);
+            fclose(f);
+            return;
+        }
+        fclose(f);
+    }
+#endif
+
+    double d = get_current_time();
+    s = (unsigned int)((d-(unsigned long)d)*100000);
+    srand(s);
+}
+
 static void mapper_admin_add_device_methods(mapper_admin admin)
 {
     int i;
@@ -403,6 +425,9 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
             admin->port.suggestion[i] = 0;
         }
         admin->device->flags = 0;
+
+        /* Seed the random number generator. */
+        seed_srand();
         
         /* Choose a random ID for allocation speedup */
         admin->random_id = rand();

@@ -144,14 +144,10 @@ non-trivial work--for example, in libmapper the concept of a "router"
 is actually an independent node that a device sends messages to, which
 then translates and rebroadcasts; it just happens that the router is
 embedded in the sender because that was the most efficient place to
-have it in our scenario.  In any case, given that optimal message
-passing efficiency is not a near-term goal, it goes without saying
-that your choice of using libmapper should depend on what type of
-network you envision: if you need a large number of receivers for the
-same signal you might consider one of the many alternatives, such as
-the [SenseWorld DataNetwork](http://sensestage.hexagram.ca), a
-[SuperCollider](http://supercollider.sourceforge.net/)-based mapping
-framework using a central-server approach.
+have it in our scenario.  Optimizing of message-passing efficiency/network	
+topology is not a near-term goal, but in the meantime it is entirely
+possible to use libmapper to explicitly create a centralized network
+if desired; this will simply imply more overhead in managing connections.
 
 Future plans
 ------------
