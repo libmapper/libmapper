@@ -109,7 +109,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"/link",                   "ss",       handler_device_link},
     {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
-    {"%s/connections/get",      "",         handler_device_connections_get},
+    {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connectTo",              NULL,       handler_signal_connectTo},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
@@ -869,7 +869,7 @@ static int handler_id_n_signals_input_get(const char *path,
     char sig_name[1024];
     int i = 0, j = md->n_inputs;
 
-    if (md->flags & FLAGS_INPUTS_GET)
+    if (!argc && (md->flags & FLAGS_INPUTS_GET))
         return 0;
 
     if (argc > 0) {
@@ -927,7 +927,7 @@ static int handler_id_n_signals_output_get(const char *path,
     char sig_name[1024];
     int i = 0, j = md->n_outputs;
 
-    if (md->flags & FLAGS_OUTPUTS_GET)
+    if (!argc && (md->flags & FLAGS_OUTPUTS_GET))
         return 0;
 
     if (argc > 0) {
@@ -1941,32 +1941,46 @@ static int handler_device_connections_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
+    int i = 0, min = -1, max = -1;
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
-    if (md->flags & FLAGS_CONNECTIONS_GET)
+    if (!argc && (md->flags & FLAGS_CONNECTIONS_GET))
         return 0;
 
+    if (argc > 0) {
+        if (types[0] == 'i')
+            min = argv[0]->i;
+        else if (types[0] == 'f')
+            min = (int)argv[0]->f;
+        if (min < 0)
+            min = 0;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            max = argv[1]->i;
+        else if (types[1] == 'f')
+            max = (int)argv[1]->f;
+        if (max < min)
+            max = min + 1;
+    }
+
     while (router) {
-
         mapper_signal_connection sc = router->connections;
-        mapper_signal sig;
-
         while (sc) {
-
 			mapper_connection c = sc->connection;
-			sig = sc->signal;
-
             while (c) {
-                mapper_admin_send_connected(admin, router, c);
+                if (max > 0 && i > max)
+                    break;
+                if (i >= min) {
+                    mapper_admin_send_connected(admin, router, c);
+                }
                 c = c->next;
-
+                i++;
             }
             sc = sc->next;
-
         }
         router = router->next;
-
     }
 
     md->flags |= FLAGS_CONNECTIONS_GET;
