@@ -1732,7 +1732,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         dest_length = (*params.values[AT_LENGTH])->i;
     else
         return 0;
-    
+
     /* Add a flavourless connection */
     mapper_connection m = mapper_router_add_connection(router, output,
                                                        dest_signal_name,
@@ -1793,7 +1793,6 @@ static int handler_signal_connection_modify(const char *path, const char *types,
                                             lo_arg **argv, int argc, lo_message msg,
                                             void *user_data)
 {
-
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal output;
@@ -1812,7 +1811,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
                        &src_signal_name))
         return 0;
-            
+
     if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /connectTo\n",
@@ -1839,7 +1838,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         trace("<%s> error parsing parameters in /connectTo, "
               "continuing anyway.\n", mapper_admin_name(admin));
     }
-    
+
     mapper_connection_set_from_message(m, output, &params);
 
     mapper_admin_send_connected(admin, router, m);
@@ -1852,32 +1851,31 @@ static int handler_signal_disconnect(const char *path, const char *types,
                                      lo_arg **argv, int argc,
                                      lo_message msg, void *user_data)
 {
-
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal output;
-        
+
     const char *src_name, *src_signal_name;
-    
+
     if (argc < 2)
         return 0;
-    
+
     if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
         && types[1] != 'S')
         return 0;
-    
+
     src_name = &argv[0]->s;
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
                        &src_signal_name))
         return 0;
-    
+
     if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /disconnect\n",
               mapper_admin_name(admin), src_signal_name);
         return 0;
     }
-    
+
     mapper_router router = mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
     if (!router) {
         trace("<%s> ignoring /disconnect, no router found for '%s'\n",
@@ -1893,14 +1891,14 @@ static int handler_signal_disconnect(const char *path, const char *types,
               mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
         return 0;
     }
-    
+
     /* The connection is removed. */
     if (mapper_router_remove_connection(router, m)) {
         return 0;
     }
-    
+
     mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
-        
+
     return 0;
 }
 
