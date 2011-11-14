@@ -18,6 +18,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->addr = lo_address_new(host, str);
     router->dest_name = strdup(name);
     router->device = device;
+    router->connections = 0;
 
     if (!router->addr) {
         mapper_router_free(router);
@@ -205,25 +206,33 @@ int mapper_router_remove_connection(mapper_router router,
     // remove associated connection instances
     mapper_signal_instance si = connection->source->active;
     while (si) {
-        mapper_connection_instance *ci = &si->connections;
-        if ((*ci)->connection == connection) {
-            *ci = (*ci)->next;
-            msig_free_connection_instance(*ci);
+        mapper_connection_instance temp, *ci = &si->connections;
+        while (*ci) {
+            if ((*ci)->connection == connection) {
+                temp = *ci;
+                *ci = (*ci)->next;
+                msig_free_connection_instance(temp);
+                break;
+            }
+            ci = &(*ci)->next;
         }
         si = si->next;
     }
-
     // do the same for reserved instances of this signal
     si = connection->source->reserve;
     while (si) {
-        mapper_connection_instance *ci = &si->connections;
-        if ((*ci)->connection == connection) {
-            *ci = (*ci)->next;
-            msig_free_connection_instance(*ci);
+        mapper_connection_instance temp, *ci = &si->connections;
+        while (*ci) {
+            if ((*ci)->connection == connection) {
+                temp = *ci;
+                *ci = (*ci)->next;
+                msig_free_connection_instance(temp);
+                break;
+            }
+            ci = &(*ci)->next;
         }
         si = si->next;
     }
-
     // find signal in signal connection list
     mapper_signal_connection sc = router->connections;
     while (sc) {

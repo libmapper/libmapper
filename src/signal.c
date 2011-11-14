@@ -566,6 +566,8 @@ void msig_reallocate_instances(mapper_signal sig, int input_history_size,
 
 void mhist_realloc(mapper_signal_history_t *history, int history_size, int sample_size, int is_output)
 {
+    if (!history || !history_size || !sample_size)
+        return;
     if (history_size == history->size)
         return;
     if (is_output || (history_size > history->size) || (history->position == 0)) {
