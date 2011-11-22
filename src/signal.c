@@ -514,6 +514,11 @@ void msig_reallocate_instances(mapper_signal sig, int input_history_size,
     if (!sig->props.is_output)
         return;
 
+    // If there is no expression, then no memory needs to be
+    // reallocated.
+    if (!c->expr)
+        return;
+
     if (input_history_size < 1)
         input_history_size = 1;
     mapper_signal_instance si;
