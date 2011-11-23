@@ -333,8 +333,6 @@ void mapper_connection_set_linear_range(mapper_connection c,
                                         mapper_signal sig,
                                         mapper_connection_range_t *r)
 {
-    c->props.mode = MO_LINEAR;
-
     char expr[256] = "";
     const char *e = expr;
 
@@ -370,7 +368,8 @@ void mapper_connection_set_linear_range(mapper_connection c,
                sizeof(mapper_connection_range_t));
 
     // If everything is successful, replace the connection's expression.
-    if (e) replace_expression_string(c, sig, e);
+    if (e && !replace_expression_string(c, sig, e))
+        c->props.mode = MO_LINEAR;
 }
 
 void mapper_connection_set_expression(mapper_connection c,
