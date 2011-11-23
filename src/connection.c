@@ -635,11 +635,8 @@ void mapper_connection_set_from_message(mapper_connection c,
         break;
     case MO_EXPRESSION:
         {
-            if (!c->props.expression) {
-                char expr[256];
-                snprintf(expr, 256, "y=x");
-                c->props.expression = strdup(expr);
-            }
+            if (!c->props.expression)
+                c->props.expression = strdup("y=x");
             mapper_connection_set_expression(c, sig, c->props.expression);
         }
         break;
