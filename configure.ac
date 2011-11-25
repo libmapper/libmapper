@@ -109,15 +109,10 @@ if test x$swig_enabled = xyes; then
    else
      AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
      if test x$have_python = xyes; then
-       AC_CHECK_PROG([PYCONFIG], [python-config], [python-config])
-       if test x$PYCONFIG = x; then
-         swig_enabled=no
-         swig_explain="(python-config not found)"
-       else
-         PYCFLAGS=$(python-config --cflags)
-         PYLIBS=$(python-config --libs)
-         AC_SUBST(SWIG)
-       fi
+       SWIGDIR=swig
+       AC_SUBST(SWIGDIR)
+       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'dylib','linux2':'so'}[[sys.platform]]")
+       AC_SUBST(PYEXT)
      else
        swig_enabled=no
        swig_explain="(python not found)"
