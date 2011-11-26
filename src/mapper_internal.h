@@ -5,6 +5,9 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+// Structs that refer to things defined in mapper.h are declared here
+// instead of in types_internal.h
+
 /**** Signals ****/
 
 /*! A signal is defined as a vector of values, along with some
@@ -34,41 +37,23 @@ struct _mapper_signal
      *  changes. */
     mapper_signal_handler *handler;
 
-    /*! An optional function to be called when a signal instance
-     *  without its own handler is updated. */
+    /*! An optional function to be called when a signal instance value
+     *  changes. */
     mapper_signal_instance_handler *instance_handler;
 };
 
 /**** Instances ****/
 
-/*! A connection instance is defined as a vector of values, along with some
- *  metadata. */
-
-struct _mapper_connection_instance
-{
-    /*! ID number of this instance. */
-    int id;
-
-    /*! Pointer to input instance. */
-    struct _mapper_signal_instance *parent;
-
-    /*! Connection this instance belongs to. */
-    struct _mapper_connection *connection;
-
-    /*! The value of this instance. */    
-    mapper_signal_history_t history;
-
-    /*! Pointer to the next instance. */
-    struct _mapper_connection_instance *next;
-};
-
 /*! A signal instance is defined as a vector of values, along with some
  *  metadata. */
 
-struct _mapper_signal_instance
+typedef struct _mapper_signal_instance
 {
     /*! ID number of this instance. */
-    int id;
+    mapper_instance_id id;
+
+    /*! User data of this instance. */
+    void *user_data;
 
     /*! Flag to show if this instance is active */
     int is_active;
@@ -86,13 +71,27 @@ struct _mapper_signal_instance
      *  signal instance. */
     struct _mapper_connection_instance *connections;
 
-    /*! An optional function to be called when the instance value
-     *  changes. */
-    mapper_signal_instance_handler *handler;
-
     /*! Pointer to the next instance. */
     struct _mapper_signal_instance *next;
-};
+} *mapper_signal_instance;
+
+/*! A connection instance is defined as a vector of values, along with some
+ *  metadata. */
+
+typedef struct _mapper_connection_instance
+{
+    /*! Pointer to input instance. */
+    struct _mapper_signal_instance *parent;
+
+    /*! Connection this instance belongs to. */
+    struct _mapper_connection *connection;
+
+    /*! The value of this instance. */    
+    mapper_signal_history_t history;
+
+    /*! Pointer to the next instance. */
+    struct _mapper_connection_instance *next;
+} *mapper_connection_instance;
 
 // Mapper internal functions
 
@@ -221,6 +220,9 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
 mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
                                                         struct _mapper_connection *c);
 
+mapper_signal_instance msig_find_instance(mapper_signal sig,
+                                          mapper_instance_id si);
+
 /*! Resume a reserved (preallocated) signal instance.
  *  \param  si The signal instance to resume. */
 void msig_resume_instance(mapper_signal_instance si);
@@ -242,6 +244,18 @@ void msig_free_connection_instance(mapper_connection_instance instance);
 
 void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value);
+
+/**** Instances ****/
+
+/*! Fetch a reserved (preallocated) signal instance.
+ *  \param  sig The signal owning the desired instance.
+ *  \param  sig_instance The requested signal instance ID.
+ *  \return The retrieved signal instance, or NULL if no free
+ *          instances were available and allocation of a new instance
+ *          was unsuccessful according to the selected allocation
+ *          strategy. */
+mapper_signal_instance msig_get_instance(mapper_signal sig,
+                                         mapper_instance_id sig_instance);
 
 /**** connections ****/
 

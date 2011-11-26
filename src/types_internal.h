@@ -24,8 +24,6 @@
  * struct name. */
 
 struct _mapper_signal;
-struct _mapper_signal_instance;
-struct _mapper_connection_instance;
 struct _mapper_admin;
 typedef struct _mapper_expr *mapper_expr;
 

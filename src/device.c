@@ -153,24 +153,22 @@ static int handler_signal_instance(const char *path, const char *types,
     if (argc < 2)
         return 0;
 
-    // Find instance
-    // TODO: use hash table instead?
-    int id = argv[0]->i32;
+    mapper_instance_id id;
+    if (types[0]==LO_INT32)
+        id = (mapper_instance_id)(long)argv[0]->i32;
+    else if (types[0]==LO_INT64)
+        id = (mapper_instance_id)(long)argv[0]->i64;
+    else
+        trace("Type for received instance id is not understood");
 
-    mapper_signal_instance si = sig->active;
-    while (si && (si->id != id)) {
-        si = si->next;
-    }
+    mapper_signal_instance si =
+        msig_get_instance(sig, id);
 
     if (!si) {
-        // try to resume a reserved instance
-        si = msig_get_instance(sig, sig->instance_allocation_type);
-        if (si) {
-            si->id = id;
-        }
-        else {
-            // TODO: need notification handler to indicate no more instances are available
-        }
+        /* TODO: need notification handler to indicate no more
+         * instances are available */
+        trace("no instances available for id=%ld\n", (long)id);
+        return 0;
     }
 
     if (si) {
@@ -185,23 +183,27 @@ static int handler_signal_instance(const char *path, const char *types,
                    argv[1], msig_vector_bytes(sig));
         }
 
-        if (si->handler) {
-            // There is a handler associated with this specific instance.
-            si->handler(si, &sig->props,
-                        &si->history.timetag[si->history.position],
-                        types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
-                        * si->history.position);
+        if (si->signal->instance_handler) {
+            // There is a handler for instances
+            si->signal->instance_handler(
+                sig, &sig->props,
+                &si->history.timetag[si->history.position],
+                types[1] == LO_NIL ? 0
+                : si->history.value+(msig_vector_bytes(sig)
+                                     * si->history.position),
+                id, si->user_data);
         }
         else if (si->signal->handler) {
-            // There is no handler for this instance, but a generic signal handler exists
+            // There is no handler for instances, but a generic signal handler exists
             si->signal->handler(sig, &sig->props,
                                 &si->history.timetag[si->history.position],
-                                types[1] == LO_NIL ? 0 : si->history.value + msig_vector_bytes(sig)
-                                * si->history.position);
+                                types[1] == LO_NIL ? 0
+                                : si->history.value+(msig_vector_bytes(sig)
+                                                     * si->history.position));
         }
 
         if (types[1] == LO_NIL) {
-            msig_release_instance(si);
+            msig_release_instance(sig, id);
         }
     }
     return 0;
@@ -239,8 +241,14 @@ static int handler_query(const char *path, const char *types,
         m = lo_message_new();
         if (!m)
             return 0;
-        if (si->id)
-            lo_message_add_int32(m, si->id);
+        if (si->id) {
+            die_unless(sizeof(si->id)==4 || sizeof(si->id)==8,
+                       "Unknown pointer size on this machine.");
+            if (sizeof(si->id)==4)
+                lo_message_add_int32(m, (long)si->id);
+            else if (sizeof(si->id)==8)
+                lo_message_add_int64(m, (long)si->id);
+        }
         if (si->history.position != -1) {
             if (si->history.type == 'f') {
                 float *v = msig_history_value_pointer(si->history);

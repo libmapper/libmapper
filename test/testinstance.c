@@ -18,19 +18,15 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-mapper_signal_instance sendinst[5] = {0, 0, 0, 0, 0};
-mapper_signal_instance recvinst[5] = {0, 0, 0, 0, 0};
+int sendinst[5] = {0, 0, 0, 0, 0};
+int recvinst[5] = {0, 0, 0, 0, 0};
+int nextid = 1;
 
 int port = 9000;
 
 int sent = 0;
 int received = 0;
 int done = 0;
-
-void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
-                          mapper_timetag_t *timetag, void *v);
-void instance_handler(mapper_signal_instance si, mapper_db_signal props,
-                      mapper_timetag_t *timetag, void *v);
 
 /*! Creation of a local source. */
 int setup_source()
@@ -44,7 +40,7 @@ int setup_source()
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     // reserve an appropriate number of instances
-    msig_reserve_instances(sendsig, 5, 0, 0);
+    msig_reserve_instances(sendsig, 5, 0);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -71,26 +67,31 @@ void cleanup_source()
     }
 }
 
-void instance_handler(mapper_signal_instance si, mapper_db_signal props,
-                      mapper_timetag_t *timetag, void *v)
+void normal_handler(mapper_signal sig, mapper_db_signal props,
+                    mapper_timetag_t *timetag, void *v)
 {
     if (v) {
-        printf("--> destination %s instance %i got %f\n",
-               props->name, si->id, (*(float*)v));
+        printf("--> destination %s (no instance) got %f\n",
+               props->name, (*(float*)v));
         received++;
     }
     else
-        printf("--> destination %s instance %i got NULL\n",
-               props->name, si->id);
+        printf("--> destination %s (no instance) got NULL\n",
+               props->name);
 }
 
-void new_instance_handler(mapper_signal_instance si, mapper_db_signal props,
-                          mapper_timetag_t *timetag, void *v)
+void instance_handler(mapper_signal sig, mapper_db_signal props,
+                      mapper_timetag_t *timetag, void *v,
+                      mapper_instance_id id, void *user_data)
 {
-    printf("--> destination %s got new instance %i\n",
-           props->name, si->id);
-    si->handler = instance_handler;
-    instance_handler(si, props, timetag, v);
+    if (v) {
+        printf("--> destination %s instance %ld got %f\n",
+               props->name, (long)id, (*(float*)v));
+        received++;
+    }
+    else
+        printf("--> destination %s instance %ld got NULL\n",
+               props->name, (long)id);
 }
 
 /*! Creation of a local destination. */
@@ -104,8 +105,8 @@ int setup_destination()
     float mn=0, mx=1;
         
     recvsig = mdev_add_input(destination, "/insig", 1, 
-                             'f', 0, &mn, &mx, 0, 0);
-    msig_reserve_instances(recvsig, 5, new_instance_handler, 0);
+                             'f', 0, &mn, &mx, normal_handler, 0);
+    msig_reserve_instances(recvsig, 5, instance_handler);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -168,9 +169,9 @@ void loop()
                 // try to create a new instance
                 for (j = 0; j < 5; j++) {
                     if (!sendinst[j]) {
-                        sendinst[j] = msig_get_instance(sendsig, 0);
-                        if (sendinst[j])
-                            printf("--> Created new sender instance: %i\n", sendinst[j]->id);
+                        sendinst[j] = nextid++;
+                        printf("--> Created new sender instance: %d\n",
+                               sendinst[j]);
                         break;
                     }
                 }
@@ -179,8 +180,10 @@ void loop()
                 // try to destroy an instance
                 j = rand() % 5;
                 if (sendinst[j]) {
-                    printf("--> Retiring sender instance %i\n", sendinst[j]->id);
-                    msig_release_instance(sendinst[j]);
+                    printf("--> Retiring sender instance %ld\n",
+                           (long)sendinst[j]);
+                    msig_release_instance(sendsig,
+                                          (mapper_instance_id)sendinst[j]);
                     sendinst[j] = 0;
                     break;
                 }
@@ -190,8 +193,11 @@ void loop()
                 if (sendinst[j]) {
                     // try to update an instance
                     value = (rand() % 10) * 1.0f;
-                    msig_update_instance(sendinst[j], &value);
-                    printf("--> sender instance %i updated to %f\n", sendinst[j]->id, value);
+                    msig_update_instance(sendsig,
+                                         (mapper_instance_id)sendinst[j],
+                                         &value);
+                    printf("--> sender instance %d updated to %f\n",
+                           sendinst[j], value);
                     sent++;
                 }
                 break;
