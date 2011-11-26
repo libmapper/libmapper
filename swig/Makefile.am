@@ -14,6 +14,10 @@ clean-local:
 	-@rm -vf _mapper.so mapper.py mapper_wrap.c
 
 install-exec-hook: $(builddir)/mapper_wrap.c
-	python setup.py install --prefix=$(prefix)
+	if test -n "$(DESTDIR)"; then\
+		python setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+	else \
+		python setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+	fi
 
 EXTRA_DIST = mapper.i tkgui.py

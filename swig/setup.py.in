@@ -16,6 +16,7 @@ LO_INCDIRS = [x[2:] for x in LO_CFLAGS.split() if x[0:2]=='-I']
 mapper_module = Extension('_mapper',
                           sources=['mapper_wrap.c'],
                           include_dirs=['@top_srcdir@/src',
+                                        '@top_builddir@/src',
                                         '@top_srcdir@/include']+LO_INCDIRS,
                           library_dirs=['@top_builddir@/src/.libs']+LO_LDDIRS,
                           libraries=['mapper-0']+LO_LDLIBS,

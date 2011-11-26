@@ -29,10 +29,10 @@ Mapper_Db_%.h: Mapper/Db/%.class
 	if [ -f $@ ]; then touch $@; fi
 
 Mapper/%.class: Mapper/%.java
-	$(JAVAC) $<
+	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
-	$(JAVAC) $<
+	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
 
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
