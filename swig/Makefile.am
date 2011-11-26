@@ -11,7 +11,10 @@ _%.$(PYEXT): $(builddir)/%_wrap.c
 	-@cp -v build/lib.*/$@ .
 
 clean-local:
-	-@rm -vf _mapper.so mapper.py mapper_wrap.c
+	-@rm -vf mapper.py mapper_wrap.c
+	python setup.py clean --all
+
+MOSTLYCLEANFILES = _mapper.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mapper_wrap.c
 	if test -n "$(DESTDIR)"; then\
@@ -19,5 +22,9 @@ install-exec-hook: $(builddir)/mapper_wrap.c
 	else \
 		python setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	fi
+
+uninstall-hook:
+	cat @top_builddir@/swig/installed_files.log \
+	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
 EXTRA_DIST = mapper.i tkgui.py

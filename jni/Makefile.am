@@ -18,7 +18,8 @@ JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class libmapper-@MAJOR_VERSION@.jar
-CLEANFILES = $(JHEADERS) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL))
+MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
+	$(subst $$,\$$,test$$1.class test$$2.class test$$3.class)
 
 Mapper_%.h: Mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))

@@ -239,6 +239,10 @@ AS_IF([test x$enable_debug = xyes],
       [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"],
       [CFLAGS="$CFLAGS -DNDEBUG"])
 
+# Add -I. so that config.h is found correctly during VPATH builds
+# (see autoconf manual section 4.9)
+CFLAGS="-I. $CFLAGS"
+
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
