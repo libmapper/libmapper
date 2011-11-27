@@ -137,6 +137,15 @@ void wait_local_devices()
     }
 }
 
+void print_instance_ids(mapper_signal sig)
+{
+    int i, n = msig_num_active_instances(sig);
+    printf("active %s: [", sig->props.name);
+    for (i=0; i<n; i++)
+        printf(" %ld", (long)msig_active_instance_id(sig, i));
+    printf(" ]   ");
+}
+
 void loop()
 {
     printf("-------------------- GO ! --------------------\n");
@@ -202,6 +211,11 @@ void loop()
                 }
                 break;
         }
+
+        print_instance_ids(sendsig);
+        print_instance_ids(recvsig);
+        printf("\n");
+
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
