@@ -276,6 +276,8 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     si->signal = sig;
     si->is_active = 1;
     msig_instance_init(si, 0);
+    si->signal->instance_handler = handler;
+    si->user_data = user_data;
 
     // add signal instance to signal
     si->next = sig->active;
@@ -324,8 +326,6 @@ void msig_reserve_instances(mapper_signal sig, int num,
             sig->reserve = si;
         }
     }
-
-    sig->instance_handler = handler;
 }
 
 mapper_signal_instance msig_get_active_instances(mapper_signal sig)

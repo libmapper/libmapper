@@ -158,8 +158,10 @@ static int handler_signal_instance(const char *path, const char *types,
         id = (mapper_instance_id)(long)argv[0]->i32;
     else if (types[0]==LO_INT64)
         id = (mapper_instance_id)(long)argv[0]->i64;
-    else
+    else {
         trace("Type for received instance id is not understood");
+        return 0;
+    }
 
     mapper_signal_instance si =
         msig_get_instance(sig, id);
