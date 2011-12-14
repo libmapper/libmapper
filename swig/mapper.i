@@ -975,6 +975,9 @@ typedef struct _admin {} admin;
     db *get_db() {
         return mapper_monitor_get_db($self);
     }
+    void autorequest(const int enable) {
+        mapper_monitor_autorequest($self, enable);
+    }
     int request_devices() {
         return mapper_monitor_request_devices($self);
     }
