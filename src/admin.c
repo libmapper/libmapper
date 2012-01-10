@@ -101,15 +101,16 @@ struct handler_method_assoc {
 };
 static struct handler_method_assoc device_handlers[] = {
     {"/who",                    "",         handler_who},
-    {"%s/signals/get",          "",         handler_id_n_signals_get},
-    {"%s/signals/input/get",    "",         handler_id_n_signals_input_get},
-    {"%s/signals/output/get",   "",         handler_id_n_signals_output_get},
+    {"%s/signals/get",          NULL,       handler_id_n_signals_get},
+    {"%s/signals/input/get",    NULL,       handler_id_n_signals_input_get},
+    {"%s/signals/output/get",   NULL,       handler_id_n_signals_output_get},
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   "ss",       handler_device_link},
+    {"/linkTo",                 "sssi",     handler_device_linkTo},
     {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
-    {"%s/connections/get",      "",         handler_device_connections_get},
+    {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connectTo",              NULL,       handler_signal_connectTo},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
@@ -532,7 +533,6 @@ int mapper_admin_poll(mapper_admin admin)
         admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
-              AT_IP, inet_ntoa(admin->interface_ip),
               AT_PORT, admin->port.value,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -765,7 +765,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
-        AT_IP, inet_ntoa(admin->interface_ip),
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -798,6 +797,15 @@ static int handler_device(const char *path, const char *types,
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
+
+    if (params.types[AT_IP]==0 && params.values[AT_IP]==0) {
+        params.types[AT_IP] = types;  // 's'
+
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        const char *host = lo_address_get_hostname(a);
+        params.values[AT_IP] = (lo_arg**)&host;
+    }
 
     mapper_db_add_or_update_device_params(db, name, &params);
 
@@ -867,12 +875,33 @@ static int handler_id_n_signals_input_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i;
+    int i = 0, j = md->n_inputs;
 
-    if (md->flags & FLAGS_INPUTS_GET)
+    if (!argc && (md->flags & FLAGS_INPUTS_GET))
         return 0;
 
-    for (i = 0; i < md->n_inputs; i++) {
+    if (argc > 0) {
+        if (types[0] == 'i')
+            i = argv[0]->i;
+        else if (types[0] == 'f')
+            i = (int)argv[0]->f;
+        if (i < 0)
+            i = 0;
+        else if (i >= md->n_inputs)
+            i = md->n_inputs - 1;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            j = argv[1]->i;
+        else if (types[1] == 'f')
+            j = (int)argv[1]->f;
+        if (j > md->n_inputs)
+            j = md->n_inputs;
+        if (j < i)
+            j = i + 1;
+    }
+
+    for (; i < j; i++) {
         mapper_signal sig = md->inputs[i];
         if (sig->props.hidden == 0) {
             msig_full_name(sig, sig_name, 1024);
@@ -904,12 +933,33 @@ static int handler_id_n_signals_output_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i;
+    int i = 0, j = md->n_outputs;
 
-    if (md->flags & FLAGS_OUTPUTS_GET)
+    if (!argc && (md->flags & FLAGS_OUTPUTS_GET))
         return 0;
 
-    for (i = 0; i < md->n_outputs; i++) {
+    if (argc > 0) {
+        if (types[0] == 'i')
+            i = argv[0]->i;
+        else if (types[0] == 'f')
+            i = (int)argv[0]->f;
+        if (i < 0)
+            i = 0;
+        else if (i >= md->n_outputs)
+            i = md->n_outputs - 1;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            j = argv[1]->i;
+        else if (types[1] == 'f')
+            j = (int)argv[1]->f;
+        if (j > md->n_outputs)
+            j = md->n_outputs;
+        if (j < i)
+            j = i + 1;
+    }
+
+    for (; i < j; i++) {
         mapper_signal sig = md->outputs[i];
         if (sig->props.hidden == 0) {
             msig_full_name(sig, sig_name, 1024);
@@ -1266,7 +1316,6 @@ static int handler_device_link(const char *path, const char *types,
     if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
         mapper_admin_send_osc(
             admin, "/linkTo", "ss", src_name, dest_name,
-            AT_IP, inet_ntoa(admin->interface_ip),
             AT_PORT, admin->port.value);
     }
     return 0;
@@ -1319,14 +1368,16 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Check the results.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
-    if (!host) {
-        trace("can't perform /linkTo, host unknown\n");
-        return 0;
-    }
 
     if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
         trace("can't perform /linkTo, port unknown\n");
         return 0;
+    }
+
+    if (!host) {
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        host = lo_address_get_hostname(a);
     }
 
     // Creation of a new router added to the source.
@@ -1899,32 +1950,46 @@ static int handler_device_connections_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
+    int i = 0, min = -1, max = -1;
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
-    if (md->flags & FLAGS_CONNECTIONS_GET)
+    if (!argc && (md->flags & FLAGS_CONNECTIONS_GET))
         return 0;
 
+    if (argc > 0) {
+        if (types[0] == 'i')
+            min = argv[0]->i;
+        else if (types[0] == 'f')
+            min = (int)argv[0]->f;
+        if (min < 0)
+            min = 0;
+    }
+    if (argc > 1) {
+        if (types[1] == 'i')
+            max = argv[1]->i;
+        else if (types[1] == 'f')
+            max = (int)argv[1]->f;
+        if (max < min)
+            max = min + 1;
+    }
+
     while (router) {
-
         mapper_signal_connection sc = router->connections;
-        mapper_signal sig;
-
         while (sc) {
-
 			mapper_connection c = sc->connection;
-			sig = sc->signal;
-
             while (c) {
-                mapper_admin_send_connected(admin, router, c);
+                if (max > 0 && i > max)
+                    break;
+                if (i >= min) {
+                    mapper_admin_send_connected(admin, router, c);
+                }
                 c = c->next;
-
+                i++;
             }
             sc = sc->next;
-
         }
         router = router->next;
-
     }
 
     md->flags |= FLAGS_CONNECTIONS_GET;
