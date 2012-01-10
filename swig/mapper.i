@@ -53,7 +53,7 @@
         Py_INCREF($result);
     }
  }
-%typemap(out) boolean {
+%typemap(out) booltype {
     PyObject *o = $1 ? Py_True : Py_False;
     Py_INCREF(o);
     return o;
@@ -266,7 +266,10 @@
 #include <mapper_internal.h>
 
 // Note: inet_ntoa() crashes on OS X if this header isn't included!
+// On the other hand, doesn't compile on Windows if it is.
+#ifdef __APPLE__
 #include <arpa/inet.h>
+#endif
 
 typedef struct _device {} device;
 typedef struct _signal {} signal__;
@@ -443,7 +446,7 @@ typedef struct {
 } sigval, *maybeSigVal;
 
 typedef int* maybeInt;
-typedef int boolean;
+typedef int booltype;
 
 typedef struct {
     mapper_db_connection_t props;
@@ -839,7 +842,7 @@ typedef struct _admin {} admin;
     }
     int get_length() { return ((mapper_signal)$self)->props.length; }
     char get_type() { return ((mapper_signal)$self)->props.type; }
-    boolean get_is_output() { return ((mapper_signal)$self)->props.is_output; }
+    booltype get_is_output() { return ((mapper_signal)$self)->props.is_output; }
     const char* get_device_name() {
         return ((mapper_signal)$self)->props.device_name;
     }

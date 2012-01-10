@@ -174,7 +174,7 @@ static int expr_lex(const char **str, token_t *tok)
         } while (c && isdigit(c));
         n = atoi(s);
         integer_found = 1;
-        if (c!='.') {
+        if (c!='.' && c!='e') {
             tok->i = n;
             tok->type = TOK_INT;
             return 0;
@@ -183,20 +183,38 @@ static int expr_lex(const char **str, token_t *tok)
 
     switch (c) {
     case '.':
-        s = *str;
         c = (*(++*str));
-        if (!isdigit(c) && integer_found) {
+        if (!isdigit(c) && c!='e' && integer_found) {
             tok->type = TOK_FLOAT;
             tok->f = (float)n;
             return 0;
         }
-        if (!isdigit(c))
+        if (!isdigit(c) && c!='e')
             break;
         do {
             c = (*(++*str));
         } while (c && isdigit(c));
-        tok->f = (float)n + atof(s);
+        if (c!='e') {
+            tok->f = atof(s);
+            tok->type = TOK_FLOAT;
+            return 0;
+        }
+    case 'e':
+        if (!integer_found) {
+            printf("unexpected `e' outside float\n");
+            break;
+        }
+        c = (*(++*str));
+        if (c!='-' && !isdigit(c)) {
+            printf("Incomplete scientific notation `%s'.\n",s);
+            break;
+        }
+        if (c=='-')
+            c = (*(++*str));
+        while (c && isdigit(c))
+            c = (*(++*str));
         tok->type = TOK_FLOAT;
+        tok->f = atof(s);
         return 0;
     case '+':
     case '-':
