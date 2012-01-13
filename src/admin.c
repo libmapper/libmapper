@@ -804,6 +804,15 @@ static int handler_device(const char *path, const char *types,
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
+    if (params.types[AT_IP]==0 && params.values[AT_IP]==0) {
+        params.types[AT_IP] = types;  // 's'
+
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        const char *host = lo_address_get_hostname(a);
+        params.values[AT_IP] = (lo_arg**)&host;
+    }
+
     mapper_db_add_or_update_device_params(db, name, &params);
 
     return 0;

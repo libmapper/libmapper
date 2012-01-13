@@ -22,6 +22,9 @@ typedef struct _mapper_db_device {
     char *name;   //!< Device name.
     char *host;   //!< Device network host name.
     int port;     //!< Device network port.
+    int n_inputs; //!< Number of associated input signals.
+    int n_outputs;//!< Number of associated output signals.
+    int version;  //!< Reported device state version.
     void* user_data; //!< User modifiable data.
 
     /*! Extra properties associated with this device. */
