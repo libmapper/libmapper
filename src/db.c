@@ -554,6 +554,9 @@ static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
     { 'i', 0, DEVDB_OFFSET(port) },
     { 's', 1, DEVDB_OFFSET(name) },
+    { 'i', 0, DEVDB_OFFSET(n_inputs) },
+    { 'i', 0, DEVDB_OFFSET(n_outputs) },
+    { 'i', 0, DEVDB_OFFSET(version) },
     { 'i', 0, DEVDB_OFFSET(user_data) },
 };
 
@@ -562,11 +565,14 @@ static string_table_node_t devdb_nodes[] = {
     { "host",      &devdb_values[0] },
     { "port",      &devdb_values[1] },
     { "name",      &devdb_values[2] },
-    { "user_data", &devdb_values[3] },
+    { "n_inputs",  &devdb_values[3] },
+    { "n_outputs", &devdb_values[4] },
+    { "version",   &devdb_values[5] },
+    { "user_data", &devdb_values[6] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 4, 4 };
+  { devdb_nodes, 7, 7 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -653,21 +659,21 @@ int mapper_db_property_lookup(void *thestruct, char o_type,
     }
 
     property_table_value_t *prop;
-    prop = table_find_p(&sigdb_table, property);
+    prop = table_find_p(proptable, property);
     if (prop) {
         *type = prop->type == 'o' ? o_type : prop->type;
         if (prop->indirect) {
             lo_arg **pp = (lo_arg**)((char*)thestruct + prop->offset);
             if (*pp)
                 *value = *pp;
-            else
+            else {
                 return 1;
+            }
         }
         else
             *value = (lo_arg*)((char*)thestruct + prop->offset);
         return 0;
     }
-
     return 1;
 }
 
@@ -683,11 +689,13 @@ static void update_device_record_params(mapper_db_device reg,
 
     update_string_if_arg(&reg->host, params, AT_IP);
 
-    lo_arg **a_port = mapper_msg_get_param(params, AT_PORT);
-    const char *t_port = mapper_msg_get_type(params, AT_PORT);
+    update_int_if_arg(&reg->port, params, AT_PORT);
 
-    if (a_port && t_port[0]=='i')
-        reg->port = (*a_port)->i;
+    update_int_if_arg(&reg->n_inputs, params, AT_NUMINPUTS);
+
+    update_int_if_arg(&reg->n_outputs, params, AT_NUMOUTPUTS);
+
+    update_int_if_arg(&reg->version, params, AT_REV);
 
     add_or_update_extra_params(reg->extra, params);
 }
