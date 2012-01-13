@@ -9,6 +9,8 @@ extern "C" {
  * to hold arbitrary signal and device parameters. */
 struct _mapper_string_table;
 
+struct _mapper_monitor;
+
 /*! \file This file defines structs used to return information from
  *  the network database. */
 
@@ -170,6 +172,19 @@ typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
 } mapper_db_link_t, *mapper_db_link;
+    
+typedef struct _mapper_db_batch_signal_request
+{
+    // pointer to monitor
+    struct _mapper_monitor *monitor;
+    // pointer to device
+    mapper_db_device device;
+    // current signal index
+    int index;
+    // total signal count
+    int signal_count;
+    int batch_size;
+} *mapper_db_batch_signal_request;
 
 #ifdef __cplusplus
 }
