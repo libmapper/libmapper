@@ -917,7 +917,7 @@ static int handler_id_n_signals_input_get(const char *path,
             msig_full_name(sig, sig_name, 1024);
             mapper_admin_send_osc(
                 admin, "/signal", "s", sig_name,
-                AT_ID, i,
+                "@ID", i,
                 AT_DIRECTION, "input",
                 AT_TYPE, sig->props.type,
                 AT_LENGTH, sig->props.length,
@@ -980,7 +980,7 @@ static int handler_id_n_signals_output_get(const char *path,
             msig_full_name(sig, sig_name, 1024);
             mapper_admin_send_osc(
                 admin, "/signal", "s", sig_name,
-                AT_ID, i,
+                "@ID", i,
                 AT_DIRECTION, "output",
                 AT_TYPE, sig->props.type,
                 AT_LENGTH, sig->props.length,

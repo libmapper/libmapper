@@ -75,7 +75,6 @@ int mapper_monitor_request_signals_by_name_and_index(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/signals/get", name);
-    mapper_admin_send_osc(mon->admin, cmd, "");
 	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
     return 0;
 }
@@ -84,6 +83,9 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
                                              mapper_db_action_t a,
                                              void *user)
 {
+    if (a != MDB_NEW)
+        return;
+
     mapper_db_batch_signal_request data = (mapper_db_batch_signal_request)user;
     if (!data)
         return;
@@ -94,7 +96,7 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     int index;
     lo_type type;
     const lo_arg *value;
-    if (!mapper_db_signal_property_lookup(sig, "@ID", &type, &value)) {
+    if (!mapper_db_signal_property_lookup(sig, "ID", &type, &value)) {
         if (type == LO_INT32)
             index = value->i32;
         else

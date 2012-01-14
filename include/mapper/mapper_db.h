@@ -181,13 +181,13 @@ typedef struct _mapper_db_batch_signal_request
     // pointer to monitor
     struct _mapper_monitor *monitor;
     // pointer to device
-    mapper_db_device device;
+    struct _mapper_db_device *device;
     // current signal index
     int index;
     // total signal count
     int signal_count;
     int batch_size;
-} *mapper_db_batch_signal_request;
+} mapper_db_batch_signal_request_t, *mapper_db_batch_signal_request;
 
 #ifdef __cplusplus
 }

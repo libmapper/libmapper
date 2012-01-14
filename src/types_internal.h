@@ -236,7 +236,6 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_ID,
     AT_IP,
     AT_PORT,
     AT_NUMINPUTS,

@@ -991,12 +991,13 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
             list_prepend_item(sig, (void**)(is_output
                                             ? &db->registered_outputs
                                             : &db->registered_inputs));
-
-        fptr_list cb = db->signal_callbacks;
+        // TODO: Should we really allow callbacks to free themselves?
+        fptr_list cb = db->signal_callbacks, temp;
         while (cb) {
+            temp = cb->next;
             signal_callback_func *f = cb->f;
             f(sig, psig ? MDB_MODIFY : MDB_NEW, cb->context);
-            cb = cb->next;
+            cb = temp;
         }
     }
 
