@@ -19,21 +19,39 @@ static double get_current_time()
 #endif
 }
 
-mapper_monitor mapper_monitor_new(void)
+mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
-    mon->admin = mapper_admin_new(0, 0, 0);
+
+    if (admin) {
+        mon->admin = admin;
+        mon->own_admin = 0;
+    }
+    else {
+        mon->admin = mapper_admin_new(0, 0, 0);
+        mon->own_admin = 1;
+    }
+
+    if (!mon->admin) {
+        mapper_monitor_free(mon);
+        return NULL;
+    }
+
     mapper_admin_add_monitor(mon->admin, mon);
-    mapper_monitor_autorequest(mon, 1);
+    if (enable_autorequest)
+        mapper_monitor_autorequest(mon, 1);
     return mon;
 }
 
 void mapper_monitor_free(mapper_monitor mon)
 {
     // TODO: free structures pointed to by the database
-    if (mon)
+    if (!mon) {
+        if (mon->admin && mon->own_admin)
+            mapper_admin_free(mon->admin);
         free(mon);
+    }
 }
 
 int mapper_monitor_poll(mapper_monitor mon, int block_ms)

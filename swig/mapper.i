@@ -905,8 +905,8 @@ typedef struct _admin {} admin;
 }
 
 %extend monitor {
-    monitor() {
-        monitor *m = mapper_monitor_new();
+    monitor(admin *DISOWN=0, int enable_autorequest=1) {
+        monitor *m = mapper_monitor_new(DISOWN, enable_autorequest);
         return m;
     }
     ~monitor() {

@@ -60,7 +60,7 @@ void printsignal(mapper_db_signal sig)
 /*! Creation of a local dummy device. */
 int setup_monitor()
 {
-    mon = mapper_monitor_new();
+    mon = mapper_monitor_new(0, 1);
     if (!mon)
         goto error;
     printf("Monitor created.\n");

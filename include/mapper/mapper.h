@@ -930,8 +930,16 @@ void mapper_db_link_done(mapper_db_link_t **s);
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
-/*! Create a network monitor. */
-mapper_monitor mapper_monitor_new(void);
+/*! Create a network monitor.
+ *  \param admin    A previously allocated admin to use.  If 0, an
+ *                  admin will be allocated for use with this monitor.
+ *  \param enable_autorequest Sets whether the monitor should 
+ *                            automatically request information on signals,
+ *                            links, and connections when it encounters a 
+ *                            previously-enseen device.
+ *  \return The new monitor. */
+mapper_monitor mapper_monitor_new(mapper_admin admin,
+                                  int enable_autorequest);
 
 /*! Free a network monitor. */
 void mapper_monitor_free(mapper_monitor mon);
@@ -964,8 +972,7 @@ int mapper_monitor_request_connections_by_name(
 
 /*! When auto-request is enabled (enable=1), the monitor automatically
  *  makes requests for information on signals, links, and connections
- *  when it encounters a previously-unseen device. By default,
- *  auto-request is enabled for monitors. */
+ *  when it encounters a previously-unseen device. */
 void mapper_monitor_autorequest(mapper_monitor mon, int enable);
 
 /*! Interface to add a link between two devices.

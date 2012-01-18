@@ -229,6 +229,12 @@ typedef struct _mapper_db {
 
 typedef struct _mapper_monitor {
     mapper_admin      admin;    //<! Admin for this monitor.
+
+    /*! Non-zero if this monitor is the sole owner of this admin, i.e.,
+     *  it was created during mapper_monitor_new() and should be freed during
+     *  mapper_monitor_free(). */
+    int own_admin;
+
     mapper_db_t       db;       //<! Database for this monitor. 
 }  *mapper_monitor;
 
