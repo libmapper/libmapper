@@ -86,7 +86,7 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     if (a != MDB_NEW)
         return;
 
-    mapper_db_batch_signal_request data = (mapper_db_batch_signal_request)user;
+    mapper_db_batch_request data = (mapper_db_batch_request)user;
     if (!data)
         return;
 
@@ -101,7 +101,7 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
             index = value->i32;
         else
             return;
-        if (index == (data->signal_count - 1)) {
+        if (index == (data->total_count - 1)) {
             // signal reporting is complete
             mapper_db_remove_signal_callback(&data->monitor->db,
                                              on_signal_continue_batch_request, data);
@@ -116,14 +116,14 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     }
 }
 
-void mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
-                                                  const char* name,
-                                                  int batch_size)
+int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
+                                                 const char* name,
+                                                 int batch_size)
 {
     // find the db record of device
     mapper_db_device dev = mapper_db_get_device_by_name(&mon->db, name);
     if (!dev) {
-        return;
+        return 1;
     }
 
     int signal_count = 0;
@@ -138,18 +138,24 @@ void mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
             signal_count = signal_count > value->i32 ? signal_count : value->i32;
 
     if (!signal_count)
-        return;
+        return 1;
 
-    mapper_db_batch_signal_request data = (mapper_db_batch_signal_request)
-                                          malloc(sizeof(struct _mapper_db_batch_signal_request));
+    if (signal_count <= batch_size) {
+        mapper_monitor_request_signals_by_name(mon, name);
+        return 1;
+    }
+
+    mapper_db_batch_request data = (mapper_db_batch_request)
+                                    malloc(sizeof(struct _mapper_db_batch_request));
     data->monitor = mon;
     data->device = dev;
     data->index = 0;
-    data->signal_count = signal_count;
+    data->total_count = signal_count;
     data->batch_size = batch_size;
 
     mapper_db_add_signal_callback(&mon->db, on_signal_continue_batch_request, data);
     mapper_monitor_request_signals_by_name_and_index(mon, name, 0, batch_size);
+    return 0;
 }
 
 int mapper_monitor_request_devices(mapper_monitor mon)
@@ -173,6 +179,94 @@ int mapper_monitor_request_connections_by_name(mapper_monitor mon,
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
 	mapper_admin_send_osc(mon->admin, cmd, "");
+    return 0;
+}
+
+int mapper_monitor_request_connections_by_name_and_index(mapper_monitor mon,
+                                                         const char* name,
+                                                         int start_index,
+                                                         int stop_index)
+{
+	char cmd[1024];
+	snprintf(cmd, 1024, "%s/connections/get", name);
+	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
+    return 0;
+}
+
+static void on_connection_continue_batch_request(mapper_db_connection con,
+                                                 mapper_db_action_t a,
+                                                 void *user)
+{
+    if (a != MDB_NEW)
+        return;
+
+    mapper_db_batch_request data = (mapper_db_batch_request)user;
+    if (!data)
+        return;
+
+    mapper_db_device dev_to_match = data->device;
+    if (strcmp(con->src_name, dev_to_match->name) != 0)
+        return;
+    int index;
+    lo_type type;
+    const lo_arg *value;
+    if (!mapper_db_connection_property_lookup(con, "ID", &type, &value)) {
+        if (type == LO_INT32)
+            index = value->i32;
+        else
+            return;
+        if (index == (data->total_count - 1)) {
+            // connection reporting is complete
+            mapper_db_remove_connection_callback(&data->monitor->db,
+                                                 on_connection_continue_batch_request,
+                                                 data);
+            free(data);
+            return;
+        }
+        if (index > 0 && (index % data->batch_size == 0))
+            mapper_monitor_request_connections_by_name_and_index(data->monitor,
+                                                                 data->device->name,
+                                                                 index + 1,
+                                                                 index + data->batch_size);
+    }
+}
+
+int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
+                                                     const char* name,
+                                                     int batch_size)
+{
+    // find the db record of device
+    mapper_db_device dev = mapper_db_get_device_by_name(&mon->db, name);
+    if (!dev) {
+        return 1;
+    }
+
+    int connection_count = 0;
+    lo_type type;
+    const lo_arg *value;
+    if (!mapper_db_device_property_lookup(dev, "n_connections", &type, &value)) {
+        if (type == LO_INT32)
+            connection_count = value->i32;
+    }
+
+    if (!connection_count)
+        return 1;
+
+    if (connection_count <= batch_size) {
+        mapper_monitor_request_connections_by_name(mon, name);
+        return 1;
+    }
+
+    mapper_db_batch_request data = (mapper_db_batch_request)
+    malloc(sizeof(struct _mapper_db_batch_request));
+    data->monitor = mon;
+    data->device = dev;
+    data->index = 0;
+    data->total_count = connection_count;
+    data->batch_size = batch_size;
+
+    mapper_db_add_connection_callback(&mon->db, on_connection_continue_batch_request, data);
+    mapper_monitor_request_connections_by_name_and_index(mon, name, 0, batch_size);
     return 0;
 }
 
@@ -263,10 +357,9 @@ static void on_device_autorequest(mapper_db_device dev,
         mapper_monitor mon = (mapper_monitor)(user);
 
         // Request signals, links, connections for new devices.
-        //mapper_monitor_request_signals_by_name(mon, dev->name);
         mapper_monitor_batch_request_signals_by_name(mon, dev->name, 10);
         mapper_monitor_request_links_by_name(mon, dev->name);
-        mapper_monitor_request_connections_by_name(mon, dev->name);
+        mapper_monitor_batch_request_connections_by_name(mon, dev->name, 10);
     }
 }
 

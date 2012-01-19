@@ -10,6 +10,8 @@ const char* mapper_msg_param_strings[] =
     "@port",       /* AT_PORT */
     "@numInputs",  /* AT_NUMINPUTS */
     "@numOutputs", /* AT_NUMOUTPUTS */
+    "@numLinks",   /* AT_NUMLINKS */
+    "@numConnects",/* AT_NUM_CONNECTIONS */
     "@rev",        /* AT_REV */
     "@type",       /* AT_TYPE */
     "@min",        /* AT_MIN */
@@ -256,6 +258,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_PORT:
         case AT_NUMINPUTS:
         case AT_NUMOUTPUTS:
+        case AT_NUMLINKS:
+        case AT_NUMCONNECTIONS:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;

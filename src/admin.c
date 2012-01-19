@@ -774,6 +774,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+        AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,
+        AT_NUMCONNECTIONS, admin->device ? mdev_num_connections(admin->device) : 0,
         AT_REV, admin->device->version,
         AT_EXTRA, admin->device->extra);
 
@@ -1402,6 +1404,7 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
     mdev_add_router(md, router);
+    md->n_links++;
 
     // Announce the result.
     mapper_admin_send_osc(admin, "/linked", "ss",
@@ -1502,6 +1505,7 @@ static int handler_device_unlink(const char *path, const char *types,
         mapper_router_find_by_dest_name(md->routers, dest_name);
     if (router) {
         mdev_remove_router(md, router);
+        md->n_links--;
         mapper_admin_send_osc(admin, "/unlinked", "ss",
                               mapper_admin_name(admin), dest_name);
     }
@@ -1771,6 +1775,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         mapper_connection_set_from_message(m, output, &params);
     }
 
+    md->n_connections++;
     mapper_admin_send_connected(admin, router, m, -1);
 
     return 0;
@@ -1921,7 +1926,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
     if (mapper_router_remove_connection(router, m)) {
         return 0;
     }
-    
+
+    md->n_connections--;
     mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
         
     return 0;

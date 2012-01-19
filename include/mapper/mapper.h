@@ -232,6 +232,12 @@ int mdev_num_hidden_inputs(mapper_device dev);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
 
+//! Return the number of links.
+int mdev_num_links(mapper_device dev);
+
+//! Return the number of connections.
+int mdev_num_connections(mapper_device dev);
+
 /*! Get input signals.
  *  \param dev Device to search in.
  *  \return Pointer to the linked list of input mapper_signals, or zero
@@ -517,8 +523,7 @@ void mapper_db_device_done(mapper_db_device_t **);
  *  \param type Address of a lo_type to receive the property value
  *              type.
  *  \param value Address of a lo_arg* to receive the property value.
- *  \return Zero if found, otherwise non-zero.
- *  @ingroup devicedb */
+ *  \return Zero if found, otherwise non-zero. */
 int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     const char **property, lo_type *type,
                                     const lo_arg **value);
@@ -530,8 +535,7 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
  *              property value. (Required.)
  *  \param value A pointer a location to receive the address of the
  *               property's value. (Required.)
- *  \return Zero if found, otherwise non-zero.
- *  @ingroup devicedb */
+ *  \return Zero if found, otherwise non-zero. */
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
                                      lo_type *type,
@@ -640,8 +644,7 @@ void mapper_db_signal_done(mapper_db_signal_t **s);
  *                  indexed property.  May be zero.
  *  \param type Address of a lo_type to receive the property value type.
  *  \param value Address of a lo_arg* to receive the property value.
- *  \return Zero if found, otherwise non-zero.
- *  @ingroup signaldb */
+ *  \return Zero if found, otherwise non-zero. */
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
                                     const char **property, lo_type *type,
                                     const lo_arg **value);
@@ -653,8 +656,7 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
  *              property value. (Required.)
  *  \param value A pointer a location to receive the address of the
  *               property's value. (Required.)
- *  \return Zero if found, otherwise non-zero.
- *  @ingroup signaldb */
+ *  \return Zero if found, otherwise non-zero. */
 int mapper_db_signal_property_lookup(mapper_db_signal sig,
                                      const char *property,
                                      lo_type *type,
@@ -814,6 +816,35 @@ mapper_db_connection_t **mapper_db_connection_next(mapper_db_connection_t**);
  *  \param The previous connection record pointer. */
 void mapper_db_connection_done(mapper_db_connection_t **);
 
+/*! Look up a connection property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param con The connection to look at.
+ *  \param index Numerical index of a connection property.
+ *  \param property Address of a string pointer to receive the name of
+ *                  indexed property.  May be zero.
+ *  \param type Address of a lo_type to receive the property value
+ *              type.
+ *  \param value Address of a lo_arg* to receive the property value.
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_connecion_property_index(mapper_db_connection con,
+                                       unsigned int index,
+                                       const char **property,
+                                       lo_type *type,
+                                       const lo_arg **value);
+
+/*! Look up a connection property by name.
+ *  \param con The connection to look at.
+ *  \param property The name of the property to retrive.
+ *  \param type A pointer to a location to receive the type of the
+ *              property value. (Required.)
+ *  \param value A pointer a location to receive the address of the
+ *               property's value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_connection_property_lookup(mapper_db_connection con,
+                                         const char *property,
+                                         lo_type *type,
+                                         const lo_arg **value);
+
 /* @} */
 
 /***** Links *****/
@@ -916,6 +947,33 @@ mapper_db_link_t **mapper_db_link_next(mapper_db_link_t**);
  *  \param The previous link record double-pointer. */
 void mapper_db_link_done(mapper_db_link_t **s);
 
+/*! Look up a link property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param link The link to look at.
+ *  \param index Numerical index of a link property.
+ *  \param property Address of a string pointer to receive the name of
+ *                  indexed property.  May be zero.
+ *  \param type Address of a lo_type to receive the property value
+ *              type.
+ *  \param value Address of a lo_arg* to receive the property value.
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
+                                  const char **property, lo_type *type,
+                                  const lo_arg **value);
+
+/*! Look up a link property by name.
+ *  \param link The link to look at.
+ *  \param property The name of the property to retrive.
+ *  \param type A pointer to a location to receive the type of the
+ *              property value. (Required.)
+ *  \param value A pointer a location to receive the address of the
+ *               property's value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_link_property_lookup(mapper_db_link link,
+                                   const char *property,
+                                   lo_type *type,
+                                   const lo_arg **value);
+
 /* @} */
 
 /***** Monitors *****/
@@ -954,6 +1012,14 @@ int mapper_monitor_request_devices(mapper_monitor mon);
 int mapper_monitor_request_signals_by_name(
     mapper_monitor mon, const char* name);
 
+/*! Request an indexed subset of signals for specific device. */
+int mapper_monitor_request_signals_by_name_and_index(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+
+/*! Request signals for specific device in measured batches. */
+int mapper_monitor_batch_request_signals_by_name(
+    mapper_monitor mon, const char* name, int batch_size);
+
 /*! Request links for specific device. */
 int mapper_monitor_request_links_by_name(
     mapper_monitor mon, const char* name);
@@ -961,6 +1027,14 @@ int mapper_monitor_request_links_by_name(
 /*! Request connections for specific device. */
 int mapper_monitor_request_connections_by_name(
     mapper_monitor mon, const char* name);
+
+/*! Request an indexed subset of connections for specific device. */
+int mapper_monitor_request_connections_by_name_and_index(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+
+/*! Request connections for specific device in measured batches. */
+int mapper_monitor_batch_request_connections_by_name(
+    mapper_monitor mon, const char* name, int batch_size);
 
 /*! When auto-request is enabled (enable=1), the monitor automatically
  *  makes requests for information on signals, links, and connections

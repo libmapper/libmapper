@@ -341,6 +341,16 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
+int mdev_num_links(mapper_device md)
+{
+    return md->n_links;
+}
+
+int mdev_num_connections(mapper_device md)
+{
+    return md->n_connections;
+}
+
 mapper_signal *mdev_get_inputs(mapper_device md)
 {
     return md->inputs;
