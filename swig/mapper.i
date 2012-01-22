@@ -593,9 +593,9 @@ typedef struct _admin {} admin;
     // Note, these functions return memory which is _not_ owned by
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
-    signal* add_input(const char *name, const char type='f',
-                      PyObject *PyFunc=0, char *unit=0,
-                      maybeSigVal minimum=0, maybeSigVal maximum=0)
+    signal* add_input(const char *name, int length=1, const char type='f',
+                      const char *unit=0, maybeSigVal minimum=0,
+                      maybeSigVal maximum=0, PyObject *PyFunc=0)
     {
         mapper_signal_handler *h = 0;
         if (PyFunc) {
@@ -641,11 +641,65 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_input($self, name, 1, type, unit,
+        return mdev_add_input($self, name, length, type, unit,
                               pmn, pmx, h, PyFunc);
     }
-    signal* add_output(const char *name, char type='f', const char *unit=0,
-                       maybeSigVal minimum=0, maybeSigVal maximum=0)
+    signal* add_hidden_input(const char *name, int length=1, const char type='f',
+                             const char *unit=0, maybeSigVal minimum=0,
+                             maybeSigVal maximum=0, PyObject *PyFunc=0)
+    {
+        mapper_signal_handler *h = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
+        if (type == 'f')
+        {
+            if (minimum) {
+                if (minimum->t == 'f')
+                    pmn = &minimum->v;
+                else {
+                    mn.f = (float)minimum->v.i32;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'f')
+                    pmx = &maximum->v;
+                else {
+                    mx.f = (float)maximum->v.i32;
+                    pmx = &mx;
+                }
+            }
+        }
+        else if (type == 'i')
+        {
+            if (minimum) {
+                if (minimum->t == 'i')
+                    pmn = &minimum->v;
+                else {
+                    mn.i32 = (int)minimum->v.f;
+                    pmn = &mn;
+                }
+            }
+            if (maximum) {
+                if (maximum->t == 'i')
+                    pmx = &maximum->v;
+                else {
+                    mx.i32 = (int)maximum->v.f;
+                    pmx = &mx;
+                }
+            }
+        }
+        signal *sig = mdev_add_input($self, name, length, type, unit,
+                                     pmn, pmx, h, PyFunc);
+        ((mapper_signal)sig)->props.hidden = 1;
+        return sig;
+    }
+    signal* add_output(const char *name, int length=1, const char type='f',
+                       const char *unit=0, maybeSigVal minimum=0,
+                       maybeSigVal maximum=0)
     {
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -686,7 +740,7 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_output($self, name, 1, type, unit, pmn, pmx);
+        return mdev_add_output($self, name, length, type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -795,6 +849,9 @@ typedef struct _admin {} admin;
         else if (sig->props.type == 'f') {
             msig_update_float($self, (float)i);
         }
+    }
+    int query_remote(signal *receiver=0) {
+        return msig_query_remote($self, receiver);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
@@ -920,6 +977,9 @@ typedef struct _admin {} admin;
     }
     db *get_db() {
         return mapper_monitor_get_db($self);
+    }
+    void autorequest(const int enable) {
+        mapper_monitor_autorequest($self, enable);
     }
     int request_devices() {
         return mapper_monitor_request_devices($self);
