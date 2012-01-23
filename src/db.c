@@ -519,6 +519,12 @@ static mapper_db_signal_t *sigdb=0;
 static mapper_db_device_t *devdb=0;
 #define DEVDB_OFFSET(x) ((char*)&devdb->x - (char*)devdb)
 
+static mapper_db_link_t *linkdb=0;
+#define LINKDB_OFFSET(x) ((char*)&linkdb->x - (char*)linkdb)
+
+static mapper_db_connection_t *condb=0;
+#define CONDB_OFFSET(x) ((char*)&condb->x - (char*)condb)
+
 /* Here type 'o', which is not an OSC type, was reserved to mean "same
  * type as the signal's type".  The lookup and index functions will
  * return the sig->type instead of the value's type. */
@@ -556,8 +562,8 @@ static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(name) },
     { 'i', 0, DEVDB_OFFSET(n_inputs) },
     { 'i', 0, DEVDB_OFFSET(n_outputs) },
-    { 'i', 0, DEVDB_OFFSET(version) },
     { 'i', 0, DEVDB_OFFSET(user_data) },
+    { 'i', 0, DEVDB_OFFSET(version) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -567,12 +573,68 @@ static string_table_node_t devdb_nodes[] = {
     { "name",      &devdb_values[2] },
     { "n_inputs",  &devdb_values[3] },
     { "n_outputs", &devdb_values[4] },
-    { "version",   &devdb_values[5] },
-    { "user_data", &devdb_values[6] },
+    { "user_data", &devdb_values[5] },
+    { "version",   &devdb_values[6] },
 };
 
 static mapper_string_table_t devdb_table =
   { devdb_nodes, 7, 7 };
+
+static property_table_value_t linkdb_values[] = {
+    { 's', 1, LINKDB_OFFSET(dest_name) },
+    { 's', 1, LINKDB_OFFSET(src_name) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t linkdb_nodes[] = {
+    { "dest_name",  &linkdb_values[0] },
+    { "src_name", &linkdb_values[1] },
+};
+
+static mapper_string_table_t linkdb_table =
+{ linkdb_nodes, 2, 2 };
+
+static property_table_value_t condb_values[] = {
+    //{ 's', 1, CONDB_OFFSET(clip_min) },
+    //{ 's', 1, CONDB_OFFSET(clip_max) },
+    { 'i', 0, CONDB_OFFSET(dest_length) },
+    { 's', 1, CONDB_OFFSET(dest_name) },
+    { 'c', 0, CONDB_OFFSET(dest_type) },
+    { 's', 1, CONDB_OFFSET(expression) },
+    //{ 's', 1, CONDB_OFFSET(mode) },
+    { 'i', 0, CONDB_OFFSET(muted) },
+    //{ 's', 1, CONDB_OFFSET(range) },
+    { 'i', 0, CONDB_OFFSET(src_length) },
+    { 's', 1, CONDB_OFFSET(src_name) },
+    { 'c', 0, CONDB_OFFSET(src_type) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t condb_nodes[] = {
+    { "dest_length", &condb_values[0] },
+    { "dest_name",   &condb_values[1] },
+    { "dest_type",   &condb_values[2] },
+    { "expression",  &condb_values[3] },
+    { "muted",       &condb_values[4] },
+    { "src_length",  &condb_values[5] },
+    { "src_name",    &condb_values[6] },
+    { "src_type",    &condb_values[7] },
+    /*{ "clip_min",    &condb_values[0] },
+    { "clip_max",    &condb_values[1] },
+    { "dest_length", &condb_values[2] },
+    { "dest_name",   &condb_values[3] },
+    { "dest_type",   &condb_values[4] },
+    { "expression",  &condb_values[5] },
+    { "mode",        &condb_values[7] },
+    { "muted",       &condb_values[6] },
+    { "range",       &condb_values[8] },
+    { "src_length",  &condb_values[9] },
+    { "src_name",    &condb_values[10] },
+    { "src_type",    &condb_values[11] },*/
+};
+
+static mapper_string_table_t condb_table =
+{ condb_nodes, 7, 7 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -991,12 +1053,13 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
             list_prepend_item(sig, (void**)(is_output
                                             ? &db->registered_outputs
                                             : &db->registered_inputs));
-
-        fptr_list cb = db->signal_callbacks;
+        // TODO: Should we really allow callbacks to free themselves?
+        fptr_list cb = db->signal_callbacks, temp;
         while (cb) {
+            temp = cb->next;
             signal_callback_func *f = cb->f;
             f(sig, psig ? MDB_MODIFY : MDB_NEW, cb->context);
-            cb = cb->next;
+            cb = temp;
         }
     }
 
@@ -1306,6 +1369,8 @@ static void update_connection_record_params(mapper_db_connection con,
     int mute = mapper_msg_get_mute(params);
     if (mute!=-1)
         con->muted = mute;
+    
+    add_or_update_extra_params(con->extra, params);
 }
 
 int mapper_db_add_or_update_connection_params(mapper_db db,
@@ -1340,6 +1405,27 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
     }
 
     return found;
+}
+
+int mapper_db_connection_property_index(mapper_db_connection con,
+                                        unsigned int index,
+                                        const char **property,
+                                        lo_type *type,
+                                        const lo_arg **value)
+{
+    return mapper_db_property_index(con, 0, con->extra,
+                                    index, property, type,
+                                    value, &condb_table);
+}
+
+int mapper_db_connection_property_lookup(mapper_db_connection con,
+                                         const char *property,
+                                         lo_type *type,
+                                         const lo_arg **value)
+{
+    return mapper_db_property_lookup(con, 0, con->extra,
+                                     property, type, value,
+                                     &condb_table);
 }
 
 mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db)
@@ -1767,6 +1853,8 @@ static void update_link_record_params(mapper_db_link link,
 {
     update_string_if_different(&link->src_name, src_name);
     update_string_if_different(&link->dest_name, dest_name);
+
+    add_or_update_extra_params(link->extra, params);
 }
 
 int mapper_db_add_or_update_link_params(mapper_db db,
@@ -1803,6 +1891,25 @@ int mapper_db_add_or_update_link_params(mapper_db db,
     }
 
     return rc;
+}
+
+int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
+                                  const char **property, lo_type *type,
+                                  const lo_arg **value)
+{
+    return mapper_db_property_index(link, 0, link->extra,
+                                    index, property, type,
+                                    value, &linkdb_table);
+}
+
+int mapper_db_link_property_lookup(mapper_db_link link,
+                                   const char *property,
+                                   lo_type *type,
+                                   const lo_arg **value)
+{
+    return mapper_db_property_lookup(link, 0, link->extra,
+                                     property, type, value,
+                                     &linkdb_table);
 }
 
 void mapper_db_add_link_callback(mapper_db db,

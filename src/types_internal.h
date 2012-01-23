@@ -182,6 +182,8 @@ typedef struct _mapper_device {
     int n_hidden_inputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
+    int n_links;
+    int n_connections;
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
@@ -246,6 +248,8 @@ typedef enum {
     AT_PORT,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
+    AT_NUMLINKS,
+    AT_NUMCONNECTIONS,
     AT_REV,
     AT_TYPE,
     AT_MIN,
