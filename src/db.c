@@ -558,10 +558,12 @@ static mapper_string_table_t sigdb_table =
 
 static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
-    { 'i', 0, DEVDB_OFFSET(port) },
-    { 's', 1, DEVDB_OFFSET(name) },
+    { 'i', 0, DEVDB_OFFSET(n_connections) },
     { 'i', 0, DEVDB_OFFSET(n_inputs) },
+    { 'i', 0, DEVDB_OFFSET(n_links) },
     { 'i', 0, DEVDB_OFFSET(n_outputs) },
+    { 's', 1, DEVDB_OFFSET(name) },
+    { 'i', 0, DEVDB_OFFSET(port) },
     { 'i', 0, DEVDB_OFFSET(user_data) },
     { 'i', 0, DEVDB_OFFSET(version) },
 };
@@ -569,16 +571,18 @@ static property_table_value_t devdb_values[] = {
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
     { "host",      &devdb_values[0] },
-    { "port",      &devdb_values[1] },
-    { "name",      &devdb_values[2] },
-    { "n_inputs",  &devdb_values[3] },
+    { "n_connections", &devdb_values[1] },
+    { "n_inputs",  &devdb_values[2] },
+    { "n_links",   &devdb_values[3] },
     { "n_outputs", &devdb_values[4] },
-    { "user_data", &devdb_values[5] },
-    { "version",   &devdb_values[6] },
+    { "name",      &devdb_values[5] },
+    { "port",      &devdb_values[6] },
+    { "user_data", &devdb_values[7] },
+    { "version",   &devdb_values[8] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 7, 7 };
+  { devdb_nodes, 9, 9 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', 1, LINKDB_OFFSET(dest_name) },
@@ -756,6 +760,10 @@ static void update_device_record_params(mapper_db_device reg,
     update_int_if_arg(&reg->n_inputs, params, AT_NUMINPUTS);
 
     update_int_if_arg(&reg->n_outputs, params, AT_NUMOUTPUTS);
+
+    update_int_if_arg(&reg->n_links, params, AT_NUMLINKS);
+
+    update_int_if_arg(&reg->n_connections, params, AT_NUMCONNECTIONS);
 
     update_int_if_arg(&reg->version, params, AT_REV);
 
@@ -1369,7 +1377,7 @@ static void update_connection_record_params(mapper_db_connection con,
     int mute = mapper_msg_get_mute(params);
     if (mute!=-1)
         con->muted = mute;
-    
+
     add_or_update_extra_params(con->extra, params);
 }
 
@@ -1386,9 +1394,11 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
     if (con)
         found = 1;
 
-    if (!found)
+    if (!found) {
         con = (mapper_db_connection)
             list_new_item(sizeof(mapper_db_connection_t));
+        con->extra = table_new();
+    }
 
     if (con) {
         update_connection_record_params(con, src_name, dest_name, params);
@@ -1869,6 +1879,7 @@ int mapper_db_add_or_update_link_params(mapper_db db,
 
     if (!link) {
         link = (mapper_db_link) list_new_item(sizeof(mapper_db_link_t));
+        link->extra = table_new();
         rc = 1;
     }
 
