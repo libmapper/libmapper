@@ -406,6 +406,20 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
     }
 }
 
+void mapper_msg_add_osc_value_table(lo_message m, table t)
+{
+    string_table_node_t *n = t->store;
+    int i;
+    for (i=0; i<t->len; i++) {
+        char keyname[256];
+        snprintf(keyname, 256, "@%s", n->key);
+        lo_message_add_string(m, keyname);
+        mapper_osc_value_t *v = n->value;
+        msg_add_lo_arg(m, v->type, &v->value);
+        n++;
+    }
+}
+
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *msg)
 {
