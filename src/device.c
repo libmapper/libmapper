@@ -481,6 +481,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     mapper_router *r = &md->routers;
     rt->next = *r;
     *r = rt;
+    md->n_links++;
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
@@ -496,6 +497,9 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         }
         sc = sc->next;
     }
+
+    md->n_links--;
+
     mapper_router *r = &md->routers;
     while (*r) {
         if (*r == rt) {
