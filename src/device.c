@@ -489,6 +489,7 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     while (*r) {
         if (*r == rt) {
             *r = rt->next;
+            free(rt);
             break;
         }
         r = &(*r)->next;
