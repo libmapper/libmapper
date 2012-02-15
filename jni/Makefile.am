@@ -35,7 +35,7 @@ Mapper/%.class: Mapper/%.java
 test.class: test.java $(JCLASSES)
 	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
 
-libmapper-@MAJOR_VERSION@.jar: $(JCLASSES)
+libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
 EXTRA_DIST = $(JJAVA) test.java $(JHEADERS)
