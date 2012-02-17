@@ -1557,11 +1557,11 @@ static int osc_prefix_cmp(const char *str1, const char *str2,
 {
     if (str1[0]!='/') {
         trace("OSC string '%s' does not start with '/'.\n", str1);
-        return 0;
+        return -1;
     }
     if (str2[0]!='/') {
         trace("OSC string '%s' does not start with '/'.\n", str2);
-        return 0;
+        return -1;
     }
 
     // skip first slash
