@@ -200,6 +200,13 @@ downloaded from the IDMIL website at:
 
 <http://idmil.org/software/libmapper>
 
+Building and using libmapper
+----------------------------
+
+Please see the separate documentation for building libmapper, a
+tutorial on using its API, and doxygen-generated API documentation, in
+the "doc" directory.
+
 License
 -------
 
