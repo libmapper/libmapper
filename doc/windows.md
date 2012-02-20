@@ -1,3 +1,6 @@
+Note: This is an on-going document to describe the set-up procedure
+for compiling libmapper under windows. It is not done yet, sorry.  If
+you use Windows, please feel free to help.
 
 How to compile libmapper on Microsoft Windows
 =============================================
