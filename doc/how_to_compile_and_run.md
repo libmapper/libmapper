@@ -34,7 +34,7 @@ detected, by running,
 
     pkg-config --libs --cflags liblo
 
-If the path to liblo is not correctly, please set up the
+If the path to liblo is not correct, please set up the
 `PKG_CONFIG_PATH` environment variable appropriately and try again.
 
 libmapper also has optional dependencies on the Java SDK as well as
@@ -80,7 +80,7 @@ disabled with options `--disable-jni`, `--disable-swig`, and
 
 After `configure` runs successfully, the configuration options will be
 printed for your confirmation.  If anything unexpected occurs, be sure
-to example `config.log` for information about what failed.
+to check `config.log` for information about what failed.
 
 ### Building
 
@@ -152,7 +152,7 @@ these.  Some other programs, such as webmapper, may depend on them, so
 it is recommended to do so.
 
 To test that the Python module is working, it is generally enough to
-run the follwing command,
+run the following command,
 
     python -m mapper
 
@@ -226,7 +226,7 @@ Please remember that libmapper is still in a development and research
 phase.  Although it is fairly robust at this point, since it is a
 distributed, asynchronous system there are many pieces involved, and
 supporting programs may have their own problems.  As always, if you
-find a problem with libmapper or libmapper-using programs, please
+find a problem with libmapper or libmapper-enabled programs, please
 consult the [mailing list][list].
 
 Here, we address some common issues that new users encounter with the
