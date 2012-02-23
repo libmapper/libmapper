@@ -57,11 +57,17 @@ package on other Linux distributions.
 
 ### Configuring
 
-Run,
+If you have extract libmapper from a release tarball, run,
 
     ./configure
+    
+to configure the software with default options.  If you are using
+libmapper from a repository, you will need to run,
 
-to configure the software with default options.  You can optionally specify an install location with,
+    ./autogen.sh
+    
+which will create the `configure` script and run it for you.  You can
+optionally specify an install location with,
 
     ./configure --prefix=<location>
 
