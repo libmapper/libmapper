@@ -185,22 +185,6 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
     }
 }
 
-void mapper_msg_add_osc_value_table(lo_message m, table t)
-{
-    string_table_node_t *n = t->store;
-    int i;
-    for (i=0; i<t->len; i++) {
-        char keyname[256], type[2];
-        snprintf(keyname, 256, "@%s", n->key);
-        lo_message_add_string(m, keyname);
-        mapper_osc_value_t *v = n->value;
-        type[0] = v->type;
-        type[1] = 0;
-        lo_message_add(m, type, v->value);
-        n++;
-    }
-}
-
 #ifdef DEBUG
 void table_dump_osc_values(table t)
 {

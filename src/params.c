@@ -10,6 +10,8 @@ const char* mapper_msg_param_strings[] =
     "@port",       /* AT_PORT */
     "@numInputs",  /* AT_NUMINPUTS */
     "@numOutputs", /* AT_NUMOUTPUTS */
+    "@numLinks",   /* AT_NUMLINKS */
+    "@numConnects",/* AT_NUM_CONNECTIONS */
     "@rev",        /* AT_REV */
     "@type",       /* AT_TYPE */
     "@min",        /* AT_MIN */
@@ -255,14 +257,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_PORT:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
         case AT_NUMINPUTS:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
         case AT_NUMOUTPUTS:
+        case AT_NUMLINKS:
+        case AT_NUMCONNECTIONS:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
@@ -410,6 +408,20 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
     default:
         trace("unknown type in msg_add_lo_arg()\n");
         break;
+    }
+}
+
+void mapper_msg_add_osc_value_table(lo_message m, table t)
+{
+    string_table_node_t *n = t->store;
+    int i;
+    for (i=0; i<t->len; i++) {
+        char keyname[256];
+        snprintf(keyname, 256, "@%s", n->key);
+        lo_message_add_string(m, keyname);
+        mapper_osc_value_t *v = n->value;
+        msg_add_lo_arg(m, v->type, &v->value);
+        n++;
     }
 }
 

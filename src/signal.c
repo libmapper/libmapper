@@ -845,8 +845,7 @@ int msig_query_remote(mapper_signal sig, mapper_signal receiver)
         return -1;
     }
     if (receiver) {
-        mapper_signal sig2 = (mapper_signal) receiver;
-        const char *alias = sig2->props.name;
+        const char *alias = receiver->props.name;
         if (alias)
             return mdev_route_query(sig->device, sig, alias);
     }

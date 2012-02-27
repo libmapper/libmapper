@@ -18,7 +18,8 @@ JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class libmapper-@MAJOR_VERSION@.jar
-CLEANFILES = $(JHEADERS) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL))
+MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
+	$(subst $$,\$$,test$$1.class test$$2.class test$$3.class)
 
 Mapper_%.h: Mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
@@ -29,12 +30,12 @@ Mapper_Db_%.h: Mapper/Db/%.class
 	if [ -f $@ ]; then touch $@; fi
 
 Mapper/%.class: Mapper/%.java
-	$(JAVAC) $<
+	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
-	$(JAVAC) $<
+	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
 
-libmapper-@MAJOR_VERSION@.jar: $(JCLASSES)
+libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
 EXTRA_DIST = $(JJAVA) test.java $(JHEADERS)

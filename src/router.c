@@ -196,6 +196,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     // add new connection to this signal's list
     connection->next = sc->connection;
     sc->connection = connection;
+    router->device->n_connections++;
     
     return connection;
 }
@@ -241,6 +242,7 @@ int mapper_router_remove_connection(mapper_router router,
             if (*c == connection) {
                 *c = connection->next;
                 free(connection);
+                router->device->n_connections--;
                 return 0;
             }
             c = &(*c)->next;

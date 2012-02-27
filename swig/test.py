@@ -9,7 +9,7 @@ def h(sig, f):
         print sig, f
 
 def setup(d):
-    sig = d.add_input("/freq", 'i', h, "Hz")
+    sig = d.add_input("/freq", 1, 'i', "Hz", None, None, h)
     print 'inputs',d.num_inputs
     print 'minimum',sig.minimum
     sig.minimum = 34.0

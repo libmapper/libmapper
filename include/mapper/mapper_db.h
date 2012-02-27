@@ -9,6 +9,8 @@ extern "C" {
  * to hold arbitrary signal and device parameters. */
 struct _mapper_string_table;
 
+struct _mapper_monitor;
+
 /*! \file This file defines structs used to return information from
  *  the network database. */
 
@@ -20,6 +22,11 @@ typedef struct _mapper_db_device {
     char *name;   //!< Device name.
     char *host;   //!< Device network host name.
     int port;     //!< Device network port.
+    int n_inputs; //!< Number of associated input signals.
+    int n_outputs;//!< Number of associated output signals.
+    int n_links;  //!< Number of associated links.
+    int n_connections; //!< Number of associated connections.
+    int version;  //!< Reported device state version.
     void* user_data; //!< User modifiable data.
 
     /*! Extra properties associated with this device. */
@@ -120,6 +127,9 @@ typedef struct _mapper_db_connection {
                                  *   expression connection */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
+
+    /*! Extra properties associated with this connection. */
+    struct _mapper_string_table *extra;
 } mapper_db_connection_t, *mapper_db_connection;
 
 /*! A signal value may be one of several different types, so we use a
@@ -213,7 +223,23 @@ typedef struct _mapper_db_signal
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
+
+    /*! Extra properties associated with this link. */
+    struct _mapper_string_table *extra;
 } mapper_db_link_t, *mapper_db_link;
+    
+typedef struct _mapper_db_batch_request
+{
+    // pointer to monitor
+    struct _mapper_monitor *monitor;
+    // pointer to device
+    struct _mapper_db_device *device;
+    // current signal index
+    int index;
+    // total signal count
+    int total_count;
+    int batch_size;
+} mapper_db_batch_request_t, *mapper_db_batch_request;
 
 #ifdef __cplusplus
 }

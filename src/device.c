@@ -448,6 +448,16 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
+int mdev_num_links(mapper_device md)
+{
+    return md->n_links;
+}
+
+int mdev_num_connections(mapper_device md)
+{
+    return md->n_connections;
+}
+
 mapper_signal *mdev_get_inputs(mapper_device md)
 {
     return md->inputs;
@@ -568,14 +578,30 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     mapper_router *r = &md->routers;
     rt->next = *r;
     *r = rt;
+    md->n_links++;
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
+    // first remove connections
+    mapper_signal_connection sc = rt->connections;
+    while (sc) {
+        mapper_connection c = sc->connection, temp;
+        while (c) {
+            temp = c->next;
+            mapper_router_remove_connection(rt, c);
+            c = temp;
+        }
+        sc = sc->next;
+    }
+
+    md->n_links--;
+
     mapper_router *r = &md->routers;
     while (*r) {
         if (*r == rt) {
             *r = rt->next;
+            free(rt);
             break;
         }
         r = &(*r)->next;

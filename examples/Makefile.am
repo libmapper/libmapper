@@ -2,7 +2,9 @@
 SUBDIRS = pwm_synth
 
 if HAVE_SWIG
+if HAVE_AUDIO
 SUBDIRS += py_tk_gui
+endif
 endif
 
 if HAVE_AUDIO

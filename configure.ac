@@ -109,15 +109,10 @@ if test x$swig_enabled = xyes; then
    else
      AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
      if test x$have_python = xyes; then
-       AC_CHECK_PROG([PYCONFIG], [python-config], [python-config])
-       if test x$PYCONFIG = x; then
-         swig_enabled=no
-         swig_explain="(python-config not found)"
-       else
-         PYCFLAGS=$(python-config --cflags)
-         PYLIBS=$(python-config --libs)
-         AC_SUBST(SWIG)
-       fi
+       SWIGDIR=swig
+       AC_SUBST(SWIGDIR)
+       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'dylib','linux2':'so'}[[sys.platform]]")
+       AC_SUBST(PYEXT)
      else
        swig_enabled=no
        swig_explain="(python not found)"
@@ -243,6 +238,10 @@ AS_IF([test x$with_liblo != xno],[
 AS_IF([test x$enable_debug = xyes],
       [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"],
       [CFLAGS="$CFLAGS -DNDEBUG"])
+
+# Add -I. so that config.h is found correctly during VPATH builds
+# (see autoconf manual section 4.9)
+CFLAGS="-I. $CFLAGS"
 
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
