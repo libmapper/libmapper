@@ -33,7 +33,6 @@ libmapper concepts.
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 struct _mapper_connection;
-typedef void *mapper_instance_id;
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -52,7 +51,7 @@ typedef void mapper_signal_instance_handler(mapper_signal msig,
                                             mapper_db_signal props,
                                             mapper_timetag_t *timetag,
                                             void *value,
-                                            mapper_instance_id sig_instance,
+                                            int instance_id,
                                             void *user_data);
 
 /*! Set or remove the minimum of a signal.
@@ -136,23 +135,25 @@ int msig_full_name(mapper_signal sig, char *name, int len);
 int msig_query_remote(mapper_signal sig, mapper_signal receiver);
 
 /*! Get a signal_instance's value.
- *  \param si      The signal instance to operate on.
- *  \param timetag  A location to receive the value's time tag.
- *                  May be 0.
- *  \return         A pointer to an array containing the value
- *                  of the signal instance, or 0 if the signal instance has no value. */
-void *msig_instance_value(mapper_signal sig, mapper_instance_id sig_instance,
+ *  \param sig         The signal to operate on.
+ *  \param instance_id The instance to operate on.
+ *  \param timetag     A location to receive the value's time tag.
+ *                     May be 0.
+ *  \return            A pointer to an array containing the value
+ *                     of the signal instance, or 0 if the signal instance 
+ *                     has no value. */
+void *msig_instance_value(mapper_signal sig, int instance_id,
                           mapper_timetag_t *timetag);
 
 /*! Get an active signal instance's ID by its index.  Intended to be
  * used for iterating over the active instances.
- *  \param si     The signal instance to operate on.
+ *  \param sig    The signal to operate on.
  *  \param index  The numerical index of the ID to retrieve.  Shall be
  *                between zero and the return value of
  *                msig_num_active_instances().
  *  \return       The instance ID associated with the given index.
  */
-mapper_instance_id msig_active_instance_id(mapper_signal sig, int index);
+int msig_active_instance_id(mapper_signal sig, int index);
 
 /*! Add new instances to the reserve list.
  *  \param sig          The signal to which the instances will be added.
@@ -166,8 +167,8 @@ void msig_reserve_instances(mapper_signal sig, int num,
 /*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list.
  *  \param sig           The signal to operate on.
- *  \param sig_instance  The instance to suspend. */
-void msig_release_instance(mapper_signal sig, mapper_instance_id sig_instance);
+ *  \param instance_id   The instance to suspend. */
+void msig_release_instance(mapper_signal sig, int instance_id);
 
 /*! Set the allocation method to be used when a previously-unseen
  *  instance ID is received.
@@ -180,32 +181,32 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
- *  \param sig_instance The instance to update.
+ *  \param instance_id  The instance to update.
  *  \param value A pointer to a new value for this signal.  If the
  *         signal type is 'i', this should be int*; if the signal type
  *         is 'f', this should be float*.  It should be an array at
  *         least as long as the signal's length property. */
 void msig_update_instance(mapper_signal sig,
-                          mapper_instance_id sig_instance,
+                          int instance_id,
                           void *value);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
- *  \param sig_instance The instance to operate on.
+ *  \param instance_id  The instance to operate on.
  *  \param user_data    A pointer to user data to be associated
  *                      with this instance.
  */
 void msig_instance_set_data(mapper_signal sig,
-                            mapper_instance_id sig_instance,
+                            int instance_id,
                             void *user_data);
 
 /*! Retrieve the arbitrary pointer associated with a signal instance.
  *  \param sig          The signal to operate on.
- *  \param sig_instance The instance to operate on.
+ *  \param instance_id  The instance to operate on.
  *  \return             A pointer associated with this instance.
  */
 void *msig_instance_get_data(mapper_signal sig,
-                             mapper_instance_id sig_instance);
+                             int instance_id);
 
 /*! Return the number of active instances owned by a signal.
  *  \param  sig The signal to query.

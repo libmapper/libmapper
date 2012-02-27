@@ -50,7 +50,7 @@ struct _mapper_signal
 typedef struct _mapper_signal_instance
 {
     /*! ID number of this instance. */
-    mapper_instance_id id;
+    int id;
 
     /*! User data of this instance. */
     void *user_data;
@@ -221,7 +221,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
                                                         struct _mapper_connection *c);
 
 mapper_signal_instance msig_find_instance(mapper_signal sig,
-                                          mapper_instance_id si);
+                                          int instance_id);
 
 /*! Resume a reserved (preallocated) signal instance.
  *  \param  si The signal instance to resume. */
@@ -255,7 +255,7 @@ void mval_add_to_message(lo_message m, char type,
  *          was unsuccessful according to the selected allocation
  *          strategy. */
 mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         mapper_instance_id sig_instance);
+                                         int instance_id);
 
 /**** connections ****/
 

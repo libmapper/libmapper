@@ -68,15 +68,8 @@ void mapper_router_send_signal(mapper_connection_instance ci)
     if (!m)
         return;
 
-    mapper_instance_id id = ci->parent->id;
-    if (id) {
-        die_unless(sizeof(id)==4 || sizeof(id)==8,
-                   "Unknown pointer size on this machine.");
-        if (sizeof(id)==4)
-            lo_message_add_int32(m, (long)id);
-        else if (sizeof(id)==8)
-            lo_message_add_int64(m, (long)id);
-    }
+    if (ci->parent->id)
+        lo_message_add_int32(m, ci->parent->id);
 
     if (ci->history.position != -1) {
         if (ci->history.type == 'f') {

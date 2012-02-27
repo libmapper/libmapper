@@ -145,7 +145,7 @@ static int handler_signal_instance(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    
+
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
@@ -153,15 +153,7 @@ static int handler_signal_instance(const char *path, const char *types,
     if (argc < 2)
         return 0;
 
-    mapper_instance_id id;
-    if (types[0]==LO_INT32)
-        id = (mapper_instance_id)(long)argv[0]->i32;
-    else if (types[0]==LO_INT64)
-        id = (mapper_instance_id)(long)argv[0]->i64;
-    else {
-        trace("Type for received instance id is not understood");
-        return 0;
-    }
+    int id = argv[0]->i32;
 
     mapper_signal_instance si =
         msig_get_instance(sig, id);

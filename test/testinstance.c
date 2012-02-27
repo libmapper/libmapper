@@ -82,7 +82,7 @@ void normal_handler(mapper_signal sig, mapper_db_signal props,
 
 void instance_handler(mapper_signal sig, mapper_db_signal props,
                       mapper_timetag_t *timetag, void *v,
-                      mapper_instance_id id, void *user_data)
+                      int id, void *user_data)
 {
     if (v) {
         printf("--> destination %s instance %ld got %f\n",
@@ -192,7 +192,7 @@ void loop()
                     printf("--> Retiring sender instance %ld\n",
                            (long)sendinst[j]);
                     msig_release_instance(sendsig,
-                                          (mapper_instance_id)sendinst[j]);
+                                          sendinst[j]);
                     sendinst[j] = 0;
                     break;
                 }
@@ -203,7 +203,7 @@ void loop()
                     // try to update an instance
                     value = (rand() % 10) * 1.0f;
                     msig_update_instance(sendsig,
-                                         (mapper_instance_id)sendinst[j],
+                                         sendinst[j],
                                          &value);
                     printf("--> sender instance %d updated to %f\n",
                            sendinst[j], value);
