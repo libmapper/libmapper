@@ -440,6 +440,41 @@ static void msig_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
+/* Wrapper for callback back to python when a mapper_signal instance
+ * handler is called. */
+static void msig_instance_handler_py(struct _mapper_signal *msig,
+                                     mapper_db_signal props,
+                                     mapper_timetag_t *tt,
+                                     void *v,
+                                     int id,
+                                     void *user_data)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist=0;
+    PyObject *result=0;
+
+    PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
+                                           SWIGTYPE_p__signal, 0);
+
+    if (v) {
+        if (props->type == 'i')
+            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+        else if (props->type == 'f')
+            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+    }
+    else {
+        arglist = Py_BuildValue("(Os)", py_msig, 0);
+    }
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (msig_instance_handler_py).\n");
+        return;
+    }
+    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
 typedef struct {
     mapper_signal_value_t v;
     char t;
@@ -849,6 +884,36 @@ typedef struct _admin {} admin;
         else if (sig->props.type == 'f') {
             msig_update_float($self, (float)i);
         }
+    }
+    void reserve_instances(int num, PyObject *PyFunc=0) {
+        mapper_signal_instance_handler *h = 0;
+        if (PyFunc) {
+            h = msig_instance_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        msig_reserve_instances((mapper_signal)$self, num,
+                               (mapper_signal_instance_handler *)PyFunc);
+    }
+    void update_instance(int id, float f) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update_instance((mapper_signal)$self, id, &f);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update_instance((mapper_signal)$self, id, &i);
+        }
+    }
+    void update_instance(int id, int i) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update_instance((mapper_signal)$self, id, &i);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update_instance((mapper_signal)$self, id, &f);
+        }
+    }
+    void release_instance(int id) {
+        msig_release_instance((mapper_signal)$self, id);
     }
     int query_remote(signal *receiver=0) {
         return msig_query_remote($self, receiver);
