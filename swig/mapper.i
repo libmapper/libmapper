@@ -289,7 +289,7 @@ static PyObject *device_to_py(mapper_db_device_t *dev)
         int i=0;
         const char *property;
         lo_type type;
-        lo_arg *value;
+        const lo_arg *value;
         while (!mapper_db_device_property_index(dev, i, &property,
                                                 &type, &value))
         {
@@ -330,7 +330,7 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
         int i=0;
         const char *property;
         lo_type type;
-        lo_arg *value;
+        const lo_arg *value;
         while (!mapper_db_signal_property_index(sig, i, &property,
                                                 &type, &value))
         {
@@ -422,9 +422,9 @@ static void msig_handler_py(struct _mapper_signal *msig,
                                           SWIGTYPE_p__signal, 0);
 
     if (v) {
-        if (msig->props.type == 'i')
+        if (props->type == 'i')
             arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
-        else if (msig->props.type == 'f')
+        else if (props->type == 'f')
             arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
     }
     else {
@@ -575,19 +575,20 @@ typedef struct _admin {} admin;
 
 %extend device {
     device(const char *name, int port=9000, admin *DISOWN=0) {
-        device *d = mdev_new(name, port, DISOWN);
+        device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
     ~device() {
-        mdev_free($self);
+        mdev_free((mapper_device)$self);
     }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
-        int rc = mdev_poll($self, timeout);
+        int rc = mdev_poll((mapper_device)$self, timeout);
         PyEval_RestoreThread(_save);
+        return rc;
     }
     int ready() {
-        return mdev_ready($self);
+        return mdev_ready((mapper_device)$self);
     }
 
     // Note, these functions return memory which is _not_ owned by
@@ -641,8 +642,8 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_input($self, name, length, type, unit,
-                              pmn, pmx, h, PyFunc);
+        return (signal *)mdev_add_input((mapper_device)$self, name, length,
+                                        type, unit, pmn, pmx, h, PyFunc);
     }
     signal* add_hidden_input(const char *name, int length=1, const char type='f',
                              const char *unit=0, maybeSigVal minimum=0,
@@ -692,8 +693,8 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        signal *sig = mdev_add_input($self, name, length, type, unit,
-                                     pmn, pmx, h, PyFunc);
+        signal *sig = (signal *)mdev_add_input((mapper_device)$self, name, length,
+                                               type, unit, pmn, pmx, h, PyFunc);
         ((mapper_signal)sig)->props.hidden = 1;
         return sig;
     }
@@ -740,7 +741,8 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_output($self, name, length, type, unit, pmn, pmx);
+        return (signal*)mdev_add_output((mapper_device)$self, name,
+                                      length, type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -752,48 +754,48 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
-    const char *get_name() { return mdev_name($self); }
+    const char *get_name() { return mdev_name((mapper_device)$self); }
     const char *get_ip4() {
-        const struct in_addr *a = (unsigned int*)mdev_ip4($self);
+        const struct in_addr *a = mdev_ip4((mapper_device)$self);
         return a ? inet_ntoa(*a) : 0;
     }
-    const char *get_interface() { return mdev_interface($self); }
-    unsigned int get_ordinal() { return mdev_ordinal($self); }
-    int get_num_inputs() { return mdev_num_inputs($self); }
-    int get_num_outputs() { return mdev_num_outputs($self); }
+    const char *get_interface() { return mdev_interface((mapper_device)$self); }
+    unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
+    int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
+    int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
     signal *get_input_by_name(const char *name) {
-        return mdev_get_input_by_name($self, name, 0);
+        return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
     }
     signal *get_output_by_name(const char *name) {
-        return mdev_get_output_by_name($self, name, 0);
+        return (signal *)mdev_get_output_by_name((mapper_device)$self, name, 0);
     }
     signal *get_input_by_index(int index) {
-        return mdev_get_input_by_index($self, index);
+        return (signal *)mdev_get_input_by_index((mapper_device)$self, index);
     }
     signal *get_output_by_index(int index) {
-        return mdev_get_output_by_index($self, index);
+        return (signal *)mdev_get_output_by_index((mapper_device)$self, index);
     }
     void set_property(const char *key, void* val=0) {
         if (!val)
-            mdev_remove_property($self, key);
+            mdev_remove_property((mapper_device)$self, key);
     }
     void set_property(const char *key, int val) {
-        mdev_set_property($self, key, 'i', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'i', (lo_arg*)&val);
     }
     void set_property(const char *key, int64_t val) {
-        mdev_set_property($self, key, 'h', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'h', (lo_arg*)&val);
     }
     void set_property(const char *key, double val) {
-        mdev_set_property($self, key, 'd', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'd', (lo_arg*)&val);
     }
     void set_property(const char *key, float val) {
-        mdev_set_property($self, key, 'f', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'f', (lo_arg*)&val);
     }
     void set_property(const char *key, const char *val) {
-        mdev_set_property($self, key, 's', (lo_arg*)val);
+        mdev_set_property((mapper_device)$self, key, 's', (lo_arg*)val);
     }
     void remove_property(const char *key) {
-        mdev_remove_property($self, key);
+        mdev_remove_property((mapper_device)$self, key);
     }
     %pythoncode {
         port = property(get_port)
@@ -837,44 +839,44 @@ typedef struct _admin {} admin;
     void update(float f) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
-            msig_update_float($self, f);
+            msig_update_float((mapper_signal)$self, f);
         else if (sig->props.type == 'i') {
-            msig_update_int($self, (int)f);
+            msig_update_int((mapper_signal)$self, (int)f);
         }
     }
     void update(int i) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
-            msig_update_int($self, i);
+            msig_update_int((mapper_signal)$self, i);
         else if (sig->props.type == 'f') {
-            msig_update_float($self, (float)i);
+            msig_update_float((mapper_signal)$self, (float)i);
         }
     }
     int query_remote(signal *receiver=0) {
-        return msig_query_remote($self, receiver);
+        return msig_query_remote((mapper_signal)$self, (mapper_signal)receiver);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
         if (!v)
-            msig_set_minimum($self, 0);
+            msig_set_minimum((mapper_signal)$self, 0);
         else if (v->t == sig->props.type)
-            msig_set_minimum($self, &v->v);
+            msig_set_minimum((mapper_signal)$self, &v->v);
         else {
             mapper_signal_value_t tmp;
             sigval_coerce(&tmp, v, sig->props.type);
-            msig_set_minimum($self, &tmp);
+            msig_set_minimum((mapper_signal)$self, &tmp);
         }
     }
     void set_maximum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
         if (!v)
-            msig_set_maximum($self, 0);
+            msig_set_maximum((mapper_signal)$self, 0);
         else if (v->t == sig->props.type)
-            msig_set_maximum($self, &v->v);
+            msig_set_maximum((mapper_signal)$self, &v->v);
         else {
             mapper_signal_value_t tmp;
             sigval_coerce(&tmp, v, sig->props.type);
-            msig_set_maximum($self, &tmp);
+            msig_set_maximum((mapper_signal)$self, &tmp);
         }
     }
     maybeSigVal get_minimum() {
@@ -907,29 +909,29 @@ typedef struct _admin {} admin;
         return ((mapper_signal)$self)->props.unit;
     }
     mapper_db_signal get_properties() {
-        return msig_properties($self);
+        return msig_properties((mapper_signal)$self);
     }
     void set_property(const char *key, void* val=0) {
         if (!val)
-            msig_remove_property($self, key);
+            msig_remove_property((mapper_signal)$self, key);
     }
     void set_property(const char *key, int val) {
-        msig_set_property($self, key, 'i', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'i', (lo_arg*)&val);
     }
     void set_property(const char *key, int64_t val) {
-        msig_set_property($self, key, 'h', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'h', (lo_arg*)&val);
     }
     void set_property(const char *key, double val) {
-        msig_set_property($self, key, 'd', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'd', (lo_arg*)&val);
     }
     void set_property(const char *key, float val) {
-        msig_set_property($self, key, 'f', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'f', (lo_arg*)&val);
     }
     void set_property(const char *key, const char *val) {
-        msig_set_property($self, key, 's', (lo_arg*)val);
+        msig_set_property((mapper_signal)$self, key, 's', (lo_arg*)val);
     }
     void remove_property(const char *key) {
-        msig_remove_property($self, key);
+        msig_remove_property((mapper_signal)$self, key);
     }
     %pythoncode {
         minimum = property(get_minimum, set_minimum)
@@ -963,41 +965,41 @@ typedef struct _admin {} admin;
 
 %extend monitor {
     monitor(admin *DISOWN=0, int enable_autorequest=1) {
-        monitor *m = mapper_monitor_new(DISOWN, enable_autorequest);
-        return m;
+        return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
+                                             enable_autorequest);
     }
     ~monitor() {
-        mapper_monitor_free($self);
+        mapper_monitor_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
-        int rc = mapper_monitor_poll($self, timeout);
+        int rc = mapper_monitor_poll((mapper_monitor)$self, timeout);
         PyEval_RestoreThread(_save);
         return rc;
     }
     db *get_db() {
-        return mapper_monitor_get_db($self);
+        return (db *)mapper_monitor_get_db((mapper_monitor)$self);
     }
     void autorequest(const int enable) {
-        mapper_monitor_autorequest($self, enable);
+        mapper_monitor_autorequest((mapper_monitor)$self, enable);
     }
     int request_devices() {
-        return mapper_monitor_request_devices($self);
+        return mapper_monitor_request_devices((mapper_monitor)$self);
     }
     int request_signals_by_name(const char* name) {
-        return mapper_monitor_request_signals_by_name($self, name);
+        return mapper_monitor_request_signals_by_name((mapper_monitor)$self, name);
     }
     int request_links_by_name(const char* name) {
-        return mapper_monitor_request_links_by_name($self, name);
+        return mapper_monitor_request_links_by_name((mapper_monitor)$self, name);
     }
     int request_connections_by_name(const char* name) {
-        return mapper_monitor_request_connections_by_name($self, name);
+        return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
     }
     void link(const char* source_device, const char* dest_device) {
-        mapper_monitor_link($self, source_device, dest_device);
+        mapper_monitor_link((mapper_monitor)$self, source_device, dest_device);
     }
     void unlink(const char* source_device, const char* dest_device) {
-        mapper_monitor_unlink($self, source_device, dest_device);
+        mapper_monitor_unlink((mapper_monitor)$self, source_device, dest_device);
     }
     void modify(mapper_db_connection_with_flags_t *properties) {
         if (properties)
@@ -1006,7 +1008,7 @@ typedef struct _admin {} admin;
                 SWIG_exception_fail(SWIG_ValueError,
                                     "modify() requires 'src_name' and "
                                     "'dest_name' in properties dict");
-            mapper_monitor_connection_modify($self, &properties->props,
+            mapper_monitor_connection_modify((mapper_monitor)$self, &properties->props,
                                              properties->flags);
           fail:
             ;
@@ -1016,15 +1018,15 @@ typedef struct _admin {} admin;
                  const char* dest_signal,
                  mapper_db_connection_with_flags_t *properties=0) {
         if (properties) {
-            mapper_monitor_connect($self, source_signal, dest_signal,
+            mapper_monitor_connect((mapper_monitor)$self, source_signal, dest_signal,
                                    &properties->props, properties->flags);
         }
         else
-            mapper_monitor_connect($self, source_signal, dest_signal, 0, 0);
+            mapper_monitor_connect((mapper_monitor)$self, source_signal, dest_signal, 0, 0);
     }
     void disconnect(const char* source_signal, 
                     const char* dest_signal) {
-        mapper_monitor_disconnect($self, source_signal, dest_signal);
+        mapper_monitor_disconnect((mapper_monitor)$self, source_signal, dest_signal);
     }
     %pythoncode {
         db = property(get_db)
@@ -1034,135 +1036,144 @@ typedef struct _admin {} admin;
 %extend db {
     void add_device_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_device_callback($self, device_db_handler_py, PyFunc);
+        mapper_db_add_device_callback((mapper_db)$self, device_db_handler_py, PyFunc);
     }
     void remove_device_callback(PyObject *PyFunc) {
-        mapper_db_remove_device_callback($self, device_db_handler_py, PyFunc);
+        mapper_db_remove_device_callback((mapper_db)$self, device_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_signal_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_signal_callback($self, signal_db_handler_py, PyFunc);
+        mapper_db_add_signal_callback((mapper_db)$self, signal_db_handler_py, PyFunc);
     }
     void remove_signal_callback(PyObject *PyFunc) {
-        mapper_db_remove_signal_callback($self, signal_db_handler_py, PyFunc);
+        mapper_db_remove_signal_callback((mapper_db)$self, signal_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_connection_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_connection_callback($self, connection_db_handler_py,
+        mapper_db_add_connection_callback((mapper_db)$self, connection_db_handler_py,
                                           PyFunc);
     }
     void remove_connection_callback(PyObject *PyFunc) {
-        mapper_db_remove_connection_callback($self, connection_db_handler_py,
+        mapper_db_remove_connection_callback((mapper_db)$self, connection_db_handler_py,
                                              PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_link_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_link_callback($self, link_db_handler_py, PyFunc);
+        mapper_db_add_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
     }
     void remove_link_callback(PyObject *PyFunc) {
-        mapper_db_remove_link_callback($self, link_db_handler_py, PyFunc);
+        mapper_db_remove_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     mapper_db_device_t **get_all_devices() {
-        return mapper_db_get_all_devices($self);
+        return mapper_db_get_all_devices((mapper_db)$self);
     }
     mapper_db_device_t **__match_devices_by_name(const char *device) {
-        return mapper_db_match_devices_by_name($self, device);
+        return mapper_db_match_devices_by_name((mapper_db)$self, device);
     }
     mapper_db_device_t **device_next(long iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
     mapper_db_signal_t **get_all_inputs() {
-        return mapper_db_get_all_inputs($self);
+        return mapper_db_get_all_inputs((mapper_db)$self);
     }
     mapper_db_signal_t **get_all_outputs() {
-        return mapper_db_get_all_outputs($self);
+        return mapper_db_get_all_outputs((mapper_db)$self);
     }
     mapper_db_signal_t **get_inputs_by_device_name(const char *device_name) {
-        return mapper_db_get_inputs_by_device_name($self, device_name);
+        return mapper_db_get_inputs_by_device_name((mapper_db)$self,
+                                                   device_name);
     }
     mapper_db_signal_t **get_outputs_by_device_name(const char *device_name) {
-        return mapper_db_get_outputs_by_device_name($self, device_name);
+        return mapper_db_get_outputs_by_device_name((mapper_db)$self,
+                                                    device_name);
     }
     mapper_db_signal_t **__match_inputs_by_device_name(
         const char *device_name, const char *input_pattern) {
-        return mapper_db_match_inputs_by_device_name($self, device_name,
+        return mapper_db_match_inputs_by_device_name((mapper_db)$self,
+                                                     device_name,
                                                      input_pattern);
     }
     mapper_db_signal_t **__match_outputs_by_device_name(
         const char *device_name, char const *output_pattern) {
-        return mapper_db_match_outputs_by_device_name($self, device_name,
+        return mapper_db_match_outputs_by_device_name((mapper_db)$self,
+                                                      device_name,
                                                       output_pattern);
     }
     mapper_db_signal_t **signal_next(long iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
     mapper_db_connection_t **get_all_connections() {
-        return mapper_db_get_all_connections($self);
+        return mapper_db_get_all_connections((mapper_db)$self);
     }
     mapper_db_connection_t **get_connections_by_device_name(
         const char *device_name) {
-        return mapper_db_get_connections_by_device_name($self, device_name);
+        return mapper_db_get_connections_by_device_name((mapper_db)$self,
+                                                        device_name);
     }
     mapper_db_connection_t **get_connections_by_input_name(
         const char *input_name) {
-        return mapper_db_get_connections_by_input_name($self, input_name);
+        return mapper_db_get_connections_by_input_name((mapper_db)$self,
+                                                       input_name);
     }
     mapper_db_connection_t **get_connections_by_device_and_input_name(
         const char *device_name, const char *input_name) {
         return mapper_db_get_connections_by_device_and_input_name(
-            $self, device_name, input_name);
+            (mapper_db)$self, device_name, input_name);
     }
     mapper_db_connection_t **get_connections_by_output_name(
         const char *output_name) {
-        return mapper_db_get_connections_by_output_name($self, output_name);
+        return mapper_db_get_connections_by_output_name((mapper_db)$self,
+                                                        output_name);
     }
     mapper_db_connection_t **get_connections_by_device_and_output_name(
         const char *device_name, const char *output_name) {
         return mapper_db_get_connections_by_device_and_output_name(
-            $self, device_name, output_name);
+            (mapper_db)$self, device_name, output_name);
     }
     mapper_db_connection_t **get_connections_by_device_and_signal_names(
         const char *input_device_name,  const char *input_name,
         const char *output_device_name, const char *output_name) {
         return mapper_db_get_connections_by_device_and_signal_names(
-            $self, input_device_name, input_name,
+            (mapper_db)$self, input_device_name, input_name,
             output_device_name, output_name);
     }
     mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
         return mapper_db_get_connection_by_signal_full_names(
-            $self, src_name, dest_name);
+            (mapper_db)$self, src_name, dest_name);
     }
     mapper_db_connection_t **get_connections_by_src_dest_device_names(
         const char *src_device_name, const char *dest_device_name) {
         return mapper_db_get_connections_by_src_dest_device_names(
-            $self, src_device_name, dest_device_name);
+            (mapper_db)$self, src_device_name, dest_device_name);
     }
     mapper_db_connection_t **connection_next(long iterator) {
         return mapper_db_connection_next((mapper_db_connection_t**)iterator);
     }
     mapper_db_link_t **get_all_links() {
-        return mapper_db_get_all_links($self);
+        return mapper_db_get_all_links((mapper_db)$self);
     }
     mapper_db_link_t **get_links_by_device_name(const char *dev_name) {
-        return mapper_db_get_links_by_device_name($self, dev_name);
+        return mapper_db_get_links_by_device_name((mapper_db)$self, dev_name);
     }
     mapper_db_link_t **get_links_by_src_device_name(
         const char *src_device_name) {
-        return mapper_db_get_links_by_src_device_name($self, src_device_name);
+        return mapper_db_get_links_by_src_device_name((mapper_db)$self,
+                                                      src_device_name);
     }
     mapper_db_link_t **get_links_by_dest_device_name(
         const char *dest_device_name) {
-        return mapper_db_get_links_by_dest_device_name($self,
+        return mapper_db_get_links_by_dest_device_name((mapper_db)$self,
                                                        dest_device_name);
     }
     mapper_db_link link_by_src_dest_names(const char *src_device_name,
                                           const char *dest_device_name) {
-        return mapper_db_get_link_by_src_dest_names($self, src_device_name,
+        return mapper_db_get_link_by_src_dest_names((mapper_db)$self,
+                                                    src_device_name,
                                                     dest_device_name);
     }
     mapper_db_link_t **link_next(long iterator) {
@@ -1216,9 +1227,9 @@ typedef struct _admin {} admin;
 
 %extend admin {
     admin(const char *iface=0, const char *ip=0, int port=7570) {
-        return mapper_admin_new(iface, ip, port);
+        return (admin *)mapper_admin_new(iface, ip, port);
     }
     ~admin() {
-        mapper_admin_free($self);
+        mapper_admin_free((mapper_admin)$self);
     }
 }
