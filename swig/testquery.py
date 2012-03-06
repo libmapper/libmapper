@@ -27,7 +27,7 @@ monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
 
-for i in range(1000):
+for i in range(100):
     insig.update(i)
     outsig.query_remote(dummysig)
     src.poll(10)
