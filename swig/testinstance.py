@@ -2,14 +2,7 @@
 
 import sys, mapper, random
 
-def h(sig, f):
-    try:
-        print '----> received response:', f
-    except:
-        print '----> exception'
-        print sig, f
-
-def hi(sig, id, f):
+def h(sig, id, f):
     try:
         print '----> received instance:', id, f
     except:
@@ -17,12 +10,10 @@ def hi(sig, id, f):
         print sig, id, f
 
 src = mapper.device("src", 9000)
-outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
-outsig.reserve_instances(5)
+outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000, 5)
 
 dest = mapper.device("dest", 9000)
-insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
-insig.reserve_instances(5, hi)
+insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h, 5)
 
 while not src.ready() or not dest.ready():
     src.poll()

@@ -1661,6 +1661,10 @@ static int handler_signal_connect(const char *path, const char *types,
         params.types[AT_MAX] = &input->props.type;
     }
 
+    lo_arg *arg_instances = (lo_arg*) &input->props.instances;
+    params.values[AT_INSTANCES] = &arg_instances;
+    params.types[AT_INSTANCES] = "i";
+
     mapper_admin_send_osc_with_params(
         admin, &params, input->props.extra,
         "/connectTo", "ss", src_name, dest_name);

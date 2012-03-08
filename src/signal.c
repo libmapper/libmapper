@@ -28,7 +28,7 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
-    sig->props.instances = 1;
+    sig->props.instances = 0;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
@@ -40,6 +40,22 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_add_instance(sig, 0, 0);
     sig->reserve = 0;
     return sig;
+}
+
+mapper_signal msig_new_with_instances(const char *name, int length, char type,
+                                      int is_output, const char *unit,
+                                      void *minimum, void *maximum, int num,
+                                      mapper_signal_instance_handler *handler,
+                                      void *user_data)
+{
+    mapper_signal msig = msig_new(name, length, type, is_output, unit,
+                                  minimum, maximum, 0, user_data);
+    if (!msig)
+        return 0;
+    msig->active->user_data = user_data;
+    msig_release_instance_internal(msig->active);
+    msig_reserve_instances(msig, num-1, handler, user_data);
+    return msig;
 }
 
 mapper_db_signal msig_properties(mapper_signal sig)
@@ -284,6 +300,7 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     sig->active = si;
     si->connections = 0;
     ++sig->props.instances;
+    printf("props.instances = %i\n", sig->props.instances);
 
     if (!sig->device)
         return si;
@@ -316,13 +333,6 @@ void msig_reserve_instances(mapper_signal sig, int num,
                             void *user_data)
 {
     int i;
-    if (!sig->props.instances) {
-        num--;
-        if (sig->active) {
-            sig->handler = 0;
-            sig->active->user_data = user_data;
-        }
-    }
     mapper_signal_instance si;
     for (i = 0; i < num; i++) {
         si = msig_add_instance(sig, handler, user_data);

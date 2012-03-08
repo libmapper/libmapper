@@ -640,7 +640,8 @@ typedef struct _admin {} admin;
     // False, which is correct for this case.
     signal* add_input(const char *name, int length=1, const char type='f',
                       const char *unit=0, maybeSigVal minimum=0,
-                      maybeSigVal maximum=0, PyObject *PyFunc=0)
+                      maybeSigVal maximum=0, PyObject *PyFunc=0,
+                      int instances=0)
     {
         mapper_signal_handler *h = 0;
         if (PyFunc) {
@@ -686,8 +687,13 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_input($self, name, length, type, unit,
-                              pmn, pmx, h, PyFunc);
+        if (instances)
+            return mdev_add_input_with_instances((mapper_device)$self, name,
+                                                  length, type, unit,
+                                                  pmn, pmx, instances, h, PyFunc);
+        else
+            return mdev_add_input($self, name, length, type, unit,
+                                  pmn, pmx, h, PyFunc);
     }
     signal* add_hidden_input(const char *name, int length=1, const char type='f',
                              const char *unit=0, maybeSigVal minimum=0,
@@ -744,7 +750,7 @@ typedef struct _admin {} admin;
     }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
-                       maybeSigVal maximum=0)
+                       maybeSigVal maximum=0, int instances=0)
     {
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -785,7 +791,12 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return mdev_add_output($self, name, length, type, unit, pmn, pmx);
+        if (instances)
+            return mdev_add_output_with_instances((mapper_device)$self, name,
+                                                  length, type, unit,
+                                                  pmn, pmx, instances);
+        else
+            return mdev_add_output($self, name, length, type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
