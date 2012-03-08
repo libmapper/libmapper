@@ -28,12 +28,11 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
-    sig->props.instances = 0;
+    sig->props.instances = 1;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
-    sig->instance_count = 0;
     sig->instance_allocation_type = IN_UNDEFINED;
 
     // Create one instance to start
@@ -261,8 +260,9 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
                                          mapper_signal_instance_handler *handler,
                                          void *user_data)
 {
-    // TODO: ensure sig->instance_count doesn't exceed some maximum
     if (!sig)
+        return 0;
+    if (sig->props.instances >= 100)    // Arbitrary MAX_INSTANCCES for now
         return 0;
     mapper_signal_instance si = (mapper_signal_instance) calloc(1,
                                 sizeof(struct _mapper_signal_instance));
