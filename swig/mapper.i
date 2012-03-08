@@ -458,18 +458,18 @@ static void msig_instance_handler_py(struct _mapper_signal *msig,
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+            arglist = Py_BuildValue("(Oii)", py_msig, id, *(int*)v);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+            arglist = Py_BuildValue("(Oif)", py_msig, id, *(float*)v);
     }
     else {
-        arglist = Py_BuildValue("(Os)", py_msig, 0);
+        arglist = Py_BuildValue("(Ois)", py_msig, id, 0);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_instance_handler_py).\n");
         return;
     }
-    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
+    result = PyEval_CallObject((PyObject*)user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
