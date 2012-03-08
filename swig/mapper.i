@@ -594,6 +594,16 @@ typedef enum _mapper_mode_type {
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
+/*! Describes the voice-stealing mode for instances.
+ *  @ingroup connectiondb */
+typedef enum _mapper_instance_allocation_type {
+    IN_UNDEFINED,    //!< Not yet defined
+    IN_STEAL_OLDEST, //!< Steal the oldest instance
+    IN_STEAL_NEWEST, //!< Steal the newest instance
+    IN_ADD_INSTANCE, //!< Add a new instance
+    N_MAPPER_INSTANCE_ALLOCATION_TYPES
+} mapper_instance_allocation_type;
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -914,6 +924,9 @@ typedef struct _admin {} admin;
     }
     void release_instance(int id) {
         msig_release_instance((mapper_signal)$self, id);
+    }
+    void set_allocation_mode(mapper_instance_allocation_type mode) {
+        msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
     int query_remote(signal *receiver=0) {
         return msig_query_remote($self, receiver);
