@@ -214,7 +214,7 @@ static void msig_instance_init(mapper_signal_instance si,
 {
     si->id = instance_id;
     si->history.position = -1;
-    si->user_data = 0;
+    //si->user_data = 0;
     lo_timetag_now(&si->creation_time);
 }
 
@@ -312,12 +312,20 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
 }
 
 void msig_reserve_instances(mapper_signal sig, int num,
-                            mapper_signal_instance_handler *handler)
+                            mapper_signal_instance_handler *handler,
+                            void *user_data)
 {
     int i;
+    if (!sig->props.instances) {
+        num--;
+        if (sig->active) {
+            sig->handler = 0;
+            sig->active->user_data = user_data;
+        }
+    }
     mapper_signal_instance si;
     for (i = 0; i < num; i++) {
-        si = msig_add_instance(sig, handler, 0);
+        si = msig_add_instance(sig, handler, user_data);
         if (si) {
             // Remove instance from active list, place in reserve
             si->is_active = 0;
@@ -478,9 +486,9 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
     if (si) return si;
 
     // First try to steal the first active 'id=0' instance
-    if (sig->active->id == 0) {
-        si = sig->active;
-    }
+    //if (sig->active->id == 0) {
+    //    si = sig->active;
+    //}
 
     // Next, try the reserve instances
     if (!si) {

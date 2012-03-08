@@ -162,7 +162,8 @@ int msig_active_instance_id(mapper_signal sig, int index);
  *                      signal is updated.
  *  \param user_data    User context pointer to be passed to handler. */
 void msig_reserve_instances(mapper_signal sig, int num,
-                            mapper_signal_instance_handler *handler);
+                            mapper_signal_instance_handler *handler,
+                            void *user_data);
 
 /*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list.

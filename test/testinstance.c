@@ -40,7 +40,7 @@ int setup_source()
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     // reserve an appropriate number of instances
-    msig_reserve_instances(sendsig, 5, 0);
+    msig_reserve_instances(sendsig, 5, 0, 0);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -106,7 +106,7 @@ int setup_destination()
         
     recvsig = mdev_add_input(destination, "/insig", 1, 
                              'f', 0, &mn, &mx, normal_handler, 0);
-    msig_reserve_instances(recvsig, 5, instance_handler);
+    msig_reserve_instances(recvsig, 5, instance_handler, 0);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));

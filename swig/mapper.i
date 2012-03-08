@@ -901,8 +901,7 @@ typedef struct _admin {} admin;
             h = msig_instance_handler_py;
             Py_XINCREF(PyFunc);
         }
-        msig_reserve_instances((mapper_signal)$self, num,
-                               (mapper_signal_instance_handler *)PyFunc);
+        msig_reserve_instances((mapper_signal)$self, num, h, PyFunc);
     }
     void update_instance(int id, float f) {
         mapper_signal sig = (mapper_signal)$self;
