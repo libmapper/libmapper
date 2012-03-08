@@ -4,16 +4,16 @@ import sys, mapper, random
 
 def h(sig, f):
     try:
-        print 'received response:', f
+        print '----> received response:', f
     except:
-        print 'exception'
+        print '----> exception'
         print sig, f
 
-def hi(sig, f, id):
+def hi(sig, id, f):
     try:
-        print 'received instance:', id, f
+        print '----> received instance:', id, f
     except:
-        print 'exception'
+        print '----> exception'
         print sig, id, f
 
 src = mapper.device("src", 9000)
@@ -35,14 +35,14 @@ monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
 
-for i in range(1000):
+for i in range(100):
     r = random.randint(0,5)
-    id = random.randint(0,10)
+    id = random.randint(0,5)
     if r == 0:
         print 'retiring sender instance', id
-        insig.release_instance(id)
+        outsig.release_instance(id)
     else:    
         print 'updating instance', id, 'to', i
-        insig.update_instance(id, i)
+        outsig.update_instance(id, i)
     src.poll(10)
     dest.poll(10)
