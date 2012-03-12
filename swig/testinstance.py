@@ -4,10 +4,25 @@ import sys, mapper, random
 
 def h(sig, id, f):
     try:
-        print '----> received instance:', id, f
+        print '--> destination instance', id, 'got', f
     except:
-        print '----> exception'
+        print '--> exception'
         print sig, id, f
+
+def print_instance_ids():
+    phrase = 'active /outsig: ['
+    count = outsig.num_active_instances()
+    for i in range(count):
+        phrase += ' '
+        phrase += str(outsig.active_instance_id(i))
+    phrase += ' ]   '
+    phrase += 'active /insig: ['
+    count = insig.num_active_instances()
+    for i in range(count):
+        phrase += ' '
+        phrase += str(insig.active_instance_id(i))
+    phrase += ' ]'
+    print phrase
 
 src = mapper.device("src", 9000)
 outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000, 5)
@@ -30,10 +45,11 @@ for i in range(100):
     r = random.randint(0,5)
     id = random.randint(0,5)
     if r == 0:
-        print 'retiring sender instance', id
+        print '--> retiring sender instance', id
         outsig.release_instance(id)
     else:    
-        print 'updating instance', id, 'to', i
+        print '--> sender instance', id, 'updated to', i
         outsig.update_instance(id, i)
-    src.poll(10)
-    dest.poll(10)
+    print_instance_ids()
+    dest.poll(100)
+    src.poll(0)

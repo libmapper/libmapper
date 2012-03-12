@@ -469,7 +469,7 @@ static void msig_instance_handler_py(struct _mapper_signal *msig,
         printf("[mapper] Could not build arglist (msig_instance_handler_py).\n");
         return;
     }
-    result = PyEval_CallObject((PyObject*)user_data, arglist);
+    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -644,10 +644,18 @@ typedef struct _admin {} admin;
                       maybeSigVal maximum=0, PyObject *PyFunc=0,
                       int instances=0)
     {
-        mapper_signal_handler *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
+        void *h = 0;
+        if (instances) {
+            if (PyFunc) {
+                h = msig_instance_handler_py;
+                Py_XINCREF(PyFunc);
+            }
+        }
+        else {
+            if (PyFunc) {
+                h = msig_handler_py;
+                Py_XINCREF(PyFunc);
+            }
         }
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -689,12 +697,13 @@ typedef struct _admin {} admin;
             }
         }
         if (instances)
-            return mdev_add_input_with_instances((mapper_device)$self, name,
-                                                  length, type, unit,
-                                                  pmn, pmx, instances, h, PyFunc);
+            return (signal *)mdev_add_input_with_instances((mapper_device)$self,
+                                                           name, length, type,
+                                                           unit, pmn, pmx,
+                                                           instances, h, PyFunc);
         else
-            return mdev_add_input($self, name, length, type, unit,
-                                  pmn, pmx, h, PyFunc);
+            return (signal *)mdev_add_input((mapper_device)$self, name, length,
+                                            type, unit, pmn, pmx, h, PyFunc);
     }
     signal* add_hidden_input(const char *name, int length=1, const char type='f',
                              const char *unit=0, maybeSigVal minimum=0,
@@ -793,11 +802,13 @@ typedef struct _admin {} admin;
             }
         }
         if (instances)
-            return mdev_add_output_with_instances((mapper_device)$self, name,
-                                                  length, type, unit,
-                                                  pmn, pmx, instances);
+            return (signal *)mdev_add_output_with_instances((mapper_device)$self,
+                                                            name, length, type,
+                                                            unit, pmn, pmx,
+                                                            instances);
         else
-            return mdev_add_output($self, name, length, type, unit, pmn, pmx);
+            return (signal *)mdev_add_output((mapper_device)$self, name, length,
+                                             type, unit, pmn, pmx);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -913,7 +924,9 @@ typedef struct _admin {} admin;
             h = msig_instance_handler_py;
             Py_XINCREF(PyFunc);
         }
-        msig_reserve_instances((mapper_signal)$self, num, h, PyFunc);
+        mapper_signal sig = (mapper_signal)$self;
+        sig->props.user_data = PyFunc;
+        msig_reserve_instances((mapper_signal)$self, num, h);
     }
     void update_instance(int id, float f) {
         mapper_signal sig = (mapper_signal)$self;
@@ -935,6 +948,15 @@ typedef struct _admin {} admin;
     }
     void release_instance(int id) {
         msig_release_instance((mapper_signal)$self, id);
+    }
+    int active_instance_id(int index) {
+        return msig_active_instance_id((mapper_signal)$self, index);
+    }
+    int num_active_instances() {
+        return msig_num_active_instances((mapper_signal)$self);
+    }
+    int num_reserved_instances() {
+        return msig_num_reserved_instances((mapper_signal)$self);
     }
     void set_allocation_mode(mapper_instance_allocation_type mode) {
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);

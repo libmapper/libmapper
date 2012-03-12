@@ -52,9 +52,9 @@ mapper_signal msig_new_with_instances(const char *name, int length, char type,
                                   minimum, maximum, 0, user_data);
     if (!msig)
         return 0;
-    msig->active->user_data = user_data;
+    msig->props.user_data = user_data;
     msig_release_instance_internal(msig->active);
-    msig_reserve_instances(msig, num-1, handler, user_data);
+    msig_reserve_instances(msig, num-1, handler);
     return msig;
 }
 
@@ -300,7 +300,6 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
     sig->active = si;
     si->connections = 0;
     ++sig->props.instances;
-    printf("props.instances = %i\n", sig->props.instances);
 
     if (!sig->device)
         return si;
@@ -329,13 +328,12 @@ mapper_signal_instance msig_add_instance(mapper_signal sig,
 }
 
 void msig_reserve_instances(mapper_signal sig, int num,
-                            mapper_signal_instance_handler *handler,
-                            void *user_data)
+                            mapper_signal_instance_handler *handler)
 {
     int i;
     mapper_signal_instance si;
     for (i = 0; i < num; i++) {
-        si = msig_add_instance(sig, handler, user_data);
+        si = msig_add_instance(sig, handler, 0);
         if (si) {
             // Remove instance from active list, place in reserve
             si->is_active = 0;
