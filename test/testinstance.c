@@ -38,9 +38,7 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
-    // reserve an appropriate number of instances
-    msig_reserve_instances(sendsig, 5, 0, 0);
+    sendsig = mdev_add_output_with_instances(source, "/outsig", 1, 'f', 0, &mn, &mx, 5);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -67,19 +65,6 @@ void cleanup_source()
     }
 }
 
-void normal_handler(mapper_signal sig, mapper_db_signal props,
-                    mapper_timetag_t *timetag, void *v)
-{
-    if (v) {
-        printf("--> destination %s (no instance) got %f\n",
-               props->name, (*(float*)v));
-        received++;
-    }
-    else
-        printf("--> destination %s (no instance) got NULL\n",
-               props->name);
-}
-
 void instance_handler(mapper_signal sig, mapper_db_signal props,
                       mapper_timetag_t *timetag, void *v,
                       int id, void *user_data)
@@ -103,10 +88,11 @@ int setup_destination()
     printf("destination created.\n");
 
     float mn=0, mx=1;
-        
-    recvsig = mdev_add_input(destination, "/insig", 1, 
-                             'f', 0, &mn, &mx, normal_handler, 0);
-    msig_reserve_instances(recvsig, 5, instance_handler, 0);
+
+    recvsig = mdev_add_input_with_instances(destination,
+                                            "/insig", 1, 'f',
+                                            0, &mn, &mx, 5,
+                                            instance_handler, 0);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
