@@ -112,10 +112,14 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
-    mapper_signal_instance si = sig->active;
-
     if (!md) {
         trace("error, sig->device==0\n");
+        return 0;
+    }
+
+    mapper_signal_instance si = sig->active;
+    if (!si) {
+        trace("error, sig->active==0\n");
         return 0;
     }
 
