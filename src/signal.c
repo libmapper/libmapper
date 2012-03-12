@@ -436,12 +436,6 @@ void msig_release_instance_internal(mapper_signal_instance si)
         msig_update_instance_internal(si, NULL);
     }
 
-    // If it's the last active signal, set id=0 and reset history.
-    if (si->signal->active == si && si->next == NULL) {
-        msig_instance_init(si, 0);
-        return;
-    }
-
     // Remove instance from active list, place in reserve
     mapper_signal_instance *msi = &si->signal->active;
     while (*msi) {
@@ -494,11 +488,6 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
 
     mapper_signal_instance si = msig_find_instance(sig, instance_id);
     if (si) return si;
-
-    // First try to steal the first active 'id=0' instance
-    //if (sig->active->id == 0) {
-    //    si = sig->active;
-    //}
 
     // Next, try the reserve instances
     if (!si) {
@@ -563,9 +552,6 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
 void msig_remove_instance(mapper_signal_instance si)
 {
     if (!si) return;
-
-    // do not allow instance 0 to be removed
-    if (si->id == 0) return;
 
     // First send zero signal
     msig_update_instance_internal(si, NULL);
