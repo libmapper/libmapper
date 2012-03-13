@@ -38,7 +38,10 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_output_with_instances(source, "/outsig", 1, 'f', 0, &mn, &mx, 5);
+    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    if (!sendsig)
+        goto error;
+    msig_reserve_instances(sendsig, 4);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -65,18 +68,17 @@ void cleanup_source()
     }
 }
 
-void instance_handler(mapper_signal sig, mapper_db_signal props,
-                      mapper_timetag_t *timetag, void *v,
-                      int id, void *user_data)
+void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
+                   mapper_timetag_t *timetag, void *v)
 {
     if (v) {
         printf("--> destination %s instance %ld got %f\n",
-               props->name, (long)id, (*(float*)v));
+               props->name, (long)instance_id, (*(float*)v));
         received++;
     }
     else
         printf("--> destination %s instance %ld got NULL\n",
-               props->name, (long)id);
+               props->name, (long)instance_id);
 }
 
 /*! Creation of a local destination. */
@@ -89,10 +91,11 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input_with_instances(destination,
-                                            "/insig", 1, 'f',
-                                            0, &mn, &mx, 5,
-                                            instance_handler, 0);
+    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
+                             0, &mn, &mx, insig_handler, 0);
+    if (!recvsig)
+        goto error;
+    msig_reserve_instances(recvsig, 4);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
