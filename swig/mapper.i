@@ -410,6 +410,7 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
+                            int instance_id,
                             mapper_db_signal props,
                             mapper_timetag_t *tt,
                             void *v)
@@ -423,50 +424,15 @@ static void msig_handler_py(struct _mapper_signal *msig,
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+            arglist = Py_BuildValue("(Oii)", py_msig, instance_id, *(int*)v);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+            arglist = Py_BuildValue("(Oif)", py_msig, instance_id, *(float*)v);
     }
     else {
-        arglist = Py_BuildValue("(Os)", py_msig, 0);
+        arglist = Py_BuildValue("(Ois)", py_msig, instance_id, 0);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
-        return;
-    }
-    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
-    Py_DECREF(arglist);
-    Py_XDECREF(result);
-    _save = PyEval_SaveThread();
-}
-
-/* Wrapper for callback back to python when a mapper_signal instance
- * handler is called. */
-static void msig_instance_handler_py(struct _mapper_signal *msig,
-                                     mapper_db_signal props,
-                                     mapper_timetag_t *tt,
-                                     void *v,
-                                     int id,
-                                     void *user_data)
-{
-    PyEval_RestoreThread(_save);
-    PyObject *arglist=0;
-    PyObject *result=0;
-
-    PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
-                                           SWIGTYPE_p__signal, 0);
-
-    if (v) {
-        if (props->type == 'i')
-            arglist = Py_BuildValue("(Oii)", py_msig, id, *(int*)v);
-        else if (props->type == 'f')
-            arglist = Py_BuildValue("(Oif)", py_msig, id, *(float*)v);
-    }
-    else {
-        arglist = Py_BuildValue("(Ois)", py_msig, id, 0);
-    }
-    if (!arglist) {
-        printf("[mapper] Could not build arglist (msig_instance_handler_py).\n");
         return;
     }
     result = PyEval_CallObject((PyObject*)props->user_data, arglist);
@@ -645,17 +611,9 @@ typedef struct _admin {} admin;
                       int instances=0)
     {
         void *h = 0;
-        if (instances) {
-            if (PyFunc) {
-                h = msig_instance_handler_py;
-                Py_XINCREF(PyFunc);
-            }
-        }
-        else {
-            if (PyFunc) {
-                h = msig_handler_py;
-                Py_XINCREF(PyFunc);
-            }
+        if (PyFunc) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
         }
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -696,14 +654,12 @@ typedef struct _admin {} admin;
                 }
             }
         }
+        mapper_signal msig = mdev_add_input((mapper_device)$self, name,
+                                            length, type, unit, pmn, pmx,
+                                            h, PyFunc);
         if (instances)
-            return (signal *)mdev_add_input_with_instances((mapper_device)$self,
-                                                           name, length, type,
-                                                           unit, pmn, pmx,
-                                                           instances, h, PyFunc);
-        else
-            return (signal *)mdev_add_input((mapper_device)$self, name, length,
-                                            type, unit, pmn, pmx, h, PyFunc);
+            msig_reserve_instances(msig, instances-1);
+        return (signal *)msig;
     }
     signal* add_hidden_input(const char *name, int length=1, const char type='f',
                              const char *unit=0, maybeSigVal minimum=0,
@@ -801,14 +757,11 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        if (instances)
-            return (signal *)mdev_add_output_with_instances((mapper_device)$self,
-                                                            name, length, type,
-                                                            unit, pmn, pmx,
-                                                            instances);
-        else
-            return (signal *)mdev_add_output((mapper_device)$self, name, length,
+        mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
                                              type, unit, pmn, pmx);
+        if (instances)
+            msig_reserve_instances(msig, instances-1);
+        return (signal *)msig;
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -918,15 +871,8 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
-    void reserve_instances(int num, PyObject *PyFunc=0) {
-        mapper_signal_instance_handler *h = 0;
-        if (PyFunc) {
-            h = msig_instance_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        mapper_signal sig = (mapper_signal)$self;
-        sig->props.user_data = PyFunc;
-        msig_reserve_instances((mapper_signal)$self, num, h);
+    void reserve_instances(int num) {
+        msig_reserve_instances((mapper_signal)$self, num);
     }
     void update_instance(int id, float f) {
         mapper_signal sig = (mapper_signal)$self;
