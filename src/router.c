@@ -68,7 +68,7 @@ void mapper_router_send_signal(mapper_connection_instance ci)
     if (!m)
         return;
 
-    if (ci->parent->signal->props.instances)
+    if (ci->parent->signal->props.instances > 1)
         lo_message_add_int32(m, ci->parent->id);
 
     if (ci->history.position != -1) {

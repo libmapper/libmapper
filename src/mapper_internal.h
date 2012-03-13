@@ -36,10 +36,6 @@ struct _mapper_signal
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
-
-    /*! An optional function to be called when a signal instance value
-     *  changes. */
-    mapper_signal_instance_handler *instance_handler;
 };
 
 /**** Instances ****/
@@ -200,30 +196,6 @@ mapper_signal msig_new(const char *name, int length, char type,
                        void *minimum, void *maximum,
                        mapper_signal_handler *handler, void *user_data);
 
-/*! Create a signal structure and a specified number of instances and fill
- *  it with provided arguments. Values and strings pointed to by this call
- *  (except user_data) will be copied. Signals should be freed by msig_free()
- *  only if they are not registered with a device.
- *  For minimum, maximum, and value, if type='f', should be float*, or
- *  if type='i', then should be int*.
- *  \param name The name of the signal, starting with '/'.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param is_output The direction of the signal, 1 for output, 0 for input.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param num     Number of instances to allocate. Can be increased later using
- *                 msig_add_instance() or msig_reserve_instances().
- *  \param handler Function to be called when the value of the
- *                 signal is updated.
- *  \param user_data User context pointer to be passed to handler. */
-mapper_signal msig_new_with_instances(const char *name, int length, char type,
-                                      int is_output, const char *unit,
-                                      void *minimum, void *maximum, int num,
-                                      mapper_signal_instance_handler *handler,
-                                      void *user_data);
-
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
  *  freed by mdev_free().
@@ -232,10 +204,9 @@ void msig_free(mapper_signal sig);
 
 /*! Add a new instance of a signal.
  *  \param sig The signal to which the instance will be added.
+ *  \param user_data User context pointer to be passed to handler.
  *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_add_instance(mapper_signal sig,
-                                         mapper_signal_instance_handler *handler,
-                                         void *user_data);
+mapper_signal_instance msig_add_instance(mapper_signal sig, void *user_data);
 
 /*! Add a new connection instance to a signal.
  *  \param si The signal instance corresponding to the new connection instance.

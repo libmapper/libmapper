@@ -41,18 +41,10 @@ typedef lo_timetag mapper_timetag_t;
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
 typedef void mapper_signal_handler(mapper_signal msig,
+                                   int instance_id,
                                    mapper_db_signal props,
                                    mapper_timetag_t *timetag,
                                    void *value);
-
-/*! A signal instance handler function can be called whenever a signal
- *  instance value changes. */
-typedef void mapper_signal_instance_handler(mapper_signal msig,
-                                            mapper_db_signal props,
-                                            mapper_timetag_t *timetag,
-                                            void *value,
-                                            int instance_id,
-                                            void *user_data);
 
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
@@ -157,11 +149,8 @@ int msig_active_instance_id(mapper_signal sig, int index);
 
 /*! Add new instances to the reserve list.
  *  \param sig          The signal to which the instances will be added.
- *  \param num          The number of instances to add.
- *  \param handler      Function to be called when the value of the
- *                      signal is updated. */
-void msig_reserve_instances(mapper_signal sig, int num,
-                            mapper_signal_instance_handler *handler);
+ *  \param num          The number of instances to add. */
+void msig_reserve_instances(mapper_signal sig, int num);
 
 /*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list.
@@ -266,31 +255,6 @@ mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              mapper_signal_handler *handler,
                              void *user_data);
 
-/*! Add an input signal with instances to a mapper device.  Values and
- *  strings pointed to by this call (except user_data) will be
- *  copied.  For minimum and maximum, actual type must correspond
- *  to 'type'.  If type='i', then int*; if type='f', then float*.
- *  \param dev The device to add a signal to.
- *  \param name The name of the signal.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param num     Number of instances to allocate. Can be increased later
- *                 with msig_add_instance() or msig_reserve_instances().
- *  \param handler Function to be called when the value of the
- *                 signal is updated.
- *  \param user_data User context pointer to be passed to handler. */
-mapper_signal mdev_add_input_with_instances(mapper_device dev,
-                                            const char *name,
-                                            int length, char type,
-                                            const char *unit,
-                                            void *minimum, void *maximum,
-                                            int num,
-                                            mapper_signal_instance_handler *handler,
-                                            void *user_data);
-
 /*! Add a hidden input to a mapper device. Hidden inputs can receive
  *  signals but are not reported on the admin bus; they are intended
  *  as local receivers for remote value queries. Values and strings
@@ -327,26 +291,6 @@ mapper_signal mdev_add_hidden_input(mapper_device dev, const char *name,
 mapper_signal mdev_add_output(mapper_device dev, const char *name,
                               int length, char type, const char *unit,
                               void *minimum, void *maximum);
-
-/*! Add an output signal with instances to a mapper device.  Values and
- *  strings pointed to by this call (except user_data) will be
- *  copied.  For minimum and maximum, actual type must correspond
- *  to 'type'.  If type='i', then int*; if type='f', then float*.
- *  \param dev The device to add a signal to.
- *  \param name The name of the signal.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param num     Number of instances to allocate. Can be increased later
- *                 with msig_add_instance() or msig_reserve_instances().*/
-mapper_signal mdev_add_output_with_instances(mapper_device dev,
-                                             const char *name,
-                                             int length, char type,
-                                             const char *unit,
-                                             void *minimum, void *maximum,
-                                             int num);
 
 /* Remove a device's input signal.
  * \param dev The device to remove a signal from.

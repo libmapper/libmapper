@@ -25,11 +25,6 @@ static double get_current_time()
 #endif
 }
 
-static mapper_signal mdev_add_input_internal(mapper_device md, const char *name,
-                                             int length, char type, const char *unit,
-                                             void *minimum, void *maximum, int num,
-                                             void *handler, void *user_data);
-
 //! Allocate and initialize a mapper device.
 mapper_device mdev_new(const char *name_prefix, int initial_port,
                        mapper_admin admin)
@@ -117,7 +112,7 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    mapper_signal_instance si = sig->active;
+    mapper_signal_instance si = msig_get_instance(sig, 0);
     if (!si) {
         trace("error, sig->active==0\n");
         return 0;
@@ -139,7 +134,7 @@ static int handler_signal(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, &sig->props,
+        sig->handler(sig, 0, &sig->props,
                      &sig->active->history.timetag[sig->active->history.position],
                      si->history.position == -1 ? 0 :
                      si->history.value + msig_vector_bytes(sig)
@@ -186,19 +181,8 @@ static int handler_signal_instance(const char *path, const char *types,
                    argv[1], msig_vector_bytes(sig));
         }
 
-        if (si->signal->instance_handler) {
-            // There is a handler for instances
-            si->signal->instance_handler(
-                sig, &sig->props,
-                &si->history.timetag[si->history.position],
-                types[1] == LO_NIL ? 0
-                : si->history.value+(msig_vector_bytes(sig)
-                                     * si->history.position),
-                id, si->user_data);
-        }
-        else if (si->signal->handler) {
-            // There is no handler for instances, but a generic signal handler exists
-            si->signal->handler(sig, &sig->props,
+        if (si->signal->handler) {
+            si->signal->handler(sig, id, &sig->props,
                                 &si->history.timetag[si->history.position],
                                 types[1] == LO_NIL ? 0
                                 : si->history.value+(msig_vector_bytes(sig)
@@ -240,18 +224,19 @@ static int handler_query(const char *path, const char *types,
     lo_message m;
 
     mapper_signal_instance si = sig->active;
+    if (!si) {
+        // If there are no active instances, send null response
+        m = lo_message_new();
+        lo_message_add_nil(m);
+        lo_send_message(lo_message_get_source(msg), dest_name, m);
+        lo_message_free(m);
+    }
     while (si) {
         m = lo_message_new();
         if (!m)
             return 0;
-        if (si->id) {
-            die_unless(sizeof(si->id)==4 || sizeof(si->id)==8,
-                       "Unknown pointer size on this machine.");
-            if (sizeof(si->id)==4)
-                lo_message_add_int32(m, (long)si->id);
-            else if (sizeof(si->id)==8)
-                lo_message_add_int64(m, (long)si->id);
-        }
+        if (si->signal->props.instances > 1)
+            lo_message_add_int32(m, (long)si->id);
         if (si->history.position != -1) {
             if (si->history.type == 'f') {
                 float *v = msig_history_value_pointer(si->history);
@@ -283,41 +268,13 @@ static int handler_query(const char *path, const char *types,
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
                              void *minimum, void *maximum,
-                             mapper_signal_handler *handler,
-                             void *user_data)
-{
-    return mdev_add_input_internal(md, name, length, type, unit, minimum,
-                                   maximum, 0, handler, user_data);
-}
-
-// Add an input signal with instances to a mapper device.
-mapper_signal mdev_add_input_with_instances(mapper_device md, const char *name, int length,
-                                            char type, const char *unit,
-                                            void *minimum, void *maximum, int num,
-                                            mapper_signal_instance_handler *handler,
-                                            void *user_data)
-{
-    return mdev_add_input_internal(md, name, length, type, unit, minimum, 
-                                   maximum, num, handler, user_data);
-}
-
-// Add an input signal to a mapper device.
-mapper_signal mdev_add_input_internal(mapper_device md, const char *name, int length,
-                                      char type, const char *unit,
-                                      void *minimum, void *maximum, int num,
-                                      void *handler,
-                                      void *user_data)
+                             mapper_signal_handler *handler, void *user_data)
 {
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
     char *type_string = 0, *signal_get = 0;
-    mapper_signal sig;
-    if (num)
-        sig = msig_new_with_instances(name, length, type, 0, unit, minimum,
-                                      maximum, num, handler, user_data);
-    else
-        sig = msig_new(name, length, type, 0, unit, minimum, 
-                       maximum, handler, user_data);
+    mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
+                                 maximum, handler, user_data);
     if (!sig)
         return 0;
     md->n_inputs++;
@@ -391,24 +348,11 @@ mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int leng
 
 // Add an output signal to a mapper device.
 mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
-                              char type, const char *unit,
-                              void *minimum, void *maximum)
-{
-    return mdev_add_output_with_instances(md, name, length, type, unit, minimum, maximum, 0);
-}
-
-// Add an output signal to a mapper device.
-mapper_signal mdev_add_output_with_instances(mapper_device md, const char *name, int length,
-                                             char type, const char *unit,
-                                             void *minimum, void *maximum, int num)
+                              char type, const char *unit, void *minimum, void *maximum)
 {
     if (mdev_get_output_by_name(md, name, 0))
         return 0;
-    mapper_signal sig;
-    if (num)
-        sig = msig_new_with_instances(name, length, type, 1, unit, minimum, maximum, num, 0, 0);
-    else
-        sig = msig_new(name, length, type, 1, unit, minimum,
+    mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
                                  maximum, 0, 0);
     if (!sig)
         return 0;
