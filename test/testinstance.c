@@ -18,8 +18,7 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-int sendinst[5] = {0, 0, 0, 0, 0};
-int recvinst[5] = {0, 0, 0, 0, 0};
+int sendinst[10] = {0, 0, 0, 0, 0};
 int nextid = 1;
 
 int port = 9000;
@@ -41,7 +40,7 @@ int setup_source()
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 4);
+    msig_reserve_instances(sendsig, 9);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -79,6 +78,12 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
     else
         printf("--> destination %s instance %ld got NULL\n",
                props->name, (long)instance_id);
+}
+
+void overflow_handler(mapper_signal sig)
+{
+    printf("OVERFLOW!!\n");
+    msig_reserve_instances(recvsig, 1);
 }
 
 /*! Creation of a local destination. */
@@ -135,37 +140,38 @@ void print_instance_ids(mapper_signal sig)
     printf(" ]   ");
 }
 
-void loop()
+void connect_signals()
+{
+    char source_name[1024], destination_name[1024];
+    
+    printf("%s\n", mdev_name(source));
+    printf("%s\n", mdev_name(destination));
+    
+    lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
+    lo_address_set_ttl(a, 1);
+    
+    lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+    
+    msig_full_name(sendsig, source_name, 1024);
+    msig_full_name(recvsig, destination_name, 1024);
+    
+    lo_send(a, "/connect", "ss", source_name, destination_name);
+    
+    lo_address_free(a);
+}
+
+void loop(int iterations)
 {
     printf("-------------------- GO ! --------------------\n");
     int i = 0, j = 0;
     float value = 0;
 
-    if (automate) {
-        char source_name[1024], destination_name[1024];
-
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
-
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
-
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
-
-        msig_full_name(sendsig, source_name, 1024);
-        msig_full_name(recvsig, destination_name, 1024);
-
-        lo_send(a, "/connect", "ss", source_name, destination_name);
-
-        lo_address_free(a);
-    }
-
-    while (i >= 0 && !done) {
+    while (i >= 0 && iterations-- >= 0 && !done) {
         // here we should create, update and destroy some instances
         switch (rand() % 5) {
             case 0:
                 // try to create a new instance
-                for (j = 0; j < 5; j++) {
+                for (j = 0; j < 10; j++) {
                     if (!sendinst[j]) {
                         sendinst[j] = nextid++;
                         printf("--> Created new sender instance: %d\n",
@@ -176,7 +182,7 @@ void loop()
                 break;
             case 1:
                 // try to destroy an instance
-                j = rand() % 5;
+                j = rand() % 10;
                 if (sendinst[j]) {
                     printf("--> Retiring sender instance %ld\n",
                            (long)sendinst[j]);
@@ -187,7 +193,7 @@ void loop()
                 }
                 break;
             default:
-                j = rand() % 5;
+                j = rand() % 10;
                 if (sendinst[j]) {
                     // try to update an instance
                     value = (rand() % 10) * 1.0f;
@@ -237,7 +243,23 @@ int main()
 
     wait_local_devices();
 
-    loop();
+    if (automate)
+        connect_signals();
+
+    printf("************************************\n");
+    printf("Testing with no instance-stealing.");
+    loop(100);
+
+    msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
+    printf("************************************\n");
+    printf("Testing with instance-stealing IN_STEAL_OLDEST.");
+    loop(100);
+
+    msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
+    msig_set_instance_overflow_handler(recvsig, overflow_handler);
+    printf("************************************\n");
+    printf("Testing with instance-stealing: CALLBACK.");
+    loop(100);
 
     if (sent != received) {
         printf("Not all sent messages were received.\n");

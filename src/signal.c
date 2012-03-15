@@ -28,6 +28,7 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
+    sig->instance_overflow_handler = 0;
     sig->props.instances = 0;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
@@ -457,6 +458,12 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
 {
     if (sig && mode >= 0 && mode < N_MAPPER_INSTANCE_ALLOCATION_TYPES)
         sig->instance_allocation_type = mode;
+}
+
+void msig_set_instance_overflow_handler(mapper_signal sig,
+                                        mapper_signal_instance_overflow_handler h)
+{
+    sig->instance_overflow_handler = h;
 }
 
 mapper_signal_instance msig_get_instance(mapper_signal sig,

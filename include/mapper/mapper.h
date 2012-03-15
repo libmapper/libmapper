@@ -46,6 +46,10 @@ typedef void mapper_signal_handler(mapper_signal msig,
                                    mapper_timetag_t *timetag,
                                    void *value);
 
+/*! A handler function to be called whenever a signal runs out of
+ *  instances. */
+typedef void mapper_signal_instance_overflow_handler(mapper_signal msig);
+
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.
  *  \param minimum  Must be the same type as the signal, or 0 to remove
@@ -165,6 +169,10 @@ void msig_release_instance(mapper_signal sig, int instance_id);
  *              if no reserved instances are available. */
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
+
+/*! Set the handler to be called when a signal runs out of instances. */
+void msig_set_instance_overflow_handler(mapper_signal sig,
+                                        mapper_signal_instance_overflow_handler h);
 
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.

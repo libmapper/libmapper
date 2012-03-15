@@ -36,6 +36,10 @@ struct _mapper_signal
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
+
+    /*! An optional function to be called when the signal runs
+     *  out of instances. */
+    mapper_signal_instance_overflow_handler *instance_overflow_handler;
 };
 
 /**** Instances ****/

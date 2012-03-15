@@ -161,10 +161,12 @@ static int handler_signal_instance(const char *path, const char *types,
 
     mapper_signal_instance si =
         msig_get_instance(sig, id);
-
+    if (!si && sig->instance_overflow_handler) {
+        sig->instance_overflow_handler(sig);
+        // try again
+        si = msig_get_instance(sig, id);
+    }
     if (!si) {
-        /* TODO: need notification handler to indicate no more
-         * instances are available */
         trace("no instances available for id=%ld\n", (long)id);
         return 0;
     }
@@ -181,12 +183,12 @@ static int handler_signal_instance(const char *path, const char *types,
                    argv[1], msig_vector_bytes(sig));
         }
 
-        if (si->signal->handler) {
-            si->signal->handler(sig, id, &sig->props,
-                                &si->history.timetag[si->history.position],
-                                types[1] == LO_NIL ? 0
-                                : si->history.value+(msig_vector_bytes(sig)
-                                                     * si->history.position));
+        if (sig->handler) {
+            sig->handler(sig, id, &sig->props,
+                         &si->history.timetag[si->history.position],
+                         types[1] == LO_NIL ? 0 :
+                         si->history.value + msig_vector_bytes(sig)
+                         * si->history.position);
         }
 
         if (types[1] == LO_NIL) {
