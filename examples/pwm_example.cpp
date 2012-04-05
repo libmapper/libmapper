@@ -15,6 +15,7 @@ void ctrlc(int)
 }
 
 void handler_freq(mapper_signal msig,
+                  int instance_id,
                   mapper_db_signal props,
                   mapper_timetag_t *timetag,
                   void *value)
@@ -24,6 +25,7 @@ void handler_freq(mapper_signal msig,
 }
 
 void handler_gain(mapper_signal msig,
+                  int instance_id,
                   mapper_db_signal props,
                   mapper_timetag_t *timetag,
                   void *value)
@@ -33,6 +35,7 @@ void handler_gain(mapper_signal msig,
 }
 
 void handler_duty(mapper_signal msig,
+                  int instance_id,
                   mapper_db_signal props,
                   mapper_timetag_t *timetag,
                   void *value)
