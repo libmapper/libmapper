@@ -106,7 +106,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/signals/output/get",   NULL,       handler_id_n_signals_output_get},
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
-    {"/link",                   "ss",       handler_device_link},
+    {"/link",                   NULL,       handler_device_link},
     {"/linkTo",                 "sssi",     handler_device_linkTo},
     {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
@@ -1332,9 +1332,22 @@ static int handler_device_link(const char *path, const char *types,
     /* If the device who received the message is the destination in the
      * /link message... */
     if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
-        mapper_admin_send_osc(
-            admin, "/linkTo", "ss", src_name, dest_name,
-            AT_PORT, admin->port.value);
+        mapper_message_t params;
+        memset(&params, 0, sizeof(mapper_message_t));
+        // add arguments from /link if any
+        if (mapper_msg_parse_params(&params, path, &types[2],
+                                    argc-2, &argv[2]))
+        {
+            trace("<%s> error parsing message parameters in /link.\n",
+                  mapper_admin_name(admin));
+            return 0;
+        }
+        lo_arg *arg_port = (lo_arg*) &admin->port.value;
+        params.values[AT_PORT] = &arg_port;
+        params.types[AT_PORT] = "i";
+
+        mapper_admin_send_osc_with_params(
+            admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
     }
     return 0;
 }

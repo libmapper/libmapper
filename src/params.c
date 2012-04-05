@@ -1,5 +1,6 @@
 
 #include <string.h>
+#include <stdio.h>
 
 #include "types_internal.h"
 #include "mapper_internal.h"
@@ -449,6 +450,13 @@ void mapper_msg_prepare_params(lo_message m,
         else {
             msg_add_lo_arg(m, *msg->types[pa], a);
         }
+    }
+    pa = 0;
+    while (msg->extra_args[pa])
+    {
+        msg_add_lo_arg(m, 's', (lo_arg*) (&msg->extra_args[pa][0]->s));
+        msg_add_lo_arg(m, msg->extra_types[pa], *(msg->extra_args[pa]+1));
+        pa++;
     }
 }
 

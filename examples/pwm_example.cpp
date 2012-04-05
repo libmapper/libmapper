@@ -14,18 +14,30 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal sig, float *pfreq)
+void handler_freq(mapper_signal msig,
+                  mapper_db_signal props,
+                  mapper_timetag_t *timetag,
+                  void *value)
 {
+    float *pfreq = (float*)value;
     set_freq(*pfreq);
 }
 
-void handler_gain(mapper_signal sig, float *pgain)
+void handler_gain(mapper_signal msig,
+                  mapper_db_signal props,
+                  mapper_timetag_t *timetag,
+                  void *value)
 {
+    float *pgain = (float*)value;
     set_gain(*pgain);
 }
 
-void handler_duty(mapper_signal sig, float *pduty)
+void handler_duty(mapper_signal msig,
+                  mapper_db_signal props,
+                  mapper_timetag_t *timetag,
+                  void *value)
 {
+    float *pduty = (float*)pduty;
     set_duty(*pduty);
 }
 
@@ -40,11 +52,11 @@ int main()
     float max1000 = 1000;
 
     mdev_add_input(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                   (mapper_signal_handler*)handler_freq, 0);
+                   handler_freq, 0);
     mdev_add_input(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
-                   (mapper_signal_handler*)handler_gain, 0);
+                   handler_gain, 0);
     mdev_add_input(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
-                   (mapper_signal_handler*)handler_duty, 0);
+                   handler_duty, 0);
 
     run_synth();
 

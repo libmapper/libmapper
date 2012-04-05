@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 #include "mapper_internal.h"
 
@@ -513,17 +514,10 @@ typedef struct {
     int  offset;
 } property_table_value_t;
 
-static mapper_db_signal_t *sigdb=0;
-#define SIGDB_OFFSET(x) ((char*)&sigdb->x - (char*)sigdb)
-
-static mapper_db_device_t *devdb=0;
-#define DEVDB_OFFSET(x) ((char*)&devdb->x - (char*)devdb)
-
-static mapper_db_link_t *linkdb=0;
-#define LINKDB_OFFSET(x) ((char*)&linkdb->x - (char*)linkdb)
-
-static mapper_db_connection_t *condb=0;
-#define CONDB_OFFSET(x) ((char*)&condb->x - (char*)condb)
+#define SIGDB_OFFSET(x) offsetof(mapper_db_signal_t, x)
+#define DEVDB_OFFSET(x) offsetof(mapper_db_device_t, x)
+#define LINKDB_OFFSET(x) offsetof(mapper_db_link_t, x)
+#define CONDB_OFFSET(x) offsetof(mapper_db_connection_t, x)
 
 /* Here type 'o', which is not an OSC type, was reserved to mean "same
  * type as the signal's type".  The lookup and index functions will
