@@ -2,7 +2,7 @@
 
 import sys, mapper, random
 
-def h(sig, id, f, timetag):
+def h(sig, id, timetag, f):
     try:
         print '--> destination instance', id, 'got', f
     except:

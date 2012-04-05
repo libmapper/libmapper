@@ -430,9 +430,9 @@ static void msig_handler_py(struct _mapper_signal *msig,
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
+            arglist = Py_BuildValue("(OiLi)", py_msig, instance_id, timetag, *(int*)v);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
+            arglist = Py_BuildValue("(OiLf)", py_msig, instance_id, timetag, *(float*)v);
     }
     else {
         arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);

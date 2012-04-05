@@ -2,7 +2,7 @@
 
 import sys, mapper
 
-def h(sig, id, f):
+def h(sig, id, timetag, f):
     try:
         print 'received query response:', f
     except:
