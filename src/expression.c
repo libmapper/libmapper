@@ -878,7 +878,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
-    expr->vector_size = vector_size;
+    expr->vector_size = 1;
     expr->history_size = (int)ceilf(-oldest_samps)+1;
     expr->history_pos = -1;
     expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
