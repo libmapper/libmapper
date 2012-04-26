@@ -83,7 +83,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 void overflow_handler(mapper_signal sig)
 {
     printf("OVERFLOW!!\n");
-    msig_reserve_instances(recvsig, 1);
+    msig_reserve_instances(sig, 1);
 }
 
 /*! Creation of a local destination. */
@@ -214,7 +214,7 @@ void loop(int iterations)
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
-        usleep(100 * 1000);
+        //usleep(1 * 1000);
     }
 }
 
@@ -246,19 +246,22 @@ int main()
     if (automate)
         connect_signals();
 
-    printf("************************************\n");
-    printf("Testing with no instance-stealing.");
+    printf("\n**********************************************\n");
+    printf("************ NO INSTANCE STEALING ************\n");
     loop(100);
 
+    // reset counters since we expect failure of test with no stealing
+    sent = received = 0;
+
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
-    printf("************************************\n");
-    printf("Testing with instance-stealing IN_STEAL_OLDEST.");
+    printf("\n**********************************************\n");
+    printf("*************** IN_STEAL_OLDEST **************\n");
     loop(100);
 
     msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
     msig_set_instance_overflow_handler(recvsig, overflow_handler);
-    printf("************************************\n");
-    printf("Testing with instance-stealing: CALLBACK.");
+    printf("\n**********************************************\n");
+    printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);
 
     if (sent != received) {
