@@ -97,7 +97,6 @@ typedef enum _mapper_instance_allocation_type {
     IN_UNDEFINED,    //!< Not yet defined
     IN_STEAL_OLDEST, //!< Steal the oldest instance
     IN_STEAL_NEWEST, //!< Steal the newest instance
-    IN_ADD_INSTANCE, //!< Add a new instance
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
