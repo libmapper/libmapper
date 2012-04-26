@@ -703,6 +703,11 @@ void msig_update_instance(mapper_signal sig,
                           void *value)
 {
     mapper_signal_instance si = msig_get_instance(sig, instance_id);
+    if (!si && sig->instance_overflow_handler) {
+        sig->instance_overflow_handler(sig);
+        // try again
+        si = msig_get_instance(sig, instance_id);
+    }
     if (si)
         msig_update_instance_internal(si, value);
 }
