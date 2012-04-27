@@ -612,8 +612,7 @@ typedef struct _admin {} admin;
     // False, which is correct for this case.
     signal* add_input(const char *name, int length=1, const char type='f',
                       const char *unit=0, maybeSigVal minimum=0,
-                      maybeSigVal maximum=0, PyObject *PyFunc=0,
-                      int instances=0)
+                      maybeSigVal maximum=0, PyObject *PyFunc=0)
     {
         void *h = 0;
         if (PyFunc) {
@@ -662,8 +661,6 @@ typedef struct _admin {} admin;
         mapper_signal msig = mdev_add_input((mapper_device)$self, name,
                                             length, type, unit, pmn, pmx,
                                             h, PyFunc);
-        if (instances)
-            msig_reserve_instances(msig, instances-1);
         return (signal *)msig;
     }
     signal* add_hidden_input(const char *name, int length=1, const char type='f',
@@ -721,7 +718,7 @@ typedef struct _admin {} admin;
     }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
-                       maybeSigVal maximum=0, int instances=0)
+                       maybeSigVal maximum=0)
     {
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -764,8 +761,6 @@ typedef struct _admin {} admin;
         }
         mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
                                              type, unit, pmn, pmx);
-        if (instances)
-            msig_reserve_instances(msig, instances-1);
         return (signal *)msig;
     }
     maybeInt get_port() {
