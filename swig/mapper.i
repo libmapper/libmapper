@@ -435,7 +435,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
             arglist = Py_BuildValue("(OiLf)", py_msig, instance_id, timetag, *(float*)v);
     }
     else {
-        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(OiLs)", py_msig, instance_id, timetag, 0);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
