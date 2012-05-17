@@ -92,8 +92,10 @@ void mapper_router_send_signal(mapper_connection_instance ci)
         lo_message_add_nil(m);
     }
 
-    lo_send_message(ci->connection->router->addr,
-                    ci->connection->props.dest_name, m);
+    lo_send_message_from(ci->connection->router->addr,
+                         ci->connection->router->device->server,
+                         ci->connection->props.dest_name,
+                         m);
     lo_message_free(m);
     return;
 }

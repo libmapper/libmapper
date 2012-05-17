@@ -8,6 +8,8 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+#define MAX_INSTANCES 100
+
 static void msig_update_instance_internal(mapper_signal_instance si,
                                           void *value);
 
@@ -40,7 +42,6 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->active = 0;
     sig->reserve = 0;
     msig_reserve_instances(sig, 1);
-    //msig_add_instance(sig, 0);
     return sig;
 }
 
@@ -64,7 +65,7 @@ void *msig_instance_value(mapper_signal sig,
                           int instance_id,
                           mapper_timetag_t *timetag)
 {
-    mapper_signal_instance si = msig_get_instance(sig, instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (si)
         return msig_instance_value_internal(si, timetag);
     return 0;
@@ -211,21 +212,42 @@ void msig_update(mapper_signal sig, void *value)
         msig_update_instance(sig, 0, value);
 }
 
-static void msig_instance_init(mapper_signal_instance si,
-                               int instance_id)
+static void msig_instance_init_with_id(mapper_signal_instance si,
+                                       int instance_id)
 {
     si->id = instance_id;
     si->history.position = -1;
-    //si->user_data = 0;
     lo_timetag_now(&si->creation_time);
 }
 
-mapper_signal_instance msig_find_instance(mapper_signal sig,
-                                          int instance_id)
+static void msig_instance_init_with_map(mapper_signal_instance si,
+                                        int group_map,
+                                        int id_map)
+{
+    si->group_map = group_map;
+    si->id_map = id_map;
+    si->history.position = -1;
+    lo_timetag_now(&si->creation_time);
+}
+
+mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
+                                                  int id)
 {
     // TODO: hash table, binary search, etc.
     mapper_signal_instance si = sig->active;
-    while (si && (si->id != instance_id)) {
+    while (si && (si->id != id)) {
+        si = si->next;
+    }
+    return si;
+}
+
+mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
+                                                   int group,
+                                                   int id)
+{
+    // TODO: hash table, binary search, etc.
+    mapper_signal_instance si = sig->active;
+    while (si && ((si->group_map != group) || (si->id_map != id))) {
         si = si->next;
     }
     return si;
@@ -244,7 +266,7 @@ void msig_instance_set_data(mapper_signal sig,
                             int instance_id,
                             void *user_data)
 {
-    mapper_signal_instance si = msig_get_instance(sig, instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (si)
         si->user_data = user_data;
 }
@@ -252,76 +274,63 @@ void msig_instance_set_data(mapper_signal sig,
 void *msig_instance_get_data(mapper_signal sig,
                              int instance_id)
 {
-    mapper_signal_instance si = msig_find_instance(sig, instance_id);
+    mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
         return si->user_data;
     return 0;
 }
 
-mapper_signal_instance msig_add_instance(mapper_signal sig, void *user_data)
-{
-    if (!sig)
-        return 0;
-    if (sig->props.instances >= 100)    // Arbitrary MAX_INSTANCCES for now
-        return 0;
-    mapper_signal_instance si = (mapper_signal_instance) calloc(1,
-                                sizeof(struct _mapper_signal_instance));
-
-    si->history.type = sig->props.type;
-    si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
-    si->history.length = sig->props.length;
-    // allocate history vectors
-    si->history.value = calloc(1, msig_vector_bytes(sig) * si->history.size);
-    si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
-    si->signal = sig;
-    si->is_active = 1;
-    msig_instance_init(si, 0);
-    si->user_data = user_data;
-
-    // add signal instance to signal
-    si->next = sig->active;
-    sig->active = si;
-    si->connections = 0;
-    ++sig->props.instances;
-
-    if (!sig->device)
-        return si;
-
-    // add connection instances to signal instance
-    // for each router...
-    mapper_router r = sig->device->routers;
-    while (r) {
-        // ...find signal connection
-        mapper_signal_connection sc = r->connections;
-        while (sc) {
-            if (sc->signal == si->signal) {
-                // For each connection...
-                mapper_connection c = sc->connection;
-                while (c) {
-                    msig_add_connection_instance(si, c);
-                    c = c->next;
-                }
-                continue;
-            }
-            sc = sc->next;
-        }
-        r = r->next;
-    }
-    return si;
-}
-
 void msig_reserve_instances(mapper_signal sig, int num)
 {
+    if (!sig)
+        return;
+    int available = MAX_INSTANCES - sig->props.instances;
+    if (num > available)
+        num = available;
     int i;
-    mapper_signal_instance si;
     for (i = 0; i < num; i++) {
-        si = msig_add_instance(sig, 0);
-        if (si) {
-            // Remove instance from active list, place in reserve
-            si->is_active = 0;
-            sig->active = si->next;
-            si->next = sig->reserve;
-            sig->reserve = si;
+        mapper_signal_instance si = (mapper_signal_instance) calloc(1,
+                                    sizeof(struct _mapper_signal_instance));
+        si->history.type = sig->props.type;
+        si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
+        si->history.length = sig->props.length;
+        // allocate history vectors
+        si->history.value = calloc(1, msig_vector_bytes(sig) * si->history.size);
+        si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
+        si->signal = sig;
+        si->is_active = 0;
+        msig_instance_init_with_id(si, sig->props.instances++);
+        si->group_map = 0;
+        si->id_map = 0;
+        si->user_data = 0;
+
+        // add signal instance to reserve stack
+        si->next = sig->reserve;
+        sig->reserve = si;
+        si->connections = 0;
+
+        if (!sig->device)
+            continue;
+
+        // add connection instances to signal instance
+        // for each router...
+        mapper_router r = sig->device->routers;
+        while (r) {
+            // ...find signal connection
+            mapper_signal_connection sc = r->connections;
+            while (sc) {
+                if (sc->signal == si->signal) {
+                    // For each connection...
+                    mapper_connection c = sc->connection;
+                    while (c) {
+                        msig_add_connection_instance(si, c);
+                        c = c->next;
+                    }
+                    continue;
+                }
+                sc = sc->next;
+            }
+            r = r->next;
         }
     }
 }
@@ -398,7 +407,7 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 
 void msig_release_instance(mapper_signal sig, int instance_id)
 {
-    mapper_signal_instance si = msig_find_instance(sig, instance_id);
+    mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
         return msig_release_instance_internal(si);
 }
@@ -466,13 +475,13 @@ void msig_set_instance_overflow_handler(mapper_signal sig,
     sig->instance_overflow_handler = h;
 }
 
-mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         int instance_id)
+mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
+                                                 int instance_id)
 {
     if (!sig)
         return 0;
 
-    mapper_signal_instance si = msig_find_instance(sig, instance_id);
+    mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si) return si;
 
     // Next, try the reserve instances
@@ -488,7 +497,7 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
     // If we got something, prepare it.
     if (si) {
         si->is_active = 1;
-        msig_instance_init(si, instance_id);
+        msig_instance_init_with_id(si, instance_id);
         return si;
     }
 
@@ -530,7 +539,76 @@ mapper_signal_instance msig_get_instance(mapper_signal sig,
             sig, stolen->id, &sig->props,
             &stolen->history.timetag[stolen->history.position],
             NULL);
-    msig_instance_init(stolen, instance_id);
+    msig_instance_init_with_id(stolen, instance_id);
+    return stolen;
+}
+
+mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
+                                                  int group,
+                                                  int id)
+{
+    if (!sig)
+        return 0;
+
+    mapper_signal_instance si = msig_find_instance_with_map(sig, group, id);
+    if (si) return si;
+
+    // Next, try the reserve instances
+    if (!si) {
+        si = sig->reserve;
+        if (si) {
+            sig->reserve = si->next;
+            si->next = sig->active;
+            sig->active = si;
+        }
+    }
+
+    // If we got something, prepare it.
+    if (si) {
+        si->is_active = 1;
+        msig_instance_init_with_map(si, group, id);
+        return si;
+    }
+
+    // If no reserved instance is available, steal an active instance
+    si = sig->active;
+    mapper_signal_instance stolen = si;
+    mapper_instance_allocation_type mode = sig->instance_allocation_type;
+    if (si && mode) {
+        switch (mode) {
+            case IN_STEAL_OLDEST:
+                while (si) {
+                    if ((si->creation_time.sec < stolen->creation_time.sec) ||
+                        (si->creation_time.sec == stolen->creation_time.sec &&
+                         si->creation_time.frac < stolen->creation_time.frac))
+                        stolen = si;
+                    si = si->next;
+                }
+                goto stole;
+            case IN_STEAL_NEWEST:
+                while (si) {
+                    if ((si->creation_time.sec > stolen->creation_time.sec) ||
+                        (si->creation_time.sec == stolen->creation_time.sec &&
+                         si->creation_time.frac > stolen->creation_time.frac))
+                        stolen = si;
+                    si = si->next;
+                }
+                goto stole;
+            default:
+                trace("Unknown instance allocation strategy (msig_get_instance)\n");
+                return 0;
+        }
+    }
+    return 0;
+
+stole:
+    /* value = NULL signifies release of the instance */
+    if (sig->handler)
+        sig->handler(
+                     sig, stolen->id, &sig->props,
+                     &stolen->history.timetag[stolen->history.position],
+                     NULL);
+    msig_instance_init_with_map(stolen, group, id);
     return stolen;
 }
 
@@ -702,11 +780,11 @@ void msig_update_instance(mapper_signal sig,
                           int instance_id,
                           void *value)
 {
-    mapper_signal_instance si = msig_get_instance(sig, instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (!si && sig->instance_overflow_handler) {
         sig->instance_overflow_handler(sig);
         // try again
-        si = msig_get_instance(sig, instance_id);
+        si = msig_get_instance_with_id(sig, instance_id);
     }
     if (si)
         msig_update_instance_internal(si, value);

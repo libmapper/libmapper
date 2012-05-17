@@ -112,7 +112,7 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    mapper_signal_instance si = msig_get_instance(sig, 0);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, 0);
     if (!si) {
         trace("error, sig->active==0\n");
         return 0;
@@ -157,14 +157,16 @@ static int handler_signal_instance(const char *path, const char *types,
     if (argc < 2)
         return 0;
 
+    lo_address address = lo_message_get_source(msg);
+    int port = atoi(lo_address_get_port(address));
     int id = argv[0]->i32;
 
     mapper_signal_instance si =
-        msig_get_instance(sig, id);
+        msig_get_instance_with_map(sig, port, id);
     if (!si && sig->instance_overflow_handler) {
         sig->instance_overflow_handler(sig);
         // try again
-        si = msig_get_instance(sig, id);
+        si = msig_get_instance_with_map(sig, port, id);
     }
     if (!si) {
         trace("no instances available for id=%ld\n", (long)id);
@@ -184,7 +186,7 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         if (sig->handler) {
-            sig->handler(sig, id, &sig->props,
+            sig->handler(sig, si->id, &sig->props,
                          &si->history.timetag[si->history.position],
                          types[1] == LO_NIL ? 0 :
                          si->history.value + msig_vector_bytes(sig)
@@ -192,7 +194,7 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         if (types[1] == LO_NIL) {
-            msig_release_instance(sig, id);
+            msig_release_instance(sig, si->id);
         }
     }
     return 0;

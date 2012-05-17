@@ -52,6 +52,12 @@ typedef struct _mapper_signal_instance
     /*! ID number of this instance. */
     int id;
 
+    /*! Group id mapping for this instance. */
+    int group_map;
+
+    /*! ID mapping for this instance. */
+    int id_map;
+
     /*! User data of this instance. */
     void *user_data;
 
@@ -206,12 +212,6 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Add a new instance of a signal.
- *  \param sig The signal to which the instance will be added.
- *  \param user_data User context pointer to be passed to handler.
- *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_add_instance(mapper_signal sig, void *user_data);
-
 /*! Add a new connection instance to a signal.
  *  \param si The signal instance corresponding to the new connection instance.
  *  \param c The connection corresponding to the new connection instance.
@@ -219,8 +219,12 @@ mapper_signal_instance msig_add_instance(mapper_signal sig, void *user_data);
 mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
                                                         struct _mapper_connection *c);
 
-mapper_signal_instance msig_find_instance(mapper_signal sig,
-                                          int instance_id);
+mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
+                                                  int instance_id);
+
+mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
+                                                   int group,
+                                                   int id);
 
 /*! Resume a reserved (preallocated) signal instance.
  *  \param  si The signal instance to resume. */
@@ -248,13 +252,25 @@ void mval_add_to_message(lo_message m, char type,
 
 /*! Fetch a reserved (preallocated) signal instance.
  *  \param  sig The signal owning the desired instance.
- *  \param  sig_instance The requested signal instance ID.
+ *  \param  instance_id The requested signal instance ID.
  *  \return The retrieved signal instance, or NULL if no free
  *          instances were available and allocation of a new instance
  *          was unsuccessful according to the selected allocation
  *          strategy. */
-mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         int instance_id);
+mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
+                                                 int instance_id);
+
+/*! Fetch a reserved (preallocated) signal instance using instance id map.
+ *  \param  sig The signal owning the desired instance.
+ *  \param  group The group used for instance id mapping.
+ *  \param  id The id used for instance id mapping.
+ *  \return The retrieved signal instance, or NULL if no free
+ *          instances were available and allocation of a new instance
+ *          was unsuccessful according to the selected allocation
+ *          strategy. */
+mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
+                                                  int group,
+                                                  int id);
 
 /**** connections ****/
 
