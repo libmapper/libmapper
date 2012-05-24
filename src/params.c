@@ -7,32 +7,33 @@
 
 const char* mapper_msg_param_strings[] =
 {
-    "@IP",         /* AT_IP */
-    "@port",       /* AT_PORT */
-    "@numInputs",  /* AT_NUMINPUTS */
-    "@numOutputs", /* AT_NUMOUTPUTS */
-    "@numLinks",   /* AT_NUMLINKS */
-    "@numConnects",/* AT_NUM_CONNECTIONS */
-    "@rev",        /* AT_REV */
-    "@type",       /* AT_TYPE */
-    "@min",        /* AT_MIN */
-    "@max",        /* AT_MAX */
-    "@mode",       /* AT_MODE */
-    "@expression", /* AT_EXPRESSION */
-    "@clipMin",    /* AT_CLIPMIN */
-    "@clipMax",    /* AT_CLIPMAX */
-    "@range",      /* AT_RANGE */
-    "@units",      /* AT_UNITS */
-    "@mute",       /* AT_MUTE */
-    "@length",     /* AT_LENGTH */
-    "@direction",  /* AT_DIRECTION */
-    "@instances",  /* AT_INSTANCES */
-    "@srcType",    /* AT_SRCTYPE */
-    "@destType",   /* AT_DESTTYPE */
-    "@srcLength",  /* AT_SRCLENGTH */
-    "@destLength", /* AT_DESTLENGTH */
-    "",            /* AT_EXTRA (special case, does not represent a
-                    * specific property name) */
+    "@IP",              /* AT_IP */
+    "@port",            /* AT_PORT */
+    "@numInputs",       /* AT_NUMINPUTS */
+    "@numOutputs",      /* AT_NUMOUTPUTS */
+    "@numLinks",        /* AT_NUMLINKS */
+    "@numConnects",     /* AT_NUM_CONNECTIONS */
+    "@rev",             /* AT_REV */
+    "@type",            /* AT_TYPE */
+    "@min",             /* AT_MIN */
+    "@max",             /* AT_MAX */
+    "@mode",            /* AT_MODE */
+    "@expression",      /* AT_EXPRESSION */
+    "@clipMin",         /* AT_CLIPMIN */
+    "@clipMax",         /* AT_CLIPMAX */
+    "@range",           /* AT_RANGE */
+    "@units",           /* AT_UNITS */
+    "@mute",            /* AT_MUTE */
+    "@length",          /* AT_LENGTH */
+    "@direction",       /* AT_DIRECTION */
+    "@instances",       /* AT_INSTANCES */
+    "@syncInstances",   /* AT_SYNCINSTANCES */
+    "@srcType",         /* AT_SRCTYPE */
+    "@destType",        /* AT_DESTTYPE */
+    "@srcLength",       /* AT_SRCLENGTH */
+    "@destLength",      /* AT_DESTLENGTH */
+    "",                 /* AT_EXTRA (special case, does not represent a
+                         * specific property name) */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -343,6 +344,13 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_INSTANCES:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
+            break;
+        case AT_SYNCINSTANCES:
+            i = va_arg(aq, int);
+            if (i)
+                lo_message_add_true(m);
+            else
+                lo_message_add_false(m);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
