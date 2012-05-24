@@ -254,8 +254,8 @@ int mapper_router_remove_connection(mapper_router router,
     return 1;
 }
 
-mapper_router mapper_router_find_by_dest_name(mapper_router router,
-                                              const char* dest_name)
+mapper_router mapper_router_find_by_remote_name(mapper_router router,
+                                                const char* dest_name)
 {
     int n = strlen(dest_name);
     const char *slash = strchr(dest_name+1, '/');

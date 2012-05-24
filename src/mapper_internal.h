@@ -179,8 +179,8 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-/*! Find a router by destination name in a linked list of routers. */
-mapper_router mapper_router_find_by_dest_name(mapper_router routers,
+/*! Find a router by remote device name in a linked list of routers. */
+mapper_router mapper_router_find_by_remote_name(mapper_router routers,
                                                 const char* dest_name);
 
 /**** Signals ****/
