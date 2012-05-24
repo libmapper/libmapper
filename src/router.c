@@ -16,7 +16,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->addr = lo_address_new(host, str);
-    router->dest_name = strdup(name);
+    router->remote_name = strdup(name);
     router->device = device;
     router->outgoing = 0;
 
@@ -147,7 +147,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
         msig_full_name(sig, n, 1024);
         trace("rejecting connection %s -> %s%s because lengths "
               "don't match (not yet supported)\n",
-              n, router->dest_name, dest_name);
+              n, router->remote_name, dest_name);
         return 0;
     }
 
@@ -263,7 +263,7 @@ mapper_router mapper_router_find_by_dest_name(mapper_router router,
         n = slash - dest_name;
 
     while (router) {
-        if (strncmp(router->dest_name, dest_name, n)==0)
+        if (strncmp(router->remote_name, dest_name, n)==0)
             return router;
         router = router->next;
     }

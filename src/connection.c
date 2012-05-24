@@ -725,7 +725,7 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
         if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
             while (router != NULL) {
                 // find associated router
-                if (strncmp(router->dest_name, dest_name, n) == 0) {
+                if (strncmp(router->remote_name, dest_name, n) == 0) {
                     // find associated connection
                     mapper_signal_connection sc = router->outgoing;
                     while (sc && sc->signal != md->outputs[i])
