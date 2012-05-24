@@ -161,7 +161,7 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name);
+                                int port, const char *name, int remap_instances);
 
 void mapper_router_free(mapper_router router);
 

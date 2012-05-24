@@ -99,7 +99,7 @@ int setup_router()
 {
     const char *host = "localhost";
     router = mapper_router_new(source, host, destination->admin->port.value, 
-                               mdev_name(destination));
+                               mdev_name(destination), 0);
     mdev_add_router(source, router);
     printf("Router to %s:%d added.\n", host, port);
 

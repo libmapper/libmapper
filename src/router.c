@@ -10,7 +10,7 @@
 #include <mapper/mapper.h>
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name)
+                                int port, const char *name, int remap_instances)
 {
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
@@ -19,6 +19,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->remote_name = strdup(name);
     router->device = device;
     router->outgoing = 0;
+    router->remap_instances = remap_instances;
 
     if (!router->addr) {
         mapper_router_free(router);

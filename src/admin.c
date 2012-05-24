@@ -67,6 +67,8 @@ static int handler_device_name_registered(const char *, const char *, lo_arg **,
                                           int, lo_message, void *);
 static int handler_device_link(const char *, const char *, lo_arg **, int,
                                lo_message, void *);
+static int handler_device_linkFrom(const char *, const char *, lo_arg **,
+                                   int, lo_message, void *);
 static int handler_device_linkTo(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_linked(const char *, const char *, lo_arg **,
@@ -107,6 +109,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
+    {"/linkFrom",               "sssi",     handler_device_linkFrom},
     {"/linkTo",                 "sssi",     handler_device_linkTo},
     {"/linkTo",                 "sssssi",   handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
@@ -1329,9 +1332,9 @@ static int handler_device_link(const char *path, const char *types,
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    /* If the device who received the message is the destination in the
+    /* If the device who received the message is the source in the
      * /link message... */
-    if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
+    if (strcmp(mapper_admin_name(admin), src_name) == 0) {
         mapper_message_t params;
         memset(&params, 0, sizeof(mapper_message_t));
         // add arguments from /link if any
@@ -1347,10 +1350,92 @@ static int handler_device_link(const char *path, const char *types,
         params.types[AT_PORT] = "i";
 
         mapper_admin_send_osc_with_params(
-            admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
+            admin, &params, 0, "/linkFrom", "ss", src_name, dest_name);
     }
     return 0;
 }
+
+/*! Link two devices... continued. */
+static int handler_device_linkFrom(const char *path, const char *types,
+                                   lo_arg **argv, int argc, lo_message msg,
+                                   void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+
+    const char *src_name, *dest_name, *host=0;
+    int port;
+    mapper_message_t params;
+
+    if (argc < 2)
+        return 0;
+
+    if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
+        && types[1] != 'S')
+        return 0;
+
+    src_name = &argv[0]->s;
+    dest_name = &argv[1]->s;
+
+    if (strcmp(dest_name, mapper_admin_name(admin)))
+    {
+        trace("<%s> ignoring /linkFrom %s %s\n",
+              mapper_admin_name(admin), src_name, dest_name);
+        return 0;
+    }
+
+    trace("<%s> got /linkFrom %s %s\n", mapper_admin_name(admin),
+          src_name, dest_name);
+
+    // Discover whether the device is already linked.
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, dest_name);
+
+    if (router)
+        // Already linked, nothing to do.
+        return 0;
+
+    // Parse the message.
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /link.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
+    lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    params.values[AT_PORT] = &arg_port;
+    params.types[AT_PORT] = "i";
+
+    if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
+        trace("can't perform /linkFrom, port unknown\n");
+        return 0;
+    }
+
+    if (!host) {
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        host = lo_address_get_hostname(a);
+    }
+
+    // Creation of a new router added to the source.
+    router = mapper_router_new(md, host, port, src_name, 1);
+    if (!router) {
+        trace("can't perform /linkFrom, NULL router\n");
+        return 0;
+    }
+    mdev_add_router(md, router);
+
+    // Announce the result.
+    mapper_admin_send_osc_with_params(
+        admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
+
+    trace("new router to %s -> host: %s, port: %d\n",
+          dest_name, host, port);
+
+    return 0;
+}
+
 
 /*! Link two devices... continued. */
 static int handler_device_linkTo(const char *path, const char *types,
@@ -1412,7 +1497,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     }
 
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name);
+    router = mapper_router_new(md, host, port, dest_name, 0);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
