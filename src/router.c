@@ -18,7 +18,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->addr = lo_address_new(host, str);
     router->dest_name = strdup(name);
     router->device = device;
-    router->connections = 0;
+    router->outgoing = 0;
 
     if (!router->addr) {
         mapper_router_free(router);
@@ -32,8 +32,8 @@ void mapper_router_free(mapper_router router)
     if (router) {
         if (router->addr)
             lo_address_free(router->addr);
-        if (router->connections) {
-            mapper_signal_connection sc = router->connections;
+        if (router->outgoing) {
+            mapper_signal_connection sc = router->outgoing;
             while (sc) {
                 mapper_signal_connection tmp = sc->next;
                 if (sc->connection) {
@@ -104,7 +104,7 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias)
 {
     // find this signal in list of connections
-    mapper_signal_connection sc = router->connections;
+    mapper_signal_connection sc = router->outgoing;
     while (sc && sc->signal != sig)
         sc = sc->next;
 
@@ -183,7 +183,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     }
 
     // find signal in signal connection list
-    mapper_signal_connection sc = router->connections;
+    mapper_signal_connection sc = router->outgoing;
     while (sc && sc->signal != sig)
         sc = sc->next;
 
@@ -192,8 +192,8 @@ mapper_connection mapper_router_add_connection(mapper_router router,
         sc = (mapper_signal_connection)
             calloc(1, sizeof(struct _mapper_signal_connection));
         sc->signal = sig;
-        sc->next = router->connections;
-        router->connections = sc;
+        sc->next = router->outgoing;
+        router->outgoing = sc;
     }
     // add new connection to this signal's list
     connection->next = sc->connection;
@@ -237,7 +237,7 @@ int mapper_router_remove_connection(mapper_router router,
         si = si->next;
     }
     // find signal in signal connection list
-    mapper_signal_connection sc = router->connections;
+    mapper_signal_connection sc = router->outgoing;
     while (sc) {
         mapper_connection *c = &sc->connection;
         while (*c) {

@@ -2008,7 +2008,7 @@ static int handler_device_connections_get(const char *path,
     }
 
     while (router) {
-        mapper_signal_connection sc = router->connections;
+        mapper_signal_connection sc = router->outgoing;
         while (sc) {
 			mapper_connection c = sc->connection;
             while (c) {

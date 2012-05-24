@@ -580,7 +580,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
     // first remove connections
-    mapper_signal_connection sc = rt->connections;
+    mapper_signal_connection sc = rt->outgoing;
     while (sc) {
         mapper_connection c = sc->connection, temp;
         while (c) {

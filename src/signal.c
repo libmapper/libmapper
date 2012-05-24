@@ -314,10 +314,10 @@ void msig_reserve_instances(mapper_signal sig, int num)
 
         // add connection instances to signal instance
         // for each router...
-        mapper_router r = sig->device->routers;
-        while (r) {
+        mapper_router router = sig->device->routers;
+        while (router) {
             // ...find signal connection
-            mapper_signal_connection sc = r->connections;
+            mapper_signal_connection sc = router->outgoing;
             while (sc) {
                 if (sc->signal == si->signal) {
                     // For each connection...
@@ -330,7 +330,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
                 }
                 sc = sc->next;
             }
-            r = r->next;
+            router = router->next;
         }
     }
 }

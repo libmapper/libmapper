@@ -158,8 +158,8 @@ typedef struct _mapper_router {
                                            *   this router */
     lo_address addr;                      //!< Sending address.
     struct _mapper_router *next;          //!< Next router in the list.
-    mapper_signal_connection connections; /*!< The list of connections
-                                            *  for each signal. */
+    mapper_signal_connection outgoing;    /*!< The list of outgoing connections
+                                           *   for each signal. */
 } *mapper_router;
 
 /**** Device ****/
