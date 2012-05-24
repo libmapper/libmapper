@@ -158,15 +158,16 @@ static int handler_signal_instance(const char *path, const char *types,
         return 0;
 
     lo_address address = lo_message_get_source(msg);
+    const char *hostname = lo_address_get_hostname(msg);
     int port = atoi(lo_address_get_port(address));
     int id = argv[0]->i32;
 
     mapper_signal_instance si =
-        msig_get_instance_with_map(sig, port, id);
+        msig_get_instance_with_map(sig, hostname, port, id);
     if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig);
+        sig->instance_overflow_handler(sig, hostname, port, id);
         // try again
-        si = msig_get_instance_with_map(sig, port, id);
+        si = msig_get_instance_with_map(sig, hostname, port, id);
     }
     if (!si) {
         trace("no instances available for id=%ld\n", (long)id);

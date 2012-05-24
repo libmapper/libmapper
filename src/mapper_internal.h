@@ -223,7 +223,8 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
                                                   int instance_id);
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
-                                                   int group,
+                                                   const char *hostname,
+                                                   int port,
                                                    int id);
 
 /*! Resume a reserved (preallocated) signal instance.
@@ -269,7 +270,8 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
  *          was unsuccessful according to the selected allocation
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
-                                                  int group,
+                                                  const char *hostname,
+                                                  int port,
                                                   int id);
 
 /**** connections ****/

@@ -221,11 +221,12 @@ static void msig_instance_init_with_id(mapper_signal_instance si,
 }
 
 static void msig_instance_init_with_map(mapper_signal_instance si,
-                                        int group_map,
-                                        int id_map)
+                                        const char *hostname,
+                                        int port,
+                                        int id)
 {
-    si->group_map = group_map;
-    si->id_map = id_map;
+    si->group_map = port;
+    si->id_map = id;
     si->history.position = -1;
     lo_timetag_now(&si->creation_time);
 }
@@ -242,12 +243,13 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
-                                                   int group,
+                                                   const char *hostname,
+                                                   int port,
                                                    int id)
 {
     // TODO: hash table, binary search, etc.
     mapper_signal_instance si = sig->active;
-    while (si && ((si->group_map != group) || (si->id_map != id))) {
+    while (si && ((si->group_map != port) || (si->id_map != id))) {
         si = si->next;
     }
     return si;
@@ -544,13 +546,14 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
-                                                  int group,
+                                                  const char *hostname,
+                                                  int port,
                                                   int id)
 {
     if (!sig)
         return 0;
 
-    mapper_signal_instance si = msig_find_instance_with_map(sig, group, id);
+    mapper_signal_instance si = msig_find_instance_with_map(sig, hostname, port, id);
     if (si) return si;
 
     // Next, try the reserve instances
@@ -566,7 +569,7 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     // If we got something, prepare it.
     if (si) {
         si->is_active = 1;
-        msig_instance_init_with_map(si, group, id);
+        msig_instance_init_with_map(si, hostname, port, id);
         return si;
     }
 
@@ -608,7 +611,7 @@ stole:
                      sig, stolen->id, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    msig_instance_init_with_map(stolen, group, id);
+    msig_instance_init_with_map(stolen, hostname, port, id);
     return stolen;
 }
 
@@ -782,7 +785,7 @@ void msig_update_instance(mapper_signal sig,
 {
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig);
+        sig->instance_overflow_handler(sig, 0, 0, instance_id);
         // try again
         si = msig_get_instance_with_id(sig, instance_id);
     }

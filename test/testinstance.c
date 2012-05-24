@@ -80,7 +80,8 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                props->name, (long)instance_id);
 }
 
-void overflow_handler(mapper_signal sig)
+void overflow_handler(mapper_signal sig, const char *hostname,
+                      int port, int id)
 {
     printf("OVERFLOW!!\n");
     msig_reserve_instances(sig, 1);
