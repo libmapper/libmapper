@@ -166,6 +166,13 @@ void loop()
         msig_full_name(sendsig_1, source_name_1, 1024);
         msig_full_name(recvsig_1, destination_name_1, 1024);
 
+        int j = 50;
+        while (j >= 0) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
+            j--;
+        }
+
         lo_send(a, "/connect", "ss", source_name_1, destination_name_1);
 
         msig_full_name(sendsig_2, source_name_2, 1024);
