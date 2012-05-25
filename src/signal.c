@@ -212,21 +212,10 @@ void msig_update(mapper_signal sig, void *value)
         msig_update_instance(sig, 0, value);
 }
 
-static void msig_instance_init_with_id(mapper_signal_instance si,
-                                       int instance_id)
+static void msig_instance_init(mapper_signal_instance si,
+                               int instance_id)
 {
     si->id = instance_id;
-    si->history.position = -1;
-    lo_timetag_now(&si->creation_time);
-}
-
-static void msig_instance_init_with_map(mapper_signal_instance si,
-                                        const char *hostname,
-                                        int port,
-                                        int id)
-{
-    si->group_map = port;
-    si->id_map = id;
     si->history.position = -1;
     lo_timetag_now(&si->creation_time);
 }
@@ -243,16 +232,23 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
-                                                   const char *hostname,
-                                                   int port,
+                                                   lo_address address,
                                                    int id)
 {
     // TODO: hash table, binary search, etc.
-    mapper_signal_instance si = sig->active;
-    while (si && ((si->group_map != port) || (si->id_map != id))) {
-        si = si->next;
-    }
-    return si;
+    // First find router with desired context
+    mapper_router router =
+        mapper_router_find_by_remote_address(sig->device->routers, address);
+    if (!router)
+        return 0;
+
+    // Next find instance id mapping
+    id = mapper_router_get_remote_id_map(router, id)
+    if (!id)
+        return 0;
+
+    // Use local id to find instance pointer
+    return msig_find_instance_with_id(sig, id);
 }
 
 int msig_active_instance_id(mapper_signal sig, int index)
@@ -301,9 +297,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
         si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
         si->signal = sig;
         si->is_active = 0;
-        msig_instance_init_with_id(si, sig->props.instances++);
-        si->group_map = 0;
-        si->id_map = 0;
+        msig_instance_init(si, sig->props.instances++);
         si->user_data = 0;
 
         // add signal instance to reserve stack
@@ -546,14 +540,18 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
-                                                  const char *hostname,
-                                                  int port,
+                                                  lo_address address,
                                                   int id)
 {
-    if (!sig)
+    if (!sig || !address)
         return 0;
 
-    mapper_signal_instance si = msig_find_instance_with_map(sig, hostname, port, id);
+    mapper_router router =
+        mapper_router_find_by_remote_address(sig->device->routers, address);
+    if (!router)
+        return 0;
+    if (!mapper_router_get_remote_id_map(router, id, &local))
+    mapper_signal_instance si = msig_find_instance_with_id(sig, id);
     if (si) return si;
 
     // Next, try the reserve instances
@@ -569,7 +567,7 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     // If we got something, prepare it.
     if (si) {
         si->is_active = 1;
-        msig_instance_init_with_map(si, hostname, port, id);
+        msig_instance_init(si, id);
         return si;
     }
 
@@ -611,7 +609,7 @@ stole:
                      sig, stolen->id, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    msig_instance_init_with_map(stolen, hostname, port, id);
+    msig_instance_init(stolen, id);
     return stolen;
 }
 
@@ -785,7 +783,7 @@ void msig_update_instance(mapper_signal sig,
 {
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, 0, 0, instance_id);
+        sig->instance_overflow_handler(sig, 0, instance_id);
         // try again
         si = msig_get_instance_with_id(sig, instance_id);
     }
@@ -853,22 +851,45 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     free(ci);
 }
 
+int msig_remap_instance(mapper_connection_instance ci, int *id)
+{
+    mapper_instance_map map = ci->connection->router->instance_map;
+    while (map) {
+        if (map->local == ci->parent->id) {
+            *id = map->remote;
+            return 1;
+        }
+        map = map->next;
+    }
+    return 0;
+}
+
 void msig_send_instance(mapper_signal_instance si)
 {
     // for each connection, construct a mapped signal and send it
+    int id;
     mapper_connection_instance ci = si->connections;
     if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
-            mapper_router_send_signal(ci);
+            if (!ci->connection->router->remap_instances)
+                mapper_router_send_signal(ci, ci->parent->id);
+            else if (msig_remap_instance(ci, &id))
+                mapper_router_send_signal(ci, id);
             ci = ci->next;
         }
         return;
     }
     while (ci) {
+        if (!ci->connection->router->remap_instances)
+            id = ci->parent->id;
+        else if (!msig_remap_instance(ci, &id)) {
+            ci = ci->next;
+            continue;
+        }
         if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
             if (mapper_clipping_perform(ci->connection, &ci->history))
-                mapper_router_send_signal(ci);
+                mapper_router_send_signal(ci, id);
         ci = ci->next;
     }
 }

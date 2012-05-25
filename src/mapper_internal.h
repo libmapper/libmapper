@@ -52,12 +52,6 @@ typedef struct _mapper_signal_instance
     /*! ID number of this instance. */
     int id;
 
-    /*! Group id mapping for this instance. */
-    int group_map;
-
-    /*! ID mapping for this instance. */
-    int id_map;
-
     /*! User data of this instance. */
     void *user_data;
 
@@ -165,7 +159,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
-void mapper_router_send_signal(mapper_connection_instance ci);
+void mapper_router_send_signal(mapper_connection_instance ci, int id);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias);
@@ -178,6 +172,20 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
+
+int mapper_router_set_id_map(mapper_router router,
+                             int local,
+                             int remote);
+
+int mapper_router_get_local_id_map(mapper_router router,
+                                   int local);
+
+int mapper_router_get_remote_id_map(mapper_router router,
+                                    int remote);
+
+/*! Find a router by remote address in a linked list of routers. */
+mapper_router mapper_router_find_by_remote_address(mapper_router routers,
+                                                   lo_address address);
 
 /*! Find a router by remote device name in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_name(mapper_router routers,
@@ -223,8 +231,7 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
                                                   int instance_id);
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
-                                                   const char *hostname,
-                                                   int port,
+                                                   lo_address address,
                                                    int id);
 
 /*! Resume a reserved (preallocated) signal instance.
@@ -237,6 +244,8 @@ void msig_reallocate_instances(mapper_signal sig, int input_history_size,
 
 void mhist_realloc(mapper_signal_history_t *history, int history_size,
                    int sample_size, int is_output);
+
+int msig_remap_instance(mapper_connection_instance ci, int *id);
 
 void msig_send_instance(mapper_signal_instance si);
 
@@ -270,8 +279,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
  *          was unsuccessful according to the selected allocation
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
-                                                  const char *hostname,
-                                                  int port,
+                                                  lo_address address,
                                                   int id);
 
 /**** connections ****/

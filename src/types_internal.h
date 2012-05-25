@@ -153,25 +153,25 @@ typedef struct _mapper_signal_connection {
  *  remote and local instances. */
 typedef struct _mapper_instance_map {
     int local;                          //!< Local instance id to map.
-    int remote;                         //!< Remote instacne id to map.
+    int remote;                         //!< Remote instance id to map.
     struct _mapper_instance_map *next;  //!< The next id map in the list.
 } *mapper_instance_map;
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    const char *remote_name;              /*!< Name of the remote device. */
-    struct _mapper_device *device;        /*!< The device associated with
-                                           *   this router */
-    lo_address addr;                      //!< Remote address.
-    struct _mapper_router *next;          //!< Next router in the list.
-    mapper_signal_connection outgoing;    /*!< The list of outgoing connections
-                                           *   for each signal. */
-    int remap_instances;                      /*!< 1 if the router should match
-                                               * instance ids with remote
-                                               * device, 0 otherwise. */
-    struct _mapper_instance_map instance_map; /*!< The list of instance id/context
-                                               *   mappings. */
+    const char *remote_name;            /*!< Name of the remote device. */
+    struct _mapper_device *device;      /*!< The device associated with
+                                         *   this router */
+    lo_address addr;                    //!< Remote address.
+    struct _mapper_router *next;        //!< Next router in the list.
+    mapper_signal_connection outgoing;  /*!< The list of outgoing connections
+                                         *   for each signal. */
+    int remap_instances;                /*!< 1 if the router should match
+                                         * instance ids with remote
+                                         * device, 0 otherwise. */
+    mapper_instance_map instance_map;   /*!< The list of instance id/context
+                                         *   mappings. */
 } *mapper_router;
 
 /**** Device ****/

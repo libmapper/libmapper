@@ -58,7 +58,7 @@ void mapper_router_free(mapper_router router)
     }
 }
 
-void mapper_router_send_signal(mapper_connection_instance ci)
+void mapper_router_send_signal(mapper_connection_instance ci, int id)
 {
     int i;
     lo_message m;
@@ -70,7 +70,7 @@ void mapper_router_send_signal(mapper_connection_instance ci)
         return;
 
     if (ci->parent->signal->props.instances > 1)
-        lo_message_add_int32(m, ci->parent->id);
+        lo_message_add_int32(m, id);
 
     if (ci->history.position != -1) {
         if (ci->history.type == 'f') {
@@ -253,6 +253,34 @@ int mapper_router_remove_connection(mapper_router router,
         sc = sc->next;
     }
     return 1;
+}
+
+int mapper_router_set_id_map(mapper_router router, int local, int remote)
+{
+}
+
+int mapper_router_get_local_id_map(mapper_router router, int local, *int remote)
+{
+}
+
+int mapper_router_get_remote_id_map(mapper_router router, int remote, *int local)
+{
+}
+
+mapper_router mapper_router_find_by_remote_address(mapper_router router,
+                                                   lo_address address);
+{
+    const char *host = lo_address_get_hostname(router->address);
+    const char *port = lo_address_get_port(router->address);
+    const char *host_to_match = lo_address_get_hostname(address);
+    const char *port_to_match = lo_address_get_port(address);
+
+    while (router) {
+        if (strcmp(host, host_to_match)==0 && strcmp(port, port_to_match)==0)
+            return router;
+        router = router->next;
+    }
+    return 0;
 }
 
 mapper_router mapper_router_find_by_remote_name(mapper_router router,
