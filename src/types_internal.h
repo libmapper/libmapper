@@ -160,10 +160,10 @@ typedef struct _mapper_instance_map {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    const char *remote_name;            /*!< Name of the remote device. */
     struct _mapper_device *device;      /*!< The device associated with
                                          *   this router */
-    lo_address addr;                    //!< Remote address.
+    const char *remote_name;            /*!< Name of the remote device. */
+    lo_address remote_addr;             /*!< Address of the remote device. */
     struct _mapper_router *next;        //!< Next router in the list.
     mapper_signal_connection outgoing;  /*!< The list of outgoing connections
                                          *   for each signal. */

@@ -233,7 +233,7 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
                                                    lo_address address,
-                                                   int id)
+                                                   int remote_id)
 {
     // TODO: hash table, binary search, etc.
     // First find router with desired context
@@ -243,12 +243,12 @@ mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
         return 0;
 
     // Next find instance id mapping
-    id = mapper_router_get_remote_id_map(router, id)
-    if (!id)
+    int local_id;
+    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id))
         return 0;
 
     // Use local id to find instance pointer
-    return msig_find_instance_with_id(sig, id);
+    return msig_find_instance_with_id(sig, local_id);
 }
 
 int msig_active_instance_id(mapper_signal sig, int index)
@@ -493,7 +493,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     // If we got something, prepare it.
     if (si) {
         si->is_active = 1;
-        msig_instance_init_with_id(si, instance_id);
+        msig_instance_init(si, instance_id);
         return si;
     }
 
@@ -535,14 +535,15 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             sig, stolen->id, &sig->props,
             &stolen->history.timetag[stolen->history.position],
             NULL);
-    msig_instance_init_with_id(stolen, instance_id);
+    msig_instance_init(stolen, instance_id);
     return stolen;
 }
 
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
                                                   lo_address address,
-                                                  int id)
+                                                  int remote_id)
 {
+    printf("msig_get_instance_with_map\n");
     if (!sig || !address)
         return 0;
 
@@ -550,9 +551,16 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
         mapper_router_find_by_remote_address(sig->device->routers, address);
     if (!router)
         return 0;
-    if (!mapper_router_get_remote_id_map(router, id, &local))
-    mapper_signal_instance si = msig_find_instance_with_id(sig, id);
-    if (si) return si;
+
+    int local_id;
+    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id))
+        return 0;
+
+    mapper_signal_instance si = msig_find_instance_with_id(sig, local_id);
+    if (si) {
+        printf("found existing instance\n");
+        return si;
+    }
 
     // Next, try the reserve instances
     if (!si) {
@@ -566,8 +574,11 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
 
     // If we got something, prepare it.
     if (si) {
+        printf("found reserve instance\n");
         si->is_active = 1;
-        msig_instance_init(si, id);
+        // TODO: could use instance mapping at sender-side also rather than rewriting native instance id???
+        mapper_router_set_id_map(router, si->id, remote_id);
+        msig_instance_init(si, si->id);
         return si;
     }
 
@@ -603,13 +614,15 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     return 0;
 
 stole:
+    printf("found stolen instance\n");
     /* value = NULL signifies release of the instance */
     if (sig->handler)
         sig->handler(
                      sig, stolen->id, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    msig_instance_init(stolen, id);
+    mapper_router_set_id_map(router, stolen->id, remote_id);
+    msig_instance_init(stolen, stolen->id);
     return stolen;
 }
 
@@ -794,6 +807,7 @@ void msig_update_instance(mapper_signal sig,
 static
 void msig_update_instance_internal(mapper_signal_instance si, void *value)
 {
+    printf("msig_update_instance_internal\n");
     if (!si) return;
     if (!si->signal) return;
     if (!si->is_active) return;
@@ -851,45 +865,37 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     free(ci);
 }
 
-int msig_remap_instance(mapper_connection_instance ci, int *id)
-{
-    mapper_instance_map map = ci->connection->router->instance_map;
-    while (map) {
-        if (map->local == ci->parent->id) {
-            *id = map->remote;
-            return 1;
-        }
-        map = map->next;
-    }
-    return 0;
-}
-
 void msig_send_instance(mapper_signal_instance si)
 {
+    printf("msig_send_instance\n");
     // for each connection, construct a mapped signal and send it
-    int id;
+    int remote_id;
     mapper_connection_instance ci = si->connections;
     if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
             if (!ci->connection->router->remap_instances)
                 mapper_router_send_signal(ci, ci->parent->id);
-            else if (msig_remap_instance(ci, &id))
-                mapper_router_send_signal(ci, id);
+            else if (!mapper_router_get_local_id_map(ci->connection->router,
+                                                     ci->parent->id,
+                                                     &remote_id))
+                mapper_router_send_signal(ci, remote_id);
             ci = ci->next;
         }
         return;
     }
     while (ci) {
         if (!ci->connection->router->remap_instances)
-            id = ci->parent->id;
-        else if (!msig_remap_instance(ci, &id)) {
+            remote_id = ci->parent->id;
+        else if (mapper_router_get_local_id_map(ci->connection->router,
+                                                ci->parent->id,
+                                                &remote_id)) {
             ci = ci->next;
             continue;
         }
         if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
             if (mapper_clipping_perform(ci->connection, &ci->history))
-                mapper_router_send_signal(ci, id);
+                mapper_router_send_signal(ci, remote_id);
         ci = ci->next;
     }
 }

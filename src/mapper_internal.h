@@ -173,15 +173,17 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-int mapper_router_set_id_map(mapper_router router,
-                             int local,
-                             int remote);
+void mapper_router_set_id_map(mapper_router router,
+                              int local,
+                              int remote);
 
 int mapper_router_get_local_id_map(mapper_router router,
-                                   int local);
+                                   int local,
+                                   int *remote);
 
 int mapper_router_get_remote_id_map(mapper_router router,
-                                    int remote);
+                                    int remote,
+                                    int *local);
 
 /*! Find a router by remote address in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_address(mapper_router routers,

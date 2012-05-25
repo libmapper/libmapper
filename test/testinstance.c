@@ -80,8 +80,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                props->name, (long)instance_id);
 }
 
-void overflow_handler(mapper_signal sig, const char *hostname,
-                      int port, int id)
+void overflow_handler(mapper_signal sig, lo_address address, int id)
 {
     printf("OVERFLOW!!\n");
     msig_reserve_instances(sig, 1);
@@ -144,20 +143,27 @@ void print_instance_ids(mapper_signal sig)
 void connect_signals()
 {
     char source_name[1024], destination_name[1024];
-    
+
     printf("%s\n", mdev_name(source));
     printf("%s\n", mdev_name(destination));
-    
+
     lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
     lo_address_set_ttl(a, 1);
-    
+
     lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
-    
+
+    int j = 50;
+    while (j >= 0) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+        j--;
+    }
+
     msig_full_name(sendsig, source_name, 1024);
     msig_full_name(recvsig, destination_name, 1024);
-    
+
     lo_send(a, "/connect", "ss", source_name, destination_name);
-    
+
     lo_address_free(a);
 }
 

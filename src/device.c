@@ -147,6 +147,7 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
+    printf("handler_signal_instance\n");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
