@@ -277,12 +277,18 @@ void mapper_router_set_id_map(mapper_router router, int local, int remote)
     }
 
     // map not found, create it
-    printf("writing id map: %i -> %i\n", local, remote);
+    printf("writing id map: %i -> %i\n", remote, local);
     map = (mapper_instance_map)calloc(1, sizeof(mapper_instance_map));
     map->local = local;
     map->remote = remote;
     map->next = router->instance_map;
     router->instance_map = map;
+    printf("    ID MAP:\n");
+    map = router->instance_map;
+    while (map) {
+        printf("    %i -> %i\n", map->remote, map->local);
+        map = map->next;
+    }
 }
 
 int mapper_router_get_local_id_map(mapper_router router, int local, int *remote)

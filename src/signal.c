@@ -547,19 +547,20 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     if (!sig || !address)
         return 0;
 
+    mapper_signal_instance si = 0;
+
     mapper_router router =
         mapper_router_find_by_remote_address(sig->device->routers, address);
     if (!router)
         return 0;
 
     int local_id;
-    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id))
-        return 0;
-
-    mapper_signal_instance si = msig_find_instance_with_id(sig, local_id);
-    if (si) {
-        printf("found existing instance\n");
-        return si;
+    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id)) {
+        si = msig_find_instance_with_id(sig, local_id);
+        if (si) {
+            printf("found existing instance\n");
+            return si;
+        }
     }
 
     // Next, try the reserve instances
