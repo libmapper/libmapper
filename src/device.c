@@ -640,12 +640,12 @@ void mdev_set_instance_map(mapper_device device, int local_id,
 }
 
 int mdev_get_local_instance_map(mapper_device device, int local_id,
-                                mapper_router router, int *remote_id)
+                                mapper_router *router, int *remote_id)
 {
     mapper_instance_map map = device->instance_map;
     while (map) {
         if (map->local_id == local_id) {
-            router = map->router;
+            *router = map->router;
             *remote_id = map->remote_id;
             return 0;
         }

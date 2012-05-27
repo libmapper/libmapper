@@ -886,7 +886,7 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
                 mapper_router_send_signal(ci, send_as_instance, si->id);
             else {
                 status = mdev_get_local_instance_map(si->signal->device, si->id,
-                                                     router, &remote_id);
+                                                     &router, &remote_id);
                 if (!status && (router == ci->connection->router))
                     mapper_router_send_signal(ci, send_as_instance, remote_id);
             }
@@ -899,7 +899,7 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
             remote_id = si->id;
         else {
             status = mdev_get_local_instance_map(si->signal->device, si->id,
-                                                 router, &remote_id);
+                                                 &router, &remote_id);
             if (status || (router != ci->connection->router)) {
                 ci = ci->next;
                 continue;
