@@ -169,7 +169,8 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
-void mapper_router_send_signal(mapper_connection_instance ci, int id);
+void mapper_router_send_signal(mapper_connection_instance ci,
+                               int send_as_instance, int id);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias);
@@ -247,7 +248,7 @@ void mhist_realloc(mapper_signal_history_t *history, int history_size,
 
 int msig_remap_instance(mapper_connection_instance ci, int *id);
 
-void msig_send_instance(mapper_signal_instance si);
+void msig_send_instance(mapper_signal_instance si, int send_as_instance);
 
 /*! Free memory used by a mapper_signal_instance. */
 void msig_free_instance(mapper_signal_instance instance);

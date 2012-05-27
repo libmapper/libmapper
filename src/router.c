@@ -58,7 +58,8 @@ void mapper_router_free(mapper_router router)
     }
 }
 
-void mapper_router_send_signal(mapper_connection_instance ci, int id)
+void mapper_router_send_signal(mapper_connection_instance ci,
+                               int send_as_instance, int id)
 {
     int i;
     lo_message m;
@@ -69,7 +70,7 @@ void mapper_router_send_signal(mapper_connection_instance ci, int id)
     if (!m)
         return;
 
-    if (ci->parent->signal->props.instances > 1)
+    if (send_as_instance)
         lo_message_add_int32(m, id);
 
     if (ci->history.position != -1) {

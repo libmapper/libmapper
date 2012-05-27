@@ -11,7 +11,7 @@
 #define MAX_INSTANCES 100
 
 static void msig_update_instance_internal(mapper_signal_instance si,
-                                          void *value);
+                                          int send_as_instance, void *value);
 
 static void msig_release_instance_internal(mapper_signal_instance si);
 
@@ -178,7 +178,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     if (sig)
-        msig_update_instance(sig, 0, &value);
+        msig_update(sig, &value);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -201,15 +201,24 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     if (sig)
-        msig_update_instance(sig, 0, &value);
+        msig_update(sig, &value);
 }
 
 void msig_update(mapper_signal sig, void *value)
 {
     /* We have to assume that value points to an array of correct type
      * and size. */
-    if (sig)
-        msig_update_instance(sig, 0, value);
+    if (!sig)
+        return;
+
+    mapper_signal_instance si = msig_get_instance_with_id(sig, 0);
+    if (!si && sig->instance_overflow_handler) {
+        sig->instance_overflow_handler(sig, 0, 0);
+        // try again
+        si = msig_get_instance_with_id(sig, 0);
+    }
+    if (si)
+        msig_update_instance_internal(si, 0, value);
 }
 
 static void msig_instance_init(mapper_signal_instance si,
@@ -419,7 +428,7 @@ void msig_release_instance_internal(mapper_signal_instance si)
 
     if (si->signal->props.is_output) {
         // First send zero signal
-        msig_update_instance_internal(si, NULL);
+        msig_update_instance_internal(si, 1, NULL);
     }
 
     // Remove instance from active list, place in reserve
@@ -630,7 +639,7 @@ void msig_remove_instance(mapper_signal_instance si)
     if (!si) return;
 
     // First send zero signal
-    msig_update_instance_internal(si, NULL);
+    msig_update_instance_internal(si, 1, NULL);
 
     // Remove connection instances
     mapper_connection_instance ci;
@@ -800,11 +809,12 @@ void msig_update_instance(mapper_signal sig,
         si = msig_get_instance_with_id(sig, instance_id);
     }
     if (si)
-        msig_update_instance_internal(si, value);
+        msig_update_instance_internal(si, 1, value);
 }
 
 static
-void msig_update_instance_internal(mapper_signal_instance si, void *value)
+void msig_update_instance_internal(mapper_signal_instance si,
+                                   int send_as_instance, void *value)
 {
     if (!si) return;
     if (!si->signal) return;
@@ -824,7 +834,7 @@ void msig_update_instance_internal(mapper_signal_instance si, void *value)
         si->history.position = -1;
     }
     if (si->signal->props.is_output)
-        msig_send_instance(si);
+        msig_send_instance(si, send_as_instance);
 }
 
 mapper_signal msig_instance_get_signal(mapper_signal_instance si)
@@ -863,7 +873,7 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     free(ci);
 }
 
-void msig_send_instance(mapper_signal_instance si)
+void msig_send_instance(mapper_signal_instance si, int send_as_instance)
 {
     // for each connection, construct a mapped signal and send it
     int remote_id, status;
@@ -872,20 +882,20 @@ void msig_send_instance(mapper_signal_instance si)
     if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
-            if (!ci->connection->router->remap_instances)
-                mapper_router_send_signal(ci, si->id);
+            if (!send_as_instance || !ci->connection->router->remap_instances)
+                mapper_router_send_signal(ci, send_as_instance, si->id);
             else {
                 status = mdev_get_local_instance_map(si->signal->device, si->id,
                                                      router, &remote_id);
                 if (!status && (router == ci->connection->router))
-                    mapper_router_send_signal(ci, remote_id);
+                    mapper_router_send_signal(ci, send_as_instance, remote_id);
             }
             ci = ci->next;
         }
         return;
     }
     while (ci) {
-        if (!ci->connection->router->remap_instances)
+        if (!send_as_instance || !ci->connection->router->remap_instances)
             remote_id = si->id;
         else {
             status = mdev_get_local_instance_map(si->signal->device, si->id,
@@ -897,7 +907,7 @@ void msig_send_instance(mapper_signal_instance si)
         }
         if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
             if (mapper_clipping_perform(ci->connection, &ci->history))
-                mapper_router_send_signal(ci, remote_id);
+                mapper_router_send_signal(ci, send_as_instance, remote_id);
         ci = ci->next;
     }
 }
