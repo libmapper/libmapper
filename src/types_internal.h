@@ -31,6 +31,7 @@ typedef struct _mapper_expr *mapper_expr;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
+struct _mapper_instance_map;
 
 /**** String tables ****/
 
@@ -149,14 +150,6 @@ typedef struct _mapper_signal_connection {
                                              *   in the list. */
 } *mapper_signal_connection;
 
-/*! The instance map is a linked list of int32 instance ids for coordinating
- *  remote and local instances. */
-typedef struct _mapper_instance_map {
-    int local;                          //!< Local instance id to map.
-    int remote;                         //!< Remote instance id to map.
-    struct _mapper_instance_map *next;  //!< The next id map in the list.
-} *mapper_instance_map;
-
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
@@ -170,8 +163,6 @@ typedef struct _mapper_router {
     int remap_instances;                /*!< 1 if the router should match
                                          * instance ids with remote
                                          * device, 0 otherwise. */
-    mapper_instance_map instance_map;   /*!< The list of instance id/context
-                                         *   mappings. */
 } *mapper_router;
 
 /**** Device ****/
@@ -201,6 +192,8 @@ typedef struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
+    struct _mapper_instance_map *instance_map; /*!< The list of instance context
+                                                * and id mappings. */
 
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
@@ -210,6 +203,15 @@ typedef struct _mapper_device {
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
 } *mapper_device;
+
+/*! The instance map is a linked list of int32 instance ids for coordinating
+ *  remote and local instances. */
+typedef struct _mapper_instance_map {
+    int local_id;                       //!< Local instance id to map.
+    mapper_router router;               //!< Pointer to router for remote device.
+    int remote_id;                      //!< Remote instance id to map.
+    struct _mapper_instance_map *next;  //!< The next id map in the list.
+} *mapper_instance_map;
 
 /*! Bit flags indicating if information has already been
  *   sent in a given polling step. */

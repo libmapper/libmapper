@@ -244,7 +244,8 @@ mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
 
     // Next find instance id mapping
     int local_id;
-    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id))
+    if (mdev_get_remote_instance_map(sig->device, router,
+                                     remote_id, &local_id))
         return 0;
 
     // Use local id to find instance pointer
@@ -461,7 +462,7 @@ void msig_resume_instance(mapper_signal_instance si)
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode)
 {
-    if (sig && mode >= 0 && mode < N_MAPPER_INSTANCE_ALLOCATION_TYPES)
+    if (sig && (mode >= 0) && (mode < N_MAPPER_INSTANCE_ALLOCATION_TYPES))
         sig->instance_allocation_type = mode;
 }
 
@@ -543,7 +544,6 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
                                                   lo_address address,
                                                   int remote_id)
 {
-    printf("msig_get_instance_with_map\n");
     if (!sig || !address)
         return 0;
 
@@ -555,10 +555,10 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
         return 0;
 
     int local_id;
-    if (!mapper_router_get_remote_id_map(router, remote_id, &local_id)) {
+    if (!mdev_get_remote_instance_map(sig->device, router,
+                                      remote_id, &local_id)) {
         si = msig_find_instance_with_id(sig, local_id);
         if (si) {
-            printf("found existing instance\n");
             return si;
         }
     }
@@ -575,10 +575,9 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
 
     // If we got something, prepare it.
     if (si) {
-        printf("found reserve instance\n");
         si->is_active = 1;
         // TODO: could use instance mapping at sender-side also rather than rewriting native instance id???
-        mapper_router_set_id_map(router, si->id, remote_id);
+        mdev_set_instance_map(sig->device, si->id, router, remote_id);
         msig_instance_init(si, si->id);
         return si;
     }
@@ -615,14 +614,13 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     return 0;
 
 stole:
-    printf("found stolen instance\n");
     /* value = NULL signifies release of the instance */
     if (sig->handler)
         sig->handler(
                      sig, stolen->id, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    mapper_router_set_id_map(router, stolen->id, remote_id);
+    mdev_set_instance_map(sig->device, stolen->id, router, remote_id);
     msig_instance_init(stolen, stolen->id);
     return stolen;
 }
@@ -808,7 +806,6 @@ void msig_update_instance(mapper_signal sig,
 static
 void msig_update_instance_internal(mapper_signal_instance si, void *value)
 {
-    printf("msig_update_instance_internal\n");
     if (!si) return;
     if (!si->signal) return;
     if (!si->is_active) return;
@@ -868,31 +865,35 @@ void msig_free_connection_instance(mapper_connection_instance ci)
 
 void msig_send_instance(mapper_signal_instance si)
 {
-    printf("msig_send_instance\n");
     // for each connection, construct a mapped signal and send it
-    int remote_id;
+    int remote_id, status;
+    mapper_router router = 0;
     mapper_connection_instance ci = si->connections;
     if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
             if (!ci->connection->router->remap_instances)
-                mapper_router_send_signal(ci, ci->parent->id);
-            else if (!mapper_router_get_local_id_map(ci->connection->router,
-                                                     ci->parent->id,
-                                                     &remote_id))
-                mapper_router_send_signal(ci, remote_id);
+                mapper_router_send_signal(ci, si->id);
+            else {
+                status = mdev_get_local_instance_map(si->signal->device, si->id,
+                                                     router, &remote_id);
+                if (!status && (router == ci->connection->router))
+                    mapper_router_send_signal(ci, remote_id);
+            }
             ci = ci->next;
         }
         return;
     }
     while (ci) {
         if (!ci->connection->router->remap_instances)
-            remote_id = ci->parent->id;
-        else if (mapper_router_get_local_id_map(ci->connection->router,
-                                                ci->parent->id,
-                                                &remote_id)) {
-            ci = ci->next;
-            continue;
+            remote_id = si->id;
+        else {
+            status = mdev_get_local_instance_map(si->signal->device, si->id,
+                                                 router, &remote_id);
+            if (status || (router != ci->connection->router)) {
+                ci = ci->next;
+                continue;
+            }
         }
         if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
             if (mapper_clipping_perform(ci->connection, &ci->history))

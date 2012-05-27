@@ -55,6 +55,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
     md->routers = 0;
+    md->instance_map = 0;
     md->extra = table_new();
     return md;
 }
@@ -74,6 +75,19 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
+        if (md->routers) {
+            while (md->routers) {
+                mdev_remove_router(md, md->routers);
+            }
+        }
+        if (md->instance_map) {
+            mapper_instance_map map = md->instance_map;
+            while (map) {
+                mapper_instance_map tmp = map->next;
+                free(map);
+                map = tmp;
+            }
+        }
         if (md->extra)
             table_free(md->extra, 1);
         free(md);
@@ -147,7 +161,6 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
-    printf("handler_signal_instance\n");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
@@ -604,6 +617,57 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     }
 }
 
+void mdev_set_instance_map(mapper_device device, int local_id,
+                           mapper_router router, int remote_id)
+{
+    mapper_instance_map map = device->instance_map;
+    while (map) {
+        if (map->local_id == local_id) {
+            map->router = router;
+            map->remote_id = remote_id;
+            return;
+        }
+        map = map->next;
+    }
+
+    // map not found, create it
+    map = (mapper_instance_map)calloc(1, sizeof(struct _mapper_instance_map));
+    map->local_id = local_id;
+    map->router = router;
+    map->remote_id = remote_id;
+    map->next = device->instance_map;
+    device->instance_map = map;
+}
+
+int mdev_get_local_instance_map(mapper_device device, int local_id,
+                                mapper_router router, int *remote_id)
+{
+    mapper_instance_map map = device->instance_map;
+    while (map) {
+        if (map->local_id == local_id) {
+            router = map->router;
+            *remote_id = map->remote_id;
+            return 0;
+        }
+        map = map->next;
+    }
+    return 1;
+}
+
+int mdev_get_remote_instance_map(mapper_device device, mapper_router router,
+                                 int remote_id, int *local_id)
+{
+    mapper_instance_map map = device->instance_map;
+    while (map) {
+        if ((map->router == router) && (map->remote_id == remote_id)) {
+            *local_id = map->local_id;
+            return 0;
+        }
+        map = map->next;
+    }
+    return 1;
+}
+
 /*! Called when once when the port is allocated and again when the
  *  ordinal is allocated, or vice-versa.  Must start server when both
  *  have been allocated. (No point starting it earlier since we won't
@@ -665,7 +729,7 @@ static void unlock_liblo_error_mutex()
 
 void mdev_start_server(mapper_device md)
 {
-    if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
+    if (md->admin->port.locked && !md->server) {
         int i;
         char port[16], *type_string = 0, *signal_get = 0;
 

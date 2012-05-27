@@ -20,7 +20,6 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->device = device;
     router->outgoing = 0;
     router->remap_instances = remap_instances;
-    router->instance_map = 0;
 
     if (!router->remote_addr) {
         mapper_router_free(router);
@@ -55,21 +54,12 @@ void mapper_router_free(mapper_router router)
                 sc = tmp;
             }
         }
-        if (router->instance_map) {
-            mapper_instance_map map = router->instance_map;
-            while (map) {
-                mapper_instance_map tmp = map->next;
-                free(map);
-                map = tmp;
-            }
-        }
         free(router);
     }
 }
 
 void mapper_router_send_signal(mapper_connection_instance ci, int id)
 {
-    printf("mapper_router_send_signal\n");
     int i;
     lo_message m;
     if (!ci->connection->router->remote_addr)
@@ -265,68 +255,16 @@ int mapper_router_remove_connection(mapper_router router,
     return 1;
 }
 
-void mapper_router_set_id_map(mapper_router router, int local, int remote)
-{
-    mapper_instance_map map = router->instance_map;
-    while (map) {
-        if (map->local == local) {
-            map->remote = remote;
-            return;
-        }
-        map = map->next;
-    }
-
-    // map not found, create it
-    printf("writing id map: %i -> %i\n", remote, local);
-    map = (mapper_instance_map)calloc(1, sizeof(mapper_instance_map));
-    map->local = local;
-    map->remote = remote;
-    map->next = router->instance_map;
-    router->instance_map = map;
-    printf("    ID MAP:\n");
-    map = router->instance_map;
-    while (map) {
-        printf("    %i -> %i\n", map->remote, map->local);
-        map = map->next;
-    }
-}
-
-int mapper_router_get_local_id_map(mapper_router router, int local, int *remote)
-{
-    mapper_instance_map map = router->instance_map;
-    while (map) {
-        if (map->local == local) {
-            *remote = map->remote;
-            return 0;
-        }
-        map = map->next;
-    }
-    return 1;
-}
-
-int mapper_router_get_remote_id_map(mapper_router router, int remote, int *local)
-{
-    mapper_instance_map map = router->instance_map;
-    while (map) {
-        if (map->remote == remote) {
-            *local = map->local;
-            return 0;
-        }
-        map = map->next;
-    }
-    return 1;
-}
-
 mapper_router mapper_router_find_by_remote_address(mapper_router router,
                                                    lo_address address)
 {
-    const char *host = lo_address_get_hostname(router->remote_addr);
-    const char *port = lo_address_get_port(router->remote_addr);
     const char *host_to_match = lo_address_get_hostname(address);
     const char *port_to_match = lo_address_get_port(address);
 
     while (router) {
-        if (strcmp(host, host_to_match)==0 && strcmp(port, port_to_match)==0)
+        const char *host = lo_address_get_hostname(router->remote_addr);
+        const char *port = lo_address_get_port(router->remote_addr);
+        if ((strcmp(host, host_to_match)==0) && (strcmp(port, port_to_match)==0))
             return router;
         router = router->next;
     }
