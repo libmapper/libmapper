@@ -1389,7 +1389,7 @@ static int handler_device_linkFrom(const char *path, const char *types,
 
     // Discover whether the device is already linked.
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+        mapper_router_find_by_remote_name(md->routers, src_name);
 
     if (router)
         // Already linked, nothing to do.
@@ -1403,9 +1403,6 @@ static int handler_device_linkFrom(const char *path, const char *types,
               mapper_admin_name(admin));
         return 0;
     }
-    lo_arg *arg_port = (lo_arg*) &admin->port.value;
-    params.values[AT_PORT] = &arg_port;
-    params.types[AT_PORT] = "i";
 
     if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
         trace("can't perform /linkFrom, port unknown\n");
@@ -1426,12 +1423,16 @@ static int handler_device_linkFrom(const char *path, const char *types,
     }
     mdev_add_router(md, router);
 
+    lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    params.values[AT_PORT] = &arg_port;
+    params.types[AT_PORT] = "i";
+
     // Announce the result.
     mapper_admin_send_osc_with_params(
         admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
 
-    trace("new router to %s -> host: %s, port: %d\n",
-          dest_name, host, port);
+    trace("<%s> added new router to %s -> host: %s, port: %d\n",
+          mapper_admin_name(admin), src_name, host, port);
 
     return 0;
 }
@@ -1508,8 +1509,8 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin_send_osc(admin, "/linked", "ss",
                           mapper_admin_name(admin), dest_name);
 
-    trace("new router to %s -> host: %s, port: %d\n",
-          dest_name, host, port);
+    trace("<%s> added new router to %s -> host: %s, port: %d\n",
+          mapper_admin_name(admin), dest_name, host, port);
 
     return 0;
 }
