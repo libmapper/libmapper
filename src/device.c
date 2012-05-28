@@ -604,8 +604,16 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         sc = sc->next;
     }
 
-    md->n_links--;
+    // unmap relevant instances
+    mapper_instance_map map = md->instance_map;
+    while (map) {
+        if (map->router == rt) {
+            map->router = 0;
+        }
+        map = map->next;
+    }
 
+    // remove router
     mapper_router *r = &md->routers;
     while (*r) {
         if (*r == rt) {
@@ -615,6 +623,8 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         }
         r = &(*r)->next;
     }
+
+    md->n_links--;
 }
 
 void mdev_set_instance_map(mapper_device device, int local_id,
@@ -645,6 +655,8 @@ int mdev_get_local_instance_map(mapper_device device, int local_id,
     mapper_instance_map map = device->instance_map;
     while (map) {
         if (map->local_id == local_id) {
+            if (!router)
+                return 1;
             *router = map->router;
             *remote_id = map->remote_id;
             return 0;
