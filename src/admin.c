@@ -1596,12 +1596,15 @@ static int handler_device_unlink(const char *path, const char *types,
           src_name, dest_name);
 
     /* Check if we are the indicated source. */
-    if (strcmp(mapper_admin_name(admin), src_name))
-        return 0;
-
-    /* If so, remove the router for the destination. */
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+    mapper_router router = 0;
+    if (strcmp(mapper_admin_name(admin), src_name)==0) {
+        /* If so, remove the router for the destination. */
+        router = mapper_router_find_by_remote_name(md->routers, dest_name);
+    }
+    else if (strcmp(mapper_admin_name(admin), dest_name)==0) {
+        /* If so, remove the router for the destination. */
+        router = mapper_router_find_by_remote_name(md->routers, src_name);
+    }
     if (router) {
         mdev_remove_router(md, router);
         mapper_admin_send_osc(admin, "/unlinked", "ss",
