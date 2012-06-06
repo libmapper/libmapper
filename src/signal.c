@@ -413,9 +413,11 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
 
 void msig_release_instance(mapper_signal sig, int instance_id)
 {
+    if (!sig)
+        return;
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
-        return msig_release_instance_internal(si);
+        msig_release_instance_internal(si);
 }
 
 static
