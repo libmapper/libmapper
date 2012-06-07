@@ -13,6 +13,10 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
+#ifdef HAVE_PTHREAD
+#include <pthread.h>
+#endif
+
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
