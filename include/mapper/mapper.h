@@ -49,8 +49,8 @@ typedef void mapper_signal_handler(mapper_signal msig,
 /*! A handler function to be called whenever a signal runs out of
  *  instances. */
 typedef void mapper_signal_instance_overflow_handler(mapper_signal msig,
-                                                     lo_address address,
-                                                     int id);
+                                                     int group_id,
+                                                     int instance_id);
 
 /*! Set or remove the minimum of a signal.
  *  \param sig      The signal to operate on.

@@ -168,21 +168,22 @@ static int handler_signal_instance(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
-    if (argc < 2)
+    if (argc < 3)
         return 0;
 
-    lo_address address = lo_message_get_source(msg);
-    int id = argv[0]->i32;
+    int group_id = argv[0]->i32;
+    int instance_id = argv[1]->i32;
 
     mapper_signal_instance si =
-        msig_get_instance_with_map(sig, address, id);
+        msig_get_instance_with_map(sig, group_id, instance_id);
     if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, address, id);
+        sig->instance_overflow_handler(sig, group_id, instance_id);
         // try again
-        si = msig_get_instance_with_map(sig, address, id);
+        si = msig_get_instance_with_map(sig, group_id, instance_id);
     }
     if (!si) {
-        trace("no instances available for id=%ld\n", (long)id);
+        trace("no instances available for group=%ld, id=%ld\n",
+              (long)group_id, (long)instance_id);
         return 0;
     }
 
@@ -308,13 +309,13 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (!md->server)
         mdev_start_server(md);
     else {
-        type_string = (char*) realloc(type_string, sig->props.length + 2);
-        type_string[0] = 'i';
-        memset(type_string + 1, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 1] = 0;
+        type_string = (char*) realloc(type_string, sig->props.length + 3);
+        type_string[0] = type_string[1] = 'i';
+        memset(type_string + 2, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 2] = 0;
         lo_server_add_method(md->server,
                              sig->props.name,
-                             type_string + 1,
+                             type_string + 2,
                              handler_signal, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -326,7 +327,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
-                             "iN",
+                             "iiN",
                              handler_signal_instance, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
@@ -400,14 +401,14 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         md->inputs[n] = md->inputs[n+1];
     }
     if (md->server) {
-        char *type_string = (char*) malloc(sig->props.length + 2);
-        type_string[0] = 'i';
-        memset(type_string + 1, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 1] = 0;
+        char *type_string = (char*) malloc(sig->props.length + 3);
+        type_string[0] = type_string[1] = 'i';
+        memset(type_string + 2, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 2] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
-        lo_server_del_method(md->server, sig->props.name, type_string + 1);
+        lo_server_del_method(md->server, sig->props.name, type_string + 2);
         lo_server_del_method(md->server, sig->props.name, "N");
-        lo_server_del_method(md->server, sig->props.name, "iN");
+        lo_server_del_method(md->server, sig->props.name, "iiN");
         free(type_string);
         int len = strlen(sig->props.name) + 5;
         char *signal_get = (char*) malloc(len);
@@ -606,9 +607,10 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
 
     // unmap relevant instances
     mapper_instance_map map = md->instance_map;
+    
     while (map) {
-        if (map->router == rt) {
-            map->router = 0;
+        if (map->group_id == rt->id) {
+            mdev_remove_instance_map(md, map->local_id);
         }
         map = map->next;
     }
@@ -627,13 +629,38 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     md->n_links--;
 }
 
+void mdev_add_instance_map(mapper_device device, int local_id,
+                           int group_id, int remote_id)
+{
+    mapper_instance_map map;
+    map = (mapper_instance_map)calloc(1, sizeof(struct _mapper_instance_map));
+    map->local_id = local_id;
+    map->group_id = group_id;
+    map->remote_id = remote_id;
+    map->next = device->instance_map;
+    device->instance_map = map;
+}
+
+void mdev_remove_instance_map(mapper_device device, int local_id)
+{
+    mapper_instance_map *map = &device->instance_map;
+    while (*map) {
+        if ((*map)->local_id == local_id) {
+            *map = (*map)->next;
+            free(map);
+            break;
+        }
+        map = &(*map)->next;
+    }
+}
+
 void mdev_set_instance_map(mapper_device device, int local_id,
-                           mapper_router router, int remote_id)
+                           int group_id, int remote_id)
 {
     mapper_instance_map map = device->instance_map;
     while (map) {
         if (map->local_id == local_id) {
-            map->router = router;
+            map->group_id = group_id;
             map->remote_id = remote_id;
             return;
         }
@@ -641,23 +668,20 @@ void mdev_set_instance_map(mapper_device device, int local_id,
     }
 
     // map not found, create it
-    map = (mapper_instance_map)calloc(1, sizeof(struct _mapper_instance_map));
-    map->local_id = local_id;
-    map->router = router;
-    map->remote_id = remote_id;
-    map->next = device->instance_map;
-    device->instance_map = map;
+    mdev_add_instance_map(device, local_id, group_id, remote_id);
 }
 
 int mdev_get_local_instance_map(mapper_device device, int local_id,
-                                mapper_router *router, int *remote_id)
+                                int *group_id, int *remote_id)
 {
     mapper_instance_map map = device->instance_map;
+
+    if (!group_id || !remote_id)
+        return 1;
+
     while (map) {
         if (map->local_id == local_id) {
-            if (!router)
-                return 1;
-            *router = map->router;
+            *group_id = map->group_id;
             *remote_id = map->remote_id;
             return 0;
         }
@@ -666,12 +690,12 @@ int mdev_get_local_instance_map(mapper_device device, int local_id,
     return 1;
 }
 
-int mdev_get_remote_instance_map(mapper_device device, mapper_router router,
+int mdev_get_remote_instance_map(mapper_device device, int group_id,
                                  int remote_id, int *local_id)
 {
     mapper_instance_map map = device->instance_map;
     while (map) {
-        if ((map->router == router) && (map->remote_id == remote_id)) {
+        if ((map->group_id == group_id) && (map->remote_id == remote_id)) {
             *local_id = map->local_id;
             return 0;
         }
@@ -768,14 +792,14 @@ void mdev_start_server(mapper_device md)
         unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
-            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 2);
-            type_string[0] = 'i';
-            memset(type_string + 1, md->inputs[i]->props.type,
+            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 3);
+            type_string[0] = type_string[1] = 'i';
+            memset(type_string + 2, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
-            type_string[md->inputs[i]->props.length + 1] = 0;
+            type_string[md->inputs[i]->props.length + 2] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 type_string + 1,
+                                 type_string + 2,
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
@@ -787,7 +811,7 @@ void mdev_start_server(mapper_device md)
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 "iN",
+                                 "iiN",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             signal_get = (char*) realloc(signal_get, len);

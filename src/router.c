@@ -10,13 +10,15 @@
 #include <mapper/mapper.h>
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int remap_instances)
+                                int port, const char *name, int id,
+                                int remap_instances)
 {
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->remote_addr = lo_address_new(host, str);
     router->remote_name = strdup(name);
+    router->id = id;
     router->device = device;
     router->outgoing = 0;
     router->remap_instances = remap_instances;
@@ -59,7 +61,9 @@ void mapper_router_free(mapper_router router)
 }
 
 void mapper_router_send_signal(mapper_connection_instance ci,
-                               int send_as_instance, int id)
+                               int send_as_instance,
+                               int group_id,
+                               int instance_id)
 {
     int i;
     lo_message m;
@@ -70,8 +74,10 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (!m)
         return;
 
-    if (send_as_instance)
-        lo_message_add_int32(m, id);
+    if (send_as_instance) {
+        lo_message_add_int32(m, group_id);
+        lo_message_add_int32(m, instance_id);
+    }
 
     if (ci->history.position != -1) {
         if (ci->history.type == 'f') {

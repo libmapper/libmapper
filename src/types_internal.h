@@ -156,6 +156,7 @@ typedef struct _mapper_router {
     struct _mapper_device *device;      /*!< The device associated with
                                          *   this router */
     const char *remote_name;            /*!< Name of the remote device. */
+    int id;                             //!< Unique id of the remote address. */
     lo_address remote_addr;             /*!< Address of the remote device. */
     struct _mapper_router *next;        //!< Next router in the list.
     mapper_signal_connection outgoing;  /*!< The list of outgoing connections
@@ -208,7 +209,7 @@ typedef struct _mapper_device {
  *  remote and local instances. */
 typedef struct _mapper_instance_map {
     int local_id;                       //!< Local instance id to map.
-    mapper_router router;               //!< Pointer to router for remote device.
+    int group_id;                       //!< Link group id.
     int remote_id;                      //!< Remote instance id to map.
     struct _mapper_instance_map *next;  //!< The next id map in the list.
 } *mapper_instance_map;
@@ -261,6 +262,7 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_IP,
     AT_PORT,
+    AT_ID,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
     AT_NUMLINKS,

@@ -241,19 +241,12 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_find_instance_with_map(mapper_signal sig,
-                                                   lo_address address,
+                                                   int group_id,
                                                    int remote_id)
 {
-    // TODO: hash table, binary search, etc.
-    // First find router with desired context
-    mapper_router router =
-        mapper_router_find_by_remote_address(sig->device->routers, address);
-    if (!router)
-        return 0;
-
-    // Next find instance id mapping
+    // Find instance id mapping
     int local_id;
-    if (mdev_get_remote_instance_map(sig->device, router,
+    if (mdev_get_remote_instance_map(sig->device, group_id,
                                      remote_id, &local_id))
         return 0;
 
@@ -552,21 +545,16 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
 }
 
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
-                                                  lo_address address,
+                                                  int group_id,
                                                   int remote_id)
 {
-    if (!sig || !address)
+    if (!sig)
         return 0;
 
     mapper_signal_instance si = 0;
 
-    mapper_router router =
-        mapper_router_find_by_remote_address(sig->device->routers, address);
-    if (!router)
-        return 0;
-
     int local_id;
-    if (!mdev_get_remote_instance_map(sig->device, router,
+    if (!mdev_get_remote_instance_map(sig->device, group_id,
                                       remote_id, &local_id)) {
         si = msig_find_instance_with_id(sig, local_id);
         if (si) {
@@ -588,7 +576,7 @@ mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
     if (si) {
         si->is_active = 1;
         // TODO: could use instance mapping at sender-side also rather than rewriting native instance id???
-        mdev_set_instance_map(sig->device, si->id, router, remote_id);
+        mdev_set_instance_map(sig->device, si->id, group_id, remote_id);
         msig_instance_init(si, si->id);
         return si;
     }
@@ -631,7 +619,7 @@ stole:
                      sig, stolen->id, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    mdev_set_instance_map(sig->device, stolen->id, router, remote_id);
+    mdev_set_instance_map(sig->device, stolen->id, group_id, remote_id);
     msig_instance_init(stolen, stolen->id);
     return stolen;
 }
@@ -878,19 +866,21 @@ void msig_free_connection_instance(mapper_connection_instance ci)
 void msig_send_instance(mapper_signal_instance si, int send_as_instance)
 {
     // for each connection, construct a mapped signal and send it
-    int remote_id, status;
-    mapper_router router = 0;
+    int group_id, remote_id, status;
     mapper_connection_instance ci = si->connections;
     if (si->history.position == -1) {
         while (ci) {
             ci->history.position = -1;
             if (!send_as_instance || !ci->connection->router->remap_instances)
-                mapper_router_send_signal(ci, send_as_instance, si->id);
+                mapper_router_send_signal(ci, send_as_instance,
+                                          mdev_port(si->signal->device),
+                                          si->id);
             else {
                 status = mdev_get_local_instance_map(si->signal->device, si->id,
-                                                     &router, &remote_id);
-                if (!status && (router == ci->connection->router))
-                    mapper_router_send_signal(ci, send_as_instance, remote_id);
+                                                     &group_id, &remote_id);
+                if (!status && (group_id == ci->connection->router->id))
+                    mapper_router_send_signal(ci, send_as_instance,
+                                              group_id, remote_id);
             }
             ci = ci->next;
         }
@@ -901,15 +891,16 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
             remote_id = si->id;
         else {
             status = mdev_get_local_instance_map(si->signal->device, si->id,
-                                                 &router, &remote_id);
-            if (status || (router != ci->connection->router)) {
+                                                 &group_id, &remote_id);
+            if (status || (group_id != ci->connection->router->id)) {
                 ci = ci->next;
                 continue;
             }
         }
         if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
             if (mapper_clipping_perform(ci->connection, &ci->history))
-                mapper_router_send_signal(ci, send_as_instance, remote_id);
+                mapper_router_send_signal(ci, send_as_instance,
+                                          group_id, remote_id);
         ci = ci->next;
     }
 }

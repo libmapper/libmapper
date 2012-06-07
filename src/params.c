@@ -9,6 +9,7 @@ const char* mapper_msg_param_strings[] =
 {
     "@IP",              /* AT_IP */
     "@port",            /* AT_PORT */
+    "@ID",              /* AT_ID */
     "@numInputs",       /* AT_NUMINPUTS */
     "@numOutputs",      /* AT_NUMOUTPUTS */
     "@numLinks",        /* AT_NUMLINKS */
@@ -259,6 +260,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_PORT:
+        case AT_ID:
         case AT_NUMINPUTS:
         case AT_NUMOUTPUTS:
         case AT_NUMLINKS:
