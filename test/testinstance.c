@@ -30,7 +30,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testInstanceSend", port, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -89,7 +89,7 @@ void overflow_handler(mapper_signal sig, int group, int id)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testInstanceRecv", port, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
