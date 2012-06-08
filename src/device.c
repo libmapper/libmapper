@@ -79,19 +79,10 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
-        if (md->routers) {
-            while (md->routers) {
-                mdev_remove_router(md, md->routers);
-            }
-        }
-        if (md->instance_map) {
-            mapper_instance_map map = md->instance_map;
-            while (map) {
-                mapper_instance_map tmp = map->next;
-                free(map);
-                map = tmp;
-            }
-        }
+        while (md->instance_map)
+            mdev_remove_instance_map(md, md->instance_map->local_id);
+        while (md->routers)
+            mdev_remove_router(md, md->routers);
         if (md->extra)
             table_free(md->extra, 1);
         free(md);
@@ -178,12 +169,19 @@ static int handler_signal_instance(const char *path, const char *types,
     int group_id = argv[0]->i32;
     int instance_id = argv[1]->i32;
 
-    mapper_signal_instance si =
-        msig_get_instance_with_map(sig, group_id, instance_id);
-    if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, group_id, instance_id);
-        // try again
-        si = msig_get_instance_with_map(sig, group_id, instance_id);
+    mapper_signal_instance si = 0;
+
+    // Don't activate instance just to release it again
+    if (types[2] == LO_NIL && !msig_find_instance_with_map(sig, group_id, instance_id))
+        return 0;
+
+    si = msig_get_instance_with_map(sig, group_id, instance_id);
+    if (!si) {
+        if (sig->instance_overflow_handler) {
+            sig->instance_overflow_handler(sig, group_id, instance_id);
+            // try again
+            si = msig_get_instance_with_map(sig, group_id, instance_id);
+        }
     }
     if (!si) {
         trace("no instances available for group=%ld, id=%ld\n",
@@ -192,7 +190,7 @@ static int handler_signal_instance(const char *path, const char *types,
     }
 
     if (si) {
-        if (types[1] != LO_NIL) {
+        if (types[2] != LO_NIL) {
             /* This is cheating a bit since we know that the arguments pointed
              * to by argv are layed out sequentially in memory.  It's not
              * clear if liblo's semantics guarantee it, but known to be true
@@ -200,18 +198,18 @@ static int handler_signal_instance(const char *path, const char *types,
             si->history.position = (si->history.position + 1)
                                     % si->history.size;
             memcpy(msig_history_value_pointer(si->history),
-                   argv[1], msig_vector_bytes(sig));
+                   argv[2], msig_vector_bytes(sig));
         }
 
         if (sig->handler) {
             sig->handler(sig, si->id, &sig->props,
                          &si->history.timetag[si->history.position],
-                         types[1] == LO_NIL ? 0 :
+                         types[2] == LO_NIL ? 0 :
                          si->history.value + msig_vector_bytes(sig)
                          * si->history.position);
         }
 
-        if (types[1] == LO_NIL) {
+        if (types[2] == LO_NIL) {
             msig_release_instance(sig, si->id);
         }
     }
