@@ -408,8 +408,7 @@ void msig_release_instance(mapper_signal sig, int instance_id)
 {
     if (!sig)
         return;
-    mapper_signal_instance si = msig_find_instance_with_map(sig, mdev_port(sig->device),
-                                                            instance_id);
+    mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
         msig_release_instance_internal(si);
 }
@@ -500,6 +499,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     if (si) {
         si->is_active = 1;
         msig_instance_init(si, instance_id);
+        mdev_set_instance_map(sig->device, instance_id, mdev_port(sig->device), instance_id);
         return si;
     }
 
@@ -542,6 +542,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             &stolen->history.timetag[stolen->history.position],
             NULL);
     msig_instance_init(stolen, instance_id);
+    mdev_set_instance_map(sig->device, instance_id, mdev_port(sig->device), instance_id);
     return stolen;
 }
 
@@ -793,12 +794,11 @@ void msig_update_instance(mapper_signal sig,
                           int instance_id,
                           void *value)
 {
-    mapper_signal_instance si = msig_get_instance_with_map(sig, mdev_port(sig->device),
-                                                           instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
     if (!si && sig->instance_overflow_handler) {
         sig->instance_overflow_handler(sig, 0, instance_id);
         // try again
-        si = msig_get_instance_with_map(sig, mdev_port(sig->device), instance_id);
+        si = msig_get_instance_with_id(sig, instance_id);
     }
     if (si)
         msig_update_instance_internal(si, 1, value);
