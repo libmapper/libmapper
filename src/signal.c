@@ -887,8 +887,10 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
         return;
     }
     while (ci) {
-        if (!send_as_instance || !ci->connection->router->remap_instances)
+        if (!send_as_instance || !ci->connection->router->remap_instances) {
+            group_id = mdev_port(si->signal->device);
             remote_id = si->id;
+        }
         else {
             status = mdev_get_local_instance_map(si->signal->device, si->id,
                                                  &group_id, &remote_id);
