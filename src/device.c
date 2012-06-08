@@ -645,11 +645,12 @@ void mdev_add_instance_map(mapper_device device, int local_id,
 
 void mdev_remove_instance_map(mapper_device device, int local_id)
 {
-    mapper_instance_map *map = &device->instance_map;
+    mapper_instance_map temp, *map = &device->instance_map;
     while (*map) {
         if ((*map)->local_id == local_id) {
+            temp = *map;
             *map = (*map)->next;
-            free(map);
+            free(temp);
             break;
         }
         map = &(*map)->next;
