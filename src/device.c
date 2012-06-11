@@ -679,13 +679,12 @@ int mdev_get_local_instance_map(mapper_device device, int local_id,
 {
     mapper_instance_map map = device->instance_map;
 
-    if (!group_id || !remote_id)
-        return 1;
-
     while (map) {
         if (map->local_id == local_id) {
-            *group_id = map->group_id;
-            *remote_id = map->remote_id;
+            if (group_id)
+                *group_id = map->group_id;
+            if (remote_id)
+                *remote_id = map->remote_id;
             return 0;
         }
         map = map->next;
@@ -699,7 +698,8 @@ int mdev_get_remote_instance_map(mapper_device device, int group_id,
     mapper_instance_map map = device->instance_map;
     while (map) {
         if ((map->group_id == group_id) && (map->remote_id == remote_id)) {
-            *local_id = map->local_id;
+            if (local_id)
+                *local_id = map->local_id;
             return 0;
         }
         map = map->next;

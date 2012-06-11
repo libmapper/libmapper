@@ -499,7 +499,10 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     if (si) {
         si->is_active = 1;
         msig_instance_init(si, instance_id);
-        mdev_set_instance_map(sig->device, instance_id, mdev_port(sig->device), instance_id);
+        // If an instance map does not exist, claim it locally
+        if (mdev_get_local_instance_map(sig->device, instance_id, 0, 0))
+            mdev_set_instance_map(sig->device, instance_id,
+                                  mdev_port(sig->device), instance_id);
         return si;
     }
 
@@ -542,7 +545,9 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             &stolen->history.timetag[stolen->history.position],
             NULL);
     msig_instance_init(stolen, instance_id);
-    mdev_set_instance_map(sig->device, instance_id, mdev_port(sig->device), instance_id);
+    if (mdev_get_local_instance_map(sig->device, instance_id, 0, 0))
+        mdev_set_instance_map(sig->device, instance_id,
+                              mdev_port(sig->device), instance_id);
     return stolen;
 }
 
