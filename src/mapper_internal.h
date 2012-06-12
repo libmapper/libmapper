@@ -179,6 +179,9 @@ void mapper_router_send_signal(mapper_connection_instance ci,
                                int group_id,
                                int instance_id);
 
+void mapper_router_send_new_instance(mapper_connection_instance ci,
+                                     mapper_instance_map map);
+
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias);
 

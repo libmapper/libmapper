@@ -108,6 +108,27 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     return;
 }
 
+void mapper_router_send_new_instance(mapper_connection_instance ci,
+                                     mapper_instance_map map)
+{
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    if (!map)
+        return;
+    lo_message_add_int32(m, map->group_id);
+    lo_message_add_int32(m, map->remote_id);
+    lo_message_add_true(m);
+
+    lo_send_message_from(ci->connection->router->remote_addr,
+                         ci->connection->router->device->server,
+                         ci->connection->props.dest_name,
+                         m);
+    lo_message_free(m);
+    return;
+}
+
 int mapper_router_send_query(mapper_router router, mapper_signal sig,
                              const char *alias)
 {
