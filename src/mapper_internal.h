@@ -191,6 +191,8 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
+int mapper_router_in_group(mapper_router router, int group_id);
+
 /*! Find a router by remote address in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_address(mapper_router routers,
                                                    lo_address address);

@@ -262,6 +262,14 @@ int mapper_router_remove_connection(mapper_router router,
     return 1;
 }
 
+int mapper_router_in_group(mapper_router router, int group_id)
+{
+    if ((group_id == router->id) || (group_id == mdev_port(router->device)))
+        return 1;
+    else
+        return 0;
+}
+
 mapper_router mapper_router_find_by_remote_address(mapper_router router,
                                                    lo_address address)
 {
