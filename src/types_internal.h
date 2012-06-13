@@ -161,9 +161,6 @@ typedef struct _mapper_router {
     struct _mapper_router *next;        //!< Next router in the list.
     mapper_signal_connection outgoing;  /*!< The list of outgoing connections
                                          *   for each signal. */
-    int remap_instances;                /*!< 1 if the router should match
-                                         * instance ids with remote
-                                         * device, 0 otherwise. */
 } *mapper_router;
 
 /**** Device ****/
@@ -281,7 +278,6 @@ typedef enum {
     AT_LENGTH,
     AT_DIRECTION,
     AT_INSTANCES,
-    AT_SYNCINSTANCES,
     AT_SRCTYPE,
     AT_DESTTYPE,
     AT_SRCLENGTH,
