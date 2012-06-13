@@ -705,7 +705,7 @@ mapper_instance_map mdev_new_remote_instance_map(mapper_device device, int group
                                                  int remote_id)
 {
     int id = 0;
-    while (TRUE) {
+    while (1) {
         if (!mdev_get_local_instance_map(device, id))
             break;
         id++;
