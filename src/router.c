@@ -62,8 +62,7 @@ void mapper_router_free(mapper_router router)
 
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance,
-                               int group_id,
-                               int instance_id)
+                               mapper_instance_map map)
 {
     int i;
     lo_message m;
@@ -74,9 +73,9 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (!m)
         return;
 
-    if (send_as_instance) {
-        lo_message_add_int32(m, group_id);
-        lo_message_add_int32(m, instance_id);
+    if (send_as_instance && map) {
+        lo_message_add_int32(m, map->group_id);
+        lo_message_add_int32(m, map->remote_id);
     }
 
     if (ci->history.position != -1) {
@@ -198,14 +197,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->router = router;
 
     // create connection instances as necessary
-    mapper_signal_instance si = sig->active;
-    while (si) {
-        msig_add_connection_instance(si, connection);
-        si = si->next;
-    }
-
-    // do the same for reserved instances
-    si = sig->reserve;
+    mapper_signal_instance si = sig->instances;
     while (si) {
         msig_add_connection_instance(si, connection);
         si = si->next;
@@ -236,22 +228,7 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated connection instances
-    mapper_signal_instance si = connection->source->active;
-    while (si) {
-        mapper_connection_instance temp, *ci = &si->connections;
-        while (*ci) {
-            if ((*ci)->connection == connection) {
-                temp = *ci;
-                *ci = (*ci)->next;
-                msig_free_connection_instance(temp);
-                break;
-            }
-            ci = &(*ci)->next;
-        }
-        si = si->next;
-    }
-    // do the same for reserved instances of this signal
-    si = connection->source->reserve;
+    mapper_signal_instance si = connection->source->instances;
     while (si) {
         mapper_connection_instance temp, *ci = &si->connections;
         while (*ci) {

@@ -240,7 +240,7 @@ static int handler_query(const char *path, const char *types,
     int i;
     lo_message m;
 
-    mapper_signal_instance si = sig->active;
+    mapper_signal_instance si = sig->instances;
     if (!si) {
         // If there are no active instances, send null response
         m = lo_message_new();
@@ -633,8 +633,8 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     md->n_links--;
 }
 
-void mdev_add_instance_map(mapper_device device, int local_id,
-                           int group_id, int remote_id)
+mapper_instance_map mdev_add_instance_map(mapper_device device, int local_id,
+                                          int group_id, int remote_id)
 {
     mapper_instance_map map;
     map = (mapper_instance_map)calloc(1, sizeof(struct _mapper_instance_map));
@@ -643,6 +643,7 @@ void mdev_add_instance_map(mapper_device device, int local_id,
     map->remote_id = remote_id;
     map->next = device->instance_map;
     device->instance_map = map;
+    return map;
 }
 
 void mdev_remove_instance_map(mapper_device device, int local_id)
@@ -676,37 +677,40 @@ void mdev_set_instance_map(mapper_device device, int local_id,
     mdev_add_instance_map(device, local_id, group_id, remote_id);
 }
 
-int mdev_get_local_instance_map(mapper_device device, int local_id,
-                                int *group_id, int *remote_id)
+mapper_instance_map mdev_get_local_instance_map(mapper_device device, int local_id)
 {
     mapper_instance_map map = device->instance_map;
 
     while (map) {
-        if (map->local_id == local_id) {
-            if (group_id)
-                *group_id = map->group_id;
-            if (remote_id)
-                *remote_id = map->remote_id;
-            return 0;
-        }
+        if (map->local_id == local_id)
+            return map;
         map = map->next;
     }
-    return 1;
+    return 0;
 }
 
-int mdev_get_remote_instance_map(mapper_device device, int group_id,
-                                 int remote_id, int *local_id)
+mapper_instance_map mdev_get_remote_instance_map(mapper_device device, int group_id,
+                                                 int remote_id)
 {
     mapper_instance_map map = device->instance_map;
     while (map) {
-        if ((map->group_id == group_id) && (map->remote_id == remote_id)) {
-            if (local_id)
-                *local_id = map->local_id;
-            return 0;
-        }
+        if ((map->group_id == group_id) && (map->remote_id == remote_id))
+            return map;
         map = map->next;
     }
-    return 1;
+    return 0;
+}
+
+mapper_instance_map mdev_new_remote_instance_map(mapper_device device, int group_id,
+                                                 int remote_id)
+{
+    int id = 0;
+    while (TRUE) {
+        if (!mdev_get_local_instance_map(device, id))
+            break;
+        id++;
+    }
+    return mdev_add_instance_map(device, id, group_id, remote_id);
 }
 
 /*! Called when once when the port is allocated and again when the

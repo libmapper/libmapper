@@ -22,10 +22,7 @@ struct _mapper_signal
     struct _mapper_device *device;
 
     /*! The first instance of this signal. */
-    struct _mapper_signal_instance *active;
-
-    /*! Reserved instances ready for use. */
-    struct _mapper_signal_instance *reserve;
+    struct _mapper_signal_instance *instances;
 
     /*! Counter for generating instance ids. */
     int instance_count;
@@ -150,19 +147,21 @@ void mdev_start_server(mapper_device mdev);
 void mdev_on_port_and_ordinal(mapper_device md,
                               mapper_admin_allocated_t *resource);
 
-void mdev_add_instance_map(mapper_device device, int local_id,
-                           int group_id, int remote_id);
+mapper_instance_map mdev_add_instance_map(mapper_device device, int local_id,
+                                          int group_id, int remote_id);
 
 void mdev_remove_instance_map(mapper_device device, int local_id);
 
 void mdev_set_instance_map(mapper_device device, int local_id,
                            int group_id, int remote_id);
 
-int mdev_get_local_instance_map(mapper_device device, int local_id,
-                                int *group_id, int *remote_id);
+mapper_instance_map mdev_get_local_instance_map(mapper_device device, int local_id);
 
-int mdev_get_remote_instance_map(mapper_device device, int group_id,
-                                 int remote_id, int *local_id);
+mapper_instance_map mdev_get_remote_instance_map(mapper_device device, int group_id,
+                                                 int remote_id);
+
+mapper_instance_map mdev_new_remote_instance_map(mapper_device device, int group_id,
+                                                 int remote_id);
 
 const char *mdev_name(mapper_device md);
 
@@ -176,8 +175,7 @@ void mapper_router_free(mapper_router router);
 
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance,
-                               int group_id,
-                               int instance_id);
+                               mapper_instance_map map);
 
 void mapper_router_send_new_instance(mapper_connection_instance ci,
                                      mapper_instance_map map);
@@ -293,7 +291,10 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_map(mapper_signal sig,
                                                   int group_id,
-                                                  int instance_id);
+                                                  int instance_id,
+                                                  int is_new_instance);
+
+void msig_release_instance_internal(mapper_signal_instance si);
 
 /**** connections ****/
 
