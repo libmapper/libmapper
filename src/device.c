@@ -121,13 +121,13 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
+    // Default to updating first instance
     mapper_signal_instance si = msig_get_instance_with_id(sig, 0);
     if (!si) {
         trace("error, sig->active==0\n");
         return 0;
     }
 
-    // Default to updating first instance
     if (types[0] == LO_NIL) {
         si->history.position = -1;
     }
@@ -143,11 +143,9 @@ static int handler_signal(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, 0, &sig->props,
-                     &sig->active->history.timetag[sig->active->history.position],
-                     si->history.position == -1 ? 0 :
-                     si->history.value + msig_vector_bytes(sig)
-                     * si->history.position);
+        sig->handler(sig, si->id, &sig->props,
+                     &si->history.timetag[si->history.position], types[0] == LO_NIL ? 0 :
+                     si->history.value + msig_vector_bytes(sig) * si->history.position);
 
     return 0;
 }
