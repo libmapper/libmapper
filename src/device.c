@@ -166,6 +166,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int group_id = argv[0]->i32;
     int instance_id = argv[1]->i32;
+    int is_new = types[2] == LO_TRUE ? 1 : 0;
 
     mapper_signal_instance si = 0;
 
@@ -173,12 +174,12 @@ static int handler_signal_instance(const char *path, const char *types,
     if (types[2] == LO_NIL && !msig_find_instance_with_map(sig, group_id, instance_id))
         return 0;
 
-    si = msig_get_instance_with_map(sig, group_id, instance_id);
-    if (!si) {
+    si = msig_get_instance_with_map(sig, group_id, instance_id, is_new);
+    if (!si && is_new) {
         if (sig->instance_overflow_handler) {
             sig->instance_overflow_handler(sig, group_id, instance_id);
             // try again
-            si = msig_get_instance_with_map(sig, group_id, instance_id);
+            si = msig_get_instance_with_map(sig, group_id, instance_id, is_new);
         }
     }
     if (!si) {
@@ -187,29 +188,27 @@ static int handler_signal_instance(const char *path, const char *types,
         return 0;
     }
 
-    if (si) {
-        if (types[2] != LO_NIL) {
-            /* This is cheating a bit since we know that the arguments pointed
-             * to by argv are layed out sequentially in memory.  It's not
-             * clear if liblo's semantics guarantee it, but known to be true
-             * on all platforms. */
-            si->history.position = (si->history.position + 1)
-                                    % si->history.size;
-            memcpy(msig_history_value_pointer(si->history),
-                   argv[2], msig_vector_bytes(sig));
-        }
+    if (types[2] == LO_TRUE) {
+        // TODO: define handler for new instances?
+        return 0;
+    }
 
-        if (sig->handler) {
-            sig->handler(sig, si->id, &sig->props,
-                         &si->history.timetag[si->history.position],
-                         types[2] == LO_NIL ? 0 :
-                         si->history.value + msig_vector_bytes(sig)
-                         * si->history.position);
-        }
+    if (types[2] != LO_NIL) {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
+        si->history.position = (si->history.position + 1) % si->history.size;
+        memcpy(msig_history_value_pointer(si->history), argv[2], msig_vector_bytes(sig));
+    }
 
-        if (types[2] == LO_NIL) {
-            msig_release_instance(sig, si->id);
-        }
+    if (sig->handler) {
+        sig->handler(sig, si->id, &sig->props,
+                     &si->history.timetag[si->history.position], types[2] == LO_NIL ? 0 :
+                     si->history.value + msig_vector_bytes(sig) * si->history.position);
+    }
+    if (types[2] == LO_NIL) {
+        msig_release_instance_internal(si);
     }
     return 0;
 }
@@ -327,6 +326,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
+                             "iiT",
+                             handler_signal_instance, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
                              "iiN",
                              handler_signal_instance, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
@@ -408,6 +411,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, sig->props.name, type_string);
         lo_server_del_method(md->server, sig->props.name, type_string + 2);
         lo_server_del_method(md->server, sig->props.name, "N");
+        lo_server_del_method(md->server, sig->props.name, "iiT");
         lo_server_del_method(md->server, sig->props.name, "iiN");
         free(type_string);
         int len = strlen(sig->props.name) + 5;
@@ -809,6 +813,10 @@ void mdev_start_server(mapper_device md)
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type_string,
+                                 handler_signal_instance, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "iiT",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
