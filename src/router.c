@@ -59,8 +59,7 @@ void mapper_router_free(mapper_router router)
 }
 
 void mapper_router_send_signal(mapper_connection_instance ci,
-                               int send_as_instance,
-                               mapper_instance_map map)
+                               int send_as_instance)
 {
     int i;
     lo_message m;
@@ -71,9 +70,9 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (!m)
         return;
 
-    if (send_as_instance && map) {
-        lo_message_add_int32(m, map->group_id);
-        lo_message_add_int32(m, map->remote_id);
+    if (send_as_instance) {
+        lo_message_add_int32(m, ci->parent->id_map->group);
+        lo_message_add_int32(m, ci->parent->id_map->remote);
     }
 
     if (ci->history.position != -1) {
@@ -105,17 +104,14 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     return;
 }
 
-void mapper_router_send_new_instance(mapper_connection_instance ci,
-                                     mapper_instance_map map)
+void mapper_router_send_new_instance(mapper_connection_instance ci)
 {
     lo_message m = lo_message_new();
     if (!m)
         return;
 
-    if (!map)
-        return;
-    lo_message_add_int32(m, map->group_id);
-    lo_message_add_int32(m, map->remote_id);
+    lo_message_add_int32(m, ci->parent->id_map->group);
+    lo_message_add_int32(m, ci->parent->id_map->remote);
     lo_message_add_true(m);
 
     lo_send_message_from(ci->connection->router->remote_addr,
