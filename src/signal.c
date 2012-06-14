@@ -273,7 +273,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
         si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
         si->signal = sig;
         si->is_active = 0;
-        si->id_map = calloc(1, sizeof(mapper_instance_id_map));
+        si->id_map = calloc(1, sizeof(struct _mapper_instance_id_map));
         si->id_map->local = sig->props.instances++;
         msig_instance_init(si, 0);
         si->user_data = 0;
@@ -450,7 +450,6 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         si = si->next;
     }
     if (si) {
-        si->is_active = 1;
         id_map = mdev_set_instance_id_map(sig->device, instance_id,
                                           mdev_port(sig->device), instance_id);
         msig_instance_init(si, id_map);
@@ -581,8 +580,9 @@ stole:
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
     msig_release_instance_internal(stolen);
-    id_map = mdev_set_instance_id_map(sig->device, si->id_map->local, group_id, remote_id);
+    id_map = mdev_set_instance_id_map(sig->device, stolen->id_map->local, group_id, remote_id);
     msig_instance_init(stolen, id_map);
+    stolen->is_active = 1;
     return stolen;
 }
 
