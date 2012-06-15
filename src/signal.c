@@ -230,7 +230,7 @@ mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
 {
     // TODO: hash table, binary search, etc.
     mapper_signal_instance si = sig->instances;
-    while (si && ((si->id_map->group != group_id) || (si->id_map->remote != remote_id))) {
+    while (si && ((si->id_map->remote != remote_id) || (si->id_map->group != group_id))) {
         si = si->next;
     }
     return si;
@@ -521,7 +521,9 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
             return si;
         }
         return si;
-    }    
+    }
+
+    id_map = mdev_find_instance_id_map_by_remote(sig->device, group_id, remote_id);
 
     // no ID-mapped instance exists - need to try to activate instance and create new ID map
     si = sig->instances;
@@ -532,7 +534,9 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
     }
     if (si) {
         si->is_active = 1;
-        id_map = mdev_set_instance_id_map(sig->device, si->id_map->local, group_id, remote_id);
+        if (!id_map)
+            id_map = mdev_set_instance_id_map(sig->device, si->id_map->local,
+                                              group_id, remote_id);
         msig_instance_init(si, id_map);
         return si;
     }
@@ -580,7 +584,9 @@ stole:
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
     msig_release_instance_internal(stolen);
-    id_map = mdev_set_instance_id_map(sig->device, stolen->id_map->local, group_id, remote_id);
+    if (!id_map)
+        id_map = mdev_set_instance_id_map(sig->device, stolen->id_map->local,
+                                          group_id, remote_id);
     msig_instance_init(stolen, id_map);
     stolen->is_active = 1;
     return stolen;
