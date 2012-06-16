@@ -122,11 +122,9 @@ static int handler_signal(const char *path, const char *types,
     }
 
     // Default to updating first instance
-    mapper_signal_instance si = msig_get_instance_with_id(sig, 0);
-    if (!si) {
-        trace("error, sig->active==0\n");
+    if (!sig || !sig->instances)
         return 0;
-    }
+    mapper_signal_instance si = sig->instances;
 
     if (types[0] == LO_NIL) {
         si->history.position = -1;
