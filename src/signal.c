@@ -402,6 +402,10 @@ void msig_release_instance_internal(mapper_signal_instance si)
         return;
     if (!si->is_active)
         return;
+    if (si->id_map->group != mdev_port(si->signal->device)) {
+        // we do not own this instance
+        return;
+    }
 
     if (si->signal->props.is_output) {
         // First send zero signal
@@ -430,13 +434,16 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     if (!sig)
         return 0;
 
-    mapper_instance_id_map id_map;
+    mapper_instance_id_map id_map = mdev_find_instance_id_map_by_local(sig->device,
+                                                                       instance_id);
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si) {
         if (!si->is_active) {
-            // Claim ID map locally
-            id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                              mdev_port(sig->device), instance_id);
+            if (!id_map) {
+                // Claim ID map locally
+                id_map = mdev_set_instance_id_map(sig->device, instance_id,
+                                                  mdev_port(sig->device), instance_id);
+            }
             msig_instance_init(si, id_map);
         }
         return si;
@@ -450,8 +457,11 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         si = si->next;
     }
     if (si) {
-        id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                          mdev_port(sig->device), instance_id);
+        if (!id_map) {
+            // Claim ID map locally
+            id_map = mdev_set_instance_id_map(sig->device, instance_id,
+                                              mdev_port(sig->device), instance_id);
+        }
         msig_instance_init(si, id_map);
         return si;
     }
@@ -495,9 +505,11 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             &stolen->history.timetag[stolen->history.position],
             NULL);
     msig_release_instance_internal(stolen);
-    // Claim ID map locally
-    id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                      mdev_port(sig->device), instance_id);
+    if (!id_map) {
+        // Claim ID map locally
+        id_map = mdev_set_instance_id_map(sig->device, instance_id,
+                                          mdev_port(sig->device), instance_id);
+    }
     msig_instance_init(stolen, id_map);
     return stolen;
 }
