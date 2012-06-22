@@ -402,16 +402,11 @@ void msig_release_instance_internal(mapper_signal_instance si)
         return;
     if (!si->is_active)
         return;
-    if (si->id_map->group != mdev_port(si->signal->device)) {
-        // we do not own this instance
-        return;
-    }
-
-    if (si->signal->props.is_output) {
+    if (si->id_map->group == mdev_port(si->signal->device) &&
+        si->signal->props.is_output) {
         // First send zero signal
         msig_update_instance_internal(si, 1, NULL);
     }
-
     si->is_active = 0;
 }
 
