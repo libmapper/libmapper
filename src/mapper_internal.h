@@ -272,7 +272,8 @@ void mval_add_to_message(lo_message m, char type,
  *          was unsuccessful according to the selected allocation
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
-                                                 int instance_id);
+                                                 int instance_id,
+                                                 int is_new_instance);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map.
  *  \param  sig The signal owning the desired instance.

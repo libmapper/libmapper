@@ -240,7 +240,7 @@ void msig_instance_set_data(mapper_signal sig,
                             int instance_id,
                             void *user_data)
 {
-    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
     if (si)
         si->user_data = user_data;
 }
@@ -424,7 +424,8 @@ void msig_set_instance_overflow_handler(mapper_signal sig,
 }
 
 mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
-                                                 int instance_id)
+                                                 int instance_id,
+                                                 int is_new_instance)
 {
     if (!sig)
         return 0;
@@ -459,6 +460,11 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         }
         msig_instance_init(si, id_map);
         return si;
+    }
+
+    if (!is_new_instance) {
+        // Do not allow stealing unless this is a new instance
+        return 0;
     }
 
     // If no reserved instance is available, steal an active instance
@@ -763,6 +769,19 @@ void mhist_realloc(mapper_signal_history_t *history, int history_size, int sampl
     history->size = history_size;
 }
 
+void msig_start_new_instance(mapper_signal sig, int instance_id)
+{
+    if (!sig)
+        return;
+
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 1);
+    if (!si && sig->instance_overflow_handler) {
+        sig->instance_overflow_handler(sig, 0, instance_id);
+        // try again
+        si = msig_get_instance_with_id(sig, instance_id, 1);
+    }
+}
+
 void msig_update_instance(mapper_signal sig,
                           int instance_id,
                           void *value)
@@ -775,11 +794,11 @@ void msig_update_instance(mapper_signal sig,
         return;
     }
 
-    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id);
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
     if (!si && sig->instance_overflow_handler) {
         sig->instance_overflow_handler(sig, 0, instance_id);
         // try again
-        si = msig_get_instance_with_id(sig, instance_id);
+        si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
         msig_update_instance_internal(si, 1, value);
