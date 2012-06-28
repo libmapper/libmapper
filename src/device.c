@@ -164,13 +164,15 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int group_id = argv[0]->i32;
     int instance_id = argv[1]->i32;
-    int is_new = types[2] == LO_TRUE ? 1 : 0;
+    int is_new = (types[2] == LO_TRUE);
 
     mapper_signal_instance si = 0;
 
     // Don't activate instance just to release it again
-    if (types[2] == LO_NIL && !msig_find_instance_with_id_map(sig, group_id, instance_id))
-        return 0;
+    if (types[2] == LO_NIL || types[2] == LO_FALSE) {
+        if (!msig_find_instance_with_id_map(sig, group_id, instance_id))
+            return 0;
+    }
 
     si = msig_get_instance_with_id_map(sig, group_id, instance_id, is_new);
     if (!si && is_new) {
@@ -185,9 +187,16 @@ static int handler_signal_instance(const char *path, const char *types,
               (long)group_id, (long)instance_id);
         return 0;
     }
+    post("<%s> received instance %i:%i -> %i", mdev_name(md), group_id, instance_id, si->id_map->local);
 
     if (types[2] == LO_TRUE) {
-        // TODO: define handler for new instances?
+        if (sig->instance_management_handler)
+            sig->instance_management_handler(sig, si->id_map->local, IN_NEW);
+        return 0;
+    }
+    else if (types[2] == LO_FALSE) {
+        if (sig->instance_management_handler)
+            sig->instance_management_handler(sig, si->id_map->local, IN_REQUEST_KILL);
         return 0;
     }
 
@@ -325,6 +334,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         lo_server_add_method(md->server,
                              sig->props.name,
                              "iiT",
+                             handler_signal_instance, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "iiF",
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -661,6 +674,7 @@ void mdev_remove_instance_id_map(mapper_device device, int local_id)
 mapper_instance_id_map mdev_set_instance_id_map(mapper_device device, int local_id,
                                                 int group_id, int remote_id)
 {
+    post("<%s> mdev_set_instance_id_map %i:%i -> %i", mdev_name(device), group_id, remote_id, local_id);
     mapper_instance_id_map id_map = device->instance_id_map;
     while (id_map) {
         if (id_map->local == local_id) {
@@ -808,6 +822,10 @@ void mdev_start_server(mapper_device md)
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  "iiT",
+                                 handler_signal_instance, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "iiF",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,

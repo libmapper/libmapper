@@ -61,6 +61,7 @@ void mapper_router_free(mapper_router router)
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance)
 {
+    post("<%s> mapper_router_send_signal %i:%i -> %i", mdev_name(ci->parent->signal->device), ci->parent->id_map->group, ci->parent->id_map->remote, ci->parent->id_map->local);
     int i;
     lo_message m;
     if (!ci->connection->router->remote_addr)
@@ -92,8 +93,13 @@ void mapper_router_send_signal(mapper_connection_instance ci,
                 lo_message_add_double(m, v[i]);
         }
     }
-    else {
+    else if (mdev_port(ci->connection->router->device) == ci->parent->id_map->group) {
+        // If instance is locally owned, send instance release...
         lo_message_add_nil(m);
+    }
+    else {
+        // ...othersire send release request.
+        lo_message_add_false(m);
     }
 
     lo_send_message_from(ci->connection->router->remote_addr,

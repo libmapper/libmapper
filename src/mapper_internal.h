@@ -37,6 +37,10 @@ struct _mapper_signal
     /*! An optional function to be called when the signal runs
      *  out of instances. */
     mapper_signal_instance_overflow_handler *instance_overflow_handler;
+
+    /*! An optional function to be called when the signal instance management
+     *  events occur. */
+    mapper_signal_instance_management_handler *instance_management_handler;
 };
 
 /**** Instances ****/

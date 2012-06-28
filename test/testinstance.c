@@ -266,7 +266,7 @@ int main()
     loop(100);
 
     msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
-    msig_set_instance_overflow_handler(recvsig, overflow_handler);
+    msig_set_instance_overflow_callback(recvsig, overflow_handler);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);

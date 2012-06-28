@@ -29,6 +29,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
     sig->instance_overflow_handler = 0;
+    sig->instance_management_handler = 0;
     sig->props.instances = 0;
     sig->props.user_data = user_data;
     sig->props.hidden = 0;
@@ -398,13 +399,13 @@ void msig_release_instance(mapper_signal sig, int instance_id)
 
 void msig_release_instance_internal(mapper_signal_instance si)
 {
+    post("<%s> msig_release_instance_internal : %i", mdev_name(si->signal->device), si->id_map->local);
     if (!si)
         return;
     if (!si->is_active)
         return;
-    if (si->id_map->group == mdev_port(si->signal->device) &&
-        si->signal->props.is_output) {
-        // First send zero signal
+    if (si->signal->props.is_output) {
+        // Send release notification to remote devices
         msig_update_instance_internal(si, 1, NULL);
     }
     si->is_active = 0;
@@ -417,10 +418,16 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
         sig->instance_allocation_type = mode;
 }
 
-void msig_set_instance_overflow_handler(mapper_signal sig,
-                                        mapper_signal_instance_overflow_handler h)
+void msig_set_instance_overflow_callback(mapper_signal sig,
+                                         mapper_signal_instance_overflow_handler h)
 {
     sig->instance_overflow_handler = h;
+}
+
+void msig_set_instance_management_callback(mapper_signal sig,
+                                           mapper_signal_instance_management_handler h)
+{
+    sig->instance_management_handler = h;
 }
 
 mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
@@ -535,6 +542,7 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
         }
         return si;
     }
+    post("no existing map");
 
     id_map = mdev_find_instance_id_map_by_remote(sig->device, group_id, remote_id);
 
