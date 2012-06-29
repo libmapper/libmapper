@@ -96,6 +96,25 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
     }
 }
 
+void msig_set_hidden(mapper_signal sig, int hidden)
+{
+    if (!sig)
+        return;
+    if (sig->props.hidden && !hidden) {
+        if (sig->props.is_output)
+            sig->device->n_hidden_outputs --;
+        else
+            sig->device->n_hidden_inputs --;
+    }
+    else if (!sig->props.hidden && hidden) {
+        if (sig->props.is_output)
+            sig->device->n_hidden_outputs ++;
+        else
+            sig->device->n_hidden_inputs ++;
+    }
+    sig->props.hidden = hidden ? 1 : 0;
+}
+
 void msig_free(mapper_signal sig)
 {
     if (!sig) return;

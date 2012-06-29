@@ -534,8 +534,10 @@ int mapper_admin_poll(mapper_admin admin)
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
               AT_PORT, admin->port.value,
-              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-              AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+              AT_NUMINPUTS, admin->device ?
+              mdev_num_inputs(admin->device) - mdev_num_hidden_inputs(admin->device) : 0,
+              AT_NUMOUTPUTS, admin->device ?
+              mdev_num_outputs(admin->device) - mdev_num_hidden_outputs(admin->device) : 0,
               AT_REV, admin->device->version,
               AT_EXTRA, admin->device->extra);
     }
@@ -772,8 +774,10 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
         AT_PORT, admin->port.value,
-        AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-        AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+        AT_NUMINPUTS, admin->device ?
+        mdev_num_inputs(admin->device) - mdev_num_hidden_inputs(admin->device) : 0,
+        AT_NUMOUTPUTS, admin->device ?
+        mdev_num_outputs(admin->device) - mdev_num_hidden_outputs(admin->device) : 0,
         AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,
         AT_NUMCONNECTIONS, admin->device ? mdev_num_connections(admin->device) : 0,
         AT_REV, admin->device->version,
