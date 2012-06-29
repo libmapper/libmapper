@@ -11,7 +11,8 @@ def h(sig, f):
 
 src = mapper.device("src", 9000)
 outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
-dummysig = src.add_hidden_input("/dummysig", 1, 'f', None, 0, 1000, h)
+dummysig = src.add_input("/dummysig", 1, 'f', None, 0, 1000, h)
+dummysig.set_hidden(1);
 
 dest = mapper.device("dest", 9000)
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1)
