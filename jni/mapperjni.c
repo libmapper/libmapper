@@ -506,6 +506,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1hidden
+(JNIEnv *env, jobject obj, jlong s, jboolean hidden)
+{
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
+    if (sig)
+        msig_set_hidden(sig, hidden);
+}
+
 JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
   (JNIEnv *env, jobject obj, jlong s)
 {

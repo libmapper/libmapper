@@ -47,7 +47,7 @@ public class Device
             checkDevice();
             msig_set_maximum(_signal, maximum);
         }
-        public void set_hidden(long hidden) {
+        public void set_hidden(boolean hidden) {
             checkDevice();
             msig_set_hidden(_signal, hidden);
         }
@@ -77,7 +77,7 @@ public class Device
         private native boolean msig_is_output(long sig);
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
-        private native void msig_set_hidden(long sig, long hidden);
+        private native void msig_set_hidden(long sig, boolean hidden);
         private native long msig_properties(long sig);
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);

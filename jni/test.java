@@ -36,7 +36,7 @@ class test {
                     System.out.println("in onInput() for inp2"
                                        +Arrays.toString(v));
                 }});
-        inp2.set_hidden(1);
+        inp2.set_hidden(true);
 
         out1.query_remote(inp2);
 
