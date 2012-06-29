@@ -58,9 +58,10 @@ int setup_source()
     
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/dummysig_", i);
-        dummysig[i] = mdev_add_hidden_input(source, sig_name, 1,
-                                            'f', 0, 0, 0, query_response_handler,
-                                            sendsig[i]);
+        dummysig[i] = mdev_add_input(source, sig_name, 1,
+                                     'f', 0, 0, 0, query_response_handler,
+                                     sendsig[i]);
+        msig_set_hidden(dummysig[i], 1);
     }
 
     printf("Output signals registered.\n");
