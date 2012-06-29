@@ -128,8 +128,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     return;
 }
 
-int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                             const char *alias)
+int mapper_router_send_query(mapper_router router, mapper_signal sig)
 {
     // find this signal in list of connections
     mapper_signal_connection sc = router->connections;
@@ -147,14 +146,8 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
     while (c) {
         strncpy(query_string, c->props.dest_name, 1024);
         strncat(query_string, "/get", 4);
-        if (alias) {
-            lo_send_from(router->addr, router->device->server, 
-                         LO_TT_IMMEDIATE, query_string, "s", alias);
-        }
-        else {
-            lo_send_from(router->addr, router->device->server, 
-                         LO_TT_IMMEDIATE, query_string, "");
-        }
+        lo_send_from(router->addr, router->device->server, 
+                     LO_TT_IMMEDIATE, query_string, "s", sig->props.name);
         count++;
         c = c->next;
     }

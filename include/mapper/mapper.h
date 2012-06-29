@@ -58,8 +58,10 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
 
 /*! Set or unset the hidden property of a signal.
  *  \param sig      The signal to operate on.
- *  \param hidden   1 to set signal as hidden, or 0 to unset. */
-void msig_set_hidden(mapper_signal sig, int hidden);
+ *  \param hidden   A pointer to a mapper_signal_handler function for
+ *                  processing query responses. */
+void msig_set_query_callback(mapper_signal sig,
+                             mapper_signal_handler *query_handler);
 
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.
@@ -125,9 +127,8 @@ int msig_full_name(mapper_signal sig, char *name, int len);
 /*! Query the values of any signals connected via mapping connections. 
  *  \param sig      A local output signal. We will be querying the remote 
  *                  ends of this signal's mapping connections.
- *  \param receiver A local input signal for receiving query responses.
  *  \return The number of queries sent, or -1 for error. */
-int msig_query_remote(mapper_signal sig, mapper_signal receiver);
+int msig_query_remote(mapper_signal sig);
 
 /* @} */
 
@@ -205,17 +206,11 @@ void mdev_remove_input(mapper_device dev, mapper_signal sig);
  * \param sig The signal to remove. */
 void mdev_remove_output(mapper_device dev, mapper_signal sig);
 
-//! Return the number of inputs, including hidden inputs.
+//! Return the number of inputs.
 int mdev_num_inputs(mapper_device dev);
-
-//! Return the number of hidden inputs.
-int mdev_num_hidden_inputs(mapper_device dev);
 
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
-
-//! Return the number of hidden outputs.
-int mdev_num_hidden_outputs(mapper_device dev);
 
 //! Return the number of links.
 int mdev_num_links(mapper_device dev);

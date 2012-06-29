@@ -28,6 +28,10 @@ struct _mapper_signal
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
+
+    /*! An optional function to be called when reponses to remote
+     *  queries are received. */
+    mapper_signal_handler *query_handler;
 };
 
 // Mapper internal functions
@@ -76,10 +80,16 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
+void mdev_add_signal_query_response_callback(mapper_device md,
+                                             mapper_signal sig);
+
+void mdev_remove_signal_query_response_callback(mapper_device md,
+                                                mapper_signal sig);
+
 void mdev_route_signal(mapper_device md, mapper_signal sig,
                        mapper_signal_value_t *value);
 
-int mdev_route_query(mapper_device md, mapper_signal sig, const char *alias);
+int mdev_route_query(mapper_device md, mapper_signal sig);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
@@ -105,8 +115,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
                                   mapper_signal_value_t *value);
 
-int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                             const char *alias);
+int mapper_router_send_query(mapper_router router, mapper_signal sig);
 
 mapper_connection mapper_router_add_connection(mapper_router router,
                                                mapper_signal sig,

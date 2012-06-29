@@ -534,10 +534,8 @@ int mapper_admin_poll(mapper_admin admin)
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
               AT_PORT, admin->port.value,
-              AT_NUMINPUTS, admin->device ?
-              mdev_num_inputs(admin->device) - mdev_num_hidden_inputs(admin->device) : 0,
-              AT_NUMOUTPUTS, admin->device ?
-              mdev_num_outputs(admin->device) - mdev_num_hidden_outputs(admin->device) : 0,
+              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+              AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
               AT_REV, admin->device->version,
               AT_EXTRA, admin->device->extra);
     }
@@ -774,10 +772,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
         AT_PORT, admin->port.value,
-        AT_NUMINPUTS, admin->device ?
-        mdev_num_inputs(admin->device) - mdev_num_hidden_inputs(admin->device) : 0,
-        AT_NUMOUTPUTS, admin->device ?
-        mdev_num_outputs(admin->device) - mdev_num_hidden_outputs(admin->device) : 0,
+        AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+        AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,
         AT_NUMCONNECTIONS, admin->device ? mdev_num_connections(admin->device) : 0,
         AT_REV, admin->device->version,
@@ -919,19 +915,17 @@ static int handler_id_n_signals_input_get(const char *path,
 
     for (; i <= j; i++) {
         mapper_signal sig = md->inputs[i];
-        if (sig->props.hidden == 0) {
-            msig_full_name(sig, sig_name, 1024);
-            mapper_admin_send_osc(
-                admin, "/signal", "ssi", sig_name,
-                "@ID", i,
-                AT_DIRECTION, "input",
-                AT_TYPE, sig->props.type,
-                AT_LENGTH, sig->props.length,
-                sig->props.unit ? AT_UNITS : -1, sig,
-                sig->props.minimum ? AT_MIN : -1, sig,
-                sig->props.maximum ? AT_MAX : -1, sig,
-                AT_EXTRA, sig->props.extra);
-        }
+        msig_full_name(sig, sig_name, 1024);
+        mapper_admin_send_osc(
+            admin, "/signal", "ssi", sig_name,
+            "@ID", i,
+            AT_DIRECTION, "input",
+            AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
+            sig->props.unit ? AT_UNITS : -1, sig,
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig,
+            AT_EXTRA, sig->props.extra);
     }
 
     md->flags |= FLAGS_INPUTS_GET;
@@ -982,19 +976,17 @@ static int handler_id_n_signals_output_get(const char *path,
 
     for (; i <= j; i++) {
         mapper_signal sig = md->outputs[i];
-        if (sig->props.hidden == 0) {
-            msig_full_name(sig, sig_name, 1024);
-            mapper_admin_send_osc(
-                admin, "/signal", "ssi", sig_name,
-                "@ID", i,
-                AT_DIRECTION, "output",
-                AT_TYPE, sig->props.type,
-                AT_LENGTH, sig->props.length,
-                sig->props.unit ? AT_UNITS : -1, sig,  
-                sig->props.minimum ? AT_MIN : -1, sig,
-                sig->props.maximum ? AT_MAX : -1, sig,
-                AT_EXTRA, sig->props.extra);
-        }
+        msig_full_name(sig, sig_name, 1024);
+        mapper_admin_send_osc(
+            admin, "/signal", "ssi", sig_name,
+            "@ID", i,
+            AT_DIRECTION, "output",
+            AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
+            sig->props.unit ? AT_UNITS : -1, sig,  
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig,
+            AT_EXTRA, sig->props.extra);
     }
 
     md->flags |= FLAGS_OUTPUTS_GET;

@@ -1075,7 +1075,6 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
                            char type, int length,
                            const char *name, const char *unit)
 {
-    sig->hidden = 0;
     sig->is_output = is_output;
     sig->type = type;
     sig->length = length;

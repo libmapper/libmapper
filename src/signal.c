@@ -26,7 +26,6 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->props.has_value = 0;
     sig->handler = handler;
     sig->props.user_data = user_data;
-    sig->props.hidden = 0;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
     return sig;
@@ -96,23 +95,21 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
     }
 }
 
-void msig_set_hidden(mapper_signal sig, int hidden)
+void msig_set_query_callback(mapper_signal sig,
+                             mapper_signal_handler *query_handler)
 {
+    printf("msig_set_query_callback\n");
     if (!sig)
         return;
-    if (sig->props.hidden && !hidden) {
-        if (sig->props.is_output)
-            sig->device->n_hidden_outputs --;
-        else
-            sig->device->n_hidden_inputs --;
+    if (!sig->query_handler && query_handler) {
+        // Need to register a new liblo handler
+        mdev_add_signal_query_response_callback(sig->device, sig);
     }
-    else if (!sig->props.hidden && hidden) {
-        if (sig->props.is_output)
-            sig->device->n_hidden_outputs ++;
-        else
-            sig->device->n_hidden_inputs ++;
+    else if (sig->query_handler && !query_handler) {
+        // Need to remove liblo query handler
+        mdev_remove_signal_query_response_callback(sig->device, sig);
     }
-    sig->props.hidden = hidden ? 1 : 0;
+    sig->query_handler = query_handler;
 }
 
 void msig_free(mapper_signal sig)
@@ -238,21 +235,20 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     return strlen(name);
 }
 
-int msig_query_remote(mapper_signal sig, mapper_signal receiver)
+int msig_query_remote(mapper_signal sig)
 {
     // stick to output signals for now
+    // TODO: process queries on inputs also
     if (!sig->props.is_output)
         return -1;
     if (!sig->device->server) {
         // no server running so we cannot process query returns
+        // TODO: start server if necessary
         return -1;
     }
-    if (receiver) {
-        const char *alias = receiver->props.name;
-        if (alias)
-            return mdev_route_query(sig->device, sig, alias);
+    if (!sig->query_handler) {
+        // no handler defined so we cannot process query returns
+        return -1;
     }
-    else
-        return mdev_route_query(sig->device, sig, 0);
-    return 0;
+    return mdev_route_query(sig->device, sig);
 }
