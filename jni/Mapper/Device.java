@@ -47,6 +47,10 @@ public class Device
             checkDevice();
             msig_set_maximum(_signal, maximum);
         }
+        public void set_hidden(long hidden) {
+            checkDevice();
+            msig_set_hidden(_signal, hidden);
+        }
         public Mapper.Db.Signal properties() {
             checkDevice();
             return new Mapper.Db.Signal(msig_properties(_signal), this);
@@ -73,6 +77,7 @@ public class Device
         private native boolean msig_is_output(long sig);
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
+        private native void msig_set_hidden(long sig, long hidden);
         private native long msig_properties(long sig);
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
@@ -127,15 +132,6 @@ public class Device
     {
         long msig = mdev_add_input(_device, name, length, type, unit,
                                    minimum, maximum, handler);
-        return msig==0 ? null : new Signal(msig, this);
-    }
-
-    public Signal add_hidden_input(String name, int length, char type,
-                                   String unit, Double minimum,
-                                   Double maximum, InputListener handler)
-    {
-        long msig = mdev_add_hidden_input(_device, name, length, type,
-                                          unit, minimum, maximum, handler);
         return msig==0 ? null : new Signal(msig, this);
     }
 
@@ -249,11 +245,6 @@ public class Device
                                        char type, String unit,
                                        Double minimum, Double maximum,
                                        InputListener handler);
-    private native long mdev_add_hidden_input(long _d, String name,
-                                              int length, char type,
-                                              String unit, Double minimum,
-                                              Double maximum,
-                                              InputListener handler);
     private native long mdev_add_output(long _d, String name, int length,
                                         char type, String unit,
                                         Double minimum, Double maximum);

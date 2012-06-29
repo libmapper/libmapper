@@ -30,12 +30,13 @@ class test {
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
 
-        Signal inp2 = dev.add_hidden_input("insig2", 1, 'f', "Hz", 2.0, null,
+        Signal inp2 = dev.add_input("insig2", 1, 'f', "Hz", 2.0, null,
             new InputListener() {
                 public void onInput(float[] v) {
                     System.out.println("in onInput() for inp2"
                                        +Arrays.toString(v));
                 }});
+        inp2.set_hidden(1);
 
         out1.query_remote(inp2);
 
