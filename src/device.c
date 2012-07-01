@@ -140,7 +140,6 @@ static int handler_query(const char *path, const char *types,
                          lo_arg **argv, int argc, lo_message msg,
                          void *user_data)
 {
-    char remote_name[128];
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
@@ -153,12 +152,6 @@ static int handler_query(const char *path, const char *types,
         return 0;
     else if (types[0] != 's' && types[0] != 'S')
         return 0;
-    else {
-        // use OSC string provided as argument for return
-        snprintf(remote_name, 128, "%s%s", &argv[0]->s, "/got");
-        if (remote_name[0] != '/')
-            return 0;
-    }
 
     int i;
     lo_message m;
@@ -175,7 +168,7 @@ static int handler_query(const char *path, const char *types,
         lo_message_add_nil(m);
     }
 
-    lo_send_message(lo_message_get_source(msg), remote_name, m);
+    lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
     lo_message_free(m);
     return 0;
 }
