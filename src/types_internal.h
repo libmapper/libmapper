@@ -179,8 +179,7 @@ typedef struct _mapper_device {
     struct _mapper_signal **outputs;
     int n_inputs;
     int n_outputs;
-    int n_hidden_inputs;
-    int n_hidden_outputs;
+    int n_query_inputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
     int n_links;

@@ -98,18 +98,18 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
 void msig_set_query_callback(mapper_signal sig,
                              mapper_signal_handler *query_handler)
 {
-    printf("msig_set_query_callback\n");
     if (!sig)
         return;
     if (!sig->query_handler && query_handler) {
         // Need to register a new liblo handler
+        sig->query_handler = query_handler;
         mdev_add_signal_query_response_callback(sig->device, sig);
     }
     else if (sig->query_handler && !query_handler) {
         // Need to remove liblo query handler
+        sig->query_handler = query_handler;
         mdev_remove_signal_query_response_callback(sig->device, sig);
     }
-    sig->query_handler = query_handler;
 }
 
 void msig_free(mapper_signal sig)

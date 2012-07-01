@@ -140,7 +140,6 @@ static int handler_query(const char *path, const char *types,
                          lo_arg **argv, int argc, lo_message msg,
                          void *user_data)
 {
-    printf("handler_query: %s\n", path);
     char remote_name[128];
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
@@ -160,7 +159,6 @@ static int handler_query(const char *path, const char *types,
         if (remote_name[0] != '/')
             return 0;
     }
-    printf("return name: %s\n", remote_name);
 
     int i;
     lo_message m;
@@ -176,10 +174,6 @@ static int handler_query(const char *path, const char *types,
     else {
         lo_message_add_nil(m);
     }
-    lo_address addr = lo_message_get_source(msg);
-    if (addr)
-        printf("received from %s:%s\n", lo_address_get_hostname(addr), lo_address_get_port(addr));
-    lo_message_pp(m);
 
     lo_send_message(lo_message_get_source(msg), remote_name, m);
     lo_message_free(m);
@@ -190,7 +184,6 @@ static int handler_query_response(const char *path, const char *types,
                                   lo_arg **argv, int argc, lo_message msg,
                                   void *user_data)
 {
-    printf("handler_query_response\n");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
@@ -285,6 +278,8 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
 void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig)
 {
+    if (!sig->props.is_output || sig->query_handler)
+        return;
     char *path = 0;
     int len;
     if (!md->server)
@@ -293,20 +288,26 @@ void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig
         len = (int) strlen(sig->props.name) + 5;
         path = (char*) realloc(path, len);
         snprintf(path, len, "%s%s", sig->props.name, "/got");
-        printf("adding callback for %s\n", path);
         lo_server_add_method(md->server,
                              path,
                              NULL,
                              handler_query_response, (void *) (sig));
         free(path);
+        md->n_query_inputs ++;
     }
 }
 
 void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal sig)
 {
-    char response_name[128];
-    snprintf(response_name, 128, "%s%s", sig->props.name, "/got");
-    lo_server_del_method(md->server, response_name, NULL);
+    char *path = 0;
+    int len;
+    if (!sig->props.is_output || !sig->query_handler)
+        return;
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    lo_server_del_method(md->server, path, NULL);
+    md->n_query_inputs --;
 }
 
 void mdev_remove_input(mapper_device md, mapper_signal sig)
@@ -353,6 +354,14 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
+    if (sig->query_handler && md->server) {
+        int len = strlen(sig->props.name) + 5;
+        char *path = (char*) malloc(len);
+        strncpy(path, sig->props.name, len);
+        strncat(path, "/got", len);
+        lo_server_del_method(md->server, path, NULL);
+        free(path);
+    }
     md->n_outputs --;
     mdev_increment_version(md);
     msig_free(sig);
@@ -363,19 +372,9 @@ int mdev_num_inputs(mapper_device md)
     return md->n_inputs;
 }
 
-int mdev_num_hidden_inputs(mapper_device md)
-{
-    return md->n_hidden_inputs;
-}
-
 int mdev_num_outputs(mapper_device md)
 {
     return md->n_outputs;
-}
-
-int mdev_num_hidden_outputs(mapper_device md)
-{
-    return md->n_hidden_outputs;
 }
 
 int mdev_num_links(mapper_device md)
@@ -476,7 +475,7 @@ int mdev_poll(mapper_device md, int block_ms)
          * no point.  Perhaps if this is supported in the future it
          * can be a heuristic based on a recent number of messages per
          * channel per poll. */
-        while (count < md->n_inputs*1
+        while (count < (md->n_inputs + md->n_query_inputs)*1
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
@@ -661,11 +660,11 @@ void mdev_start_server(mapper_device md)
             int len = (int) strlen(md->outputs[i]->props.name) + 5;
             path = (char*) realloc(path, len);
             snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
-            printf("adding callback for %s\n", path);
             lo_server_add_method(md->server,
                                  path,
                                  NULL,
                                  handler_query_response, (void *) (md->outputs[i]));
+            md->n_query_inputs ++;
         }
         free(type);
         free(path);

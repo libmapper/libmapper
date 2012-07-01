@@ -27,13 +27,11 @@ int done = 0;
 void query_response_handler(mapper_signal sig, mapper_db_signal props,
                             mapper_timetag_t *timetag, void *value)
 {
-    mapper_signal remote = (mapper_signal) props->user_data;
-
     if (value) {
-        printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)value));
+        printf("--> source got query response: %s %f\n", props->name, (*(float*)value));
     }
     else {
-        printf("--> source got empty query response: %s\n", remote->props.name);
+        printf("--> source got empty query response: %s\n", props->name);
     }
 
     received++;
