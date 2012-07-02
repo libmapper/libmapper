@@ -150,7 +150,7 @@ static int handler_query(const char *path, const char *types,
 
     if (!argc)
         return 0;
-    else if (types[0] != 's' && types[0] != 'S')
+    else if (types[0] != 's' && types[0] != 'S' && types[1] != 'c')
         return 0;
 
     int i;
@@ -161,8 +161,18 @@ static int handler_query(const char *path, const char *types,
 
     if (sig->props.has_value) {
         mapper_signal_value_t *value = sig->value;
-        for (i = 0; i < sig->props.length; i++)
-            mval_add_to_message(m, sig, &value[i]);
+        for (i = 0; i < sig->props.length; i++) {
+            if (sig->props.type == argv[1]->c)
+                mval_add_to_message(m, sig, &value[i]);
+            else if (sig->props.type == 'i' && argv[1]->c == 'f') {
+                float fval = (float)value[i].i32;
+                mval_add_to_message(m, sig, (mapper_signal_value_t*)&fval);
+            }
+            else if (sig->props.type == 'f' && argv[1]->c == 'i') {
+                int ival = (int)value[i].f;
+                mval_add_to_message(m, sig, (mapper_signal_value_t*)&ival);
+            }
+        }
     }
     else {
         lo_message_add_nil(m);
@@ -236,7 +246,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
         lo_server_add_method(md->server,
                              signal_get,
-                             "s",
+                             "sc",
                              handler_query, (void *) (sig));
         free(type_string);
         free(signal_get);
@@ -650,7 +660,7 @@ void mdev_start_server(mapper_device md)
             snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
             lo_server_add_method(md->server,
                                  path,
-                                 "s",
+                                 "sc",
                                  handler_query, (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->n_outputs; i++) {
