@@ -28,10 +28,6 @@ struct _mapper_signal
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
-
-    /*! An optional function to be called when reponses to remote
-     *  queries are received. */
-    mapper_signal_handler *query_handler;
 };
 
 // Mapper internal functions

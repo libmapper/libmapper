@@ -61,7 +61,8 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
  *  \param hidden   A pointer to a mapper_signal_handler function for
  *                  processing query responses. */
 void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *query_handler);
+                             mapper_signal_handler *query_handler,
+                             void *user_data);
 
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.

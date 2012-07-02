@@ -96,18 +96,20 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
 }
 
 void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *query_handler)
+                             mapper_signal_handler *handler,
+                             void *user_data)
 {
-    if (!sig)
+    if (!sig || !sig->props.is_output)
         return;
-    if (!sig->query_handler && query_handler) {
+    if (!sig->handler && handler) {
         // Need to register a new liblo handler
-        sig->query_handler = query_handler;
+        sig->handler = handler;
         mdev_add_signal_query_response_callback(sig->device, sig);
+        sig->props.user_data = user_data;
     }
-    else if (sig->query_handler && !query_handler) {
+    else if (sig->handler && !handler) {
         // Need to remove liblo query handler
-        sig->query_handler = query_handler;
+        sig->handler = handler;
         mdev_remove_signal_query_response_callback(sig->device, sig);
     }
 }
@@ -246,7 +248,7 @@ int msig_query_remote(mapper_signal sig)
         // TODO: start server if necessary
         return -1;
     }
-    if (!sig->query_handler) {
+    if (!sig->handler) {
         // no handler defined so we cannot process query returns
         return -1;
     }

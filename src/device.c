@@ -185,9 +185,9 @@ static int handler_query_response(const char *path, const char *types,
         return 0;
     }
 
-    if (sig->query_handler)
-        sig->query_handler(sig, &sig->props, 0,
-                           types[0] == LO_NIL ? 0 : argv[0]);
+    if (sig->handler)
+        sig->handler(sig, &sig->props, 0,
+                     types[0] == LO_NIL ? 0 : argv[0]);
 
     return 0;
 }
@@ -271,7 +271,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
 void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig)
 {
-    if (!sig->props.is_output || sig->query_handler)
+    if (!sig->props.is_output || sig->handler)
         return;
     char *path = 0;
     int len;
@@ -294,7 +294,7 @@ void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal 
 {
     char *path = 0;
     int len;
-    if (!sig->props.is_output || !sig->query_handler)
+    if (!sig->props.is_output || !sig->handler)
         return;
     len = (int) strlen(sig->props.name) + 5;
     path = (char*) realloc(path, len);
@@ -347,7 +347,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
-    if (sig->query_handler && md->server) {
+    if (sig->handler && md->server) {
         int len = strlen(sig->props.name) + 5;
         char *path = (char*) malloc(len);
         strncpy(path, sig->props.name, len);
@@ -648,7 +648,7 @@ void mdev_start_server(mapper_device md)
                                  handler_query, (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->n_outputs; i++) {
-            if (!md->outputs[i]->query_handler)
+            if (!md->outputs[i]->handler)
                 continue;
             int len = (int) strlen(md->outputs[i]->props.name) + 5;
             path = (char*) realloc(path, len);

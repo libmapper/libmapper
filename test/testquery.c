@@ -51,7 +51,7 @@ int setup_source()
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
         sendsig[i] = mdev_add_output(source, sig_name, 1, 'f', 0, &mn, &mx);
-        msig_set_query_callback(sendsig[i], query_response_handler);
+        msig_set_query_callback(sendsig[i], query_response_handler, 0);
     }
 
     printf("Output signals registered.\n");
