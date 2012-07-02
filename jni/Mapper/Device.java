@@ -47,9 +47,9 @@ public class Device
             checkDevice();
             msig_set_maximum(_signal, maximum);
         }
-        public void set_hidden(boolean hidden) {
+        public void set_query_callback(InputListener handler) {
             checkDevice();
-            msig_set_hidden(_signal, hidden);
+            msig_set_query_callback(_signal, handler);
         }
         public Mapper.Db.Signal properties() {
             checkDevice();
@@ -65,11 +65,10 @@ public class Device
             checkDevice();
             msig_remove_property(_signal, property);
         }
-        public int query_remote(Signal receiver)
+        public int query_remote()
         {
             checkDevice();
-            receiver.checkDevice();
-            return msig_query_remote(_signal, receiver._signal);
+            return msig_query_remote(_signal);
         }
 
         private native String msig_full_name(long sig);
@@ -77,12 +76,12 @@ public class Device
         private native boolean msig_is_output(long sig);
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
-        private native void msig_set_hidden(long sig, boolean hidden);
+        private native void msig_set_query_callback(long sig, InputListener handler);
         private native long msig_properties(long sig);
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
         private native void msig_remove_property(long sig, String property);
-        private native int msig_query_remote(long sig, long receiver);
+        private native int msig_query_remote(long sig);
 
         public native void update(int value);
         public native void update(float value);

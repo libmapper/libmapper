@@ -506,12 +506,12 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1hidden
-(JNIEnv *env, jobject obj, jlong s, jboolean hidden)
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1query_1callback
+(JNIEnv *env, jobject obj, jlong s, jobject listener)
 {
     mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig)
-        msig_set_hidden(sig, hidden);
+    return msig_set_query_callback(sig, java_msig_input_cb,
+                                   (*env)->NewGlobalRef(env, listener));
 }
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
@@ -576,11 +576,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1remove_1property
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remote
-  (JNIEnv *env, jobject obj, jlong s, jlong r)
+  (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig  = (mapper_signal)ptr_jlong(s);
-    mapper_signal recv = (mapper_signal)ptr_jlong(r);
-    return msig_query_remote(sig, recv);
+    return msig_query_remote(sig);
 }
 
 static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
@@ -780,13 +779,6 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1device_1n
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
     return (*env)->NewStringUTF(env, props->device_name);
-}
-
-JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1hidden
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
-    return props->hidden!=0;
 }
 
 JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1is_1output

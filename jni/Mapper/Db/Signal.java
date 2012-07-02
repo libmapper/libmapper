@@ -13,7 +13,6 @@ public class Signal
         _name = msig_db_signal_get_name(_sigprops);
         _device_name = msig_db_signal_get_device_name(_sigprops);
 
-        _hidden = msig_db_signal_get_hidden(_sigprops);
         _is_output = msig_db_signal_get_is_output(_sigprops);
         _type = msig_db_signal_get_type(_sigprops);
         _length = msig_db_signal_get_length(_sigprops);
@@ -35,10 +34,6 @@ public class Signal
     private String _device_name;
     public String device_name() { return _device_name; }
     private native String msig_db_signal_get_device_name(long p);
-
-    boolean _hidden;
-    public boolean hidden() { return _hidden; }
-    private native boolean msig_db_signal_get_hidden(long p);
 
 	boolean _is_output;
     public boolean is_output() { return _is_output; }
