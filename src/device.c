@@ -293,8 +293,14 @@ void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig
 void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal sig)
 {
     char *path = 0;
-    int len;
-    if (!sig->props.is_output || !sig->handler)
+    int len, i;
+    if (!md || !sig || !sig->handler)
+        return;
+    for (i=0; i<md->n_outputs; i++) {
+        if (md->outputs[i] == sig)
+            break;
+    }
+    if (i==md->n_outputs)
         return;
     len = (int) strlen(sig->props.name) + 5;
     path = (char*) realloc(path, len);

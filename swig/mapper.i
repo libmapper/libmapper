@@ -691,6 +691,20 @@ typedef struct _admin {} admin;
         return (signal*)mdev_add_output((mapper_device)$self, name,
                                       length, type, unit, pmn, pmx);
     }
+    void remove_input(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_input((mapper_device)$self, (mapper_signal)sig);
+    }
+    void remove_output(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_output((mapper_device)$self, msig);
+    }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
         int port = mdev_port(md);
@@ -799,8 +813,22 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
-    int query_remote(signal *receiver=0) {
-        return msig_query_remote((mapper_signal)$self, (mapper_signal)receiver);
+    void set_query_callback(PyObject *PyFunc=0) {
+        mapper_signal_handler *h = 0;
+        mapper_signal msig = (mapper_signal)$self;
+        if (PyFunc && !msig->props.user_data) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        else if (!PyFunc && msig->props.user_data) {
+            if (msig->props.user_data) {
+                Py_XDECREF((PyObject*)msig->props.user_data);
+            }
+        }
+        return msig_set_query_callback((mapper_signal)$self, h, PyFunc);
+    }
+    int query_remote() {
+        return msig_query_remote((mapper_signal)$self);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
@@ -825,10 +853,6 @@ typedef struct _admin {} admin;
             sigval_coerce(&tmp, v, sig->props.type);
             msig_set_maximum((mapper_signal)$self, &tmp);
         }
-    }
-    void set_hidden(int hidden) {
-        mapper_signal sig = (mapper_signal)$self;
-        msig_set_hidden(sig, hidden);
     }
     maybeSigVal get_minimum() {
         mapper_signal sig = (mapper_signal)$self;
