@@ -145,7 +145,16 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
-int mdev_route_query(mapper_device md, mapper_signal sig, const char *alias);
+void mdev_add_signal_query_response_callback(mapper_device md,
+                                             mapper_signal sig);
+
+void mdev_remove_signal_query_response_callback(mapper_device md,
+                                                mapper_signal sig);
+
+void mdev_route_signal(mapper_device md, mapper_signal sig,
+                       mapper_signal_value_t *value);
+
+int mdev_route_query(mapper_device md, mapper_signal sig);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
@@ -167,8 +176,7 @@ void mapper_router_free(mapper_router router);
 
 void mapper_router_send_signal(mapper_connection_instance ci);
 
-int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                             const char *alias);
+int mapper_router_send_query(mapper_router router, mapper_signal sig);
 
 mapper_connection mapper_router_add_connection(mapper_router router,
                                                mapper_signal sig,
