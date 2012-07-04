@@ -914,20 +914,18 @@ static int handler_id_n_signals_input_get(const char *path,
 
     for (; i <= j; i++) {
         mapper_signal sig = md->inputs[i];
-        if (sig->props.hidden == 0) {
-            msig_full_name(sig, sig_name, 1024);
-            mapper_admin_send_osc(
-                admin, "/signal", "ssi", sig_name,
-                "@ID", i,
-                AT_DIRECTION, "input",
-                AT_TYPE, sig->props.type,
-                AT_LENGTH, sig->props.length,
-                sig->props.unit ? AT_UNITS : -1, sig,
-                sig->props.minimum ? AT_MIN : -1, sig,
-                sig->props.maximum ? AT_MAX : -1, sig,
-                sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
-                AT_EXTRA, sig->props.extra);
-        }
+        msig_full_name(sig, sig_name, 1024);
+        mapper_admin_send_osc(
+            admin, "/signal", "ssi", sig_name,
+            "@ID", i,
+            AT_DIRECTION, "input",
+            AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
+            sig->props.unit ? AT_UNITS : -1, sig,
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig,
+            sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
+            AT_EXTRA, sig->props.extra);
     }
 
     md->flags |= FLAGS_INPUTS_GET;
@@ -978,20 +976,18 @@ static int handler_id_n_signals_output_get(const char *path,
 
     for (; i <= j; i++) {
         mapper_signal sig = md->outputs[i];
-        if (sig->props.hidden == 0) {
-            msig_full_name(sig, sig_name, 1024);
-            mapper_admin_send_osc(
-                admin, "/signal", "ssi", sig_name,
-                "@ID", i,
-                AT_DIRECTION, "output",
-                AT_TYPE, sig->props.type,
-                AT_LENGTH, sig->props.length,
-                sig->props.unit ? AT_UNITS : -1, sig,  
-                sig->props.minimum ? AT_MIN : -1, sig,
-                sig->props.maximum ? AT_MAX : -1, sig,
-                sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
-                AT_EXTRA, sig->props.extra);
-        }
+        msig_full_name(sig, sig_name, 1024);
+        mapper_admin_send_osc(
+            admin, "/signal", "ssi", sig_name,
+            "@ID", i,
+            AT_DIRECTION, "output",
+            AT_TYPE, sig->props.type,
+            AT_LENGTH, sig->props.length,
+            sig->props.unit ? AT_UNITS : -1, sig,  
+            sig->props.minimum ? AT_MIN : -1, sig,
+            sig->props.maximum ? AT_MAX : -1, sig,
+            sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
+            AT_EXTRA, sig->props.extra);
     }
 
     md->flags |= FLAGS_OUTPUTS_GET;
@@ -1139,20 +1135,20 @@ static int handler_device_name_registered(const char *path, const char *types,
     /* Parse the ordinal from the complete name which is in the
      * format: /<name>.<n> */
     s = registered_name;
-    if (*s++ != '/')
+    if (*s != '/')
         return 0;
-    while (*s != '.' && *s++) {
-    }
-    registered_ordinal = atoi(++s);
+    s = strrchr(s, '.');
+    if (!s)
+        return 0;
+    registered_ordinal = atoi(s+1);
+    *s = 0;
     
     trace("</%s.?::%p> got /name/registered %s %i \n",
           admin->identifier, admin, registered_name, ID);
     
     // If device name matches
-    strtok(registered_name, ".");
     registered_name++;
     if (strcmp(registered_name, admin->identifier) == 0) {
-    
         // if ordinal is locked and registered ordinal is within my block, store it
         if (admin->ordinal.locked) {
             diff = registered_ordinal - admin->ordinal.value;
@@ -1162,21 +1158,18 @@ static int handler_device_name_registered(const char *path, const char *types,
         }
         else {
             if (registered_ordinal == admin->ordinal.value) {
-                if (ID == admin->random_id && suggested_name) {
+                if (ID == admin->random_id && suggested_name && *suggested_name == '/') {
                     // Parse the ordinal from the suggested name
-                    s = suggested_name;
-                    if (*s++ != '/')
+                    s = strrchr(suggested_name, '.');
+                    if (s) {
+                        admin->ordinal.value = atoi(++s);
+                        mapper_admin_name_probe(admin);
                         return 0;
-                    while (*s != '.' && *s++) {
                     }
-                    admin->ordinal.value = atoi(++s);
-                    mapper_admin_name_probe(admin);
                 }
-                else {
-                    /* Count port collisions. */
-                    admin->ordinal.collision_count++;
-                    admin->ordinal.count_time = get_current_time();
-                }
+                /* Count port collisions. */
+                admin->ordinal.collision_count++;
+                admin->ordinal.count_time = get_current_time();
             }
         }
     }
@@ -1267,18 +1260,19 @@ static int handler_device_name_probe(const char *path, const char *types,
     /* Parse the ordinal from the complete name which is in the
      * format: /<name>.<n> */
     s = probed_name;
-    if (*s++ != '/')
+    if (*s != '/')
         return 0;
-    while (*s != '.' && *s++) {
-    }
-    probed_ordinal = atoi(++s);
+    s = strrchr(s, '.');
+    if (!s)
+        return 0;
+    probed_ordinal = atoi(s+1);
+    *s = 0;
 
     trace("</%s.?::%p> got /name/probe %s\n",
           admin->identifier, admin, probed_name);
 
     /* Process ordinal collisions. */
     //The collision should be calculated separately per-device-name
-    strtok(probed_name, ".");
     probed_name++;
     if ((strcmp(probed_name, admin->identifier) == 0)
         && (probed_ordinal == admin->ordinal.value)) {
