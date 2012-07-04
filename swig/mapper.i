@@ -663,59 +663,6 @@ typedef struct _admin {} admin;
                                             h, PyFunc);
         return (signal *)msig;
     }
-    signal* add_hidden_input(const char *name, int length=1, const char type='f',
-                             const char *unit=0, maybeSigVal minimum=0,
-                             maybeSigVal maximum=0, PyObject *PyFunc=0)
-    {
-        mapper_signal_handler *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
-        if (type == 'f')
-        {
-            if (minimum) {
-                if (minimum->t == 'f')
-                    pmn = &minimum->v;
-                else {
-                    mn.f = (float)minimum->v.i32;
-                    pmn = &mn;
-                }
-            }
-            if (maximum) {
-                if (maximum->t == 'f')
-                    pmx = &maximum->v;
-                else {
-                    mx.f = (float)maximum->v.i32;
-                    pmx = &mx;
-                }
-            }
-        }
-        else if (type == 'i')
-        {
-            if (minimum) {
-                if (minimum->t == 'i')
-                    pmn = &minimum->v;
-                else {
-                    mn.i32 = (int)minimum->v.f;
-                    pmn = &mn;
-                }
-            }
-            if (maximum) {
-                if (maximum->t == 'i')
-                    pmx = &maximum->v;
-                else {
-                    mx.i32 = (int)maximum->v.f;
-                    pmx = &mx;
-                }
-            }
-        }
-        signal *sig = (signal *)mdev_add_input((mapper_device)$self, name, length,
-                                               type, unit, pmn, pmx, h, PyFunc);
-        ((mapper_signal)sig)->props.hidden = 1;
-        return sig;
-    }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
                        maybeSigVal maximum=0)
@@ -762,6 +709,20 @@ typedef struct _admin {} admin;
         mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
                                              type, unit, pmn, pmx);
         return (signal *)msig;
+    }
+    void remove_input(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_input((mapper_device)$self, (mapper_signal)sig);
+    }
+    void remove_output(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_output((mapper_device)$self, msig);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -907,8 +868,22 @@ typedef struct _admin {} admin;
     void set_allocation_mode(mapper_instance_allocation_type mode) {
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
-    int query_remote(signal *receiver=0) {
-        return msig_query_remote((mapper_signal)$self, (mapper_signal)receiver);
+    void set_query_callback(PyObject *PyFunc=0) {
+        mapper_signal_handler *h = 0;
+        mapper_signal msig = (mapper_signal)$self;
+        if (PyFunc && !msig->props.user_data) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        else if (!PyFunc && msig->props.user_data) {
+            if (msig->props.user_data) {
+                Py_XDECREF((PyObject*)msig->props.user_data);
+            }
+        }
+        return msig_set_query_callback((mapper_signal)$self, h, PyFunc);
+    }
+    int query_remote() {
+        return msig_query_remote((mapper_signal)$self);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
