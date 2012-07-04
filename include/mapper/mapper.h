@@ -64,6 +64,14 @@ void msig_set_minimum(mapper_signal sig, void *minimum);
  *                  the maximum. */
 void msig_set_maximum(mapper_signal sig, void *maximum);
 
+/*! Set or unset the hidden property of a signal.
+ *  \param sig      The signal to operate on.
+ *  \param hidden   A pointer to a mapper_signal_handler function for
+ *                  processing query responses. */
+void msig_set_query_callback(mapper_signal sig,
+                             mapper_signal_handler *query_handler,
+                             void *user_data);
+
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.
  *  \return     A structure containing the signal's properties. */
@@ -128,9 +136,8 @@ int msig_full_name(mapper_signal sig, char *name, int len);
 /*! Query the values of any signals connected via mapping connections. 
  *  \param sig      A local output signal. We will be querying the remote 
  *                  ends of this signal's mapping connections.
- *  \param receiver A local input signal for receiving query responses.
  *  \return The number of queries sent, or -1 for error. */
-int msig_query_remote(mapper_signal sig, mapper_signal receiver);
+int msig_query_remote(mapper_signal sig);
 
 /*! Get a signal_instance's value.
  *  \param sig         The signal to operate on.
@@ -265,28 +272,6 @@ mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              mapper_signal_handler *handler,
                              void *user_data);
 
-/*! Add a hidden input to a mapper device. Hidden inputs can receive
- *  signals but are not reported on the admin bus; they are intended
- *  as local receivers for remote value queries. Values and strings
- *  pointed to by this call (except user_data) will be
- *  copied.  For minimum and maximum, actual type must correspond
- *  to 'type'.  If type='i', then int*; if type='f', then float*.
- *  \param dev The device to add a signal to.
- *  \param name The name of the signal.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param handler Function to be called when the value of the
- *                 signal is updated.
- *  \param user_data User context pointer to be passed to handler. */
-mapper_signal mdev_add_hidden_input(mapper_device dev, const char *name,
-                                    int length, char type, const char *unit,
-                                    void *minimum, void *maximum,
-                                    mapper_signal_handler *handler,
-                                    void *user_data);
-
 /*! Add an output signal to a mapper device.  Values and strings
  *  pointed to by this call (except user_data) will be
  *  copied.  For minimum and maximum, actual type must correspond
@@ -314,9 +299,6 @@ void mdev_remove_output(mapper_device dev, mapper_signal sig);
 
 //! Return the number of inputs.
 int mdev_num_inputs(mapper_device dev);
-
-//! Return the number of hidden inputs.
-int mdev_num_hidden_inputs(mapper_device dev);
 
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);

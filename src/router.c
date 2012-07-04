@@ -102,8 +102,7 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     return;
 }
 
-int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                             const char *alias)
+int mapper_router_send_query(mapper_router router, mapper_signal sig)
 {
     // find this signal in list of connections
     mapper_signal_connection sc = router->outgoing;
@@ -116,19 +115,17 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig,
     }
     // for each connection, query the remote signal
     mapper_connection c = sc->connection;
-    int count = 0;
-    char query_string[1024];
+    int count = 0, query_len = 0;
+    char *query_string = 0;
+    int response_len = (int) strlen(sig->props.name) + 5;
+    char *response_string = (char*) malloc(response_len);
+    snprintf(response_string, response_len, "%s%s", sig->props.name, "/got");
     while (c) {
-        strncpy(query_string, c->props.dest_name, 1024);
-        strncat(query_string, "/get", 4);
-        if (alias) {
-            lo_send_from(router->remote_addr, router->device->server, 
-                         LO_TT_IMMEDIATE, query_string, "s", alias);
-        }
-        else {
-            lo_send_from(router->remote_addr, router->device->server, 
-                         LO_TT_IMMEDIATE, query_string, "");
-        }
+        query_len = (int) strlen(c->props.dest_name) + 5;
+        query_string = (char*) realloc(query_string, query_len);
+        snprintf(query_string, query_len, "%s%s", c->props.dest_name, "/get");
+        lo_send_from(router->addr, router->device->server, 
+                     LO_TT_IMMEDIATE, query_string, "s", response_string);
         count++;
         c = c->next;
     }
