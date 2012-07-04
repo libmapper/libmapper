@@ -269,6 +269,7 @@ static int handler_query_response(const char *path, const char *types,
                                   lo_arg **argv, int argc, lo_message msg,
                                   void *user_data)
 {
+    // TODO: integrate instances into queries
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
@@ -277,7 +278,7 @@ static int handler_query_response(const char *path, const char *types,
         return 0;
     }
     if (types[0] == LO_NIL && sig->handler) {
-        sig->handler(sig, &sig->props, 0, 0);
+        sig->handler(sig, 0, &sig->props, 0, 0);
         return 0;
     }
 
@@ -301,7 +302,7 @@ static int handler_query_response(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, &sig->props, 0, value);
+        sig->handler(sig, 0, &sig->props, 0, value);
 
     return 0;
 }
@@ -614,8 +615,7 @@ int mdev_poll(mapper_device md, int block_ms)
     return admin_count + count;
 }
 
-int mdev_route_query(mapper_device md, mapper_signal sig,
-                     const char *alias)
+int mdev_route_query(mapper_device md, mapper_signal sig)
 {
     int count = 0;
     mapper_router r = md->routers;
@@ -749,11 +749,11 @@ void mdev_start_server(mapper_device md)
         unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
-            type_string = (char*) realloc(type_string, md->inputs[i]->props.length + 2);
-            type_string[0] = 'i';
-            memset(type_string + 1, md->inputs[i]->props.type,
+            type = (char*) realloc(type, md->inputs[i]->props.length + 2);
+            type[0] = 'i';
+            memset(type + 1, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
-            type_string[md->inputs[i]->props.length + 1] = 0;
+            type[md->inputs[i]->props.length + 1] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type + 1,
