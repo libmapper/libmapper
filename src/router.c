@@ -124,7 +124,7 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig)
         query_len = (int) strlen(c->props.dest_name) + 5;
         query_string = (char*) realloc(query_string, query_len);
         snprintf(query_string, query_len, "%s%s", c->props.dest_name, "/get");
-        lo_send_from(router->addr, router->device->server, 
+        lo_send_from(router->remote_addr, router->device->server, 
                      LO_TT_IMMEDIATE, query_string, "s", response_string);
         count++;
         c = c->next;
