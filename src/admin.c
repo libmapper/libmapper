@@ -1308,10 +1308,12 @@ static int handler_device_link(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     const char *src_name, *dest_name;
+    int scoped_links = 0;
 
     if (argc < 2)
         return 0;
 
+    // Need at least 2 devices to link
     if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
         && types[1] != 'S')
         return 0;
@@ -1319,31 +1321,64 @@ static int handler_device_link(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
+    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
+        const char *ptr = &argv[2]->s;
+        if (ptr[0] != '@') {
+            // more than 2 devices involved
+            if (strcmp(mapper_admin_name(admin), src_name) != 0)
+                return 0;
+            scoped_links = 1;
+        }
+    }
+    else if (strcmp(mapper_admin_name(admin), dest_name) != 0)
+        return 0;
+
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    /* If the device who received the message is the destination in the
-     * /link message... */
-    if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
-        mapper_message_t params;
-        memset(&params, 0, sizeof(mapper_message_t));
-        // add arguments from /link if any
-        if (mapper_msg_parse_params(&params, path, &types[2],
-                                    argc-2, &argv[2]))
-        {
-            trace("<%s> error parsing message parameters in /link.\n",
-                  mapper_admin_name(admin));
-            return 0;
-        }
-        lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+    // add arguments from /link if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /link.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
+    lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    
+    if (scoped_links) {
+        // TODO: should be replaced with device ID
+        params.values[AT_SCOPE] = &arg_port;
+        params.types[AT_SCOPE] = "i";
+    }
+    else {
         params.values[AT_PORT] = &arg_port;
         params.types[AT_PORT] = "i";
+        // TODO: should be replaced with device ID
         params.values[AT_ID] = &arg_port;
         params.types[AT_ID] = "i";
+    }
 
+    if (scoped_links) {
+        int i;
+        for (i=1; i<argc; i++) {
+            if (types[i] != 's' && types[i] != 'S')
+                return 0;
+            dest_name = &argv[i]->s;
+            if (dest_name[0] == '@')
+                return 0;
+            src_name = &argv[i-1]->s;
+            mapper_admin_send_osc_with_params(
+                admin, &params, 0, "/link", "ss", src_name, dest_name);
+        }
+    }
+    else {
         mapper_admin_send_osc_with_params(
             admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
     }
+
     return 0;
 }
 

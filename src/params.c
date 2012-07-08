@@ -32,6 +32,7 @@ const char* mapper_msg_param_strings[] =
     "@destType",        /* AT_DESTTYPE */
     "@srcLength",       /* AT_SRCLENGTH */
     "@destLength",      /* AT_DESTLENGTH */
+    "@scope",           /* AT_SCOPE */
     "",                 /* AT_EXTRA (special case, does not represent a
                          * specific property name) */
 };
