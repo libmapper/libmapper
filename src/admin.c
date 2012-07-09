@@ -1330,7 +1330,7 @@ static int handler_device_link(const char *path, const char *types,
             scoped_links = 1;
         }
     }
-    else if (strcmp(mapper_admin_name(admin), dest_name) != 0)
+    if (!scoped_links && strcmp(mapper_admin_name(admin), dest_name) != 0)
         return 0;
 
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
