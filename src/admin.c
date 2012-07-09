@@ -108,7 +108,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
     {"/linkTo",                 NULL,       handler_device_linkTo},
-    {"/unlink",                 "ss",       handler_device_unlink},
+    {"/unlink",                 NULL,       handler_device_unlink},
     {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connectTo",              NULL,       handler_signal_connectTo},
@@ -123,7 +123,7 @@ static struct handler_method_assoc monitor_handlers[] = {
     {"/device",                 NULL,       handler_device},
     {"/logout",                 NULL,       handler_logout},
     {"/signal",                 NULL,       handler_signal_info},
-    {"/linked",                 "ss",       handler_device_linked},
+    {"/linked",                 NULL,       handler_device_linked},
     {"/unlinked",               "ss",       handler_device_unlinked},
     {"/connected",              NULL,       handler_signal_connected},
     {"/disconnected",           "ss",       handler_signal_disconnected},
@@ -719,6 +719,31 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
         mapper_msg_add_osc_value_table(m, extra);
 
     lo_send_message(admin->admin_addr, namedpath, m);
+    lo_message_free(m);
+}
+
+static void mapper_admin_send_linked(mapper_admin admin,
+                                     mapper_router router)
+{
+    // Send /linked message
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+    }
+
+    lo_message_add_string(m, mdev_name(router->device));
+    lo_message_add_string(m, router->remote_name);
+
+    // Add link scopes
+    int i;
+    lo_message_add_string(m, "@scope");
+    for (i=0; i<router->num_scopes; i++) {
+        lo_message_add_int32(m, router->scopes[i]);
+    }
+
+    // TODO: add more link properties
+
+    lo_send_message(admin->admin_addr, "/linked", m);
     lo_message_free(m);
 }
 
@@ -1391,7 +1416,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_device md = admin->device;
 
     const char *src_name, *dest_name, *host=0;
-    int port, id;
+    int port, scope;
     mapper_message_t params;
 
     if (argc < 2)
@@ -1414,18 +1439,29 @@ static int handler_device_linkTo(const char *path, const char *types,
     trace("<%s> got /linkTo %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
-
-    if (router)
-        // Already linked, nothing to do.
-        return 0;
-
     // Parse the message.
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
         return 0;
+
+    // retreive scope if specified
+    if (mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
+        if (mapper_msg_get_param_if_int(&params, AT_ID, &scope)) {
+            trace("can't perform /linkTo, ID unknown\n");
+            return 0;
+        }
+    }
+
+    // Discover whether the device is already linked.
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, dest_name);
+
+    if (router) {
+        // Already linked, add scope.
+        if (!mapper_router_add_scope(router, scope))
+            mapper_admin_send_linked(admin, router);
+        return 0;
+    }
 
     // Check the results.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
@@ -1441,22 +1477,18 @@ static int handler_device_linkTo(const char *path, const char *types,
         host = lo_address_get_hostname(a);
     }
 
-    if (mapper_msg_get_param_if_int(&params, AT_ID, &id)) {
-        trace("can't perform /linkTo, ID unknown\n");
-        return 0;
-    }
-
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name, id);
+    router = mapper_router_new(md, host, port, dest_name, scope);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
     }
     mdev_add_router(md, router);
 
+    // TODO: store link properties
+
     // Announce the result.
-    mapper_admin_send_osc(admin, "/linked", "ss",
-                          mapper_admin_name(admin), dest_name);
+    mapper_admin_send_linked(admin, router);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
           mapper_admin_name(admin), dest_name, host, port);

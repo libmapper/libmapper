@@ -17,7 +17,9 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     sprintf(str, "%d", port);
     router->remote_addr = lo_address_new(host, str);
     router->remote_name = strdup(name);
-    router->id = id;
+    router->num_scopes = 1;
+    router->scopes = (int *) malloc(sizeof(int));
+    router->scopes[0] = id;
     router->device = device;
     router->outgoing = 0;
 
@@ -251,12 +253,42 @@ int mapper_router_remove_connection(mapper_router router,
     return 1;
 }
 
-int mapper_router_in_group(mapper_router router, int group_id)
+int mapper_router_add_scope(mapper_router router, int id)
 {
-    if ((group_id == router->id) || (group_id == mdev_port(router->device)))
-        return 1;
-    else
-        return 0;
+    // Check if scope is already stored for this router
+    int i;
+    for (i=0; i<router->num_scopes; i++)
+        if (router->scopes[i] == id)
+            return 1;
+
+    // not found - add a new scope
+    router->num_scopes++;
+    router->scopes = realloc(router->scopes, router->num_scopes);
+    router->scopes[router->num_scopes-1] = id;
+    return 0;
+}
+
+void mapper_router_remove_scope(mapper_router router, int id)
+{
+    int i, j;
+    for (i=0; i<router->num_scopes; i++) {
+        if (router->scopes[i] == id) {
+            for (j=i+1; j<router->num_scopes; j++) {
+                router->scopes[j-1] = router->scopes[j];
+            }
+            router->num_scopes--;
+            router->scopes = realloc(router->scopes, router->num_scopes);
+        }
+    }
+}
+
+int mapper_router_in_scope(mapper_router router, int id)
+{
+    int i;
+    for (i=0; i<router->num_scopes; i++)
+        if (router->scopes[i] == id)
+            return 1;
+    return 0;
 }
 
 mapper_router mapper_router_find_by_remote_address(mapper_router router,
