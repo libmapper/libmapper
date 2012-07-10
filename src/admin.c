@@ -48,7 +48,7 @@ static int handler_device(const char *, const char *, lo_arg **,
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_id_n_signals_input_get(const char *, const char *,
-                                          lo_arg **, int, lo_message, 
+                                          lo_arg **, int, lo_message,
                                           void *);
 static int handler_id_n_signals_output_get(const char *, const char *,
                                            lo_arg **, int, lo_message,
@@ -434,7 +434,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
 
         /* Seed the random number generator. */
         seed_srand();
-        
+
         /* Choose a random ID for allocation speedup */
         admin->random_id = rand();
 
@@ -515,7 +515,7 @@ int mapper_admin_poll(mapper_admin admin)
             for (i = 0; i < admin->device->n_outputs; i++) {
                 admin->device->outputs[i]->props.device_name = mapper_admin_name(admin);
             }
-            
+
             /* ... and send registered msg. */
             lo_send(admin->admin_addr, "/name/registered",
                     "s", mapper_admin_name(admin));
@@ -553,7 +553,7 @@ int mapper_admin_poll(mapper_admin admin)
 void mapper_admin_port_probe(mapper_admin admin)
 {
     trace("</%s.?::%p> probing port\n", admin->identifier, admin);
-    
+
     admin->port.collision_count = -1;
     admin->port.count_time = get_current_time();
 
@@ -569,7 +569,7 @@ void mapper_admin_name_probe(mapper_admin admin)
 {
     admin->ordinal.collision_count = -1;
     admin->ordinal.count_time = get_current_time();
-    
+
     /* Note: mapper_admin_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
@@ -630,7 +630,7 @@ static int check_collisions(mapper_admin admin,
             resource->on_lock(admin->device, resource);
         return 2;
     }
-    
+
     else if (timediff >= 0.5 && resource->collision_count > 0) {
         /* If port collisions were found within 500 milliseconds of the
          * last probe, add a random number based on the number of
@@ -870,11 +870,11 @@ static int handler_logout(const char *path, const char *types,
     char *name = &argv[0]->s;
 
     trace("got /logout %s\n", name);
-    
+
     if (mon) {
         mapper_db_remove_device(db, name);
     }
-    
+
     // If device exists and is registered
     if (admin->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
@@ -885,12 +885,12 @@ static int handler_logout(const char *path, const char *types,
         while (*s != '.' && *s++) {
         }
         ordinal = atoi(++s);
-        
+
         // If device name matches
         strtok(name, ".");
         name++;
         if (strcmp(name, admin->identifier) == 0) {
-        
+
             // if registered ordinal is within my block, free it
             diff = ordinal - admin->ordinal.value;
             if (diff > 0 && diff < 9) {
@@ -1014,7 +1014,7 @@ static int handler_id_n_signals_output_get(const char *path,
             AT_DIRECTION, "output",
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
-            sig->props.unit ? AT_UNITS : -1, sig,  
+            sig->props.unit ? AT_UNITS : -1, sig,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
             sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
@@ -1049,34 +1049,34 @@ static int handler_signal_info(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
-    
+
     if (argc < 2)
         return 1;
-    
+
     if (types[0] != 's' && types[0] != 'S')
         return 1;
-    
+
     const char *full_sig_name = &argv[0]->s;
     const char *sig_name = strchr(full_sig_name+1, '/');
     if (!sig_name)
         return 1;
-    
+
     int devnamelen = sig_name-full_sig_name;
     if (devnamelen >= 1024)
         return 0;
-    
+
     char devname[1024];
     strncpy(devname, full_sig_name, devnamelen);
     devname[devnamelen]=0;
-        
+
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    mapper_db_add_or_update_signal_params( db, sig_name, 
+    mapper_db_add_or_update_signal_params( db, sig_name,
                                           devname,
                                           &params );
-    
+
 	return 0;
 }
 
@@ -1088,17 +1088,17 @@ static int handler_device_port_registered(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     unsigned int registered_port = 0;
     int ID = -1, suggestion = -1, diff;
-    
+
     if (argc < 1)
         return 0;
-    
+
     if (types[0] == 'i')
         registered_port = argv[0]->i;
     else if (types[0] == 'f')
         registered_port = (unsigned int) argv[0]->f;
     else
         return 0;
-    
+
     if (argc > 1) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1109,10 +1109,10 @@ static int handler_device_port_registered(const char *path, const char *types,
         else if (types[2] == 'f')
             suggestion = (int) argv[2]->f;
     }
-    
+
     trace("</%s.?::%p> got /port/registered %d %i \n",
           admin->identifier, admin, registered_port, ID);
-    
+
     // if port is locked and registered port is within my block, store it
     if (admin->port.locked) {
         diff = registered_port - admin->port.value;
@@ -1145,15 +1145,15 @@ static int handler_device_name_registered(const char *path, const char *types,
     char *registered_name = 0, *suggested_name = 0, *s;
     unsigned int registered_ordinal = 0;
     int ID = -1, diff;
-    
+
     if (argc < 1)
         return 0;
-    
+
     if (types[0] != 's' && types[0] != 'S')
         return 0;
-    
+
     registered_name = &argv[0]->s;
-    
+
     if (argc > 1) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1162,7 +1162,7 @@ static int handler_device_name_registered(const char *path, const char *types,
         if (types[2] == 's' || types[2] == 'S')
             suggested_name = &argv[2]->s;
     }
-    
+
     /* Parse the ordinal from the complete name which is in the
      * format: /<name>.<n> */
     s = registered_name;
@@ -1173,10 +1173,10 @@ static int handler_device_name_registered(const char *path, const char *types,
         return 0;
     registered_ordinal = atoi(s+1);
     *s = 0;
-    
+
     trace("</%s.?::%p> got /name/registered %s %i \n",
           admin->identifier, admin, registered_name, ID);
-    
+
     // If device name matches
     registered_name++;
     if (strcmp(registered_name, admin->identifier) == 0) {
@@ -1226,7 +1226,7 @@ static int handler_device_port_probe(const char *path, const char *types,
         probed_port = (unsigned int) argv[0]->f;
     else
         return 0;
-    
+
     if (argc > 0) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1236,12 +1236,12 @@ static int handler_device_port_probe(const char *path, const char *types,
 
     trace("</%s.?::%p> got /port/probe %d %i \n",
           admin->identifier, admin, probed_port, ID);
-    
+
     if (probed_port == admin->port.value) {
         if (admin->port.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (admin->port.suggestion[i] >= 0 
+                if (admin->port.suggestion[i] >= 0
                     && (current_time - admin->port.suggestion[i]) > 2.0) {
                     // reserve suggested port
                     admin->port.suggestion[i] = get_current_time();
@@ -1251,7 +1251,7 @@ static int handler_device_port_probe(const char *path, const char *types,
             /* Name may not yet be registered, so we can't use
              * mapper_admin_send_osc() here. */
             lo_send(admin->admin_addr, "/port/registered",
-                    "iii", admin->port.value, ID, 
+                    "iii", admin->port.value, ID,
                     (admin->port.value+i+1));
         }
         else {
@@ -1280,7 +1280,7 @@ static int handler_device_name_probe(const char *path, const char *types,
         return 0;
 
     probed_name = &argv[0]->s;
-    
+
     if (argc > 0) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1310,7 +1310,7 @@ static int handler_device_name_probe(const char *path, const char *types,
         if (admin->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (admin->ordinal.suggestion[i] >= 0 
+                if (admin->ordinal.suggestion[i] >= 0
                     && (current_time - admin->ordinal.suggestion[i]) > 2.0) {
                     // reserve suggested ordinal
                     admin->ordinal.suggestion[i] = get_current_time();
@@ -1318,10 +1318,10 @@ static int handler_device_name_probe(const char *path, const char *types,
                 }
             }
             char suggested_name[256];
-            snprintf(suggested_name, 256, "/%s.%d", admin->identifier, 
+            snprintf(suggested_name, 256, "/%s.%d", admin->identifier,
                      (admin->ordinal.value+i+1));
             lo_send(admin->admin_addr, "/name/registered",
-                    "sis", mapper_admin_name(admin), ID, 
+                    "sis", mapper_admin_name(admin), ID,
                     suggested_name);
         }
         else {
@@ -1378,7 +1378,7 @@ static int handler_device_link(const char *path, const char *types,
         return 0;
     }
     lo_arg *arg_port = (lo_arg*) &admin->port.value;
-    
+
     if (scoped_links) {
         // TODO: should be replaced with device ID
         params.values[AT_SCOPE] = &arg_port;
@@ -1602,21 +1602,21 @@ static int handler_device_link_remove_scope(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    
+
     const char *src_name;
-    
+
     if (argc < 3)
         return 0;
-    
+
     if ((types[0] != 's' && types[0] != 'S')
         || (types[1] != 's' && types[1] != 'S')
         || (types[2] != 'i'))
         return 0;
-    
+
     src_name = &argv[0]->s;
     if (strcmp(src_name, mapper_admin_name(admin)))
         return 0;
-    
+
     mapper_router router =
     mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
     if (!router)
@@ -1624,7 +1624,7 @@ static int handler_device_link_remove_scope(const char *path, const char *types,
         trace("<%s> no router found for '%s' in /link/modify\n",
               mapper_admin_name(admin), &argv[1]->s);
     }
-    
+
     mapper_router_remove_scope(router, argv[2]->i32);
     mapper_admin_send_linked(admin, router);
     return 0;
@@ -1705,7 +1705,7 @@ static int handler_device_unlink(const char *path, const char *types,
         lo_arg *arg_scope = (lo_arg*) &admin->port.value;
         params.values[AT_SCOPE] = &arg_scope;
         params.types[AT_SCOPE] = "i";
-        
+
         int i;
         for (i=2; i<argc; i++) {
             if (types[i] != 's' && types[i] != 'S')
