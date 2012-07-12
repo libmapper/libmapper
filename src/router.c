@@ -10,16 +10,16 @@
 #include <mapper/mapper.h>
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int remap_instances)
+                                int port, const char *name, int id)
 {
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->remote_addr = lo_address_new(host, str);
     router->remote_name = strdup(name);
+    router->id = id;
     router->device = device;
     router->outgoing = 0;
-    router->remap_instances = remap_instances;
 
     if (!router->remote_addr) {
         mapper_router_free(router);
@@ -59,7 +59,7 @@ void mapper_router_free(mapper_router router)
 }
 
 void mapper_router_send_signal(mapper_connection_instance ci,
-                               int send_as_instance, int id)
+                               int send_as_instance)
 {
     int i;
     lo_message m;
@@ -70,8 +70,10 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     if (!m)
         return;
 
-    if (send_as_instance)
-        lo_message_add_int32(m, id);
+    if (send_as_instance) {
+        lo_message_add_int32(m, ci->parent->id_map->group);
+        lo_message_add_int32(m, ci->parent->id_map->remote);
+    }
 
     if (ci->history.position != -1) {
         if (ci->history.type == 'f') {
@@ -93,6 +95,24 @@ void mapper_router_send_signal(mapper_connection_instance ci,
     else {
         lo_message_add_nil(m);
     }
+
+    lo_send_message_from(ci->connection->router->remote_addr,
+                         ci->connection->router->device->server,
+                         ci->connection->props.dest_name,
+                         m);
+    lo_message_free(m);
+    return;
+}
+
+void mapper_router_send_new_instance(mapper_connection_instance ci)
+{
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    lo_message_add_int32(m, ci->parent->id_map->group);
+    lo_message_add_int32(m, ci->parent->id_map->remote);
+    lo_message_add_true(m);
 
     lo_send_message_from(ci->connection->router->remote_addr,
                          ci->connection->router->device->server,
@@ -124,7 +144,7 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig)
         query_len = (int) strlen(c->props.dest_name) + 5;
         query_string = (char*) realloc(query_string, query_len);
         snprintf(query_string, query_len, "%s%s", c->props.dest_name, "/get");
-        lo_send_from(router->remote_addr, router->device->server, 
+        lo_send_from(router->remote_addr, router->device->server,
                      LO_TT_IMMEDIATE, query_string, "s", response_string);
         count++;
         c = c->next;
@@ -168,14 +188,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->router = router;
 
     // create connection instances as necessary
-    mapper_signal_instance si = sig->active;
-    while (si) {
-        msig_add_connection_instance(si, connection);
-        si = si->next;
-    }
-
-    // do the same for reserved instances
-    si = sig->reserve;
+    mapper_signal_instance si = sig->instances;
     while (si) {
         msig_add_connection_instance(si, connection);
         si = si->next;
@@ -206,22 +219,7 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated connection instances
-    mapper_signal_instance si = connection->source->active;
-    while (si) {
-        mapper_connection_instance temp, *ci = &si->connections;
-        while (*ci) {
-            if ((*ci)->connection == connection) {
-                temp = *ci;
-                *ci = (*ci)->next;
-                msig_free_connection_instance(temp);
-                break;
-            }
-            ci = &(*ci)->next;
-        }
-        si = si->next;
-    }
-    // do the same for reserved instances of this signal
-    si = connection->source->reserve;
+    mapper_signal_instance si = connection->source->instances;
     while (si) {
         mapper_connection_instance temp, *ci = &si->connections;
         while (*ci) {
@@ -251,6 +249,14 @@ int mapper_router_remove_connection(mapper_router router,
         sc = sc->next;
     }
     return 1;
+}
+
+int mapper_router_in_group(mapper_router router, int group_id)
+{
+    if ((group_id == router->id) || (group_id == mdev_port(router->device)))
+        return 1;
+    else
+        return 0;
 }
 
 mapper_router mapper_router_find_by_remote_address(mapper_router router,

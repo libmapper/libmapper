@@ -9,6 +9,7 @@ const char* mapper_msg_param_strings[] =
 {
     "@IP",              /* AT_IP */
     "@port",            /* AT_PORT */
+    "@ID",              /* AT_ID */
     "@numInputs",       /* AT_NUMINPUTS */
     "@numOutputs",      /* AT_NUMOUTPUTS */
     "@numLinks",        /* AT_NUMLINKS */
@@ -27,7 +28,6 @@ const char* mapper_msg_param_strings[] =
     "@length",          /* AT_LENGTH */
     "@direction",       /* AT_DIRECTION */
     "@instances",       /* AT_INSTANCES */
-    "@syncInstances",   /* AT_SYNCINSTANCES */
     "@srcType",         /* AT_SRCTYPE */
     "@destType",        /* AT_DESTTYPE */
     "@srcLength",       /* AT_SRCLENGTH */
@@ -259,6 +259,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_PORT:
+        case AT_ID:
         case AT_NUMINPUTS:
         case AT_NUMOUTPUTS:
         case AT_NUMLINKS:
@@ -344,13 +345,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_INSTANCES:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
-            break;
-        case AT_SYNCINSTANCES:
-            i = va_arg(aq, int);
-            if (i)
-                lo_message_add_true(m);
-            else
-                lo_message_add_false(m);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);

@@ -59,7 +59,7 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
     md->admin->port.on_lock = mdev_on_port_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
     md->routers = 0;
-    md->instance_map = 0;
+    md->instance_id_map = 0;
     md->extra = table_new();
     return md;
 }
@@ -79,19 +79,10 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
-        if (md->routers) {
-            while (md->routers) {
-                mdev_remove_router(md, md->routers);
-            }
-        }
-        if (md->instance_map) {
-            mapper_instance_map map = md->instance_map;
-            while (map) {
-                mapper_instance_map tmp = map->next;
-                free(map);
-                map = tmp;
-            }
-        }
+        while (md->instance_id_map)
+            mdev_remove_instance_id_map(md, md->instance_id_map->local);
+        while (md->routers)
+            mdev_remove_router(md, md->routers);
         if (md->extra)
             table_free(md->extra, 1);
         free(md);
@@ -130,13 +121,11 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    mapper_signal_instance si = msig_get_instance_with_id(sig, 0);
-    if (!si) {
-        trace("error, sig->active==0\n");
-        return 0;
-    }
-
     // Default to updating first instance
+    if (!sig || !sig->instances)
+        return 0;
+    mapper_signal_instance si = sig->instances;
+
     if (types[0] == LO_NIL) {
         si->history.position = -1;
     }
@@ -152,11 +141,9 @@ static int handler_signal(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, 0, &sig->props,
-                     &sig->active->history.timetag[sig->active->history.position],
-                     si->history.position == -1 ? 0 :
-                     si->history.value + msig_vector_bytes(sig)
-                     * si->history.position);
+        sig->handler(sig, si->id_map->local, &sig->props,
+                     &si->history.timetag[si->history.position], types[0] == LO_NIL ? 0 :
+                     si->history.value + msig_vector_bytes(sig) * si->history.position);
 
     return 0;
 }
@@ -172,47 +159,54 @@ static int handler_signal_instance(const char *path, const char *types,
         trace("error, sig->device==0\n");
         return 0;
     }
-    if (argc < 2)
+    if (argc < 3)
         return 0;
 
-    lo_address address = lo_message_get_source(msg);
-    int id = argv[0]->i32;
+    int group_id = argv[0]->i32;
+    int instance_id = argv[1]->i32;
+    int is_new = types[2] == LO_TRUE ? 1 : 0;
 
-    mapper_signal_instance si =
-        msig_get_instance_with_map(sig, address, id);
-    if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, address, id);
-        // try again
-        si = msig_get_instance_with_map(sig, address, id);
+    mapper_signal_instance si = 0;
+
+    // Don't activate instance just to release it again
+    if (types[2] == LO_NIL && !msig_find_instance_with_id_map(sig, group_id, instance_id))
+        return 0;
+
+    si = msig_get_instance_with_id_map(sig, group_id, instance_id, is_new);
+    if (!si && is_new) {
+        if (sig->instance_overflow_handler) {
+            sig->instance_overflow_handler(sig, group_id, instance_id);
+            // try again
+            si = msig_get_instance_with_id_map(sig, group_id, instance_id, is_new);
+        }
     }
     if (!si) {
-        trace("no instances available for id=%ld\n", (long)id);
+        trace("no instances available for group=%ld, id=%ld\n",
+              (long)group_id, (long)instance_id);
         return 0;
     }
 
-    if (si) {
-        if (types[1] != LO_NIL) {
-            /* This is cheating a bit since we know that the arguments pointed
-             * to by argv are layed out sequentially in memory.  It's not
-             * clear if liblo's semantics guarantee it, but known to be true
-             * on all platforms. */
-            si->history.position = (si->history.position + 1)
-                                    % si->history.size;
-            memcpy(msig_history_value_pointer(si->history),
-                   argv[1], msig_vector_bytes(sig));
-        }
+    if (types[2] == LO_TRUE) {
+        // TODO: define handler for new instances?
+        return 0;
+    }
 
-        if (sig->handler) {
-            sig->handler(sig, si->id, &sig->props,
-                         &si->history.timetag[si->history.position],
-                         types[1] == LO_NIL ? 0 :
-                         si->history.value + msig_vector_bytes(sig)
-                         * si->history.position);
-        }
+    if (types[2] != LO_NIL) {
+        /* This is cheating a bit since we know that the arguments pointed
+         * to by argv are layed out sequentially in memory.  It's not
+         * clear if liblo's semantics guarantee it, but known to be true
+         * on all platforms. */
+        si->history.position = (si->history.position + 1) % si->history.size;
+        memcpy(msig_history_value_pointer(si->history), argv[2], msig_vector_bytes(sig));
+    }
 
-        if (types[1] == LO_NIL) {
-            msig_release_instance(sig, si->id);
-        }
+    if (sig->handler) {
+        sig->handler(sig, si->id_map->local, &sig->props,
+                     &si->history.timetag[si->history.position], types[2] == LO_NIL ? 0 :
+                     si->history.value + msig_vector_bytes(sig) * si->history.position);
+    }
+    if (types[2] == LO_NIL) {
+        msig_release_instance_internal(si);
     }
     return 0;
 }
@@ -237,7 +231,7 @@ static int handler_query(const char *path, const char *types,
     int i;
     lo_message m;
 
-    mapper_signal_instance si = sig->active;
+    mapper_signal_instance si = sig->instances;
     if (!si) {
         // If there are no active instances, send null response
         m = lo_message_new();
@@ -250,7 +244,7 @@ static int handler_query(const char *path, const char *types,
         if (!m)
             return 0;
         if (si->signal->props.instances > 1)
-            lo_message_add_int32(m, (long)si->id);
+            lo_message_add_int32(m, (long)si->id_map->local);
         if (si->history.position != -1) {
             if (si->history.type == 'f') {
                 float *v = msig_history_value_pointer(si->history);
@@ -347,13 +341,13 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (!md->server)
         mdev_start_server(md);
     else {
-        type_string = (char*) realloc(type_string, sig->props.length + 2);
-        type_string[0] = 'i';
-        memset(type_string + 1, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 1] = 0;
+        type_string = (char*) realloc(type_string, sig->props.length + 3);
+        type_string[0] = type_string[1] = 'i';
+        memset(type_string + 2, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 2] = 0;
         lo_server_add_method(md->server,
                              sig->props.name,
-                             type_string + 1,
+                             type_string + 2,
                              handler_signal, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -365,7 +359,11 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
-                             "iN",
+                             "iiT",
+                             handler_signal_instance, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "iiN",
                              handler_signal_instance, (void *) (sig));
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
@@ -458,14 +456,15 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         md->inputs[n] = md->inputs[n+1];
     }
     if (md->server) {
-        char *type_string = (char*) malloc(sig->props.length + 2);
-        type_string[0] = 'i';
-        memset(type_string + 1, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 1] = 0;
+        char *type_string = (char*) malloc(sig->props.length + 3);
+        type_string[0] = type_string[1] = 'i';
+        memset(type_string + 2, sig->props.type, sig->props.length);
+        type_string[sig->props.length + 2] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
-        lo_server_del_method(md->server, sig->props.name, type_string + 1);
+        lo_server_del_method(md->server, sig->props.name, type_string + 2);
         lo_server_del_method(md->server, sig->props.name, "N");
-        lo_server_del_method(md->server, sig->props.name, "iN");
+        lo_server_del_method(md->server, sig->props.name, "iiT");
+        lo_server_del_method(md->server, sig->props.name, "iiN");
         free(type_string);
         int len = strlen(sig->props.name) + 5;
         char *signal_get = (char*) malloc(len);
@@ -662,12 +661,13 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     }
 
     // unmap relevant instances
-    mapper_instance_map map = md->instance_map;
-    while (map) {
-        if (map->router == rt) {
-            map->router = 0;
+    mapper_instance_id_map id_map = md->instance_id_map;
+    
+    while (id_map) {
+        if (id_map->group == rt->id) {
+            mdev_remove_instance_id_map(md, id_map->local);
         }
-        map = map->next;
+        id_map = id_map->next;
     }
 
     // remove router
@@ -684,57 +684,73 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     md->n_links--;
 }
 
-void mdev_set_instance_map(mapper_device device, int local_id,
-                           mapper_router router, int remote_id)
+mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
+                                                int group_id, int remote_id)
 {
-    mapper_instance_map map = device->instance_map;
-    while (map) {
-        if (map->local_id == local_id) {
-            map->router = router;
-            map->remote_id = remote_id;
-            return;
+    mapper_instance_id_map id_map;
+    id_map = (mapper_instance_id_map)calloc(1, sizeof(struct _mapper_instance_id_map));
+    id_map->local = local_id;
+    id_map->group = group_id;
+    id_map->remote = remote_id;
+    id_map->next = device->instance_id_map;
+    device->instance_id_map = id_map;
+    return id_map;
+}
+
+void mdev_remove_instance_id_map(mapper_device device, int local_id)
+{
+    mapper_instance_id_map temp, *id_map = &device->instance_id_map;
+    while (*id_map) {
+        if ((*id_map)->local == local_id) {
+            temp = *id_map;
+            *id_map = (*id_map)->next;
+            free(temp);
+            break;
         }
-        map = map->next;
+        id_map = &(*id_map)->next;
+    }
+}
+
+mapper_instance_id_map mdev_set_instance_id_map(mapper_device device, int local_id,
+                                                int group_id, int remote_id)
+{
+    mapper_instance_id_map id_map = device->instance_id_map;
+    while (id_map) {
+        if (id_map->local == local_id) {
+            id_map->group = group_id;
+            id_map->remote = remote_id;
+            return id_map;
+        }
+        id_map = id_map->next;
     }
 
     // map not found, create it
-    map = (mapper_instance_map)calloc(1, sizeof(struct _mapper_instance_map));
-    map->local_id = local_id;
-    map->router = router;
-    map->remote_id = remote_id;
-    map->next = device->instance_map;
-    device->instance_map = map;
+    return mdev_add_instance_id_map(device, local_id, group_id, remote_id);
 }
 
-int mdev_get_local_instance_map(mapper_device device, int local_id,
-                                mapper_router *router, int *remote_id)
+mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
+                                                          int local_id)
 {
-    mapper_instance_map map = device->instance_map;
-    while (map) {
-        if (map->local_id == local_id) {
-            if (!router)
-                return 1;
-            *router = map->router;
-            *remote_id = map->remote_id;
-            return 0;
-        }
-        map = map->next;
+    mapper_instance_id_map id_map = device->instance_id_map;
+
+    while (id_map) {
+        if (id_map->local == local_id)
+            return id_map;
+        id_map = id_map->next;
     }
-    return 1;
+    return 0;
 }
 
-int mdev_get_remote_instance_map(mapper_device device, mapper_router router,
-                                 int remote_id, int *local_id)
+mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
+                                                           int group_id, int remote_id)
 {
-    mapper_instance_map map = device->instance_map;
-    while (map) {
-        if ((map->router == router) && (map->remote_id == remote_id)) {
-            *local_id = map->local_id;
-            return 0;
-        }
-        map = map->next;
+    mapper_instance_id_map id_map = device->instance_id_map;
+    while (id_map) {
+        if ((id_map->group == group_id) && (id_map->remote == remote_id))
+            return id_map;
+        id_map = id_map->next;
     }
-    return 1;
+    return 0;
 }
 
 /*! Called when once when the port is allocated and again when the
@@ -825,14 +841,14 @@ void mdev_start_server(mapper_device md)
         unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
-            type = (char*) realloc(type, md->inputs[i]->props.length + 2);
-            type[0] = 'i';
-            memset(type + 1, md->inputs[i]->props.type,
+            type = (char*) realloc(type, md->inputs[i]->props.length + 3);
+            type[0] = type[1] = 'i';
+            memset(type + 2, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
-            type[md->inputs[i]->props.length + 1] = 0;
+            type[md->inputs[i]->props.length + 2] = 0;
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 type + 1,
+                                 type + 2,
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
@@ -844,7 +860,11 @@ void mdev_start_server(mapper_device md)
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 "iN",
+                                 "iiT",
+                                 handler_signal_instance, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "iiN",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             path = (char*) realloc(path, len);

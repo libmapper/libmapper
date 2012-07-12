@@ -156,13 +156,11 @@ typedef struct _mapper_router {
     struct _mapper_device *device;      /*!< The device associated with
                                          *   this router */
     const char *remote_name;            /*!< Name of the remote device. */
+    int id;                             //!< Unique id of the remote address. */
     lo_address remote_addr;             /*!< Address of the remote device. */
     struct _mapper_router *next;        //!< Next router in the list.
     mapper_signal_connection outgoing;  /*!< The list of outgoing connections
                                          *   for each signal. */
-    int remap_instances;                /*!< 1 if the router should match
-                                         * instance ids with remote
-                                         * device, 0 otherwise. */
 } *mapper_router;
 
 /**** Device ****/
@@ -192,8 +190,8 @@ typedef struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
-    struct _mapper_instance_map *instance_map; /*!< The list of instance context
-                                                * and id mappings. */
+    struct _mapper_instance_id_map *instance_id_map; /*!< The list of instance context
+                                                      * and id mappings. */
 
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
@@ -204,14 +202,14 @@ typedef struct _mapper_device {
     struct _mapper_string_table *extra;
 } *mapper_device;
 
-/*! The instance map is a linked list of int32 instance ids for coordinating
+/*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
-typedef struct _mapper_instance_map {
-    int local_id;                       //!< Local instance id to map.
-    mapper_router router;               //!< Pointer to router for remote device.
-    int remote_id;                      //!< Remote instance id to map.
-    struct _mapper_instance_map *next;  //!< The next id map in the list.
-} *mapper_instance_map;
+typedef struct _mapper_instance_id_map {
+    int local;                          //!< Local instance id to map.
+    int group;                          //!< Link group id.
+    int remote;                         //!< Remote instance id to map.
+    struct _mapper_instance_id_map *next;  //!< The next id map in the list.
+} *mapper_instance_id_map;
 
 /*! Bit flags indicating if information has already been
  *   sent in a given polling step. */
@@ -261,6 +259,7 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_IP,
     AT_PORT,
+    AT_ID,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
     AT_NUMLINKS,
@@ -279,7 +278,6 @@ typedef enum {
     AT_LENGTH,
     AT_DIRECTION,
     AT_INSTANCES,
-    AT_SYNCINSTANCES,
     AT_SRCTYPE,
     AT_DESTTYPE,
     AT_SRCLENGTH,
