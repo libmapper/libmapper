@@ -190,6 +190,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.clip_min = CT_NONE;
     connection->props.clip_max = CT_NONE;
     connection->props.muted = 0;
+    connection->props.extra = table_new();
 
     // find signal in signal connection list
     mapper_signal_connection sc = router->connections;

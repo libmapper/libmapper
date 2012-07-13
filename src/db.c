@@ -463,20 +463,6 @@ static void update_int_if_arg(int *pdest_int,
         (*pdest_int) = (&(*a)->i)[0];
 }
 
-static void add_or_update_extra_params(table t,
-                                       mapper_message_t *params)
-{
-    int i=0;
-    while (params->extra_args[i])
-    {
-        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
-        lo_arg *arg = *(params->extra_args[i]+1);
-        char type = params->extra_types[i];
-        mapper_table_add_or_update_osc_value(t, key, type, arg);
-        i++;
-    }
-}
-
 /* Static data for property tables embedded in the db data
  * structures.
  *
@@ -761,7 +747,7 @@ static void update_device_record_params(mapper_db_device reg,
 
     update_int_if_arg(&reg->version, params, AT_REV);
 
-    add_or_update_extra_params(reg->extra, params);
+    mapper_msg_add_or_update_extra_params(reg->extra, params);
 }
 
 int mapper_db_add_or_update_device_params(mapper_db db,
@@ -1018,7 +1004,7 @@ static void update_signal_record_params(mapper_db_signal sig,
     if (is_output != -1)
         sig->is_output = is_output;
 
-    add_or_update_extra_params(sig->extra, params);
+    mapper_msg_add_or_update_extra_params(sig->extra, params);
 }
 
 int mapper_db_add_or_update_signal_params(mapper_db db,
@@ -1371,7 +1357,7 @@ static void update_connection_record_params(mapper_db_connection con,
     if (mute!=-1)
         con->muted = mute;
 
-    add_or_update_extra_params(con->extra, params);
+    mapper_msg_add_or_update_extra_params(con->extra, params);
 }
 
 int mapper_db_add_or_update_connection_params(mapper_db db,
@@ -1857,7 +1843,7 @@ static void update_link_record_params(mapper_db_link link,
     update_string_if_different(&link->src_name, src_name);
     update_string_if_different(&link->dest_name, dest_name);
 
-    add_or_update_extra_params(link->extra, params);
+    mapper_msg_add_or_update_extra_params(link->extra, params);
 }
 
 int mapper_db_add_or_update_link_params(mapper_db db,

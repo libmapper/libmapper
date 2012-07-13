@@ -385,6 +385,9 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                                  mapper_message_t *params);
+
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
 void mapper_msg_prepare_varargs(lo_message m, va_list aq);

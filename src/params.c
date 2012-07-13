@@ -225,6 +225,20 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
     return 0;
 }
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                           mapper_message_t *params)
+{
+    int i=0;
+    while (params->extra_args[i])
+    {
+        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
+        lo_arg *arg = *(params->extra_args[i]+1);
+        char type = params->extra_types[i];
+        mapper_table_add_or_update_osc_value(t, key, type, arg);
+        i++;
+    }
+}
+
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
