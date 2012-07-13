@@ -179,6 +179,10 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
+/*! Set a router's properties based on message parameters. */
+void mapper_router_set_from_message(mapper_router router,
+                                    mapper_message_t *msg);
+
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance);
 
@@ -527,6 +531,9 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                                  mapper_message_t *params);
+
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
 void mapper_msg_prepare_varargs(lo_message m, va_list aq);
@@ -536,8 +543,12 @@ void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router);
+
+/*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
-                                           mapper_connection map);
+                                           mapper_connection c);
 
 /**** Expression parser/evaluator ****/
 

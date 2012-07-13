@@ -307,7 +307,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
         mapper_router router = sig->device->routers;
         while (router) {
             // ...find signal connection
-            mapper_signal_connection sc = router->outgoing;
+            mapper_signal_connection sc = router->connections;
             while (sc) {
                 if (sc->signal == si->signal) {
                     // For each connection...

@@ -738,16 +738,16 @@ static void mapper_admin_send_linked(mapper_admin admin,
     }
 
     lo_message_add_string(m, mdev_name(router->device));
-    lo_message_add_string(m, router->remote_name);
+    lo_message_add_string(m, router->props.dest_name);
 
     // Add link scopes
     int i;
     lo_message_add_string(m, "@scope");
-    for (i=0; i<router->num_scopes; i++) {
-        lo_message_add_int32(m, router->scopes[i]);
+    for (i=0; i<router->props.num_scopes; i++) {
+        lo_message_add_int32(m, router->props.scopes[i]);
     }
 
-    // TODO: add more link properties
+    mapper_link_prepare_osc_message(m, router);
 
     lo_send_message(admin->admin_addr, "/linked", m);
     lo_message_free(m);
@@ -755,35 +755,35 @@ static void mapper_admin_send_linked(mapper_admin admin,
 
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
-                                        mapper_connection m,
+                                        mapper_connection c,
                                         int index)
 {
     // Send /connected message
-    lo_message mess = lo_message_new();
-    if (!mess) {
+    lo_message m = lo_message_new();
+    if (!m) {
         trace("couldn't allocate lo_message\n");
     }
 
     char src_name[1024], dest_name[1024];
 
     snprintf(src_name, 1024, "%s%s",
-             mdev_name(router->device), m->props.src_name);
+             mdev_name(router->device), c->props.src_name);
 
     snprintf(dest_name, 1024, "%s%s",
-             router->remote_name, m->props.dest_name);
+             router->props.dest_name, c->props.dest_name);
 
-    lo_message_add_string(mess, src_name);
-    lo_message_add_string(mess, dest_name);
+    lo_message_add_string(m, src_name);
+    lo_message_add_string(m, dest_name);
 
     if (index != -1) {
-        lo_message_add_string(mess, "@ID");
-        lo_message_add_int32(mess, index);
+        lo_message_add_string(m, "@ID");
+        lo_message_add_int32(m, index);
     }
 
-    mapper_connection_prepare_osc_message(mess, m);
+    mapper_connection_prepare_osc_message(m, c);
 
-    lo_send_message(admin->admin_addr, "/connected", mess);
-    lo_message_free(mess);
+    lo_send_message(admin->admin_addr, "/connected", m);
+    lo_message_free(m);
 }
 
 /**********************************/
@@ -1487,6 +1487,8 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
     mdev_add_router(md, router);
+    if (argc > 4)
+        mapper_router_set_from_message(router, &params);
 
     // TODO: store link properties
 
@@ -1678,7 +1680,7 @@ static int handler_device_unlink(const char *path, const char *types,
     if (router) {
         if (!mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
             mapper_router_remove_scope(router, scope);
-            if (router->num_scopes <= 0) {
+            if (router->props.num_scopes <= 0) {
                 mdev_remove_router(md, router);
                 mapper_admin_send_osc(admin, "/unlinked", "ss",
                                       mapper_admin_name(admin), dest_name);
@@ -2198,7 +2200,7 @@ static int handler_device_connections_get(const char *path,
     }
 
     while (router) {
-        mapper_signal_connection sc = router->outgoing;
+        mapper_signal_connection sc = router->connections;
         while (sc) {
 			mapper_connection c = sc->connection;
             while (c) {

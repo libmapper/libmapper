@@ -649,7 +649,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
     // first remove connections
-    mapper_signal_connection sc = rt->outgoing;
+    mapper_signal_connection sc = rt->connections;
     while (sc) {
         mapper_connection c = sc->connection, temp;
         while (c) {
@@ -661,12 +661,12 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     }
 
     int i;
-    for (i=0; i<rt->num_scopes; i++) {
+    for (i=0; i<rt->props.num_scopes; i++) {
         // For each scope in this router...
         mapper_router temp = md->routers;
         int safe = 1;
         while (temp) {
-            if (mapper_router_in_scope(temp, rt->scopes[i])) {
+            if (mapper_router_in_scope(temp, rt->props.scopes[i])) {
                 safe = 1;
                 break;
             }
@@ -677,7 +677,7 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
              * corresponding instances in instance id map. */
             mapper_instance_id_map id_map = md->instance_id_map;
             while (id_map) {
-                if (id_map->group == rt->scopes[i]) {
+                if (id_map->group == rt->props.scopes[i]) {
                     mdev_remove_instance_id_map(md, id_map->local);
                 }
                 id_map = id_map->next;

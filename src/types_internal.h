@@ -153,15 +153,12 @@ typedef struct _mapper_signal_connection {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    struct _mapper_device *device;      /*!< The device associated with
-                                         *   this router */
-    const char *remote_name;            /*!< Name of the remote device. */
-    lo_address remote_addr;             /*!< Address of the remote device. */
-    int num_scopes;                     //!< The number of instance group scopes.
-    int *scopes;                        //!< Array of instance group scopes.
-    struct _mapper_router *next;        //!< Next router in the list.
-    mapper_signal_connection outgoing;  /*!< The list of outgoing connections
-                                         *   for each signal. */
+    mapper_db_link_t props;                 //!< Properties.
+    struct _mapper_device *device;        /*!< The device associated with
+                                           *   this router */
+    struct _mapper_router *next;          //!< Next router in the list.
+    mapper_signal_connection connections; /*!< The list of connections
+                                            *  for each signal. */
 } *mapper_router;
 
 /**** Device ****/

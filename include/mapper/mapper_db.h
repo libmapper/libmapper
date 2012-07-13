@@ -219,6 +219,9 @@ typedef struct _mapper_db_signal
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
+    lo_address dest_addr;           //!< Address of the destination device.
+    int num_scopes;                 //!< The number of instance group scopes.
+    int *scopes;                    //!< Array of instance group scopes.
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
