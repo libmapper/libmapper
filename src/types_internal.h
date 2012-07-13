@@ -156,8 +156,9 @@ typedef struct _mapper_router {
     struct _mapper_device *device;      /*!< The device associated with
                                          *   this router */
     const char *remote_name;            /*!< Name of the remote device. */
-    int id;                             //!< Unique id of the remote address. */
     lo_address remote_addr;             /*!< Address of the remote device. */
+    int num_scopes;                     //!< The number of instance group scopes.
+    int *scopes;                        //!< Array of instance group scopes.
     struct _mapper_router *next;        //!< Next router in the list.
     mapper_signal_connection outgoing;  /*!< The list of outgoing connections
                                          *   for each signal. */
@@ -282,6 +283,7 @@ typedef enum {
     AT_DESTTYPE,
     AT_SRCLENGTH,
     AT_DESTLENGTH,
+    AT_SCOPE,
     AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;

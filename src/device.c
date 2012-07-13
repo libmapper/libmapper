@@ -660,14 +660,29 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         sc = sc->next;
     }
 
-    // unmap relevant instances
-    mapper_instance_id_map id_map = md->instance_id_map;
-    
-    while (id_map) {
-        if (id_map->group == rt->id) {
-            mdev_remove_instance_id_map(md, id_map->local);
+    int i;
+    for (i=0; i<rt->num_scopes; i++) {
+        // For each scope in this router...
+        mapper_router temp = md->routers;
+        int safe = 1;
+        while (temp) {
+            if (mapper_router_in_scope(temp, rt->scopes[i])) {
+                safe = 1;
+                break;
+            }
+            temp = temp->next;
         }
-        id_map = id_map->next;
+        if (!safe) {
+            /* scope is not used by any other routers, safe to clear
+             * corresponding instances in instance id map. */
+            mapper_instance_id_map id_map = md->instance_id_map;
+            while (id_map) {
+                if (id_map->group == rt->scopes[i]) {
+                    mdev_remove_instance_id_map(md, id_map->local);
+                }
+                id_map = id_map->next;
+            }
+        }
     }
 
     // remove router

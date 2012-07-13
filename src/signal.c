@@ -892,7 +892,7 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
             if (!send_as_instance)
                 mapper_router_send_signal(ci, send_as_instance);
             else {
-                if (mapper_router_in_group(ci->connection->router, si->id_map->group))
+                if (mapper_router_in_scope(ci->connection->router, si->id_map->group))
                     mapper_router_send_signal(ci, send_as_instance);
             }
             ci = ci->next;
@@ -904,7 +904,7 @@ void msig_send_instance(mapper_signal_instance si, int send_as_instance)
         si->is_active = 1;
     }
     while (ci) {
-        if (send_as_instance && !mapper_router_in_group(ci->connection->router, si->id_map->group)) {
+        if (send_as_instance && !mapper_router_in_scope(ci->connection->router, si->id_map->group)) {
             ci = ci->next;
             continue;
         }
