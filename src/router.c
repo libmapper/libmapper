@@ -17,6 +17,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     sprintf(str, "%d", port);
     router->props.addr = lo_address_new(host, str);
     router->props.dest_name = strdup(name);
+    router->props.extra = table_new();
     router->device = device;
 
     if (!router->props.addr) {
@@ -54,6 +55,13 @@ void mapper_router_free(mapper_router router)
         }
         free(router);
     }
+}
+
+void mapper_router_set_from_message(mapper_router router,
+                                    mapper_message_t *msg)
+{
+    /* Extra properties. */
+    mapper_msg_add_or_update_extra_params(router->props.extra, msg);
 }
 
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,

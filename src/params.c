@@ -469,6 +469,12 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router)
+{
+    mapper_msg_add_osc_value_table(m, router->props.extra);
+}
+
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
@@ -516,6 +522,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_int32(m, con->props.src_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
     lo_message_add_int32(m, con->props.dest_length);
+
+    mapper_msg_add_osc_value_table(m, con->props.extra);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)

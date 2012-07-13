@@ -105,6 +105,10 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
+/*! Set a router's properties based on message parameters. */
+void mapper_router_set_from_message(mapper_router router,
+                                    mapper_message_t *msg);
+
 void mapper_router_send_signal(mapper_router router, mapper_signal sig,
                                mapper_signal_value_t *value);
 
@@ -397,8 +401,12 @@ void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router);
+
+/*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
-                                           mapper_connection map);
+                                           mapper_connection c);
 
 /**** Expression parser/evaluator ****/
 

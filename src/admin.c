@@ -107,8 +107,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/info/get",             "",         handler_who},
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
-    {"/linkTo",                 "sssi",     handler_device_linkTo},
-    {"/linkTo",                 "sssssi",   handler_device_linkTo},
+    {"/linkTo",                 NULL,       handler_device_linkTo},
     {"/unlink",                 "ss",       handler_device_unlink},
     {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
@@ -723,6 +722,24 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     lo_message_free(m);
 }
 
+static void mapper_admin_send_linked(mapper_admin admin,
+                                     mapper_router router)
+{
+    // Send /linked message
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+    }
+
+    lo_message_add_string(m, mdev_name(router->device));
+    lo_message_add_string(m, router->props.dest_name);
+
+    mapper_link_prepare_osc_message(m, router);
+
+    lo_send_message(admin->admin_addr, "/linked", m);
+    lo_message_free(m);
+}
+
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
                                         mapper_connection c,
@@ -751,7 +768,6 @@ static void mapper_admin_send_connected(mapper_admin admin,
     }
 
     mapper_connection_prepare_osc_message(m, c);
-    mapper_msg_add_osc_value_table(m, c->props.extra);
 
     lo_send_message(admin->admin_addr, "/connected", m);
     lo_message_free(m);
@@ -1412,10 +1428,11 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
     mdev_add_router(md, router);
+    if (argc > 4)
+        mapper_router_set_from_message(router, &params);
 
     // Announce the result.
-    mapper_admin_send_osc(admin, "/linked", "ss",
-                          mapper_admin_name(admin), dest_name);
+    mapper_admin_send_linked(admin, router);
 
     trace("new router to %s -> host: %s, port: %d\n",
           dest_name, host, port);
@@ -1471,8 +1488,7 @@ static int handler_device_links_get(const char *path, const char *types,
 
     /*Search through linked devices */
     while (router != NULL) {
-        mapper_admin_send_osc(admin, "/linked", "ss", mapper_admin_name(admin),
-                              router->props.dest_name);
+        mapper_admin_send_linked(admin, router);
         router = router->next;
     }
 
