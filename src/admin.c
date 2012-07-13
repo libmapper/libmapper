@@ -1452,10 +1452,7 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // retreive scope if specified
     if (mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
-        if (mapper_msg_get_param_if_int(&params, AT_ID, &scope)) {
-            trace("can't perform /linkTo, ID unknown\n");
-            return 0;
-        }
+        scope = mdev_port(md);
     }
 
     // Discover whether the device is already linked.
