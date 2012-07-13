@@ -151,11 +151,9 @@ typedef struct _mapper_signal_connection {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    const char *dest_name;                /*!< Router name given by the
-                                           *   destination name. */
+    mapper_db_link_t props;                 //!< Properties.
     struct _mapper_device *device;        /*!< The device associated with
                                            *   this router */
-    lo_address addr;                      //!< Sending address.
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_connection connections; /*!< The list of connections
                                             *  for each signal. */

@@ -740,7 +740,7 @@ static void mapper_admin_send_connected(mapper_admin admin,
              mdev_name(router->device), m->props.src_name);
 
     snprintf(dest_name, 1024, "%s%s",
-             router->dest_name, m->props.dest_name);
+             router->props.dest_name, m->props.dest_name);
 
     lo_message_add_string(mess, src_name);
     lo_message_add_string(mess, dest_name);
@@ -1471,7 +1471,7 @@ static int handler_device_links_get(const char *path, const char *types,
     /*Search through linked devices */
     while (router != NULL) {
         mapper_admin_send_osc(admin, "/linked", "ss", mapper_admin_name(admin),
-                              router->dest_name);
+                              router->props.dest_name);
         router = router->next;
     }
 

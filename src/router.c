@@ -15,11 +15,11 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
-    router->addr = lo_address_new(host, str);
-    router->dest_name = strdup(name);
+    router->props.addr = lo_address_new(host, str);
+    router->props.dest_name = strdup(name);
     router->device = device;
 
-    if (!router->addr) {
+    if (!router->props.addr) {
         mapper_router_free(router);
         return 0;
     }
@@ -29,8 +29,8 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 void mapper_router_free(mapper_router router)
 {
     if (router) {
-        if (router->addr)
-            lo_address_free(router->addr);
+        if (router->props.addr)
+            lo_address_free(router->props.addr);
         if (router->connections) {
             mapper_signal_connection sc = router->connections;
             while (sc) {
@@ -113,7 +113,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
 {
     int i;
     lo_message m;
-    if (!router->addr)
+    if (!router->props.addr)
         return;
 
     m = lo_message_new();
@@ -123,7 +123,7 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     for (i = 0; i < sig->props.length; i++)
         mval_add_to_message(m, sig, &value[i]);
 
-    lo_send_message(router->addr, sig->props.name, m);
+    lo_send_message(router->props.addr, sig->props.name, m);
     lo_message_free(m);
     return;
 }
@@ -150,7 +150,7 @@ int mapper_router_send_query(mapper_router router, mapper_signal sig)
         query_len = (int) strlen(c->props.dest_name) + 5;
         query_string = (char*) realloc(query_string, query_len);
         snprintf(query_string, query_len, "%s%s", c->props.dest_name, "/get");
-        lo_send_from(router->addr, router->device->server, 
+        lo_send_from(router->props.addr, router->device->server, 
                      LO_TT_IMMEDIATE, query_string, "s", response_string);
         count++;
         c = c->next;
@@ -172,7 +172,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
         msig_full_name(sig, n, 1024);
         trace("rejecting connection %s -> %s%s because lengths "
               "don't match (not yet supported)\n",
-              n, router->dest_name, dest_name);
+              n, router->props.dest_name, dest_name);
         return 0;
     }
 
@@ -242,7 +242,7 @@ mapper_router mapper_router_find_by_dest_name(mapper_router router,
         n = slash - dest_name;
 
     while (router) {
-        if (strncmp(router->dest_name, dest_name, n)==0)
+        if (strncmp(router->props.dest_name, dest_name, n)==0)
             return router;
         router = router->next;
     }
