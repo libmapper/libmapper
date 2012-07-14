@@ -419,7 +419,7 @@ void msig_release_instance_internal(mapper_signal_instance si)
         return;
     if (!si->is_active)
         return;
-    if (si->id_map->group == mdev_port(si->signal->device) &&
+    if (si->id_map->group == mdev_id(si->signal->device) &&
         si->signal->props.is_output) {
         // First send zero signal
         msig_update_instance_internal(si, 1, NULL);
@@ -455,7 +455,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             if (!id_map) {
                 // Claim ID map locally
                 id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                                  mdev_port(sig->device), instance_id);
+                                                  mdev_id(sig->device), instance_id);
             }
             msig_instance_init(si, id_map);
         }
@@ -473,7 +473,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         if (!id_map) {
             // Claim ID map locally
             id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                              mdev_port(sig->device), instance_id);
+                                              mdev_id(sig->device), instance_id);
         }
         msig_instance_init(si, id_map);
         return si;
@@ -526,7 +526,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     if (!id_map) {
         // Claim ID map locally
         id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                          mdev_port(sig->device), instance_id);
+                                          mdev_id(sig->device), instance_id);
     }
     msig_instance_init(stolen, id_map);
     return stolen;
