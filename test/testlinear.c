@@ -16,14 +16,12 @@ mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testsend", 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -67,7 +65,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testrecv", 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -101,7 +99,7 @@ int setup_router()
     router = mapper_router_new(source, host, destination->admin->port.value,
                                mdev_name(destination), 0);
     mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, port);
+    printf("Router to %s:%d added.\n", host, destination->admin->port.value);
 
     char signame_in[1024];
     if (!msig_full_name(recvsig, signame_in, 1024)) {
