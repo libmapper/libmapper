@@ -33,6 +33,13 @@ typedef struct _mapper_db_device {
     struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
+/* Bit flags to identify which fields in a mapper_db_link
+ * structure are valid.  This is only used when specifying link
+ * properties via the mapper_monitor_link() or
+ * mapper_monitor_link_modify() functions. */
+#define LINK_NUM_SCOPES         0x01
+#define LINK_SCOPES             0x02
+
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
@@ -45,7 +52,7 @@ typedef struct _mapper_db_device {
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
  * properties via the mapper_monitor_connect() or
- * mapper_monitor_modify() functions. Should be combined with the
+ * mapper_monitor_connection_modify() functions. Should be combined with the
  * above range bitflags. */
 #define CONNECTION_CLIPMIN       0x0010
 #define CONNECTION_CLIPMAX       0x0020

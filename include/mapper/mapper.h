@@ -1125,10 +1125,18 @@ void mapper_monitor_autorequest(mapper_monitor mon, int enable);
 /*! Interface to add a link between two devices.
  *  \param mon The monitor to use for sending the message.
  *  \param source_device_path Source device name.
- *  \param dest_device_path   Destination device name. */
+ *  \param dest_device_path   Destination device name.
+ *  \param properties An optional data structure specifying the
+ *                    requested properties of this link.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_link_t should be
+ *                        applied to the new link. See the flags
+ *                        prefixed by LINK_ in mapper_db.h.*/
 void mapper_monitor_link(mapper_monitor mon,
                          const char* source_device, 
-                         const char* dest_device);
+                         const char* dest_device,
+                         mapper_db_link_t *props,
+                         unsigned int props_flags);
 
 /*! Interface to remove a link between two devices.
  *  \param mon The monitor to use for sending the message.
