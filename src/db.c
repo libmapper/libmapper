@@ -788,7 +788,6 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     value, &devdb_table);
 }
 
-
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
                                      lo_type *type,

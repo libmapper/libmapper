@@ -95,13 +95,13 @@ typedef struct _mapper_connection_instance
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int initial_port);
+                             const char *identifier);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_port_probe(mapper_admin admin);
+void mapper_admin_id_probe(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);
 
@@ -153,8 +153,8 @@ void mdev_remove_router(mapper_device md, mapper_router rt);
 
 void mdev_start_server(mapper_device mdev);
 
-void mdev_on_port_and_ordinal(mapper_device md,
-                              mapper_admin_allocated_t *resource);
+void mdev_on_id_and_ordinal(mapper_device md,
+                            mapper_admin_allocated_t *resource);
 
 mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
                                                 int group_id, int remote_id);

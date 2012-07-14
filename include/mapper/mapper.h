@@ -239,15 +239,11 @@ int msig_num_reserved_instances(mapper_signal sig);
 
 /*! Allocate and initialize a mapper device.
  * \param name_prefix   A short descriptive string to identify the device.
- * \param initial_port  An initial port to use to receive data, or 0.
- *                      Subsequently, a unique port will be selected.
-
  * \param admin         A previously allocated admin to use.  If 0, an
  *                      admin will be allocated for use with this device.
  * \return              A newly allocated mapper device.  Should be free
  *                      using mdev_free(). */
-mapper_device mdev_new(const char *name_prefix, int initial_port,
-                       mapper_admin admin);
+mapper_device mdev_new(const char *name_prefix, mapper_admin admin);
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device dev);
@@ -404,6 +400,12 @@ int mdev_ready(mapper_device dev);
  *  \return String containing the device's full name, or zero if it is
  *  not available. */
 const char *mdev_name(mapper_device dev);
+
+/*! Return the unique ID allocated to this device by the mapper network.
+ *  \param dev The device to query.
+ *  \return An integer indicating the device's ID, or zero if it is
+ *  not available. */
+unsigned int mdev_id(mapper_device dev);
 
 /*! Return the port used by a device to receive signals, if available.
  *  \param dev The device to query.

@@ -95,8 +95,10 @@ typedef struct _mapper_admin {
                                        *   device, or zero. */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
+    mapper_admin_allocated_t id;      /*!< The unique id for this
                                        *   device. */
+    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
+                                       *   device instance. */
     mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
