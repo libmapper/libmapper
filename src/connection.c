@@ -643,11 +643,12 @@ void mapper_connection_set_from_message(mapper_connection c,
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr) {
         int input_history_size, output_history_size;
-        replace_expression_string(c, sig, expr, &input_history_size,
-                                  &output_history_size);
-        if (c->props.mode == MO_EXPRESSION)
-            msig_reallocate_instances(sig, input_history_size,
-                                      c, output_history_size);
+        if (!replace_expression_string(c, sig, expr, &input_history_size,
+                                       &output_history_size)) {
+            if (c->props.mode == MO_EXPRESSION)
+                msig_reallocate_instances(sig, input_history_size,
+                                          c, output_history_size);
+        }
     }
 
     /* Extra properties. */
