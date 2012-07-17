@@ -167,9 +167,10 @@ void mval_add_to_message(lo_message m, mapper_signal sig,
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
  *  \param connection The mapping process to perform.
+ *  \param sig        The signal to operate on.
  *  \param from_value Pointer to first value in a vector of the
  *                    expected size.
- *  \param from_value Pointer to a value to receive the scalar result.
+ *  \param to_value   Pointer to a value to receive the scalar result.
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal sig,
@@ -211,27 +212,27 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 /*! Add or update an entry in the device database using parsed message
  *  parameters.
- *  \param db     The database to operate on.
- *  \param name   The name of the device.
- *  \param params The parsed message parameters containing new device
- *                information.
- *  \return       Non-zero if device was added to the database, or
- *                zero if it was already present. */
+ *  \param db          The database to operate on.
+ *  \param device_name The name of the device.
+ *  \param params      The parsed message parameters containing new device
+ *                     information.
+ *  \return            Non-zero if device was added to the database, or
+ *                     zero if it was already present. */
 int mapper_db_add_or_update_device_params(mapper_db db,
-                                          const char *name,
+                                          const char *device_name,
                                           mapper_message_t *params);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
- *  \param db     The database to operate on.
- *  \param name   The name of the signal.
- *  \param name   The name of the device associated with this signal.
- *  \param params The parsed message parameters containing new signal
- *                information.
- *  \return       Non-zero if signal was added to the database, or
- *                zero if it was already present. */
+ *  \param db          The database to operate on.
+ *  \param signal_name The name of the signal.
+ *  \param device_name The name of the device associated with this signal.
+ *  \param params      The parsed message parameters containing new signal
+ *                     information.
+ *  \return            Non-zero if signal was added to the database, or
+ *                     zero if it was already present. */
 int mapper_db_add_or_update_signal_params(mapper_db db,
-                                          const char *name,
+                                          const char *signal_name,
                                           const char *device_name,
                                           mapper_message_t *params);
 
@@ -242,13 +243,13 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
 
 /*! Add or update an entry in the connection database using parsed
  *  message parameters.
- *  \param db     The database to operate on.
- *  \param name   The full name of the source signal.
- *  \param name   The full name of the destination signal.
- *  \param params The parsed message parameters containing new
- *                connection information.
- *  \return       Non-zero if connection was added to the database,
- *                or zero if it was already present. */
+ *  \param db        The database to operate on.
+ *  \param src_name  The full name of the source signal.
+ *  \param dest_name The full name of the destination signal.
+ *  \param params    The parsed message parameters containing new
+ *                   connection information.
+ *  \return          Non-zero if connection was added to the database,
+ *                   or zero if it was already present. */
 int mapper_db_add_or_update_connection_params(mapper_db db,
                                               const char *src_name,
                                               const char *dest_name,
@@ -289,6 +290,7 @@ void mapper_db_dump(mapper_db db);
 
 /*! Add or update an entry in the link database using parsed message
  *  parameters.
+ *  \param db     The database to operate on.
  *  \param src_name  The name of the source device.
  *  \param dest_name The name of the destination device.
  *  \param params The parsed message parameters containing new link
@@ -324,7 +326,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
  *  Note that it's possible the returned type string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
  *  function to ensure it only processes the a priori expected number
- *  of parameters.  (e.g., @range has 4 parameters.)
+ *  of parameters.  (e.g., "@range" has 4 parameters.)
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
  *  \return       String containing type of each parameter argument.
