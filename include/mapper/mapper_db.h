@@ -193,7 +193,7 @@ typedef struct _mapper_db_signal
     int length;
 
     /*! Number of instances. */
-    int instances;
+    int num_instances;
 
     /*! Size of the history vector. */
     int history_size;

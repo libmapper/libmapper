@@ -959,7 +959,7 @@ static int handler_id_n_signals_input_get(const char *path,
             sig->props.unit ? AT_UNITS : -1, sig,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
-            sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
+            sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig->props.num_instances,
             AT_EXTRA, sig->props.extra);
     }
 
@@ -1021,7 +1021,7 @@ static int handler_id_n_signals_output_get(const char *path,
             sig->props.unit ? AT_UNITS : -1, sig,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
-            sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
+            sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig->props.num_instances,
             AT_EXTRA, sig->props.extra);
     }
 
@@ -1650,72 +1650,80 @@ static int handler_device_unlink(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    if (strcmp(mapper_admin_name(admin), src_name) != 0)
-        return 0;
-
-    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
-        const char *ptr = &argv[2]->s;
-        if (ptr[0] != '@') {
-            // more than 2 devices involved
-            multi_link = 1;
+    if (strcmp(mapper_admin_name(admin), src_name) == 0) {
+        if (argc == 2) {
+            mapper_admin_send_osc(admin, "/unlink", "sssi", mapper_admin_name(admin),
+                                  dest_name, AT_SCOPE, mdev_id(md));
+            return 0;
         }
-    }
+        else if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
+            const char *ptr = &argv[2]->s;
+            if (ptr[0] != '@') {
+                // more than 2 devices involved
+                multi_link = 1;
+            }
+        }
 
-    trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
-          src_name, dest_name, argc-2);
+        trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
+              src_name, dest_name, argc-2);
 
-    mapper_message_t params;
-    memset(&params, 0, sizeof(mapper_message_t));
-    // add arguments from /link if any
-    if (mapper_msg_parse_params(&params, path, &types[2],
-                                argc-2, &argv[2]))
-    {
-        trace("<%s> error parsing message parameters in /link.\n",
-              mapper_admin_name(admin));
-        return 0;
-    }
+        mapper_message_t params;
+        memset(&params, 0, sizeof(mapper_message_t));
+        // add arguments from /unlink if any
+        if (mapper_msg_parse_params(&params, path, &types[2],
+                                    argc-2, &argv[2]))
+        {
+            trace("<%s> error parsing message parameters in /unlink.\n",
+                  mapper_admin_name(admin));
+            return 0;
+        }
 
-    /* Remove the router for the destination. */
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
-    if (router) {
-        if (!mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
-            mapper_router_remove_scope(router, scope);
-            if (router->props.num_scopes <= 0) {
+        /* Remove the router for the destination. */
+        mapper_router router =
+            mapper_router_find_by_remote_name(md->routers, dest_name);
+        if (router) {
+            if (!mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
+                mapper_router_remove_scope(router, scope);
+                if (router->props.num_scopes <= 0) {
+                    mdev_remove_router(md, router);
+                    mapper_admin_send_osc(admin, "/unlinked", "ss",
+                                          mapper_admin_name(admin), dest_name);
+                }
+                else
+                    mapper_admin_send_linked(admin, router);
+            }
+            else {
                 mdev_remove_router(md, router);
                 mapper_admin_send_osc(admin, "/unlinked", "ss",
                                       mapper_admin_name(admin), dest_name);
             }
-            else
-                mapper_admin_send_linked(admin, router);
         }
         else {
-            mdev_remove_router(md, router);
-            mapper_admin_send_osc(admin, "/unlinked", "ss",
-                                  mapper_admin_name(admin), dest_name);
+            trace("<%s> no router for %s found in /unlink handler\n",
+                  mapper_admin_name(admin), dest_name);
+        }
+
+        if (multi_link) {
+            lo_arg *arg_scope = (lo_arg*) &admin->id.value;
+            params.values[AT_SCOPE] = &arg_scope;
+            params.types[AT_SCOPE] = "i";
+
+            int i;
+            for (i=2; i<argc; i++) {
+                if (types[i] != 's' && types[i] != 'S')
+                    return 0;
+                dest_name = &argv[i]->s;
+                if (dest_name[0] == '@')
+                    return 0;
+                src_name = &argv[i-1]->s;
+                mapper_admin_send_osc_with_params(
+                    admin, &params, 0, "/unlink", "ss", src_name, dest_name);
+            }
         }
     }
-    else {
-        trace("<%s> no router for %s found in /unlink handler\n",
-              mapper_admin_name(admin), dest_name);
-    }
-
-    if (multi_link) {
-        lo_arg *arg_scope = (lo_arg*) &admin->id.value;
-        params.values[AT_SCOPE] = &arg_scope;
-        params.types[AT_SCOPE] = "i";
-
-        int i;
-        for (i=2; i<argc; i++) {
-            if (types[i] != 's' && types[i] != 'S')
-                return 0;
-            dest_name = &argv[i]->s;
-            if (dest_name[0] == '@')
-                return 0;
-            src_name = &argv[i-1]->s;
-            mapper_admin_send_osc_with_params(
-                admin, &params, 0, "/unlink", "ss", src_name, dest_name);
-        }
+    else if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
+        // Release instances owned by remote device
+        // Look up the associated receiver
     }
 
     return 0;
@@ -1866,8 +1874,8 @@ static int handler_signal_connect(const char *path, const char *types,
         params.types[AT_MAX] = &input->props.type;
     }
 
-    lo_arg *arg_instances = (lo_arg*) &input->props.instances;
-    params.values[AT_INSTANCES] = &arg_instances;
+    lo_arg *arg_num_instances = (lo_arg*) &input->props.num_instances;
+    params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
 
     mapper_admin_send_osc_with_params(
@@ -2088,9 +2096,9 @@ static int handler_signal_disconnect(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_signal output;
+    mapper_signal sig;
 
-    const char *src_name, *src_signal_name;
+    const char *src_name, *dest_name, *signal_name;
 
     if (argc < 2)
         return 0;
@@ -2100,39 +2108,51 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
+    dest_name = &argv[0]->s;
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
-                       &src_signal_name))
-        return 0;
+                       &signal_name) == 0) {
+        if (!(sig=mdev_get_output_by_name(md, signal_name, 0)))
+        {
+            trace("<%s> no output signal found for '%s' in /disconnect\n",
+                  mapper_admin_name(admin), signal_name);
+            return 0;
+        }
 
-    if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
-    {
-        trace("<%s> no output signal found for '%s' in /disconnect\n",
-              mapper_admin_name(admin), src_signal_name);
-        return 0;
+        mapper_router router = mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
+        if (!router) {
+            trace("<%s> ignoring /disconnect, no router found for '%s'\n",
+                  mapper_admin_name(admin), &argv[1]->s);
+            return 0;
+        }
+
+        mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+                                                              &argv[1]->s);
+        if (!m) {
+            trace("<%s> ignoring /disconnect, "
+                  "no connection found for '%s' -> '%s'\n",
+                  mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
+            return 0;
+        }
+
+        /* The connection is removed. */
+        if (mapper_router_remove_connection(router, m)) {
+            return 0;
+        }
+
+        mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
     }
+    else if (osc_prefix_cmp(dest_name, mapper_admin_name(admin),
+                            &signal_name) == 0) {
+        if (!(sig=mdev_get_input_by_name(md, signal_name, 0)))
+            return 0;
 
-    mapper_router router = mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
-    if (!router) {
-        trace("<%s> ignoring /disconnect, no router found for '%s'\n",
-              mapper_admin_name(admin), &argv[1]->s);
-        return 0;
+        // Release instances of this signal owned by the remote device
+        mapper_signal_instance si = sig->instances;
+        while (si) {
+            si->is_active = 0;
+            si = si->next;
+        }
     }
-
-    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
-                                                          &argv[1]->s);
-    if (!m) {
-        trace("<%s> ignoring /disconnect, "
-              "no connection found for '%s' -> '%s'\n",
-              mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
-        return 0;
-    }
-
-    /* The connection is removed. */
-    if (mapper_router_remove_connection(router, m)) {
-        return 0;
-    }
-
-    mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
 
     return 0;
 }

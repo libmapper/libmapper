@@ -30,7 +30,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->handler = handler;
     sig->instance_overflow_handler = 0;
     sig->instance_management_handler = 0;
-    sig->props.instances = 0;
+    sig->props.num_instances = 0;
     sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
@@ -276,7 +276,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
 {
     if (!sig)
         return;
-    int available = MAX_INSTANCES - sig->props.instances;
+    int available = MAX_INSTANCES - sig->props.num_instances;
     if (num > available)
         num = available;
     int i;
@@ -292,7 +292,7 @@ void msig_reserve_instances(mapper_signal sig, int num)
         si->signal = sig;
         si->is_active = 0;
         si->id_map = calloc(1, sizeof(struct _mapper_instance_id_map));
-        si->id_map->local = sig->props.instances++;
+        si->id_map->local = sig->props.num_instances++;
         msig_instance_init(si, 0);
         si->user_data = 0;
 
@@ -651,7 +651,7 @@ void msig_remove_instance(mapper_signal_instance si)
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
-            --si->signal->props.instances;
+            --si->signal->props.num_instances;
             msig_free_instance(si);
             break;
         }

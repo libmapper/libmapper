@@ -249,7 +249,7 @@ static int handler_query(const char *path, const char *types,
         m = lo_message_new();
         if (!m)
             return 0;
-        if (si->signal->props.instances > 1)
+        if (si->signal->props.num_instances > 1)
             lo_message_add_int32(m, (long)si->id_map->local);
         if (si->history.position != -1) {
             if (si->history.type == 'f') {

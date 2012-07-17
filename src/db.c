@@ -1003,7 +1003,7 @@ static void update_signal_record_params(mapper_db_signal sig,
     if (is_output != -1)
         sig->is_output = is_output;
 
-    update_int_if_arg(&sig->instances, params, AT_INSTANCES);
+    update_int_if_arg(&sig->num_instances, params, AT_INSTANCES);
 
     mapper_msg_add_or_update_extra_params(sig->extra, params);
 }

@@ -24,9 +24,6 @@ struct _mapper_signal
     /*! The first instance of this signal. */
     struct _mapper_signal_instance *instances;
 
-    /*! Counter for generating instance ids. */
-    int instance_count;
-
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
 
