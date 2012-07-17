@@ -25,7 +25,7 @@ int test_admin()
 
     printf("Admin structure initialized.\n");
 
-    my_device = mdev_new("tester", 8000, my_admin);
+    my_device = mdev_new("tester", my_admin);
     if (!my_device) {
         printf("Error creating device structure.\n");
         return 1;

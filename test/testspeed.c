@@ -17,8 +17,6 @@ mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
-int port = 9000;
-
 int numModes = 2;
 int mode = 0;
 int use_instance = 1;
@@ -44,7 +42,7 @@ static double get_current_time()
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testSpeedSend", port, 0);
+    source = mdev_new("testSpeedSend", 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -108,7 +106,7 @@ void overflow_handler(mapper_signal sig, int group, int id)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testSpeedRecv", port, 0);
+    destination = mdev_new("testSpeedRecv", 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

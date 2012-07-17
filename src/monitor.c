@@ -290,10 +290,27 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
 
 void mapper_monitor_link(mapper_monitor mon,
                          const char* source_device, 
-                         const char* dest_device)
+                         const char* dest_device,
+                         mapper_db_link_t *props,
+                         unsigned int props_flags)
 {
-    mapper_admin_send_osc( mon->admin, "/link", "ss",
-                           source_device, dest_device );
+    if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes && (props_flags & LINK_SCOPES)) {
+        lo_message m = lo_message_new();
+        if (!m)
+            return;
+        lo_message_add_string(m, source_device);
+        lo_message_add_string(m, dest_device);
+        lo_message_add_string(m, "@scope");
+        int i;
+        for (i=0; i<props->num_scopes; i++) {
+            lo_message_add_int32(m, props->scopes[i]);
+        }
+        lo_send_message(mon->admin->admin_addr, "/link", m);
+        free(m);
+    }
+    else
+        mapper_admin_send_osc( mon->admin, "/link", "ss",
+                               source_device, dest_device );
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
@@ -308,7 +325,6 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       mapper_db_connection_t *props,
                                       unsigned int props_flags)
 {
-
     if (props) {
         mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
@@ -324,11 +340,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                ? AT_MODE : -1, props->mode,
                                (props_flags & CONNECTION_MUTED)
                                ? AT_MUTE : -1, props->muted );
-    } else {
-        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
-                               props->src_name, props->dest_name );
-	}
-
+    }
 }
 
 void mapper_monitor_connect(mapper_monitor mon,

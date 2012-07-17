@@ -99,13 +99,13 @@ typedef struct _mapper_connection_instance
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int initial_port);
+                             const char *identifier);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_port_probe(mapper_admin admin);
+void mapper_admin_id_probe(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);
 
@@ -157,8 +157,8 @@ void mdev_remove_router(mapper_device md, mapper_router rt);
 
 void mdev_start_server(mapper_device mdev);
 
-void mdev_on_port_and_ordinal(mapper_device md,
-                              mapper_admin_allocated_t *resource);
+void mdev_on_id_and_ordinal(mapper_device md,
+                            mapper_admin_allocated_t *resource);
 
 mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
                                                 int group_id, int remote_id);
@@ -183,6 +183,10 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
+/*! Set a router's properties based on message parameters. */
+void mapper_router_set_from_message(mapper_router router,
+                                    mapper_message_t *msg);
+
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance);
 
@@ -199,7 +203,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-int mapper_router_in_group(mapper_router router, int group_id);
+int mapper_router_in_scope(mapper_router router, int group_id);
 
 /*! Find a router by remote address in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_address(mapper_router routers,
@@ -208,6 +212,10 @@ mapper_router mapper_router_find_by_remote_address(mapper_router routers,
 /*! Find a router by remote device name in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_name(mapper_router routers,
                                                 const char* dest_name);
+
+int mapper_router_add_scope(mapper_router router, int id);
+
+void mapper_router_remove_scope(mapper_router router, int id);
 
 /**** Signals ****/
 
@@ -527,6 +535,9 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                                  mapper_message_t *params);
+
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
 void mapper_msg_prepare_varargs(lo_message m, va_list aq);
@@ -536,8 +547,12 @@ void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router);
+
+/*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
-                                           mapper_connection map);
+                                           mapper_connection c);
 
 /**** Expression parser/evaluator ****/
 

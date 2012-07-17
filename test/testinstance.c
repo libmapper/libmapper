@@ -21,8 +21,6 @@ mapper_signal recvsig = 0;
 int sendinst[10] = {0, 0, 0, 0, 0};
 int nextid = 1;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 int done = 0;
@@ -30,7 +28,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testInstanceSend", port, 0);
+    source = mdev_new("testInstanceSend", 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -89,7 +87,7 @@ void overflow_handler(mapper_signal sig, int group, int id)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testInstanceRecv", port, 0);
+    destination = mdev_new("testInstanceRecv", 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

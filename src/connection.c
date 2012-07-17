@@ -643,12 +643,16 @@ void mapper_connection_set_from_message(mapper_connection c,
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr) {
         int input_history_size, output_history_size;
-        replace_expression_string(c, sig, expr, &input_history_size,
-                                  &output_history_size);
-        if (c->props.mode == MO_EXPRESSION)
-            msig_reallocate_instances(sig, input_history_size,
-                                      c, output_history_size);
+        if (!replace_expression_string(c, sig, expr, &input_history_size,
+                                       &output_history_size)) {
+            if (c->props.mode == MO_EXPRESSION)
+                msig_reallocate_instances(sig, input_history_size,
+                                          c, output_history_size);
+        }
     }
+
+    /* Extra properties. */
+    mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 
     /* Now set the mode type depending on the requested type and
      * the known properties. */
@@ -725,9 +729,9 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
         if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
             while (router != NULL) {
                 // find associated router
-                if (strncmp(router->remote_name, dest_name, n) == 0) {
+                if (strncmp(router->props.dest_name, dest_name, n) == 0) {
                     // find associated connection
-                    mapper_signal_connection sc = router->outgoing;
+                    mapper_signal_connection sc = router->connections;
                     while (sc && sc->signal != md->outputs[i])
                         sc = sc->next;
                     if (!sc)

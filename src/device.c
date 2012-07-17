@@ -30,12 +30,9 @@ static double get_current_time()
 }
 
 //! Allocate and initialize a mapper device.
-mapper_device mdev_new(const char *name_prefix, int initial_port,
+mapper_device mdev_new(const char *name_prefix,
                        mapper_admin admin)
 {
-    if (initial_port == 0)
-        initial_port = 9000;
-
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
     md->name_prefix = strdup(name_prefix);
@@ -54,10 +51,10 @@ mapper_device mdev_new(const char *name_prefix, int initial_port,
         return NULL;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix, initial_port);
+    mapper_admin_add_device(md->admin, md, name_prefix);
 
-    md->admin->port.on_lock = mdev_on_port_and_ordinal;
-    md->admin->ordinal.on_lock = mdev_on_port_and_ordinal;
+    md->admin->id.on_lock = mdev_on_id_and_ordinal;
+    md->admin->ordinal.on_lock = mdev_on_id_and_ordinal;
     md->routers = 0;
     md->instance_id_map = 0;
     md->extra = table_new();
@@ -662,7 +659,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
     // first remove connections
-    mapper_signal_connection sc = rt->outgoing;
+    mapper_signal_connection sc = rt->connections;
     while (sc) {
         mapper_connection c = sc->connection, temp;
         while (c) {
@@ -673,14 +670,29 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         sc = sc->next;
     }
 
-    // unmap relevant instances
-    mapper_instance_id_map id_map = md->instance_id_map;
-    
-    while (id_map) {
-        if (id_map->group == rt->id) {
-            mdev_remove_instance_id_map(md, id_map->local);
+    int i;
+    for (i=0; i<rt->props.num_scopes; i++) {
+        // For each scope in this router...
+        mapper_router temp = md->routers;
+        int safe = 1;
+        while (temp) {
+            if (mapper_router_in_scope(temp, rt->props.scopes[i])) {
+                safe = 1;
+                break;
+            }
+            temp = temp->next;
         }
-        id_map = id_map->next;
+        if (!safe) {
+            /* scope is not used by any other routers, safe to clear
+             * corresponding instances in instance id map. */
+            mapper_instance_id_map id_map = md->instance_id_map;
+            while (id_map) {
+                if (id_map->group == rt->props.scopes[i]) {
+                    mdev_remove_instance_id_map(md, id_map->local);
+                }
+                id_map = id_map->next;
+            }
+        }
     }
 
     // remove router
@@ -767,19 +779,19 @@ mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
     return 0;
 }
 
-/*! Called when once when the port is allocated and again when the
+/*! Called when once when the ID is allocated and again when the
  *  ordinal is allocated, or vice-versa.  Must start server when both
  *  have been allocated. (No point starting it earlier since we won't
  *  be able to register any handlers. */
-void mdev_on_port_and_ordinal(mapper_device md,
+void mdev_on_id_and_ordinal(mapper_device md,
                               mapper_admin_allocated_t *resource)
 {
-    if (!(md->admin->ordinal.locked && md->admin->port.locked))
+    if (!(md->admin->ordinal.locked && md->admin->id.locked))
         return;
 
     trace
-        ("device '%s.%d' acknowledged port and ordinal allocation for %d\n",
-         md->name_prefix, md->admin->ordinal.value, md->admin->port.value);
+        ("device '%s.%d' acknowledged ID and ordinal allocation for %d\n",
+         md->name_prefix, md->admin->ordinal.value, md->admin->id.value);
 
     mdev_start_server(md);
 }
@@ -799,60 +811,18 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
                num, path, msg);
 }
 
-static int get_liblo_error()
-{
-    int num = liblo_error_num;
-    liblo_error_num = 0;
-    return num;
-}
-
-#ifdef HAVE_PTHREAD
-static pthread_mutex_t liblo_error_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
-/* Use these functions to handle the liblo error mutex. (Avoids having
- * to sprinkle ifdefs for HAVE_PTHREAD everywhere.) */
-static void lock_liblo_error_mutex()
-{
-#ifdef HAVE_PTHREAD
-    pthread_mutex_lock(&liblo_error_mutex);
-#endif
-}
-
-static void unlock_liblo_error_mutex()
-{
-#ifdef HAVE_PTHREAD
-    pthread_mutex_unlock(&liblo_error_mutex);
-#endif
-}
-
 void mdev_start_server(mapper_device md)
 {
-    if (md->admin->port.locked && !md->server) {
+    if (!md->server) {
         int i;
         char port[16], *type = 0, *path = 0;
 
         sprintf(port, "%d", md->admin->port.value);
 
-        lock_liblo_error_mutex();
-        md->server = lo_server_new(port, liblo_error_handler);
-
-        if (md->server) {
-            trace("device '%s' opened server on port %d\n",
-                  mapper_admin_name(md->admin), md->admin->port.value);
-
-        } else {
-            trace("error opening server on port %d for device '%s'\n",
-                  md->admin->port.value, md->name_prefix);
-            if (get_liblo_error() == LO_NOPORT) {
-                md->admin->port.value++;
-                md->admin->port.locked = 0;
-                mapper_admin_port_probe(md->admin);
-            }
-            unlock_liblo_error_mutex();
-            return;
+        if ((md->server = lo_server_new(0, liblo_error_handler))) {
+            md->admin->port.value = lo_server_get_port(md->server);
+            md->admin->port.locked = 1;
         }
-        unlock_liblo_error_mutex();
 
         for (i = 0; i < md->n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 3);
@@ -917,6 +887,14 @@ const char *mdev_name(mapper_device md)
      * called inappropriately. */
     if (md->admin->ordinal.locked)
         return mapper_admin_name(md->admin);
+    else
+        return 0;
+}
+
+unsigned int mdev_id(mapper_device md)
+{
+    if (md->admin->id.locked)
+        return md->admin->id.value;
     else
         return 0;
 }

@@ -18,8 +18,6 @@ mapper_device destination = 0;
 mapper_signal sendsig[4] = {0, 0, 0, 0};
 mapper_signal recvsig[4] = {0, 0, 0, 0};
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 int done = 0;
@@ -41,7 +39,7 @@ void query_response_handler(mapper_signal sig, int instance_id, mapper_db_signal
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testquery-send", port, 0);
+    source = mdev_new("testquery-send", 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -92,7 +90,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testquery-recv", port, 0);
+    destination = mdev_new("testquery-recv", 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

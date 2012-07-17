@@ -48,7 +48,7 @@ static int handler_device(const char *, const char *, lo_arg **,
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_id_n_signals_input_get(const char *, const char *,
-                                          lo_arg **, int, lo_message, 
+                                          lo_arg **, int, lo_message,
                                           void *);
 static int handler_id_n_signals_output_get(const char *, const char *,
                                            lo_arg **, int, lo_message,
@@ -57,12 +57,12 @@ static int handler_id_n_signals_get(const char *, const char *,
                                     lo_arg **, int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
-static int handler_device_port_probe(const char *, const char *, lo_arg **,
-                                     int, lo_message, void *);
+static int handler_device_id_probe(const char *, const char *, lo_arg **,
+                                   int, lo_message, void *);
 static int handler_device_name_probe(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
-static int handler_device_port_registered(const char *, const char *, lo_arg **,
-                                          int, lo_message, void *);
+static int handler_device_id_registered(const char *, const char *, lo_arg **,
+                                        int, lo_message, void *);
 static int handler_device_name_registered(const char *, const char *, lo_arg **,
                                           int, lo_message, void *);
 static int handler_device_link(const char *, const char *, lo_arg **, int,
@@ -71,6 +71,10 @@ static int handler_device_linkTo(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_linked(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
+static int handler_device_link_add_scope(const char *, const char *, lo_arg **,
+                                         int, lo_message, void *);
+static int handler_device_link_remove_scope(const char *, const char *, lo_arg **,
+                                            int, lo_message, void *);
 static int handler_device_unlink(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_unlinked(const char *, const char *, lo_arg **,
@@ -108,7 +112,9 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
     {"/linkTo",                 NULL,       handler_device_linkTo},
-    {"/unlink",                 "ss",       handler_device_unlink},
+    {"/link/addScope",          NULL,       handler_device_link_add_scope},
+    {"/link/removeScope",       NULL,       handler_device_link_remove_scope},
+    {"/unlink",                 NULL,       handler_device_unlink},
     {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connectTo",              NULL,       handler_signal_connectTo},
@@ -123,7 +129,7 @@ static struct handler_method_assoc monitor_handlers[] = {
     {"/device",                 NULL,       handler_device},
     {"/logout",                 NULL,       handler_logout},
     {"/signal",                 NULL,       handler_signal_info},
-    {"/linked",                 "ss",       handler_device_linked},
+    {"/linked",                 NULL,       handler_device_linked},
     {"/unlinked",               "ss",       handler_device_unlinked},
     {"/connected",              NULL,       handler_signal_connected},
     {"/disconnected",           "ss",       handler_signal_disconnected},
@@ -406,7 +412,7 @@ void mapper_admin_free(mapper_admin admin)
 
 /*! Add an uninitialized device to this admin. */
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int initial_port)
+                             const char *identifier)
 {
     int i;
     /* Initialize data structures */
@@ -414,38 +420,40 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
     {
         admin->identifier = strdup(identifier);
         admin->name = 0;
+        admin->id.value = 0;
+        admin->id.locked = 0;
         admin->ordinal.value = 1;
         admin->ordinal.locked = 0;
-        admin->port.value = initial_port;
+        admin->port.value = 9000;
         admin->port.locked = 0;
         admin->registered = 0;
         admin->device = dev;
         for (i=0; i<8; i++) {
             admin->ordinal.suggestion[i] = 0;
-            admin->port.suggestion[i] = 0;
+            admin->id.suggestion[i] = 0;
         }
         admin->device->flags = 0;
 
         /* Seed the random number generator. */
         seed_srand();
-        
+
         /* Choose a random ID for allocation speedup */
         admin->random_id = rand();
 
         /* Add methods for admin bus.  Only add methods needed for
          * allocation here. Further methods are added when the device is
          * registered. */
-        lo_server_add_method(admin->admin_server, "/port/probe", NULL,
-                             handler_device_port_probe, admin);
+        lo_server_add_method(admin->admin_server, "/id/probe", NULL,
+                             handler_device_id_probe, admin);
         lo_server_add_method(admin->admin_server, "/name/probe", NULL,
                              handler_device_name_probe, admin);
-        lo_server_add_method(admin->admin_server, "/port/registered", NULL,
-                             handler_device_port_registered, admin);
+        lo_server_add_method(admin->admin_server, "/id/registered", NULL,
+                             handler_device_id_registered, admin);
         lo_server_add_method(admin->admin_server, "/name/registered", NULL,
                              handler_device_name_registered, admin);
 
         /* Probe potential port and name to admin bus. */
-        mapper_admin_port_probe(admin);
+        mapper_admin_id_probe(admin);
         mapper_admin_name_probe(admin);
     }
 }
@@ -478,18 +486,18 @@ int mapper_admin_poll(mapper_admin admin)
     if (!admin->device)
         return count;
 
-    /* If the port is not yet locked, process collision timing.  Once
-     * the port is locked it won't change. */
-    if (!admin->port.locked) {
-        status = check_collisions(admin, &admin->port);
+    /* If the ID is not yet locked, process collision timing.  Once
+     * the ID is locked it won't change. */
+    if (!admin->id.locked) {
+        status = check_collisions(admin, &admin->id);
         if (status == 1) {
-            /* If the port has changed, re-probe the new potential port. */
-            mapper_admin_port_probe(admin);
+            /* If the ID has changed, re-probe the new potential ID. */
+            mapper_admin_id_probe(admin);
         }
         else if (status == 2) {
             /* If the allocation routine has succeeded, send registered msg. */
-            lo_send(admin->admin_addr, "/port/registered",
-                    "i", admin->port.value);
+            lo_send(admin->admin_addr, "/id/registered",
+                    "i", admin->id.value);
         }
     }
 
@@ -509,7 +517,7 @@ int mapper_admin_poll(mapper_admin admin)
             for (i = 0; i < admin->device->n_outputs; i++) {
                 admin->device->outputs[i]->props.device_name = mapper_admin_name(admin);
             }
-            
+
             /* ... and send registered msg. */
             lo_send(admin->admin_addr, "/name/registered",
                     "s", mapper_admin_name(admin));
@@ -519,7 +527,7 @@ int mapper_admin_poll(mapper_admin admin)
     /* If we are ready to register the device, add the needed message
      * handlers. */
     if (!admin->registered
-        && admin->port.locked && admin->ordinal.locked)
+        && admin->id.locked && admin->port.locked && admin->ordinal.locked)
     {
         mapper_admin_add_device_methods(admin);
 
@@ -532,6 +540,7 @@ int mapper_admin_poll(mapper_admin admin)
         admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
+              AT_ID, admin->id.value,
               AT_PORT, admin->port.value,
               AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -541,19 +550,19 @@ int mapper_admin_poll(mapper_admin admin)
     return count;
 }
 
-/*! Probe the admin bus to see if a device's proposed port is already
+/*! Probe the admin bus to see if a device's proposed ID is already
  *  taken.
  */
-void mapper_admin_port_probe(mapper_admin admin)
+void mapper_admin_id_probe(mapper_admin admin)
 {
-    trace("</%s.?::%p> probing port\n", admin->identifier, admin);
-    
-    admin->port.collision_count = -1;
-    admin->port.count_time = get_current_time();
+    trace("</%s.?::%p> probing ID\n", admin->identifier, admin);
+
+    admin->id.collision_count = -1;
+    admin->id.count_time = get_current_time();
 
     /* We don't use mapper_admin_send_osc() here because the name is
      * not yet established and it would trigger a warning. */
-    lo_send(admin->admin_addr, "/port/probe", "ii", admin->port.value, admin->random_id);
+    lo_send(admin->admin_addr, "/id/probe", "ii", admin->id.value, admin->random_id);
 }
 
 /*! Probe the admin bus to see if a device's proposed name.ordinal is
@@ -563,7 +572,7 @@ void mapper_admin_name_probe(mapper_admin admin)
 {
     admin->ordinal.collision_count = -1;
     admin->ordinal.count_time = get_current_time();
-    
+
     /* Note: mapper_admin_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
@@ -624,14 +633,14 @@ static int check_collisions(mapper_admin admin,
             resource->on_lock(admin->device, resource);
         return 2;
     }
-    
+
     else if (timediff >= 0.5 && resource->collision_count > 0) {
-        /* If port collisions were found within 500 milliseconds of the
+        /* If resource collisions were found within 500 milliseconds of the
          * last probe, add a random number based on the number of
          * collisions. */
         resource->value += rand() % (resource->collision_count + 1);
 
-        /* Prepare for causing new port collisions. */
+        /* Prepare for causing new resource collisions. */
         resource->collision_count = -1;
         resource->count_time = get_current_time();
 
@@ -722,37 +731,62 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     lo_message_free(m);
 }
 
+static void mapper_admin_send_linked(mapper_admin admin,
+                                     mapper_router router)
+{
+    // Send /linked message
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+    }
+
+    lo_message_add_string(m, mdev_name(router->device));
+    lo_message_add_string(m, router->props.dest_name);
+
+    // Add link scopes
+    int i;
+    lo_message_add_string(m, "@scope");
+    for (i=0; i<router->props.num_scopes; i++) {
+        lo_message_add_int32(m, router->props.scopes[i]);
+    }
+
+    mapper_link_prepare_osc_message(m, router);
+
+    lo_send_message(admin->admin_addr, "/linked", m);
+    lo_message_free(m);
+}
+
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
-                                        mapper_connection m,
+                                        mapper_connection c,
                                         int index)
 {
     // Send /connected message
-    lo_message mess = lo_message_new();
-    if (!mess) {
+    lo_message m = lo_message_new();
+    if (!m) {
         trace("couldn't allocate lo_message\n");
     }
 
     char src_name[1024], dest_name[1024];
 
     snprintf(src_name, 1024, "%s%s",
-             mdev_name(router->device), m->props.src_name);
+             mdev_name(router->device), c->props.src_name);
 
     snprintf(dest_name, 1024, "%s%s",
-             router->remote_name, m->props.dest_name);
+             router->props.dest_name, c->props.dest_name);
 
-    lo_message_add_string(mess, src_name);
-    lo_message_add_string(mess, dest_name);
+    lo_message_add_string(m, src_name);
+    lo_message_add_string(m, dest_name);
 
     if (index != -1) {
-        lo_message_add_string(mess, "@ID");
-        lo_message_add_int32(mess, index);
+        lo_message_add_string(m, "@ID");
+        lo_message_add_int32(m, index);
     }
 
-    mapper_connection_prepare_osc_message(mess, m);
+    mapper_connection_prepare_osc_message(m, c);
 
-    lo_send_message(admin->admin_addr, "/connected", mess);
-    lo_message_free(mess);
+    lo_send_message(admin->admin_addr, "/connected", m);
+    lo_message_free(m);
 }
 
 /**********************************/
@@ -770,6 +804,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
+        AT_ID, admin->id.value,
         AT_PORT, admin->port.value,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -839,11 +874,11 @@ static int handler_logout(const char *path, const char *types,
     char *name = &argv[0]->s;
 
     trace("got /logout %s\n", name);
-    
+
     if (mon) {
         mapper_db_remove_device(db, name);
     }
-    
+
     // If device exists and is registered
     if (admin->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
@@ -854,12 +889,12 @@ static int handler_logout(const char *path, const char *types,
         while (*s != '.' && *s++) {
         }
         ordinal = atoi(++s);
-        
+
         // If device name matches
         strtok(name, ".");
         name++;
         if (strcmp(name, admin->identifier) == 0) {
-        
+
             // if registered ordinal is within my block, free it
             diff = ordinal - admin->ordinal.value;
             if (diff > 0 && diff < 9) {
@@ -983,7 +1018,7 @@ static int handler_id_n_signals_output_get(const char *path,
             AT_DIRECTION, "output",
             AT_TYPE, sig->props.type,
             AT_LENGTH, sig->props.length,
-            sig->props.unit ? AT_UNITS : -1, sig,  
+            sig->props.unit ? AT_UNITS : -1, sig,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
             sig->props.instances > 1 ? AT_INSTANCES : -1, sig->props.instances,
@@ -1018,87 +1053,87 @@ static int handler_signal_info(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
-    
+
     if (argc < 2)
         return 1;
-    
+
     if (types[0] != 's' && types[0] != 'S')
         return 1;
-    
+
     const char *full_sig_name = &argv[0]->s;
     const char *sig_name = strchr(full_sig_name+1, '/');
     if (!sig_name)
         return 1;
-    
+
     int devnamelen = sig_name-full_sig_name;
     if (devnamelen >= 1024)
         return 0;
-    
+
     char devname[1024];
     strncpy(devname, full_sig_name, devnamelen);
     devname[devnamelen]=0;
-        
+
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    mapper_db_add_or_update_signal_params( db, sig_name, 
+    mapper_db_add_or_update_signal_params( db, sig_name,
                                           devname,
                                           &params );
-    
+
 	return 0;
 }
 
-/*! Repond to port collisions during allocation, help suggest ports once allocated. */
-static int handler_device_port_registered(const char *path, const char *types,
-                                          lo_arg **argv, int argc,
-                                          lo_message msg, void *user_data)
+/*! Repond to ID collisions during allocation, help suggest IDs once allocated. */
+static int handler_device_id_registered(const char *path, const char *types,
+                                        lo_arg **argv, int argc,
+                                        lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    unsigned int registered_port = 0;
-    int ID = -1, suggestion = -1, diff;
-    
+    unsigned int registered_id = 0;
+    int temp_id = -1, suggestion = -1, diff;
+
     if (argc < 1)
         return 0;
-    
+
     if (types[0] == 'i')
-        registered_port = argv[0]->i;
+        registered_id = argv[0]->i;
     else if (types[0] == 'f')
-        registered_port = (unsigned int) argv[0]->f;
+        registered_id = (unsigned int) argv[0]->f;
     else
         return 0;
-    
+
     if (argc > 1) {
         if (types[1] == 'i')
-            ID = argv[1]->i;
+            temp_id = argv[1]->i;
         else if (types[1] == 'f')
-            ID = (int) argv[1]->f;
+            temp_id = (int) argv[1]->f;
         if (types[2] == 'i')
             suggestion = argv[2]->i;
         else if (types[2] == 'f')
             suggestion = (int) argv[2]->f;
     }
-    
-    trace("</%s.?::%p> got /port/registered %d %i \n",
-          admin->identifier, admin, registered_port, ID);
-    
-    // if port is locked and registered port is within my block, store it
-    if (admin->port.locked) {
-        diff = registered_port - admin->port.value;
+
+    trace("</%s.?::%p> got /id/registered %d %i \n",
+          admin->identifier, admin, registered_id, temp_id);
+
+    // if id is locked and registered id is within my block, store it
+    if (admin->id.locked) {
+        diff = registered_id - admin->id.value;
         if (diff > 0 && diff < 9) {
-            admin->port.suggestion[diff-1] = -1;
+            admin->id.suggestion[diff-1] = -1;
         }
     }
     else {
-        if (registered_port == admin->port.value) {
-            if (ID == admin->random_id && suggestion > 0) {
-                admin->port.value = suggestion;
-                mapper_admin_port_probe(admin);
+        if (registered_id == admin->id.value) {
+            if (temp_id == admin->random_id && suggestion > 0) {
+                admin->id.value = suggestion;
+                mapper_admin_id_probe(admin);
             }
             else {
-                /* Count port collisions. */
-                admin->port.collision_count++;
-                admin->port.count_time = get_current_time();
+                /* Count ID collisions. */
+                admin->id.collision_count++;
+                admin->id.count_time = get_current_time();
             }
         }
     }
@@ -1114,15 +1149,15 @@ static int handler_device_name_registered(const char *path, const char *types,
     char *registered_name = 0, *suggested_name = 0, *s;
     unsigned int registered_ordinal = 0;
     int ID = -1, diff;
-    
+
     if (argc < 1)
         return 0;
-    
+
     if (types[0] != 's' && types[0] != 'S')
         return 0;
-    
+
     registered_name = &argv[0]->s;
-    
+
     if (argc > 1) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1131,7 +1166,7 @@ static int handler_device_name_registered(const char *path, const char *types,
         if (types[2] == 's' || types[2] == 'S')
             suggested_name = &argv[2]->s;
     }
-    
+
     /* Parse the ordinal from the complete name which is in the
      * format: /<name>.<n> */
     s = registered_name;
@@ -1142,10 +1177,10 @@ static int handler_device_name_registered(const char *path, const char *types,
         return 0;
     registered_ordinal = atoi(s+1);
     *s = 0;
-    
+
     trace("</%s.?::%p> got /name/registered %s %i \n",
           admin->identifier, admin, registered_name, ID);
-    
+
     // If device name matches
     registered_name++;
     if (strcmp(registered_name, admin->identifier) == 0) {
@@ -1167,7 +1202,7 @@ static int handler_device_name_registered(const char *path, const char *types,
                         return 0;
                     }
                 }
-                /* Count port collisions. */
+                /* Count name collisions. */
                 admin->ordinal.collision_count++;
                 admin->ordinal.count_time = get_current_time();
             }
@@ -1176,56 +1211,56 @@ static int handler_device_name_registered(const char *path, const char *types,
     return 0;
 }
 
-/*! Repond to port probes during allocation, help suggest ports once allocated. */
-static int handler_device_port_probe(const char *path, const char *types,
-                                     lo_arg **argv, int argc,
-                                     lo_message msg, void *user_data)
+/*! Repond to ID probes during allocation, help suggest IDs once allocated. */
+static int handler_device_id_probe(const char *path, const char *types,
+                                   lo_arg **argv, int argc,
+                                   lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     double current_time;
-    unsigned int probed_port = 0;
-    int ID = -1, i;
+    unsigned int probed_id = 0;
+    int temp_id = -1, i;
 
     if (argc < 1)
         return 0;
 
     if (types[0] == 'i')
-        probed_port = argv[0]->i;
+        probed_id = argv[0]->i;
     else if (types[0] == 'f')
-        probed_port = (unsigned int) argv[0]->f;
+        probed_id = (unsigned int) argv[0]->f;
     else
         return 0;
-    
+
     if (argc > 0) {
         if (types[1] == 'i')
-            ID = argv[1]->i;
+            temp_id = argv[1]->i;
         else if (types[1] == 'f')
-            ID = (int) argv[1]->f;
+            temp_id = (int) argv[1]->f;
     }
 
-    trace("</%s.?::%p> got /port/probe %d %i \n",
-          admin->identifier, admin, probed_port, ID);
-    
-    if (probed_port == admin->port.value) {
-        if (admin->port.locked) {
+    trace("</%s.?::%p> got /id/probe %d %i \n",
+          admin->identifier, admin, probed_id, temp_id);
+
+    if (probed_id == admin->id.value) {
+        if (admin->id.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (admin->port.suggestion[i] >= 0 
-                    && (current_time - admin->port.suggestion[i]) > 2.0) {
-                    // reserve suggested port
-                    admin->port.suggestion[i] = get_current_time();
+                if (admin->id.suggestion[i] >= 0
+                    && (current_time - admin->id.suggestion[i]) > 2.0) {
+                    // reserve suggested ID
+                    admin->id.suggestion[i] = get_current_time();
                     break;
                 }
             }
             /* Name may not yet be registered, so we can't use
              * mapper_admin_send_osc() here. */
-            lo_send(admin->admin_addr, "/port/registered",
-                    "iii", admin->port.value, ID, 
-                    (admin->port.value+i+1));
+            lo_send(admin->admin_addr, "/id/registered",
+                    "iii", admin->id.value, temp_id,
+                    (admin->id.value+i+1));
         }
         else {
-            admin->port.collision_count++;
-            admin->port.count_time = get_current_time();
+            admin->id.collision_count++;
+            admin->id.count_time = get_current_time();
         }
     }
     return 0;
@@ -1249,7 +1284,7 @@ static int handler_device_name_probe(const char *path, const char *types,
         return 0;
 
     probed_name = &argv[0]->s;
-    
+
     if (argc > 0) {
         if (types[1] == 'i')
             ID = argv[1]->i;
@@ -1279,7 +1314,7 @@ static int handler_device_name_probe(const char *path, const char *types,
         if (admin->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (admin->ordinal.suggestion[i] >= 0 
+                if (admin->ordinal.suggestion[i] >= 0
                     && (current_time - admin->ordinal.suggestion[i]) > 2.0) {
                     // reserve suggested ordinal
                     admin->ordinal.suggestion[i] = get_current_time();
@@ -1287,10 +1322,10 @@ static int handler_device_name_probe(const char *path, const char *types,
                 }
             }
             char suggested_name[256];
-            snprintf(suggested_name, 256, "/%s.%d", admin->identifier, 
+            snprintf(suggested_name, 256, "/%s.%d", admin->identifier,
                      (admin->ordinal.value+i+1));
             lo_send(admin->admin_addr, "/name/registered",
-                    "sis", mapper_admin_name(admin), ID, 
+                    "sis", mapper_admin_name(admin), ID,
                     suggested_name);
         }
         else {
@@ -1308,10 +1343,12 @@ static int handler_device_link(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     const char *src_name, *dest_name;
+    int scoped_links = 0;
 
     if (argc < 2)
         return 0;
 
+    // Need at least 2 devices to link
     if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
         && types[1] != 'S')
         return 0;
@@ -1319,31 +1356,63 @@ static int handler_device_link(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
+    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
+        const char *ptr = &argv[2]->s;
+        if (ptr[0] != '@') {
+            // more than 2 devices involved
+            if (strcmp(mapper_admin_name(admin), src_name) != 0)
+                return 0;
+            scoped_links = 1;
+        }
+    }
+    if (!scoped_links && strcmp(mapper_admin_name(admin), dest_name) != 0)
+        return 0;
+
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    /* If the device who received the message is the destination in the
-     * /link message... */
-    if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
-        mapper_message_t params;
-        memset(&params, 0, sizeof(mapper_message_t));
-        // add arguments from /link if any
-        if (mapper_msg_parse_params(&params, path, &types[2],
-                                    argc-2, &argv[2]))
-        {
-            trace("<%s> error parsing message parameters in /link.\n",
-                  mapper_admin_name(admin));
-            return 0;
-        }
-        lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+    // add arguments from /link if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /link.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
+    lo_arg *arg_port = (lo_arg*) &admin->port.value;
+    lo_arg *arg_id = (lo_arg*) &admin->id.value;
+
+    if (scoped_links) {
+        params.values[AT_SCOPE] = &arg_id;
+        params.types[AT_SCOPE] = "i";
+    }
+    else {
         params.values[AT_PORT] = &arg_port;
         params.types[AT_PORT] = "i";
-        params.values[AT_ID] = &arg_port;
+        params.values[AT_ID] = &arg_id;
         params.types[AT_ID] = "i";
+    }
 
+    if (scoped_links) {
+        int i;
+        for (i=1; i<argc; i++) {
+            if (types[i] != 's' && types[i] != 'S')
+                return 0;
+            dest_name = &argv[i]->s;
+            if (dest_name[0] == '@')
+                return 0;
+            src_name = &argv[i-1]->s;
+            mapper_admin_send_osc_with_params(
+                admin, &params, 0, "/link", "ss", src_name, dest_name);
+        }
+    }
+    else {
         mapper_admin_send_osc_with_params(
             admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
     }
+
     return 0;
 }
 
@@ -1356,7 +1425,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_device md = admin->device;
 
     const char *src_name, *dest_name, *host=0;
-    int port, id;
+    int port, scope;
     mapper_message_t params;
 
     if (argc < 2)
@@ -1379,18 +1448,26 @@ static int handler_device_linkTo(const char *path, const char *types,
     trace("<%s> got /linkTo %s %s\n", mapper_admin_name(admin),
           src_name, dest_name);
 
-    // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
-
-    if (router)
-        // Already linked, nothing to do.
-        return 0;
-
     // Parse the message.
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
         return 0;
+
+    // retreive scope if specified
+    if (mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
+        scope = mdev_id(md);
+    }
+
+    // Discover whether the device is already linked.
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, dest_name);
+
+    if (router) {
+        // Already linked, add scope.
+        if (!mapper_router_add_scope(router, scope))
+            mapper_admin_send_linked(admin, router);
+        return 0;
+    }
 
     // Check the results.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
@@ -1406,22 +1483,18 @@ static int handler_device_linkTo(const char *path, const char *types,
         host = lo_address_get_hostname(a);
     }
 
-    if (mapper_msg_get_param_if_int(&params, AT_ID, &id)) {
-        trace("can't perform /linkTo, ID unknown\n");
-        return 0;
-    }
-
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name, id);
+    router = mapper_router_new(md, host, port, dest_name, scope);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
     }
     mdev_add_router(md, router);
+    if (argc > 4)
+        mapper_router_set_from_message(router, &params);
 
     // Announce the result.
-    mapper_admin_send_osc(admin, "/linked", "ss",
-                          mapper_admin_name(admin), dest_name);
+    mapper_admin_send_linked(admin, router);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
           mapper_admin_name(admin), dest_name, host, port);
@@ -1477,13 +1550,83 @@ static int handler_device_links_get(const char *path, const char *types,
 
     /*Search through linked devices */
     while (router != NULL) {
-        mapper_admin_send_osc(admin, "/linked", "ss", mapper_admin_name(admin),
-                              router->remote_name);
+        mapper_admin_send_linked(admin, router);
         router = router->next;
     }
 
     md->flags |= FLAGS_LINKS_GET;
 
+    return 0;
+}
+
+/*! Modify the scope of a link. */
+static int handler_device_link_add_scope(const char *path, const char *types,
+                                         lo_arg **argv, int argc, lo_message msg,
+                                         void *user_data)
+{
+    printf("handler_device_link_add_scope\n");
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+
+    const char *src_name;
+
+    if (argc < 3)
+        return 0;
+
+    if ((types[0] != 's' && types[0] != 'S')
+        || (types[1] != 's' && types[1] != 'S')
+        || (types[2] != 'i'))
+        return 0;
+
+    src_name = &argv[0]->s;
+    if (strcmp(src_name, mapper_admin_name(admin)))
+        return 0;
+
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
+    if (!router)
+    {
+        trace("<%s> no router found for '%s' in /link/modify\n",
+              mapper_admin_name(admin), &argv[1]->s);
+    }
+
+    mapper_router_add_scope(router, argv[2]->i32);
+    mapper_admin_send_linked(admin, router);
+    return 0;
+}
+
+/*! Modify the scope of a link. */
+static int handler_device_link_remove_scope(const char *path, const char *types,
+                                            lo_arg **argv, int argc, lo_message msg,
+                                            void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+
+    const char *src_name;
+
+    if (argc < 3)
+        return 0;
+
+    if ((types[0] != 's' && types[0] != 'S')
+        || (types[1] != 's' && types[1] != 'S')
+        || (types[2] != 'i'))
+        return 0;
+
+    src_name = &argv[0]->s;
+    if (strcmp(src_name, mapper_admin_name(admin)))
+        return 0;
+
+    mapper_router router =
+    mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
+    if (!router)
+    {
+        trace("<%s> no router found for '%s' in /link/modify\n",
+              mapper_admin_name(admin), &argv[1]->s);
+    }
+
+    mapper_router_remove_scope(router, argv[2]->i32);
+    mapper_admin_send_linked(admin, router);
     return 0;
 }
 
@@ -1495,6 +1638,7 @@ static int handler_device_unlink(const char *path, const char *types,
     const char *src_name, *dest_name;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    int multi_link = 0, scope;
 
     if (argc < 2)
         return 0;
@@ -1506,23 +1650,72 @@ static int handler_device_unlink(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    trace("<%s> got /unlink %s %s\n", mapper_admin_name(admin),
-          src_name, dest_name);
-
-    if (strcmp(mapper_admin_name(admin), src_name))
+    if (strcmp(mapper_admin_name(admin), src_name) != 0)
         return 0;
 
-    /* If so, remove the router for the destination. */
+    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
+        const char *ptr = &argv[2]->s;
+        if (ptr[0] != '@') {
+            // more than 2 devices involved
+            multi_link = 1;
+        }
+    }
+
+    trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
+          src_name, dest_name, argc-2);
+
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+    // add arguments from /link if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /link.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
+
+    /* Remove the router for the destination. */
     mapper_router router =
         mapper_router_find_by_remote_name(md->routers, dest_name);
     if (router) {
-        mdev_remove_router(md, router);
-        mapper_admin_send_osc(admin, "/unlinked", "ss",
-                              mapper_admin_name(admin), dest_name);
+        if (!mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
+            mapper_router_remove_scope(router, scope);
+            if (router->props.num_scopes <= 0) {
+                mdev_remove_router(md, router);
+                mapper_admin_send_osc(admin, "/unlinked", "ss",
+                                      mapper_admin_name(admin), dest_name);
+            }
+            else
+                mapper_admin_send_linked(admin, router);
+        }
+        else {
+            mdev_remove_router(md, router);
+            mapper_admin_send_osc(admin, "/unlinked", "ss",
+                                  mapper_admin_name(admin), dest_name);
+        }
     }
     else {
         trace("<%s> no router for %s found in /unlink handler\n",
               mapper_admin_name(admin), dest_name);
+    }
+
+    if (multi_link) {
+        lo_arg *arg_scope = (lo_arg*) &admin->id.value;
+        params.values[AT_SCOPE] = &arg_scope;
+        params.types[AT_SCOPE] = "i";
+
+        int i;
+        for (i=2; i<argc; i++) {
+            if (types[i] != 's' && types[i] != 'S')
+                return 0;
+            dest_name = &argv[i]->s;
+            if (dest_name[0] == '@')
+                return 0;
+            src_name = &argv[i-1]->s;
+            mapper_admin_send_osc_with_params(
+                admin, &params, 0, "/unlink", "ss", src_name, dest_name);
+        }
     }
 
     return 0;
@@ -2007,7 +2200,7 @@ static int handler_device_connections_get(const char *path,
     }
 
     while (router) {
-        mapper_signal_connection sc = router->outgoing;
+        mapper_signal_connection sc = router->connections;
         while (sc) {
 			mapper_connection c = sc->connection;
             while (c) {

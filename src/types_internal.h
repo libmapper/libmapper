@@ -95,8 +95,10 @@ typedef struct _mapper_admin {
                                        *   device, or zero. */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
+    mapper_admin_allocated_t id;      /*!< The unique id for this
                                        *   device. */
+    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
+                                       *   device instance. */
     mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
@@ -153,14 +155,12 @@ typedef struct _mapper_signal_connection {
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    struct _mapper_device *device;      /*!< The device associated with
-                                         *   this router */
-    const char *remote_name;            /*!< Name of the remote device. */
-    int id;                             //!< Unique id of the remote address. */
-    lo_address remote_addr;             /*!< Address of the remote device. */
-    struct _mapper_router *next;        //!< Next router in the list.
-    mapper_signal_connection outgoing;  /*!< The list of outgoing connections
-                                         *   for each signal. */
+    mapper_db_link_t props;                 //!< Properties.
+    struct _mapper_device *device;        /*!< The device associated with
+                                           *   this router */
+    struct _mapper_router *next;          //!< Next router in the list.
+    mapper_signal_connection connections; /*!< The list of connections
+                                            *  for each signal. */
 } *mapper_router;
 
 /**** Device ****/
@@ -282,6 +282,7 @@ typedef enum {
     AT_DESTTYPE,
     AT_SRCLENGTH,
     AT_DESTLENGTH,
+    AT_SCOPE,
     AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;

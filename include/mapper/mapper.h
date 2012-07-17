@@ -261,15 +261,11 @@ int msig_num_reserved_instances(mapper_signal sig);
 
 /*! Allocate and initialize a mapper device.
  * \param name_prefix   A short descriptive string to identify the device.
- * \param initial_port  An initial port to use to receive data, or 0.
- *                      Subsequently, a unique port will be selected.
-
  * \param admin         A previously allocated admin to use.  If 0, an
  *                      admin will be allocated for use with this device.
  * \return              A newly allocated mapper device.  Should be free
  *                      using mdev_free(). */
-mapper_device mdev_new(const char *name_prefix, int initial_port,
-                       mapper_admin admin);
+mapper_device mdev_new(const char *name_prefix, mapper_admin admin);
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device dev);
@@ -426,6 +422,12 @@ int mdev_ready(mapper_device dev);
  *  \return String containing the device's full name, or zero if it is
  *  not available. */
 const char *mdev_name(mapper_device dev);
+
+/*! Return the unique ID allocated to this device by the mapper network.
+ *  \param dev The device to query.
+ *  \return An integer indicating the device's ID, or zero if it is
+ *  not available. */
+unsigned int mdev_id(mapper_device dev);
 
 /*! Return the port used by a device to receive signals, if available.
  *  \param dev The device to query.
@@ -1145,10 +1147,18 @@ void mapper_monitor_autorequest(mapper_monitor mon, int enable);
 /*! Interface to add a link between two devices.
  *  \param mon The monitor to use for sending the message.
  *  \param source_device_path Source device name.
- *  \param dest_device_path   Destination device name. */
+ *  \param dest_device_path   Destination device name.
+ *  \param properties An optional data structure specifying the
+ *                    requested properties of this link.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_link_t should be
+ *                        applied to the new link. See the flags
+ *                        prefixed by LINK_ in mapper_db.h.*/
 void mapper_monitor_link(mapper_monitor mon,
                          const char* source_device, 
-                         const char* dest_device);
+                         const char* dest_device,
+                         mapper_db_link_t *props,
+                         unsigned int props_flags);
 
 /*! Interface to remove a link between two devices.
  *  \param mon The monitor to use for sending the message.
