@@ -53,8 +53,8 @@ int test_recv()
     }
 	
 	char port[10];
-	sprintf(port, "%i", md->admin->port.value);
-	printf("allocated port = %s\n", port);
+	sprintf(port, "%i", md->admin->port);
+	printf("using port = %s\n", port);
 	
 	lo_address a = lo_address_new("localhost", port);
     if (!a) {

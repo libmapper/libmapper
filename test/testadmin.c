@@ -36,13 +36,13 @@ int test_admin()
     printf("Found interface %s has IP %s\n", my_admin->interface_name,
            inet_ntoa(my_admin->interface_ip));
 
-    while (!my_admin->port.locked || !my_admin->ordinal.locked) {
+    while (!my_admin->registered) {
         usleep(10000);
         mapper_admin_poll(my_admin);
     }
 
-    printf("Allocated port %d.\n", my_admin->port.value);
-    printf("Allocated ordinal %d.\n", my_admin->ordinal.value);
+    printf("Using port %d.\n", my_admin->port);
+    printf("Allocated ordinal %d.\n", my_admin->ordinal);
 
     printf("Delaying for 5 seconds..\n");
     wait = 500;

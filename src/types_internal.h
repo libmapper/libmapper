@@ -77,7 +77,8 @@ typedef struct _mapper_admin_allocated_t {
                                    * collision count was updated. */
     int locked;                   /*!< Whether or not the value has
                                    *   been locked in (allocated). */
-    double suggestion[8];         /*!< Availability of a range 
+    int neighbors[8];             /*!< Neighboring range of resource values. */
+    double suggested[8];         /*!< Availability of a range 
                                        of resource values. */
 
     //!< Function to call when resource becomes locked.
@@ -95,11 +96,10 @@ typedef struct _mapper_admin {
                                        *   device, or zero. */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    mapper_admin_allocated_t id;      /*!< The unique id for this
-                                       *   device. */
-    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
+    mapper_admin_allocated_t id;      /*!< CRC-32 hash of full device name. */
+    int ordinal;                      /*!< A unique ordinal for this
                                        *   device instance. */
-    mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
+    int port;                         /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin

@@ -416,7 +416,6 @@ void msig_release_instance(mapper_signal sig, int instance_id)
 
 void msig_release_instance_internal(mapper_signal_instance si)
 {
-    post("<%s> msig_release_instance_internal : %i", mdev_name(si->signal->device), si->id_map->local);
     if (!si)
         return;
     if (!si->is_active)
@@ -560,7 +559,6 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
         }
         return si;
     }
-    post("no existing map");
 
     id_map = mdev_find_instance_id_map_by_remote(sig->device, group_id, remote_id);
 

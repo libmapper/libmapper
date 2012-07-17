@@ -102,9 +102,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_id_probe(mapper_admin admin);
-
-void mapper_admin_name_probe(mapper_admin admin);
+void mapper_admin_probe(mapper_admin admin);
 
 /* A macro allow tracing bad usage of this function. */
 #define mapper_admin_name(admin)                        \

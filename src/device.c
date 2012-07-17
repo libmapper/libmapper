@@ -53,8 +53,6 @@ mapper_device mdev_new(const char *name_prefix,
 
     mapper_admin_add_device(md->admin, md, name_prefix);
 
-    md->admin->id.on_lock = mdev_on_id_and_ordinal;
-    md->admin->ordinal.on_lock = mdev_on_id_and_ordinal;
     md->routers = 0;
     md->instance_id_map = 0;
     md->extra = table_new();
@@ -184,7 +182,6 @@ static int handler_signal_instance(const char *path, const char *types,
               (long)group_id, (long)instance_id);
         return 0;
     }
-    post("<%s> received instance %i:%i -> %i", mdev_name(md), group_id, instance_id, si->id_map->local);
 
     if (types[2] == LO_TRUE) {
         if (sig->instance_management_handler)
@@ -739,7 +736,6 @@ void mdev_remove_instance_id_map(mapper_device device, int local_id)
 mapper_instance_id_map mdev_set_instance_id_map(mapper_device device, int local_id,
                                                 int group_id, int remote_id)
 {
-    post("<%s> mdev_set_instance_id_map %i:%i -> %i", mdev_name(device), group_id, remote_id, local_id);
     mapper_instance_id_map id_map = device->instance_id_map;
     while (id_map) {
         if (id_map->local == local_id) {
@@ -779,23 +775,6 @@ mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
     return 0;
 }
 
-/*! Called when once when the ID is allocated and again when the
- *  ordinal is allocated, or vice-versa.  Must start server when both
- *  have been allocated. (No point starting it earlier since we won't
- *  be able to register any handlers. */
-void mdev_on_id_and_ordinal(mapper_device md,
-                              mapper_admin_allocated_t *resource)
-{
-    if (!(md->admin->ordinal.locked && md->admin->id.locked))
-        return;
-
-    trace
-        ("device '%s.%d' acknowledged ID and ordinal allocation for %d\n",
-         md->name_prefix, md->admin->ordinal.value, md->admin->id.value);
-
-    mdev_start_server(md);
-}
-
 /* Note: any call to liblo where get_liblo_error will be called
  * afterwards must lock this mutex, otherwise there is a race
  * condition on receiving this information.  Could be fixed by the
@@ -817,11 +796,10 @@ void mdev_start_server(mapper_device md)
         int i;
         char port[16], *type = 0, *path = 0;
 
-        sprintf(port, "%d", md->admin->port.value);
+        sprintf(port, "%d", md->admin->port);
 
         if ((md->server = lo_server_new(0, liblo_error_handler))) {
-            md->admin->port.value = lo_server_get_port(md->server);
-            md->admin->port.locked = 1;
+            md->admin->port = lo_server_get_port(md->server);
         }
 
         for (i = 0; i < md->n_inputs; i++) {
@@ -885,7 +863,7 @@ const char *mdev_name(mapper_device md)
      * cached. However: manually checking ordinal.locked here so that
      * we can safely trace bad usage when mapper_admin_full_name is
      * called inappropriately. */
-    if (md->admin->ordinal.locked)
+    if (md->admin->registered)
         return mapper_admin_name(md->admin);
     else
         return 0;
@@ -893,7 +871,7 @@ const char *mdev_name(mapper_device md)
 
 unsigned int mdev_id(mapper_device md)
 {
-    if (md->admin->id.locked)
+    if (md->admin->registered)
         return md->admin->id.value;
     else
         return 0;
@@ -901,15 +879,15 @@ unsigned int mdev_id(mapper_device md)
 
 unsigned int mdev_port(mapper_device md)
 {
-    if (md->admin->port.locked)
-        return md->admin->port.value;
+    if (md->admin->registered)
+        return md->admin->port;
     else
         return 0;
 }
 
 const struct in_addr *mdev_ip4(mapper_device md)
 {
-    if (md->admin->port.locked)
+    if (md->admin->registered)
         return &md->admin->interface_ip;
     else
         return 0;
@@ -922,8 +900,8 @@ const char *mdev_interface(mapper_device md)
 
 unsigned int mdev_ordinal(mapper_device md)
 {
-    if (md->admin->ordinal.locked)
-        return md->admin->ordinal.value;
+    if (md->admin->registered)
+        return md->admin->ordinal;
     else
         return 0;
 }

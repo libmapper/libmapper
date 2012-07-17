@@ -71,7 +71,6 @@ void mapper_router_set_from_message(mapper_router router,
 void mapper_router_send_signal(mapper_connection_instance ci,
                                int send_as_instance)
 {
-    post("<%s> mapper_router_send_signal %i:%i -> %i", mdev_name(ci->parent->signal->device), ci->parent->id_map->group, ci->parent->id_map->remote, ci->parent->id_map->local);
     int i;
     lo_message m;
     if (!ci->connection->router->props.dest_addr)

@@ -95,10 +95,10 @@ void cleanup_destination()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->admin->port.value, 
+    router = mapper_router_new(source, host, destination->admin->port, 
                                mdev_name(destination), 0);
     mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, destination->admin->port.value);
+    printf("Router to %s:%d added.\n", host, destination->admin->port);
 
     char signame_in[1024];
     if (!msig_full_name(recvsig, signame_in, 1024)) {
