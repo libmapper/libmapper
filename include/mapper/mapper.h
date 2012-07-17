@@ -697,61 +697,61 @@ mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
 mapper_db_connection_t **mapper_db_get_connections_by_device_name(
     mapper_db db, const char *device_name);
 
-/*! Return the list of connections for a given input name.
- *  \param input_name Name of the input to find.
+/*! Return the list of connections for a given source signal name.
+ *  \param  src_name Name of the source signal.
  *  \return A double-pointer to the first item in the list of results
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_input_name(
-    mapper_db db, const char *input_name);
+mapper_db_connection_t **mapper_db_get_connections_by_src_signal_name(
+    mapper_db db, const char *source_signal);
 
-/*! Return the list of connections for a given device and input name.
- *  \param dev_name Exact name of the device to find, including the
- *                  leading '/'.
- *  \param input_name Exact name of the input to find, including the
- *                    leading '/'.
+/*! Return the list of connections for given source device and signal names.
+ *  \param src_device Exact name of the device to find, including the
+ *                       leading '/'.
+ *  \param src_signal Exact name of the signal to find,
+ *                       including the leading '/'.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_input_name(
-    mapper_db db, const char *device_name, const char *input_name);
+mapper_db_connection_t **mapper_db_get_connections_by_src_device_and_signal_names(
+    mapper_db db, const char *src_device, const char *src_signal);
 
-/*! Return the list of connections for a given output name.
- *  \param output_name Name of the output to find.
+/*! Return the list of connections for a given destination signal name.
+ *  \param dest_signal Name of the destination signal to find.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_output_name(
-    mapper_db db, const char *output_name);
+mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
+    mapper_db db, const char *dest_signal);
 
-/*! Return the list of connections for a given device and output name.
- *  \param dev_name Exact name of the device to find, including the
- *                  leading '/'.
- *  \param output_name Exact name of the output to find, including the
+/*! Return the list of connections for given destination device and signal names.
+ *  \param dest_device Exact name of the device to find, including the
+ *                     leading '/'.
+ *  \param dest_signal Exact name of the signal to find, including the
  *                     leading '/'.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_output_name(
-    mapper_db db, const char *device_name, const char *output_name);
+mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_names(
+    mapper_db db, const char *dest_device, const char *dest_signal);
 
 /*! Return the list of connections that touch any signals in the lists
- *  of inputs, outputs, and devices provided.
- *  \param input_devices Double-pointer to the first item in a list
- *                       returned from a previous database query.
- *  \param output_devices Double-pointer to the first item in a list
- *                        returned from a previous database query.
- *  \param inputs Double-pointer to the first item in a list
- *                returned from a previous database query.
- *  \param outputs Double-pointer to the first item in a list
- *                 returned from a previous database query.
+ *  of sources and destinations provided.
+ *  \param src_device Exact name of the device to find, including the
+ *                       leading '/'.
+ *  \param src_signal Exact name of the signal to find, including the
+ *                       leading '/'.
+ *  \param dest_device Exact name of the device to find, including the
+ *                     leading '/'.
+ *  \param dest_signal Exact name of the signal to find, including the
+ *                     leading '/'.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
     mapper_db db,
-    const char *input_device_name,  const char *input_name,
-    const char *output_device_name, const char *output_name);
+    const char *src_device,  const char *src_signal,
+    const char *dest_device, const char *dest_signal);
 
 /*! Return the connection that match the exact source and destination
  *  specified by their full names ("/<device>/<signal>").
@@ -773,17 +773,17 @@ mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
     const char *src_device_name, const char *dest_device_name);
 
 /*! Return the list of connections that touch any signals in the lists
- *  of inputs and outputs provided.
- *  \param inputs Double-pointer to the first item in a list
- *                returned from a previous database query.
- *  \param outputs Double-pointer to the first item in a list
- *                 returned from a previous database query.
+ *  of sources and destinations provided.
+ *  \param src Double-pointer to the first item in a list
+ *             returned from a previous database query.
+ *  \param dest Double-pointer to the first item in a list
+ *              returned from a previous database query.
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
 mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
     mapper_db db,
-    mapper_db_signal_t **inputs, mapper_db_signal_t **outputs);
+    mapper_db_signal_t **src, mapper_db_signal_t **dest);
 
 /*! Given a connection record pointer returned from a previous
  *  mapper_db_get_mappings*() call, get the next item in the list.

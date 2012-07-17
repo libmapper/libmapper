@@ -423,15 +423,15 @@ int main()
     printf("\nFind connections with source 'out1':\n");
 
     mapper_db_connection* pcon =
-        mapper_db_get_connections_by_input_name(db, "out1");
+        mapper_db_get_connections_by_src_signal_name(db, "out1");
 
     count=0;
     if (!pcon) {
-        printf("mapper_db_get_connections_by_input_name() returned 0.\n");
+        printf("mapper_db_get_connections_by_src_signal_name() returned 0.\n");
         return 1;
     }
     if (!*pcon) {
-        printf("mapper_db_get_connections_by_input_name() returned something "
+        printf("mapper_db_get_connections_by_src_signal_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
@@ -453,17 +453,17 @@ int main()
     printf("\nFind connections for device 'testdb.1', "
            "source 'out1':\n");
 
-    pcon = mapper_db_get_connections_by_device_and_input_name(db, "testdb.1",
-                                                              "/out1");
+    pcon = mapper_db_get_connections_by_src_device_and_signal_names(db, "testdb.1",
+                                                                    "/out1");
 
     count=0;
     if (!pcon) {
-        printf("mapper_db_get_connections_by_device_and_input_name() "
+        printf("mapper_db_get_connections_by_src_device_and_signal_names() "
                "returned 0.\n");
         return 1;
     }
     if (!*pcon) {
-        printf("mapper_db_get_connections_by_device_and_input_name() "
+        printf("mapper_db_get_connections_by_src_device_and_signal_names() "
                "returned something which pointed to 0.\n");
         return 1;
     }
@@ -484,15 +484,15 @@ int main()
 
     printf("\nFind connections with destination 'in2':\n");
 
-    pcon = mapper_db_get_connections_by_output_name(db, "in2");
+    pcon = mapper_db_get_connections_by_dest_signal_name(db, "in2");
 
     count=0;
     if (!pcon) {
-        printf("mapper_db_get_connections_by_output_name() returned 0.\n");
+        printf("mapper_db_get_connections_by_dest_signal_name() returned 0.\n");
         return 1;
     }
     if (!*pcon) {
-        printf("mapper_db_get_connections_by_output_name() returned something "
+        printf("mapper_db_get_connections_by_dest_signal_name() returned something "
                "which pointed to 0.\n");
         return 1;
     }
@@ -514,18 +514,18 @@ int main()
     printf("\nFind connections for device 'testdb__.2', "
            "destination 'in1':\n");
 
-    pcon = mapper_db_get_connections_by_device_and_output_name(db,
-                                                               "testdb__.2",
-                                                               "/in1");
+    pcon = mapper_db_get_connections_by_dest_device_and_signal_names(db,
+                                                                     "testdb__.2",
+                                                                     "/in1");
 
     count=0;
     if (!pcon) {
-        printf("mapper_db_get_connections_by_device_and_output_name() "
+        printf("mapper_db_get_connections_by_dest_device_and_signal_names() "
                "returned 0.\n");
         return 1;
     }
     if (!*pcon) {
-        printf("mapper_db_get_connections_by_device_and_output_name() "
+        printf("mapper_db_get_connections_by_dest_device_and_signal_names() "
                "returned something which pointed to 0.\n");
         return 1;
     }

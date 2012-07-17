@@ -1089,32 +1089,32 @@ typedef struct _admin {} admin;
         return mapper_db_get_connections_by_device_name((mapper_db)$self,
                                                         device_name);
     }
-    mapper_db_connection_t **get_connections_by_input_name(
-        const char *input_name) {
-        return mapper_db_get_connections_by_input_name((mapper_db)$self,
-                                                       input_name);
+    mapper_db_connection_t **get_connections_by_src_signal_name(
+        const char *src_signal) {
+        return mapper_db_get_connections_by_src_signal_name((mapper_db)$self,
+                                                            src_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_input_name(
-        const char *device_name, const char *input_name) {
-        return mapper_db_get_connections_by_device_and_input_name(
-            (mapper_db)$self, device_name, input_name);
+    mapper_db_connection_t **get_connections_by_src_device_and_signal_names(
+        const char *src_device, const char *src_signal) {
+        return mapper_db_get_connections_by_src_device_and_signal_names(
+            (mapper_db)$self, src_device, src_signal);
     }
-    mapper_db_connection_t **get_connections_by_output_name(
-        const char *output_name) {
-        return mapper_db_get_connections_by_output_name((mapper_db)$self,
-                                                        output_name);
+    mapper_db_connection_t **get_connections_by_dest_signal_name(
+        const char *dest_signal) {
+        return mapper_db_get_connections_by_dest_signal_name((mapper_db)$self,
+                                                             dest_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_output_name(
-        const char *device_name, const char *output_name) {
-        return mapper_db_get_connections_by_device_and_output_name(
-            (mapper_db)$self, device_name, output_name);
+    mapper_db_connection_t **get_connections_by_dest_device_and_signal_names(
+        const char *dest_device, const char *dest_signal) {
+        return mapper_db_get_connections_by_dest_device_and_signal_names(
+            (mapper_db)$self, dest_device, dest_signal);
     }
     mapper_db_connection_t **get_connections_by_device_and_signal_names(
-        const char *input_device_name,  const char *input_name,
-        const char *output_device_name, const char *output_name) {
+        const char *src_device,  const char *src_signal,
+        const char *dest_device, const char *dest_signal) {
         return mapper_db_get_connections_by_device_and_signal_names(
-            (mapper_db)$self, input_device_name, input_name,
-            output_device_name, output_name);
+            (mapper_db)$self, src_device, src_signal,
+            dest_device, dest_signal);
     }
     mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
@@ -1178,14 +1178,14 @@ typedef struct _admin {} admin;
         all_connections = make_iterator(get_all_connections, connection_next)
         connections_by_device_name = make_iterator(get_connections_by_device_name,
                                                 connection_next)
-        connections_by_input_name = make_iterator(get_connections_by_input_name,
-                                               connection_next)
-        connections_by_device_and_input_name = make_iterator(
-            get_connections_by_device_and_input_name, connection_next)
-        connections_by_output_name = make_iterator(get_connections_by_output_name,
+        connections_by_src_signal_name = make_iterator(get_connections_by_src_signal_name,
+                                                       connection_next)
+        connections_by_src_device_and_signal_names = make_iterator(
+            get_connections_by_src_device_and_signal_names, connection_next)
+        connections_by_dest_signal_name = make_iterator(get_connections_by_dest_signal_name,
                                                 connection_next)
-        connections_by_device_and_output_name = make_iterator(
-            get_connections_by_device_and_output_name, connection_next)
+        connections_by_dest_device_and_signal_names = make_iterator(
+            get_connections_by_dest_device_and_signal_names, connection_next)
         connections_by_device_and_signal_names = make_iterator(
             get_connections_by_device_and_signal_names, connection_next)
         connections_by_src_dest_device_names = make_iterator(
