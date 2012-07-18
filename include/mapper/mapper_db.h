@@ -38,7 +38,8 @@ typedef struct _mapper_db_device {
  * properties via the mapper_monitor_link() or
  * mapper_monitor_link_modify() functions. */
 #define LINK_NUM_SCOPES         0x01
-#define LINK_SCOPES             0x02
+#define LINK_SCOPE_NAMES        0x02
+#define LINK_SCOPE_HASHES       0x04
 
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities

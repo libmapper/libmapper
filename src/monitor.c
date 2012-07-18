@@ -294,7 +294,8 @@ void mapper_monitor_link(mapper_monitor mon,
                          mapper_db_link_t *props,
                          unsigned int props_flags)
 {
-    if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes && (props_flags & LINK_SCOPES)) {
+    if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes &&
+        ((props_flags & LINK_SCOPE_NAMES) || (props_flags & LINK_SCOPE_HASHES))) {
         lo_message m = lo_message_new();
         if (!m)
             return;
@@ -302,9 +303,17 @@ void mapper_monitor_link(mapper_monitor mon,
         lo_message_add_string(m, dest_device);
         lo_message_add_string(m, "@scope");
         int i;
-        for (i=0; i<props->num_scopes; i++) {
-            lo_message_add_string(m, props->scope_names[i]);
+        if (props_flags & LINK_SCOPE_NAMES) {
+            for (i=0; i<props->num_scopes; i++) {
+                lo_message_add_string(m, props->scope_names[i]);
+            }
         }
+        else if (props_flags & LINK_SCOPE_HASHES) {
+            for (i=0; i<props->num_scopes; i++) {
+                lo_message_add_int32(m, props->scope_hashes[i]);
+            }
+        }
+        
         lo_send_message(mon->admin->admin_addr, "/link", m);
         free(m);
     }
