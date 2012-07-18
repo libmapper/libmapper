@@ -42,7 +42,7 @@ int test_admin()
     }
 
     printf("Using port %d.\n", my_admin->port);
-    printf("Allocated ordinal %d.\n", my_admin->ordinal);
+    printf("Allocated ordinal %d.\n", my_admin->ordinal.value);
 
     printf("Delaying for 5 seconds..\n");
     wait = 500;

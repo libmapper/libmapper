@@ -881,7 +881,7 @@ const char *mdev_name(mapper_device md)
 unsigned int mdev_id(mapper_device md)
 {
     if (md->admin->registered)
-        return md->admin->id.value;
+        return md->admin->name_hash;
     else
         return 0;
 }
@@ -910,7 +910,7 @@ const char *mdev_interface(mapper_device md)
 unsigned int mdev_ordinal(mapper_device md)
 {
     if (md->admin->registered)
-        return md->admin->ordinal;
+        return md->admin->ordinal.value;
     else
         return 0;
 }
