@@ -411,7 +411,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
 void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig)
 {
-    if (!sig->props.is_output || sig->handler)
+    if (!sig->props.is_output)
         return;
     char *path = 0;
     int len;
@@ -434,7 +434,7 @@ void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal 
 {
     char *path = 0;
     int len, i;
-    if (!md || !sig || !sig->handler)
+    if (!md || !sig)
         return;
     for (i=0; i<md->n_outputs; i++) {
         if (md->outputs[i] == sig)

@@ -132,14 +132,16 @@ void msig_set_query_callback(mapper_signal sig,
         return;
     if (!sig->handler && handler) {
         // Need to register a new liblo handler
+        sig->handler = handler;
+        sig->props.user_data = user_data;
         mdev_add_signal_query_response_callback(sig->device, sig);
     }
     else if (sig->handler && !handler) {
         // Need to remove liblo query handler
+        sig->handler = 0;
+        sig->props.user_data = user_data;
         mdev_remove_signal_query_response_callback(sig->device, sig);
     }
-    sig->handler = handler;
-    sig->props.user_data = user_data;
 }
 
 void msig_free(mapper_signal sig)
