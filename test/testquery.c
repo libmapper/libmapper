@@ -39,7 +39,7 @@ void query_response_handler(mapper_signal sig, int instance_id, mapper_db_signal
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testquery-send", 0);
+    source = mdev_new("testquery-send", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -90,7 +90,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testquery-recv", 0);
+    destination = mdev_new("testquery-recv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

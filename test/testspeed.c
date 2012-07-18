@@ -42,7 +42,7 @@ static double get_current_time()
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testSpeedSend", 0);
+    source = mdev_new("testSpeedSend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -106,7 +106,7 @@ void overflow_handler(mapper_signal sig, int group, int id)
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testSpeedRecv", 0);
+    destination = mdev_new("testSpeedRecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");

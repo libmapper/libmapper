@@ -412,7 +412,7 @@ void mapper_admin_free(mapper_admin admin)
 
 /*! Add an uninitialized device to this admin. */
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier)
+                             const char *identifier, int port)
 {
     int i;
     /* Initialize data structures */
@@ -422,10 +422,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->name = 0;
         admin->id.value = 0;
         admin->id.locked = 0;
-        admin->ordinal.value = 1;
-        admin->ordinal.locked = 0;
-        admin->port.value = 9000;
-        admin->port.locked = 0;
+        admin->ordinal = 1;
+        admin->port = port;
         admin->registered = 0;
         admin->device = dev;
         for (i=0; i<8; i++) {

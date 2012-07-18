@@ -30,7 +30,7 @@ static double get_current_time()
 }
 
 //! Allocate and initialize a mapper device.
-mapper_device mdev_new(const char *name_prefix,
+mapper_device mdev_new(const char *name_prefix, int port,
                        mapper_admin admin)
 {
     mapper_device md =
@@ -51,7 +51,7 @@ mapper_device mdev_new(const char *name_prefix,
         return NULL;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix);
+    mapper_admin_add_device(md->admin, md, name_prefix, port);
 
     md->admin->id.on_lock = mdev_on_id_and_ordinal;
     md->admin->ordinal.on_lock = mdev_on_id_and_ordinal;
@@ -805,9 +805,8 @@ void mdev_start_server(mapper_device md)
 
         sprintf(port, "%d", md->admin->port.value);
 
-        if ((md->server = lo_server_new(0, liblo_error_handler))) {
-            md->admin->port.value = lo_server_get_port(md->server);
-            md->admin->port.locked = 1;
+        if ((md->server = lo_server_new(port, liblo_error_handler))) {
+            md->admin->port = lo_server_get_port(md->server);
         }
 
         for (i = 0; i < md->n_inputs; i++) {

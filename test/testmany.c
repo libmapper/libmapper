@@ -43,7 +43,7 @@ int setup_sources() {
 
 	for ( int i=0; i<num_sources; i++ ) {
 		
-		source_device_list[i] = mdev_new("source", 0);
+		source_device_list[i] = mdev_new("source", 0, 0);
 		number = num_signals[i+num_dests];
 
 		for ( int j=0; j<number; j++ ) {
@@ -109,7 +109,7 @@ int setup_destinations() {
 
 	for ( int i=0; i<num_dests; i++ ) {
 		
-		dest_device_list[i] = mdev_new("dest", 0);
+		dest_device_list[i] = mdev_new("dest", 0, 0);
 		number = num_signals[i];
 
 		for ( int j=0; j<number; j++ ) {
