@@ -174,7 +174,7 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int id);
+                                int port, const char *name, int local);
 
 void mapper_router_free(mapper_router router);
 
@@ -208,9 +208,9 @@ mapper_router mapper_router_find_by_remote_address(mapper_router routers,
 mapper_router mapper_router_find_by_remote_name(mapper_router routers,
                                                 const char* dest_name);
 
-int mapper_router_add_scope(mapper_router router, int id);
+int mapper_router_add_scope(mapper_router router, const char *scope);
 
-void mapper_router_remove_scope(mapper_router router, int id);
+void mapper_router_remove_scope(mapper_router router, const char *scope);
 
 /**** Signals ****/
 

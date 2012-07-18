@@ -673,7 +673,7 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         mapper_router temp = md->routers;
         int safe = 1;
         while (temp) {
-            if (mapper_router_in_scope(temp, rt->props.scopes[i])) {
+            if (mapper_router_in_scope(temp, rt->props.scope_hashes[i])) {
                 safe = 1;
                 break;
             }
@@ -684,13 +684,16 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
              * corresponding instances in instance id map. */
             mapper_instance_id_map id_map = md->instance_id_map;
             while (id_map) {
-                if (id_map->group == rt->props.scopes[i]) {
+                if (id_map->group == rt->props.scope_hashes[i]) {
                     mdev_remove_instance_id_map(md, id_map->local);
                 }
                 id_map = id_map->next;
             }
         }
+        free(rt->props.scope_names[i]);
     }
+    free(rt->props.scope_names);
+    free(rt->props.scope_hashes);
 
     // remove router
     mapper_router *r = &md->routers;

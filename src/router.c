@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <zlib.h>
 
 #include <lo/lo.h>
 
@@ -10,16 +11,23 @@
 #include <mapper/mapper.h>
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int id)
+                                int port, const char *name, int local)
 {
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     sprintf(str, "%d", port);
     router->props.dest_addr = lo_address_new(host, str);
     router->props.dest_name = strdup(name);
-    router->props.num_scopes = 1;
-    router->props.scopes = (int *) malloc(sizeof(int));
-    router->props.scopes[0] = id;
+    if (local) {
+        router->props.num_scopes = 1;
+        router->props.scope_names = (char **) malloc(sizeof(char *));
+        router->props.scope_names[0] = strdup(mdev_name(device));
+        router->props.scope_hashes = (int *) malloc(sizeof(int));
+        router->props.scope_hashes[0] = mdev_id(device);
+    }
+    else {
+        router->props.num_scopes = 0;
+    }
     router->props.extra = table_new();
     router->device = device;
     router->connections = 0;
@@ -267,31 +275,41 @@ int mapper_router_remove_connection(mapper_router router,
     return 1;
 }
 
-int mapper_router_add_scope(mapper_router router, int id)
+int mapper_router_add_scope(mapper_router router, const char *scope)
 {
     // Check if scope is already stored for this router
-    int i;
-    for (i=0; i<router->props.num_scopes; i++)
-        if (router->props.scopes[i] == id)
+    int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    mapper_db_link_t props = router->props;
+    for (i=0; i<props.num_scopes; i++)
+        if (props.scope_hashes[i] == hash)
             return 1;
 
     // not found - add a new scope
-    router->props.num_scopes++;
-    router->props.scopes = realloc(router->props.scopes, router->props.num_scopes);
-    router->props.scopes[router->props.num_scopes-1] = id;
+    i = ++props.num_scopes;
+    props.scope_names = realloc(props.scope_names, i * sizeof(char *));
+    props.scope_names[i-1] = strdup(scope);
+    props.scope_hashes = realloc(props.scope_hashes, i * sizeof(int));
+    props.scope_hashes[i-1] = hash;
     return 0;
 }
 
-void mapper_router_remove_scope(mapper_router router, int id)
+void mapper_router_remove_scope(mapper_router router, const char *scope)
 {
-    int i, j;
-    for (i=0; i<router->props.num_scopes; i++) {
-        if (router->props.scopes[i] == id) {
-            for (j=i+1; j<router->props.num_scopes; j++) {
-                router->props.scopes[j-1] = router->props.scopes[j];
+    int i, j, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    mapper_db_link_t props = router->props;
+    for (i=0; i<props.num_scopes; i++) {
+        if (props.scope_hashes[i] == hash) {
+            free(props.scope_names[i]);
+            for (j=i+1; j<props.num_scopes; j++) {
+                props.scope_names[j-1] = props.scope_names[j];
+                props.scope_hashes[j-1] = props.scope_hashes[j];
             }
-            router->props.num_scopes--;
-            router->props.scopes = realloc(router->props.scopes, router->props.num_scopes);
+            props.num_scopes--;
+            props.scope_names = realloc(props.scope_names,
+                                        props.num_scopes * sizeof(char *));
+            props.scope_hashes = realloc(props.scope_hashes,
+                                         props.num_scopes * sizeof(int));
+            return;
         }
     }
 }
@@ -300,7 +318,7 @@ int mapper_router_in_scope(mapper_router router, int id)
 {
     int i;
     for (i=0; i<router->props.num_scopes; i++)
-        if (router->props.scopes[i] == id)
+        if (router->props.scope_hashes[i] == id)
             return 1;
     return 0;
 }

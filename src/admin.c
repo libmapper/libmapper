@@ -704,7 +704,7 @@ static void mapper_admin_send_linked(mapper_admin admin,
     int i;
     lo_message_add_string(m, "@scope");
     for (i=0; i<router->props.num_scopes; i++) {
-        lo_message_add_int32(m, router->props.scopes[i]);
+        lo_message_add_string(m, router->props.scope_names[i]);
     }
 
     mapper_link_prepare_osc_message(m, router);
@@ -1161,10 +1161,6 @@ static int handler_device_link(const char *path, const char *types,
               mapper_admin_name(admin));
         return 0;
     }
-    lo_arg *arg_port = (lo_arg*) &admin->port;
-
-    params.values[AT_PORT] = &arg_port;
-    params.types[AT_PORT] = "i";
 
     if (scoped_links) {
         int i;
@@ -1174,12 +1170,16 @@ static int handler_device_link(const char *path, const char *types,
             dest_name = &argv[i]->s;
             if (dest_name[0] == '@')
                 return 0;
-            src_name = &argv[i-1]->s;
-            mapper_admin_send_osc_with_params(
-                admin, &params, 0, "/link", "ss", src_name, dest_name);
+            mapper_admin_send_osc_with_params(admin, &params, 0,
+                                              "/link", "ssss",
+                                              &argv[i-1]->s, dest_name,
+                                              AT_SCOPE, src_name);
         }
     }
     else {
+        lo_arg *arg_port = (lo_arg*) &admin->port;
+        params.values[AT_PORT] = &arg_port;
+        params.types[AT_PORT] = "i";
         mapper_admin_send_osc_with_params(
             admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
     }
@@ -1195,8 +1195,8 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
 
-    const char *src_name, *dest_name, *host=0;
-    int port, scope;
+    const char *src_name, *dest_name, *host=0, *scope=0;
+    int port;
     mapper_message_t params;
 
     if (argc < 2)
@@ -1225,9 +1225,7 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
 
     // retreive scope if specified
-    if (mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
-        scope = mdev_id(md);
-    }
+    scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
 
     // Discover whether the device is already linked.
     mapper_router router =
@@ -1255,7 +1253,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     }
 
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name, scope);
+    router = mapper_router_new(md, host, port, dest_name, scope ? 0 : 1);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
@@ -1346,7 +1344,7 @@ static int handler_device_link_add_scope(const char *path, const char *types,
 
     if ((types[0] != 's' && types[0] != 'S')
         || (types[1] != 's' && types[1] != 'S')
-        || (types[2] != 'i'))
+        || (types[2] != 's' && types[2] != 'S'))
         return 0;
 
     src_name = &argv[0]->s;
@@ -1361,7 +1359,7 @@ static int handler_device_link_add_scope(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_router_add_scope(router, argv[2]->i32);
+    mapper_router_add_scope(router, &argv[2]->s);
     mapper_admin_send_linked(admin, router);
     return 0;
 }
@@ -1381,7 +1379,7 @@ static int handler_device_link_remove_scope(const char *path, const char *types,
 
     if ((types[0] != 's' && types[0] != 'S')
         || (types[1] != 's' && types[1] != 'S')
-        || (types[2] != 'i'))
+        || (types[2] != 's' && types[2] != 'S'))
         return 0;
 
     src_name = &argv[0]->s;
@@ -1396,7 +1394,7 @@ static int handler_device_link_remove_scope(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_router_remove_scope(router, argv[2]->i32);
+    mapper_router_remove_scope(router, &argv[2]->s);
     mapper_admin_send_linked(admin, router);
     return 0;
 }
@@ -1406,10 +1404,10 @@ static int handler_device_unlink(const char *path, const char *types,
                                  lo_arg **argv, int argc, lo_message msg,
                                  void *user_data)
 {
-    const char *src_name, *dest_name;
+    const char *src_name, *dest_name, *scope;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    int multi_link = 0, scope;
+    int multi_link = 0;
 
     if (argc < 2)
         return 0;
@@ -1453,7 +1451,7 @@ static int handler_device_unlink(const char *path, const char *types,
         mapper_router router =
             mapper_router_find_by_remote_name(md->routers, dest_name);
         if (router) {
-            if (!mapper_msg_get_param_if_int(&params, AT_SCOPE, &scope)) {
+            if (!(scope = mapper_msg_get_param_if_string(&params, AT_SCOPE))) {
                 mapper_router_remove_scope(router, scope);
                 if (router->props.num_scopes <= 0) {
                     mdev_remove_router(md, router);

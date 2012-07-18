@@ -303,7 +303,7 @@ void mapper_monitor_link(mapper_monitor mon,
         lo_message_add_string(m, "@scope");
         int i;
         for (i=0; i<props->num_scopes; i++) {
-            lo_message_add_int32(m, props->scopes[i]);
+            lo_message_add_string(m, props->scope_names[i]);
         }
         lo_send_message(mon->admin->admin_addr, "/link", m);
         free(m);
