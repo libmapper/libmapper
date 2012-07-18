@@ -59,6 +59,48 @@
     return o;
  }
 
+%typemap(in) mapper_db_link_with_flags_t* %{
+    mapper_db_link_with_flags_t p;
+    $1 = 0;
+    if (PyDict_Check($input)) {
+        memset(&p, 0, sizeof(mapper_db_link_with_flags_t));
+        PyObject *keys = PyDict_Keys($input);
+        if (keys) {
+            int i = PyList_GET_SIZE(keys);
+            for (i=i-1; i>=0; --i) {
+                PyObject *o = PyList_GetItem(keys, i);
+                if (PyString_Check(o)) {
+                    PyObject *v = PyDict_GetItem($input, o);
+                    char *s = PyString_AsString(o);
+                    if (strcmp(s, "scope")==0) {
+                        if (PyString_Check(v)) {
+                            p.props.num_scopes = 1;
+                            p.flags |= LINK_NUM_SCOPES;
+                            char *scope = PyString_AsString(v);
+                            p.props.scope_names  = &scope;
+                            p.flags |= LINK_SCOPE_NAMES;
+                        }
+                    }
+                    else if (strcmp(s, "src_name")==0) {
+                        if (PyString_Check(v))
+                            p.props.src_name = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "dest_name")==0) {
+                        if (PyString_Check(v))
+                            p.props.dest_name = PyString_AsString(v);
+                    }
+                }
+            }
+            Py_DECREF(keys);
+            $1 = &p;
+        }
+    }
+    else {
+        SWIG_exception_fail(SWIG_TypeError,
+                            "argument $argnum must be 'dict'");
+    }
+ %}
+
 %typemap(in) mapper_db_connection_with_flags_t* %{
     mapper_db_connection_with_flags_t p;
     $1 = 0;
@@ -454,6 +496,11 @@ typedef struct {
 
 typedef int* maybeInt;
 typedef int booltype;
+
+typedef struct {
+    mapper_db_link_t props;
+    int flags;
+} mapper_db_link_with_flags_t;
 
 typedef struct {
     mapper_db_connection_t props;
@@ -1025,8 +1072,15 @@ typedef struct _admin {} admin;
     int request_connections_by_name(const char* name) {
         return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
     }
-    void link(const char* source_device, const char* dest_device) {
-        mapper_monitor_link((mapper_monitor)$self, source_device, dest_device);
+    void link(const char* source_device,
+              const char* dest_device,
+              mapper_db_link_with_flags_t *properties=0) {
+        if (properties) {
+            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device,
+                                &properties->props, properties->flags);
+        }
+        else
+            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device, 0, 0);
     }
     void unlink(const char* source_device, const char* dest_device) {
         mapper_monitor_unlink((mapper_monitor)$self, source_device, dest_device);
