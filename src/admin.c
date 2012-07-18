@@ -1527,8 +1527,45 @@ static int handler_device_unlink(const char *path, const char *types,
         }
     }
     else if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
-        // Release instances owned by remote device
-        // Look up the associated receiver
+        int i, hash = crc32(0L, (const Bytef *)src_name, strlen(src_name));
+        mapper_signal_instance si;
+
+        // Release input instances owned by remote device
+        mapper_signal *psig = mdev_get_inputs(md);
+        for (i=0; i < mdev_num_inputs(md); i++) {
+            // get instances
+            si = psig[i]->instances;
+            while (si) {
+                if (si->is_active && si->id_map->group == hash) {
+                    if (psig[i]->handler) {
+                        psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
+                    }
+                    msig_release_instance_internal(si);
+                }
+                si = si->next;
+            }
+        }
+
+        // Release output instances owned by remote device
+        psig = mdev_get_outputs(md);
+        for (i=0; i < mdev_num_outputs(md); i++) {
+            // get instances
+            si = psig[i]->instances;
+            while (si) {
+                if (si->is_active && si->id_map->group == hash) {
+                    msig_release_instance_internal(si);
+                }
+                si = si->next;
+            }
+        }
+
+        // Remove instance maps referring to remote device
+        mapper_instance_id_map id_map = md->instance_id_map;
+        while (id_map) {
+            if (id_map->group == hash)
+                mdev_remove_instance_id_map(md, id_map->local);
+            id_map = id_map->next;
+        }
     }
 
     return 0;
@@ -1950,11 +1987,14 @@ static int handler_signal_disconnect(const char *path, const char *types,
                             &signal_name) == 0) {
         if (!(sig=mdev_get_input_by_name(md, signal_name, 0)))
             return 0;
+        int span = strspn(src_name+1, "/");
+        int hash = crc32(0L, (const Bytef *)src_name, span+1);
 
         // Release instances of this signal owned by the remote device
         mapper_signal_instance si = sig->instances;
         while (si) {
-            si->is_active = 0;
+            if (si->id_map->group == hash)
+                si->is_active = 0;
             si = si->next;
         }
     }
