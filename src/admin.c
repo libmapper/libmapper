@@ -496,7 +496,7 @@ int mapper_admin_poll(mapper_admin admin)
 
     /* If we are ready to register the device, add the needed message
      * handlers. */
-    if (!admin->registered && admin->id.locked && admin->port)
+    if (!admin->registered && admin->id.locked)
     {
         mapper_admin_add_device_methods(admin);
 
@@ -509,8 +509,8 @@ int mapper_admin_poll(mapper_admin admin)
         admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
         mapper_admin_send_osc(
               admin, "/device", "s", mapper_admin_name(admin),
-              AT_PORT, admin->port,
-              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+              admin->port ? AT_PORT : -1, admin->port,
+              AT_NUMINPUTS, admin->device ?  : 0,
               AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
               AT_REV, admin->device->version,
               AT_EXTRA, admin->device->extra);
@@ -761,7 +761,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 
     mapper_admin_send_osc(
         admin, "/device", "s", mapper_admin_name(admin),
-        AT_PORT, admin->port,
+        admin->port ? AT_PORT : -1, admin->port,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,

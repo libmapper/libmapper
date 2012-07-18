@@ -794,13 +794,19 @@ void mdev_start_server(mapper_device md)
 {
     if (!md->server) {
         int i;
-        char port[16], *type = 0, *path = 0;
+        char port[16], *pport = port, *type = 0, *path = 0;
 
-        sprintf(port, "%d", md->admin->port);
+        if (md->admin->port)
+            sprintf(port, "%d", md->admin->port);
+        else
+            pport = 0;
 
-        if ((md->server = lo_server_new(port, liblo_error_handler))) {
-            md->admin->port = lo_server_get_port(md->server);
+        while (!(md->server = lo_server_new(pport, liblo_error_handler))) {
+            pport = 0;
         }
+
+        md->admin->port = lo_server_get_port(md->server);
+        trace("bound to port %i\n", md->admin->port);
 
         for (i = 0; i < md->n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 3);
