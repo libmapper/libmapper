@@ -110,12 +110,12 @@ void mapper_router_send_signal(mapper_connection_instance ci,
                 lo_message_add_double(m, v[i]);
         }
     }
-    else if (mdev_port(ci->connection->router->device) == ci->parent->id_map->group) {
+    else if (mdev_id(ci->connection->router->device) == ci->parent->id_map->group) {
         // If instance is locally owned, send instance release...
         lo_message_add_nil(m);
     }
     else {
-        // ...othersire send release request.
+        // ...otherwise send release request.
         lo_message_add_false(m);
     }
 
