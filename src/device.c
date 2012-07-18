@@ -30,7 +30,7 @@ static double get_current_time()
 }
 
 //! Allocate and initialize a mapper device.
-mapper_device mdev_new(const char *name_prefix,
+mapper_device mdev_new(const char *name_prefix, int port,
                        mapper_admin admin)
 {
     mapper_device md =
@@ -51,7 +51,7 @@ mapper_device mdev_new(const char *name_prefix,
         return NULL;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix);
+    mapper_admin_add_device(md->admin, md, name_prefix, port);
 
     md->routers = 0;
     md->instance_id_map = 0;
@@ -798,7 +798,7 @@ void mdev_start_server(mapper_device md)
 
         sprintf(port, "%d", md->admin->port);
 
-        if ((md->server = lo_server_new(0, liblo_error_handler))) {
+        if ((md->server = lo_server_new(port, liblo_error_handler))) {
             md->admin->port = lo_server_get_port(md->server);
         }
 

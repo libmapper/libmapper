@@ -265,7 +265,7 @@ int msig_num_reserved_instances(mapper_signal sig);
  *                      admin will be allocated for use with this device.
  * \return              A newly allocated mapper device.  Should be free
  *                      using mdev_free(). */
-mapper_device mdev_new(const char *name_prefix, mapper_admin admin);
+mapper_device mdev_new(const char *name_prefix, int port, mapper_admin admin);
 
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device dev);

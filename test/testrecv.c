@@ -26,7 +26,7 @@ void handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 
 int test_recv()
 {
-    mapper_device md = mdev_new("synth", 0);
+    mapper_device md = mdev_new("synth", 0, 0);
     if (!md)
         goto error;
     printf("Mapper device created.\n");

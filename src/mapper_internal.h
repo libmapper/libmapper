@@ -96,7 +96,7 @@ typedef struct _mapper_connection_instance
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier);
+                             const char *identifier, int port);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 

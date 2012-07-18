@@ -409,14 +409,17 @@ void mapper_admin_free(mapper_admin admin)
 
 /*! Add an uninitialized device to this admin. */
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier)
+                             const char *identifier, int port)
 {
     /* Initialize data structures */
     if (dev)
     {
         admin->identifier = strdup(identifier);
         admin->name = 0;
+        admin->id.value = 0;
+        admin->id.locked = 0;
         admin->ordinal = 1;
+        admin->port = port;
         admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;

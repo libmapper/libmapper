@@ -21,7 +21,7 @@ int received = 0;
 
 int setup_source()
 {
-    source = mdev_new("testsend", 0);
+    source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -65,7 +65,7 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", 0);
+    destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
