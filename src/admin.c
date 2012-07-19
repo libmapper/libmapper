@@ -68,10 +68,6 @@ static int handler_device_linkTo(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_linked(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
-static int handler_device_link_add_scope(const char *, const char *, lo_arg **,
-                                         int, lo_message, void *);
-static int handler_device_link_remove_scope(const char *, const char *, lo_arg **,
-                                            int, lo_message, void *);
 static int handler_device_unlink(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_unlinked(const char *, const char *, lo_arg **,
@@ -109,8 +105,6 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
     {"/linkTo",                 NULL,       handler_device_linkTo},
-    {"/link/addScope",          NULL,       handler_device_link_add_scope},
-    {"/link/removeScope",       NULL,       handler_device_link_remove_scope},
     {"/unlink",                 NULL,       handler_device_unlink},
     {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
@@ -1163,7 +1157,6 @@ static int handler_device_link(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     const char *src_name, *dest_name;
-    int scoped_links = 0;
 
     if (argc < 2)
         return 0;
@@ -1176,16 +1169,7 @@ static int handler_device_link(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
-        const char *ptr = &argv[2]->s;
-        if (ptr[0] != '@') {
-            // more than 2 devices involved
-            if (strcmp(mapper_admin_name(admin), src_name) != 0)
-                return 0;
-            scoped_links = 1;
-        }
-    }
-    if (!scoped_links && strcmp(mapper_admin_name(admin), dest_name) != 0)
+    if (strcmp(mapper_admin_name(admin), dest_name))
         return 0;
 
     trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
@@ -1202,27 +1186,11 @@ static int handler_device_link(const char *path, const char *types,
         return 0;
     }
 
-    if (scoped_links) {
-        int i;
-        for (i=1; i<argc; i++) {
-            if (types[i] != 's' && types[i] != 'S')
-                return 0;
-            dest_name = &argv[i]->s;
-            if (dest_name[0] == '@')
-                return 0;
-            mapper_admin_send_osc_with_params(admin, &params, 0,
-                                              "/link", "ssss",
-                                              &argv[i-1]->s, dest_name,
-                                              AT_SCOPE, src_name);
-        }
-    }
-    else {
-        lo_arg *arg_port = (lo_arg*) &admin->port;
-        params.values[AT_PORT] = &arg_port;
-        params.types[AT_PORT] = "i";
-        mapper_admin_send_osc_with_params(
-            admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
-    }
+    lo_arg *arg_port = (lo_arg*) &admin->port;
+    params.values[AT_PORT] = &arg_port;
+    params.types[AT_PORT] = "i";
+    mapper_admin_send_osc_with_params(
+        admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
 
     return 0;
 }
@@ -1260,11 +1228,16 @@ static int handler_device_linkTo(const char *path, const char *types,
           src_name, dest_name);
 
     // Parse the message.
+    memset(&params, 0, sizeof(mapper_message_t));
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /linkTo.\n",
+              mapper_admin_name(admin));
         return 0;
+    }
 
-    // retreive scope if specified
+    // Retrieve scope if specified
     scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
 
     // Discover whether the device is already linked.
@@ -1278,18 +1251,18 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
 
-    // Check the results.
+    // Retrieve the IP if specified.
     host = mapper_msg_get_param_if_string(&params, AT_IP);
-
-    if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
-        trace("can't perform /linkTo, port unknown\n");
-        return 0;
-    }
-
     if (!host) {
         // Find the sender's hostname
         lo_address a = lo_message_get_source(msg);
         host = lo_address_get_hostname(a);
+    }
+
+    // Retreive the port
+    if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
+        trace("can't perform /linkTo, port unknown\n");
+        return 0;
     }
 
     // Creation of a new router added to the source.
@@ -1369,85 +1342,14 @@ static int handler_device_links_get(const char *path, const char *types,
     return 0;
 }
 
-/*! Modify the scope of a link. */
-static int handler_device_link_add_scope(const char *path, const char *types,
-                                         lo_arg **argv, int argc, lo_message msg,
-                                         void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    const char *src_name;
-
-    if (argc < 3)
-        return 0;
-
-    if ((types[0] != 's' && types[0] != 'S')
-        || (types[1] != 's' && types[1] != 'S')
-        || (types[2] != 's' && types[2] != 'S'))
-        return 0;
-
-    src_name = &argv[0]->s;
-    if (strcmp(src_name, mapper_admin_name(admin)))
-        return 0;
-
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
-    if (!router)
-    {
-        trace("<%s> no router found for '%s' in /link/modify\n",
-              mapper_admin_name(admin), &argv[1]->s);
-    }
-
-    mapper_router_add_scope(router, &argv[2]->s);
-    mapper_admin_send_linked(admin, router);
-    return 0;
-}
-
-/*! Modify the scope of a link. */
-static int handler_device_link_remove_scope(const char *path, const char *types,
-                                            lo_arg **argv, int argc, lo_message msg,
-                                            void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    const char *src_name;
-
-    if (argc < 3)
-        return 0;
-
-    if ((types[0] != 's' && types[0] != 'S')
-        || (types[1] != 's' && types[1] != 'S')
-        || (types[2] != 's' && types[2] != 'S'))
-        return 0;
-
-    src_name = &argv[0]->s;
-    if (strcmp(src_name, mapper_admin_name(admin)))
-        return 0;
-
-    mapper_router router =
-    mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
-    if (!router)
-    {
-        trace("<%s> no router found for '%s' in /link/modify\n",
-              mapper_admin_name(admin), &argv[1]->s);
-    }
-
-    mapper_router_remove_scope(router, &argv[2]->s);
-    mapper_admin_send_linked(admin, router);
-    return 0;
-}
-
 /*! Unlink two devices. */
 static int handler_device_unlink(const char *path, const char *types,
                                  lo_arg **argv, int argc, lo_message msg,
                                  void *user_data)
 {
-    const char *src_name, *dest_name, *scope;
+    const char *src_name, *dest_name, *scope = 0;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    int multi_link = 0;
 
     if (argc < 2)
         return 0;
@@ -1459,116 +1361,51 @@ static int handler_device_unlink(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    if (strcmp(mapper_admin_name(admin), src_name) == 0) {
-        if (argc == 2) {
-            mapper_admin_send_osc(admin, "/unlink", "sssi", mapper_admin_name(admin),
-                                  dest_name, AT_SCOPE, mdev_id(md));
-            return 0;
-        }
-        else if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
-            const char *ptr = &argv[2]->s;
-            if (ptr[0] != '@') {
-                // more than 2 devices involved
-                multi_link = 1;
-            }
-        }
+    trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
+          src_name, dest_name, argc-2);
 
-        trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
-              src_name, dest_name, argc-2);
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+    // add arguments from /unlink if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /unlink.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
 
-        mapper_message_t params;
-        memset(&params, 0, sizeof(mapper_message_t));
-        // add arguments from /unlink if any
-        if (mapper_msg_parse_params(&params, path, &types[2],
-                                    argc-2, &argv[2]))
-        {
-            trace("<%s> error parsing message parameters in /unlink.\n",
-                  mapper_admin_name(admin));
-            return 0;
-        }
+    scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
 
-        /* Remove the router for the destination. */
-        mapper_router router =
-            mapper_router_find_by_remote_name(md->routers, dest_name);
-        if (router) {
-            if (!(scope = mapper_msg_get_param_if_string(&params, AT_SCOPE))) {
-                mapper_router_remove_scope(router, scope);
-                if (router->props.num_scopes <= 0) {
-                    mdev_remove_router(md, router);
-                    mapper_admin_send_osc(admin, "/unlinked", "ss",
-                                          mapper_admin_name(admin), dest_name);
-                }
-                else
-                    mapper_admin_send_linked(admin, router);
-            }
-            else {
+    if (strcmp(mapper_admin_name(admin), dest_name) == 0)
+        mdev_release_scope(md, scope);
+    else if (strcmp(mapper_admin_name(admin), src_name))
+        return 0;
+
+    /* Remove the router for the destination. */
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, dest_name);
+    if (router) {
+        if (scope) {
+            mapper_router_remove_scope(router, scope);
+            if (router->props.num_scopes <= 0) {
                 mdev_remove_router(md, router);
                 mapper_admin_send_osc(admin, "/unlinked", "ss",
                                       mapper_admin_name(admin), dest_name);
             }
+            else
+                mapper_admin_send_linked(admin, router);
         }
         else {
-            trace("<%s> no router for %s found in /unlink handler\n",
-                  mapper_admin_name(admin), dest_name);
-        }
-
-        if (multi_link) {
-            int i;
-            for (i=2; i<argc; i++) {
-                if (types[i] != 's' && types[i] != 'S')
-                    return 0;
-                dest_name = &argv[i]->s;
-                if (dest_name[0] == '@')
-                    return 0;
-                src_name = &argv[i-1]->s;
-                mapper_admin_send_osc_with_params(
-                    admin, &params, 0, "/unlink", "ssss", src_name, dest_name,
-                                                  AT_SCOPE, mdev_name(md));
-            }
+            mdev_remove_router(md, router);
+            mapper_admin_send_osc(admin, "/unlinked", "ss",
+                                  mapper_admin_name(admin), dest_name);
         }
     }
-    else if (strcmp(mapper_admin_name(admin), dest_name) == 0) {
-        int i, hash = crc32(0L, (const Bytef *)src_name, strlen(src_name));
-        mapper_signal_instance si;
-
-        // Release input instances owned by remote device
-        mapper_signal *psig = mdev_get_inputs(md);
-        for (i=0; i < mdev_num_inputs(md); i++) {
-            // get instances
-            si = psig[i]->instances;
-            while (si) {
-                if (si->is_active && si->id_map->group == hash) {
-                    if (psig[i]->handler) {
-                        psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
-                    }
-                    msig_release_instance_internal(si);
-                }
-                si = si->next;
-            }
-        }
-
-        // Release output instances owned by remote device
-        psig = mdev_get_outputs(md);
-        for (i=0; i < mdev_num_outputs(md); i++) {
-            // get instances
-            si = psig[i]->instances;
-            while (si) {
-                if (si->is_active && si->id_map->group == hash) {
-                    msig_release_instance_internal(si);
-                }
-                si = si->next;
-            }
-        }
-
-        // Remove instance maps referring to remote device
-        mapper_instance_id_map id_map = md->instance_id_map;
-        while (id_map) {
-            if (id_map->group == hash)
-                mdev_remove_instance_id_map(md, id_map->local);
-            id_map = id_map->next;
-        }
+    else {
+        trace("<%s> no router for %s found in /unlink handler\n",
+              mapper_admin_name(admin), dest_name);
     }
-
     return 0;
 }
 
@@ -1994,8 +1831,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
         // Release instances of this signal owned by the remote device
         mapper_signal_instance si = sig->instances;
         while (si) {
-            if (si->id_map->group == hash)
-                si->is_active = 0;
+            if (si->is_active && si->id_map->group == hash)
+                msig_release_instance_internal(si);
             si = si->next;
         }
     }

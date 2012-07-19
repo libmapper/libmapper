@@ -150,6 +150,8 @@ void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
 
+void mdev_release_scope(mapper_device md, const char *scope);
+
 void mdev_start_server(mapper_device mdev);
 
 void mdev_on_id_and_ordinal(mapper_device md,

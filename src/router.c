@@ -296,6 +296,8 @@ int mapper_router_add_scope(mapper_router router, const char *scope)
 
 void mapper_router_remove_scope(mapper_router router, const char *scope)
 {
+    if (!scope)
+        return;
     int i, j, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     mapper_db_link_t props = router->props;
     for (i=0; i<props.num_scopes; i++) {
@@ -310,7 +312,7 @@ void mapper_router_remove_scope(mapper_router router, const char *scope)
                                         props.num_scopes * sizeof(char *));
             props.scope_hashes = realloc(props.scope_hashes,
                                          props.num_scopes * sizeof(int));
-            return;
+            break;
         }
     }
 }

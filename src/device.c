@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <zlib.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
@@ -651,6 +652,52 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     rt->next = *r;
     *r = rt;
     md->n_links++;
+}
+
+void mdev_release_scope(mapper_device md, const char *scope)
+{
+    if (!scope)
+        return;
+
+    int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    mapper_signal_instance si;
+
+    // Release input instances owned by remote device
+    mapper_signal *psig = mdev_get_inputs(md);
+    for (i=0; i < mdev_num_inputs(md); i++) {
+        // get instances
+        si = psig[i]->instances;
+        while (si) {
+            if (si->is_active && si->id_map->group == hash) {
+                if (psig[i]->handler) {
+                    psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
+                }
+                msig_release_instance_internal(si);
+            }
+            si = si->next;
+        }
+    }
+    
+    // Release output instances owned by remote device
+    psig = mdev_get_outputs(md);
+    for (i=0; i < mdev_num_outputs(md); i++) {
+        // get instances
+        si = psig[i]->instances;
+        while (si) {
+            if (si->is_active && si->id_map->group == hash) {
+                msig_release_instance_internal(si);
+            }
+            si = si->next;
+        }
+    }
+    
+    // Remove instance maps referring to remote device
+    mapper_instance_id_map id_map = md->instance_id_map;
+    while (id_map) {
+        if (id_map->group == hash)
+            mdev_remove_instance_id_map(md, id_map->local);
+        id_map = id_map->next;
+    }
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
