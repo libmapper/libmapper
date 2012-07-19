@@ -1299,7 +1299,8 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
     mdev_add_router(md, router);
-    if (argc > 4)
+    mapper_router_add_scope(router, scope);
+    if (argc > 2)
         mapper_router_set_from_message(router, &params);
 
     // Announce the result.

@@ -277,19 +277,20 @@ int mapper_router_remove_connection(mapper_router router,
 
 int mapper_router_add_scope(mapper_router router, const char *scope)
 {
+    if (!scope)
+        return 1;
     // Check if scope is already stored for this router
     int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    mapper_db_link_t props = router->props;
-    for (i=0; i<props.num_scopes; i++)
-        if (props.scope_hashes[i] == hash)
+    mapper_db_link props = &router->props;
+    for (i=0; i<props->num_scopes; i++)
+        if (props->scope_hashes[i] == hash)
             return 1;
-
     // not found - add a new scope
-    i = ++props.num_scopes;
-    props.scope_names = realloc(props.scope_names, i * sizeof(char *));
-    props.scope_names[i-1] = strdup(scope);
-    props.scope_hashes = realloc(props.scope_hashes, i * sizeof(int));
-    props.scope_hashes[i-1] = hash;
+    i = ++props->num_scopes;
+    props->scope_names = realloc(props->scope_names, i * sizeof(char *));
+    props->scope_names[i-1] = strdup(scope);
+    props->scope_hashes = realloc(props->scope_hashes, i * sizeof(int));
+    props->scope_hashes[i-1] = hash;
     return 0;
 }
 
