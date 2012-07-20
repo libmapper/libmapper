@@ -17,7 +17,6 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig[4] = {0, 0, 0, 0};
 mapper_signal recvsig[4] = {0, 0, 0, 0};
-mapper_signal dummysig[4] = {0, 0, 0, 0};
 
 int port = 9000;
 
@@ -28,13 +27,11 @@ int done = 0;
 void query_response_handler(mapper_signal sig, mapper_db_signal props,
                             mapper_timetag_t *timetag, void *value)
 {
-    mapper_signal remote = (mapper_signal) props->user_data;
-
     if (value) {
-        printf("--> source got query response: %s %f\n", remote->props.name, (*(float*)value));
+        printf("--> source got query response: %s %i\n", props->name, (*(int*)value));
     }
     else {
-        printf("--> source got empty query response: %s\n", remote->props.name);
+        printf("--> source got empty query response: %s\n", props->name);
     }
 
     received++;
@@ -53,14 +50,8 @@ int setup_source()
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, 1, 'f', 0, &mn, &mx);
-    }
-    
-    for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 20, "%s%i", "/dummysig_", i);
-        dummysig[i] = mdev_add_hidden_input(source, sig_name, 1,
-                                            'f', 0, 0, 0, query_response_handler,
-                                            sendsig[i]);
+        sendsig[i] = mdev_add_output(source, sig_name, 1, 'i', 0, &mn, &mx);
+        msig_set_query_callback(sendsig[i], query_response_handler, 0);
     }
 
     printf("Output signals registered.\n");
@@ -175,9 +166,9 @@ void loop()
         for (j = 0; j < 2; j++) {
             msig_update_float(recvsig[j], ((i % 10) * 1.0f));
         }
-        printf("\ndestination values updated to %d -->\n", i % 10);
+        printf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
-            count = msig_query_remote(sendsig[j], dummysig[j]);
+            count = msig_query_remote(sendsig[j]);
             printf("Sent %i queries for sendsig[%i]\n", count, j);
         }
         mdev_poll(destination, 100);

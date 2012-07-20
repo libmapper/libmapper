@@ -308,7 +308,6 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       mapper_db_connection_t *props,
                                       unsigned int props_flags)
 {
-
     if (props) {
         mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
@@ -324,11 +323,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                ? AT_MODE : -1, props->mode,
                                (props_flags & CONNECTION_MUTED)
                                ? AT_MUTE : -1, props->muted );
-    } else {
-        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
-                               props->src_name, props->dest_name );
-	}
-
+    }
 }
 
 void mapper_monitor_connect(mapper_monitor mon,

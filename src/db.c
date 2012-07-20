@@ -463,20 +463,6 @@ static void update_int_if_arg(int *pdest_int,
         (*pdest_int) = (&(*a)->i)[0];
 }
 
-static void add_or_update_extra_params(table t,
-                                       mapper_message_t *params)
-{
-    int i=0;
-    while (params->extra_args[i])
-    {
-        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
-        lo_arg *arg = *(params->extra_args[i]+1);
-        char type = params->extra_types[i];
-        mapper_table_add_or_update_osc_value(t, key, type, arg);
-        i++;
-    }
-}
-
 /* Static data for property tables embedded in the db data
  * structures.
  *
@@ -761,7 +747,7 @@ static void update_device_record_params(mapper_db_device reg,
 
     update_int_if_arg(&reg->version, params, AT_REV);
 
-    add_or_update_extra_params(reg->extra, params);
+    mapper_msg_add_or_update_extra_params(reg->extra, params);
 }
 
 int mapper_db_add_or_update_device_params(mapper_db db,
@@ -1018,7 +1004,7 @@ static void update_signal_record_params(mapper_db_signal sig,
     if (is_output != -1)
         sig->is_output = is_output;
 
-    add_or_update_extra_params(sig->extra, params);
+    mapper_msg_add_or_update_extra_params(sig->extra, params);
 }
 
 int mapper_db_add_or_update_signal_params(mapper_db db,
@@ -1075,7 +1061,6 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
                            char type, int length,
                            const char *name, const char *unit)
 {
-    sig->hidden = 0;
     sig->is_output = is_output;
     sig->type = type;
     sig->length = length;
@@ -1298,7 +1283,7 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
     }
 }
 
-/**** Mapping records ****/
+/**** Connection records ****/
 
 /*! Update information about a given connection record based on
  *  message parameters. */
@@ -1372,7 +1357,7 @@ static void update_connection_record_params(mapper_db_connection con,
     if (mute!=-1)
         con->muted = mute;
 
-    add_or_update_extra_params(con->extra, params);
+    mapper_msg_add_or_update_extra_params(con->extra, params);
 }
 
 int mapper_db_add_or_update_connection_params(mapper_db db,
@@ -1522,19 +1507,19 @@ mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
     return (mapper_db_connection*)dynamic_query_continuation(lh);
 }
 
-static int cmp_query_get_connections_by_input_name(void *context_data,
-                                                   mapper_db_connection con)
+static int cmp_query_get_connections_by_src_signal_name(void *context_data,
+                                                        mapper_db_connection con)
 {
-    const char *inputname = (const char*)context_data;
-    const char *mapinputname = con->src_name+1;
-    while (*mapinputname && *mapinputname != '/')  // find the signal name
-        mapinputname++;
-    mapinputname++;
-    return strcmp(mapinputname, inputname)==0;
+    const char *src_name = (const char*)context_data;
+    const char *map_src_name = con->src_name+1;
+    while (*map_src_name && *map_src_name != '/')  // find the signal name
+        map_src_name++;
+    map_src_name++;
+    return strcmp(map_src_name, src_name)==0;
 }
 
-mapper_db_connection_t **mapper_db_get_connections_by_input_name(
-    mapper_db db, const char *input_name)
+mapper_db_connection_t **mapper_db_get_connections_by_src_signal_name(
+    mapper_db db, const char *src_signal)
 {
     mapper_db_connection connection = db->registered_connections;
     if (!connection)
@@ -1542,27 +1527,27 @@ mapper_db_connection_t **mapper_db_get_connections_by_input_name(
 
     // query skips first '/' in the name if it is provided
     list_header_t *lh = construct_query_context_from_strings(
-        (query_compare_func_t*)cmp_query_get_connections_by_input_name,
-        input_name[0]=='/' ? input_name+1 : input_name, 0);
+        (query_compare_func_t*)cmp_query_get_connections_by_src_signal_name,
+        src_signal[0]=='/' ? src_signal+1 : src_signal, 0);
 
     lh->self = connection;
 
-    if (cmp_query_get_connections_by_input_name(
+    if (cmp_query_get_connections_by_src_signal_name(
             &lh->query_context->data, connection))
         return (mapper_db_connection*)&lh->self;
 
     return (mapper_db_connection*)dynamic_query_continuation(lh);
 }
 
-static int cmp_query_get_connections_by_device_and_input_name(
+static int cmp_query_get_connections_by_src_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
     const char *name = (const char*) context_data;
     return strcmp(con->src_name, name)==0;
 }
 
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_input_name(
-    mapper_db db, const char *device_name, const char *input_name)
+mapper_db_connection_t **mapper_db_get_connections_by_src_device_and_signal_names(
+    mapper_db db, const char *src_device, const char *src_signal)
 {
     mapper_db_connection connection = db->registered_connections;
     if (!connection)
@@ -1571,35 +1556,35 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_input_name(
     // query skips first '/' in both names if it is provided
     char name[1024];
     snprintf(name, 1024, "/%s/%s",
-             device_name[0]=='/' ? device_name+1 : device_name,
-             input_name[0]=='/' ? input_name+1 : input_name);
+             src_device[0]=='/' ? src_device+1 : src_device,
+             src_signal[0]=='/' ? src_signal+1 : src_signal);
 
     list_header_t *lh = construct_query_context_from_strings(
-        (query_compare_func_t*)cmp_query_get_connections_by_device_and_input_name,
+        (query_compare_func_t*)cmp_query_get_connections_by_src_device_and_signal_names,
         name, 0);
 
     lh->self = connection;
 
-    if (cmp_query_get_connections_by_device_and_input_name(
+    if (cmp_query_get_connections_by_src_device_and_signal_names(
             &lh->query_context->data, connection))
         return (mapper_db_connection*)&lh->self;
 
     return (mapper_db_connection*)dynamic_query_continuation(lh);
 }
 
-static int cmp_query_get_connections_by_output_name(void *context_data,
-                                                    mapper_db_connection con)
+static int cmp_query_get_connections_by_dest_signal_name(void *context_data,
+                                                         mapper_db_connection con)
 {
-    const char *outputname = (const char*)context_data;
-    const char *mapoutputname = con->dest_name+1;
-    while (*mapoutputname && *mapoutputname != '/')  // find the signal name
-        mapoutputname++;
-    mapoutputname++;
-    return strcmp(mapoutputname, outputname)==0;
+    const char *dest_name = (const char*)context_data;
+    const char *map_dest_name = con->dest_name+1;
+    while (*map_dest_name && *map_dest_name != '/')  // find the signal name
+        map_dest_name++;
+    map_dest_name++;
+    return strcmp(map_dest_name, dest_name)==0;
 }
 
-mapper_db_connection_t **mapper_db_get_connections_by_output_name(
-    mapper_db db, const char *output_name)
+mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
+    mapper_db db, const char *dest_name)
 {
     mapper_db_connection connection = db->registered_connections;
     if (!connection)
@@ -1607,27 +1592,27 @@ mapper_db_connection_t **mapper_db_get_connections_by_output_name(
 
     // query skips first '/' in the name if it is provided
     list_header_t *lh = construct_query_context_from_strings(
-        (query_compare_func_t*)cmp_query_get_connections_by_output_name,
-        output_name[0]=='/' ? output_name+1 : output_name, 0);
+        (query_compare_func_t*)cmp_query_get_connections_by_dest_signal_name,
+        dest_name[0]=='/' ? dest_name+1 : dest_name, 0);
 
     lh->self = connection;
 
-    if (cmp_query_get_connections_by_output_name(
+    if (cmp_query_get_connections_by_dest_signal_name(
             &lh->query_context->data, connection))
         return (mapper_db_connection*)&lh->self;
 
     return (mapper_db_connection*)dynamic_query_continuation(lh);
 }
 
-static int cmp_query_get_connections_by_device_and_output_name(
+static int cmp_query_get_connections_by_dest_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
     const char *name = (const char*) context_data;
     return strcmp(con->dest_name, name)==0;
 }
 
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_output_name(
-    mapper_db db, const char *device_name, const char *output_name)
+mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_names(
+    mapper_db db, const char *dest_device, const char *dest_signal)
 {
     mapper_db_connection connection = db->registered_connections;
     if (!connection)
@@ -1635,17 +1620,17 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_output_name(
 
     char name[1024];
     snprintf(name, 1024, "/%s/%s",
-             device_name[0]=='/' ? device_name+1 : device_name,
-             output_name[0]=='/' ? output_name+1 : output_name);
+             dest_device[0]=='/' ? dest_device+1 : dest_device,
+             dest_signal[0]=='/' ? dest_signal+1 : dest_signal);
 
     // query skips first '/' in both names if it is provided
     list_header_t *lh = construct_query_context_from_strings(
-        (query_compare_func_t*)cmp_query_get_connections_by_device_and_output_name,
+        (query_compare_func_t*)cmp_query_get_connections_by_dest_device_and_signal_names,
         name, 0);
 
     lh->self = connection;
 
-    if (cmp_query_get_connections_by_device_and_output_name(
+    if (cmp_query_get_connections_by_dest_device_and_signal_names(
             &lh->query_context->data, connection))
         return (mapper_db_connection*)&lh->self;
 
@@ -1680,8 +1665,8 @@ static int cmp_query_get_connections_by_device_and_signal_names(
 
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
     mapper_db db,
-    const char *input_device_name,  const char *input_name,
-    const char *output_device_name, const char *output_name)
+    const char *src_device,  const char *src_signal,
+    const char *dest_device, const char *dest_signal)
 {
     mapper_db_connection connection = db->registered_connections;
     if (!connection)
@@ -1689,17 +1674,13 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
 
     char inname[1024];
     snprintf(inname, 1024, "/%s/%s",
-             (input_device_name[0]=='/'
-              ? input_device_name+1
-              : input_device_name),
-             input_name[0]=='/' ? input_name+1 : input_name);
+             (src_device[0]=='/' ? src_device+1 : src_device),
+              src_signal[0]=='/' ? src_signal+1 : src_signal);
 
     char outname[1024];
     snprintf(outname, 1024, "/%s/%s",
-             (output_device_name[0]=='/'
-              ? output_device_name+1
-              : output_device_name),
-             output_name[0]=='/' ? output_name+1 : output_name);
+             (dest_device[0]=='/' ? dest_device+1 : dest_device),
+              dest_signal[0]=='/' ? dest_signal+1 : dest_signal);
 
     // query skips first '/' in both names if it is provided
     list_header_t *lh = construct_query_context_from_strings(
@@ -1772,13 +1753,13 @@ static int cmp_get_connections_by_signal_queries(void *context_data,
 
 mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
     mapper_db db,
-    mapper_db_signal_t **inputs, mapper_db_signal_t **outputs)
+    mapper_db_signal_t **src, mapper_db_signal_t **dest)
 {
     mapper_db_connection maps = db->registered_connections;
     if (!maps)
         return 0;
 
-    if (!(inputs && outputs))
+    if (!(src && dest))
         return 0;
 
     query_info_t *qi = (query_info_t*)
@@ -1791,8 +1772,8 @@ mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
 
     src_dest_queries_t *qdata = (src_dest_queries_t*)&qi->data;
 
-    qdata->lh_src_head = list_get_header_by_self(inputs);
-    qdata->lh_dest_head = list_get_header_by_self(outputs);
+    qdata->lh_src_head = list_get_header_by_self(src);
+    qdata->lh_dest_head = list_get_header_by_self(dest);
 
     list_header_t *lh = (list_header_t*) malloc(LIST_HEADER_SIZE);
     lh->self = maps;
@@ -1858,7 +1839,7 @@ static void update_link_record_params(mapper_db_link link,
     update_string_if_different(&link->src_name, src_name);
     update_string_if_different(&link->dest_name, dest_name);
 
-    add_or_update_extra_params(link->extra, params);
+    mapper_msg_add_or_update_extra_params(link->extra, params);
 }
 
 int mapper_db_add_or_update_link_params(mapper_db db,
@@ -1985,7 +1966,7 @@ mapper_db_link_t **mapper_db_get_links_by_device_name(
 }
 
 static int cmp_query_get_links_by_src_device_name(void *context_data,
-                                                     mapper_db_link link)
+                                                  mapper_db_link link)
 {
     const char *src = (const char*)context_data;
     return strcmp(link->src_name, src)==0;
@@ -2039,7 +2020,7 @@ mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
 }
 
 static int cmp_get_links_by_src_dest_devices(void *context_data,
-                                                mapper_db_link link)
+                                             mapper_db_link link)
 {
     src_dest_queries_t *qdata = (src_dest_queries_t*)context_data;
     char ctx_backup[1024];

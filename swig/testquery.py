@@ -11,7 +11,7 @@ def h(sig, f):
 
 src = mapper.device("src", 9000)
 outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
-dummysig = src.add_hidden_input("/dummysig", 1, 'f', None, 0, 1000, h)
+outsig.set_query_callback(h)
 
 dest = mapper.device("dest", 9000)
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1)
@@ -29,6 +29,6 @@ monitor.connect('%s%s' %(src.name, outsig.name),
 
 for i in range(100):
     insig.update(i)
-    outsig.query_remote(dummysig)
+    outsig.query_remote()
     src.poll(10)
     dest.poll(10)

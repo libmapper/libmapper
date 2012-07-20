@@ -135,9 +135,6 @@ typedef union _mapper_signal_value {
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal
 {
-    /*! Flag to indicate whether signal should be hidden or public */
-    int hidden;
-
 	/*! Flag to indicate whether signal is source or destination */
 	int is_output;
 
@@ -179,6 +176,7 @@ typedef struct _mapper_db_signal
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
+    lo_address addr;                      //!< Sending address.
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;

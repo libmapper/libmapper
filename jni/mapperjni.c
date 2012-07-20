@@ -160,62 +160,6 @@ JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1add_1input
     return jlong_ptr(s);
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1add_1hidden_1input
-  (JNIEnv *env, jobject obj, jlong d, jstring name, jint length, jchar type, jstring unit, jobject minimum, jobject maximum, jobject listener)
-{
-    if (!d || !name || (length<=0) || (type!='f' && type!='i'))
-        return 0;
-
-    mapper_device dev = (mapper_device)ptr_jlong(d);
-
-    const char *cname = (*env)->GetStringUTFChars(env, name, 0);
-    const char *cunit = 0;
-    if (unit) cunit = (*env)->GetStringUTFChars(env, unit, 0);
-
-    union {
-        float f;
-        int i;
-    } mn, mx;
-
-    if (minimum) {
-        jclass cls = (*env)->GetObjectClass(env, minimum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'i')
-                    mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-            }
-        }
-    }
-
-    if (maximum) {
-        jclass cls = (*env)->GetObjectClass(env, maximum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'i')
-                    mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-            }
-        }
-    }
-
-    mapper_signal s = mdev_add_hidden_input(dev, cname, length, type, cunit,
-                                            minimum ? &mn : 0,
-                                            maximum ? &mx : 0,
-                                            java_msig_input_cb,
-                                            (*env)->NewGlobalRef(env,
-                                                                 listener));
-
-    (*env)->ReleaseStringUTFChars(env, name, cname);
-    if (unit) (*env)->ReleaseStringUTFChars(env, unit, cunit);
-
-    return jlong_ptr(s);
-}
-
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1add_1output
   (JNIEnv *env, jobject obj, jlong d, jstring name, jint length, jchar type, jstring unit, jobject minimum, jobject maximum)
 {
@@ -562,6 +506,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1query_1callback
+(JNIEnv *env, jobject obj, jlong s, jobject listener)
+{
+    mapper_signal sig=(mapper_signal)ptr_jlong(s);
+    return msig_set_query_callback(sig, java_msig_input_cb,
+                                   (*env)->NewGlobalRef(env, listener));
+}
+
 JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
   (JNIEnv *env, jobject obj, jlong s)
 {
@@ -624,11 +576,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1remove_1property
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remote
-  (JNIEnv *env, jobject obj, jlong s, jlong r)
+  (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig  = (mapper_signal)ptr_jlong(s);
-    mapper_signal recv = (mapper_signal)ptr_jlong(r);
-    return msig_query_remote(sig, recv);
+    return msig_query_remote(sig);
 }
 
 static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
@@ -828,13 +779,6 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1device_1n
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
     return (*env)->NewStringUTF(env, props->device_name);
-}
-
-JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1hidden
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
-    return props->hidden!=0;
 }
 
 JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1is_1output

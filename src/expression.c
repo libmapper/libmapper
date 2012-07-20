@@ -157,7 +157,7 @@ static int expr_lex(const char **str, token_t *tok)
 {
     int n=0;
     char c = **str;
-    const char *s;
+    const char *s = *str;
     int integer_found = 0;
 
     if (c==0) {
@@ -168,7 +168,6 @@ static int expr_lex(const char **str, token_t *tok)
   again:
 
     if (isdigit(c)) {
-        s = *str;
         do {
             c = (*(++*str));
         } while (c && isdigit(c));

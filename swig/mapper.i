@@ -645,59 +645,6 @@ typedef struct _admin {} admin;
         return (signal *)mdev_add_input((mapper_device)$self, name, length,
                                         type, unit, pmn, pmx, h, PyFunc);
     }
-    signal* add_hidden_input(const char *name, int length=1, const char type='f',
-                             const char *unit=0, maybeSigVal minimum=0,
-                             maybeSigVal maximum=0, PyObject *PyFunc=0)
-    {
-        mapper_signal_handler *h = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
-        if (type == 'f')
-        {
-            if (minimum) {
-                if (minimum->t == 'f')
-                    pmn = &minimum->v;
-                else {
-                    mn.f = (float)minimum->v.i32;
-                    pmn = &mn;
-                }
-            }
-            if (maximum) {
-                if (maximum->t == 'f')
-                    pmx = &maximum->v;
-                else {
-                    mx.f = (float)maximum->v.i32;
-                    pmx = &mx;
-                }
-            }
-        }
-        else if (type == 'i')
-        {
-            if (minimum) {
-                if (minimum->t == 'i')
-                    pmn = &minimum->v;
-                else {
-                    mn.i32 = (int)minimum->v.f;
-                    pmn = &mn;
-                }
-            }
-            if (maximum) {
-                if (maximum->t == 'i')
-                    pmx = &maximum->v;
-                else {
-                    mx.i32 = (int)maximum->v.f;
-                    pmx = &mx;
-                }
-            }
-        }
-        signal *sig = (signal *)mdev_add_input((mapper_device)$self, name, length,
-                                               type, unit, pmn, pmx, h, PyFunc);
-        ((mapper_signal)sig)->props.hidden = 1;
-        return sig;
-    }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
                        maybeSigVal maximum=0)
@@ -743,6 +690,20 @@ typedef struct _admin {} admin;
         }
         return (signal*)mdev_add_output((mapper_device)$self, name,
                                       length, type, unit, pmn, pmx);
+    }
+    void remove_input(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_input((mapper_device)$self, (mapper_signal)sig);
+    }
+    void remove_output(signal *sig) {
+        mapper_signal msig = (mapper_signal)sig;
+        if (msig->props.user_data) {
+            Py_XDECREF((PyObject*)msig->props.user_data);
+        }
+        return mdev_remove_output((mapper_device)$self, msig);
     }
     maybeInt get_port() {
         mapper_device md = (mapper_device)$self;
@@ -852,8 +813,22 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
-    int query_remote(signal *receiver=0) {
-        return msig_query_remote((mapper_signal)$self, (mapper_signal)receiver);
+    void set_query_callback(PyObject *PyFunc=0) {
+        mapper_signal_handler *h = 0;
+        mapper_signal msig = (mapper_signal)$self;
+        if (PyFunc && !msig->props.user_data) {
+            h = msig_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        else if (!PyFunc && msig->props.user_data) {
+            if (msig->props.user_data) {
+                Py_XDECREF((PyObject*)msig->props.user_data);
+            }
+        }
+        return msig_set_query_callback((mapper_signal)$self, h, PyFunc);
+    }
+    int query_remote() {
+        return msig_query_remote((mapper_signal)$self);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
@@ -1114,32 +1089,32 @@ typedef struct _admin {} admin;
         return mapper_db_get_connections_by_device_name((mapper_db)$self,
                                                         device_name);
     }
-    mapper_db_connection_t **get_connections_by_input_name(
-        const char *input_name) {
-        return mapper_db_get_connections_by_input_name((mapper_db)$self,
-                                                       input_name);
+    mapper_db_connection_t **get_connections_by_src_signal_name(
+        const char *src_signal) {
+        return mapper_db_get_connections_by_src_signal_name((mapper_db)$self,
+                                                            src_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_input_name(
-        const char *device_name, const char *input_name) {
-        return mapper_db_get_connections_by_device_and_input_name(
-            (mapper_db)$self, device_name, input_name);
+    mapper_db_connection_t **get_connections_by_src_device_and_signal_names(
+        const char *src_device, const char *src_signal) {
+        return mapper_db_get_connections_by_src_device_and_signal_names(
+            (mapper_db)$self, src_device, src_signal);
     }
-    mapper_db_connection_t **get_connections_by_output_name(
-        const char *output_name) {
-        return mapper_db_get_connections_by_output_name((mapper_db)$self,
-                                                        output_name);
+    mapper_db_connection_t **get_connections_by_dest_signal_name(
+        const char *dest_signal) {
+        return mapper_db_get_connections_by_dest_signal_name((mapper_db)$self,
+                                                             dest_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_output_name(
-        const char *device_name, const char *output_name) {
-        return mapper_db_get_connections_by_device_and_output_name(
-            (mapper_db)$self, device_name, output_name);
+    mapper_db_connection_t **get_connections_by_dest_device_and_signal_names(
+        const char *dest_device, const char *dest_signal) {
+        return mapper_db_get_connections_by_dest_device_and_signal_names(
+            (mapper_db)$self, dest_device, dest_signal);
     }
     mapper_db_connection_t **get_connections_by_device_and_signal_names(
-        const char *input_device_name,  const char *input_name,
-        const char *output_device_name, const char *output_name) {
+        const char *src_device,  const char *src_signal,
+        const char *dest_device, const char *dest_signal) {
         return mapper_db_get_connections_by_device_and_signal_names(
-            (mapper_db)$self, input_device_name, input_name,
-            output_device_name, output_name);
+            (mapper_db)$self, src_device, src_signal,
+            dest_device, dest_signal);
     }
     mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
@@ -1203,14 +1178,14 @@ typedef struct _admin {} admin;
         all_connections = make_iterator(get_all_connections, connection_next)
         connections_by_device_name = make_iterator(get_connections_by_device_name,
                                                 connection_next)
-        connections_by_input_name = make_iterator(get_connections_by_input_name,
-                                               connection_next)
-        connections_by_device_and_input_name = make_iterator(
-            get_connections_by_device_and_input_name, connection_next)
-        connections_by_output_name = make_iterator(get_connections_by_output_name,
+        connections_by_src_signal_name = make_iterator(get_connections_by_src_signal_name,
+                                                       connection_next)
+        connections_by_src_device_and_signal_names = make_iterator(
+            get_connections_by_src_device_and_signal_names, connection_next)
+        connections_by_dest_signal_name = make_iterator(get_connections_by_dest_signal_name,
                                                 connection_next)
-        connections_by_device_and_output_name = make_iterator(
-            get_connections_by_device_and_output_name, connection_next)
+        connections_by_dest_device_and_signal_names = make_iterator(
+            get_connections_by_dest_device_and_signal_names, connection_next)
         connections_by_device_and_signal_names = make_iterator(
             get_connections_by_device_and_signal_names, connection_next)
         connections_by_src_dest_device_names = make_iterator(

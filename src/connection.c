@@ -589,6 +589,9 @@ void mapper_connection_set_from_message(mapper_connection c,
     if (expr)
         replace_expression_string(c, sig, expr);
 
+    /* Extra properties. */
+    mapper_msg_add_or_update_extra_params(c->props.extra, msg);
+
     /* Now set the mode type depending on the requested type and
      * the known properties. */
 
@@ -664,7 +667,7 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
         if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
             while (router != NULL) {
                 // find associated router
-                if (strncmp(router->dest_name, dest_name, n) == 0) {
+                if (strncmp(router->props.dest_name, dest_name, n) == 0) {
                     // find associated connection
                     mapper_signal_connection sc = router->connections;
                     while (sc && sc->signal != md->outputs[i])

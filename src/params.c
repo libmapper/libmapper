@@ -225,6 +225,20 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
     return 0;
 }
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                           mapper_message_t *params)
+{
+    int i=0;
+    while (params->extra_args[i])
+    {
+        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
+        lo_arg *arg = *(params->extra_args[i]+1);
+        char type = params->extra_types[i];
+        mapper_table_add_or_update_osc_value(t, key, type, arg);
+        i++;
+    }
+}
+
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
@@ -455,6 +469,12 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router)
+{
+    mapper_msg_add_osc_value_table(m, router->props.extra);
+}
+
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
@@ -502,6 +522,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_int32(m, con->props.src_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
     lo_message_add_int32(m, con->props.dest_length);
+
+    mapper_msg_add_osc_value_table(m, con->props.extra);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)

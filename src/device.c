@@ -140,7 +140,6 @@ static int handler_query(const char *path, const char *types,
                          lo_arg **argv, int argc, lo_message msg,
                          void *user_data)
 {
-    char *dest_name = 0;
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
@@ -150,15 +149,9 @@ static int handler_query(const char *path, const char *types,
     }
 
     if (!argc)
-        dest_name = (char *)path;
+        return 0;
     else if (types[0] != 's' && types[0] != 'S')
         return 0;
-    else {
-        // use OSC string provided as argument for return
-        dest_name = &argv[0]->s;
-        if (dest_name[0] != '/')
-            return 0;
-    }
 
     int i;
     lo_message m;
@@ -175,8 +168,49 @@ static int handler_query(const char *path, const char *types,
         lo_message_add_nil(m);
     }
 
-    lo_send_message(lo_message_get_source(msg), dest_name, m);
+    lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
     lo_message_free(m);
+    return 0;
+}
+
+static int handler_query_response(const char *path, const char *types,
+                                  lo_arg **argv, int argc, lo_message msg,
+                                  void *user_data)
+{
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md = sig->device;
+
+    if (!md) {
+        trace("error, sig->device==0\n");
+        return 0;
+    }
+    if (types[0] == LO_NIL && sig->handler) {
+        sig->handler(sig, &sig->props, 0, 0);
+        return 0;
+    }
+
+    mapper_signal_value_t value[sig->props.length];
+    int i;
+    if (sig->props.type == 'i') {
+        for (i = 0; i < sig->props.length && i < argc; i++) {
+            if (types[i] == LO_INT32)
+                value[i].i32 = argv[i]->i32;
+            else if (types[i] == LO_FLOAT)
+                value[i].i32 = (int)argv[i]->f;
+        }
+    }
+    else if (sig->props.type == 'f') {
+        for (i = 0; i < sig->props.length && i < argc; i++) {
+            if (types[i] == LO_INT32)
+                value[i].f = (float)argv[i]->i32;
+            else if (types[i] == LO_FLOAT)
+                value[i].f = argv[i]->f;
+        }
+    }
+
+    if (sig->handler)
+        sig->handler(sig, &sig->props, 0, value);
+
     return 0;
 }
 
@@ -190,7 +224,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
     char *type_string = 0, *signal_get = 0;
-    mapper_signal sig = msig_new(name, length, type, 0, unit, minimum, 
+    mapper_signal sig = msig_new(name, length, type, 0, unit, minimum,
                                  maximum, handler, user_data);
     if (!sig)
         return 0;
@@ -222,35 +256,14 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         int len = strlen(sig->props.name) + 5;
         signal_get = (char*) realloc(signal_get, len);
         snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-        lo_server_add_method(md->server, 
-                             signal_get, 
-                             NULL, 
+        lo_server_add_method(md->server,
+                             signal_get,
+                             "s",
                              handler_query, (void *) (sig));
         free(type_string);
         free(signal_get);
     }
 
-    return sig;
-}
-
-mapper_signal mdev_add_hidden_input(mapper_device md, const char *name, int length,
-                                    char type, const char *unit,
-                                    void *minimum, void *maximum,
-                                    mapper_signal_handler *handler,
-                                    void *user_data)
-{
-    int version = md->version;
-    int flags = md->flags;
-    mapper_signal sig = mdev_add_input(md, name, length, type, unit, 
-                                       minimum, maximum, handler, user_data);
-    if (!sig)
-        return 0;
-    sig->props.hidden = 1;
-    md->n_hidden_inputs++;
-    /* Addition of a hidden input should not affect version or update status, so
-     * we will restore them to their previous values */
-    md->version = version;
-    md->flags = flags;
     return sig;
 }
 
@@ -276,6 +289,46 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     if (md->admin->name)
         sig->props.device_name = md->admin->name;
     return sig;
+}
+
+void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig)
+{
+    if (!sig->props.is_output || sig->handler)
+        return;
+    char *path = 0;
+    int len;
+    if (!md->server)
+        mdev_start_server(md);
+    else {
+        len = (int) strlen(sig->props.name) + 5;
+        path = (char*) realloc(path, len);
+        snprintf(path, len, "%s%s", sig->props.name, "/got");
+        lo_server_add_method(md->server,
+                             path,
+                             NULL,
+                             handler_query_response, (void *) (sig));
+        free(path);
+        md->n_query_inputs ++;
+    }
+}
+
+void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal sig)
+{
+    char *path = 0;
+    int len, i;
+    if (!md || !sig || !sig->handler)
+        return;
+    for (i=0; i<md->n_outputs; i++) {
+        if (md->outputs[i] == sig)
+            break;
+    }
+    if (i==md->n_outputs)
+        return;
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    lo_server_del_method(md->server, path, NULL);
+    md->n_query_inputs --;
 }
 
 void mdev_remove_input(mapper_device md, mapper_signal sig)
@@ -305,8 +358,6 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         free(signal_get);
     }
     md->n_inputs --;
-    if (sig->props.hidden)
-        md->n_hidden_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
@@ -324,6 +375,14 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
+    if (sig->handler && md->server) {
+        int len = strlen(sig->props.name) + 5;
+        char *path = (char*) malloc(len);
+        strncpy(path, sig->props.name, len);
+        strncat(path, "/got", len);
+        lo_server_del_method(md->server, path, NULL);
+        free(path);
+    }
     md->n_outputs --;
     mdev_increment_version(md);
     msig_free(sig);
@@ -331,13 +390,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 
 int mdev_num_inputs(mapper_device md)
 {
-    // Return only the number of public inputs
-    return md->n_inputs - md->n_hidden_inputs;
-}
-
-int mdev_num_hidden_inputs(mapper_device md)
-{
-    return md->n_hidden_inputs;
+    return md->n_inputs;
 }
 
 int mdev_num_outputs(mapper_device md)
@@ -443,7 +496,7 @@ int mdev_poll(mapper_device md, int block_ms)
          * no point.  Perhaps if this is supported in the future it
          * can be a heuristic based on a recent number of messages per
          * channel per poll. */
-        while (count < md->n_inputs*1
+        while (count < (md->n_inputs + md->n_query_inputs)*1
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
@@ -468,13 +521,12 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
     }
 }
 
-int mdev_route_query(mapper_device md, mapper_signal sig,
-                     const char *alias)
+int mdev_route_query(mapper_device md, mapper_signal sig)
 {
     int count = 0;
     mapper_router r = md->routers;
     while (r) {
-        count += mapper_router_send_query(r, sig, alias);
+        count += mapper_router_send_query(r, sig);
         r = r->next;
     }
     return count;
@@ -576,9 +628,9 @@ static void unlock_liblo_error_mutex()
 
 void mdev_start_server(mapper_device md)
 {
-    if (md->n_inputs > 0 && md->admin->port.locked && !md->server) {
+    if (md->admin->port.locked && !md->server) {
         int i;
-        char port[16], *type = 0, *signal_get = 0;
+        char port[16], *type = 0, *path = 0;
 
         sprintf(port, "%d", md->admin->port.value);
 
@@ -616,15 +668,27 @@ void mdev_start_server(mapper_device md)
                                  "N",
                                  handler_signal, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
-            signal_get = (char*) realloc(signal_get, len);
-            snprintf(signal_get, len, "%s%s", md->inputs[i]->props.name, "/get");
-            lo_server_add_method(md->server, 
-                                 signal_get, 
-                                 NULL, 
+            path = (char*) realloc(path, len);
+            snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
+            lo_server_add_method(md->server,
+                                 path,
+                                 "s",
                                  handler_query, (void *) (md->inputs[i]));
         }
+        for (i = 0; i < md->n_outputs; i++) {
+            if (!md->outputs[i]->handler)
+                continue;
+            int len = (int) strlen(md->outputs[i]->props.name) + 5;
+            path = (char*) realloc(path, len);
+            snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
+            lo_server_add_method(md->server,
+                                 path,
+                                 NULL,
+                                 handler_query_response, (void *) (md->outputs[i]));
+            md->n_query_inputs ++;
+        }
         free(type);
-        free(signal_get);
+        free(path);
     }
 }
 
