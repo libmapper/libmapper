@@ -654,8 +654,8 @@ void msig_remove_instance(mapper_signal_instance si)
 {
     if (!si) return;
 
-    // First send zero signal
-    msig_update_instance_internal(si, 1, NULL);
+    // First release instance
+    msig_release_instance_internal(si);
 
     // Remove connection instances
     mapper_connection_instance ci;
@@ -885,6 +885,7 @@ void msig_free_instance(mapper_signal_instance si)
 {
     if (!si)
         return;
+    msig_release_instance_internal(si);
     mapper_connection_instance ci;
     while (si->connections) {
         ci = si->connections;
