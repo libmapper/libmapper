@@ -631,6 +631,25 @@ stole:
     return stolen;
 }
 
+void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
+{
+    if (from == to)
+        return;
+
+    // Find from instance
+    mapper_signal_instance si_from = msig_find_instance_with_id(from, instance_id);
+    if (!si_from)
+        return;
+
+    // Find to instance
+    mapper_signal_instance si_to = msig_get_instance_with_id(to, instance_id, 1);
+    if (!si_to)
+        return;
+
+    // Copy instance ID map
+    msig_instance_init(si_to, si_from->id_map);
+}
+
 void msig_remove_instance(mapper_signal_instance si)
 {
     if (!si) return;

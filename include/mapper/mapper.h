@@ -206,6 +206,9 @@ void msig_set_instance_management_callback(mapper_signal sig,
  *  mode set with msig_set_instance_allocation_mode(). */
 void msig_start_new_instance(mapper_signal sig, int instance_id);
 
+/*! Copy group/routing data for sharing an instance abstraction between multiple signals. */
+void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id);
+
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
