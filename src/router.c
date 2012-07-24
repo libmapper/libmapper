@@ -326,11 +326,11 @@ int mapper_router_in_scope(mapper_router router, int id)
     return 0;
 }
 
-mapper_router mapper_router_find_by_remote_address(mapper_router router,
-                                                   lo_address address)
+mapper_router mapper_router_find_by_dest_address(mapper_router router,
+                                                 lo_address dest_addr)
 {
-    const char *host_to_match = lo_address_get_hostname(address);
-    const char *port_to_match = lo_address_get_port(address);
+    const char *host_to_match = lo_address_get_hostname(dest_addr);
+    const char *port_to_match = lo_address_get_port(dest_addr);
 
     while (router) {
         const char *host = lo_address_get_hostname(router->props.dest_addr);
@@ -342,8 +342,8 @@ mapper_router mapper_router_find_by_remote_address(mapper_router router,
     return 0;
 }
 
-mapper_router mapper_router_find_by_remote_name(mapper_router router,
-                                                const char* dest_name)
+mapper_router mapper_router_find_by_dest_name(mapper_router router,
+                                              const char *dest_name)
 {
     int n = strlen(dest_name);
     const char *slash = strchr(dest_name+1, '/');

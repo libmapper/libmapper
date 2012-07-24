@@ -202,13 +202,13 @@ int mapper_router_remove_connection(mapper_router router,
 
 int mapper_router_in_scope(mapper_router router, int group_id);
 
-/*! Find a router by remote address in a linked list of routers. */
-mapper_router mapper_router_find_by_remote_address(mapper_router routers,
-                                                   lo_address address);
+/*! Find a router by destination address in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_address(mapper_router routers,
+                                                 lo_address dest_addr);
 
-/*! Find a router by remote device name in a linked list of routers. */
-mapper_router mapper_router_find_by_remote_name(mapper_router routers,
-                                                const char* dest_name);
+/*! Find a router by destination device name in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_name(mapper_router routers,
+                                              const char *dest_name);
 
 int mapper_router_add_scope(mapper_router router, const char *scope);
 
