@@ -1388,8 +1388,9 @@ static int handler_device_unlink(const char *path, const char *types,
     if (router) {
         if (scope) {
             mapper_router_remove_scope(router, scope);
-            if (router->props.num_scopes <= 0) {
-                mdev_remove_router(md, router);
+            if (router->props.num_scopes > 0) {
+                mapper_admin_send_linked(admin, router);
+                return 0;
             }
         }
         else {

@@ -299,20 +299,20 @@ void mapper_router_remove_scope(mapper_router router, const char *scope)
     if (!scope)
         return;
     int i, j, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    mapper_db_link_t props = router->props;
-    for (i=0; i<props.num_scopes; i++) {
-        if (props.scope_hashes[i] == hash) {
-            free(props.scope_names[i]);
-            for (j=i+1; j<props.num_scopes; j++) {
-                props.scope_names[j-1] = props.scope_names[j];
-                props.scope_hashes[j-1] = props.scope_hashes[j];
+    mapper_db_link props = &router->props;
+    for (i=0; i<props->num_scopes; i++) {
+        if (props->scope_hashes[i] == hash) {
+            free(props->scope_names[i]);
+            for (j=i+1; j<props->num_scopes; j++) {
+                props->scope_names[j-1] = props->scope_names[j];
+                props->scope_hashes[j-1] = props->scope_hashes[j];
             }
-            props.num_scopes--;
-            props.scope_names = realloc(props.scope_names,
-                                        props.num_scopes * sizeof(char *));
-            props.scope_hashes = realloc(props.scope_hashes,
-                                         props.num_scopes * sizeof(int));
-            break;
+            props->num_scopes--;
+            props->scope_names = realloc(props->scope_names,
+                                         props->num_scopes * sizeof(char *));
+            props->scope_hashes = realloc(props->scope_hashes,
+                                          props->num_scopes * sizeof(int));
+            return;
         }
     }
 }
