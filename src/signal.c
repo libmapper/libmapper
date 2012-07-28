@@ -518,7 +518,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
                 }
                 goto stole;
             default:
-                trace("Unknown instance allocation strategy (msig_get_instance)\n");
+                trace("Unknown instance allocation strategy (msig_get_instance_with_id)\n");
                 return 0;
         }
     }
@@ -610,7 +610,7 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                 }
                 goto stole;
             default:
-                trace("Unknown instance allocation strategy (msig_get_instance)\n");
+                trace("Unknown instance allocation strategy (msig_get_instance_with_id_map)\n");
                 return 0;
         }
     }
