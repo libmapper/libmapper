@@ -1244,7 +1244,7 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Discover whether the device is already linked.
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+        mapper_router_find_by_dest_name(md->routers, dest_name);
 
     if (router) {
         // Already linked, add scope.
@@ -1384,7 +1384,7 @@ static int handler_device_unlink(const char *path, const char *types,
 
     /* Remove the router for the destination. */
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+        mapper_router_find_by_dest_name(md->routers, dest_name);
     if (router) {
         if (scope) {
             mapper_router_remove_scope(router, scope);
@@ -1643,7 +1643,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
     }
 
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+        mapper_router_find_by_dest_name(md->routers, dest_name);
 
     /* If no link found, we simply stop here. The idea was floated
      * that we could automatically create links, but it was agreed
@@ -1770,7 +1770,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     }
 
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
+        mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
     if (!router)
     {
         trace("<%s> no router found for '%s' in /connectTo\n",
@@ -1826,7 +1826,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router router = mapper_router_find_by_remote_name(md->routers, &argv[1]->s);
+    mapper_router router = mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
     if (!router) {
         trace("<%s> ignoring /disconnect, no router found for '%s'\n",
               mapper_admin_name(admin), &argv[1]->s);
