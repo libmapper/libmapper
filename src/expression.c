@@ -141,7 +141,7 @@ typedef struct _token {
         char op;
         expr_func_t func;
     };
-} token_t;
+} mapper_token_t;
 
 static expr_func_t function_lookup(const char *s, int len)
 {
@@ -153,7 +153,7 @@ static expr_func_t function_lookup(const char *s, int len)
     return FUNC_UNKNOWN;
 }
 
-static int expr_lex(const char **str, token_t *tok)
+static int expr_lex(const char **str, mapper_token_t *tok)
 {
     int n=0;
     char c = **str;
@@ -283,7 +283,7 @@ static int expr_lex(const char **str, token_t *tok)
 
 typedef struct _exprnode
 {
-    token_t tok;
+    mapper_token_t tok;
     int is_float;
     int history_index;  // when tok.type==TOK_VAR
     int vector_index;   // when tok.type==TOK_VAR
@@ -332,7 +332,7 @@ typedef struct _stack_obj
     } type;
 } stack_obj_t;
 
-static exprnode exprnode_new(token_t *tok, int is_float)
+static exprnode exprnode_new(mapper_token_t *tok, int is_float)
 {
     exprnode t = (exprnode)
         malloc(sizeof(struct _exprnode));
@@ -362,7 +362,7 @@ void mapper_expr_free(mapper_expr expr)
 }
 
 #ifdef DEBUG
-void printtoken(token_t *tok)
+void printtoken(mapper_token_t *tok)
 {
     switch (tok->type) {
     case TOK_FLOAT:        printf("%f", tok->f);          break;
@@ -465,7 +465,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     }
 
     // insert float coersion if sides disagree on type
-    token_t coerce;
+    mapper_token_t coerce;
     coerce.type = TOK_TOFLOAT;
     is_float = (*plhs_last)->is_float || rhs_last->is_float;
     if ((*plhs_last)->is_float && !rhs_last->is_float) {
@@ -532,7 +532,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     exprnode result = 0;
     const char *error_message = 0;
 
-    token_t tok;
+    mapper_token_t tok;
     int i, next_token = 1;
 
     int var_allowed = 1;
@@ -721,7 +721,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             // insert '0' before, and '-' after the expression.
             // set is_float according to trailing operator.
             if (stack[top].type == ST_NODE) {
-                token_t t;
+                mapper_token_t t;
                 t.type = TOK_INT;
                 t.i = 0;
                 exprnode e = exprnode_new(&t, 0);
@@ -846,13 +846,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     exprnode e = result;
     while (e->next) e = e->next;
     if (e->is_float && !output_is_float) {
-        token_t coerce;
+        mapper_token_t coerce;
         coerce.type = TOK_TOINT32;
         e->next = exprnode_new(&coerce, 0);
         e->next->is_float = 0;
     }
     else if (!e->is_float && output_is_float) {
-        token_t coerce;
+        mapper_token_t coerce;
         coerce.type = TOK_TOFLOAT;
         e->next = exprnode_new(&coerce, 0);
         e->next->is_float = 1;
