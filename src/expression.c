@@ -40,6 +40,11 @@ static float hzToMidi(float x)
     return 69. + 12. * log2(x / 440.);
 }
 
+static float uniform(float x)
+{
+    return rand() / (RAND_MAX + 1.0) * x;
+}
+
 typedef enum {
     FUNC_UNKNOWN=-1,
     FUNC_POW=0,
@@ -72,6 +77,7 @@ typedef enum {
     FUNC_PI,
     FUNC_MIDITOHZ,
     FUNC_HZTOMIDI,
+    FUNC_UNIFORM,
     N_FUNCS
 } expr_func_t;
 
@@ -110,6 +116,7 @@ static struct {
     { "pi", 0, pif },
     { "midiToHz", 1, midiToHz },
     { "hzToMidi", 1, hzToMidi },
+    { "uniform", 1, uniform },
 };
 
 typedef float func_float_arity0();
@@ -440,15 +447,20 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 {
     // track whether any variable references
     int refvar = 0;
+    int randvar = 0;
     int is_float = 0;
 
     // find trailing operator on right hand side
     exprnode rhs_last = rhs;
     if (rhs->tok.type == TOK_VAR)
         refvar = 1;
+    else if (rhs->tok.type == TOK_FUNC && rhs->tok.func == FUNC_UNIFORM)
+        randvar = 1;
     while (rhs_last->next) {
         if (rhs_last->tok.type == TOK_VAR)
             refvar = 1;
+        else if (rhs_last->tok.type == TOK_FUNC && rhs_last->tok.func == FUNC_UNIFORM)
+            randvar = 1;
         rhs_last = rhs_last->next;
     }
 
@@ -458,13 +470,17 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     exprnode *plhs_last = plhs;
     if ((*plhs_last)->tok.type == TOK_VAR)
         refvar = 1;
+    else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
+        randvar = 1;
     while ((*plhs_last)->next) {
         if ((*plhs_last)->tok.type == TOK_VAR)
             refvar = 1;
+        else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
+            randvar = 1;
         plhs_last = &(*plhs_last)->next;
     }
 
-    // insert float coersion if sides disagree on type
+    // insert float coercion if sides disagree on type
     mapper_token_t coerce;
     coerce.type = TOK_TOFLOAT;
     is_float = (*plhs_last)->is_float || rhs_last->is_float;
@@ -484,7 +500,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 
     // if there were no variable references, then expression is
     // constant, so evaluate it immediately
-    if (constant_folding && !refvar) {
+    if (constant_folding && !refvar && !randvar) {
         struct _mapper_expr e;
         e.node = *plhs;
         mapper_signal_value_t v = mapper_expr_evaluate(&e, 0);
