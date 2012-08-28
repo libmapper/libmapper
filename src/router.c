@@ -65,7 +65,7 @@ void mapper_router_set_from_message(mapper_router router,
 }
 
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
-                                  mapper_signal_value_t *value)
+                                  lo_bundle b)
 {
     // find this signal in list of connections
     mapper_signal_connection sc = router->connections;
@@ -87,7 +87,8 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
         mapper_signal_value_t applied[signal.props.length];
         int i=0;
         int s=4;
-        void *p = value;
+        die_unless(sig->props.has_value==1, "Signal does not have a value!");
+        void *p = sig->value;
 
         /* Currently expressions on vectors are not supported by the
          * evaluator.  For now, we half-support it by performing
@@ -111,13 +112,13 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
             p += s;
         }
         if (i == signal.props.length)
-            mapper_router_send_signal(router, &signal, applied);
+            mapper_router_bundle_signal(router, &signal, applied, b);
         c = c->next;
     }
 }
 
-void mapper_router_send_signal(mapper_router router, mapper_signal sig,
-                               mapper_signal_value_t *value)
+void mapper_router_bundle_signal(mapper_router router, mapper_signal sig,
+                                 mapper_signal_value_t *value, lo_bundle b)
 {
     int i;
     lo_message m;
@@ -131,9 +132,12 @@ void mapper_router_send_signal(mapper_router router, mapper_signal sig,
     for (i = 0; i < sig->props.length; i++)
         mval_add_to_message(m, sig, &value[i]);
 
-    lo_send_message(router->props.addr, sig->props.name, m);
-    lo_message_free(m);
-    return;
+    lo_bundle_add_message(b, sig->props.name, m);
+}
+
+void mapper_router_send_bundle(mapper_router router, lo_bundle b)
+{
+    lo_send_bundle(router->props.addr, b);
 }
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig)

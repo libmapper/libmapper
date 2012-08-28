@@ -516,7 +516,10 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
 {
     mapper_router r = md->routers;
     while (r) {
-        mapper_router_receive_signal(r, sig, value);
+        lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+        mapper_router_receive_signal(r, sig, b);
+        mapper_router_send_bundle(r, b);
+        lo_bundle_free_messages(b);
         r = r->next;
     }
 }

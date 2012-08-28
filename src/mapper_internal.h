@@ -109,11 +109,13 @@ void mapper_router_free(mapper_router router);
 void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
 
-void mapper_router_send_signal(mapper_router router, mapper_signal sig,
-                               mapper_signal_value_t *value);
+void mapper_router_bundle_signal(mapper_router router, mapper_signal sig,
+                                 mapper_signal_value_t *value, lo_bundle b);
+
+void mapper_router_send_bundle(mapper_router router, lo_bundle b);
 
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
-                                  mapper_signal_value_t *value);
+                                  lo_bundle b);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig);
 
