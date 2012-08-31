@@ -17,6 +17,8 @@ mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
+int numTrials = 10;
+int trial = 0;
 int numModes = 2;
 int mode = 0;
 int use_instance = 1;
@@ -25,7 +27,7 @@ int counter = 0;
 int received = 0;
 int done = 0;
 
-double times[2];
+double times[100];
 float value;
 
 void switch_modes();
@@ -188,30 +190,47 @@ void ctrlc(int sig)
 void switch_modes()
 {
     // possible modes: bypass/expression/calibrate, clipmodes, instances, instance-stealing
-    printf("SWITCHING MODES...\n");
+    printf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
+    times[mode*numTrials+trial] = get_current_time() - times[mode*numTrials+trial];
+    if (++trial >= numTrials) {
+        printf("SWITCHING MODES...\n");
+        trial = 0;
+        mode++;
+    }
+    if (mode >= numModes) {
+        done = 1;
+        return;
+    }
+
     switch (mode)
     {
         case 0:
-            times[1] = get_current_time();
-            times[0] = times[1] - times[0];
-            use_instance = 0;
-            mode++;
+            use_instance = 1;
             break;
-        default:
-            times[1] = get_current_time() - times[1];
-            done = 1;
+        case 1:
+            use_instance = 0;
             break;
     }
+
+    times[mode*numTrials+trial] = get_current_time();
 }
 
 void print_results()
 {
-    int i;
+    int i, j;
     printf("\n*****************************************************\n");
     printf("\nRESULTS OF SPEED TEST:\n");
-    for (i=0; i<numModes; i++)
-        printf("mode %i: %i messages processed in %f seconds\n", i, iterations, times[i]);
+    for (i=0; i<numModes; i++) {
+        printf("MODE %i\n", i);
+        float bestTime = times[i*numTrials];
+        for (j=0; j<numTrials; j++) {
+            printf("trial %i: %i messages processed in %f seconds\n", j, iterations, times[i*numTrials+j]);
+            if (times[i*numTrials+trial] < bestTime)
+                bestTime = times[i*numTrials+trial];
+        }
+        printf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
+    }
     printf("\n*****************************************************\n");
 }
 
