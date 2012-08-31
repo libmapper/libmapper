@@ -447,7 +447,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 {
     // track whether any variable references
     int refvar = 0;
-    int randvar = 0;
+    int refrand = 0;
     int is_float = 0;
 
     // find trailing operator on right hand side
@@ -455,13 +455,13 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if (rhs->tok.type == TOK_VAR)
         refvar = 1;
     else if (rhs->tok.type == TOK_FUNC && rhs->tok.func == FUNC_UNIFORM)
-        randvar = 1;
+        refrand = 1;
     while (rhs_last->next) {
+        rhs_last = rhs_last->next;
         if (rhs_last->tok.type == TOK_VAR)
             refvar = 1;
         else if (rhs_last->tok.type == TOK_FUNC && rhs_last->tok.func == FUNC_UNIFORM)
-            randvar = 1;
-        rhs_last = rhs_last->next;
+            refrand = 1;
     }
 
     // find pointer to insertion place:
@@ -471,12 +471,12 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if ((*plhs_last)->tok.type == TOK_VAR)
         refvar = 1;
     else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
-        randvar = 1;
+        refrand = 1;
     while ((*plhs_last)->next) {
         if ((*plhs_last)->tok.type == TOK_VAR)
             refvar = 1;
         else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
-            randvar = 1;
+            refrand = 1;
         plhs_last = &(*plhs_last)->next;
     }
 
@@ -500,7 +500,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 
     // if there were no variable references, then expression is
     // constant, so evaluate it immediately
-    if (constant_folding && !refvar && !randvar) {
+    if (constant_folding && !refvar && !refrand) {
         struct _mapper_expr e;
         e.node = *plhs;
         mapper_signal_value_t v = mapper_expr_evaluate(&e, 0);
