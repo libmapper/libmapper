@@ -226,8 +226,8 @@ void print_results()
         float bestTime = times[i*numTrials];
         for (j=0; j<numTrials; j++) {
             printf("trial %i: %i messages processed in %f seconds\n", j, iterations, times[i*numTrials+j]);
-            if (times[i*numTrials+trial] < bestTime)
-                bestTime = times[i*numTrials+trial];
+            if (times[i*numTrials+j] < bestTime)
+                bestTime = times[i*numTrials+j];
         }
         printf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
     }
