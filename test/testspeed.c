@@ -84,8 +84,6 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
 {
     counter = (counter+1)%10;
     if (v) {
-       // printf("%i --> destination %s instance %ld got %f\n", received,
-         //      props->name, (long)instance_id, (*(float*)v));
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {

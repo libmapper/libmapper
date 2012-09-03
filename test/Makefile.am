@@ -7,9 +7,9 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testmany testadmin testsend testrecv			\
-                  testexpression testlinear testparams testmonitor	\
-                  testdb testparser testprops testquery testvector	\
+noinst_PROGRAMS = test testmany testadmin testsend testrecv \
+                  testexpression testlinear testparams testmonitor \
+                  testdb testparser testprops testquery testvector \
                   testinstance testspeed
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
