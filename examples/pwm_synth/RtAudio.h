@@ -10,7 +10,7 @@
     RtAudio WWW site: http://www.music.mcgill.ca/~gary/rtaudio/
 
     RtAudio: realtime audio i/o C++ classes
-    Copyright (c) 2001-2010 Gary P. Scavone
+    Copyright (c) 2001-2012 Gary P. Scavone
 
     Permission is hereby granted, free of charge, to any person
     obtaining a copy of this software and associated documentation files
@@ -42,7 +42,7 @@
   \file RtAudio.h
  */
 
-// RtAudio: Version 4.0.7
+// RtAudio: Version 4.0.11
 
 #ifndef __RTAUDIO_H
 #define __RTAUDIO_H
@@ -59,10 +59,12 @@
     internal routines will automatically take care of any necessary
     byte-swapping between the host format and the soundcard.  Thus,
     endian-ness is not a concern in the following format definitions.
+    Note that 24-bit data is expected to be encapsulated in a 32-bit
+    format.
 
     - \e RTAUDIO_SINT8:   8-bit signed integer.
     - \e RTAUDIO_SINT16:  16-bit signed integer.
-    - \e RTAUDIO_SINT24:  Upper 3 bytes of 32-bit signed integer.
+    - \e RTAUDIO_SINT24:  Lower 3 bytes of 32-bit signed integer.
     - \e RTAUDIO_SINT32:  32-bit signed integer.
     - \e RTAUDIO_FLOAT32: Normalized between plus/minus 1.0.
     - \e RTAUDIO_FLOAT64: Normalized between plus/minus 1.0.
@@ -84,6 +86,7 @@ static const RtAudioFormat RTAUDIO_FLOAT64 = 0x20; // Normalized between plus/mi
     - \e RTAUDIO_NONINTERLEAVED:   Use non-interleaved buffers (default = interleaved).
     - \e RTAUDIO_MINIMIZE_LATENCY: Attempt to set stream parameters for lowest possible latency.
     - \e RTAUDIO_HOG_DEVICE:       Attempt grab device for exclusive use.
+    - \e RTAUDIO_ALSA_USE_DEFAULT: Use the "default" PCM device (ALSA only).
 
     By default, RtAudio streams pass and receive audio data from the
     client in an interleaved format.  By passing the
@@ -111,12 +114,17 @@ static const RtAudioFormat RTAUDIO_FLOAT64 = 0x20; // Normalized between plus/mi
 
     If the RTAUDIO_SCHEDULE_REALTIME flag is set, RtAudio will attempt 
     to select realtime scheduling (round-robin) for the callback thread.
+
+    If the RTAUDIO_ALSA_USE_DEFAULT flag is set, RtAudio will attempt to
+    open the "default" PCM device when using the ALSA API. Note that this
+    will override any specified input or output device id.
 */
 typedef unsigned int RtAudioStreamFlags;
 static const RtAudioStreamFlags RTAUDIO_NONINTERLEAVED = 0x1;    // Use non-interleaved buffers (default = interleaved).
 static const RtAudioStreamFlags RTAUDIO_MINIMIZE_LATENCY = 0x2;  // Attempt to set stream parameters for lowest possible latency.
 static const RtAudioStreamFlags RTAUDIO_HOG_DEVICE = 0x4;        // Attempt grab device and prevent use by others.
 static const RtAudioStreamFlags RTAUDIO_SCHEDULE_REALTIME = 0x8; // Try to select realtime scheduling for callback thread.
+static const RtAudioStreamFlags RTAUDIO_ALSA_USE_DEFAULT = 0x10; // Use the "default" PCM device (ALSA only).
 
 /*! \typedef typedef unsigned long RtAudioStreamStatus;
     \brief RtAudio stream status (over- or underflow) flags.
@@ -202,6 +210,7 @@ class RtAudio
   enum Api {
     UNSPECIFIED,    /*!< Search for a working compiled API. */
     LINUX_ALSA,     /*!< The Advanced Linux Sound Architecture API. */
+    LINUX_PULSE,    /*!< The Linux PulseAudio API. */
     LINUX_OSS,      /*!< The Linux Open Sound System API. */
     UNIX_JACK,      /*!< The Jack Low-Latency Audio Server API. */
     MACOSX_CORE,    /*!< Macintosh OS-X Core Audio API. */
@@ -248,6 +257,7 @@ class RtAudio
     - \e RTAUDIO_MINIMIZE_LATENCY:  Attempt to set stream parameters for lowest possible latency.
     - \e RTAUDIO_HOG_DEVICE:        Attempt grab device for exclusive use.
     - \e RTAUDIO_SCHEDULE_REALTIME: Attempt to select realtime scheduling for callback thread.
+    - \e RTAUDIO_ALSA_USE_DEFAULT:  Use the "default" PCM device (ALSA only).
 
     By default, RtAudio streams pass and receive audio data from the
     client in an interleaved format.  By passing the
@@ -276,7 +286,11 @@ class RtAudio
     If the RTAUDIO_SCHEDULE_REALTIME flag is set, RtAudio will attempt 
     to select realtime scheduling (round-robin) for the callback thread.
     The \c priority parameter will only be used if the RTAUDIO_SCHEDULE_REALTIME
-    flag is set. It defines the thread's realtime priority. 
+    flag is set. It defines the thread's realtime priority.
+
+    If the RTAUDIO_ALSA_USE_DEFAULT flag is set, RtAudio will attempt to
+    open the "default" PCM device when using the ALSA API. Note that this
+    will override any specified input or output device id.
 
     The \c numberOfBuffers parameter can be used to control stream
     latency in the Windows DirectSound, Linux OSS, and Linux Alsa APIs
@@ -292,7 +306,7 @@ class RtAudio
     RtAudio with Jack, each instance must have a unique client name.
   */
   struct StreamOptions {
-    RtAudioStreamFlags flags;      /*!< A bit-mask of stream flags (RTAUDIO_NONINTERLEAVED, RTAUDIO_MINIMIZE_LATENCY, RTAUDIO_HOG_DEVICE). */
+    RtAudioStreamFlags flags;      /*!< A bit-mask of stream flags (RTAUDIO_NONINTERLEAVED, RTAUDIO_MINIMIZE_LATENCY, RTAUDIO_HOG_DEVICE, RTAUDIO_ALSA_USE_DEFAULT). */
     unsigned int numberOfBuffers;  /*!< Number of stream buffers. */
     std::string streamName;        /*!< A stream name (currently used only in Jack). */
     int priority;                  /*!< Scheduling priority of callback thread (only used with flag RTAUDIO_SCHEDULE_REALTIME). */
@@ -498,7 +512,7 @@ class RtAudio
   typedef unsigned long ThreadHandle;
   typedef CRITICAL_SECTION StreamMutex;
 
-#elif defined(__LINUX_ALSA__) || defined(__UNIX_JACK__) || defined(__LINUX_OSS__) || defined(__MACOSX_CORE__)
+#elif defined(__LINUX_ALSA__) || defined(__LINUX_PULSE__) || defined(__UNIX_JACK__) || defined(__LINUX_OSS__) || defined(__MACOSX_CORE__)
   // Using pthread library for various flavors of unix.
   #include <pthread.h>
 
@@ -539,7 +553,7 @@ struct CallbackInfo {
 // Note that RtApi is an abstract base class and cannot be
 // explicitly instantiated.  The class RtAudio will create an
 // instance of an RtApi subclass (RtApiOss, RtApiAlsa,
-// RtApiJack, RtApiCore, RtApiAl, RtApiDs, or RtApiAsio).
+// RtApiJack, RtApiCore, RtApiDs, or RtApiAsio).
 //
 // **************************************************************** //
 
@@ -586,6 +600,7 @@ protected:
 
   enum StreamState {
     STREAM_STOPPED,
+    STREAM_STOPPING,
     STREAM_RUNNING,
     STREAM_CLOSED = -50
   };
@@ -891,6 +906,38 @@ public:
   std::vector<RtAudio::DeviceInfo> devices_;
   void saveDeviceInfo( void );
   bool probeDeviceOpen( unsigned int device, StreamMode mode, unsigned int channels, 
+                        unsigned int firstChannel, unsigned int sampleRate,
+                        RtAudioFormat format, unsigned int *bufferSize,
+                        RtAudio::StreamOptions *options );
+};
+
+#endif
+
+#if defined(__LINUX_PULSE__)
+
+class RtApiPulse: public RtApi
+{
+public:
+  ~RtApiPulse();
+  RtAudio::Api getCurrentApi() { return RtAudio::LINUX_PULSE; };
+  unsigned int getDeviceCount( void );
+  RtAudio::DeviceInfo getDeviceInfo( unsigned int device );
+  void closeStream( void );
+  void startStream( void );
+  void stopStream( void );
+  void abortStream( void );
+
+  // This function is intended for internal use only.  It must be
+  // public because it is called by the internal callback handler,
+  // which is not a member of RtAudio.  External use of this function
+  // will most likely produce highly undesireable results!
+  void callbackEvent( void );
+
+  private:
+
+  std::vector<RtAudio::DeviceInfo> devices_;
+  void saveDeviceInfo( void );
+  bool probeDeviceOpen( unsigned int device, StreamMode mode, unsigned int channels,
                         unsigned int firstChannel, unsigned int sampleRate,
                         RtAudioFormat format, unsigned int *bufferSize,
                         RtAudio::StreamOptions *options );
