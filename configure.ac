@@ -111,7 +111,7 @@ if test x$swig_enabled = xyes; then
      if test x$have_python = xyes; then
        SWIGDIR=swig
        AC_SUBST(SWIGDIR)
-       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'dylib','linux2':'so'}[[sys.platform]]")
+       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'so','linux2':'so'}[[sys.platform]]")
        AC_SUBST(PYEXT)
      else
        swig_enabled=no
