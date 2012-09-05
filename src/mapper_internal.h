@@ -163,10 +163,7 @@ void mdev_on_id_and_ordinal(mapper_device md,
 mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
                                                 int group_id, int remote_id);
 
-void mdev_remove_instance_id_map(mapper_device device, int local_id);
-
-mapper_instance_id_map mdev_set_instance_id_map(mapper_device device, int local_id,
-                                                int group_id, int remote_id);
+void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map map);
 
 mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
                                                           int local_id);

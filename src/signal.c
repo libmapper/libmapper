@@ -234,7 +234,9 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
 {
     // TODO: hash table, binary search, etc.
     mapper_signal_instance si = sig->instances;
-    while (si && (si->id_map->local != id)) {
+    while (si) {
+        if (si->id_map && (si->id_map->local == id))
+            break;
         si = si->next;
     }
     return si;
@@ -245,7 +247,9 @@ mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
 {
     // TODO: hash table, binary search, etc.
     mapper_signal_instance si = sig->instances;
-    while (si && (si->id_map != map)) {
+    while (si) {
+        if (si->id_map && (si->id_map == map))
+            break;
         si = si->next;
     }
     return si;
@@ -416,14 +420,15 @@ void msig_release_instance_internal(mapper_signal_instance si)
         return;
     if (!si->is_active)
         return;
-    if (si->id_map->group == mdev_id(si->signal->device) &&
+    if (si->id_map &&
+        si->id_map->group == mdev_id(si->signal->device) &&
         si->signal->props.is_output) {
         // Send release notification to remote devices
         msig_update_instance_internal(si, 1, NULL);
     }
     si->is_active = 0;
-    if (--si->id_map->reference_count)
-        mdev_remove_instance_id_map(si->signal->device, si->id_map->local);
+    if (si->id_map && --si->id_map->reference_count <= 0)
+        mdev_remove_instance_id_map(si->signal->device, si->id_map);
 }
 
 void msig_set_instance_allocation_mode(mapper_signal sig,
@@ -453,19 +458,12 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         return 0;
 
     mapper_signal_instance si;
-    mapper_instance_id_map id_map = mdev_find_instance_id_map_by_local(sig->device,
-                                                                       instance_id);
-    if (id_map) {
-        si = msig_find_instance_with_id_map(sig, id_map);
+    mapper_instance_id_map map = mdev_find_instance_id_map_by_local(sig->device,
+                                                                    instance_id);
+    if (map) {
+        si = msig_find_instance_with_id_map(sig, map);
         if (si) {
-            if (!si->is_active) {
-                if (!id_map) {
-                    // Claim ID map locally
-                    id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                                      mdev_id(sig->device), sig->device->id_counter++);
-                }
-                msig_instance_init(si, id_map);
-            }
+            si->is_active = 1;
             return si;
         }
     }
@@ -478,12 +476,16 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         si = si->next;
     }
     if (si) {
-        if (!id_map) {
+        if (!map) {
             // Claim ID map locally
-            id_map = mdev_set_instance_id_map(sig->device, instance_id,
-                                              mdev_id(sig->device), sig->device->id_counter++);
+            map = mdev_add_instance_id_map(sig->device, instance_id,
+                                           mdev_id(sig->device), sig->device->id_counter++);
         }
-        msig_instance_init(si, id_map);
+        else {
+            map->reference_count++;
+        }
+        msig_instance_init(si, map);
+        si->is_active = 1;
         return si;
     }
 
@@ -530,7 +532,15 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
     msig_release_instance_internal(stolen);
-    msig_instance_init(stolen, id_map);
+    if (!map) {
+        // Claim id map locally
+        map = mdev_add_instance_id_map(sig->device, instance_id,
+                                       mdev_id(sig->device), sig->device->id_counter++);
+    }
+    else {
+        map->reference_count++;
+    }
+    msig_instance_init(stolen, map);
     stolen->is_active = 1;
     return stolen;
 }
@@ -561,8 +571,11 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
         si = si->next;
     }
     if (si) {
-        si->is_active = 1;
+        if (map) {
+            map->reference_count++;
+        }
         msig_instance_init(si, map);
+        si->is_active = 1;
         return si;
     }
 
@@ -609,6 +622,9 @@ stole:
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
     msig_release_instance_internal(stolen);
+    if (map) {
+        map->reference_count++;
+    }
     msig_instance_init(stolen, map);
     stolen->is_active = 1;
     return stolen;

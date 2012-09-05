@@ -77,7 +77,7 @@ void mdev_free(mapper_device md)
         if (md->outputs)
             free(md->outputs);
         while (md->instance_id_map)
-            mdev_remove_instance_id_map(md, md->instance_id_map->local);
+            mdev_remove_instance_id_map(md, md->instance_id_map);
         while (md->routers)
             mdev_remove_router(md, md->routers);
         if (md->extra)
@@ -138,7 +138,7 @@ static int handler_signal(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, si->id_map->local, &sig->props,
+        sig->handler(sig, 0, &sig->props,
                      &si->history.timetag[si->history.position], types[0] == LO_NIL ? 0 :
                      si->history.value + msig_vector_bytes(sig) * si->history.position);
 
@@ -168,9 +168,7 @@ static int handler_signal_instance(const char *path, const char *types,
 
     // Don't activate instance just to release it again
     if (types[2] == LO_NIL || types[2] == LO_FALSE) {
-        if (!map)
-            return 0;
-        if (!msig_find_instance_with_id_map(sig, map))
+        if (!map || !msig_find_instance_with_id_map(sig, map))
             return 0;
     }
 
@@ -709,8 +707,9 @@ void mdev_release_scope(mapper_device md, const char *scope)
     mapper_instance_id_map id_map = md->instance_id_map;
     while (id_map) {
         if (id_map->group == hash)
-            mdev_remove_instance_id_map(md, id_map->local);
-        id_map = id_map->next;
+            mdev_remove_instance_id_map(md, id_map);
+        if (id_map)
+            id_map = id_map->next;
     }
 }
 
@@ -746,9 +745,10 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
             mapper_instance_id_map id_map = md->instance_id_map;
             while (id_map) {
                 if (id_map->group == rt->props.scope_hashes[i]) {
-                    mdev_remove_instance_id_map(md, id_map->local);
+                    mdev_remove_instance_id_map(md, id_map);
                 }
-                id_map = id_map->next;
+                if (id_map)
+                    id_map = id_map->next;
             }
         }
         free(rt->props.scope_names[i]);
@@ -784,35 +784,17 @@ mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_
     return id_map;
 }
 
-void mdev_remove_instance_id_map(mapper_device device, int local_id)
+void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map map)
 {
-    mapper_instance_id_map temp, *id_map = &device->instance_id_map;
+    mapper_instance_id_map *id_map = &device->instance_id_map;
     while (*id_map) {
-        if ((*id_map)->local == local_id) {
-            temp = *id_map;
+        if ((*id_map) == map) {
             *id_map = (*id_map)->next;
-            free(temp);
+            free(map);
             break;
         }
         id_map = &(*id_map)->next;
     }
-}
-
-mapper_instance_id_map mdev_set_instance_id_map(mapper_device device, int local_id,
-                                                int group_id, int remote_id)
-{
-    mapper_instance_id_map id_map = device->instance_id_map;
-    while (id_map) {
-        if (id_map->local == local_id) {
-            id_map->group = group_id;
-            id_map->remote = remote_id;
-            return id_map;
-        }
-        id_map = id_map->next;
-    }
-
-    // map not found, create it
-    return mdev_add_instance_id_map(device, local_id, group_id, remote_id);
 }
 
 mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
