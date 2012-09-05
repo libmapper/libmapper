@@ -193,6 +193,8 @@ typedef struct _mapper_device {
     struct _mapper_instance_id_map *instance_id_map; /*!< The list of instance context
                                                       * and id mappings. */
 
+    int id_counter;
+
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
      *  allocated. */
@@ -208,6 +210,7 @@ typedef struct _mapper_instance_id_map {
     int local;                          //!< Local instance id to map.
     int group;                          //!< Link group id.
     int remote;                         //!< Remote instance id to map.
+    int reference_count;
     struct _mapper_instance_id_map *next;  //!< The next id map in the list.
 } *mapper_instance_id_map;
 

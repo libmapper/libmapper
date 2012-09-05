@@ -47,7 +47,10 @@ struct _mapper_signal
 
 typedef struct _mapper_signal_instance
 {
-    /*! ID number of this instance. */
+    /*! Unique instance ID */
+    int id;
+
+    /*! Pointer to the id_map to use (managed by device). */
     mapper_instance_id_map id_map;
 
     /*! User data of this instance. */
@@ -254,8 +257,7 @@ mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
                                                   int instance_id);
 
 mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
-                                                      int group_id,
-                                                      int instance_id);
+                                                      mapper_instance_id_map map);
 
 /*! Resume a reserved (preallocated) signal instance.
  *  \param  si The signal instance to resume. */
@@ -301,8 +303,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
  *          was unsuccessful according to the selected allocation
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
-                                                     int group_id,
-                                                     int instance_id,
+                                                     mapper_instance_id_map map,
                                                      int is_new_instance);
 
 void msig_release_instance_internal(mapper_signal_instance si);

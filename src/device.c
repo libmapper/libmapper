@@ -56,6 +56,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
 
     md->routers = 0;
     md->instance_id_map = 0;
+    md->id_counter = 0;
     md->extra = table_new();
     return md;
 }
@@ -163,25 +164,32 @@ static int handler_signal_instance(const char *path, const char *types,
     int is_new = (types[2] == LO_TRUE);
 
     mapper_signal_instance si = 0;
+    mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id, instance_id);
 
     // Don't activate instance just to release it again
     if (types[2] == LO_NIL || types[2] == LO_FALSE) {
-        if (!msig_find_instance_with_id_map(sig, group_id, instance_id))
+        if (!map)
+            return 0;
+        if (!msig_find_instance_with_id_map(sig, map))
             return 0;
     }
 
-    si = msig_get_instance_with_id_map(sig, group_id, instance_id, is_new);
+    si = msig_get_instance_with_id_map(sig, map, is_new);
     if (!si && is_new) {
         if (sig->instance_overflow_handler) {
             sig->instance_overflow_handler(sig, group_id, instance_id);
             // try again
-            si = msig_get_instance_with_id_map(sig, group_id, instance_id, is_new);
+            si = msig_get_instance_with_id_map(sig, map, is_new);
         }
     }
     if (!si) {
         trace("no instances available for group=%ld, id=%ld\n",
               (long)group_id, (long)instance_id);
         return 0;
+    }
+    else if (!map) {
+        // Need to add id map to device and link to new signal instance
+        si->id_map = mdev_add_instance_id_map(md, si->id, group_id, instance_id);
     }
 
     if (types[2] == LO_TRUE) {
@@ -235,20 +243,18 @@ static int handler_query(const char *path, const char *types,
     int i;
     lo_message m;
 
+    int response_count = 0;
     mapper_signal_instance si = sig->instances;
-    if (!si) {
-        // If there are no active instances, send null response
-        m = lo_message_new();
-        lo_message_add_nil(m);
-        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
-        lo_message_free(m);
-    }
     while (si) {
+        if (!si->is_active)
+            continue;
         m = lo_message_new();
         if (!m)
             return 0;
-        if (si->signal->props.num_instances > 1)
+        if (si->signal->props.num_instances > 1) {
+            lo_message_add_int32(m, (long)si->id_map->group);
             lo_message_add_int32(m, (long)si->id_map->local);
+        }
         if (si->history.position != -1) {
             if (si->history.type == 'f') {
                 float *v = msig_history_value_pointer(si->history);
@@ -272,6 +278,14 @@ static int handler_query(const char *path, const char *types,
         lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
         lo_message_free(m);
         si = si->next;
+        response_count++;
+    }
+    if (!response_count) {
+        // If there are no active instances, send null response
+        m = lo_message_new();
+        lo_message_add_nil(m);
+        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
+        lo_message_free(m);
     }
     return 0;
 }
@@ -764,6 +778,7 @@ mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_
     id_map->local = local_id;
     id_map->group = group_id;
     id_map->remote = remote_id;
+    id_map->reference_count = 1;
     id_map->next = device->instance_id_map;
     device->instance_id_map = id_map;
     return id_map;
