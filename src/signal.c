@@ -461,11 +461,8 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     mapper_instance_id_map map = mdev_find_instance_id_map_by_local(sig->device,
                                                                     instance_id);
     if (map) {
-        si = msig_find_instance_with_id_map(sig, map);
-        if (si) {
-            si->is_active = 1;
+        if ((si = msig_find_instance_with_id_map(sig, map)))
             return si;
-        }
     }
 
     // no instance with that ID exists - need to try to activate instance and create new ID map
@@ -485,7 +482,6 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
             map->reference_count++;
         }
         msig_instance_init(si, map);
-        si->is_active = 1;
         return si;
     }
 
@@ -541,7 +537,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         map->reference_count++;
     }
     msig_instance_init(stolen, map);
-    stolen->is_active = 1;
+    stolen->is_active = 0;
     return stolen;
 }
 

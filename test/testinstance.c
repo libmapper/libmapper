@@ -52,12 +52,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
