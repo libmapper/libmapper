@@ -190,8 +190,10 @@ typedef struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
-    struct _mapper_instance_id_map *instance_id_map; /*!< The list of instance context
-                                                      * and id mappings. */
+    struct _mapper_instance_id_map *active_id_map; /*!< The list of active instance
+                                                    * id mappings. */
+    struct _mapper_instance_id_map *reserve_id_map; /*!< The list of reserve instance
+                                                     * id mappings. */
 
     int id_counter;
 

@@ -55,7 +55,8 @@ mapper_device mdev_new(const char *name_prefix, int port,
     mapper_admin_add_device(md->admin, md, name_prefix, port);
 
     md->routers = 0;
-    md->instance_id_map = 0;
+    md->active_id_map = 0;
+    md->reserve_id_map = 0;
     md->id_counter = 0;
     md->extra = table_new();
     return md;
@@ -76,8 +77,17 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
-        while (md->instance_id_map)
-            mdev_remove_instance_id_map(md, md->instance_id_map);
+        mapper_instance_id_map map;
+        while (md->active_id_map) {
+            map = md->active_id_map;
+            md->active_id_map = map->next;
+            free(map);
+        }
+        while (md->reserve_id_map) {
+            map = md->reserve_id_map;
+            md->reserve_id_map = map->next;
+            free(map);
+        }
         while (md->routers)
             mdev_remove_router(md, md->routers);
         if (md->extra)
@@ -704,12 +714,15 @@ void mdev_release_scope(mapper_device md, const char *scope)
     }
     
     // Remove instance maps referring to remote device
-    mapper_instance_id_map id_map = md->instance_id_map;
-    while (id_map) {
-        if (id_map->group == hash)
-            mdev_remove_instance_id_map(md, id_map);
-        if (id_map)
-            id_map = id_map->next;
+    mapper_instance_id_map map = md->active_id_map;
+    while (map) {
+        if (map->group == hash) {
+            mapper_instance_id_map temp = map->next;
+            mdev_remove_instance_id_map(md, map);
+            map = temp;
+        }
+        else
+            map = map->next;
     }
 }
 
@@ -742,13 +755,15 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         if (!safe) {
             /* scope is not used by any other routers, safe to clear
              * corresponding instances in instance id map. */
-            mapper_instance_id_map id_map = md->instance_id_map;
-            while (id_map) {
-                if (id_map->group == rt->props.scope_hashes[i]) {
-                    mdev_remove_instance_id_map(md, id_map);
+            mapper_instance_id_map map = md->active_id_map;
+            while (map) {
+                if (map->group == rt->props.scope_hashes[i]) {
+                    mapper_instance_id_map temp = map->next;
+                    mdev_remove_instance_id_map(md, map);
+                    map = temp;
                 }
-                if (id_map)
-                    id_map = id_map->next;
+                else
+                    map = map->next;
             }
         }
         free(rt->props.scope_names[i]);
@@ -770,23 +785,34 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
     md->n_links--;
 }
 
-mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
-                                                int group_id, int remote_id)
+void mdev_reserve_instance_id_map(mapper_device dev)
 {
-    mapper_instance_id_map id_map;
-    id_map = (mapper_instance_id_map)calloc(1, sizeof(struct _mapper_instance_id_map));
-    id_map->local = local_id;
-    id_map->group = group_id;
-    id_map->remote = remote_id;
-    id_map->reference_count = 1;
-    id_map->next = device->instance_id_map;
-    device->instance_id_map = id_map;
-    return id_map;
+    mapper_instance_id_map map;
+    map = (mapper_instance_id_map)calloc(1, sizeof(struct _mapper_instance_id_map));
+    map->next = dev->reserve_id_map;
+    dev->reserve_id_map = map;
 }
 
-void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map map)
+mapper_instance_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
+                                                int group_id, int remote_id)
 {
-    mapper_instance_id_map *id_map = &device->instance_id_map;
+    if (!dev->reserve_id_map)
+        mdev_reserve_instance_id_map(dev);
+
+    mapper_instance_id_map map = dev->reserve_id_map;
+    map->local = local_id;
+    map->group = group_id;
+    map->remote = remote_id;
+    map->reference_count = 1;
+    dev->reserve_id_map = map->next;
+    map->next = dev->active_id_map;
+    dev->active_id_map = map;
+    return map;
+}
+
+void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
+{
+    mapper_instance_id_map *id_map = &dev->active_id_map;
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
@@ -797,27 +823,27 @@ void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map ma
     }
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
+mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
                                                           int local_id)
 {
-    mapper_instance_id_map id_map = device->instance_id_map;
+    mapper_instance_id_map map = dev->active_id_map;
 
-    while (id_map) {
-        if (id_map->local == local_id)
-            return id_map;
-        id_map = id_map->next;
+    while (map) {
+        if (map->local == local_id)
+            return map;
+        map = map->next;
     }
     return 0;
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
+mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
                                                            int group_id, int remote_id)
 {
-    mapper_instance_id_map id_map = device->instance_id_map;
-    while (id_map) {
-        if ((id_map->group == group_id) && (id_map->remote == remote_id))
-            return id_map;
-        id_map = id_map->next;
+    mapper_instance_id_map map = dev->active_id_map;
+    while (map) {
+        if ((map->group == group_id) && (map->remote == remote_id))
+            return map;
+        map = map->next;
     }
     return 0;
 }
