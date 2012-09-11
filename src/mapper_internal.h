@@ -21,8 +21,11 @@ struct _mapper_signal
     /*! The device associated with this signal. */
     struct _mapper_device *device;
 
-    /*! The first instance of this signal. */
-    struct _mapper_signal_instance *instances;
+    /*! The first active instance of this signal. */
+    struct _mapper_signal_instance *active_instances;
+
+    /*! The first reserve instance of this signal. */
+    struct _mapper_signal_instance *reserve_instances;
 
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
@@ -303,7 +306,7 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                                                      mapper_instance_id_map map,
                                                      int is_new_instance);
 
-void msig_release_instance_internal(mapper_signal_instance si);
+void msig_release_instance_internal(mapper_signal_instance si, int keep_active);
 
 /**** connections ****/
 

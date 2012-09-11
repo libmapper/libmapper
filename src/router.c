@@ -212,7 +212,12 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->props.extra = table_new();
 
     // create connection instances as necessary
-    mapper_signal_instance si = sig->instances;
+    mapper_signal_instance si = sig->active_instances;
+    while (si) {
+        msig_add_connection_instance(si, connection);
+        si = si->next;
+    }
+    si = sig->reserve_instances;
     while (si) {
         msig_add_connection_instance(si, connection);
         si = si->next;
@@ -242,8 +247,23 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router, 
                                     mapper_connection connection)
 {
-    // remove associated connection instances
-    mapper_signal_instance si = connection->source->instances;
+    // remove associated connection instances from active instances
+    mapper_signal_instance si = connection->source->active_instances;
+    while (si) {
+        mapper_connection_instance temp, *ci = &si->connections;
+        while (*ci) {
+            if ((*ci)->connection == connection) {
+                temp = *ci;
+                *ci = (*ci)->next;
+                msig_free_connection_instance(temp);
+                break;
+            }
+            ci = &(*ci)->next;
+        }
+        si = si->next;
+    }
+    // repeat for reserve instances
+    si = connection->source->reserve_instances;
     while (si) {
         mapper_connection_instance temp, *ci = &si->connections;
         while (*ci) {

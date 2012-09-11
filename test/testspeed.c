@@ -19,7 +19,7 @@ mapper_signal recvsig = 0;
 
 int numTrials = 10;
 int trial = 0;
-int numModes = 2;
+int numModes = 3;
 int mode = 0;
 int use_instance = 1;
 int iterations = 100000;
@@ -187,6 +187,7 @@ void ctrlc(int sig)
 
 void switch_modes()
 {
+    int i;
     // possible modes: bypass/expression/calibrate, clipmodes, instances, instance-stealing
     printf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
@@ -208,6 +209,11 @@ void switch_modes()
             break;
         case 1:
             use_instance = 0;
+            break;
+        case 2:
+            for (i=1; i<10; i++) {
+                msig_release_instance(sendsig, i);
+            }
             break;
     }
 

@@ -129,9 +129,11 @@ static int handler_signal(const char *path, const char *types,
     }
 
     // Default to updating first instance
-    if (!sig || !sig->instances)
+    if (!sig)
         return 0;
-    mapper_signal_instance si = sig->instances;
+    mapper_signal_instance si = msig_get_instance_with_id(sig, 0, 1);
+    if (!si)
+        return 0;
 
     if (types[0] == LO_NIL) {
         si->history.position = -1;
@@ -226,7 +228,7 @@ static int handler_signal_instance(const char *path, const char *types,
                      si->history.value + msig_vector_bytes(sig) * si->history.position);
     }
     if (types[2] == LO_NIL) {
-        msig_release_instance_internal(si);
+        msig_release_instance_internal(si, 0);
     }
     return 0;
 }
@@ -252,7 +254,7 @@ static int handler_query(const char *path, const char *types,
     lo_message m;
 
     int response_count = 0;
-    mapper_signal_instance si = sig->instances;
+    mapper_signal_instance si = msig_get_instance_with_id(sig, 0, 0);
     while (si) {
         if (!si->is_active)
             continue;
@@ -688,13 +690,13 @@ void mdev_release_scope(mapper_device md, const char *scope)
     mapper_signal *psig = mdev_get_inputs(md);
     for (i=0; i < mdev_num_inputs(md); i++) {
         // get instances
-        si = psig[i]->instances;
+        si = psig[i]->active_instances;
         while (si) {
-            if (si->is_active && si->id_map->group == hash) {
+            if (si->id_map->group == hash) {
                 if (psig[i]->handler) {
                     psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
                 }
-                msig_release_instance_internal(si);
+                msig_release_instance_internal(si, 0);
             }
             si = si->next;
         }
@@ -704,10 +706,10 @@ void mdev_release_scope(mapper_device md, const char *scope)
     psig = mdev_get_outputs(md);
     for (i=0; i < mdev_num_outputs(md); i++) {
         // get instances
-        si = psig[i]->instances;
+        si = psig[i]->active_instances;
         while (si) {
-            if (si->is_active && si->id_map->group == hash) {
-                msig_release_instance_internal(si);
+            if (si->id_map->group == hash) {
+                msig_release_instance_internal(si, 0);
             }
             si = si->next;
         }
@@ -816,7 +818,8 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
-            free(map);
+            map->next = dev->reserve_id_map;
+            dev->reserve_id_map = map;
             break;
         }
         id_map = &(*id_map)->next;
