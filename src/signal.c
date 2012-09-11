@@ -113,6 +113,16 @@ void msig_set_query_callback(mapper_signal sig,
     sig->props.user_data = user_data;
 }
 
+void msig_set_rate(mapper_signal sig, float rate)
+{
+    sig->props.rate = rate;
+}
+
+float msig_get_rate(mapper_signal sig)
+{
+    return sig->props.rate;
+}
+
 void msig_free(mapper_signal sig)
 {
     if (!sig) return;
@@ -181,8 +191,10 @@ void msig_update_float(mapper_signal sig, float value)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)&value);
 }
 
-void msig_update(mapper_signal sig, void *value)
+void msig_update(mapper_signal sig, void *value, int count)
 {
+    size_t n;
+
     /* We have to assume that value points to an array of correct type
      * and size. */
 
@@ -193,7 +205,9 @@ void msig_update(mapper_signal sig, void *value)
     }
 #endif
 
-    memcpy(sig->value, value, msig_vector_bytes(sig));
+    if (count==0) count=1;
+    n = msig_vector_bytes(sig);
+    memcpy(sig->value, value + (n*(count-1)), n);
     sig->props.has_value = 1;
     if (sig->props.is_output)
         mdev_route_signal(sig->device, sig, (mapper_signal_value_t*)value);
