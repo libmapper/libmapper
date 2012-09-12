@@ -32,6 +32,7 @@ const char* mapper_msg_param_strings[] =
     "@destLength", /* AT_DESTLENGTH */
     "",            /* AT_EXTRA (special case, does not represent a
                     * specific property name) */
+    "@rate",       /* AT_RATE */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -243,6 +244,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
     int i;
+    float f;
     char t[] = " ";
     table tab;
     mapper_signal sig;
@@ -300,6 +302,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_MAX:
             sig = va_arg(aq, mapper_signal);
             mval_add_to_message(m, sig, sig->props.maximum);
+            break;
+        case AT_RATE:
+            f = va_arg(aq, double);
+            lo_message_add_float(m, f);
             break;
         case AT_MODE:
             i = va_arg(aq, int);

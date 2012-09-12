@@ -942,6 +942,7 @@ static int handler_id_n_signals_input_get(const char *path,
             sig->props.unit ? AT_UNITS : -1, sig,
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
+            sig->props.rate ? AT_RATE : -1, sig->props.rate,
             AT_EXTRA, sig->props.extra);
     }
 
@@ -1003,6 +1004,7 @@ static int handler_id_n_signals_output_get(const char *path,
             sig->props.unit ? AT_UNITS : -1, sig,  
             sig->props.minimum ? AT_MIN : -1, sig,
             sig->props.maximum ? AT_MAX : -1, sig,
+            sig->props.rate ? AT_RATE : -1, sig->props.rate,
             AT_EXTRA, sig->props.extra);
     }
 
