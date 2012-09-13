@@ -524,6 +524,47 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
     }
 }
 
+//function to create a mapper queue
+mapper_queue mdev_get_queue(mapper_device md)
+{
+	mapper_queue q;
+	q = (mapper_queue)malloc(sizeof(mapper_queue_t));
+	q->elements = (mapper_signal *)malloc(sizeof(mapper_signal)*2);
+    printf("q->elements: %p\n", q->elements);
+	q->size = 2;
+	q->position = 0;
+	q->timetag = LO_TT_IMMEDIATE;
+
+	return q;
+}
+
+static void mdev_release_queue(mapper_queue q)
+{
+	free(q->elements);
+	free(q);
+}
+
+
+static void mdev_route_queue(mapper_device md, mapper_queue q)
+{
+    mapper_router r = md->routers;
+    while (r) {
+        lo_bundle b = lo_bundle_new(q->timetag);
+        for (int i = 0; i<q->position;i++) {
+            mapper_router_receive_signal(r, q->elements[i], b);
+        }
+        mdev_release_queue(q);
+		mapper_router_send_bundle(r, b);
+        lo_bundle_free_messages(b);
+        r = r->next;
+    }
+}
+
+void mdev_send_queue(mapper_device md, mapper_queue q)
+{
+	mdev_route_queue(md, q);
+}
+
 int mdev_route_query(mapper_device md, mapper_signal sig)
 {
     int count = 0;

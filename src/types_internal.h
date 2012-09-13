@@ -299,4 +299,14 @@ typedef struct _mapper_message
     char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
 } mapper_message_t;
 
+/**** Queues ****/
+
+typedef struct _mapper_queue
+{
+	int size;
+	int position;
+	mapper_timetag_t timetag;
+	struct _mapper_signal **elements;
+} mapper_queue_t, *mapper_queue;
+
 #endif // __MAPPER_TYPES_H__
