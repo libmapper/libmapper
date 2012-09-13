@@ -16,6 +16,10 @@ struct _mapper_monitor;
 
 #include <lo/lo.h>
 
+/*! A 64-bit data structure containing an NTP-compatible time tag, as
+ *  used by OSC. */
+typedef lo_timetag mapper_timetag_t;
+
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {

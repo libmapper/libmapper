@@ -33,10 +33,6 @@ libmapper concepts.
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 
-/*! A 64-bit data structure containing an NTP-compatible time tag, as
- *  used by OSC. */
-typedef lo_timetag mapper_timetag_t;
-
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
 typedef void mapper_signal_handler(mapper_signal msig,
