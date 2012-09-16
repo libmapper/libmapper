@@ -1815,7 +1815,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    dest_name = &argv[0]->s;
+    dest_name = &argv[1]->s;
     if (osc_prefix_cmp(src_name, mapper_admin_name(admin), &signal_name) != 0)
         return 0;
 
@@ -1826,19 +1826,20 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router router = mapper_router_find_by_dest_name(md->routers, &argv[1]->s);
+    mapper_router router = mapper_router_find_by_dest_name(md->routers,
+                                                           dest_name);
     if (!router) {
         trace("<%s> ignoring /disconnect, no router found for '%s'\n",
               mapper_admin_name(admin), &argv[1]->s);
         return 0;
     }
 
-    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
-                                                          &argv[1]->s);
+    mapper_connection m = mapper_connection_find_by_names(md, src_name,
+                                                          dest_name);
     if (!m) {
         trace("<%s> ignoring /disconnect, "
               "no connection found for '%s' -> '%s'\n",
-              mapper_admin_name(admin), &argv[0]->s, &argv[1]->s);
+              mapper_admin_name(admin), src_name, dest_name);
         return 0;
     }
 
@@ -1847,7 +1848,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_admin_send_osc(admin, "/disconnected", "ss", &argv[0]->s, &argv[1]->s);
+    mapper_admin_send_osc(admin, "/disconnected", "ss",
+                          src_name, dest_name);
     return 0;
 }
 
