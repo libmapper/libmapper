@@ -221,7 +221,7 @@ void msig_update_instance(mapper_signal sig,
  *  \param user_data    A pointer to user data to be associated
  *                      with this instance.
  */
-void msig_instance_set_data(mapper_signal sig,
+void msig_set_instance_data(mapper_signal sig,
                             int instance_id,
                             void *user_data);
 
@@ -230,7 +230,7 @@ void msig_instance_set_data(mapper_signal sig,
  *  \param instance_id  The instance to operate on.
  *  \return             A pointer associated with this instance.
  */
-void *msig_instance_get_data(mapper_signal sig,
+void *msig_get_instance_data(mapper_signal sig,
                              int instance_id);
 
 /*! Return the number of active instances owned by a signal.
