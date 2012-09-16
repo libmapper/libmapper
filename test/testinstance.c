@@ -72,10 +72,13 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                props->name, (long)instance_id);
 }
 
-void overflow_handler(mapper_signal sig, int group, int id)
+void overflow_handler(mapper_signal sig, int id,
+                      mapper_db_signal props, msig_instance_event_t event)
 {
-    printf("OVERFLOW!!\n");
-    msig_reserve_instances(sig, 1);
+    if (event == IN_OVERFLOW) {
+        printf("OVERFLOW!!\n");
+        msig_reserve_instances(sig, 1);
+    }
 }
 
 /*! Creation of a local destination. */
@@ -258,7 +261,7 @@ int main()
     loop(100);
 
     msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
-    msig_set_instance_overflow_callback(recvsig, overflow_handler);
+    msig_set_instance_management_callback(recvsig, overflow_handler);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);
