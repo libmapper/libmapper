@@ -144,8 +144,9 @@ void mdev_add_signal_query_response_callback(mapper_device md,
 void mdev_remove_signal_query_response_callback(mapper_device md,
                                                 mapper_signal sig);
 
-void mdev_route_signal(mapper_device md, mapper_signal sig,
-                       mapper_signal_value_t *value);
+void mdev_route_instance(mapper_device md,
+                         mapper_signal_instance si,
+                         int send_as_instance);
 
 int mdev_route_query(mapper_device md, mapper_signal sig);
 
@@ -184,8 +185,12 @@ void mapper_router_free(mapper_router router);
 void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
 
-void mapper_router_send_signal(mapper_connection_instance ci,
-                               int send_as_instance);
+/*! For a given connection instance, construct a mapped signal and
+ *  send it on to the destination. */
+void mapper_router_receive_instance(mapper_router r,
+                                    mapper_connection_instance ci,
+                                    mapper_signal_instance si,
+                                    int is_instance, int is_new);
 
 void mapper_router_send_new_instance(mapper_connection_instance ci);
 

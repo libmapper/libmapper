@@ -657,6 +657,48 @@ int mdev_poll(mapper_device md, int block_ms)
     return admin_count + count;
 }
 
+void mdev_route_instance(mapper_device md,
+                         mapper_signal_instance si,
+                         int send_as_instance)
+{
+    mapper_connection_instance ci = si->connections;
+    int is_new = 0;
+    if (si->history.position == -1) {
+        while (ci) {
+            mapper_router r = ci->connection->router;
+            ci->history.position = -1;
+            if (!send_as_instance)
+                mapper_router_receive_instance(r, ci, si, 0, 0);
+            else {
+                if (mapper_router_in_scope(ci->connection->router, si->id_map->group))
+                    mapper_router_receive_instance(r, ci, si, 1, 0);
+            }
+            ci = ci->next;
+        }
+        return;
+    }
+    else if (!si->is_active) {
+        is_new = 1;
+        si->is_active = 1;
+    }
+
+    while (ci) {
+        mapper_router r = ci->connection->router;
+        if (send_as_instance
+            && !mapper_router_in_scope(r, si->id_map->group))
+        {
+            ci = ci->next;
+            continue;
+        }
+
+        // router receives the instance, performs mapping
+        // transformation, and forwards it to the destination
+        mapper_router_receive_instance(r, ci, si,
+                                       send_as_instance, is_new);
+        ci = ci->next;
+    }
+}
+
 int mdev_route_query(mapper_device md, mapper_signal sig)
 {
     int count = 0;

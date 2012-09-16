@@ -865,7 +865,7 @@ void msig_update_instance_internal(mapper_signal_instance si,
         si->history.position = -1;
     }
     if (si->signal->props.is_output)
-        msig_send_instance(si, send_as_instance);
+        mdev_route_instance(si->signal->device, si, send_as_instance);
 }
 
 mapper_signal msig_instance_get_signal(mapper_signal_instance si)
@@ -903,44 +903,6 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     if (ci->history.timetag)
         free(ci->history.timetag);
     free(ci);
-}
-
-void msig_send_instance(mapper_signal_instance si, int send_as_instance)
-{
-    // for each connection, construct a mapped signal and send it
-    mapper_connection_instance ci = si->connections;
-    int is_new = 0;
-    if (si->history.position == -1) {
-        while (ci) {
-            ci->history.position = -1;
-            if (!send_as_instance)
-                mapper_router_send_signal(ci, send_as_instance);
-            else {
-                if (mapper_router_in_scope(ci->connection->router, si->id_map->group))
-                    mapper_router_send_signal(ci, send_as_instance);
-            }
-            ci = ci->next;
-        }
-        return;
-    }
-    else if (!si->is_active) {
-        is_new = 1;
-        si->is_active = 1;
-    }
-    while (ci) {
-        if (send_as_instance && !mapper_router_in_scope(ci->connection->router, si->id_map->group)) {
-            ci = ci->next;
-            continue;
-        }
-        if (mapper_connection_perform(ci->connection, &si->history, &ci->history)) {
-            if (mapper_clipping_perform(ci->connection, &ci->history)) {
-                if (send_as_instance && is_new)
-                    mapper_router_send_new_instance(ci);
-                mapper_router_send_signal(ci, send_as_instance);
-            }
-        }
-        ci = ci->next;
-    }
 }
 
 void mval_add_to_message(lo_message m, char type,

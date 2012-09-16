@@ -10,6 +10,11 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+static
+void mapper_router_send_signal(mapper_router r,
+                               mapper_connection_instance ci,
+                               int send_as_instance);
+
 mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int port, const char *name, int local)
 {
@@ -76,12 +81,33 @@ void mapper_router_set_from_message(mapper_router router,
     mapper_msg_add_or_update_extra_params(router->props.extra, msg);
 }
 
-void mapper_router_send_signal(mapper_connection_instance ci,
+void mapper_router_receive_instance(mapper_router r,
+                                    mapper_connection_instance ci,
+                                    mapper_signal_instance si,
+                                    int is_instance, int is_new)
+{
+    if (mapper_connection_perform(ci->connection,
+                                  &si->history,
+                                  &ci->history))
+    {
+        if (mapper_clipping_perform(ci->connection, &ci->history)) {
+            if (is_instance && is_new)
+                mapper_router_send_new_instance(ci);
+            mapper_router_send_signal(r, ci, is_instance);
+        }
+    }
+}
+
+/*! \internal Send a mapped signal instance to a given connection
+ *  instance. */
+static
+void mapper_router_send_signal(mapper_router r,
+                               mapper_connection_instance ci,
                                int send_as_instance)
 {
     int i;
     lo_message m;
-    if (!ci->connection->router->props.dest_addr)
+    if (!r->props.dest_addr)
         return;
 
     m = lo_message_new();
