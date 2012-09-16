@@ -53,6 +53,10 @@ void mapper_router_free(mapper_router router)
                 sc = tmp;
             }
         }
+        if (router->bundle)
+            lo_bundle_free_messages(router->bundle);
+        if (router->message)
+            lo_message_free(router->message);
         free(router);
     }
 }
@@ -64,8 +68,60 @@ void mapper_router_set_from_message(mapper_router router,
     mapper_msg_add_or_update_extra_params(router->props.extra, msg);
 }
 
+
+void mapper_router_bundle_signal(mapper_router router, mapper_signal sig,
+                                 mapper_signal_value_t *value,
+                                 mapper_timetag_t tt)
+{
+    int i;
+    lo_message m;
+    if (!router->props.addr)
+        return;
+
+    m = lo_message_new();
+    if (!m)
+        return;
+
+    for (i = 0; i < sig->props.length; i++)
+        mval_add_to_message(m, sig, &value[i]);
+
+    // Send previous data immediately if new timetag doesn't match
+    // waiting timetag.
+    if ((router->message || router->bundle)
+        && memcmp(&tt, &router->tt, sizeof(mapper_timetag_t))!=0)
+    {
+        mapper_router_send(router);
+    }
+
+    // If a message, make a bundle
+    if (router->message) {
+        die_unless(router->bundle==NULL,
+                   "Router had both message and bundle.");
+        die_unless(router->path!=NULL,
+                   "Router had message with no path.");
+        router->bundle = lo_bundle_new(router->tt);
+        lo_bundle_add_message(router->bundle, router->path,
+                              router->message);
+        lo_bundle_add_message(router->bundle, sig->props.name, m);
+        router->message = NULL;
+        router->path = NULL;
+    }
+
+    // If a bundle, add the message
+    else if (router->bundle) {
+        lo_bundle_add_message(router->bundle, sig->props.name, m);
+    }
+
+    // Otherwise save value as a single message
+    else {
+        router->message = m;
+        router->path = sig->props.name;
+        router->tt = tt;
+    }
+}
+
 void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
-                                  lo_bundle b)
+                                  mapper_timetag_t tt)
 {
     // find this signal in list of connections
     mapper_signal_connection sc = router->connections;
@@ -112,32 +168,43 @@ void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
             p += s;
         }
         if (i == signal.props.length)
-            mapper_router_bundle_signal(router, &signal, applied, b);
+            mapper_router_bundle_signal(router, &signal, applied, tt);
         c = c->next;
     }
 }
 
-void mapper_router_bundle_signal(mapper_router router, mapper_signal sig,
-                                 mapper_signal_value_t *value, lo_bundle b)
+void mapper_router_send(mapper_router router)
 {
-    int i;
-    lo_message m;
-    if (!router->props.addr)
-        return;
-
-    m = lo_message_new();
-    if (!m)
-        return;
-
-    for (i = 0; i < sig->props.length; i++)
-        mval_add_to_message(m, sig, &value[i]);
-
-    lo_bundle_add_message(b, sig->props.name, m);
-}
-
-void mapper_router_send_bundle(mapper_router router, lo_bundle b)
-{
-    lo_send_bundle(router->props.addr, b);
+    if (router->bundle) {
+        lo_send_bundle_from(router->props.addr,
+                            router->device->server,
+                            router->bundle);
+        lo_bundle_free_messages(router->bundle);
+        router->bundle = NULL;
+    }
+    else if (router->message) {
+        if (memcmp(&router->tt, &LO_TT_IMMEDIATE,
+                   sizeof(mapper_timetag_t))==0)
+        {
+            lo_send_message_from(router->props.addr,
+                                 router->device->server,
+                                 router->path,
+                                 router->message);
+            lo_message_free(router->message);
+        }
+        else {
+            lo_bundle b = lo_bundle_new(router->tt);
+            lo_bundle_add_message(b, router->path,
+                                  router->message);
+            lo_send_bundle_from(router->props.addr,
+                                router->device->server,
+                                b);
+            lo_bundle_free_messages(b);
+        }
+        router->path = NULL;
+        router->message = NULL;
+    }
+    router->tt = LO_TT_IMMEDIATE;
 }
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig)

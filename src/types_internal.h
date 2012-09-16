@@ -157,6 +157,17 @@ typedef struct _mapper_router {
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_connection connections; /*!< The list of connections
                                             *  for each signal. */
+    lo_bundle bundle;                     /*!< Bundle for queuing up
+                                           * sent messages. */
+    lo_message message;                   /*!< A single message to
+                                           * hold unless a bundle is
+                                           * to be used. */
+    const char *path;                     /*!< If message!=NUL, then
+                                           * this is the path of that
+                                           * message. */
+    mapper_timetag_t tt;                  /*!< Timetag of message or
+                                           * bundle waiting to be
+                                           * sent. */
 } *mapper_router;
 
 /**** Device ****/

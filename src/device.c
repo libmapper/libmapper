@@ -516,10 +516,8 @@ void mdev_route_signal(mapper_device md, mapper_signal sig,
 {
     mapper_router r = md->routers;
     while (r) {
-        lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
-        mapper_router_receive_signal(r, sig, b);
-        mapper_router_send_bundle(r, b);
-        lo_bundle_free_messages(b);
+        mapper_router_receive_signal(r, sig, LO_TT_IMMEDIATE);
+        mapper_router_send(r);
         r = r->next;
     }
 }
@@ -549,13 +547,11 @@ static void mdev_route_queue(mapper_device md, mapper_queue q)
 {
     mapper_router r = md->routers;
     while (r) {
-        lo_bundle b = lo_bundle_new(q->timetag);
-        for (int i = 0; i<q->position;i++) {
-            mapper_router_receive_signal(r, q->elements[i], b);
-        }
+        for (int i = 0; i<q->position;i++)
+            mapper_router_receive_signal(r, q->elements[i],
+                                         q->timetag);
+		mapper_router_send(r);
         mdev_release_queue(q);
-		mapper_router_send_bundle(r, b);
-        lo_bundle_free_messages(b);
         r = r->next;
     }
 }
