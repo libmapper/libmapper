@@ -183,7 +183,7 @@ static int handler_signal_instance(const char *path, const char *types,
     }
 
     si = msig_get_instance_with_id_map(sig, map, is_new);
-    if (!si && is_new) {
+    if (!si) {
         if (sig->instance_management_handler) {
             sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
             // try again
