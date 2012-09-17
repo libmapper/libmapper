@@ -215,6 +215,9 @@ typedef struct _mapper_db_signal
     /*! The maximum of this signal, or NULL for no maximum. */
     mapper_signal_value_t *maximum;
 
+    /*! The rate of this signal, or 0 for non-periodic signals. */
+    float rate;
+
     /*! Extra properties associated with this signal. */
     struct _mapper_string_table *extra;
 

@@ -289,6 +289,7 @@ typedef enum {
     AT_DESTLENGTH,
     AT_SCOPE,
     AT_EXTRA,
+    AT_RATE,
     N_AT_PARAMS
 } mapper_msg_param_t;
 

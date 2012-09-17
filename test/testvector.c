@@ -144,7 +144,7 @@ void loop()
         v[2] = (float)i+2;
         printf("Updating signal %s to [%f, %f, %f]\n",
                sendsig->props.name, v[0], v[1], v[2]);
-        msig_update(sendsig, v);
+        msig_update(sendsig, v, 1);
         sent++;
         usleep(250 * 1000);
         mdev_poll(destination, 0);

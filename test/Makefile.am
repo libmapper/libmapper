@@ -7,10 +7,10 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testmany testadmin testsend testrecv \
-                  testexpression testlinear testparams testmonitor \
-                  testdb testparser testprops testquery testvector \
-                  testinstance testspeed
+noinst_PROGRAMS = test testmany testadmin testsend testrecv			\
+                  testexpression testlinear testparams testmonitor	\
+                  testdb testparser testprops testquery testvector	\
+                  testinstance testspeed testrate
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -75,3 +75,7 @@ testinstance_LDADD = $(TEST_LDADD)
 testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c
 testspeed_LDADD = $(TEST_LDADD)
+
+testrate_CFLAGS = $(TEST_CFLAGS)
+testrate_SOURCES = testrate.c
+testrate_LDADD = $(TEST_LDADD)

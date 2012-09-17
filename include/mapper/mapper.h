@@ -77,6 +77,18 @@ void msig_set_minimum(mapper_signal sig, void *minimum);
  *                  the maximum. */
 void msig_set_maximum(mapper_signal sig, void *maximum);
 
+/*! Set the rate of a signal.
+ *  \param sig      The signal to operate on.
+ *  \param maximum  A rate for this signal, or zero for non-periodic
+ *                  signals. */
+void msig_set_rate(mapper_signal sig, float rate);
+
+/*! Get the rate of a signal.
+ *  \param sig      The signal to operate on.
+ *  \return         The rate of this signal, or zero for non-periodic
+ *                  signals.. */
+float msig_get_rate(mapper_signal sig);
+
 /*! Set or unset the hidden property of a signal.
  *  \param sig           The signal to operate on.
  *  \param query_handler A pointer to a mapper_signal_handler function for
@@ -135,8 +147,13 @@ void msig_update_float(mapper_signal sig, float value);
  *  \param value A pointer to a new value for this signal.  If the
  *         signal type is 'i', this should be int*; if the signal type
  *         is 'f', this should be float*.  It should be an array at
- *         least as long as the signal's length property. */
-void msig_update(mapper_signal sig, void *value);
+ *         least as long as the signal's length property.
+ *  \param count The number of instances of the value that are being
+                 updated.  For non-periodic signals, this should be 0
+                 or 1.  For periodic signals, this may indicate that a
+                 block of values should be accepted, where the last
+                 value is the current value. */
+void msig_update(mapper_signal sig, void *value, int count);
 
 /*! Get the full OSC name of a signal, including device name
  *  prefix.
@@ -216,10 +233,11 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
  *  \param value A pointer to a new value for this signal.  If the
  *         signal type is 'i', this should be int*; if the signal type
  *         is 'f', this should be float*.  It should be an array at
- *         least as long as the signal's length property. */
-void msig_update_instance(mapper_signal sig,
-                          int instance_id,
-                          void *value);
+ *         least as long as the signal's length property.
+ *  \param count The number of values being updated, or 0 for
+ *               non-periodic signals. */
+void msig_update_instance(mapper_signal sig, int instance_id,
+                          void *value, int count);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
