@@ -146,7 +146,8 @@ void mdev_remove_signal_query_response_callback(mapper_device md,
 
 void mdev_route_instance(mapper_device md,
                          mapper_signal_instance si,
-                         int send_as_instance);
+                         int send_as_instance,
+                         mapper_timetag_t tt);
 
 int mdev_route_query(mapper_device md, mapper_signal sig);
 

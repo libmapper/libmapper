@@ -68,7 +68,6 @@ void insig_handler(mapper_signal sig, int instance_id,
         printf("handler: Got %f\n", (*(float*)value));
     }
     received++;
-	printf("received =%d\n",received);
 }
 
 int setup_destination()
@@ -106,10 +105,10 @@ void cleanup_destination()
 int setup_router()
 {
     const char *host = "localhost";
-   // router = mapper_router_new(source, host, destination->admin->port.value,
-     //                          mdev_name(destination));
-    router = mapper_router_new(source, "127.0.0.1", 9001,
-                               mdev_name(destination), 0);
+    router = mapper_router_new(source, host, destination->admin->port,
+                               mdev_name(destination), 1);
+    /* router = mapper_router_new(source, "127.0.0.1", 9001, */
+    /*                            mdev_name(destination), 0); */
     mdev_add_router(source, router);
     printf("Router to %s:%d added.\n", host, port);
 
@@ -176,15 +175,16 @@ void loop()
 	for (i = 0; i < 10; i++) {
         j=i;
 		mapper_queue n;
-		n = mdev_get_queue();
+        lo_timetag now;
+        lo_timetag_now(&now);
+        n = mdev_get_queue(source, (mapper_timetag_t)now);
 		mdev_poll(source, 0);
         printf("Updating signal %s to %f\n",
                sendsig->props.name, j);
-        msig_update_queued(sendsig, &j,n );
-		msig_update_queued(sendsig1, &j,n );
+        msig_update_queued(sendsig, &j, 0, n);
+		msig_update_queued(sendsig1, &j, 0, n);
 		mdev_send_queue(sendsig->device,n);
 		sent = sent+2;
-		printf("sent =%d\n",sent);
         usleep(250 * 1000);
         mdev_poll(destination, 0);
     }

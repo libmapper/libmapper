@@ -12,7 +12,8 @@
 
 static void msig_update_instance_internal(mapper_signal_instance si,
                                           int send_as_instance,
-                                          void *value, int count);
+                                          void *value, int count,
+                                          mapper_queue q);
 
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
@@ -200,7 +201,7 @@ void msig_update_int(mapper_signal sig, int value)
 #endif
 
     if (sig && sig->instances)
-        msig_update_instance_internal(sig->instances, 0, &value, 1);
+        msig_update_instance_internal(sig->instances, 0, &value, 1, 0);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -223,14 +224,14 @@ void msig_update_float(mapper_signal sig, float value)
 #endif
 
     if (sig && sig->instances)
-        msig_update_instance_internal(sig->instances, 0, &value, 1);
+        msig_update_instance_internal(sig->instances, 0, &value, 1, 0);
 }
 
 void msig_update(mapper_signal sig, void *value, int count)
 {
     if (sig && sig->instances)
         msig_update_instance_internal(sig->instances, 0,
-                                      value, count);
+                                      value, count, 0);
 }
 
 static void msig_instance_init(mapper_signal_instance si,
@@ -436,7 +437,7 @@ void msig_release_instance_internal(mapper_signal_instance si)
         si->id_map->group == mdev_id(si->signal->device) &&
         si->signal->props.is_output) {
         // Send release notification to remote devices
-        msig_update_instance_internal(si, 1, NULL, 0);
+        msig_update_instance_internal(si, 1, NULL, 0, 0);
     }
     si->is_active = 0;
     if (si->id_map && --si->id_map->reference_count <= 0)
@@ -852,13 +853,32 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
-        msig_update_instance_internal(si, 1, value, count);
+        msig_update_instance_internal(si, 1, value, count, 0);
+}
+
+static void mapper_queue_enqueue_instance(mapper_queue q,
+                                          mapper_signal_instance inst,
+                                          int as_instance)
+{
+	if (q->position == q->size)
+	{
+		q->size *= 2;
+		q->instances = (mapper_signal_instance*)realloc(
+            q->instances, sizeof(mapper_signal_instance)*(q->size));
+		q->as_instance = realloc(
+            q->as_instance, sizeof(int)*(q->size));
+	}
+ 	
+	q->instances[q->position] = inst;
+	q->as_instance[q->position] = as_instance;
+	q->position = q->position + 1;
 }
 
 static
 void msig_update_instance_internal(mapper_signal_instance si,
                                    int send_as_instance,
-                                   void *value, int count)
+                                   void *value, int count,
+                                   mapper_queue q)
 {
     if (!si) return;
     if (!si->signal) return;
@@ -879,8 +899,13 @@ void msig_update_instance_internal(mapper_signal_instance si,
     else {
         si->history.position = -1;
     }
-    if (si->signal->props.is_output)
-        mdev_route_instance(si->signal->device, si, send_as_instance);
+    if (si->signal->props.is_output) {
+        if (q)
+            mapper_queue_enqueue_instance(q, si, send_as_instance);
+        else
+            mdev_route_instance(si->signal->device, si, send_as_instance,
+                                LO_TT_IMMEDIATE);
+    }
 }
 
 mapper_signal msig_instance_get_signal(mapper_signal_instance si)
@@ -920,36 +945,50 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     free(ci);
 }
 
-static void mapper_queue_enqueue(mapper_queue q,mapper_signal sig)
-{
-	printf("q->position: %d, q->size: %d\n", q->position, q->size);
-	if(q->position == q->size)
-	{
-	printf("Here.\n");
-		q->size *= 2;
-		q->elements = realloc(q->elements,
-				sizeof(mapper_signal)*(q->size));
-		printf("q->elements: %p\n", q->elements);
-	}
- 	
-	q->elements[q->position] = sig;
-	q->position = q->position + 1;
-}
-
-void msig_update_queued(mapper_signal sig,void *value, mapper_queue q)
+void msig_update_queued(mapper_signal sig, void *value, int count,
+                        mapper_queue q)
 {
 #ifdef DEBUG
     if (!sig->device) {
-        trace("signal does not have a device in msig_update_float().\n");
+        trace("signal does not have a device in "
+              "msig_update_queued().\n");
         return;
     }
 #endif
 
-    // TODO, do the right thing for queuing signal instances
-    	/* memcpy(sig->value,value, msig_vector_bytes(sig)); */
-    	/* sig->props.has_value = 1; */
+    if (sig && sig->instances)
+        msig_update_instance_internal(sig->instances, 0,
+                                      value, count, q);
+}
 
-    mapper_queue_enqueue(q,sig);
+void msig_update_instance_queued(mapper_signal sig, int instance_id,
+                                 void *value, int count,
+                                 mapper_queue q)
+{
+#ifdef DEBUG
+    if (!sig->device) {
+        trace("signal does not have a device in "
+              "msig_update_queued_instance().\n");
+        return;
+    }
+#endif
+
+    if (!sig)
+        return;
+
+    if (!value) {
+        msig_release_instance(sig, instance_id);
+        return;
+    }
+
+    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
+    if (!si && sig->instance_overflow_handler) {
+        sig->instance_overflow_handler(sig, 0, instance_id);
+        // try again
+        si = msig_get_instance_with_id(sig, instance_id, 0);
+    }
+    if (si)
+        msig_update_instance_internal(si, 1, value, count, q);
 }
 
 void mval_add_to_message(lo_message m, char type,

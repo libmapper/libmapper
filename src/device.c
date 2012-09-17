@@ -659,8 +659,12 @@ int mdev_poll(mapper_device md, int block_ms)
 
 void mdev_route_instance(mapper_device md,
                          mapper_signal_instance si,
-                         int send_as_instance)
+                         int send_as_instance,
+                         mapper_timetag_t tt)
 {
+    int send_immediately = memcmp(&tt, &LO_TT_IMMEDIATE,
+                                  sizeof(mapper_timetag_t))==0;
+
     mapper_connection_instance ci = si->connections;
     int is_new = 0;
     if (si->history.position == -1) {
@@ -678,10 +682,12 @@ void mdev_route_instance(mapper_device md,
             ci = ci->next;
         }
 
-        ci = si->connections;
-        while (ci) {
-            mapper_router_send(ci->connection->router);
-            ci = ci->next;
+        if (send_immediately) {
+            ci = si->connections;
+            while (ci) {
+                mapper_router_send(ci->connection->router);
+                ci = ci->next;
+            }
         }
         return;
     }
@@ -707,48 +713,58 @@ void mdev_route_instance(mapper_device md,
         ci = ci->next;
     }
 
-    ci = si->connections;
-    while (ci) {
-        mapper_router_send(ci->connection->router);
-        ci = ci->next;
+    if (send_immediately) {
+        ci = si->connections;
+        while (ci) {
+            mapper_router_send(ci->connection->router);
+            ci = ci->next;
+        }
     }
 }
 
 //function to create a mapper queue
-mapper_queue mdev_get_queue(mapper_device md)
+mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt)
 {
 	mapper_queue q;
 	q = (mapper_queue)malloc(sizeof(mapper_queue_t));
-	q->elements = (mapper_signal *)malloc(sizeof(mapper_signal)*2);
-    printf("q->elements: %p\n", q->elements);
+
 	q->size = 2;
 	q->position = 0;
-	q->timetag = LO_TT_IMMEDIATE;
+
+	q->instances = (mapper_signal_instance*)malloc(
+        sizeof(mapper_signal_instance)*q->size);
+	q->as_instance = (int*)malloc(sizeof(int)*q->size);
+
+	q->timetag = tt;
 
 	return q;
 }
 
 static void mdev_release_queue(mapper_queue q)
 {
-	free(q->elements);
+	free(q->instances);
+	free(q->as_instance);
 	free(q);
 }
 
 
 static void mdev_route_queue(mapper_device md, mapper_queue q)
 {
+    // Non-immediate timetag means that it will hold on to the
+    // values in a bundle.
+    for (int i = 0; i < q->position; i++)
+        mdev_route_instance(md, q->instances[i],
+                            q->as_instance[i],
+                            q->timetag);
+
+    // Now blast them all off into space
     mapper_router r = md->routers;
     while (r) {
-        for (int i = 0; i<q->position;i++)
-            ;
-            //mapper_router_receive_signal(r, q->elements[i],
-            //                             q->timetag);
-            // TODO, construct the right call to
-            // mapper_router_receive_instance()
 		mapper_router_send(r);
-        mdev_release_queue(q);
         r = r->next;
     }
+
+    mdev_release_queue(q);
 }
 
 void mdev_send_queue(mapper_device md, mapper_queue q)

@@ -153,7 +153,14 @@ void msig_update(mapper_signal sig, void *value, int count);
 
 /*! Update the value of a signal
  *  and enque the signal into a mapper queue. */
-void msig_update_queued(mapper_signal sig, void *value, mapper_queue q);
+void msig_update_queued(mapper_signal sig, void *value,
+                        int count, mapper_queue q);
+
+/*! Update the value of a signal instance
+ *  and enque the signal into a mapper queue. */
+void msig_update_instance_queued(mapper_signal sig, int instance_id,
+                                 void *value, int count,
+                                 mapper_queue q);
 
 /*! Get the full OSC name of a signal, including device name
  *  prefix.
@@ -479,8 +486,8 @@ const char *mdev_interface(mapper_device dev);
  *  \return A positive ordinal unique to this device (per name). */
 unsigned int mdev_ordinal(mapper_device dev);
 
-//function to create a mapper queue
-mapper_queue mdev_get_queue();
+/*! Get a time-tagged mapper queue. */
+mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt);
 
 //function to route a mapper queue
 void mdev_send_queue(mapper_device md, mapper_queue q);
