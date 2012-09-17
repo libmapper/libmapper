@@ -19,12 +19,15 @@ mapper_signal recvsig = 0;
 
 int numTrials = 10;
 int trial = 0;
+int numModes = 2;
+int mode = 0;
+int use_instance = 1;
 int iterations = 100000;
 int counter = 0;
 int received = 0;
 int done = 0;
 
-double times[10];
+double times[100];
 float value;
 
 void switch_modes();
@@ -49,6 +52,7 @@ int setup_source()
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
+    msig_reserve_instances(sendsig, 9);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -75,16 +79,28 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
+void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                    mapper_timetag_t *timetag, void *v)
 {
+    counter = (counter+1)%10;
     if (v) {
         if (++received >= iterations)
             switch_modes();
-        msig_update(sendsig, &value);
+        if (use_instance) {
+            msig_update_instance(sendsig, counter, &value);
+        }
+        else
+            msig_update(sendsig, &value);
     }
     else
-        printf("--> destination %s got NULL\n", props->name);
+        printf("--> destination %s instance %ld got NULL\n",
+               props->name, (long)instance_id);
+}
+
+void overflow_handler(mapper_signal sig, int group, int id)
+{
+    printf("OVERFLOW!!\n");
+    msig_reserve_instances(sig, 1);
 }
 
 /*! Creation of a local destination. */
@@ -99,6 +115,7 @@ int setup_destination()
                              0, 0, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
+    msig_reserve_instances(recvsig, 9);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -171,30 +188,47 @@ void ctrlc(int sig)
 void switch_modes()
 {
     // possible modes: bypass/expression/calibrate, clipmodes, instances, instance-stealing
-    printf("TRIAL %i COMPLETED...\n", trial);
+    printf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
-    times[trial] = get_current_time() - times[trial];
+    times[mode*numTrials+trial] = get_current_time() - times[mode*numTrials+trial];
     if (++trial >= numTrials) {
-        done = 1;
+        printf("SWITCHING MODES...\n");
+        trial = 0;
+        mode++;
     }
-    else {
-        times[trial] = get_current_time();
+    if (mode >= numModes) {
+        done = 1;
+        return;
     }
 
+    switch (mode)
+    {
+        case 0:
+            use_instance = 1;
+            break;
+        case 1:
+            use_instance = 0;
+            break;
+    }
+
+    times[mode*numTrials+trial] = get_current_time();
 }
 
 void print_results()
 {
-    int i;
+    int i, j;
     printf("\n*****************************************************\n");
     printf("\nRESULTS OF SPEED TEST:\n");
-    float bestTime = times[0];
-    for (i=0; i<numTrials; i++) {
-        printf("trial %i: %i messages processed in %f seconds\n", i, iterations, times[i]);
-        if (times[i] < bestTime)
-            bestTime = times[i];
+    for (i=0; i<numModes; i++) {
+        printf("MODE %i\n", i);
+        float bestTime = times[i*numTrials];
+        for (j=0; j<numTrials; j++) {
+            printf("trial %i: %i messages processed in %f seconds\n", j, iterations, times[i*numTrials+j]);
+            if (times[i*numTrials+j] < bestTime)
+                bestTime = times[i*numTrials+j];
+        }
+        printf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
     }
-    printf("\nbest trial: %i messages processed in %f seconds\n", iterations, bestTime);
     printf("\n*****************************************************\n");
 }
 
@@ -226,7 +260,7 @@ int main()
     // start things off
     printf("STARTING TEST...\n");
     times[0] = get_current_time();
-    msig_update(sendsig, &value);
+    msig_update_instance(sendsig, counter++, &value);
     while (!done) {
         mdev_poll(destination, 0);
         mdev_poll(source, 0);

@@ -31,6 +31,7 @@ typedef struct _mapper_expr *mapper_expr;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
+struct _mapper_instance_map;
 
 /**** String tables ****/
 
@@ -92,11 +93,13 @@ typedef struct _mapper_admin {
                                        *   this device. */
     char *name;                       /*!< The full name for this
                                        *   device, or zero. */
+    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
+                                       *   device instance. */
+    int name_hash;                    /*!< CRC-32 hash of full device name
+                                       *   in the form <name>.<ordinal> */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
-                                       *   device. */
-    mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
+    int port;                         /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
@@ -126,9 +129,10 @@ typedef mapper_admin_t *mapper_admin;
  *  defined in mapper_db.h. */
 
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;      //!< Properties.
-    struct _mapper_connection *next;   //!< Next connection in the list.
-
+    mapper_db_connection_t props;               //!< Properties
+    struct _mapper_connection *next;            //!< Next connection in the list.
+    struct _mapper_signal *source;              //!< Source signal
+    struct _mapper_router *router;              //!< Parent router
     int calibrating;   /*!< 1 if the source range is currently being
                         *   calibrated, 0 otherwise. */
 
@@ -186,6 +190,12 @@ typedef struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
+    struct _mapper_instance_id_map *active_id_map; /*!< The list of active instance
+                                                    * id mappings. */
+    struct _mapper_instance_id_map *reserve_id_map; /*!< The list of reserve instance
+                                                     * id mappings. */
+
+    int id_counter;
 
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
@@ -195,6 +205,16 @@ typedef struct _mapper_device {
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
 } *mapper_device;
+
+/*! The instance ID map is a linked list of int32 instance ids for coordinating
+ *  remote and local instances. */
+typedef struct _mapper_instance_id_map {
+    int local;                          //!< Local instance id to map.
+    int group;                          //!< Link group id.
+    int remote;                         //!< Remote instance id to map.
+    int reference_count;
+    struct _mapper_instance_id_map *next;  //!< The next id map in the list.
+} *mapper_instance_id_map;
 
 /*! Bit flags indicating if information has already been
  *   sent in a given polling step. */
@@ -244,6 +264,7 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_IP,
     AT_PORT,
+    AT_ID,
     AT_NUMINPUTS,
     AT_NUMOUTPUTS,
     AT_NUMLINKS,
@@ -261,10 +282,12 @@ typedef enum {
     AT_MUTE,
     AT_LENGTH,
     AT_DIRECTION,
+    AT_INSTANCES,
     AT_SRCTYPE,
     AT_DESTTYPE,
     AT_SRCLENGTH,
     AT_DESTLENGTH,
+    AT_SCOPE,
     AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;

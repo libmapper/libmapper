@@ -5,6 +5,9 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+// Structs that refer to things defined in mapper.h are declared here
+// instead of in types_internal.h
+
 /**** Signals ****/
 
 /*! A signal is defined as a vector of values, along with some
@@ -18,30 +21,89 @@ struct _mapper_signal
     /*! The device associated with this signal. */
     struct _mapper_device *device;
 
-    /*! The current value of this signal. */
-    void *value;
+    /*! The first instance of this signal. */
+    struct _mapper_signal_instance *instances;
 
-    /*! The timetag associated with the current value of this
-     *  signal. */
-    mapper_timetag_t value_tt;
+    /*! Type of voice stealing to perform on instances. */
+    mapper_instance_allocation_type instance_allocation_type;
 
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
+
+    /*! An optional function to be called when the signal runs
+     *  out of instances. */
+    mapper_signal_instance_overflow_handler *instance_overflow_handler;
+
+    /*! An optional function to be called when the signal instance management
+     *  events occur. */
+    mapper_signal_instance_management_handler *instance_management_handler;
 };
+
+/**** Instances ****/
+
+/*! A signal instance is defined as a vector of values, along with some
+ *  metadata. */
+
+typedef struct _mapper_signal_instance
+{
+    /*! Unique instance ID */
+    int id;
+
+    /*! Pointer to the id_map to use (managed by device). */
+    mapper_instance_id_map id_map;
+
+    /*! User data of this instance. */
+    void *user_data;
+
+    /*! Flag to show if this instance is active */
+    int is_active;
+
+    /*! Signal this instance belongs to. */
+    struct _mapper_signal *signal;
+
+    /*! The value of this instance. */    
+    mapper_signal_history_t history;
+
+    /*! The instance's creation timestamp. */
+    mapper_timetag_t creation_time;
+
+    /*! Linked list of connection instances corresponding to this 
+     *  signal instance. */
+    struct _mapper_connection_instance *connections;
+
+    /*! Pointer to the next instance. */
+    struct _mapper_signal_instance *next;
+} *mapper_signal_instance;
+
+/*! A connection instance is defined as a vector of values, along with some
+ *  metadata. */
+
+typedef struct _mapper_connection_instance
+{
+    /*! Pointer to input instance. */
+    struct _mapper_signal_instance *parent;
+
+    /*! Connection this instance belongs to. */
+    struct _mapper_connection *connection;
+
+    /*! The value of this instance. */    
+    mapper_signal_history_t history;
+
+    /*! Pointer to the next instance. */
+    struct _mapper_connection_instance *next;
+} *mapper_connection_instance;
 
 // Mapper internal functions
 
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int initial_port);
+                             const char *identifier, int port);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
-
-void mapper_admin_port_probe(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);
 
@@ -82,8 +144,9 @@ void mdev_add_signal_query_response_callback(mapper_device md,
 void mdev_remove_signal_query_response_callback(mapper_device md,
                                                 mapper_signal sig);
 
-void mdev_route_signal(mapper_device md, mapper_signal sig,
-                       mapper_signal_value_t *value);
+void mdev_route_instance(mapper_device md,
+                         mapper_signal_instance si,
+                         int send_as_instance);
 
 int mdev_route_query(mapper_device md, mapper_signal sig);
 
@@ -91,17 +154,30 @@ void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
 
+void mdev_release_scope(mapper_device md, const char *scope);
+
 void mdev_start_server(mapper_device mdev);
 
-void mdev_on_port_and_ordinal(mapper_device md,
-                              mapper_admin_allocated_t *resource);
+void mdev_on_id_and_ordinal(mapper_device md,
+                            mapper_admin_allocated_t *resource);
+
+mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
+                                                int group_id, int remote_id);
+
+void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map map);
+
+mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
+                                                          int local_id);
+
+mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
+                                                           int group_id, int remote_id);
 
 const char *mdev_name(mapper_device md);
 
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name);
+                                int port, const char *name, int local);
 
 void mapper_router_free(mapper_router router);
 
@@ -109,11 +185,14 @@ void mapper_router_free(mapper_router router);
 void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
 
-void mapper_router_send_signal(mapper_router router, mapper_signal sig,
-                               mapper_signal_value_t *value);
+/*! For a given connection instance, construct a mapped signal and
+ *  send it on to the destination. */
+void mapper_router_receive_instance(mapper_router r,
+                                    mapper_connection_instance ci,
+                                    mapper_signal_instance si,
+                                    int is_instance, int is_new);
 
-void mapper_router_receive_signal(mapper_router router, mapper_signal sig,
-                                  mapper_signal_value_t *value);
+void mapper_router_send_new_instance(mapper_connection_instance ci);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig);
 
@@ -126,9 +205,19 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-/*! Find a router by destination name in a linked list of routers. */
+int mapper_router_in_scope(mapper_router router, int group_id);
+
+/*! Find a router by destination address in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_address(mapper_router routers,
+                                                 lo_address dest_addr);
+
+/*! Find a router by destination device name in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
-                                                const char* dest_name);
+                                              const char *dest_name);
+
+int mapper_router_add_scope(mapper_router router, const char *scope);
+
+void mapper_router_remove_scope(mapper_router router, const char *scope);
 
 /**** Signals ****/
 
@@ -159,27 +248,82 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-void mval_add_to_message(lo_message m, mapper_signal sig,
+/*! Add a new connection instance to a signal.
+ *  \param si The signal instance corresponding to the new connection instance.
+ *  \param c The connection corresponding to the new connection instance.
+ *  \return The new connection instance. */
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
+                                                        struct _mapper_connection *c);
+
+mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
+                                                  int instance_id);
+
+mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
+                                                      mapper_instance_id_map map);
+
+/*! Resume a reserved (preallocated) signal instance.
+ *  \param  si The signal instance to resume. */
+void msig_resume_instance(mapper_signal_instance si);
+
+/*! Reallocate memory used by signal instances. */
+void msig_reallocate_instances(mapper_signal sig, int input_history_size,
+                               mapper_connection c, int output_history_size);
+
+void mhist_realloc(mapper_signal_history_t *history, int history_size,
+                   int sample_size, int is_output);
+
+void msig_send_instance(mapper_signal_instance si, int send_as_instance);
+
+/*! Free memory used by a mapper_signal_instance. */
+void msig_free_instance(mapper_signal_instance instance);
+
+/*! Free memory used by a mapper_connection_instance. */
+void msig_free_connection_instance(mapper_connection_instance instance);
+
+void mval_add_to_message(lo_message m, char type,
                          mapper_signal_value_t *value);
+
+/**** Instances ****/
+
+/*! Fetch a reserved (preallocated) signal instance.
+ *  \param  sig The signal owning the desired instance.
+ *  \param  instance_id The requested signal instance ID.
+ *  \return The retrieved signal instance, or NULL if no free
+ *          instances were available and allocation of a new instance
+ *          was unsuccessful according to the selected allocation
+ *          strategy. */
+mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
+                                                 int instance_id,
+                                                 int is_new_instance);
+
+/*! Fetch a reserved (preallocated) signal instance using instance id map.
+ *  \param  sig The signal owning the desired instance.
+ *  \param  group The group used for instance id mapping.
+ *  \param  id The id used for instance id mapping.
+ *  \return The retrieved signal instance, or NULL if no free
+ *          instances were available and allocation of a new instance
+ *          was unsuccessful according to the selected allocation
+ *          strategy. */
+mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
+                                                     mapper_instance_id_map map,
+                                                     int is_new_instance);
+
+void msig_release_instance_internal(mapper_signal_instance si);
 
 /**** connections ****/
 
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
  *  \param connection The mapping process to perform.
- *  \param sig        The signal to operate on.
- *  \param from_value Pointer to first value in a vector of the
- *                    expected size.
- *  \param to_value   Pointer to a value to receive the scalar result.
+ *  \param from_value Pointer to current value of the source signal.
+ *  \param to_value   Pointer to a value to receive the result.
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
-                              mapper_signal sig,
-                              mapper_signal_value_t *from_value,
-                              mapper_signal_value_t *to_value);
+                              mapper_signal_history_t *from_value,
+                              mapper_signal_history_t *to_value);
 
 int mapper_clipping_perform(mapper_connection connection,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value);
+                            mapper_signal_history_t *from_value);
 
 mapper_connection mapper_connection_find_by_names(mapper_device md,
                                                   const char* src_name,
@@ -415,14 +559,21 @@ void mapper_connection_prepare_osc_message(lo_message m,
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
                                         int output_is_float,
-                                        int vector_size);
+                                        int vector_size,
+                                        int *input_history_size,
+                                        int *output_history_size);
+
+int mapper_expr_input_history_size(mapper_expr expr);
+
+int mapper_expr_output_history_size(mapper_expr expr);
 
 #ifdef DEBUG
 void printexpr(const char*, mapper_expr);
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(
-    mapper_expr expr, mapper_signal_value_t* input_vector);
+int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_signal_history_t *input_history,
+                         mapper_signal_history_t *output_history);
 
 void mapper_expr_free(mapper_expr expr);
 
@@ -527,6 +678,12 @@ inline static int mapper_type_size(char type)
 inline static int msig_vector_bytes(mapper_signal sig)
 {
     return mapper_type_size(sig->props.type) * sig->props.length;
+}
+
+/*! Helper to find the pointer to the current value in a mapper_signal_history_t. */
+inline static void* msig_history_value_pointer(mapper_signal_history_t h)
+{
+    return h.value + h.position * h.length * mapper_type_size(h.type);
 }
 
 #endif // __MAPPER_INTERNAL_H__

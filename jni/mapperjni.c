@@ -51,7 +51,8 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1poll
     return mdev_poll(dev, timeout);
 }
 
-static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
+static void java_msig_input_cb(mapper_signal sig, int instance_id,
+                               mapper_db_signal props,
                                mapper_timetag_t *tt, void *v)
 {
     if (bailing)

@@ -788,7 +788,6 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     value, &devdb_table);
 }
 
-
 int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property,
                                      lo_type *type,
@@ -1003,6 +1002,8 @@ static void update_signal_record_params(mapper_db_signal sig,
     int is_output = mapper_msg_get_direction(params);
     if (is_output != -1)
         sig->is_output = is_output;
+
+    update_int_if_arg(&sig->num_instances, params, AT_INSTANCES);
 
     mapper_msg_add_or_update_extra_params(sig->extra, params);
 }

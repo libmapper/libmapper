@@ -59,6 +59,48 @@
     return o;
  }
 
+%typemap(in) mapper_db_link_with_flags_t* %{
+    mapper_db_link_with_flags_t p;
+    $1 = 0;
+    if (PyDict_Check($input)) {
+        memset(&p, 0, sizeof(mapper_db_link_with_flags_t));
+        PyObject *keys = PyDict_Keys($input);
+        if (keys) {
+            int i = PyList_GET_SIZE(keys);
+            for (i=i-1; i>=0; --i) {
+                PyObject *o = PyList_GetItem(keys, i);
+                if (PyString_Check(o)) {
+                    PyObject *v = PyDict_GetItem($input, o);
+                    char *s = PyString_AsString(o);
+                    if (strcmp(s, "scope")==0) {
+                        if (PyString_Check(v)) {
+                            p.props.num_scopes = 1;
+                            p.flags |= LINK_NUM_SCOPES;
+                            char *scope = PyString_AsString(v);
+                            p.props.scope_names  = &scope;
+                            p.flags |= LINK_SCOPE_NAMES;
+                        }
+                    }
+                    else if (strcmp(s, "src_name")==0) {
+                        if (PyString_Check(v))
+                            p.props.src_name = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "dest_name")==0) {
+                        if (PyString_Check(v))
+                            p.props.dest_name = PyString_AsString(v);
+                    }
+                }
+            }
+            Py_DECREF(keys);
+            $1 = &p;
+        }
+    }
+    else {
+        SWIG_exception_fail(SWIG_TypeError,
+                            "argument $argnum must be 'dict'");
+    }
+ %}
+
 %typemap(in) mapper_db_connection_with_flags_t* %{
     mapper_db_connection_with_flags_t p;
     $1 = 0;
@@ -410,6 +452,7 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
+                            int instance_id,
                             mapper_db_signal props,
                             mapper_timetag_t *tt,
                             void *v)
@@ -421,14 +464,20 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
+    unsigned long long int timetag = 0;
+    if (tt) {
+        timetag = tt->sec;
+        timetag = (timetag << 32) + tt->frac;
+    }
+
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(Oi)", py_msig, *(int*)v);
+            arglist = Py_BuildValue("(OiLi)", py_msig, instance_id, timetag, *(int*)v);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(Of)", py_msig, *(float*)v);
+            arglist = Py_BuildValue("(OiLf)", py_msig, instance_id, timetag, *(float*)v);
     }
     else {
-        arglist = Py_BuildValue("(Os)", py_msig, 0);
+        arglist = Py_BuildValue("(OiLs)", py_msig, instance_id, timetag, 0);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -447,6 +496,11 @@ typedef struct {
 
 typedef int* maybeInt;
 typedef int booltype;
+
+typedef struct {
+    mapper_db_link_t props;
+    int flags;
+} mapper_db_link_with_flags_t;
 
 typedef struct {
     mapper_db_connection_t props;
@@ -559,6 +613,15 @@ typedef enum _mapper_mode_type {
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
+/*! Describes the voice-stealing mode for instances.
+ *  @ingroup connectiondb */
+typedef enum _mapper_instance_allocation_type {
+    IN_UNDEFINED,    //!< Not yet defined
+    IN_STEAL_OLDEST, //!< Steal the oldest instance
+    IN_STEAL_NEWEST, //!< Steal the newest instance
+    N_MAPPER_INSTANCE_ALLOCATION_TYPES
+} mapper_instance_allocation_type;
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -598,7 +661,7 @@ typedef struct _admin {} admin;
                       const char *unit=0, maybeSigVal minimum=0,
                       maybeSigVal maximum=0, PyObject *PyFunc=0)
     {
-        mapper_signal_handler *h = 0;
+        void *h = 0;
         if (PyFunc) {
             h = msig_handler_py;
             Py_XINCREF(PyFunc);
@@ -642,8 +705,10 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return (signal *)mdev_add_input((mapper_device)$self, name, length,
-                                        type, unit, pmn, pmx, h, PyFunc);
+        mapper_signal msig = mdev_add_input((mapper_device)$self, name,
+                                            length, type, unit, pmn, pmx,
+                                            h, PyFunc);
+        return (signal *)msig;
     }
     signal* add_output(const char *name, int length=1, const char type='f',
                        const char *unit=0, maybeSigVal minimum=0,
@@ -688,8 +753,9 @@ typedef struct _admin {} admin;
                 }
             }
         }
-        return (signal*)mdev_add_output((mapper_device)$self, name,
-                                      length, type, unit, pmn, pmx);
+        mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
+                                             type, unit, pmn, pmx);
+        return (signal *)msig;
     }
     void remove_input(signal *sig) {
         mapper_signal msig = (mapper_signal)sig;
@@ -812,6 +878,42 @@ typedef struct _admin {} admin;
         else if (sig->props.type == 'f') {
             msig_update_float((mapper_signal)$self, (float)i);
         }
+    }
+    void reserve_instances(int num) {
+        msig_reserve_instances((mapper_signal)$self, num);
+    }
+    void update_instance(int id, float f) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update_instance((mapper_signal)$self, id, &f);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update_instance((mapper_signal)$self, id, &i);
+        }
+    }
+    void update_instance(int id, int i) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update_instance((mapper_signal)$self, id, &i);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update_instance((mapper_signal)$self, id, &f);
+        }
+    }
+    void release_instance(int id) {
+        msig_release_instance((mapper_signal)$self, id);
+    }
+    int active_instance_id(int index) {
+        return msig_active_instance_id((mapper_signal)$self, index);
+    }
+    int num_active_instances() {
+        return msig_num_active_instances((mapper_signal)$self);
+    }
+    int num_reserved_instances() {
+        return msig_num_reserved_instances((mapper_signal)$self);
+    }
+    void set_allocation_mode(mapper_instance_allocation_type mode) {
+        msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
     void set_query_callback(PyObject *PyFunc=0) {
         mapper_signal_handler *h = 0;
@@ -970,8 +1072,15 @@ typedef struct _admin {} admin;
     int request_connections_by_name(const char* name) {
         return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
     }
-    void link(const char* source_device, const char* dest_device) {
-        mapper_monitor_link((mapper_monitor)$self, source_device, dest_device);
+    void link(const char* source_device,
+              const char* dest_device,
+              mapper_db_link_with_flags_t *properties=0) {
+        if (properties) {
+            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device,
+                                &properties->props, properties->flags);
+        }
+        else
+            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device, 0, 0);
     }
     void unlink(const char* source_device, const char* dest_device) {
         mapper_monitor_unlink((mapper_monitor)$self, source_device, dest_device);

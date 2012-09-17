@@ -38,6 +38,7 @@ AM_SANITY_CHECK
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([winsock2.h])
 AC_CHECK_FUNC([inet_ptoa],[AC_DEFINE([HAVE_INET_PTOA],[],[Define if inet_ptoa() is available.])],[])
 AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs() is available.])],[
@@ -49,6 +50,9 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
     ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
+
+AC_CHECK_LIB([z], [gzread], ,
+    [AC_MSG_ERROR([zlib not found, see http://www.zlib.net])])
 
 AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
 AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)

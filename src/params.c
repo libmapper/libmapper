@@ -7,31 +7,34 @@
 
 const char* mapper_msg_param_strings[] =
 {
-    "@IP",         /* AT_IP */
-    "@port",       /* AT_PORT */
-    "@numInputs",  /* AT_NUMINPUTS */
-    "@numOutputs", /* AT_NUMOUTPUTS */
-    "@numLinks",   /* AT_NUMLINKS */
-    "@numConnects",/* AT_NUM_CONNECTIONS */
-    "@rev",        /* AT_REV */
-    "@type",       /* AT_TYPE */
-    "@min",        /* AT_MIN */
-    "@max",        /* AT_MAX */
-    "@mode",       /* AT_MODE */
-    "@expression", /* AT_EXPRESSION */
-    "@clipMin",    /* AT_CLIPMIN */
-    "@clipMax",    /* AT_CLIPMAX */
-    "@range",      /* AT_RANGE */
-    "@units",      /* AT_UNITS */
-    "@mute",       /* AT_MUTE */
-    "@length",     /* AT_LENGTH */
-    "@direction",  /* AT_DIRECTION */
-    "@srcType",    /* AT_SRCTYPE */
-    "@destType",   /* AT_DESTTYPE */
-    "@srcLength",  /* AT_SRCLENGTH */
-    "@destLength", /* AT_DESTLENGTH */
-    "",            /* AT_EXTRA (special case, does not represent a
-                    * specific property name) */
+    "@IP",              /* AT_IP */
+    "@port",            /* AT_PORT */
+    "@ID",              /* AT_ID */
+    "@numInputs",       /* AT_NUMINPUTS */
+    "@numOutputs",      /* AT_NUMOUTPUTS */
+    "@numLinks",        /* AT_NUMLINKS */
+    "@numConnects",     /* AT_NUM_CONNECTIONS */
+    "@rev",             /* AT_REV */
+    "@type",            /* AT_TYPE */
+    "@min",             /* AT_MIN */
+    "@max",             /* AT_MAX */
+    "@mode",            /* AT_MODE */
+    "@expression",      /* AT_EXPRESSION */
+    "@clipMin",         /* AT_CLIPMIN */
+    "@clipMax",         /* AT_CLIPMAX */
+    "@range",           /* AT_RANGE */
+    "@units",           /* AT_UNITS */
+    "@mute",            /* AT_MUTE */
+    "@length",          /* AT_LENGTH */
+    "@direction",       /* AT_DIRECTION */
+    "@instances",       /* AT_INSTANCES */
+    "@srcType",         /* AT_SRCTYPE */
+    "@destType",        /* AT_DESTTYPE */
+    "@srcLength",       /* AT_SRCLENGTH */
+    "@destLength",      /* AT_DESTLENGTH */
+    "@scope",           /* AT_SCOPE */
+    "",                 /* AT_EXTRA (special case, does not represent a
+                         * specific property name) */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -271,6 +274,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_PORT:
+        case AT_ID:
         case AT_NUMINPUTS:
         case AT_NUMOUTPUTS:
         case AT_NUMLINKS:
@@ -295,11 +299,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_MIN:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->props.minimum);
+            mval_add_to_message(m, sig->props.type, sig->props.minimum);
             break;
         case AT_MAX:
             sig = va_arg(aq, mapper_signal);
-            mval_add_to_message(m, sig, sig->props.maximum);
+            mval_add_to_message(m, sig->props.type, sig->props.maximum);
             break;
         case AT_MODE:
             i = va_arg(aq, int);
@@ -352,6 +356,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_DIRECTION:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
+            break;
+        case AT_INSTANCES:
+            i = va_arg(aq, int);
+            lo_message_add_int32(m, i);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);

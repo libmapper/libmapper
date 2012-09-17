@@ -52,9 +52,9 @@ def main():
 
         dev = mapper.device("tk_pwm", 9000)
 
-        dev.add_input("/gain", 1, 'f', None, 0, 100, lambda s, n: gain.set(n))
-        dev.add_input("/freq", 1, 'f', "Hz", 0, 1000, lambda s, n: freq.set(n))
-        dev.add_input("/duty", 1, 'f', None, 0, 100, lambda s, n: duty.set(n))
+        dev.add_input("/gain", 1, 'f', None, 0, 100, lambda s,i,t,n: gain.set(n))
+        dev.add_input("/freq", 1, 'f', "Hz", 0, 1000, lambda s,i,t,n: freq.set(n))
+        dev.add_input("/duty", 1, 'f', None, 0, 100, lambda s,i,t,n: duty.set(n))
 
         def do_poll():
             dev.poll(0)

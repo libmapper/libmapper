@@ -8,7 +8,7 @@
 
 int test_controller()
 {
-    mapper_device md = mdev_new("tester", 9000, 0);
+    mapper_device md = mdev_new("tester", 0, 0);
     if (!md)
         goto error;
     printf("Mapper device created.\n");
@@ -23,7 +23,7 @@ int test_controller()
 
     const char *host = "localhost";
     int port = 9000;
-    mapper_router rt = mapper_router_new(md, host, port, "DESTINATION");
+    mapper_router rt = mapper_router_new(md, host, port, "DESTINATION", 0);
     mdev_add_router(md, rt);
     printf("Router to %s:%d added.\n", host, port);
 

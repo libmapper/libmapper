@@ -10,7 +10,7 @@ endif
 noinst_PROGRAMS = test testmany testadmin testsend testrecv \
                   testexpression testlinear testparams testmonitor \
                   testdb testparser testprops testquery testvector \
-                  testspeed
+                  testinstance testspeed
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
@@ -67,6 +67,10 @@ test_LDADD = $(TEST_LDADD)
 testquery_CFLAGS = $(TEST_CFLAGS)
 testquery_SOURCES = testquery.c
 testquery_LDADD = $(TEST_LDADD)
+
+testinstance_CFLAGS = $(TEST_CFLAGS)
+testinstance_SOURCES = testinstance.c
+testinstance_LDADD = $(TEST_LDADD)
 
 testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c

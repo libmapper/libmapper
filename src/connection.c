@@ -45,13 +45,16 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
 }
 
 int mapper_connection_perform(mapper_connection connection,
-                              mapper_signal sig,
-                              mapper_signal_value_t *from_value,
-                              mapper_signal_value_t *to_value)
+                              mapper_signal_history_t *from,
+                              mapper_signal_history_t *to)
 {
-    int changed = 0;
-    float f = 0;
+    /* Currently expressions on vectors are not supported by the
+     * evaluator.  For now, we half-support it by performing
+     * element-wise operations on each item in the vector. */
     
+    int changed = 0, i;
+    float f = 0;
+
     if (connection->props.muted)
         return 0;
 
@@ -66,28 +69,53 @@ int mapper_connection_perform(mapper_connection connection,
 
     if (!connection->props.mode || connection->props.mode == MO_BYPASS)
     {
-        if (connection->props.src_type == connection->props.dest_type)
-            *to_value = *from_value;
+        /* Increment index position of output data structure. */
+        to->position = (to->position + 1) % to->size;
+        if (connection->props.src_type == connection->props.dest_type) {
+            memcpy(msig_history_value_pointer(*to),
+                   msig_history_value_pointer(*from),
+                   mapper_type_size(to->type) * to->length);
+        }
         else if (connection->props.src_type == 'f'
-                 && connection->props.dest_type == 'i')
-            to_value->i32 = (int)from_value->f;
+                 && connection->props.dest_type == 'i') {
+            float *vfrom = msig_history_value_pointer(*from);
+            int *vto = msig_history_value_pointer(*to);
+            for (i = 0; i < to->length; i++) {
+                vto[i] = (int)vfrom[i];
+            }
+        }
         else if (connection->props.src_type == 'i'
-                 && connection->props.dest_type == 'f')
-            to_value->f = (float)from_value->i32;
+                 && connection->props.dest_type == 'f') {
+            int *vfrom = msig_history_value_pointer(*from);
+            float *vto = msig_history_value_pointer(*to);
+            for (i = 0; i < to->length; i++) {
+                vto[i] = (float)vfrom[i];
+            }
+        }
+        return 1;
     }
     else if (connection->props.mode == MO_EXPRESSION
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        *to_value = mapper_expr_evaluate(connection->expr, from_value);
+        return (mapper_expr_evaluate(connection->expr, from, to));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
     {
-        if (connection->props.src_type == 'f')
-            f = from_value->f;
-        else if (connection->props.src_type == 'i')
-            f = (float)from_value->i32;
+        /* TODO: Switch to vector min and max */
+        /* Increment index position of output data structure. */
+        to->position = (to->position + 1) % to->size;
+        if (connection->props.src_type == 'f') {
+            float *v = msig_history_value_pointer(*from);
+            for (i = 0; i < to->length; i++)
+                f = v[i];
+        }
+        else if (connection->props.src_type == 'i') {
+            int *v = msig_history_value_pointer(*from);
+            for (i = 0; i < to->length; i++)
+                f = (float)v[i];
+        }
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
@@ -112,7 +140,7 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (changed) {
-            mapper_connection_set_linear_range(connection, sig,
+            mapper_connection_set_linear_range(connection, connection->source,
                                                &connection->props.range);
 
             /* Stay in calibrate mode. */
@@ -120,18 +148,21 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            *to_value = mapper_expr_evaluate(connection->expr, from_value);
+            return (mapper_expr_evaluate(connection->expr, from, to));
+        else
+            return 0;
     }
-
     return 1;
 }
 
 int mapper_clipping_perform(mapper_connection connection,
-                            mapper_signal_value_t *from_value,
-                            mapper_signal_value_t *to_value)
+                            mapper_signal_history_t *history)
 {
-    int muted = 0;
-    float v = 0;
+    /* TODO: We are currently saving the clipped values to output history.
+     * it needs to be decided whether clipping should be inside the
+     * feedback loop when past samples are called in expressions. */
+    int i, muted = 0;
+    float v[connection->props.dest_length];
     float total_range = fabsf(connection->props.range.dest_max
                               - connection->props.range.dest_min);
     float dest_min, dest_max, difference, modulo_difference;
@@ -140,14 +171,19 @@ int mapper_clipping_perform(mapper_connection connection,
     if (connection->props.clip_min == CT_NONE
         && connection->props.clip_max == CT_NONE)
     {
-        *to_value = *from_value;
         return 1;
     }
 
-    if (connection->props.dest_type == 'f')
-        v = from_value->f;
-    else if (connection->props.dest_type == 'i')
-        v = (float)from_value->i32;
+    if (connection->props.dest_type == 'f') {
+        float *vhistory = msig_history_value_pointer(*history);
+        for (i = 0; i < history->length; i++)
+            v[i] = vhistory[i];
+    }
+    else if (connection->props.dest_type == 'i') {
+        int *vhistory = msig_history_value_pointer(*history);
+        for (i = 0; i < history->length; i++)
+            v[i] = (float)vhistory[i];
+    }
     else {
         trace("unknown type in mapper_clipping_perform()\n");
         return 0;
@@ -166,137 +202,143 @@ int mapper_clipping_perform(mapper_connection connection,
             dest_min = connection->props.range.dest_max;
             dest_max = connection->props.range.dest_min;
         }
-        if (v < dest_min) {
-            switch (clip_min) {
-                case CT_MUTE:
-                    // need to prevent value from being sent at all
-                    muted = 1;
-                    break;
-                case CT_CLAMP:
-                    // clamp value to range minimum
-                    v = dest_min;
-                    break;
-                case CT_FOLD:
-                    // fold value around range minimum
-                    difference = fabsf(v - dest_min);
-                    v = dest_min + difference;
-                    if (v > dest_max) {
-                        // value now exceeds range maximum!
-                        switch (clip_max) {
-                            case CT_MUTE:
-                                // need to prevent value from being sent at all
-                                muted = 1;
-                                break;
-                            case CT_CLAMP:
-                                // clamp value to range minimum
-                                v = dest_max;
-                                break;
-                            case CT_FOLD:
-                                // both clip modes are set to fold!
-                                difference = fabsf(v - dest_max);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                if ((int)(difference / total_range) % 2 == 0) {
-                                    v = dest_max - modulo_difference;
-                                }
-                                else
-                                    v = dest_min + modulo_difference;
-                                break;
-                            case CT_WRAP:
-                                // wrap value back from range minimum
-                                difference = fabsf(v - dest_max);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                v = dest_min + modulo_difference;
-                                break;
-                            default:
-                                break;
+        for (i = 0; i < history->length; i++) {
+            if (v[i] < dest_min) {
+                switch (clip_min) {
+                    case CT_MUTE:
+                        // need to prevent value from being sent at all
+                        muted = 1;
+                        break;
+                    case CT_CLAMP:
+                        // clamp value to range minimum
+                        v[i] = dest_min;
+                        break;
+                    case CT_FOLD:
+                        // fold value around range minimum
+                        difference = fabsf(v[i] - dest_min);
+                        v[i] = dest_min + difference;
+                        if (v[i] > dest_max) {
+                            // value now exceeds range maximum!
+                            switch (clip_max) {
+                                case CT_MUTE:
+                                    // need to prevent value from being sent at all
+                                    muted = 1;
+                                    break;
+                                case CT_CLAMP:
+                                    // clamp value to range minimum
+                                    v[i] = dest_max;
+                                    break;
+                                case CT_FOLD:
+                                    // both clip modes are set to fold!
+                                    difference = fabsf(v[i] - dest_max);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    if ((int)(difference / total_range) % 2 == 0) {
+                                        v[i] = dest_max - modulo_difference;
+                                    }
+                                    else
+                                        v[i] = dest_min + modulo_difference;
+                                    break;
+                                case CT_WRAP:
+                                    // wrap value back from range minimum
+                                    difference = fabsf(v[i] - dest_max);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    v[i] = dest_min + modulo_difference;
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
-                    }
-                    break;
-                case CT_WRAP:
-                    // wrap value back from range maximum
-                    difference = fabsf(v - dest_min);
-                    modulo_difference = difference
-                        - (int)(difference / total_range) * total_range;
-                    v = dest_max - modulo_difference;
-                    break;
-                default:
-                    // leave the value unchanged
-                    break;
+                        break;
+                    case CT_WRAP:
+                        // wrap value back from range maximum
+                        difference = fabsf(v[i] - dest_min);
+                        modulo_difference = difference
+                            - (int)(difference / total_range) * total_range;
+                        v[i] = dest_max - modulo_difference;
+                        break;
+                    default:
+                        // leave the value unchanged
+                        break;
+                }
             }
-        }
-        
-        else if (v > dest_max) {
-            switch (clip_max) {
-                case CT_MUTE:
-                    // need to prevent value from being sent at all
-                    muted = 1;
-                    break;
-                case CT_CLAMP:
-                    // clamp value to range maximum
-                    v = dest_max;
-                    break;
-                case CT_FOLD:
-                    // fold value around range maximum
-                    difference = fabsf(v - dest_max);
-                    v = dest_max - difference;
-                    if (v < dest_min) {
-                        // value now exceeds range minimum!
-                        switch (clip_min) {
-                            case CT_MUTE:
-                                // need to prevent value from being sent at all
-                                muted = 1;
-                                break;
-                            case CT_CLAMP:
-                                // clamp value to range minimum
-                                v = dest_min;
-                                break;
-                            case CT_FOLD:
-                                // both clip modes are set to fold!
-                                difference = fabsf(v - dest_min);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                if ((int)(difference / total_range) % 2 == 0) {
-                                    v = dest_max + modulo_difference;
-                                }
-                                else
-                                    v = dest_min - modulo_difference;
-                                break;
-                            case CT_WRAP:
-                                // wrap value back from range maximum
-                                difference = fabsf(v - dest_min);
-                                modulo_difference = difference
-                                    - ((int)(difference / total_range)
-                                       * total_range);
-                                v = dest_max - modulo_difference;
-                                break;
-                            default:
-                                break;
+            else if (v[i] > dest_max) {
+                switch (clip_max) {
+                    case CT_MUTE:
+                        // need to prevent value from being sent at all
+                        muted = 1;
+                        break;
+                    case CT_CLAMP:
+                        // clamp value to range maximum
+                        v[i] = dest_max;
+                        break;
+                    case CT_FOLD:
+                        // fold value around range maximum
+                        difference = fabsf(v[i] - dest_max);
+                        v[i] = dest_max - difference;
+                        if (v[i] < dest_min) {
+                            // value now exceeds range minimum!
+                            switch (clip_min) {
+                                case CT_MUTE:
+                                    // need to prevent value from being sent at all
+                                    muted = 1;
+                                    break;
+                                case CT_CLAMP:
+                                    // clamp value to range minimum
+                                    v[i] = dest_min;
+                                    break;
+                                case CT_FOLD:
+                                    // both clip modes are set to fold!
+                                    difference = fabsf(v[i] - dest_min);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    if ((int)(difference / total_range) % 2 == 0) {
+                                        v[i] = dest_max + modulo_difference;
+                                    }
+                                    else
+                                        v[i] = dest_min - modulo_difference;
+                                    break;
+                                case CT_WRAP:
+                                    // wrap value back from range maximum
+                                    difference = fabsf(v[i] - dest_min);
+                                    modulo_difference = difference
+                                        - ((int)(difference / total_range)
+                                           * total_range);
+                                    v[i] = dest_max - modulo_difference;
+                                    break;
+                                default:
+                                    break;
+                            }
                         }
-                    }
-                    break;
-                case CT_WRAP:
-                    // wrap value back from range minimum
-                    difference = fabsf(v - dest_max);
-                    modulo_difference = difference
-                        - (int)(difference / total_range) * total_range;
-                    v = dest_min + modulo_difference;
-                    break;
-                default:
-                    break;
+                        break;
+                    case CT_WRAP:
+                        // wrap value back from range minimum
+                        difference = fabsf(v[i] - dest_max);
+                        modulo_difference = difference
+                            - (int)(difference / total_range) * total_range;
+                        v[i] = dest_min + modulo_difference;
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
 
-    if (connection->props.dest_type == 'f')
-        to_value->f = v;
-    else if (connection->props.dest_type == 'i')
-        to_value->i32 = (int)v;
-
+    if (connection->props.dest_type == 'f') {
+        float *vhistory = msig_history_value_pointer(*history);
+        for (i = 0; i < history->length; i++)
+            vhistory[i] = v[i];
+    }
+    else if (connection->props.dest_type == 'i') {
+        int *vhistory = msig_history_value_pointer(*history);
+        for (i = 0; i < history->length; i++)
+            vhistory[i] = (int)v[i];
+    }
     return !muted;
 }
 
@@ -304,11 +346,13 @@ int mapper_clipping_perform(mapper_connection connection,
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expression_string(mapper_connection c,
                                      mapper_signal s,
-                                     const char *expr_str)
+                                     const char *expr_str,
+                                     int *input_history_size,
+                                     int *output_history_size)
 {
     mapper_expr expr = mapper_expr_new_from_string(
         expr_str, s->props.type=='f', c->props.dest_type=='f',
-        s->props.length);
+        s->props.length, input_history_size, output_history_size);
 
     if (!expr)
         return 1;
@@ -327,6 +371,7 @@ static int replace_expression_string(mapper_connection c,
 void mapper_connection_set_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
+    msig_reallocate_instances(c->source, 1, c, 1);
 }
 
 void mapper_connection_set_linear_range(mapper_connection c,
@@ -368,18 +413,28 @@ void mapper_connection_set_linear_range(mapper_connection c,
                sizeof(mapper_connection_range_t));
 
     // If everything is successful, replace the connection's expression.
-    if (e && !replace_expression_string(c, sig, e))
-        c->props.mode = MO_LINEAR;
+    if (e) {
+        int input_history_size, output_history_size;
+        if (!replace_expression_string(c, sig, e, &input_history_size,
+                                       &output_history_size)) {
+            msig_reallocate_instances(sig, 1, c, 1);
+            c->props.mode = MO_LINEAR;
+        }
+    }
 }
 
 void mapper_connection_set_expression(mapper_connection c,
                                       mapper_signal sig,
                                       const char *expr)
 {
-    if (replace_expression_string(c, sig, expr))
+    int input_history_size, output_history_size;    
+    if (replace_expression_string(c, sig, expr, &input_history_size,
+                                  &output_history_size))
         return;
 
     c->props.mode = MO_EXPRESSION;
+    msig_reallocate_instances(sig, input_history_size,
+                              c, output_history_size);
 }
 
 void mapper_connection_set_calibrate(mapper_connection c,
@@ -586,8 +641,15 @@ void mapper_connection_set_from_message(mapper_connection c,
     
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    if (expr)
-        replace_expression_string(c, sig, expr);
+    if (expr) {
+        int input_history_size, output_history_size;
+        if (!replace_expression_string(c, sig, expr, &input_history_size,
+                                       &output_history_size)) {
+            if (c->props.mode == MO_EXPRESSION)
+                msig_reallocate_instances(sig, input_history_size,
+                                          c, output_history_size);
+        }
+    }
 
     /* Extra properties. */
     mapper_msg_add_or_update_extra_params(c->props.extra, msg);

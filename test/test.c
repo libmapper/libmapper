@@ -25,8 +25,6 @@ mapper_signal recvsig_3 = 0;
 mapper_signal sendsig_4 = 0;
 mapper_signal recvsig_4 = 0;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 int done = 0;
@@ -34,7 +32,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -63,12 +61,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -76,7 +68,7 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
+void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                    mapper_timetag_t *timetag, void *value)
 {
     if (value) {
@@ -93,7 +85,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -165,6 +157,13 @@ void loop()
 
         msig_full_name(sendsig_1, source_name_1, 1024);
         msig_full_name(recvsig_1, destination_name_1, 1024);
+
+        int j = 50;
+        while (j >= 0) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
+            j--;
+        }
 
         lo_send(a, "/connect", "ss", source_name_1, destination_name_1);
 

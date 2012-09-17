@@ -307,10 +307,8 @@ struct _mapper_expr
 {
     exprnode node;
     int vector_size;
-    int history_size;
-    int history_pos;
-    mapper_signal_value_t *input_history;
-    mapper_signal_value_t *output_history;
+    int input_history_size;
+    int output_history_size;
 };
 
 typedef enum {
@@ -369,8 +367,6 @@ static void exprnode_free(exprnode e)
 void mapper_expr_free(mapper_expr expr)
 {
     exprnode_free(expr->node);
-    free(expr->input_history);
-    free(expr->output_history);
     free(expr);
 }
 
@@ -419,7 +415,7 @@ void printexprnode(const char *s, exprnode list)
     }
 }
 
-void printexpr(const char*s, mapper_expr e)
+void printexpr(const char *s, mapper_expr e)
 {
     printexprnode(s, e->node);
 }
@@ -509,7 +505,14 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if (constant_folding && !refvar && !refrand) {
         struct _mapper_expr e;
         e.node = *plhs;
-        mapper_signal_value_t v = mapper_expr_evaluate(&e, 0);
+        mapper_signal_history_t h;
+        mapper_signal_value_t v;
+        h.type = is_float ? 'f' : 'i';
+        h.value = &v;
+        h.position = -1;
+        h.length = 1;
+        h.size = 1;
+        mapper_expr_evaluate(&e, 0, &h);
 
         exprnode_free((*plhs)->next);
         (*plhs)->next = 0;
@@ -545,7 +548,9 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         int input_is_float,
                                         int output_is_float,
-                                        int vector_size)
+                                        int vector_size,
+                                        int *input_history_size,
+                                        int *output_history_size)
 {
     const char *s = str;
     if (!str) return 0;
@@ -558,7 +563,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int i, next_token = 1;
 
     int var_allowed = 1;
-    float oldest_samps = 0;
+    int oldest_input = 0, oldest_output = 0;
 
     PUSHSTATE(EXPR);
     PUSHSTATE(YEQUAL_EQ);
@@ -599,8 +604,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         /* Track the oldest history reference in order
                          * to know how much buffer needs to be
                          * allocated for this expression. */
-                        if (oldest_samps > stack[top-2].node->history_index)
-                            oldest_samps = stack[top-2].node->history_index;
+                        if (stack[top-2].node->tok.var == 'x'
+                            && oldest_input > stack[top-2].node->history_index) {
+                            oldest_input = stack[top-2].node->history_index;
+                        }
+                        else if (stack[top-2].node->tok.var == 'y'
+                                 && oldest_output > stack[top-2].node->history_index) {
+                            oldest_output = stack[top-2].node->history_index;
+                        }
 
                         exprnode_free(stack[top].node);
                         POP();
@@ -859,8 +870,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     }
 
     // We need a limit, but this is a bit arbitrary.
-    if (oldest_samps < -100) {
-        trace("Expression contains history reference of %f\n", oldest_samps);
+    if (oldest_input < -100) {
+        trace("Expression contains history references of %i\n", oldest_input);
+        goto cleanup;
+    }
+    if (oldest_output < -100) {
+        trace("Expression contains history references of %i\n", oldest_output);
         goto cleanup;
     }
 
@@ -899,13 +914,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->node = result;
-    expr->vector_size = 1;
-    expr->history_size = (int)ceilf(-oldest_samps)+1;
-    expr->history_pos = -1;
-    expr->input_history = calloc(1, sizeof(mapper_signal_value_t)
-                                    * vector_size * expr->history_size);
-    expr->output_history = calloc(1, sizeof(mapper_signal_value_t)
-                                     * expr->history_size);
+    expr->vector_size = vector_size;
+    *input_history_size = (int)ceilf(-oldest_input)+1;
+    *output_history_size = (int)ceilf(-oldest_output)+1;
     return expr;
 
   cleanup:
@@ -916,107 +927,142 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     return 0;
 }
 
+int mapper_expr_input_history_size(mapper_expr expr)
+{
+    return expr->input_history_size;
+}
+
+int mapper_expr_output_history_size(mapper_expr expr)
+{
+    return expr->output_history_size;
+}
+
 #if TRACING
 #define trace_eval printf
 #else
 static void trace_eval(const char *s,...) {}
 #endif
 
-mapper_signal_value_t mapper_expr_evaluate(
-    mapper_expr expr, mapper_signal_value_t* input_vector)
+int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_signal_history_t *from,
+                         mapper_signal_history_t *to)
 {
-    mapper_signal_value_t stack[STACK_SIZE];
-    mapper_signal_value_t left, right;
-    int top = -1;
+    mapper_signal_value_t stack[to->length][STACK_SIZE];
+
+    int i = 0, top = -1;
     exprnode node = expr->node;
-
-    if (input_vector) {
-        expr->history_pos = (expr->history_pos+1) % expr->history_size;
-        memcpy(&expr->input_history[expr->history_pos*expr->vector_size],
-               input_vector, expr->vector_size * sizeof(mapper_signal_value_t));
-    }
-
+    /* Increment index position of output data structure. */
+    to->position = (to->position + 1) % to->size;
     while (node) {
-        switch (node->tok.type) {
+            switch (node->tok.type) {
         case TOK_INT:
-            stack[++top].i32 = node->tok.i;
+            ++top;
+            for (i = 0; i < to->length; i++)
+                stack[i][top].i32 = node->tok.i;
             break;
         case TOK_FLOAT:
-            stack[++top].f = node->tok.f;
+            ++top;
+            for (i = 0; i < to->length; i++)
+                stack[i][top].f = node->tok.f;
             break;
         case TOK_VAR:
-            die_unless(input_vector,
-                       "Input required but not provided for "
-                       "expression evaluation.\n");
             {
-                int idx = ((node->history_index + expr->history_pos
-                            + expr->history_size) % expr->history_size);
+                int idx;
                 switch (node->tok.var) {
                 case 'x':
-                    idx = idx * expr->vector_size + node->vector_index;
-                    stack[++top] = expr->input_history[idx];
+                    ++top;
+                    idx = ((node->history_index + from->position
+                            + from->size) % from->size);
+                    if (from->type == 'f') {
+                        float *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].f = v[i];
+                    }
+                    else if (from->type == 'i') {
+                        int *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].i32 = v[i];
+                    }
                     break;
                 case 'y':
-                    stack[++top] = expr->output_history[idx];
+                    ++top;
+                    idx = ((node->history_index + to->position
+                            + to->size) % to->size);
+                    if (to->type == 'f') {
+                        float *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].f = v[i];
+                    }
+                    else if (to->type == 'i') {
+                        int *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].i32 = v[i];
+                    }
                     break;
                 default: goto error;
                 }
             }
             break;
         case TOK_TOFLOAT:
-            stack[top].f = (float)stack[top].i32;
+            for (i = 0; i < to->length; i++)
+                stack[i][top].f = (float)stack[i][top].i32;
             break;
         case TOK_TOINT32:
-            stack[top].i32 = (int)stack[top].f;
+            for (i = 0; i < to->length; i++)
+                stack[i][top].i32 = (int)stack[i][top].f;
             break;
         case TOK_OP:
-            right = stack[top--];
-            left = stack[top--];
-            if (node->is_float) {
-                trace_eval("%f %c %f = ", left.f, node->tok.op, right.f);
-                switch (node->tok.op) {
-                case '+': stack[++top].f = left.f + right.f; break;
-                case '-': stack[++top].f = left.f - right.f; break;
-                case '*': stack[++top].f = left.f * right.f; break;
-                case '/': stack[++top].f = left.f / right.f; break;
-                case '%': stack[++top].f = fmod(left.f, right.f); break;
-                default: goto error;
+            --top;
+            for (i = 0; i < to->length; i++) {
+                if (node->is_float) {
+                    trace_eval("%f %c %f = ", stack[i][top].f, node->tok.op, stack[i][top + 1].f);
+                    switch (node->tok.op) {
+                    case '+': stack[i][top].f = stack[i][top].f + stack[i][top + 1].f; break;
+                    case '-': stack[i][top].f = stack[i][top].f - stack[i][top + 1].f; break;
+                    case '*': stack[i][top].f = stack[i][top].f * stack[i][top + 1].f; break;
+                    case '/': stack[i][top].f = stack[i][top].f / stack[i][top + 1].f; break;
+                    case '%': stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f); break;
+                    default: goto error;
+                    }
+                    trace_eval("%f\n", stack[i][top].f);
+                } else {
+                    trace_eval("%d %c %d = ", stack[i][top].i32, node->tok.op, stack[i][top + 1].i32);
+                    switch (node->tok.op) {
+                    case '+': stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32; break;
+                    case '-': stack[i][top].i32 = stack[i][top].i32 - stack[i][top + 1].i32; break;
+                    case '*': stack[i][top].i32 = stack[i][top].i32 * stack[i][top + 1].i32; break;
+                    case '/': stack[i][top].i32 = stack[i][top].i32 / stack[i][top + 1].i32; break;
+                    case '%': stack[i][top].i32 = stack[i][top].i32 % stack[i][top + 1].i32; break;
+                    default: goto error;
+                    }
+                    trace_eval("%d\n", stack[i][top].i32);
                 }
-                trace_eval("%f\n", stack[top].f);
-            } else {
-                trace_eval("%d %c %d = ", left.i32, node->tok.op, right.i32);
-                switch (node->tok.op) {
-                case '+': stack[++top].i32 = left.i32 + right.i32; break;
-                case '-': stack[++top].i32 = left.i32 - right.i32; break;
-                case '*': stack[++top].i32 = left.i32 * right.i32; break;
-                case '/': stack[++top].i32 = left.i32 / right.i32; break;
-                case '%': stack[++top].i32 = left.i32 % right.i32; break;
-                default: goto error;
-                }
-                trace_eval("%d\n", stack[top].i32);
             }
             break;
         case TOK_FUNC:
             switch (function_table[node->tok.func].arity) {
             case 0:
-                stack[++top].f = ((func_float_arity0*)function_table[node->tok.func].func)();
-                trace_eval("%s = %f\n", function_table[node->tok.func].name,
-                           stack[top].f);
+                ++top;
+                for (i = 0; i < to->length; i++) {
+                    stack[i][top].f = ((func_float_arity0*)function_table[node->tok.func].func)();
+                    trace_eval("%s = %f\n", function_table[node->tok.func].name,
+                               stack[i][top].f);
+                }
                 break;
             case 1:
-                right = stack[top--];
-                trace_eval("%s(%f) = ", function_table[node->tok.func].name, right.f);
-                right.f = ((func_float_arity1*)function_table[node->tok.func].func)(right.f);
-                trace_eval("%f\n", right.f);
-                stack[++top].f = right.f;
+                for (i = 0; i < to->length; i++) {
+                    trace_eval("%s(%f) = ", function_table[node->tok.func].name, stack[i][top].f);
+                    stack[i][top].f = ((func_float_arity1*)function_table[node->tok.func].func)(stack[i][top].f);
+                    trace_eval("%f\n", stack[i][top].f);
+                }
                 break;
             case 2:
-                right = stack[top--];
-                left = stack[top--];
-                trace_eval("%s(%f,%f) = ", function_table[node->tok.func].name, left.f, right.f);
-                right.f = ((func_float_arity2*)function_table[node->tok.func].func)(left.f, right.f);
-                trace_eval("%f\n", right.f);
-                stack[++top].f = right.f;
+                --top;
+                for (i = 0; i < to->length; i++) {
+                    trace_eval("%s(%f,%f) = ", function_table[node->tok.func].name, stack[i][top].f, stack[i][top + 1].f);
+                    stack[i][top].f = ((func_float_arity2*)function_table[node->tok.func].func)(stack[i][top].f, stack[i][top + 1].f);
+                    trace_eval("%f\n", stack[i][top].f);
+                }
                 break;
             default: goto error;
             }
@@ -1026,12 +1072,19 @@ mapper_signal_value_t mapper_expr_evaluate(
         node = node->next;
     }
 
-    if (input_vector)
-        expr->output_history[expr->history_pos] = stack[0];
-    return stack[0];
+    if (to->type == 'f') {
+        float *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].f;
+    }
+    else if (to->type == 'i') {
+        int *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].i32;
+    }
+    return 1;
 
   error:
     trace("Unexpected token in expression.");
-    stack[0].i32 = 0;
-    return stack[0];
+    return 0;
 }
