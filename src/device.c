@@ -668,11 +668,19 @@ void mdev_route_instance(mapper_device md,
             mapper_router r = ci->connection->router;
             ci->history.position = -1;
             if (!send_as_instance)
-                mapper_router_receive_instance(r, ci, si, 0, 0);
+                mapper_router_receive_instance(r, ci, si, 0, 0,
+                                               LO_TT_IMMEDIATE);
             else {
                 if (mapper_router_in_scope(ci->connection->router, si->id_map->group))
-                    mapper_router_receive_instance(r, ci, si, 1, 0);
+                    mapper_router_receive_instance(r, ci, si, 1, 0,
+                                                   LO_TT_IMMEDIATE);
             }
+            ci = ci->next;
+        }
+
+        ci = si->connections;
+        while (ci) {
+            mapper_router_send(ci->connection->router);
             ci = ci->next;
         }
         return;
@@ -694,9 +702,58 @@ void mdev_route_instance(mapper_device md,
         // router receives the instance, performs mapping
         // transformation, and forwards it to the destination
         mapper_router_receive_instance(r, ci, si,
-                                       send_as_instance, is_new);
+                                       send_as_instance, is_new,
+                                       LO_TT_IMMEDIATE);
         ci = ci->next;
     }
+
+    ci = si->connections;
+    while (ci) {
+        mapper_router_send(ci->connection->router);
+        ci = ci->next;
+    }
+}
+
+//function to create a mapper queue
+mapper_queue mdev_get_queue(mapper_device md)
+{
+	mapper_queue q;
+	q = (mapper_queue)malloc(sizeof(mapper_queue_t));
+	q->elements = (mapper_signal *)malloc(sizeof(mapper_signal)*2);
+    printf("q->elements: %p\n", q->elements);
+	q->size = 2;
+	q->position = 0;
+	q->timetag = LO_TT_IMMEDIATE;
+
+	return q;
+}
+
+static void mdev_release_queue(mapper_queue q)
+{
+	free(q->elements);
+	free(q);
+}
+
+
+static void mdev_route_queue(mapper_device md, mapper_queue q)
+{
+    mapper_router r = md->routers;
+    while (r) {
+        for (int i = 0; i<q->position;i++)
+            ;
+            //mapper_router_receive_signal(r, q->elements[i],
+            //                             q->timetag);
+            // TODO, construct the right call to
+            // mapper_router_receive_instance()
+		mapper_router_send(r);
+        mdev_release_queue(q);
+        r = r->next;
+    }
+}
+
+void mdev_send_queue(mapper_device md, mapper_queue q)
+{
+	mdev_route_queue(md, q);
 }
 
 int mdev_route_query(mapper_device md, mapper_signal sig)

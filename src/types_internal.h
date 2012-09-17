@@ -161,6 +161,17 @@ typedef struct _mapper_router {
     struct _mapper_router *next;          //!< Next router in the list.
     mapper_signal_connection connections; /*!< The list of connections
                                             *  for each signal. */
+    lo_bundle bundle;                     /*!< Bundle for queuing up
+                                           * sent messages. */
+    lo_message message;                   /*!< A single message to
+                                           * hold unless a bundle is
+                                           * to be used. */
+    const char *path;                     /*!< If message!=NUL, then
+                                           * this is the path of that
+                                           * message. */
+    mapper_timetag_t tt;                  /*!< Timetag of message or
+                                           * bundle waiting to be
+                                           * sent. */
 } *mapper_router;
 
 /**** Device ****/
@@ -322,5 +333,15 @@ typedef struct _mapper_message
     lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
     char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
 } mapper_message_t;
+
+/**** Queues ****/
+
+typedef struct _mapper_queue
+{
+	int size;
+	int position;
+	mapper_timetag_t timetag;
+	struct _mapper_signal **elements;
+} mapper_queue_t, *mapper_queue;
 
 #endif // __MAPPER_TYPES_H__

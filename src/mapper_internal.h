@@ -190,9 +190,13 @@ void mapper_router_set_from_message(mapper_router router,
 void mapper_router_receive_instance(mapper_router r,
                                     mapper_connection_instance ci,
                                     mapper_signal_instance si,
-                                    int is_instance, int is_new);
+                                    int is_instance, int is_new,
+                                    mapper_timetag_t tt);
 
-void mapper_router_send_new_instance(mapper_connection_instance ci);
+void mapper_router_send_new_instance(mapper_connection_instance ci,
+                                     mapper_timetag_t tt);
+
+void mapper_router_send(mapper_router router);
 
 int mapper_router_send_query(mapper_router router, mapper_signal sig);
 

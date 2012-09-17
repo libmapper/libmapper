@@ -34,10 +34,6 @@ struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 struct _mapper_connection;
 
-/*! A 64-bit data structure containing an NTP-compatible time tag, as
- *  used by OSC. */
-typedef lo_timetag mapper_timetag_t;
-
 /*! The set of possible actions on an instance, used
  *  to inform callbacks of what is happening. */
 typedef enum {
@@ -154,6 +150,10 @@ void msig_update_float(mapper_signal sig, float value);
                  block of values should be accepted, where the last
                  value is the current value. */
 void msig_update(mapper_signal sig, void *value, int count);
+
+/*! Update the value of a signal
+ *  and enque the signal into a mapper queue. */
+void msig_update_queued(mapper_signal sig, void *value, mapper_queue q);
 
 /*! Get the full OSC name of a signal, including device name
  *  prefix.
@@ -479,6 +479,11 @@ const char *mdev_interface(mapper_device dev);
  *  \return A positive ordinal unique to this device (per name). */
 unsigned int mdev_ordinal(mapper_device dev);
 
+//function to create a mapper queue
+mapper_queue mdev_get_queue();
+
+//function to route a mapper queue
+void mdev_send_queue(mapper_device md, mapper_queue q);
 
 /*! Set the time associated with signal values emitted from a device.
  *
