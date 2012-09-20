@@ -1901,10 +1901,10 @@ static int handler_signal_disconnected(const char *path, const char *types,
             int hash = crc32(0L, (const Bytef *)src_name, span+1);
 
             // Release instances of this signal owned by the remote device
-            mapper_signal_instance si = sig->instances;
+            mapper_signal_instance si = sig->active_instances;
             while (si) {
                 if (si->is_active && si->id_map->group == hash)
-                    msig_release_instance_internal(si);
+                    msig_release_instance_internal(si, 0);
                 si = si->next;
             }
         }
