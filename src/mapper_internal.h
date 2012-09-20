@@ -187,14 +187,19 @@ void mapper_router_set_from_message(mapper_router router,
 
 /*! For a given connection instance, construct a mapped signal and
  *  send it on to the destination. */
-void mapper_router_receive_instance(mapper_router r,
+void mapper_router_process_instance(mapper_router r,
                                     mapper_connection_instance ci,
-                                    mapper_signal_instance si,
-                                    int is_instance, int is_new,
-                                    mapper_timetag_t tt);
+                                    mapper_timetag_t tt,
+                                    int send_as_instance);
 
-void mapper_router_send_new_instance(mapper_connection_instance ci,
-                                     mapper_timetag_t tt);
+void mapper_router_add_new_instance_message(mapper_router r,
+                                            mapper_connection_instance ci,
+                                            mapper_timetag_t tt);
+
+void mapper_router_add_message(mapper_router r,
+                               mapper_connection_instance ci,
+                               int send_as_instance,
+                               mapper_timetag_t tt);
 
 void mapper_router_send(mapper_router router);
 

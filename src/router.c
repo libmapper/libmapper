@@ -10,12 +10,6 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-static
-void mapper_router_send_signal(mapper_router r,
-                               mapper_connection_instance ci,
-                               int send_as_instance,
-                               mapper_timetag_t tt);
-
 void mapper_router_bundle_message(mapper_router router,
                                   const char *path,
                                   lo_message m,
@@ -91,28 +85,44 @@ void mapper_router_set_from_message(mapper_router router,
     mapper_msg_add_or_update_extra_params(router->props.extra, msg);
 }
 
-void mapper_router_receive_instance(mapper_router r,
+void mapper_router_process_instance(mapper_router r,
                                     mapper_connection_instance ci,
-                                    mapper_signal_instance si,
-                                    int is_instance, int is_new,
-                                    mapper_timetag_t tt)
+                                    mapper_timetag_t tt,
+                                    int send_as_instance)
 {
-    if (mapper_connection_perform(ci->connection,
-                                  &si->history,
-                                  &ci->history))
+    int is_new = 0;
+    mapper_signal_instance si = ci->parent;
+    if (si->history.position == -1) {
+        ci->history.position = -1;
+        if (!send_as_instance)
+            mapper_router_add_message(r, ci, 0, tt);
+        else if (mapper_router_in_scope(ci->connection->router,
+                                        si->id_map->group))
+            mapper_router_add_message(r, ci, 1, tt);
+        return;
+    }
+
+    if (send_as_instance && !mapper_router_in_scope(ci->connection->router,
+                                                    si->id_map->group))
+        return;
+
+    if (!si->is_active) {
+        is_new = 1;
+        si->is_active = 1;
+    }
+
+    if (mapper_connection_perform(ci->connection, &si->history, &ci->history))
     {
         if (mapper_clipping_perform(ci->connection, &ci->history)) {
-            if (is_instance && is_new)
-                mapper_router_send_new_instance(ci, tt);
-            mapper_router_send_signal(r, ci, is_instance, tt);
+            if (send_as_instance && is_new)
+                mapper_router_add_new_instance_message(r, ci, tt);
+            mapper_router_add_message(r, ci, send_as_instance, tt);
         }
     }
 }
 
-/*! \internal Send a mapped signal instance to a given connection
- *  instance. */
-static
-void mapper_router_send_signal(mapper_router r,
+/*! Build a message for a given connection instance. */
+void mapper_router_add_message(mapper_router r,
                                mapper_connection_instance ci,
                                int send_as_instance,
                                mapper_timetag_t tt)
@@ -162,8 +172,9 @@ void mapper_router_send_signal(mapper_router r,
                                  m, tt);
 }
 
-void mapper_router_send_new_instance(mapper_connection_instance ci,
-                                     mapper_timetag_t tt)
+void mapper_router_add_new_instance_message(mapper_router r,
+                                            mapper_connection_instance ci,
+                                            mapper_timetag_t tt)
 {
     lo_message m = lo_message_new();
     if (!m)
@@ -384,7 +395,7 @@ int mapper_router_remove_connection(mapper_router router,
                 if (temp->parent->id_map &&
                     connection->source->props.num_instances > 1) {
                     temp->history.position = -1;
-                    mapper_router_send_signal(router, temp, 1, LO_TT_IMMEDIATE);
+                    mapper_router_add_message(router, temp, 1, LO_TT_IMMEDIATE);
                 }
                 msig_free_connection_instance(temp);
                 break;

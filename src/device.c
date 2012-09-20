@@ -668,53 +668,12 @@ void mdev_route_instance(mapper_device md,
                                   sizeof(mapper_timetag_t))==0;
 
     mapper_connection_instance ci = si->connections;
-    int is_new = 0;
-    if (si->history.position == -1) {
-        while (ci) {
-            mapper_router r = ci->connection->router;
-            ci->history.position = -1;
-            if (!send_as_instance)
-                mapper_router_receive_instance(r, ci, si, 0, 0,
-                                               LO_TT_IMMEDIATE);
-            else {
-                if (mapper_router_in_scope(ci->connection->router, si->id_map->group))
-                    mapper_router_receive_instance(r, ci, si, 1, 0,
-                                                   LO_TT_IMMEDIATE);
-            }
-            ci = ci->next;
-        }
-
-        if (send_immediately) {
-            ci = si->connections;
-            while (ci) {
-                mapper_router_send(ci->connection->router);
-                ci = ci->next;
-            }
-        }
-        return;
-    }
-    else if (!si->is_active) {
-        is_new = 1;
-        si->is_active = 1;
-    }
-
     while (ci) {
         mapper_router r = ci->connection->router;
-        if (send_as_instance
-            && !mapper_router_in_scope(r, si->id_map->group))
-        {
-            ci = ci->next;
-            continue;
-        }
-
-        // router receives the instance, performs mapping
-        // transformation, and forwards it to the destination
-        mapper_router_receive_instance(r, ci, si,
-                                       send_as_instance, is_new,
-                                       LO_TT_IMMEDIATE);
+        mapper_router_process_instance(r, ci, LO_TT_IMMEDIATE,
+                                       send_as_instance);
         ci = ci->next;
     }
-
     if (send_immediately) {
         ci = si->connections;
         while (ci) {
@@ -722,6 +681,7 @@ void mdev_route_instance(mapper_device md,
             ci = ci->next;
         }
     }
+    return;
 }
 
 //function to create a mapper queue
