@@ -185,9 +185,9 @@ static int handler_signal_instance(const char *path, const char *types,
     }
 
     si = msig_get_instance_with_id_map(sig, map, is_new);
-    if (!si && is_new) {
-        if (sig->instance_overflow_handler) {
-            sig->instance_overflow_handler(sig, group_id, instance_id);
+    if (!si) {
+        if (sig->instance_management_handler) {
+            sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
             // try again
             si = msig_get_instance_with_id_map(sig, map, is_new);
         }
@@ -204,12 +204,12 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (types[2] == LO_TRUE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local, IN_NEW);
+            sig->instance_management_handler(sig, si->id_map->local, &sig->props, IN_NEW);
         return 0;
     }
     else if (types[2] == LO_FALSE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local, IN_REQUEST_KILL);
+            sig->instance_management_handler(sig, si->id_map->local, &sig->props, IN_REQUEST_RELEASE);
         return 0;
     }
 

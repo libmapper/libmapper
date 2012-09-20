@@ -18,7 +18,7 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-int sendinst[10] = {0, 0, 0, 0, 0};
+int sendinst[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int nextid = 1;
 
 int sent = 0;
@@ -72,10 +72,13 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                props->name, (long)instance_id);
 }
 
-void overflow_handler(mapper_signal sig, int group, int id)
+void overflow_handler(mapper_signal sig, int id,
+                      mapper_db_signal props, msig_instance_event_t event)
 {
-    printf("OVERFLOW!!\n");
-    msig_reserve_instances(sig, 1);
+    if (event == IN_OVERFLOW) {
+        printf("OVERFLOW!!\n");
+        msig_reserve_instances(sig, 1);
+    }
 }
 
 /*! Creation of a local destination. */
@@ -225,6 +228,7 @@ void ctrlc(int sig)
 int main()
 {
     int result = 0;
+    int stats[6], i;
 
     signal(SIGINT, ctrlc);
 
@@ -249,7 +253,11 @@ int main()
     printf("************ NO INSTANCE STEALING ************\n");
     loop(100);
 
-    // reset counters since we expect failure of test with no stealing
+    stats[0] = sent;
+    stats[1] = received;
+
+    for (i=0; i<10; i++)
+        msig_release_instance(sendsig, sendinst[i]);
     sent = received = 0;
 
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
@@ -257,18 +265,25 @@ int main()
     printf("*************** IN_STEAL_OLDEST **************\n");
     loop(100);
 
+    stats[2] = sent;
+    stats[3] = received;
+
+    sent = received = 0;
+
     msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
-    msig_set_instance_overflow_callback(recvsig, overflow_handler);
+    msig_set_instance_management_callback(recvsig, overflow_handler);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);
 
-    if (sent != received) {
-        printf("Not all sent messages were received.\n");
-        printf("Updated value %d time%s, but received %d of them.\n",
-               sent, sent == 1 ? "" : "s", received);
-        result = 1;
-    }
+    stats[4] = sent;
+    stats[5] = received;
+
+    printf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n", stats[0], stats[1]);
+    printf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n", stats[2], stats[3]);
+    printf("ADD INSTANCE: sent %i updates, received %i updates.\n", stats[4], stats[5]);
+
+    result = (stats[4] != stats[5]);
 
   done:
     cleanup_destination();
