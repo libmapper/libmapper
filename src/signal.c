@@ -975,8 +975,8 @@ void msig_update_instance_queued(mapper_signal sig, int instance_id,
     }
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
-    if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, 0, instance_id);
+    if (!si && sig->instance_management_handler) {
+        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }

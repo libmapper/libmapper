@@ -364,7 +364,7 @@ int mapper_router_remove_connection(mapper_router router,
                 if (temp->parent->id_map &&
                     connection->source->props.num_instances > 1) {
                     temp->history.position = -1;
-                    mapper_router_send_signal(temp, 1);
+                    mapper_router_send_signal(router, temp, 1, LO_TT_IMMEDIATE);
                 }
                 msig_free_connection_instance(temp);
                 break;
