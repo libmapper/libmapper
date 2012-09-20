@@ -30,7 +30,6 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
-    sig->instance_overflow_handler = 0;
     sig->instance_management_handler = 0;
     sig->props.num_instances = 0;
     sig->props.user_data = user_data;
@@ -451,12 +450,6 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
         sig->instance_allocation_type = mode;
 }
 
-void msig_set_instance_overflow_callback(mapper_signal sig,
-                                         mapper_signal_instance_overflow_handler h)
-{
-    sig->instance_overflow_handler = h;
-}
-
 void msig_set_instance_management_callback(mapper_signal sig,
                                            mapper_signal_instance_management_handler h)
 {
@@ -828,8 +821,8 @@ void msig_start_new_instance(mapper_signal sig, int instance_id)
         return;
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 1);
-    if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, 0, instance_id);
+    if (!si && sig->instance_management_handler) {
+        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 1);
     }
@@ -847,8 +840,8 @@ void msig_update_instance(mapper_signal sig, int instance_id,
     }
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
-    if (!si && sig->instance_overflow_handler) {
-        sig->instance_overflow_handler(sig, 0, instance_id);
+    if (!si && sig->instance_management_handler) {
+        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }

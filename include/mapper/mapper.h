@@ -38,7 +38,10 @@ struct _mapper_connection;
  *  to inform callbacks of what is happening. */
 typedef enum {
     IN_NEW,
-    IN_REQUEST_KILL,
+    IN_STEALING,
+    IN_RELEASE,
+    IN_REQUEST_RELEASE,
+    IN_OVERFLOW
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
@@ -49,16 +52,11 @@ typedef void mapper_signal_handler(mapper_signal msig,
                                    mapper_timetag_t *timetag,
                                    void *value);
 
-/*! A handler function to be called whenever a signal runs out of
- *  instances. */
-typedef void mapper_signal_instance_overflow_handler(mapper_signal msig,
-                                                     int group_id,
-                                                     int instance_id);
-
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
 typedef void mapper_signal_instance_management_handler(mapper_signal msig,
                                                        int instance_id,
+                                                       mapper_db_signal props,
                                                        msig_instance_event_t event);
 
 /*! Set or remove the minimum of a signal.
@@ -217,11 +215,7 @@ void msig_release_instance(mapper_signal sig, int instance_id);
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
 
-/*! Set the handler to be called when a signal runs out of instances. */
-void msig_set_instance_overflow_callback(mapper_signal sig,
-                                         mapper_signal_instance_overflow_handler h);
-
-/*! Set the handler to be called when a signal runs out of instances. */
+/*! Set the handler to be called on signal instance management events. */
 void msig_set_instance_management_callback(mapper_signal sig,
                                            mapper_signal_instance_management_handler h);
 
@@ -252,7 +246,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
  *  \param user_data    A pointer to user data to be associated
  *                      with this instance.
  */
-void msig_instance_set_data(mapper_signal sig,
+void msig_set_instance_data(mapper_signal sig,
                             int instance_id,
                             void *user_data);
 
@@ -261,7 +255,7 @@ void msig_instance_set_data(mapper_signal sig,
  *  \param instance_id  The instance to operate on.
  *  \return             A pointer associated with this instance.
  */
-void *msig_instance_get_data(mapper_signal sig,
+void *msig_get_instance_data(mapper_signal sig,
                              int instance_id);
 
 /*! Return the number of active instances owned by a signal.
