@@ -642,6 +642,16 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
 /*! Add OSC arguments contained in a string table to a lo_message */
 void mapper_msg_add_osc_value_table(lo_message m, table t);
 
+/**** Clock synchronization ****/
+
+/*! Initialize a mapper_clock. */
+void mdev_clock_init(mapper_device dev);
+
+/*! Adjust the internal clock synchonization. */
+void mdev_clock_adjust(mapper_device dev,
+                       mapper_timetag_t timetag,
+                       double confidence);
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

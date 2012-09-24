@@ -714,7 +714,8 @@ static void mdev_route_queue(mapper_device md, mapper_queue q)
 {
     // Non-immediate timetag means that it will hold on to the
     // values in a bundle.
-    for (int i = 0; i < q->position; i++)
+    int i;
+    for (i = 0; i < q->position; i++)
         mdev_route_instance(md, q->instances[i],
                             q->as_instance[i],
                             q->timetag);

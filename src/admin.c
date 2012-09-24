@@ -87,8 +87,9 @@ static int handler_signal_disconnect(const char *, const char *, lo_arg **,
 static int handler_signal_disconnected(const char *, const char *, lo_arg **,
                                        int, lo_message, void *);
 static int handler_device_connections_get(const char *, const char *,
-                                          lo_arg **, int, lo_message,
-                                          void *);
+                                          lo_arg **, int, lo_message, void *);
+static int handler_sync(const char *, const char *,
+                        lo_arg **, int, lo_message, void *);
 
 /* Handler <-> Message relationships */
 struct handler_method_assoc {
@@ -114,6 +115,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"/disconnect",             "ss",       handler_signal_disconnect},
     {"/disconnected",           "ss",       handler_signal_disconnected},
     {"/logout",                 NULL,       handler_logout},
+    {"/sync",                   "iitfiif",  handler_sync},
 };
 const int N_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -407,6 +409,7 @@ void mapper_admin_free(mapper_admin admin)
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
                              const char *identifier, int port)
 {
+    printf("mapper_admin_add_device\n");
     /* Initialize data structures */
     if (dev)
     {
@@ -419,6 +422,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;
+        mdev_clock_init(admin->device);
 
         /* Seed the random number generator. */
         seed_srand();
@@ -437,6 +441,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         /* Probe potential name to admin bus. */
         mapper_admin_name_probe(admin);
     }
+    printf("ok\n");
 }
 
 /*! Add an uninitialized monitor to this admin. */
@@ -501,15 +506,32 @@ int mapper_admin_poll(mapper_admin admin)
               admin->identifier, admin, mapper_admin_name(admin));
         admin->device->flags |= FLAGS_ATTRIBS_CHANGED;
     }
-    if (admin->registered && (admin->device->flags & FLAGS_ATTRIBS_CHANGED)) {
-        admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
-        mapper_admin_send_osc(
-              admin, "/device", "s", mapper_admin_name(admin),
-              admin->port ? AT_PORT : -1, admin->port,
-              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-              AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-              AT_REV, admin->device->version,
-              AT_EXTRA, admin->device->extra);
+    if (admin->registered) {
+        if (admin->device->flags & FLAGS_ATTRIBS_CHANGED) {
+            admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
+            mapper_admin_send_osc(
+                  admin, "/device", "s", mapper_admin_name(admin),
+                  admin->port ? AT_PORT : -1, admin->port,
+                  AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+                  AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+                  AT_REV, admin->device->version,
+                  AT_EXTRA, admin->device->extra);
+        }
+        // Send out clock sync messages occasionally
+        mdev_timetag_now(admin->device, &admin->clock.now);
+        printf("now.sec = %u\n", admin->clock.now.sec);
+        printf("next ping at %u (in %i seconds)\n", admin->clock.next_ping, admin->clock.next_ping - admin->clock.now.sec);
+        if (admin->clock.now.sec >= admin->clock.next_ping) {
+            i = rand() % 10;
+            printf("gonna send sync message!\n");
+            lo_send(
+                  admin->admin_addr, "/sync", "iitfiif", mdev_id(admin->device),
+                  admin->clock.message_id++, admin->clock.now, admin->clock.confidence,
+                  admin->clock.remotes[i].device_id,
+                  admin->clock.remotes[i].message_id,
+                  mapper_timetag_difference(admin->clock.now, admin->clock.remotes[i].timetag));
+            admin->clock.next_ping = admin->clock.now.sec + i;
+        }
     }
     return count;
 }
@@ -1964,5 +1986,69 @@ static int handler_device_connections_get(const char *path,
     }
 
     md->flags |= FLAGS_CONNECTIONS_GET;
+    return 0;
+}
+
+static int handler_sync(const char *path,
+                        const char *types,
+                        lo_arg **argv, int argc,
+                        lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+
+    int device_id = argv[0]->i;
+    // if I sent this message, ignore it
+    if (device_id == 0 || device_id == mdev_id(md))
+        return 0;
+
+    int message_id = argv[1]->i;
+
+    // get current time
+    mapper_timetag_t now;
+    mdev_timetag_now(md, &now);
+
+    // store remote timetag
+    int i;
+    for (i=0; i<10; i++)
+        if (admin->clock.remotes[i].device_id == device_id)
+            break;
+    if (i == 10)
+        i = admin->clock.remotes_index = (admin->clock.remotes_index + 1) % 10;
+    admin->clock.remotes[i].device_id = device_id;
+    admin->clock.remotes[i].message_id = message_id;
+    admin->clock.remotes[i].timetag.sec = now.sec;
+    admin->clock.remotes[i].timetag.frac = now.frac;
+
+    // if remote timetag is in the future, adjust to remote time
+    lo_timetag then = argv[2]->t;
+    float confidence = argv[3]->f;
+
+    if (lo_timetag_diff(then, now) > 0) {
+        mdev_clock_adjust(md, then, confidence);
+        return 0;
+    }
+
+    // look at the second part of the message
+    device_id = argv[4]->i;
+    if (device_id != mdev_id(md))
+        return 0;
+
+    message_id = argv[5]->i;
+    if (message_id >= 10)
+        return 0;
+
+    float elapsed = argv[6]->f;
+    // Calculate latency-compensated remote clock
+    double latency = mapper_timetag_difference(now, admin->clock.local[argv[5]->i].timetag);
+    latency -= elapsed;
+    latency *= 0.5;
+    if (latency < 0 || latency > 100) {
+        printf("error: latency reported as %f ms\n", latency);
+        return 0;
+    }
+    mapper_timetag_add_seconds(&then, latency);
+    mdev_clock_adjust(md, then, confidence);
+
     return 0;
 }

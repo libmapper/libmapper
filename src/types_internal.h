@@ -87,6 +87,27 @@ typedef struct _mapper_admin_allocated_t {
     mapper_admin_resource_on_collision *on_collision;
 } mapper_admin_allocated_t;
 
+/*! Clock and timing information. */
+typedef struct _mapper_sync_timetag_t {
+    int device_id;
+    int message_id;
+    lo_timetag timetag;
+} mapper_sync_timetag_t;
+
+typedef struct _mapper_clock_t {
+    int wait_time;
+    double rate;
+    double offset;
+    double confidence;
+    mapper_timetag_t now;
+    uint32_t next_ping;
+    int message_id;
+    int local_index;
+    mapper_sync_timetag_t local[10];
+    int remotes_index;
+    mapper_sync_timetag_t remotes[10];
+} mapper_clock_t;
+
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
     char *identifier;                 /*!< The identifier (prefix) for
@@ -114,6 +135,8 @@ typedef struct _mapper_admin {
                                        *   in charge of. */
     struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
                                        *   in charge of. */
+    mapper_clock_t clock;             /*!< Clock for providing global
+                                       *   time syncronization. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
