@@ -18,11 +18,10 @@ void mdev_clock_init(mapper_device dev)
     clock.offset = 0;
     clock.confidence = 0;
     clock.local_index = 0;
-    clock.remotes_index = 0;
     int i;
     for (i=0; i<10; i++) {
         clock.local[i].device_id = 0;
-        clock.remotes[i].device_id = 0;
+        clock.remote.device_id = 0;
     }
     mdev_timetag_now(dev, &clock.now);
     clock.next_ping = clock.now.sec + 10;
@@ -32,6 +31,9 @@ void mdev_clock_adjust(mapper_device dev,
                        mapper_timetag_t then,
                        double confidence)
 {
+    // set confidence to 1 for now since it is not being updated
+    confidence = 1;
+
     // first get current time
     mapper_timetag_t now;
     mdev_timetag_now(dev, &now);

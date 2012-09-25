@@ -104,8 +104,7 @@ typedef struct _mapper_clock_t {
     int message_id;
     int local_index;
     mapper_sync_timetag_t local[10];
-    int remotes_index;
-    mapper_sync_timetag_t remotes[10];
+    mapper_sync_timetag_t remote;
 } mapper_clock_t;
 
 /*! A structure that keeps information about a device. */
