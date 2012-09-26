@@ -650,7 +650,8 @@ void mdev_clock_init(mapper_device dev);
 /*! Adjust the internal clock synchonization. */
 void mdev_clock_adjust(mapper_device dev,
                        double difference,
-                       double confidence);
+                       double confidence,
+                       int is_latency_adjusted);
 
 /**** Debug macros ****/
 

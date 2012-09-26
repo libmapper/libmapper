@@ -29,7 +29,8 @@ void mdev_clock_init(mapper_device dev)
 
 void mdev_clock_adjust(mapper_device dev,
                        double difference,
-                       double confidence)
+                       double confidence,
+                       int is_latency_adjusted)
 {
     mapper_clock_t *clock = &dev->admin->clock;
     // set confidence to 1 for now since it is not being updated
@@ -43,10 +44,16 @@ void mdev_clock_adjust(mapper_device dev,
         confidence /= sum;
 
     // use diff to influence rate & offset
-    if (difference < 0)
+    if (is_latency_adjusted)
         confidence *= 0.1;
+    else if (difference <= 0)
+        return;
+
     double new_offset = clock->offset * (1 - confidence) +
                         (clock->offset + difference) * confidence;
+
+    // try inserting pull from system clock
+    //new_offset *= 0.9999;
 
     // adjust stored timetags
     int i;

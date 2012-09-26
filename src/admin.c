@@ -2020,8 +2020,7 @@ static int handler_sync(const char *path,
 
     // if remote timetag is in the future, adjust to remote time
     double diff = mapper_timetag_difference(then, now);
-    if (diff > 0)
-        mdev_clock_adjust(md, diff, confidence);
+    mdev_clock_adjust(md, diff, confidence, 0);
 
     // look at the second part of the message
     device_id = argv[4]->i;
@@ -2036,7 +2035,7 @@ static int handler_sync(const char *path,
     double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
                       - argv[6]->f) * 0.5;
     if (latency > 0 && latency < 100)
-        mdev_clock_adjust(md, diff + latency, confidence);
+        mdev_clock_adjust(md, diff + latency, confidence, 1);
 
     return 0;
 }
