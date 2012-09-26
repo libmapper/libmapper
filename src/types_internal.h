@@ -98,7 +98,7 @@ typedef struct _mapper_clock_t {
     int wait_time;
     double rate;
     double offset;
-    double confidence;
+    float confidence;
     mapper_timetag_t now;
     uint32_t next_ping;
     int message_id;

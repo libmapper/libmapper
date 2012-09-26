@@ -1996,6 +1996,7 @@ static int handler_sync(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    mapper_clock_t *clock = &admin->clock;
 
     int device_id = argv[0]->i;
     // if I sent this message, ignore it
@@ -2009,19 +2010,18 @@ static int handler_sync(const char *path,
     mdev_timetag_now(md, &now);
 
     // store remote timetag
-    admin->clock.remote.device_id = device_id;
-    admin->clock.remote.message_id = message_id;
-    admin->clock.remote.timetag.sec = now.sec;
-    admin->clock.remote.timetag.frac = now.frac;
+    clock->remote.device_id = device_id;
+    clock->remote.message_id = message_id;
+    clock->remote.timetag.sec = now.sec;
+    clock->remote.timetag.frac = now.frac;
 
-    // if remote timetag is in the future, adjust to remote time
     lo_timetag then = argv[2]->t;
     float confidence = argv[3]->f;
 
-    if (lo_timetag_diff(then, now) > 0) {
-        mdev_clock_adjust(md, then, confidence);
-        return 0;
-    }
+    // if remote timetag is in the future, adjust to remote time
+    double diff = mapper_timetag_difference(then, now);
+    if (diff > 0)
+        mdev_clock_adjust(md, diff, confidence);
 
     // look at the second part of the message
     device_id = argv[4]->i;
@@ -2032,15 +2032,11 @@ static int handler_sync(const char *path,
     if (message_id >= 10)
         return 0;
 
-    float elapsed = argv[6]->f;
-    // Calculate latency-compensated remote clock
-    double latency = mapper_timetag_difference(now, admin->clock.local[message_id].timetag);
-    latency -= elapsed;
-    latency *= 0.5;
-    if (latency < 0 || latency > 100)
-        return 0;
-    mapper_timetag_add_seconds(&then, latency);
-    mdev_clock_adjust(md, then, confidence);
+    // Calculate latency on exchanged /sync messages
+    double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
+                      - argv[6]->f) * 0.5;
+    if (latency > 0 && latency < 100)
+        mdev_clock_adjust(md, diff + latency, confidence);
 
     return 0;
 }
