@@ -51,40 +51,39 @@ void cleanup_devices()
 void loop()
 {
     int i = 0;
+    printf("Loading devices...\n");
 
     while (i >= 0 && !done) {
         for (i=0; i<5; i++)
             mdev_poll(devices[i], 0);
-        if (ready) {
-            lo_timetag_now(&system_time);
-            if (system_time.sec == last_update)
-                continue;
-            else
-                last_update = system_time.sec;
-
-            for (i=0; i<5; i++) {
-                mdev_timetag_now(devices[i], &device_times[i]);
-            }
-            // print current system time and device diffs
-            
-            printf("%f", (double)system_time.sec + (double)system_time.frac * 0.00000000023283064365);
-            for (i=0; i<5; i++) {
-                printf("  |  %f", mapper_timetag_difference(system_time, device_times[i]));
-            }
-            printf("\n");
-        }
-        else {
-            int count = 0;
-            for (i=0; i<5; i++) {
-                count += mdev_ready(devices[i]);
-            }
-            if (count >= 5) {
-                printf("\nSYSTEM TIME *****  |  OFFSETS ********************************************\n");
+        lo_timetag_now(&system_time);
+        if (system_time.sec != last_update) {
+            last_update = system_time.sec;
+            if (ready) {
                 for (i=0; i<5; i++) {
-                    // Give each device clock a random starting offset
-                    devices[i]->admin->clock.offset = (rand() % 100) - 50;
+                    mdev_timetag_now(devices[i], &device_times[i]);
                 }
-                ready = 1;
+                // print current system time and device diffs
+                printf("%f", (double)system_time.sec +
+                       (double)system_time.frac * 0.00000000023283064365);
+                for (i=0; i<5; i++) {
+                    printf("  |  %f", mapper_timetag_difference(system_time, device_times[i]));
+                }
+                printf("\n");
+            }
+            else {
+                int count = 0;
+                for (i=0; i<5; i++) {
+                    count += mdev_ready(devices[i]);
+                }
+                if (count >= 5) {
+                    printf("\nSYSTEM TIME *****  |  OFFSETS *****\n");
+                    for (i=0; i<5; i++) {
+                        // Give each device clock a random starting offset
+                        devices[i]->admin->clock.offset = (rand() % 100) - 50;
+                    }
+                    ready = 1;
+                }
             }
         }
         usleep(10 * 1000);
