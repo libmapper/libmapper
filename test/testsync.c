@@ -63,12 +63,23 @@ void loop()
                 for (i=0; i<5; i++) {
                     mdev_timetag_now(devices[i], &device_times[i]);
                 }
+                // calculate standard deviation
+                double mean = 0;
+                for (i=0; i<5; i++) {
+                    mean += mapper_timetag_get_double(device_times[i]);
+                }
+                mean /= 5;
+                double difference_aggregate = 0;
+                for (i=0; i<5; i++) {
+                    difference_aggregate += powf(mapper_timetag_get_double(device_times[i]) - mean, 2);
+                }
                 // print current system time and device diffs
                 printf("%f", (double)system_time.sec +
                        (double)system_time.frac * 0.00000000023283064365);
                 for (i=0; i<5; i++) {
                     printf("  |  %f", mapper_timetag_difference(system_time, device_times[i]));
                 }
+                printf("  |  %f", sqrtf(difference_aggregate / 5));
                 printf("\n");
             }
             else {

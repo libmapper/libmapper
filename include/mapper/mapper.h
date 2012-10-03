@@ -1283,6 +1283,9 @@ double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
  *  \param addend   An amount in seconds to add. */
 void mapper_timetag_add_seconds(mapper_timetag_t *timetag, double addend);
 
+/*! Return value of mapper_timetag as a double-precision floating point value. */
+double mapper_timetag_get_double(mapper_timetag_t timetag);
+
 /* @} */
 
 #ifdef __cplusplus

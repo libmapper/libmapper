@@ -99,3 +99,8 @@ void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
         }
     }
 }
+
+double mapper_timetag_get_double(mapper_timetag_t timetag)
+{
+    return (double)timetag.sec + (double)timetag.frac * 0.00000000023283064365;
+}
