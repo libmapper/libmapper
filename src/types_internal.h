@@ -299,8 +299,8 @@ typedef enum {
     AT_SRCLENGTH,
     AT_DESTLENGTH,
     AT_SCOPE,
-    AT_EXTRA,
     AT_RATE,
+    AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;
 

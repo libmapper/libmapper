@@ -308,8 +308,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             mval_add_to_message(m, sig->props.type, sig->props.maximum);
             break;
         case AT_RATE:
-            f = va_arg(aq, double);
-            lo_message_add_float(m, f);
+            sig = va_arg(aq, mapper_signal);
+            lo_message_add_float(m, sig->props.rate);
             break;
         case AT_MODE:
             i = va_arg(aq, int);
@@ -364,8 +364,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_INSTANCES:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
+            sig = va_arg(aq, mapper_signal);
+            lo_message_add_int32(m, sig->props.num_instances);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
