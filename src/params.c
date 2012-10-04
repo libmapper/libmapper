@@ -247,7 +247,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
     int i;
-    float f;
     char t[] = " ";
     table tab;
     mapper_signal sig;
