@@ -253,11 +253,17 @@ static int handler_query(const char *path, const char *types,
     int i;
     lo_message m;
 
-    int response_count = 0;
-    mapper_signal_instance si = msig_get_instance_with_id(sig, 0, 0);
+    mapper_signal_instance si = sig->active_instances;
+    if (!si) {
+        // If there are no active instances, send null response
+        m = lo_message_new();
+        lo_message_add_nil(m);
+        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
+        lo_message_free(m);
+        return 0;
+    }
+
     while (si) {
-        if (!si->is_active)
-            continue;
         m = lo_message_new();
         if (!m)
             return 0;
@@ -288,14 +294,6 @@ static int handler_query(const char *path, const char *types,
         lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
         lo_message_free(m);
         si = si->next;
-        response_count++;
-    }
-    if (!response_count) {
-        // If there are no active instances, send null response
-        m = lo_message_new();
-        lo_message_add_nil(m);
-        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
-        lo_message_free(m);
     }
     return 0;
 }
