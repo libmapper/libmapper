@@ -24,11 +24,11 @@ def print_instance_ids():
     phrase += ' ]'
     print phrase
 
-src = mapper.device("src", 9000)
-outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000, 5)
+src = mapper.device("src")
+outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
 
-dest = mapper.device("dest", 9000)
-insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h, 5)
+dest = mapper.device("dest")
+insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
 
 while not src.ready() or not dest.ready():
     src.poll()
