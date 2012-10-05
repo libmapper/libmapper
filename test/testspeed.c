@@ -212,7 +212,7 @@ void switch_modes()
             break;
         case 2:
             for (i=1; i<10; i++) {
-                msig_release_instance(sendsig, i);
+                msig_release_instance(sendsig, i, 0);
             }
             break;
     }

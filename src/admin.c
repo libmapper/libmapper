@@ -1904,7 +1904,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
             mapper_signal_instance si = sig->active_instances;
             while (si) {
                 if (si->is_active && si->id_map->group == hash)
-                    msig_release_instance_internal(si, 0);
+                    msig_release_instance_internal(si, 0, 0);
                 si = si->next;
             }
         }

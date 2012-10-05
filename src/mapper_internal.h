@@ -317,7 +317,8 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                                                      mapper_instance_id_map map,
                                                      int is_new_instance);
 
-void msig_release_instance_internal(mapper_signal_instance si, int keep_active);
+void msig_release_instance_internal(mapper_signal_instance si, int stolen,
+                                    mapper_queue q);
 
 /**** connections ****/
 

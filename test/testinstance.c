@@ -189,7 +189,7 @@ void loop(int iterations)
                     printf("--> Retiring sender instance %ld\n",
                            (long)sendinst[j]);
                     msig_release_instance(sendsig,
-                                          sendinst[j]);
+                                          sendinst[j], 0);
                     sendinst[j] = 0;
                     break;
                 }
@@ -257,7 +257,7 @@ int main()
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, sendinst[i]);
+        msig_release_instance(sendsig, sendinst[i], 0);
     sent = received = 0;
 
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);

@@ -194,8 +194,11 @@ void msig_reserve_instances(mapper_signal sig, int num);
 /*! Release a specific instance of a signal by removing it from the list 
  *  of active instances and adding it to the reserve list.
  *  \param sig           The signal to operate on.
- *  \param instance_id   The instance to suspend. */
-void msig_release_instance(mapper_signal sig, int instance_id);
+ *  \param instance_id   The instance to suspend.
+ *  \param q     A mapper_queue to take the update for bundled output, or
+ *               NULL for immediate output. */
+void msig_release_instance(mapper_signal sig, int instance_id,
+                           mapper_queue q);
 
 /*! Set the allocation method to be used when a previously-unseen
  *  instance ID is received.

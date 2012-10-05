@@ -228,7 +228,7 @@ static int handler_signal_instance(const char *path, const char *types,
                      si->history.value + msig_vector_bytes(sig) * si->history.position);
     }
     if (types[2] == LO_NIL) {
-        msig_release_instance_internal(si, 0);
+        msig_release_instance_internal(si, 0, 0);
     }
     return 0;
 }
@@ -769,7 +769,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
                 if (psig[i]->handler) {
                     psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
                 }
-                msig_release_instance_internal(si, 0);
+                msig_release_instance_internal(si, 0, 0);
             }
             si = si->next;
         }
@@ -782,7 +782,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
         si = psig[i]->active_instances;
         while (si) {
             if (si->id_map->group == hash) {
-                msig_release_instance_internal(si, 0);
+                msig_release_instance_internal(si, 0, 0);
             }
             si = si->next;
         }

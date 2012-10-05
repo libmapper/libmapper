@@ -415,23 +415,25 @@ mapper_connection_instance msig_add_connection_instance(mapper_signal_instance s
     return ci;
 }
 
-void msig_release_instance(mapper_signal sig, int instance_id)
+void msig_release_instance(mapper_signal sig, int instance_id,
+                           mapper_queue q)
 {
     if (!sig)
         return;
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
-        msig_release_instance_internal(si, 0);
+        msig_release_instance_internal(si, 0, q);
 }
 
-void msig_release_instance_internal(mapper_signal_instance si, int stolen)
+void msig_release_instance_internal(mapper_signal_instance si, int stolen,
+                                    mapper_queue q)
 {
     if (!si || !si->is_active)
         return;
 
     if (si->signal->props.is_output) {
         // Send release notification to remote devices
-        msig_update_instance_internal(si, 1, NULL, 0, 0);
+        msig_update_instance_internal(si, 1, NULL, 0, q);
     }
 
     if (si->id_map && --si->id_map->reference_count <= 0)
@@ -545,7 +547,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         sig->handler(sig, stolen->id_map->local, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    msig_release_instance_internal(stolen, 1);
+    msig_release_instance_internal(stolen, 1, 0);
     if (!map) {
         // Claim id map locally
         map = mdev_add_instance_id_map(sig->device, instance_id,
@@ -629,7 +631,7 @@ stole:
         sig->handler(sig, stolen->id_map->local, &sig->props,
                      &stolen->history.timetag[stolen->history.position],
                      NULL);
-    msig_release_instance_internal(stolen, 1);
+    msig_release_instance_internal(stolen, 1, 0);
     if (map) {
         map->reference_count++;
     }
@@ -661,7 +663,7 @@ void msig_remove_instance(mapper_signal_instance si)
     if (!si) return;
 
     // First release instance
-    msig_release_instance_internal(si, 0);
+    msig_release_instance_internal(si, 0, 0);
 
     // Remove connection instances
     mapper_connection_instance ci;
@@ -868,7 +870,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         return;
 
     if (!value) {
-        msig_release_instance(sig, instance_id);
+        msig_release_instance(sig, instance_id, q);
         return;
     }
 
@@ -946,7 +948,7 @@ void msig_free_instance(mapper_signal_instance si)
 {
     if (!si)
         return;
-    msig_release_instance_internal(si, 0);
+    msig_release_instance_internal(si, 0, 0);
     mapper_connection_instance ci;
     while (si->connections) {
         ci = si->connections;
