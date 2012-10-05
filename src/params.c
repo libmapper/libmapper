@@ -243,6 +243,27 @@ void mapper_msg_add_or_update_extra_params(table t,
     }
 }
 
+/* helper for mapper_msg_prepare_varargs() */
+static void mval_add_to_message(lo_message m, char type,
+                                mapper_signal_value_t *value)
+{
+    switch (type) {
+        case 'f':
+            lo_message_add_float(m, value->f);
+            break;
+        case 'd':
+            lo_message_add_double(m, value->d);
+            break;
+        case 'i':
+            lo_message_add_int32(m, value->i32);
+            break;
+        default:
+            // Unknown signal type
+            assert(0);
+            break;
+    }
+}
+
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
@@ -551,7 +572,7 @@ mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
         return 1;
     else
         return -1;
-    
+
     return -1;
 }
 

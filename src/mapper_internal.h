@@ -61,13 +61,13 @@ typedef struct _mapper_signal_instance
     /*! Signal this instance belongs to. */
     struct _mapper_signal *signal;
 
-    /*! The value of this instance. */    
+    /*! The value of this instance. */
     mapper_signal_history_t history;
 
     /*! The instance's creation timestamp. */
     mapper_timetag_t creation_time;
 
-    /*! Linked list of connection instances corresponding to this 
+    /*! Linked list of connection instances corresponding to this
      *  signal instance. */
     struct _mapper_connection_instance *connections;
 
@@ -86,7 +86,7 @@ typedef struct _mapper_connection_instance
     /*! Connection this instance belongs to. */
     struct _mapper_connection *connection;
 
-    /*! The value of this instance. */    
+    /*! The value of this instance. */
     mapper_signal_history_t history;
 
     /*! Pointer to the next instance. */
@@ -257,44 +257,26 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Add a new connection instance to a signal.
- *  \param si The signal instance corresponding to the new connection instance.
- *  \param c The connection corresponding to the new connection instance.
- *  \return The new connection instance. */
-mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
-                                                        struct _mapper_connection *c);
+/**** Instances ****/
 
+/*! Find an active instance with the given instance ID.
+ *  \param sig          The signal owning the desired instance.
+ *  \param instance_id  The requested signal instance ID.
+ *  \return             The retrieved signal instance, or NULL if no active
+ *                      instances match the specified instance ID. */
 mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
                                                   int instance_id);
 
+/*! Find an active instance with the given instance ID.
+ *  \param sig  The signal owning the desired instance.
+ *  \param map  The requested signal instance ID.
+ *  \return     The retrieved signal instance, or NULL if no active
+ *              instances match the specified instance ID map. */
 mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
                                                       mapper_instance_id_map map);
 
-/*! Resume a reserved (preallocated) signal instance.
- *  \param  si The signal instance to resume. */
-void msig_resume_instance(mapper_signal_instance si);
-
-/*! Reallocate memory used by signal instances. */
-void msig_reallocate_instances(mapper_signal sig, int input_history_size,
-                               mapper_connection c, int output_history_size);
-
-void mhist_realloc(mapper_signal_history_t *history, int history_size,
-                   int sample_size, int is_output);
-
-void msig_send_instance(mapper_signal_instance si, int send_as_instance);
-
-/*! Free memory used by a mapper_signal_instance. */
-void msig_free_instance(mapper_signal_instance instance);
-
-/*! Free memory used by a mapper_connection_instance. */
-void msig_free_connection_instance(mapper_connection_instance instance);
-
-void mval_add_to_message(lo_message m, char type,
-                         mapper_signal_value_t *value);
-
-/**** Instances ****/
-
-/*! Fetch a reserved (preallocated) signal instance.
+/*! Fetch a reserved (preallocated) signal instance using an instance id,
+ *  activating it if necessary.
  *  \param  sig The signal owning the desired instance.
  *  \param  instance_id The requested signal instance ID.
  *  \return The retrieved signal instance, or NULL if no free
@@ -305,10 +287,10 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
                                                  int instance_id,
                                                  int is_new_instance);
 
-/*! Fetch a reserved (preallocated) signal instance using instance id map.
+/*! Fetch a reserved (preallocated) signal instance using instance id map,
+ *  activating it if necessary.
  *  \param  sig The signal owning the desired instance.
- *  \param  group The group used for instance id mapping.
- *  \param  id The id used for instance id mapping.
+ *  \param  map The ID map to match.
  *  \return The retrieved signal instance, or NULL if no free
  *          instances were available and allocation of a new instance
  *          was unsuccessful according to the selected allocation
@@ -317,8 +299,26 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                                                      mapper_instance_id_map map,
                                                      int is_new_instance);
 
+/*! Release a specific signal instance. */
 void msig_release_instance_internal(mapper_signal_instance si, int stolen,
                                     mapper_queue q);
+
+/*! Add a new connection instance to a signal.
+ *  \param si The signal instance corresponding to the new connection instance.
+ *  \param c  The connection corresponding to the new connection instance.
+ *  \return   The new connection instance. */
+mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
+                                                        struct _mapper_connection *c);
+
+/*! Free memory used by a mapper_connection_instance. */
+void msig_free_connection_instance(mapper_connection_instance instance);
+
+/*! Reallocate memory used by signal instances. */
+void msig_reallocate_instances(mapper_signal sig, int input_history_size,
+                               mapper_connection c, int output_history_size);
+
+void mhist_realloc(mapper_signal_history_t *history, int history_size,
+                   int sample_size, int is_output);
 
 /**** connections ****/
 

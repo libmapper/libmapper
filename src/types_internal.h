@@ -77,7 +77,7 @@ typedef struct _mapper_admin_allocated_t {
                                    * collision count was updated. */
     int locked;                   /*!< Whether or not the value has
                                    *   been locked in (allocated). */
-    double suggestion[8];         /*!< Availability of a range 
+    double suggestion[8];         /*!< Availability of a range
                                        of resource values. */
 
     //!< Function to call when resource becomes locked.
@@ -266,7 +266,7 @@ typedef struct _mapper_monitor {
      *  mapper_monitor_free(). */
     int own_admin;
 
-    mapper_db_t       db;       //<! Database for this monitor. 
+    mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
 
 /**** Messages ****/
