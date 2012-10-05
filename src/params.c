@@ -7,33 +7,33 @@
 
 const char* mapper_msg_param_strings[] =
 {
-    "@IP",              /* AT_IP */
-    "@port",            /* AT_PORT */
-    "@ID",              /* AT_ID */
-    "@numInputs",       /* AT_NUMINPUTS */
-    "@numOutputs",      /* AT_NUMOUTPUTS */
-    "@numLinks",        /* AT_NUMLINKS */
-    "@numConnects",     /* AT_NUM_CONNECTIONS */
-    "@rev",             /* AT_REV */
-    "@type",            /* AT_TYPE */
-    "@min",             /* AT_MIN */
-    "@max",             /* AT_MAX */
-    "@mode",            /* AT_MODE */
-    "@expression",      /* AT_EXPRESSION */
-    "@clipMin",         /* AT_CLIPMIN */
     "@clipMax",         /* AT_CLIPMAX */
-    "@range",           /* AT_RANGE */
-    "@units",           /* AT_UNITS */
-    "@mute",            /* AT_MUTE */
-    "@length",          /* AT_LENGTH */
-    "@direction",       /* AT_DIRECTION */
-    "@instances",       /* AT_INSTANCES */
-    "@srcType",         /* AT_SRCTYPE */
-    "@destType",        /* AT_DESTTYPE */
-    "@srcLength",       /* AT_SRCLENGTH */
+    "@clipMin",         /* AT_CLIPMIN */
     "@destLength",      /* AT_DESTLENGTH */
-    "@scope",           /* AT_SCOPE */
+    "@destType",        /* AT_DESTTYPE */
+    "@direction",       /* AT_DIRECTION */
+    "@expression",      /* AT_EXPRESSION */
+    "@ID",              /* AT_ID */
+    "@instances",       /* AT_INSTANCES */
+    "@IP",              /* AT_IP */
+    "@length",          /* AT_LENGTH */
+    "@max",             /* AT_MAX */
+    "@min",             /* AT_MIN */
+    "@mode",            /* AT_MODE */
+    "@mute",            /* AT_MUTE */
+    "@numConnects",     /* AT_NUM_CONNECTIONS */
+    "@numInputs",       /* AT_NUMINPUTS */
+    "@numLinks",        /* AT_NUMLINKS */
+    "@numOutputs",      /* AT_NUMOUTPUTS */
+    "@port",            /* AT_PORT */
+    "@range",           /* AT_RANGE */
     "@rate",            /* AT_RATE */
+    "@rev",             /* AT_REV */
+    "@scope",           /* AT_SCOPE */
+    "@srcLength",       /* AT_SRCLENGTH */
+    "@srcType",         /* AT_SRCTYPE */
+    "@type",            /* AT_TYPE */
+    "@units",           /* AT_UNITS */
     "",                 /* AT_EXTRA (special case, does not represent a
                          * specific property name) */
 };
