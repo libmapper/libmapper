@@ -139,26 +139,17 @@ void msig_update_float(mapper_signal sig, float value);
  *  The signal will be routed according to external requests.
  *  \param sig The signal to update.
  *  \param value A pointer to a new value for this signal.  If the
- *         signal type is 'i', this should be int*; if the signal type
- *         is 'f', this should be float*.  It should be an array at
- *         least as long as the signal's length property.
+ *               signal type is 'i', this should be int*; if the signal type
+ *               is 'f', this should be float*.  It should be an array at
+ *               least as long as the signal's length property.
  *  \param count The number of instances of the value that are being
-                 updated.  For non-periodic signals, this should be 0
-                 or 1.  For periodic signals, this may indicate that a
-                 block of values should be accepted, where the last
-                 value is the current value. */
-void msig_update(mapper_signal sig, void *value, int count);
-
-/*! Update the value of a signal
- *  and enque the signal into a mapper queue. */
-void msig_update_queued(mapper_signal sig, void *value,
-                        int count, mapper_queue q);
-
-/*! Update the value of a signal instance
- *  and enque the signal into a mapper queue. */
-void msig_update_instance_queued(mapper_signal sig, int instance_id,
-                                 void *value, int count,
-                                 mapper_queue q);
+ *               updated.  For non-periodic signals, this should be 0
+ *               or 1.  For periodic signals, this may indicate that a
+ *               block of values should be accepted, where the last
+ *               value is the current value.
+ *  \param q     A mapper_queue to take the update for bundled output, or
+ *               NULL for immediate output. */
+void msig_update(mapper_signal sig, void *value, int count, mapper_queue q);
 
 /*! Get the full OSC name of a signal, including device name
  *  prefix.
@@ -232,13 +223,15 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
  *  \param sig          The signal to operate on.
  *  \param instance_id  The instance to update.
  *  \param value A pointer to a new value for this signal.  If the
- *         signal type is 'i', this should be int*; if the signal type
- *         is 'f', this should be float*.  It should be an array at
- *         least as long as the signal's length property.
+ *               signal type is 'i', this should be int*; if the signal type
+ *               is 'f', this should be float*.  It should be an array at
+ *               least as long as the signal's length property.
  *  \param count The number of values being updated, or 0 for
- *               non-periodic signals. */
+ *               non-periodic signals.
+ *  \param q     A mapper_queue to take the update for bundled output, or
+ *               NULL for immediate output. */
 void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count);
+                          void *value, int count, mapper_queue q);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
@@ -483,7 +476,7 @@ unsigned int mdev_ordinal(mapper_device dev);
 /*! Get a time-tagged mapper queue. */
 mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt);
 
-//function to route a mapper queue
+/*! Dispatch bundled messaged from a mapper queue. */
 void mdev_send_queue(mapper_device md, mapper_queue q);
 
 /*! Set the time associated with signal values emitted from a device.

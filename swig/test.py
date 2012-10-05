@@ -50,7 +50,7 @@ def setup(d):
     sig.properties['testInt'] = 3
     print 'signal properties:', sig.properties
 
-dev = mapper.device("test", 9000)
+dev = mapper.device("test")
 setup(dev)
 
 def db_cb(rectype, record, action):

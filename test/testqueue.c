@@ -181,8 +181,8 @@ void loop()
 		mdev_poll(source, 0);
         printf("Updating signal %s to %f\n",
                sendsig->props.name, j);
-        msig_update_queued(sendsig, &j, 0, n);
-		msig_update_queued(sendsig1, &j, 0, n);
+        msig_update(sendsig, &j, 0, n);
+		msig_update(sendsig1, &j, 0, n);
 		mdev_send_queue(sendsig->device,n);
 		sent = sent+2;
         usleep(250 * 1000);

@@ -201,7 +201,7 @@ void loop(int iterations)
                     value = (rand() % 10) * 1.0f;
                     msig_update_instance(sendsig,
                                          sendinst[j],
-                                         &value, 0);
+                                         &value, 0, 0);
                     printf("--> sender instance %d updated to %f\n",
                            sendinst[j], value);
                     sent++;

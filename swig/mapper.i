@@ -885,19 +885,19 @@ typedef struct _admin {} admin;
     void update_instance(int id, float f) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
-            msig_update_instance((mapper_signal)$self, id, &f, 0);
+            msig_update_instance((mapper_signal)$self, id, &f, 0, 0);
         else if (sig->props.type == 'i') {
             int i = (int)f;
-            msig_update_instance((mapper_signal)$self, id, &i, 0);
+            msig_update_instance((mapper_signal)$self, id, &i, 0, 0);
         }
     }
     void update_instance(int id, int i) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
-            msig_update_instance((mapper_signal)$self, id, &i, 0);
+            msig_update_instance((mapper_signal)$self, id, &i, 0, 0);
         else if (sig->props.type == 'f') {
             float f = (float)i;
-            msig_update_instance((mapper_signal)$self, id, &f, 0);
+            msig_update_instance((mapper_signal)$self, id, &f, 0, 0);
         }
     }
     void release_instance(int id) {

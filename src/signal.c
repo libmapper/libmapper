@@ -240,14 +240,14 @@ void msig_update_float(mapper_signal sig, float value)
     msig_update_instance_internal(sig->active_instances, 0, &value, 1, 0);
 }
 
-void msig_update(mapper_signal sig, void *value, int count)
+void msig_update(mapper_signal sig, void *value, int count, mapper_queue q)
 {
     if (!sig)
         return;
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_instance_internal(sig->active_instances, 0,
-                                  value, count, 0);
+                                  value, count, q);
 }
 
 static void msig_instance_init(mapper_signal_instance si,
@@ -857,7 +857,7 @@ void msig_start_new_instance(mapper_signal sig, int instance_id)
 }
 
 void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count)
+                          void *value, int count, mapper_queue q)
 {
     if (!sig)
         return;
@@ -874,7 +874,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
-        msig_update_instance_internal(si, 1, value, count, 0);
+        msig_update_instance_internal(si, 1, value, count, q);
 }
 
 static void mapper_queue_enqueue_instance(mapper_queue q,
@@ -895,11 +895,11 @@ static void mapper_queue_enqueue_instance(mapper_queue q,
 	q->position = q->position + 1;
 }
 
-static
-void msig_update_instance_internal(mapper_signal_instance si,
-                                   int send_as_instance,
-                                   void *value, int count,
-                                   mapper_queue q)
+static void msig_update_instance_internal(mapper_signal_instance si,
+                                          int send_as_instance,
+                                          void *value,
+                                          int count,
+                                          mapper_queue q)
 {
     if (!si) return;
     if (!si->signal) return;
@@ -964,55 +964,6 @@ void msig_free_connection_instance(mapper_connection_instance ci)
     if (ci->history.timetag)
         free(ci->history.timetag);
     free(ci);
-}
-
-void msig_update_queued(mapper_signal sig, void *value, int count,
-                        mapper_queue q)
-{
-    if (!sig)
-        return;
-#ifdef DEBUG
-    if (!sig->device) {
-        trace("signal does not have a device in "
-              "msig_update_queued().\n");
-        return;
-    }
-#endif
-
-    if (!sig->active_instances)
-        msig_get_instance_with_id(sig, 0, 1);
-    msig_update_instance_internal(sig->active_instances, 0,
-                                  value, count, q);
-}
-
-void msig_update_instance_queued(mapper_signal sig, int instance_id,
-                                 void *value, int count,
-                                 mapper_queue q)
-{
-#ifdef DEBUG
-    if (!sig->device) {
-        trace("signal does not have a device in "
-              "msig_update_queued_instance().\n");
-        return;
-    }
-#endif
-
-    if (!sig)
-        return;
-
-    if (!value) {
-        msig_release_instance(sig, instance_id);
-        return;
-    }
-
-    mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
-    if (!si && sig->instance_management_handler) {
-        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
-        // try again
-        si = msig_get_instance_with_id(sig, instance_id, 0);
-    }
-    if (si)
-        msig_update_instance_internal(si, 1, value, count, q);
 }
 
 void mval_add_to_message(lo_message m, char type,
