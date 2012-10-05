@@ -26,9 +26,11 @@ def print_instance_ids():
 
 src = mapper.device("src")
 outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
+outsig.reserve_instances(5)
 
 dest = mapper.device("dest")
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
+insig.reserve_instances(5)
 
 while not src.ready() or not dest.ready():
     src.poll()
