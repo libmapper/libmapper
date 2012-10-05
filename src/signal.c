@@ -424,7 +424,7 @@ void msig_release_instance(mapper_signal sig, int instance_id)
         msig_release_instance_internal(si, 0);
 }
 
-void msig_release_instance_internal(mapper_signal_instance si, int keep_active)
+void msig_release_instance_internal(mapper_signal_instance si, int stolen)
 {
     if (!si || !si->is_active)
         return;
@@ -437,7 +437,12 @@ void msig_release_instance_internal(mapper_signal_instance si, int keep_active)
     if (si->id_map && --si->id_map->reference_count <= 0)
         mdev_remove_instance_id_map(si->signal->device, si->id_map);
 
-    if (!keep_active) {
+    if (stolen) {
+        if (si->signal->instance_management_handler)
+            si->signal->instance_management_handler(si->signal, si->id_map->local,
+                                                    &si->signal->props, IN_STOLEN);
+    }
+    else {
         si->is_active = 0;
         // Remove instance from active list, place in reserve
         mapper_signal_instance *msi = &si->signal->active_instances;

@@ -37,11 +37,10 @@ struct _mapper_connection;
 /*! The set of possible actions on an instance, used
  *  to inform callbacks of what is happening. */
 typedef enum {
-    IN_NEW,
-    IN_STEALING,
-    IN_RELEASE,
-    IN_REQUEST_RELEASE,
-    IN_OVERFLOW
+    IN_NEW,             //!< New instance has been created.
+    IN_STOLEN,          //!< Instance has been stolen.
+    IN_REQUEST_RELEASE, //!< Instance release has been requested by remote.
+    IN_OVERFLOW         //!< No local instances left for incoming remote. 
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
