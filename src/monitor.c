@@ -289,7 +289,7 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
 }
 
 void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device, 
+                         const char* source_device,
                          const char* dest_device,
                          mapper_db_link_t *props,
                          unsigned int props_flags)
@@ -313,7 +313,7 @@ void mapper_monitor_link(mapper_monitor mon,
                 lo_message_add_int32(m, props->scope_hashes[i]);
             }
         }
-        
+
         lo_send_message(mon->admin->admin_addr, "/link", m);
         free(m);
     }
@@ -323,7 +323,7 @@ void mapper_monitor_link(mapper_monitor mon,
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device, 
+                           const char* source_device,
                            const char* dest_device)
 {
     mapper_admin_send_osc( mon->admin, "/unlink", "ss",
@@ -380,7 +380,7 @@ void mapper_monitor_connect(mapper_monitor mon,
 }
 
 void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal, 
+                               const char* source_signal,
                                const char* dest_signal)
 {
     mapper_admin_send_osc( mon->admin, "/disconnect", "ss",

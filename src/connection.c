@@ -51,7 +51,7 @@ int mapper_connection_perform(mapper_connection connection,
     /* Currently expressions on vectors are not supported by the
      * evaluator.  For now, we half-support it by performing
      * element-wise operations on each item in the vector. */
-    
+
     int changed = 0, i;
     float f = 0;
 
@@ -427,7 +427,7 @@ void mapper_connection_set_expression(mapper_connection c,
                                       mapper_signal sig,
                                       const char *expr)
 {
-    int input_history_size, output_history_size;    
+    int input_history_size, output_history_size;
     if (replace_expression_string(c, sig, expr, &input_history_size,
                                   &output_history_size))
         return;
@@ -618,9 +618,9 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
         c->props.range.dest_max = range[3];
     }
-    
+
     // TO DO: test if range has actually changed
-    if (c->props.range.known == CONNECTION_RANGE_KNOWN 
+    if (c->props.range.known == CONNECTION_RANGE_KNOWN
         && c->props.mode == MO_LINEAR) {
         mapper_connection_set_linear_range(c, sig, &c->props.range);
     }
@@ -629,7 +629,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     int muting;
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
         c->props.muted = muting;
-    
+
     /* Clipping. */
     int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
     if (clip_min >= 0)
@@ -638,7 +638,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
     if (clip_max >= 0)
         c->props.clip_max = clip_max;
-    
+
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr) {
@@ -662,7 +662,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     switch (mode)
     {
     case -1:
-        /* No mode type specified; if mode not yet set, see if 
+        /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
             if (c->props.mode == MO_UNDEFINED) {
                 if (range_known == CONNECTION_RANGE_KNOWN) {
@@ -711,7 +711,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     }
 }
 
-mapper_connection mapper_connection_find_by_names(mapper_device md, 
+mapper_connection mapper_connection_find_by_names(mapper_device md,
                                                   const char* src_name,
                                                   const char* dest_name)
 {
@@ -721,9 +721,9 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
     const char *slash = strchr(dest_name+1, '/');
     if (slash)
         n = n - strlen(slash);
-        
+
     src_name = strchr(src_name+1, '/');
-    
+
     while (i < md->n_outputs) {
         // Check if device outputs includes src_name
         if (strcmp(md->outputs[i]->props.name, src_name) == 0) {

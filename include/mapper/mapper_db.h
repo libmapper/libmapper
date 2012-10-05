@@ -242,7 +242,7 @@ typedef struct _mapper_db_link {
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
 } mapper_db_link_t, *mapper_db_link;
-    
+
 typedef struct _mapper_db_batch_request
 {
     // pointer to monitor

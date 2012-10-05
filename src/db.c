@@ -767,7 +767,7 @@ int mapper_db_add_or_update_device_params(mapper_db db,
 
     if (reg) {
         update_device_record_params(reg, name, params);
-        
+
         fptr_list cb = db->device_callbacks;
         while (cb) {
             device_callback_func *f = cb->f;

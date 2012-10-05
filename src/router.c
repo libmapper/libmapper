@@ -317,7 +317,7 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 
     mapper_connection connection = (mapper_connection)
         calloc(1, sizeof(struct _mapper_connection));
-    
+
     connection->props.src_name = strdup(sig->props.name);
     connection->props.src_type = sig->props.type;
     connection->props.src_length = sig->props.length;
@@ -362,11 +362,11 @@ mapper_connection mapper_router_add_connection(mapper_router router,
     connection->next = sc->connection;
     sc->connection = connection;
     router->device->n_connections++;
-    
+
     return connection;
 }
 
-int mapper_router_remove_connection(mapper_router router, 
+int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection)
 {
     // remove associated connection instances from active instances

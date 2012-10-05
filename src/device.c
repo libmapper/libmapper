@@ -774,7 +774,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
             si = si->next;
         }
     }
-    
+
     // Release output instances owned by remote device
     psig = mdev_get_outputs(md);
     for (i=0; i < mdev_num_outputs(md); i++) {
@@ -787,7 +787,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
             si = si->next;
         }
     }
-    
+
     // Remove instance maps referring to remote device
     mapper_instance_id_map map = md->active_id_map;
     while (map) {
