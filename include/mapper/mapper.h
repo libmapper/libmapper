@@ -488,46 +488,6 @@ mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt);
 /*! Dispatch bundled messaged from a mapper queue. */
 void mdev_send_queue(mapper_device md, mapper_queue q);
 
-/*! Set the time associated with signal values emitted from a device.
- *
- * Behaviour is defined as follows: If timetag = {0, 0}, signals are
- * deferred until the next call to mdev_poll(), bundled and tagged
- * with the current time.  This is the default behaviour.  If timetag
- * = {0, 1}, corresponding to OSC's "immediate" semantics, signals are
- * sent immediately in an unbundled format.  If timetag has any other
- * value, signals are deferred until the next call to mdev_poll(),
- * bundled, and tagged with the given time.  In this last case, the
- * user is responsible for updating the time by calling
- * mdev_set_timetag() before each mdev_poll().  If mdev_set_timetag()
- * is called more than once between calls to mdev_poll(), the bundle
- * will be tagged according to the last provided time.  If
- * mdev_set_timetag() is used to switch to immediate mode,
- * (timetag={0,1}), then all currently deferred messages are sent as a
- * bundle before switching modes.
- *
- * \param dev      The device to address.
- * \param timetag  The time to use for sent signals, or a special value
- *                 indicating some behaviour as described in the
- *                 summary.
- */
-void mdev_set_timetag(mapper_device dev, mapper_timetag_t timetag);
-
-/*! Specify the size of the queue for incoming timetagged signals.  In
- *  the case where incoming signal values are associated with time
- *  tags, and that time has not yet been reached, the user may choose
- *  whether the values should be kept in a queue and delivered at the
- *  given time (the default case), or whether they should be delivered
- *  immediately.  In both cases, the signal's time can be discovered
- *  by the timetag signal callback parameter.  Incoming signals that
- *  do not have a timetag will always be immediately delivered.
- *
- *  \param sig         A local input signal.
- *  \param queue_size  The maximum number of incoming values that may
- *                     be for later delivery. If zero, queueing is
- *                     disabled.
- */
-void mdev_set_queue_size(mapper_signal sig, int queue_size);
-
 /* @} */
 
 /*** Admins ***/
