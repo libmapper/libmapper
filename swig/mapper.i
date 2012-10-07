@@ -901,7 +901,7 @@ typedef struct _admin {} admin;
         }
     }
     void release_instance(int id) {
-        msig_release_instance((mapper_signal)$self, id);
+        msig_release_instance((mapper_signal)$self, id, 0);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
