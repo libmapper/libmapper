@@ -122,56 +122,68 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! The connection structure is a linked list of connections for a
+/*! Bit flags for indicating routing configuration. */
+#define FLAGS_SEND_IMMEDIATELY  0x01
+#define FLAGS_IS_NEW_INSTANCE   0x02
+#define FLAGS_SEND_AS_INSTANCE  0x04
+
+/*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
  *  performing mapping, the connection properties are publically
  *  defined in mapper_db.h. */
-
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;               //!< Properties
-    struct _mapper_connection *next;            //!< Next connection in the list.
-    struct _mapper_signal *source;              //!< Source signal
-    struct _mapper_router *router;              //!< Parent router
-    int calibrating;   /*!< 1 if the source range is currently being
-                        *   calibrated, 0 otherwise. */
-
-    mapper_expr expr;  //!< The mapping expression.
+    mapper_db_connection_t props;           //!< Properties
+    struct _mapper_router_signal *parent;   /*!< Parent signal
+                                             *   reference in router. */
+    int calibrating;                        /*!< 1 if the source range is
+                                             *   currently being calibrated,
+                                             *   0 otherwise. */
+    mapper_expr expr;                       //!< The mapping expression.
+    mapper_signal_history_t *history;       /*!< Array of output histories
+                                             *   for each signal instance. */
+    struct _mapper_connection *next;        //!< Next connection in the list.
 } *mapper_connection;
 
-
-/*! The signal connection is a linked list containing a signal and a
+/*! The router_signal is a linked list containing a signal and a
  *  list of connections.  For each router, there is one per signal of
  *  the associated device.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
-typedef struct _mapper_signal_connection {
+typedef struct _mapper_router_signal {
+    struct _mapper_router *router;          //!< The parent router.
     struct _mapper_signal *signal;          //!< The associated signal.
-    mapper_connection connection;           /*!< The first connection for
+    mapper_signal_history_t *history;       /*!< Array of input histories
+                                             *   for each signal instance. */
+    mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
-    struct _mapper_signal_connection *next; /*!< The next signal connection
+    struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */
-} *mapper_signal_connection;
+} *mapper_router_signal;
+
+typedef struct _mapper_router_queue {
+    mapper_timetag_t tt;
+    lo_bundle bundle;
+    struct _mapper_router_queue *next;
+} *mapper_router_queue;
 
 /*! The router structure is a linked list of routers each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    mapper_db_link_t props;                 //!< Properties.
-    struct _mapper_device *device;        /*!< The device associated with
-                                           *   this router */
-    struct _mapper_router *next;          //!< Next router in the list.
-    mapper_signal_connection connections; /*!< The list of connections
-                                            *  for each signal. */
-    lo_bundle bundle;                     /*!< Bundle for queuing up
-                                           * sent messages. */
-    lo_message message;                   /*!< A single message to
-                                           * hold unless a bundle is
-                                           * to be used. */
-    const char *path;                     /*!< If message!=NUL, then
-                                           * this is the path of that
-                                           * message. */
-    mapper_timetag_t tt;                  /*!< Timetag of message or
-                                           * bundle waiting to be
-                                           * sent. */
+    mapper_db_link_t props;         //!< Properties.
+    struct _mapper_device *device;  /*!< The device associated with
+                                     *   this router */
+    struct _mapper_router *next;    //!< Next router in the list.
+    mapper_router_signal signals;   /*!< The list of connections
+                                     *  for each signal. */
+    lo_bundle bundle;               /*!< Bundle for queuing up
+                                     * sent messages. */
+    lo_message message;             /*!< A single message to hold unless a
+                                     *   bundle is to be used. */
+    const char *path;               /*!< If message!=NUL, then
+                                     * this is the path of that
+                                     * message. */
+    mapper_router_queue queues;     /*!< Linked-list of message queues
+                                     *   waiting to be sent. */
 } *mapper_router;
 
 /**** Device ****/
@@ -333,16 +345,5 @@ typedef struct _mapper_message
     lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
     char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
 } mapper_message_t;
-
-/**** Queues ****/
-
-typedef struct _mapper_queue
-{
-	int size;
-	int position;
-	mapper_timetag_t timetag;
-	struct _mapper_signal_instance **instances;
-    int *as_instance;
-} mapper_queue_t, *mapper_queue;
 
 #endif // __MAPPER_TYPES_H__

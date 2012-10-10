@@ -10,15 +10,19 @@
 
 #define MAX_INSTANCES 100
 
-static void msig_update_instance_internal(mapper_signal_instance si,
-                                          int send_as_instance,
-                                          void *value, int count,
-                                          mapper_queue q);
+static void msig_update_internal(mapper_signal sig,
+                                 mapper_signal_instance si,
+                                 void *value,
+                                 int count,
+                                 int send_as_instance,
+                                 mapper_timetag_t timetag);
 
-static void *msig_instance_value_internal(mapper_signal_instance si,
+static void *msig_instance_value_internal(mapper_signal sig,
+                                          mapper_signal_instance si,
                                           mapper_timetag_t *timetag);
 
-static void msig_free_instance(mapper_signal_instance si);
+static void msig_free_instance(mapper_signal sig,
+                               mapper_signal_instance si);
 
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
@@ -58,12 +62,12 @@ void msig_free(mapper_signal sig)
     while (sig->active_instances) {
         si = sig->active_instances;
         sig->active_instances = si->next;
-        msig_free_instance(si);
+        msig_free_instance(sig, si);
     }
     while (sig->reserve_instances) {
         si = sig->reserve_instances;
         sig->reserve_instances = si->next;
-        msig_free_instance(si);
+        msig_free_instance(sig, si);
     }
     if (sig->props.minimum)
         free(sig->props.minimum);
@@ -78,14 +82,15 @@ void msig_free(mapper_signal sig)
     free(sig);
 }
 
-void msig_update(mapper_signal sig, void *value, int count, mapper_queue q)
+void msig_update(mapper_signal sig, void *value,
+                 int count, mapper_timetag_t tt)
 {
     if (!sig)
         return;
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
-    msig_update_instance_internal(sig->active_instances, 0,
-                                  value, count, q);
+    msig_update_internal(sig, sig->active_instances,
+                         value, count, 0, tt);
 }
 
 void msig_update_int(mapper_signal sig, int value)
@@ -112,7 +117,8 @@ void msig_update_int(mapper_signal sig, int value)
 
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
-    msig_update_instance_internal(sig->active_instances, 0, &value, 1, 0);
+    msig_update_internal(sig, sig->active_instances, &value,
+                         1, 0, MAPPER_TIMETAG_NOW);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -139,7 +145,8 @@ void msig_update_float(mapper_signal sig, float value)
 
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
-    msig_update_instance_internal(sig->active_instances, 0, &value, 1, 0);
+    msig_update_internal(sig, sig->active_instances, &value,
+                         1, 0, MAPPER_TIMETAG_NOW);
 }
 
 void *msig_value(mapper_signal sig,
@@ -147,7 +154,7 @@ void *msig_value(mapper_signal sig,
 {
     if (!sig) return 0;
     if (!sig->active_instances) return 0;
-    return msig_instance_value_internal(sig->active_instances, timetag);
+    return msig_instance_value_internal(sig, sig->active_instances, timetag);
 }
 
 /**** Instances ****/
@@ -155,7 +162,7 @@ void *msig_value(mapper_signal sig,
 static void msig_init_instance(mapper_signal_instance si,
                                mapper_instance_id_map id_map)
 {
-    si->history.position = -1;
+    si->has_value = 0;
     lo_timetag_now(&si->creation_time);
     si->id_map = id_map;
 }
@@ -256,11 +263,11 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
 
 stole:
     /* value = NULL signifies release of the instance */
-    if (sig->handler)
-        sig->handler(sig, stolen->id_map->local, &sig->props,
-                     &stolen->history.timetag[stolen->history.position],
-                     NULL);
-    msig_release_instance_internal(stolen, 1, 0);
+    if (sig->handler) {
+        // TODO: should use current time for timetag?
+        sig->handler(sig, stolen->id_map->local, &sig->props, 0, NULL);
+    }
+    msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
     if (!map) {
         // Claim id map locally
         map = mdev_add_instance_id_map(sig->device, instance_id,
@@ -340,11 +347,11 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
 
 stole:
     /* value = NULL signifies release of the instance */
-    if (sig->handler)
-        sig->handler(sig, stolen->id_map->local, &sig->props,
-                     &stolen->history.timetag[stolen->history.position],
-                     NULL);
-    msig_release_instance_internal(stolen, 1, 0);
+    if (sig->handler) {
+        // TODO: should use current time for timetag?
+        sig->handler(sig, stolen->id_map->local, &sig->props, 0, NULL);
+    }
+    msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
     if (map) {
         map->reference_count++;
     }
@@ -363,13 +370,8 @@ void msig_reserve_instances(mapper_signal sig, int num)
     for (i = 0; i < num; i++) {
         mapper_signal_instance si = (mapper_signal_instance) calloc(1,
                                     sizeof(struct _mapper_signal_instance));
-        si->history.type = sig->props.type;
-        si->history.size = sig->props.history_size > 1 ? sig->props.history_size : 1;
-        si->history.length = sig->props.length;
-        // allocate history vectors
-        si->history.value = calloc(1, msig_vector_bytes(sig) * si->history.size);
-        si->history.timetag = calloc(1, sizeof(mapper_timetag_t) * si->history.size);
-        si->signal = sig;
+        si->value = calloc(1, msig_vector_bytes(sig));
+        si->has_value = 0;
         si->is_active = 0;
         si->id = sig->props.num_instances++;
         msig_init_instance(si, 0);
@@ -377,32 +379,8 @@ void msig_reserve_instances(mapper_signal sig, int num)
 
         si->next = sig->reserve_instances;
         sig->reserve_instances = si;
-        si->connections = 0;
-
-        if (!sig->device)
-            continue;
-
-        // add connection instances to signal instance
-        // for each router...
-        mapper_router router = sig->device->routers;
-        while (router) {
-            // ...find signal connection
-            mapper_signal_connection sc = router->connections;
-            while (sc) {
-                if (sc->signal == si->signal) {
-                    // For each connection...
-                    mapper_connection c = sc->connection;
-                    while (c) {
-                        msig_add_connection_instance(si, c);
-                        c = c->next;
-                    }
-                    continue;
-                }
-                sc = sc->next;
-            }
-            router = router->next;
-        }
     }
+    mdev_num_instances_changed(sig->device, sig);
 }
 
 void msig_start_new_instance(mapper_signal sig, int instance_id)
@@ -419,13 +397,13 @@ void msig_start_new_instance(mapper_signal sig, int instance_id)
 }
 
 void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count, mapper_queue q)
+                          void *value, int count, mapper_timetag_t timetag)
 {
     if (!sig)
         return;
 
     if (!value) {
-        msig_release_instance(sig, instance_id, q);
+        msig_release_instance(sig, instance_id, timetag);
         return;
     }
 
@@ -436,92 +414,76 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
-        msig_update_instance_internal(si, 1, value, count, q);
+        msig_update_internal(sig, si, value, count, 1, timetag);
 }
 
-static void msig_update_instance_internal(mapper_signal_instance si,
-                                          int send_as_instance,
-                                          void *value,
-                                          int count,
-                                          mapper_queue q)
+static void msig_update_internal(mapper_signal sig,
+                                 mapper_signal_instance si,
+                                 void *value,
+                                 int count,
+                                 int send_as_instance,
+                                 mapper_timetag_t timetag)
 {
     if (!si) return;
-    if (!si->signal) return;
 
     /* We have to assume that value points to an array of correct type
      * and size. */
 
     if (value) {
         if (count==0) count=1;
-        size_t n = msig_vector_bytes(si->signal);
-        si->history.position = (si->history.position + 1)
-                                % si->history.size;
-        memcpy(msig_history_value_pointer(si->history),
-               value + n*(count-1), n);
-        lo_timetag_now(&si->history.timetag[si->history.position]);
+        size_t n = msig_vector_bytes(sig);
+        memcpy(si->value, value + n*(count-1), n);
+        si->has_value = 1;
     }
     else {
-        si->history.position = -1;
+        si->has_value = 0;
     }
-    if (si->signal->props.is_output) {
-        if (q) {
-            // add instance to queue
-            if (q->position == q->size) {
-                // increase queue size
-                q->size *= 2;
-                q->instances = (mapper_signal_instance*)realloc(
-                    q->instances, sizeof(mapper_signal_instance)*(q->size));
-                q->as_instance = realloc(
-                    q->as_instance, sizeof(int)*(q->size));
-            }
-            q->instances[q->position] = si;
-            q->as_instance[q->position] = send_as_instance;
-            q->position = q->position + 1;
-        }
-        else
-            mdev_route_instance(si->signal->device, si, send_as_instance,
-                                LO_TT_IMMEDIATE);
+    if (sig->props.is_output) {
+        int flags = FLAGS_SEND_AS_INSTANCE * send_as_instance;
+        mdev_route_signal(sig->device, sig, si, value, count, timetag, flags);
     }
 }
 
 void msig_release_instance(mapper_signal sig, int instance_id,
-                           mapper_queue q)
+                           mapper_timetag_t timetag)
 {
     if (!sig)
         return;
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
-        msig_release_instance_internal(si, 0, q);
+        msig_release_instance_internal(sig, si, 0, timetag);
 }
 
-void msig_release_instance_internal(mapper_signal_instance si, int stolen,
-                                    mapper_queue q)
+void msig_release_instance_internal(mapper_signal sig,
+                                    mapper_signal_instance si,
+                                    int stolen,
+                                    mapper_timetag_t timetag)
 {
     if (!si || !si->is_active)
         return;
 
-    if (si->signal->props.is_output) {
+    if (sig->props.is_output) {
         // Send release notification to remote devices
-        msig_update_instance_internal(si, 1, NULL, 0, q);
+        msig_update_internal(sig, si, NULL, 0, 1, timetag);
     }
 
     if (si->id_map && --si->id_map->reference_count <= 0)
-        mdev_remove_instance_id_map(si->signal->device, si->id_map);
+        mdev_remove_instance_id_map(sig->device, si->id_map);
 
     if (stolen) {
-        if (si->signal->instance_management_handler)
-            si->signal->instance_management_handler(si->signal, si->id_map->local,
-                                                    &si->signal->props, IN_STOLEN);
+        if (sig->instance_management_handler)
+            sig->instance_management_handler(sig, si->id_map->local,
+                                             &sig->props, IN_STOLEN);
     }
     else {
         si->is_active = 0;
         // Remove instance from active list, place in reserve
-        mapper_signal_instance *msi = &si->signal->active_instances;
+        mapper_signal_instance *msi = &sig->active_instances;
         while (*msi) {
             if (*msi == si) {
                 *msi = si->next;
-                si->next = si->signal->reserve_instances;
-                si->signal->reserve_instances = si;
+                si->next = sig->reserve_instances;
+                sig->reserve_instances = si;
                 break;
             }
             msi = &(*msi)->next;
@@ -529,71 +491,58 @@ void msig_release_instance_internal(mapper_signal_instance si, int stolen,
     }
 }
 
-void msig_remove_instance(mapper_signal_instance si)
+void msig_remove_instance(mapper_signal sig,
+                          mapper_signal_instance si)
 {
     if (!si) return;
 
     // First release instance
-    msig_release_instance_internal(si, 0, 0);
-
-    // Remove connection instances
-    mapper_connection_instance ci;
-    while (si->connections) {
-        ci = si->connections;
-        si->connections = ci->next;
-        msig_free_connection_instance(ci);
-    }
+    msig_release_instance_internal(sig, si, 0, MAPPER_TIMETAG_NOW);
 
     // Remove signal instance
-    mapper_signal_instance *msi = &si->signal->active_instances;
+    mapper_signal_instance *msi = &sig->active_instances;
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
-            --si->signal->props.num_instances;
-            msig_free_instance(si);
+            --sig->props.num_instances;
+            msig_free_instance(sig, si);
             return;
         }
         msi = &(*msi)->next;
     }
-    msi = &si->signal->reserve_instances;
+    msi = &sig->reserve_instances;
     while (*msi) {
         if (*msi == si) {
             *msi = si->next;
-            --si->signal->props.num_instances;
-            msig_free_instance(si);
+            --sig->props.num_instances;
+            msig_free_instance(sig, si);
             return;
         }
         msi = &(*msi)->next;
     }
 }
 
-static void msig_free_instance(mapper_signal_instance si)
+static void msig_free_instance(mapper_signal sig,
+                               mapper_signal_instance si)
 {
     if (!si)
         return;
-    msig_release_instance_internal(si, 0, 0);
-    mapper_connection_instance ci;
-    while (si->connections) {
-        ci = si->connections;
-        si->connections = ci->next;
-        msig_free_connection_instance(ci);
-    }
-    if (si->history.value)
-        free(si->history.value);
-    if (si->history.timetag)
-        free(si->history.timetag);
+    msig_release_instance_internal(sig, si, 0, MAPPER_TIMETAG_NOW);
+    if (si->value)
+        free(si->value);
     free(si);
 }
 
-static void *msig_instance_value_internal(mapper_signal_instance si,
+static void *msig_instance_value_internal(mapper_signal sig,
+                                          mapper_signal_instance si,
                                           mapper_timetag_t *timetag)
 {
     if (!si) return 0;
-    if (si->history.position == -1)
+    if (!si->has_value)
         return 0;
     if (timetag)
-        timetag = &si->history.timetag[si->history.position];
-    return msig_history_value_pointer(si->history);
+        timetag = &si->timetag;
+    return si->value;
 }
 
 void *msig_instance_value(mapper_signal sig,
@@ -602,7 +551,7 @@ void *msig_instance_value(mapper_signal sig,
 {
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
-        return msig_instance_value_internal(si, timetag);
+        return msig_instance_value_internal(sig, si, timetag);
     return 0;
 }
 
@@ -695,193 +644,6 @@ void *msig_get_instance_data(mapper_signal sig,
     return 0;
 }
 
-/**** Connection Instances ****/
-
-mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
-                                                        mapper_connection c)
-{
-    mapper_connection_instance ci = (mapper_connection_instance) calloc(1,
-                                     sizeof(struct _mapper_connection_instance));
-    ci->history.type = c->props.dest_type;
-    ci->history.size = c->props.dest_history_size > 1 ? c->props.dest_history_size : 1;
-    ci->history.length = c->props.dest_length;
-    // allocate history vectors
-    ci->history.value = calloc(1, mapper_type_size(ci->history.type)
-                               * ci->history.length * ci->history.size);
-    ci->history.timetag = calloc(1, sizeof(mapper_timetag_t)
-                                 * ci->history.size);
-    ci->history.position = -1;
-    ci->next = si->connections;
-    ci->parent = si;
-    ci->connection = c;
-    si->connections = ci;
-    return ci;
-}
-void msig_free_connection_instance(mapper_connection_instance ci)
-{
-    if (!ci)
-        return;
-    if (ci->history.value)
-        free(ci->history.value);
-    if (ci->history.timetag)
-        free(ci->history.timetag);
-    free(ci);
-}
-
-void msig_reallocate_instances(mapper_signal sig, int input_history_size,
-                               mapper_connection c, int output_history_size)
-{
-    // At least for now, exit if this is an input signal
-    if (!sig->props.is_output)
-        return;
-
-    // If there is no expression, then no memory needs to be
-    // reallocated.
-    if (!c->expr)
-        return;
-
-    if (input_history_size < 1)
-        input_history_size = 1;
-    mapper_signal_instance si;
-    if (input_history_size > sig->props.history_size) {
-        int sample_size = msig_vector_bytes(sig);
-        si = sig->active_instances;
-        while (si) {
-            mhist_realloc(&si->history, input_history_size, sample_size, 0);
-            si = si->next;
-        }
-        si = sig->reserve_instances;
-        while (si) {
-            mhist_realloc(&si->history, input_history_size, sample_size, 0);
-            si = si->next;
-        }
-        sig->props.history_size = input_history_size;
-    }
-    else if (input_history_size < sig->props.history_size) {
-        // Do nothing for now...
-        // Find maximum input length needed for connections
-        /*si = sig->active;
-         while (si) {
-         mapper_connection_instance ci = si->connections;
-         while (ci) {
-         if (ci->connection->props.mode == MO_EXPRESSION) {
-         if (ci->connection->expr->input_history_size > input_history_size) {
-         input_history_size = ci->connection->expr->input_history_size;
-         }
-         }
-         ci = ci->next;
-         }
-         si = si->next;
-         }*/
-    }
-
-    if (output_history_size > mapper_expr_output_history_size(c->expr)) {
-        si = sig->active_instances;
-        while (si) {
-            mapper_connection_instance ci = si->connections;
-            while (ci) {
-                if (ci->connection == c) {
-                    int sample_size = mapper_type_size(ci->history.type)
-                    * ci->connection->props.dest_length;
-                    mhist_realloc(&ci->history, output_history_size, sample_size, 1);
-                }
-                ci = ci->next;
-            }
-            si = si->next;
-        }
-        si = sig->reserve_instances;
-        while (si) {
-            mapper_connection_instance ci = si->connections;
-            while (ci) {
-                if (ci->connection == c) {
-                    int sample_size = mapper_type_size(ci->history.type)
-                    * ci->connection->props.dest_length;
-                    mhist_realloc(&ci->history, output_history_size, sample_size, 1);
-                }
-                ci = ci->next;
-            }
-            si = si->next;
-        }
-    }
-    else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
-        // Do nothing for now...
-    }
-}
-
-void mhist_realloc(mapper_signal_history_t *history, int history_size, int sample_size, int is_output)
-{
-    if (!history || !history_size || !sample_size)
-        return;
-    if (history_size == history->size)
-        return;
-    if (is_output || (history_size > history->size) || (history->position == 0)) {
-        // realloc in place
-        history->value = realloc(history->value, history_size * sample_size);
-        history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
-        if (is_output) {
-            history->position = -1;
-        }
-        else if (history->position != 0) {
-            int new_position = history_size - history->size + history->position;
-            memcpy(history->value + sample_size * new_position,
-                   history->value + sample_size * history->position,
-                   sample_size * (history->size - history->position));
-            memcpy(&history->timetag[new_position],
-                   &history->timetag[history->position], sizeof(mapper_timetag_t)
-                   * (history->size - history->position));
-            history->position = new_position;
-        }
-    }
-    else {
-        // copying into smaller array
-        if (history->position >= history_size * 2) {
-            // no overlap - memcpy ok
-            int new_position = history_size - history->size + history->position;
-            memcpy(history->value,
-                   history->value + sample_size * (new_position - history_size),
-                   sample_size * history_size);
-            memcpy(&history->timetag,
-                   &history->timetag[history->position - history_size],
-                   sizeof(mapper_timetag_t) * history_size);
-            history->value = realloc(history->value, history_size * sample_size);
-            history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
-        }
-        else {
-            // there is overlap between new and old arrays - need to allocate new memory
-            mapper_signal_history_t temp;
-            temp.value = malloc(sample_size * history_size);
-            temp.timetag = malloc(sizeof(mapper_timetag_t) * history_size);
-            if (history->position < history_size) {
-                memcpy(temp.value, history->value,
-                       sample_size * history->position);
-                memcpy(temp.value + sample_size * history->position,
-                       history->value + sample_size
-                       * (history->size - history_size + history->position),
-                       sample_size * (history_size - history->position));
-                memcpy(temp.timetag, history->timetag,
-                       sizeof(mapper_timetag_t) * history->position);
-                memcpy(&temp.timetag[history->position],
-                       &history->timetag[history->size - history_size + history->position],
-                       sizeof(mapper_timetag_t) * (history_size - history->position));
-            }
-            else {
-                memcpy(temp.value, history->value + sample_size
-                       * (history->position - history_size),
-                       sample_size * history_size);
-                memcpy(temp.timetag,
-                       &history->timetag[history->position - history_size],
-                       sizeof(mapper_timetag_t) * history_size);
-                history->position = history_size - 1;
-            }
-            free(history->value);
-            free(history->timetag);
-            history->value = temp.value;
-            history->timetag = temp.timetag;
-        }
-    }
-    history->size = history_size;
-}
-
 /**** Queries ****/
 
 void msig_set_query_callback(mapper_signal sig,
@@ -904,7 +666,7 @@ void msig_set_query_callback(mapper_signal sig,
     }
 }
 
-int msig_query_remote(mapper_signal sig)
+int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 {
     // stick to output signals for now
     // TODO: process queries on inputs also
@@ -919,7 +681,7 @@ int msig_query_remote(mapper_signal sig)
         // no handler defined so we cannot process query returns
         return -1;
     }
-    return mdev_route_query(sig->device, sig);
+    return mdev_route_query(sig->device, sig, tt);
 }
 
 /**** Signal Properties ****/

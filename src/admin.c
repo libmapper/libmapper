@@ -1686,10 +1686,10 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
 
     /* Add a flavourless connection */
-    mapper_connection m = mapper_router_add_connection(router, output,
+    mapper_connection c = mapper_router_add_connection(router, output,
                                                        dest_signal_name,
                                                        dest_type, dest_length);
-    if (!m) {
+    if (!c) {
         trace("couldn't create mapper_connection "
               "in handler_signal_connectTo\n");
         return 0;
@@ -1697,10 +1697,10 @@ static int handler_signal_connectTo(const char *path, const char *types,
 
     if (argc > 2) {
         /* Set its properties. */
-        mapper_connection_set_from_message(m, output, &params);
+        mapper_connection_set_from_message(c, &params);
     }
 
-    mapper_admin_send_connected(admin, router, m, -1);
+    mapper_admin_send_connected(admin, router, c, -1);
 
     return 0;
 }
@@ -1779,9 +1779,9 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               mapper_admin_name(admin), &argv[1]->s);
     }
 
-    mapper_connection m = mapper_connection_find_by_names(md, &argv[0]->s,
+    mapper_connection c = mapper_connection_find_by_names(md, &argv[0]->s,
                                                           &argv[1]->s);
-    if (!m)
+    if (!c)
         return 0;
 
     mapper_message_t params;
@@ -1791,9 +1791,9 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               "continuing anyway.\n", mapper_admin_name(admin));
     }
 
-    mapper_connection_set_from_message(m, output, &params);
+    mapper_connection_set_from_message(c, &params);
 
-    mapper_admin_send_connected(admin, router, m, -1);
+    mapper_admin_send_connected(admin, router, c, -1);
 
     return 0;
 }
@@ -1904,7 +1904,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
             mapper_signal_instance si = sig->active_instances;
             while (si) {
                 if (si->is_active && si->id_map->group == hash)
-                    msig_release_instance_internal(si, 0, 0);
+                    msig_release_instance_internal(sig, si, 0,
+                                                   MAPPER_TIMETAG_NOW);
                 si = si->next;
             }
         }
@@ -1946,9 +1947,9 @@ static int handler_device_connections_get(const char *path,
     }
 
     while (router) {
-        mapper_signal_connection sc = router->connections;
-        while (sc) {
-			mapper_connection c = sc->connection;
+        mapper_router_signal rs = router->signals;
+        while (rs) {
+			mapper_connection c = rs->connections;
             while (c) {
                 if (max > 0 && i > max)
                     break;
@@ -1958,7 +1959,7 @@ static int handler_device_connections_get(const char *path,
                 c = c->next;
                 i++;
             }
-            sc = sc->next;
+            rs = rs->next;
         }
         router = router->next;
     }

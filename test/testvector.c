@@ -118,7 +118,7 @@ int setup_router()
                                                        recvsig->props.name,
                                                        'f', 3);
     const char *expr = "y=x*10";
-    mapper_connection_set_expression(c, sendsig, expr);
+    mapper_connection_set_expression(c, expr);
 
     return 0;
 }
@@ -144,7 +144,7 @@ void loop()
         v[2] = (float)i+2;
         printf("Updating signal %s to [%f, %f, %f]\n",
                sendsig->props.name, v[0], v[1], v[2]);
-        msig_update(sendsig, v, 1, 0);
+        msig_update(sendsig, v, 1, MAPPER_TIMETAG_NOW);
         sent++;
         usleep(250 * 1000);
         mdev_poll(destination, 0);

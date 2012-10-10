@@ -136,23 +136,23 @@ static int handler_signal(const char *path, const char *types,
         return 0;
 
     if (types[0] == LO_NIL) {
-        si->history.position = -1;
+        si->has_value = 0;
     }
     else {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        si->history.position = (si->history.position + 1)
-                                % si->history.size;
-        memcpy(msig_history_value_pointer(si->history),
-               argv[0], msig_vector_bytes(sig));
+        memcpy(si->value, argv[0], msig_vector_bytes(sig));
+        si->has_value = 1;
     }
+    lo_timetag tt = lo_message_get_timestamp(msg);
+    si->timetag.sec = tt.sec;
+    si->timetag.frac = tt.frac;
 
     if (sig->handler)
-        sig->handler(sig, 0, &sig->props,
-                     &si->history.timetag[si->history.position], types[0] == LO_NIL ? 0 :
-                     si->history.value + msig_vector_bytes(sig) * si->history.position);
+        sig->handler(sig, 0, &sig->props, &si->timetag,
+                     types[0] == LO_NIL ? 0 : si->value);
 
     return 0;
 }
@@ -204,12 +204,14 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (types[2] == LO_TRUE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local, &sig->props, IN_NEW);
+            sig->instance_management_handler(sig, si->id_map->local,
+                                             &sig->props, IN_NEW);
         return 0;
     }
     else if (types[2] == LO_FALSE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local, &sig->props, IN_REQUEST_RELEASE);
+            sig->instance_management_handler(sig, si->id_map->local,
+                                             &sig->props, IN_REQUEST_RELEASE);
         return 0;
     }
 
@@ -218,17 +220,18 @@ static int handler_signal_instance(const char *path, const char *types,
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        si->history.position = (si->history.position + 1) % si->history.size;
-        memcpy(msig_history_value_pointer(si->history), argv[2], msig_vector_bytes(sig));
+        memcpy(si->value, argv[2], msig_vector_bytes(sig));
     }
+    lo_timetag tt = lo_message_get_timestamp(msg);
+    si->timetag.sec = tt.sec;
+    si->timetag.frac = tt.frac;
 
     if (sig->handler) {
-        sig->handler(sig, si->id_map->local, &sig->props,
-                     &si->history.timetag[si->history.position], types[2] == LO_NIL ? 0 :
-                     si->history.value + msig_vector_bytes(sig) * si->history.position);
+        sig->handler(sig, si->id_map->local, &sig->props, &si->timetag,
+                     types[2] == LO_NIL ? 0 : si->value);
     }
     if (types[2] == LO_NIL) {
-        msig_release_instance_internal(si, 0, 0);
+        msig_release_instance_internal(sig, si, 0, si->timetag);
     }
     return 0;
 }
@@ -267,24 +270,24 @@ static int handler_query(const char *path, const char *types,
         m = lo_message_new();
         if (!m)
             return 0;
-        if (si->signal->props.num_instances > 1) {
+        if (sig->props.num_instances > 1) {
             lo_message_add_int32(m, (long)si->id_map->group);
             lo_message_add_int32(m, (long)si->id_map->local);
         }
-        if (si->history.position != -1) {
-            if (si->history.type == 'f') {
-                float *v = msig_history_value_pointer(si->history);
-                for (i = 0; i < si->history.length; i++)
+        if (si->has_value) {
+            if (sig->props.type == 'f') {
+                float *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
                     lo_message_add_float(m, v[i]);
             }
-            else if (si->history.type == 'i') {
-                int *v = msig_history_value_pointer(si->history);
-                for (i = 0; i < si->history.length; i++)
+            else if (sig->props.type == 'i') {
+                int *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
                     lo_message_add_int32(m, v[i]);
             }
-            else if (si->history.type == 'd') {
-                double *v = msig_history_value_pointer(si->history);
-                for (i = 0; i < si->history.length; i++)
+            else if (sig->props.type == 'd') {
+                double *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
                     lo_message_add_double(m, v[i]);
             }
         }
@@ -657,87 +660,55 @@ int mdev_poll(mapper_device md, int block_ms)
     return admin_count + count;
 }
 
-void mdev_route_instance(mapper_device md,
-                         mapper_signal_instance si,
-                         int send_as_instance,
-                         mapper_timetag_t tt)
+void mdev_route_signal(mapper_device md,
+                       mapper_signal sig,
+                       mapper_signal_instance si,
+                       void *value,
+                       int count,
+                       mapper_timetag_t timetag,
+                       int flags)
 {
-    int send_immediately = memcmp(&tt, &LO_TT_IMMEDIATE,
-                                  sizeof(mapper_timetag_t))==0;
-
-    mapper_connection_instance ci = si->connections;
-    while (ci) {
-        mapper_router r = ci->connection->router;
-        mapper_router_process_instance(r, ci, LO_TT_IMMEDIATE,
-                                       send_as_instance);
-        ci = ci->next;
+    if (!si->is_active && si->has_value) {
+        flags |= FLAGS_IS_NEW_INSTANCE;
+        si->is_active = 1;
     }
-    if (send_immediately) {
-        ci = si->connections;
-        while (ci) {
-            mapper_router_send(ci->connection->router);
-            ci = ci->next;
-        }
-    }
-    return;
-}
-
-//function to create a mapper queue
-mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt)
-{
-	mapper_queue q;
-	q = (mapper_queue)malloc(sizeof(mapper_queue_t));
-
-	q->size = 2;
-	q->position = 0;
-
-	q->instances = (mapper_signal_instance*)malloc(
-        sizeof(mapper_signal_instance)*q->size);
-	q->as_instance = (int*)malloc(sizeof(int)*q->size);
-
-	q->timetag = tt;
-
-	return q;
-}
-
-static void mdev_release_queue(mapper_queue q)
-{
-	free(q->instances);
-	free(q->as_instance);
-	free(q);
-}
-
-
-static void mdev_route_queue(mapper_device md, mapper_queue q)
-{
-    // Non-immediate timetag means that it will hold on to the
-    // values in a bundle.
-    for (int i = 0; i < q->position; i++)
-        mdev_route_instance(md, q->instances[i],
-                            q->as_instance[i],
-                            q->timetag);
-
-    // Now blast them all off into space
+    // pass update to each router in turn
     mapper_router r = md->routers;
     while (r) {
-		mapper_router_send(r);
+        mapper_router_process_signal(r, sig, si, value, count,
+                                     timetag, flags);
         r = r->next;
     }
 
-    mdev_release_queue(q);
+    return;
 }
 
-void mdev_send_queue(mapper_device md, mapper_queue q)
+// Function to start a mapper queue
+void mdev_start_queue(mapper_device md, mapper_timetag_t tt)
 {
-	mdev_route_queue(md, q);
+    mapper_router r = md->routers;
+    while (r) {
+        mapper_router_start_queue(r, tt);
+        r = r->next;
+    }
 }
 
-int mdev_route_query(mapper_device md, mapper_signal sig)
+void mdev_send_queue(mapper_device md, mapper_timetag_t tt)
+{
+    mapper_router r = md->routers;
+    while (r) {
+        mapper_router_send_queue(r, tt);
+        r = r->next;
+    }
+}
+
+int mdev_route_query(mapper_device md, mapper_signal sig,
+                     mapper_timetag_t tt)
 {
     int count = 0;
     mapper_router r = md->routers;
     while (r) {
-        count += mapper_router_send_query(r, sig);
+        count += mapper_router_send_query(r, sig, tt);
         r = r->next;
     }
     return count;
@@ -769,7 +740,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
                 if (psig[i]->handler) {
                     psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
                 }
-                msig_release_instance_internal(si, 0, 0);
+                msig_release_instance_internal(psig[i], si, 0, MAPPER_TIMETAG_NOW);
             }
             si = si->next;
         }
@@ -782,7 +753,7 @@ void mdev_release_scope(mapper_device md, const char *scope)
         si = psig[i]->active_instances;
         while (si) {
             if (si->id_map->group == hash) {
-                msig_release_instance_internal(si, 0, 0);
+                msig_release_instance_internal(psig[i], si, 0, MAPPER_TIMETAG_NOW);
             }
             si = si->next;
         }
@@ -804,15 +775,15 @@ void mdev_release_scope(mapper_device md, const char *scope)
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
     // first remove connections
-    mapper_signal_connection sc = rt->connections;
-    while (sc) {
-        mapper_connection c = sc->connection, temp;
+    mapper_router_signal rs = rt->signals;
+    while (rs) {
+        mapper_connection c = rs->connections, temp;
         while (c) {
             temp = c->next;
             mapper_router_remove_connection(rt, c);
             c = temp;
         }
-        sc = sc->next;
+        rs = rs->next;
     }
 
     int i;

@@ -8,6 +8,8 @@ extern "C" {
 #include <mapper/mapper_db.h>
 #include <mapper/mapper_types.h>
 
+#define MAPPER_TIMETAG_NOW (mapper_timetag_t){0L,0L}
+
 /*! \mainpage libmapper
 
 This is the API documentation for libmapper, a network-based signal
@@ -60,19 +62,22 @@ typedef void mapper_signal_instance_management_handler(mapper_signal msig,
 
 /*! Update the value of a signal.
  *  The signal will be routed according to external requests.
- *  \param sig The signal to update.
- *  \param value A pointer to a new value for this signal.  If the
- *               signal type is 'i', this should be int*; if the signal type
- *               is 'f', this should be float*.  It should be an array at
- *               least as long as the signal's length property.
- *  \param count The number of instances of the value that are being
- *               updated.  For non-periodic signals, this should be 0
- *               or 1.  For periodic signals, this may indicate that a
- *               block of values should be accepted, where the last
- *               value is the current value.
- *  \param q     A mapper_queue to take the update for bundled output, or
- *               NULL for immediate output. */
-void msig_update(mapper_signal sig, void *value, int count, mapper_queue q);
+ *  \param sig      The signal to update.
+ *  \param value    A pointer to a new value for this signal.  If the
+ *                  signal type is 'i', this should be int*; if the signal type
+ *                  is 'f', this should be float*.  It should be an array at
+ *                  least as long as the signal's length property.
+ *  \param count    The number of instances of the value that are being
+ *                  updated.  For non-periodic signals, this should be 0
+ *                  or 1.  For periodic signals, this may indicate that a
+ *                  block of values should be accepted, where the last
+ *                  value is the current value.
+ *  \param timetag  The time at which the value update was aquired. If NULL,
+ *                  libmapper will tag the value update with the current
+ *                  time. See mdev_start_queue() for more information on
+ *                  bundling multiple signal updates with the same timetag. */
+void msig_update(mapper_signal sig, void *value,
+                 int count, mapper_timetag_t timetag);
 
 /*! Update the value of a scalar signal of type int.
  *  This is a scalar equivalent to msig_update(), for when passing by
@@ -116,25 +121,29 @@ void msig_start_new_instance(mapper_signal sig, int instance_id);
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
  *  \param instance_id  The instance to update.
- *  \param value A pointer to a new value for this signal.  If the
- *               signal type is 'i', this should be int*; if the signal type
- *               is 'f', this should be float*.  It should be an array at
- *               least as long as the signal's length property.
- *  \param count The number of values being updated, or 0 for
- *               non-periodic signals.
- *  \param q     A mapper_queue to take the update for bundled output, or
- *               NULL for immediate output. */
+ *  \param value        A pointer to a new value for this signal.  If the
+ *                      signal type is 'i', this should be int*; if the signal type
+ *                      is 'f', this should be float*.  It should be an array at
+ *                      least as long as the signal's length property.
+ *  \param count        The number of values being updated, or 0 for
+ *                      non-periodic signals.
+ *  \param timetag      The time at which the value update was aquired. If NULL,
+ *                      libmapper will tag the value update with the current
+ *                      time. See mdev_start_queue() for more information on
+ *                      bundling multiple signal updates with the same timetag. */
 void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count, mapper_queue q);
+                          void *value, int count, mapper_timetag_t timetag);
 
 /*! Release a specific instance of a signal by removing it from the list
  *  of active instances and adding it to the reserve list.
  *  \param sig           The signal to operate on.
  *  \param instance_id   The instance to suspend.
- *  \param q     A mapper_queue to take the update for bundled output, or
- *               NULL for immediate output. */
+ *  \param timetag  The time at which the instance was released; if NULL,
+ *                  will be tagged with the current time.
+ *                  See mdev_start_queue() for more information on
+ *                  bundling multiple signal updates with the same timetag. */
 void msig_release_instance(mapper_signal sig, int instance_id,
-                           mapper_queue q);
+                           mapper_timetag_t timetag);
 
 /*! Get a signal_instance's value.
  *  \param sig         The signal to operate on.
@@ -214,7 +223,7 @@ void msig_set_query_callback(mapper_signal sig,
  *  \param sig      A local output signal. We will be querying the remote
  *                  ends of this signal's mapping connections.
  *  \return The number of queries sent, or -1 for error. */
-int msig_query_remote(mapper_signal sig);
+int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
 
 /**** Signal properties ****/
 
@@ -482,51 +491,11 @@ const char *mdev_interface(mapper_device dev);
  *  \return A positive ordinal unique to this device (per name). */
 unsigned int mdev_ordinal(mapper_device dev);
 
-/*! Get a time-tagged mapper queue. */
-mapper_queue mdev_get_queue(mapper_device md, mapper_timetag_t tt);
+/*! Start a time-tagged mapper queue. */
+void mdev_start_queue(mapper_device md, mapper_timetag_t tt);
 
-/*! Dispatch bundled messaged from a mapper queue. */
-void mdev_send_queue(mapper_device md, mapper_queue q);
-
-/*! Set the time associated with signal values emitted from a device.
- *
- * Behaviour is defined as follows: If timetag = {0, 0}, signals are
- * deferred until the next call to mdev_poll(), bundled and tagged
- * with the current time.  This is the default behaviour.  If timetag
- * = {0, 1}, corresponding to OSC's "immediate" semantics, signals are
- * sent immediately in an unbundled format.  If timetag has any other
- * value, signals are deferred until the next call to mdev_poll(),
- * bundled, and tagged with the given time.  In this last case, the
- * user is responsible for updating the time by calling
- * mdev_set_timetag() before each mdev_poll().  If mdev_set_timetag()
- * is called more than once between calls to mdev_poll(), the bundle
- * will be tagged according to the last provided time.  If
- * mdev_set_timetag() is used to switch to immediate mode,
- * (timetag={0,1}), then all currently deferred messages are sent as a
- * bundle before switching modes.
- *
- * \param dev      The device to address.
- * \param timetag  The time to use for sent signals, or a special value
- *                 indicating some behaviour as described in the
- *                 summary.
- */
-void mdev_set_timetag(mapper_device dev, mapper_timetag_t timetag);
-
-/*! Specify the size of the queue for incoming timetagged signals.  In
- *  the case where incoming signal values are associated with time
- *  tags, and that time has not yet been reached, the user may choose
- *  whether the values should be kept in a queue and delivered at the
- *  given time (the default case), or whether they should be delivered
- *  immediately.  In both cases, the signal's time can be discovered
- *  by the timetag signal callback parameter.  Incoming signals that
- *  do not have a timetag will always be immediately delivered.
- *
- *  \param sig         A local input signal.
- *  \param queue_size  The maximum number of incoming values that may
- *                     be for later delivery. If zero, queueing is
- *                     disabled.
- */
-void mdev_set_queue_size(mapper_signal sig, int queue_size);
+/*! Dispatch a time-tagged mapper queue. */
+void mdev_send_queue(mapper_device md, mapper_timetag_t tt);
 
 /* @} */
 

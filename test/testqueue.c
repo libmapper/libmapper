@@ -145,15 +145,15 @@ int setup_router()
                                                        recvsig1->props.name,
                                                        'f', 1);
 
-	 mapper_connection_range_t range;
+    mapper_connection_range_t range;
     range.src_min = 0;
     range.src_max = 1;
     range.dest_min = -10;
     range.dest_max = 10;
     range.known = CONNECTION_RANGE_KNOWN;
     
-    mapper_connection_set_linear_range(c, sendsig, &range);
-	mapper_connection_set_linear_range(c1, sendsig1, &range);
+    mapper_connection_set_linear_range(c, &range);
+	mapper_connection_set_linear_range(c1, &range);
 
     return 0;
 }
@@ -174,16 +174,15 @@ void loop()
 	float j=1;
 	for (i = 0; i < 10; i++) {
         j=i;
-		mapper_queue n;
-        lo_timetag now;
-        lo_timetag_now(&now);
-        n = mdev_get_queue(source, (mapper_timetag_t)now);
+        mapper_timetag_t now;
+        mapper_timetag_now(&now);
+        mdev_start_queue(source, now);
 		mdev_poll(source, 0);
         printf("Updating signal %s to %f\n",
                sendsig->props.name, j);
-        msig_update(sendsig, &j, 0, n);
-		msig_update(sendsig1, &j, 0, n);
-		mdev_send_queue(sendsig->device,n);
+        msig_update(sendsig, &j, 0, now);
+		msig_update(sendsig1, &j, 0, now);
+		mdev_send_queue(sendsig->device, now);
 		sent = sent+2;
         usleep(250 * 1000);
         mdev_poll(destination, 0);
