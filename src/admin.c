@@ -87,8 +87,9 @@ static int handler_signal_disconnect(const char *, const char *, lo_arg **,
 static int handler_signal_disconnected(const char *, const char *, lo_arg **,
                                        int, lo_message, void *);
 static int handler_device_connections_get(const char *, const char *,
-                                          lo_arg **, int, lo_message,
-                                          void *);
+                                          lo_arg **, int, lo_message, void *);
+static int handler_sync(const char *, const char *,
+                        lo_arg **, int, lo_message, void *);
 
 /* Handler <-> Message relationships */
 struct handler_method_assoc {
@@ -114,6 +115,7 @@ static struct handler_method_assoc device_handlers[] = {
     {"/disconnect",             "ss",       handler_signal_disconnect},
     {"/disconnected",           "ss",       handler_signal_disconnected},
     {"/logout",                 NULL,       handler_logout},
+    {"/sync",                   "iitfiif",  handler_sync},
 };
 const int N_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -419,6 +421,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;
+        mdev_clock_init(admin->device);
 
         /* Seed the random number generator. */
         seed_srand();
@@ -501,15 +504,34 @@ int mapper_admin_poll(mapper_admin admin)
               admin->identifier, admin, mapper_admin_name(admin));
         admin->device->flags |= FLAGS_ATTRIBS_CHANGED;
     }
-    if (admin->registered && (admin->device->flags & FLAGS_ATTRIBS_CHANGED)) {
-        admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
-        mapper_admin_send_osc(
-              admin, "/device", "s", mapper_admin_name(admin),
-              admin->port ? AT_PORT : -1, admin->port,
-              AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-              AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-              AT_REV, admin->device->version,
-              AT_EXTRA, admin->device->extra);
+    if (admin->registered) {
+        if (admin->device->flags & FLAGS_ATTRIBS_CHANGED) {
+            admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
+            mapper_admin_send_osc(
+                  admin, "/device", "s", mapper_admin_name(admin),
+                  admin->port ? AT_PORT : -1, admin->port,
+                  AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+                  AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+                  AT_REV, admin->device->version,
+                  AT_EXTRA, admin->device->extra);
+        }
+        // Send out clock sync messages occasionally
+        mdev_timetag_now(admin->device, &admin->clock.now);
+        if (admin->clock.now.sec >= admin->clock.next_ping) {
+            lo_send(
+                  admin->admin_addr, "/sync", "iitfiif", mdev_id(admin->device),
+                  admin->clock.message_id, admin->clock.now, admin->clock.confidence,
+                  admin->clock.remote.device_id,
+                  admin->clock.remote.message_id,
+                  admin->clock.remote.device_id ?
+                    mapper_timetag_difference(admin->clock.now, admin->clock.remote.timetag) : 0);
+            admin->clock.local[admin->clock.local_index].message_id = admin->clock.message_id;
+            admin->clock.local[admin->clock.local_index].timetag.sec = admin->clock.now.sec;
+            admin->clock.local[admin->clock.local_index].timetag.frac = admin->clock.now.frac;
+            admin->clock.local_index = (admin->clock.local_index + 1) % 10;
+            admin->clock.message_id = (admin->clock.message_id + 1) % 10;
+            admin->clock.next_ping = admin->clock.now.sec + (rand() % 10);
+        }
     }
     return count;
 }
@@ -1965,5 +1987,56 @@ static int handler_device_connections_get(const char *path,
     }
 
     md->flags |= FLAGS_CONNECTIONS_GET;
+    return 0;
+}
+
+static int handler_sync(const char *path,
+                        const char *types,
+                        lo_arg **argv, int argc,
+                        lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+    mapper_clock_t *clock = &admin->clock;
+
+    int device_id = argv[0]->i;
+    // if I sent this message, ignore it
+    if (device_id == 0 || device_id == mdev_id(md))
+        return 0;
+
+    int message_id = argv[1]->i;
+
+    // get current time
+    mapper_timetag_t now;
+    mdev_timetag_now(md, &now);
+
+    // store remote timetag
+    clock->remote.device_id = device_id;
+    clock->remote.message_id = message_id;
+    clock->remote.timetag.sec = now.sec;
+    clock->remote.timetag.frac = now.frac;
+
+    lo_timetag then = argv[2]->t;
+    float confidence = argv[3]->f;
+
+    // if remote timetag is in the future, adjust to remote time
+    double diff = mapper_timetag_difference(then, now);
+    mdev_clock_adjust(md, diff, confidence, 0);
+
+    // look at the second part of the message
+    device_id = argv[4]->i;
+    if (device_id != mdev_id(md))
+        return 0;
+
+    message_id = argv[5]->i;
+    if (message_id >= 10)
+        return 0;
+
+    // Calculate latency on exchanged /sync messages
+    double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
+                      - argv[6]->f) * 0.5;
+    if (latency > 0 && latency < 100)
+        mdev_clock_adjust(md, diff + latency, confidence, 1);
+
     return 0;
 }

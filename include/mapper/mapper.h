@@ -1231,6 +1231,34 @@ void mapper_monitor_disconnect(mapper_monitor mon,
 
 /* @} */
 
+/***** Time *****/
+
+/*! @defgroup time Time
+ 
+ @{ libmapper primarily uses NTP timetags for communication and
+    synchronization. */
+
+/*! Initialize a timetag to the current apping network time.
+ *  \param timetag    A previously allocated timetag to initialize. */
+void mdev_timetag_now(mapper_device dev,
+                      mapper_timetag_t *timetag);
+
+/*! Return the difference in seconds between two mapper_timetags.
+ *  \param a    The minuend.
+ *  \param b    The subtrahend.
+ *  \return     The difference a-b in seconds between the two timetags. */
+double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
+
+/*! Add seconds to a given timetag.
+ *  \param timetag  A previously allocated timetag to augment.
+ *  \param addend   An amount in seconds to add. */
+void mapper_timetag_add_seconds(mapper_timetag_t *timetag, double addend);
+
+/*! Return value of mapper_timetag as a double-precision floating point value. */
+double mapper_timetag_get_double(mapper_timetag_t timetag);
+
+/* @} */
+
 #ifdef __cplusplus
 }
 #endif
