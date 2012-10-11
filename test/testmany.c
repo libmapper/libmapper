@@ -94,9 +94,13 @@ void cleanup_sources() {
 
 }
 
-void insig_handler(mapper_signal sig, mapper_signal_value_t *v) {
-
-    //printf("--> destination got %s %f\n\n", sig->props.name, (*v).f);
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t timetag)
+{
+    if (value) {
+        printf("handler: Got %f\n", (*(float*)value));
+    }
     received++;
 
 }

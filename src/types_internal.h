@@ -161,6 +161,8 @@ typedef struct _mapper_connection {
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */
+    void *blob;                             /*!< Blob for staging vector
+                                             *   signal updates. */
     mapper_expr expr;                       //!< The mapping expression.
     mapper_signal_history_t *history;       /*!< Array of output histories
                                              *   for each signal instance. */

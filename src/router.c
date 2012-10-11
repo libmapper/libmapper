@@ -165,36 +165,43 @@ void mapper_router_process_signal(mapper_router r,
         return;
 
     int id = si->id;
+    mapper_connection c;
 
-    if (count < 1)
-        count = 1;
+    if (!value) {
+        rs->history[id].position = -1;
+        c = rs->connections;
+        while (c) {
+            c->history[id].position = -1;
+            mapper_router_send_update(r, c, id, send_as_instance ?
+                                      si->id_map : 0, tt, 0);
+            c = c->next;
+        }
+        return;
+    }
 
-    // TODO: Should only send OSC path once for entire vector
+    if (count > 1) {
+        // allocate blob for each connection
+        c = rs->connections;
+        while (c) {
+            c->blob = realloc(c->blob, mapper_type_size(c->props.dest_type)
+                              * c->props.dest_length * count);
+            c = c->next;
+        }
+    }
+
     int i;
     for (i=0; i<count; i++) {
         // copy input history
-        if (si->has_value) {
-            size_t n = msig_vector_bytes(sig);
-            rs->history[id].position = (rs->history[id].position + 1)
-                                       % rs->history[id].size;
-            memcpy(msig_history_value_pointer(rs->history[id]),
-                   value + n * i, n);
-            memcpy(msig_history_tt_pointer(rs->history[id]),
-                   &tt, sizeof(mapper_timetag_t));
-        }
-        else {
-            rs->history[id].position = -1;
-        }
+        size_t n = msig_vector_bytes(sig);
+        rs->history[id].position = (rs->history[id].position + 1)
+                                   % rs->history[id].size;
+        memcpy(msig_history_value_pointer(rs->history[id]),
+               value + n * i, n);
+        memcpy(msig_history_tt_pointer(rs->history[id]),
+               &tt, sizeof(mapper_timetag_t));
 
-        mapper_connection c = rs->connections;
+        c = rs->connections;
         while (c) {
-            if (!si->has_value) {
-                c->history[id].position = -1;
-                mapper_router_send_update(r, c, id, send_as_instance ?
-                                          si->id_map : 0, tt);
-                return;
-            }
-            // TODO: iterate over vector as necessary
             if (mapper_connection_perform(c, &rs->history[id],
                                           &c->history[id]))
             {
@@ -203,10 +210,27 @@ void mapper_router_process_signal(mapper_router r,
                         mapper_router_send_new_instance(r, c, id,
                                                         send_as_instance ?
                                                         si->id_map : 0, tt);
-                    mapper_router_send_update(r, c, id, send_as_instance ?
-                                              si->id_map : 0, tt);
+                    if (count > 1)
+                        memcpy(c->blob + mapper_type_size(c->props.dest_type) *
+                               c->props.dest_length * i,
+                               msig_history_value_pointer(c->history[id]),
+                               mapper_type_size(c->props.dest_type) *
+                               c->props.dest_length);
+                    else
+                        mapper_router_send_update(r, c, id, send_as_instance ?
+                                                  si->id_map : 0, tt, 0);
                 }
             }
+            c = c->next;
+        }
+    }
+    if (count > 1) {
+        c = rs->connections;
+        while (c) {
+            lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
+                                       * c->props.dest_length * count, c->blob);
+            mapper_router_send_update(r, c, id, send_as_instance ?
+                                      si->id_map : 0, tt, blob);
             c = c->next;
         }
     }
@@ -217,14 +241,14 @@ void mapper_router_send_update(mapper_router r,
                                mapper_connection c,
                                int index,
                                mapper_instance_id_map id_map,
-                               mapper_timetag_t tt)
+                               mapper_timetag_t tt,
+                               lo_blob blob)
 {
     int i;
-    lo_message m;
     if (!r->props.dest_addr)
         return;
 
-    m = lo_message_new();
+    lo_message m = lo_message_new();
     if (!m)
         return;
 
@@ -234,7 +258,10 @@ void mapper_router_send_update(mapper_router r,
     }
 
     if (c->history[index].position != -1) {
-        if (c->history[index].type == 'f') {
+        if (blob) {
+            lo_message_add_blob(m, blob);
+        }
+        else if (c->history[index].type == 'f') {
             float *v = msig_history_value_pointer(c->history[index]);
             for (i = 0; i < c->history[index].length; i++)
                 lo_message_add_float(m, v[i]);
@@ -488,7 +515,10 @@ int mapper_router_remove_connection(mapper_router r,
                 free(c->history[i].value);
                 free(c->history[i].timetag);
             }
-            free(c->history);
+            if (c->history)
+                free(c->history);
+            if (c->blob)
+                free(c->blob);
             free(c);
             r->n_connections_out--;
             return 0;

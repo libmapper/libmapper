@@ -265,7 +265,7 @@ stole:
     /* value = NULL signifies release of the instance */
     if (sig->handler) {
         // TODO: should use current time for timetag?
-        sig->handler(sig, stolen->id_map->local, &sig->props, 0, NULL);
+        sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
     msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
     if (!map) {
@@ -349,7 +349,7 @@ stole:
     /* value = NULL signifies release of the instance */
     if (sig->handler) {
         // TODO: should use current time for timetag?
-        sig->handler(sig, stolen->id_map->local, &sig->props, 0, NULL);
+        sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
     msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
     if (map) {
@@ -390,7 +390,7 @@ void msig_start_new_instance(mapper_signal sig, int instance_id)
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 1);
     if (!si && sig->instance_management_handler) {
-        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 1);
     }
@@ -409,7 +409,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
     if (!si && sig->instance_management_handler) {
-        sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
@@ -479,8 +479,8 @@ void msig_release_instance_internal(mapper_signal sig,
 
     if (stolen) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local,
-                                             &sig->props, IN_STOLEN);
+            sig->instance_management_handler(sig, &sig->props,
+                                             si->id_map->local, IN_STOLEN);
     }
     else {
         si->is_active = 0;

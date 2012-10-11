@@ -68,8 +68,9 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *value)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
     if (value) {
         printf("--> destination got %s", props->name);

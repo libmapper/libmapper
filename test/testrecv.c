@@ -15,8 +15,9 @@
 int sent = 0;
 int received = 0;
 
-void handler(mapper_signal sig, int instance_id, mapper_db_signal props,
-             mapper_timetag_t *timetag, void *value)
+void handler(mapper_signal sig, mapper_db_signal props,
+             int instance_id, void *value, int count,
+             mapper_timetag_t *timetag)
 {
     if (value) {
         printf("handler: Got %f\n", (*(float*)value));

@@ -64,15 +64,19 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id,
-                   mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *value)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination got %s", props->name);
+        printf("--> destination got %s [%i message vector]",
+               props->name, count);
         float *v = value;
-        for (int i = 0; i < props->length; i++) {
-            printf(" %f", v[i]);
+        for (int i = 0; i < count; i++) {
+            printf("\n");
+            for (int j = 0; j < props->length; j++) {
+                printf(" %f", v[i*props->length+j]);
+            }
         }
         printf("\n");
     }
@@ -112,8 +116,6 @@ void cleanup_destination()
         printf("ok\n");
     }
 }
-
-
 
 void wait_local_devices()
 {

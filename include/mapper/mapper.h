@@ -48,16 +48,17 @@ typedef enum {
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
 typedef void mapper_signal_handler(mapper_signal msig,
-                                   int instance_id,
                                    mapper_db_signal props,
-                                   mapper_timetag_t *timetag,
-                                   void *value);
+                                   int instance_id,
+                                   void *value,
+                                   int count,
+                                   mapper_timetag_t *timetag);
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
 typedef void mapper_signal_instance_management_handler(mapper_signal msig,
-                                                       int instance_id,
                                                        mapper_db_signal props,
+                                                       int instance_id,
                                                        msig_instance_event_t event);
 
 /*! Update the value of a signal.

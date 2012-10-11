@@ -193,7 +193,8 @@ void mapper_router_send_update(mapper_router r,
                                mapper_connection c,
                                int index,
                                mapper_instance_id_map id_map,
-                               mapper_timetag_t tt);
+                               mapper_timetag_t tt,
+                               lo_blob blob);
 
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,

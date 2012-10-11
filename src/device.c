@@ -123,6 +123,9 @@ static int handler_signal(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
+    void *dataptr = 0;
+    int count = 1;
+
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
@@ -138,21 +141,27 @@ static int handler_signal(const char *path, const char *types,
     if (types[0] == LO_NIL) {
         si->has_value = 0;
     }
+    else if (types[0] == LO_BLOB) {
+        dataptr = lo_blob_dataptr((lo_blob)argv[0]);
+        count = lo_blob_datasize((lo_blob)argv[0]) /
+            mapper_type_size(sig->props.type);
+    }
     else {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
+        // TODO: should copy last value from sample vector
         memcpy(si->value, argv[0], msig_vector_bytes(sig));
         si->has_value = 1;
+        dataptr = si->value;
     }
     lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
     if (sig->handler)
-        sig->handler(sig, 0, &sig->props, &si->timetag,
-                     types[0] == LO_NIL ? 0 : si->value);
+        sig->handler(sig, &sig->props, 0, dataptr, count, &si->timetag);
 
     return 0;
 }
@@ -163,6 +172,8 @@ static int handler_signal_instance(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
+    void *dataptr = 0;
+    int count = 1;
 
     if (!md) {
         trace("error, sig->device==0\n");
@@ -176,7 +187,8 @@ static int handler_signal_instance(const char *path, const char *types,
     int is_new = (types[2] == LO_TRUE);
 
     mapper_signal_instance si = 0;
-    mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id, instance_id);
+    mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id,
+                                                                     instance_id);
 
     // Don't activate instance just to release it again
     if (types[2] == LO_NIL || types[2] == LO_FALSE) {
@@ -187,7 +199,7 @@ static int handler_signal_instance(const char *path, const char *types,
     si = msig_get_instance_with_id_map(sig, map, is_new);
     if (!si) {
         if (sig->instance_management_handler) {
-            sig->instance_management_handler(sig, -1, &sig->props, IN_OVERFLOW);
+            sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
             // try again
             si = msig_get_instance_with_id_map(sig, map, is_new);
         }
@@ -204,31 +216,38 @@ static int handler_signal_instance(const char *path, const char *types,
 
     if (types[2] == LO_TRUE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local,
-                                             &sig->props, IN_NEW);
+            sig->instance_management_handler(sig, &sig->props, si->id_map->local,
+                                             IN_NEW);
         return 0;
     }
     else if (types[2] == LO_FALSE) {
         if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, si->id_map->local,
-                                             &sig->props, IN_REQUEST_RELEASE);
+            sig->instance_management_handler(sig, &sig->props, si->id_map->local,
+                                             IN_REQUEST_RELEASE);
         return 0;
     }
 
-    if (types[2] != LO_NIL) {
+    if (types[2] == LO_BLOB) {
+        dataptr = lo_blob_dataptr((lo_blob)argv[2]);
+        count = lo_blob_datasize((lo_blob)argv[2]) /
+            mapper_type_size(sig->props.type);
+    }
+    else if (types[2] != LO_NIL) {
         /* This is cheating a bit since we know that the arguments pointed
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
         memcpy(si->value, argv[2], msig_vector_bytes(sig));
+        si->has_value = 1;
+        dataptr = si->value;
     }
     lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
     if (sig->handler) {
-        sig->handler(sig, si->id_map->local, &sig->props, &si->timetag,
-                     types[2] == LO_NIL ? 0 : si->value);
+        sig->handler(sig, &sig->props, si->id_map->local,
+                     dataptr, count, &si->timetag);
     }
     if (types[2] == LO_NIL) {
         msig_release_instance_internal(sig, si, 0, si->timetag);
@@ -314,7 +333,7 @@ static int handler_query_response(const char *path, const char *types,
         return 0;
     }
     if (types[0] == LO_NIL && sig->handler) {
-        sig->handler(sig, 0, &sig->props, 0, 0);
+        sig->handler(sig, &sig->props, 0, 0, 0, 0);
         return 0;
     }
 
@@ -338,7 +357,7 @@ static int handler_query_response(const char *path, const char *types,
     }
 
     if (sig->handler)
-        sig->handler(sig, 0, &sig->props, 0, value);
+        sig->handler(sig, &sig->props, 0, value, 1, 0);
 
     return 0;
 }
@@ -380,11 +399,19 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              handler_signal, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
+                             "b",
+                             handler_signal, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
                              "N",
                              handler_signal, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
                              type_string,
+                             handler_signal_instance, (void *) (sig));
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "iib",
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -495,7 +522,9 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         type_string[sig->props.length + 2] = 0;
         lo_server_del_method(md->server, sig->props.name, type_string);
         lo_server_del_method(md->server, sig->props.name, type_string + 2);
+        lo_server_del_method(md->server, sig->props.name, "b");
         lo_server_del_method(md->server, sig->props.name, "N");
+        lo_server_del_method(md->server, sig->props.name, "iib");
         lo_server_del_method(md->server, sig->props.name, "iiT");
         lo_server_del_method(md->server, sig->props.name, "iiN");
         free(type_string);
@@ -757,9 +786,11 @@ void mdev_release_scope(mapper_device md, const char *scope)
         while (si) {
             if (si->id_map->group == hash) {
                 if (psig[i]->handler) {
-                    psig[i]->handler(psig[i], si->id_map->local, &psig[i]->props, 0, 0);
+                    psig[i]->handler(psig[i], &psig[i]->props,
+                                     si->id_map->local, 0, 0, 0);
                 }
-                msig_release_instance_internal(psig[i], si, 0, MAPPER_TIMETAG_NOW);
+                msig_release_instance_internal(psig[i], si, 0,
+                                               MAPPER_TIMETAG_NOW);
             }
             si = si->next;
         }
@@ -772,7 +803,8 @@ void mdev_release_scope(mapper_device md, const char *scope)
         si = psig[i]->active_instances;
         while (si) {
             if (si->id_map->group == hash) {
-                msig_release_instance_internal(psig[i], si, 0, MAPPER_TIMETAG_NOW);
+                msig_release_instance_internal(psig[i], si, 0,
+                                               MAPPER_TIMETAG_NOW);
             }
             si = si->next;
         }
@@ -959,11 +991,19 @@ void mdev_start_server(mapper_device md)
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
+                                 "b",
+                                 handler_signal, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
                                  "N",
                                  handler_signal, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  type,
+                                 handler_signal_instance, (void *) (md->inputs[i]));
+            lo_server_add_method(md->server,
+                                 md->inputs[i]->props.name,
+                                 "iib",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,

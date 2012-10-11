@@ -59,12 +59,13 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *v)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
-    if (v) {
+    if (value) {
         printf("--> destination %s instance %ld got %f\n",
-               props->name, (long)instance_id, (*(float*)v));
+               props->name, (long)instance_id, (*(float*)value));
         received++;
     }
     else
@@ -72,8 +73,8 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
                props->name, (long)instance_id);
 }
 
-void overflow_handler(mapper_signal sig, int id,
-                      mapper_db_signal props, msig_instance_event_t event)
+void overflow_handler(mapper_signal sig, mapper_db_signal props,
+                      int instance_id, msig_instance_event_t event)
 {
     if (event == IN_OVERFLOW) {
         printf("OVERFLOW!!\n");

@@ -79,11 +79,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *v)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
     counter = (counter+1)%10;
-    if (v) {
+    if (value) {
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
@@ -95,12 +96,6 @@ void insig_handler(mapper_signal sig, int instance_id, mapper_db_signal props,
     else
         printf("--> destination %s instance %ld got NULL\n",
                props->name, (long)instance_id);
-}
-
-void overflow_handler(mapper_signal sig, int group, int id)
-{
-    printf("OVERFLOW!!\n");
-    msig_reserve_instances(sig, 1);
 }
 
 /*! Creation of a local destination. */
