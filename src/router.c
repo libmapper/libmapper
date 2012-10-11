@@ -166,40 +166,49 @@ void mapper_router_process_signal(mapper_router r,
 
     int id = si->id;
 
-    // copy input history
-    if (si->has_value) {
-        size_t n = msig_vector_bytes(sig);
-        rs->history[id].position = (rs->history[id].position + 1)
-                                   % rs->history[id].size;
-        memcpy(msig_history_value_pointer(rs->history[id]),
-               si->value, n);
-        memcpy(msig_history_tt_pointer(rs->history[id]),
-               &tt, sizeof(mapper_timetag_t));
-    }
-    else {
-        rs->history[id].position = -1;
-    }
+    if (count < 1)
+        count = 1;
 
-    mapper_connection c = rs->connections;
-    while (c) {
-        if (!si->has_value) {
-            c->history[id].position = -1;
-            mapper_router_send_update(r, c, id, send_as_instance ?
-                                      si->id_map : 0, tt);
-            return;
+    // TODO: Should only send OSC path once for entire vector
+    int i;
+    for (i=0; i<count; i++) {
+        // copy input history
+        if (si->has_value) {
+            size_t n = msig_vector_bytes(sig);
+            rs->history[id].position = (rs->history[id].position + 1)
+                                       % rs->history[id].size;
+            memcpy(msig_history_value_pointer(rs->history[id]),
+                   value + n * i, n);
+            memcpy(msig_history_tt_pointer(rs->history[id]),
+                   &tt, sizeof(mapper_timetag_t));
         }
-        // TODO: iterate over vector as necessary
-        if (mapper_connection_perform(c, &rs->history[id], &c->history[id]))
-        {
-            if (mapper_clipping_perform(c, &c->history[id])) {
-                if (send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
-                    mapper_router_send_new_instance(r, c, id, send_as_instance ?
-                                                    si->id_map : 0, tt);
+        else {
+            rs->history[id].position = -1;
+        }
+
+        mapper_connection c = rs->connections;
+        while (c) {
+            if (!si->has_value) {
+                c->history[id].position = -1;
                 mapper_router_send_update(r, c, id, send_as_instance ?
                                           si->id_map : 0, tt);
+                return;
             }
+            // TODO: iterate over vector as necessary
+            if (mapper_connection_perform(c, &rs->history[id],
+                                          &c->history[id]))
+            {
+                if (mapper_clipping_perform(c, &c->history[id])) {
+                    if (send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
+                        mapper_router_send_new_instance(r, c, id,
+                                                        send_as_instance ?
+                                                        si->id_map : 0, tt);
+                    mapper_router_send_update(r, c, id, send_as_instance ?
+                                              si->id_map : 0, tt);
+                }
+            }
+            c = c->next;
         }
-        c = c->next;
     }
 }
 
