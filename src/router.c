@@ -36,6 +36,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->props.extra = table_new();
     router->device = device;
     router->signals = 0;
+    router->n_connections_out = 0;
 
     if (!router->props.dest_addr) {
         mapper_router_free(router);
@@ -65,14 +66,16 @@ void mapper_router_free(mapper_router router)
                         c = tmp;
                     }
                 }
+                int i;
+                for (i=0; i<rs->num_instances; i++) {
+                    free(rs->history[i].value);
+                    free(rs->history[i].timetag);
+                }
+                free(rs->history);
                 free(rs);
                 rs = tmp;
             }
         }
-        if (router->bundle)
-            lo_bundle_free_messages(router->bundle);
-        if (router->message)
-            lo_message_free(router->message);
         free(router);
     }
 }
@@ -82,6 +85,61 @@ void mapper_router_set_from_message(mapper_router router,
 {
     /* Extra properties. */
     mapper_msg_add_or_update_extra_params(router->props.extra, msg);
+}
+
+void mapper_router_num_instance_changed(mapper_router r,
+                                        mapper_signal sig)
+{
+    // check if we have a reference to this signal
+    mapper_router_signal rs = r->signals;
+    while (rs) {
+        if (rs->signal == sig)
+            break;
+        rs = rs->next;
+    }
+
+    if (!rs) {
+        // The signal is not mapped through this router.
+        return;
+    }
+
+    if (sig->props.num_instances <= rs->num_instances)
+        return;
+
+    // Need to allocate more instances
+    rs->history = realloc(rs->history, sizeof(struct _mapper_signal_history)
+                          * sig->props.num_instances);
+    int i;
+    for (i=rs->num_instances; i<sig->props.num_instances; i++) {
+        rs->history[i].type = sig->props.type;
+        rs->history[i].length = sig->props.length;
+        rs->history[i].size = sig->props.history_size;
+        rs->history[i].value = calloc(1, msig_vector_bytes(sig)
+                                      * sig->props.history_size);
+        rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                        * sig->props.history_size);
+        rs->history[i].position = -1;
+    }
+    
+    // reallocate connection instances
+    mapper_connection c = rs->connections;
+    while (c) {
+        c->history = realloc(c->history, sizeof(struct _mapper_signal_history)
+                             * sig->props.num_instances);
+        for (i=rs->num_instances; i<sig->props.num_instances; i++) {
+            c->history[i].type = c->props.dest_type;
+            c->history[i].length = c->props.dest_length;
+            c->history[i].size = c->props.dest_history_size;
+            c->history[i].value = calloc(1, mapper_type_size(c->props.dest_type)
+                                         * c->props.dest_history_size);
+            c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                           * c->props.dest_history_size);
+            c->history[i].position = -1;
+        }
+        c = c->next;
+    }
+
+    rs->num_instances = sig->props.num_instances;
 }
 
 void mapper_router_process_signal(mapper_router r,
@@ -126,17 +184,18 @@ void mapper_router_process_signal(mapper_router r,
     while (c) {
         if (!si->has_value) {
             c->history[id].position = -1;
-            mapper_router_add_message(r, c, id, send_as_instance ?
+            mapper_router_send_update(r, c, id, send_as_instance ?
                                       si->id_map : 0, tt);
             return;
         }
+        // TODO: iterate over vector as necessary
         if (mapper_connection_perform(c, &rs->history[id], &c->history[id]))
         {
             if (mapper_clipping_perform(c, &c->history[id])) {
                 if (send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
-                    mapper_router_add_new_instance_message(r, c, id, send_as_instance ?
-                                                           si->id_map : 0, tt);
-                mapper_router_add_message(r, c, id, send_as_instance ?
+                    mapper_router_send_new_instance(r, c, id, send_as_instance ?
+                                                    si->id_map : 0, tt);
+                mapper_router_send_update(r, c, id, send_as_instance ?
                                           si->id_map : 0, tt);
             }
         }
@@ -272,7 +331,7 @@ void mapper_router_send_or_bundle_message(mapper_router r,
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, m);
         lo_send_bundle_from(r->props.dest_addr, r->device->server, b);
-        lo_bundle_free(b);
+        lo_bundle_free_messages(b);
     }
 }
 
@@ -304,6 +363,7 @@ void mapper_router_release_queue(mapper_router r,
         if (*temp == q) {
             *temp = q->next;
             free(q);
+            return;
         }
         temp = &(*temp)->next;
     }
@@ -325,7 +385,7 @@ void mapper_router_send_queue(mapper_router r,
     }
 }
 
-mapper_connection mapper_router_add_connection(mapper_router router,
+mapper_connection mapper_router_add_connection(mapper_router r,
                                                mapper_signal sig,
                                                const char *dest_name,
                                                char dest_type,
@@ -339,8 +399,33 @@ mapper_connection mapper_router_add_connection(mapper_router router,
         msig_full_name(sig, n, 1024);
         trace("rejecting connection %s -> %s%s because lengths "
               "don't match (not yet supported)\n",
-              n, router->props.dest_name, dest_name);
+              n, r->props.dest_name, dest_name);
         return 0;
+    }
+
+    // find signal in signal connection list
+    mapper_router_signal rs = r->signals;
+    while (rs && rs->signal != sig)
+        rs = rs->next;
+    
+    // if not found, create a new list entry
+    if (!rs) {
+        rs = (mapper_router_signal)
+            calloc(1, sizeof(struct _mapper_router_signal));
+        rs->signal = sig;
+        rs->history = malloc(sizeof(struct _mapper_signal_history)
+                             * sig->props.num_instances);
+        int i;
+        for (i=0; i<sig->props.num_instances; i++) {
+            rs->history[i].type = sig->props.type;
+            rs->history[i].length = sig->props.length;
+            rs->history[i].size = 1;
+            rs->history[i].value = calloc(1, msig_vector_bytes(sig));
+            rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t));
+            rs->history[i].position = -1;
+        }
+        rs->next = r->signals;
+        r->signals = rs;
     }
 
     mapper_connection c = (mapper_connection)
@@ -363,36 +448,21 @@ mapper_connection mapper_router_add_connection(mapper_router router,
                         * sig->props.num_instances);
     int i;
     for (i=0; i<sig->props.num_instances; i++) {
-        c->history->type = c->props.dest_type;
-        c->history->size = c->props.dest_history_size > 1 ? c->props.dest_history_size : 1;
-        c->history->length = c->props.dest_length;
         // allocate history vectors
-        c->history->value = calloc(1, mapper_type_size(c->history->type)
-                                   * c->history->length * c->history->size);
-        c->history->timetag = calloc(1, sizeof(mapper_timetag_t)
-                                     * c->history->size);
-        c->history->position = -1;
+        c->history[i].type = dest_type;
+        c->history[i].length = dest_length;
+        c->history[i].size = 1;
+        c->history[i].value = calloc(1, mapper_type_size(c->props.dest_type) *
+                                     c->props.dest_length);
+        c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t));
+        c->history[i].position = -1;
     }
 
-    // find signal in signal connection list
-    mapper_router_signal rs = router->signals;
-    while (rs && rs->signal != sig)
-        rs = rs->next;
-
-    // if not found, create a new list entry
-    if (!rs) {
-        rs = (mapper_router_signal)
-            calloc(1, sizeof(struct _mapper_router_signal));
-        rs->signal = sig;
-        rs->next = router->signals;
-        router->signals = rs;
-    }
     // add new connection to this signal's list
     c->next = rs->connections;
     rs->connections = c;
     c->parent = rs;
-    // TODO: store n_connections in router
-    router->device->n_connections++;
+    r->n_connections_out++;
 
     return c;
 }
@@ -404,8 +474,14 @@ int mapper_router_remove_connection(mapper_router r,
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
+            int i;
+            for (i=0; i<c->parent->num_instances; i++) {
+                free(c->history[i].value);
+                free(c->history[i].timetag);
+            }
+            free(c->history);
             free(c);
-            r->device->n_connections--;
+            r->n_connections_out--;
             return 0;
         }
         temp = &(*temp)->next;

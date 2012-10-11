@@ -174,6 +174,7 @@ typedef struct _mapper_connection {
 typedef struct _mapper_router_signal {
     struct _mapper_router *router;          //!< The parent router.
     struct _mapper_signal *signal;          //!< The associated signal.
+    int num_instances;                      //!< Number of instances allocated.
     mapper_signal_history_t *history;       /*!< Array of input histories
                                              *   for each signal instance. */
     mapper_connection connections;          /*!< The first connection for
@@ -194,18 +195,12 @@ typedef struct _mapper_router {
     mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this router */
-    struct _mapper_router *next;    //!< Next router in the list.
     mapper_router_signal signals;   /*!< The list of connections
                                      *  for each signal. */
-    lo_bundle bundle;               /*!< Bundle for queuing up
-                                     * sent messages. */
-    lo_message message;             /*!< A single message to hold unless a
-                                     *   bundle is to be used. */
-    const char *path;               /*!< If message!=NUL, then
-                                     * this is the path of that
-                                     * message. */
+    int n_connections_out;          //!< Number of outgoing connections.
     mapper_router_queue queues;     /*!< Linked-list of message queues
                                      *   waiting to be sent. */
+    struct _mapper_router *next;    //!< Next router in the list.
 } *mapper_router;
 
 /**** Device ****/
@@ -230,7 +225,6 @@ typedef struct _mapper_device {
     int n_alloc_inputs;
     int n_alloc_outputs;
     int n_links;
-    int n_connections;
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */

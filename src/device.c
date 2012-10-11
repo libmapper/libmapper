@@ -554,7 +554,13 @@ int mdev_num_links(mapper_device md)
 
 int mdev_num_connections(mapper_device md)
 {
-    return md->n_connections;
+    mapper_router r = md->routers;
+    int count = 0;
+    while (r) {
+        count += r->n_connections_out;
+        r = r->next;
+    }
+    return count;
 }
 
 mapper_signal *mdev_get_inputs(mapper_device md)
@@ -658,6 +664,19 @@ int mdev_poll(mapper_device md, int block_ms)
     }
 
     return admin_count + count;
+}
+
+void mdev_num_instances_changed(mapper_device md,
+                                mapper_signal sig)
+{
+    if (!md)
+        return;
+
+    mapper_router r = md->routers;
+    while (r) {
+        mapper_router_num_instances_changed(r, sig);
+        r = r->next;
+    }
 }
 
 void mdev_route_signal(mapper_device md,

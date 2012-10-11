@@ -801,18 +801,22 @@ void reallocate_connection_histories(mapper_connection c,
             c = c->next;
         }*/
     }
-    if (output_history_size > mapper_expr_output_history_size(c->expr)) {
+    if (output_history_size > c->props.dest_history_size) {
         int sample_size = mapper_type_size(c->props.dest_type) * c->props.dest_length;
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->history[i], output_history_size, sample_size, 1);
         }
+        c->props.dest_history_size = output_history_size;
     }
     else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
         // Do nothing for now...
     }
 }
 
-void mhist_realloc(mapper_signal_history_t *history, int history_size, int sample_size, int is_output)
+void mhist_realloc(mapper_signal_history_t *history,
+                   int history_size,
+                   int sample_size,
+                   int is_output)
 {
     if (!history || !history_size || !sample_size)
         return;

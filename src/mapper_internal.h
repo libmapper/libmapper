@@ -119,6 +119,9 @@ void mdev_add_signal_query_response_callback(mapper_device md,
 void mdev_remove_signal_query_response_callback(mapper_device md,
                                                 mapper_signal sig);
 
+void mdev_num_instances_changed(mapper_device md,
+                                mapper_signal sig);
+
 void mdev_route_signal(mapper_device md,
                        mapper_signal sig,
                        mapper_signal_instance si,
@@ -167,6 +170,9 @@ void mapper_router_free(mapper_router router);
 void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
 
+void mapper_router_num_instances_changed(mapper_router r,
+                                         mapper_signal sig);
+
 /*! For a given connection instance, construct a mapped signal and
  *  send it on to the destination. */
 void mapper_router_process_signal(mapper_router r,
@@ -177,19 +183,17 @@ void mapper_router_process_signal(mapper_router r,
                                   mapper_timetag_t timetag,
                                   int flags);
 
-void mapper_router_add_new_instance_message(mapper_router r,
-                                            mapper_connection c,
-                                            int index,
-                                            mapper_instance_id_map id_map,
-                                            mapper_timetag_t tt);
+void mapper_router_send_new_instance(mapper_router r,
+                                     mapper_connection c,
+                                     int index,
+                                     mapper_instance_id_map id_map,
+                                     mapper_timetag_t tt);
 
-void mapper_router_add_message(mapper_router r,
+void mapper_router_send_update(mapper_router r,
                                mapper_connection c,
                                int index,
                                mapper_instance_id_map id_map,
                                mapper_timetag_t tt);
-
-void mapper_router_send(mapper_router router);
 
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,

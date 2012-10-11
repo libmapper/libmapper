@@ -1,6 +1,7 @@
 
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>

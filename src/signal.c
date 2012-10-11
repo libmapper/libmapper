@@ -422,7 +422,7 @@ static void msig_update_internal(mapper_signal sig,
                                  void *value,
                                  int count,
                                  int send_as_instance,
-                                 mapper_timetag_t timetag)
+                                 mapper_timetag_t tt)
 {
     if (!si) return;
 
@@ -438,9 +438,16 @@ static void msig_update_internal(mapper_signal sig,
     else {
         si->has_value = 0;
     }
+
+    if (memcmp(&tt, &MAPPER_TIMETAG_NOW, sizeof(mapper_timetag_t))==0)
+        mdev_timetag_now(sig->device, &si->timetag);
+    else
+        memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
+
     if (sig->props.is_output) {
         int flags = FLAGS_SEND_AS_INSTANCE * send_as_instance;
-        mdev_route_signal(sig->device, sig, si, value, count, timetag, flags);
+        mdev_route_signal(sig->device, sig, si, value,
+                          count, si->timetag, flags);
     }
 }
 

@@ -175,7 +175,7 @@ void loop()
 	for (i = 0; i < 10; i++) {
         j=i;
         mapper_timetag_t now;
-        mapper_timetag_now(&now);
+        mdev_timetag_now(source, &now);
         mdev_start_queue(source, now);
 		mdev_poll(source, 0);
         printf("Updating signal %s to %f\n",
