@@ -131,37 +131,49 @@ static int handler_signal(const char *path, const char *types,
         return 0;
     }
 
-    // Default to updating first instance
     if (!sig)
         return 0;
-    mapper_signal_instance si = msig_get_instance_with_id(sig, 0, 1);
+
+    mapper_signal_instance si = sig->active_instances;
+    if (!si)
+        si = msig_get_instance_with_id(sig, 0, 1);
     if (!si)
         return 0;
 
-    if (types[0] == LO_NIL) {
-        si->has_value = 0;
-    }
-    else if (types[0] == LO_BLOB) {
+    if (types[0] == LO_BLOB) {
         dataptr = lo_blob_dataptr((lo_blob)argv[0]);
         count = lo_blob_datasize((lo_blob)argv[0]) /
-            mapper_type_size(sig->props.type);
+        mapper_type_size(sig->props.type);
     }
     else {
-        /* This is cheating a bit since we know that the arguments pointed
-         * to by argv are layed out sequentially in memory.  It's not
-         * clear if liblo's semantics guarantee it, but known to be true
-         * on all platforms. */
-        // TODO: should copy last value from sample vector
-        memcpy(si->value, argv[0], msig_vector_bytes(sig));
-        si->has_value = 1;
-        dataptr = si->value;
+        while (si) {
+            if (types[0] == LO_NIL) {
+                si->has_value = 0;
+            }
+            else {
+                /* This is cheating a bit since we know that the arguments pointed
+                 * to by argv are layed out sequentially in memory.  It's not
+                 * clear if liblo's semantics guarantee it, but known to be true
+                 * on all platforms. */
+                // TODO: should copy last value from sample vector
+                memcpy(si->value, argv[0], msig_vector_bytes(sig));
+                si->has_value = 1;
+                dataptr = si->value;
+            }
+            lo_timetag tt = lo_message_get_timestamp(msg);
+            si->timetag.sec = tt.sec;
+            si->timetag.frac = tt.frac;
+            si = si->next;
+        }
     }
-    lo_timetag tt = lo_message_get_timestamp(msg);
-    si->timetag.sec = tt.sec;
-    si->timetag.frac = tt.frac;
 
-    if (sig->handler)
-        sig->handler(sig, &sig->props, 0, dataptr, count, &si->timetag);
+    if (sig->handler) {
+        si = sig->active_instances;
+        while (si) {
+            sig->handler(sig, &sig->props, 0, dataptr, count, &si->timetag);
+            si = si->next;
+        }
+    }
 
     return 0;
 }
