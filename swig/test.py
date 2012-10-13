@@ -1,7 +1,7 @@
 
 import sys, mapper
 
-def h(sig, id, timetag, f):
+def h(sig, id, f, timetag):
     try:
         print sig.name, f
     except:

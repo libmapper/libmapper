@@ -452,10 +452,11 @@ static PyObject *link_to_py(mapper_db_link_t *link)
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
 static void msig_handler_py(struct _mapper_signal *msig,
-                            int instance_id,
                             mapper_db_signal props,
-                            mapper_timetag_t *tt,
-                            void *v)
+                            int instance_id,
+                            void *v,
+                            int count,
+                            mapper_timetag_t *tt)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
@@ -472,12 +473,12 @@ static void msig_handler_py(struct _mapper_signal *msig,
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiLi)", py_msig, instance_id, timetag, *(int*)v);
+            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OiLf)", py_msig, instance_id, timetag, *(float*)v);
+            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(OiLs)", py_msig, instance_id, timetag, 0);
+        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -885,23 +886,27 @@ typedef struct _admin {} admin;
     void update_instance(int id, float f) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
-            msig_update_instance((mapper_signal)$self, id, &f, 0, 0);
+            msig_update_instance((mapper_signal)$self, id, &f, 0,
+                                 MAPPER_TIMETAG_NOW);
         else if (sig->props.type == 'i') {
             int i = (int)f;
-            msig_update_instance((mapper_signal)$self, id, &i, 0, 0);
+            msig_update_instance((mapper_signal)$self, id, &i, 0,
+                                 MAPPER_TIMETAG_NOW);
         }
     }
     void update_instance(int id, int i) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
-            msig_update_instance((mapper_signal)$self, id, &i, 0, 0);
+            msig_update_instance((mapper_signal)$self, id, &i, 0,
+                                 MAPPER_TIMETAG_NOW);
         else if (sig->props.type == 'f') {
             float f = (float)i;
-            msig_update_instance((mapper_signal)$self, id, &f, 0, 0);
+            msig_update_instance((mapper_signal)$self, id, &f, 0,
+                                 MAPPER_TIMETAG_NOW);
         }
     }
     void release_instance(int id) {
-        msig_release_instance((mapper_signal)$self, id, 0);
+        msig_release_instance((mapper_signal)$self, id, MAPPER_TIMETAG_NOW);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
@@ -929,8 +934,8 @@ typedef struct _admin {} admin;
         }
         return msig_set_query_callback((mapper_signal)$self, h, PyFunc);
     }
-    int query_remote() {
-        return msig_query_remote((mapper_signal)$self);
+    int query_remotes() {
+        return msig_query_remotes((mapper_signal)$self, MAPPER_TIMETAG_NOW);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;

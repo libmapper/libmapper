@@ -2,7 +2,7 @@
 
 import sys, mapper
 
-def h(sig, id, timetag, f):
+def h(sig, id, f, timetag):
     try:
         print 'received query response:', f
     except:
@@ -29,6 +29,6 @@ monitor.connect('%s%s' %(src.name, outsig.name),
 
 for i in range(100):
     insig.update(i)
-    outsig.query_remote()
+    outsig.query_remotes()
     src.poll(10)
     dest.poll(10)
