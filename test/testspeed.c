@@ -19,7 +19,7 @@ mapper_signal recvsig = 0;
 
 int numTrials = 10;
 int trial = 0;
-int numModes = 3;
+int numModes = 2;
 int mode = 0;
 int use_instance = 1;
 int iterations = 100000;
@@ -83,15 +83,15 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
-    counter = (counter+1)%10;
     if (value) {
+        counter = (counter+1)%10;
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
-            msig_update_instance(sendsig, counter, &value, 0, MAPPER_TIMETAG_NOW);
+            msig_update_instance(sendsig, counter, value, 1, MAPPER_TIMETAG_NOW);
         }
         else
-            msig_update(sendsig, &value, 0, MAPPER_TIMETAG_NOW);
+            msig_update(sendsig, value, 1, MAPPER_TIMETAG_NOW);
     }
     else
         printf("--> destination %s instance %ld got NULL\n",
@@ -162,7 +162,7 @@ void connect_signals()
     msig_full_name(sendsig, source_name, 1024);
     msig_full_name(recvsig, destination_name, 1024);
 
-    lo_send(a, "/connect", "ssssss", source_name, destination_name, "@mode", "expression", "@expression", "y=sin(x)+1.9");
+    lo_send(a, "/connect", "ssssss", source_name, destination_name, "@mode", "expression", "@expression", "y=y{-1}+1");
 
     lo_address_free(a);
 
@@ -204,8 +204,6 @@ void switch_modes()
             break;
         case 1:
             use_instance = 0;
-            break;
-        case 2:
             for (i=1; i<10; i++) {
                 msig_release_instance(sendsig, i, MAPPER_TIMETAG_NOW);
             }

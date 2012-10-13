@@ -145,26 +145,26 @@ static int handler_signal(const char *path, const char *types,
         count = lo_blob_datasize((lo_blob)argv[0]) /
         mapper_type_size(sig->props.type);
     }
-    else {
-        while (si) {
-            if (types[0] == LO_NIL) {
-                si->has_value = 0;
-            }
-            else {
-                /* This is cheating a bit since we know that the arguments pointed
-                 * to by argv are layed out sequentially in memory.  It's not
-                 * clear if liblo's semantics guarantee it, but known to be true
-                 * on all platforms. */
-                // TODO: should copy last value from sample vector
-                memcpy(si->value, argv[0], msig_vector_bytes(sig));
-                si->has_value = 1;
-                dataptr = si->value;
-            }
-            lo_timetag tt = lo_message_get_timestamp(msg);
-            si->timetag.sec = tt.sec;
-            si->timetag.frac = tt.frac;
-            si = si->next;
+    else
+        dataptr = argv[0];
+
+    while (si) {
+        if (types[0] == LO_NIL) {
+            si->has_value = 0;
         }
+        else {
+            /* This is cheating a bit since we know that the arguments pointed
+             * to by argv are layed out sequentially in memory.  It's not
+             * clear if liblo's semantics guarantee it, but known to be true
+             * on all platforms. */
+            // TODO: should copy last value from sample vector
+            memcpy(si->value, dataptr, msig_vector_bytes(sig));
+            si->has_value = 1;
+        }
+        lo_timetag tt = lo_message_get_timestamp(msg);
+        si->timetag.sec = tt.sec;
+        si->timetag.frac = tt.frac;
+        si = si->next;
     }
 
     if (sig->handler) {
