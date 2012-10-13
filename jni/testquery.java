@@ -76,7 +76,7 @@ class test {
             dev.poll(10);
             --i;
             inp1.update(new int[] {i});
-            out1.query_remote();
+            out1.query_remotes();
         }
         dev.free();
     }
