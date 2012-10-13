@@ -1122,13 +1122,3 @@ void mdev_remove_property(mapper_device dev, const char *property)
 {
     table_remove_key(dev->extra, property, 1);
 }
-
-void mdev_set_timetag(mapper_device dev, mapper_timetag_t timetag)
-{
-    // To be implemented.
-}
-
-void mdev_set_queue_size(mapper_signal sig, int queue_size)
-{
-    // To be implemented.
-}
