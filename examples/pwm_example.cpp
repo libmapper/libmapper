@@ -15,32 +15,35 @@ void ctrlc(int)
 }
 
 void handler_freq(mapper_signal msig,
-                  int instance_id,
                   mapper_db_signal props,
-                  mapper_timetag_t *timetag,
-                  void *value)
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
     float *pfreq = (float*)value;
     set_freq(*pfreq);
 }
 
 void handler_gain(mapper_signal msig,
-                  int instance_id,
                   mapper_db_signal props,
-                  mapper_timetag_t *timetag,
-                  void *value)
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
     float *pgain = (float*)value;
     set_gain(*pgain);
 }
 
 void handler_duty(mapper_signal msig,
-                  int instance_id,
                   mapper_db_signal props,
-                  mapper_timetag_t *timetag,
-                  void *value)
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
-    float *pduty = (float*)pduty;
+    float *pduty = (float*)value;
     set_duty(*pduty);
 }
 

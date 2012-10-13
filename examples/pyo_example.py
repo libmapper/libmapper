@@ -16,9 +16,9 @@ sig = DCBlock(Sig(value=Round(p), mul=[amp, amp])).out()
 
 try:
     dev = mapper.device("pyo_pwm_example", 9000)
-    dev.add_input("/frequency", 1, 'f', "Hz", 0, 1000, lambda s,i,t,n: freq.setValue(n))
-    dev.add_input("/amplitude", 1, 'f', "normalized", 0, 1, lambda s,i,t,n: amp.setValue(n))
-    dev.add_input("/duty", 1, 'f', "normalized", 0, 1, lambda s,i,t,n: duty.setValue(n))
+    dev.add_input("/frequency", 1, 'f', "Hz", 0, 1000, lambda s,i,n,t: freq.setValue(n))
+    dev.add_input("/amplitude", 1, 'f', "normalized", 0, 1, lambda s,i,n,t: amp.setValue(n))
+    dev.add_input("/duty", 1, 'f', "normalized", 0, 1, lambda s,i,n,t: duty.setValue(n))
 
     while True:
         dev.poll(5)
