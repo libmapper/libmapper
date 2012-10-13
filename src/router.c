@@ -87,8 +87,8 @@ void mapper_router_set_from_message(mapper_router router,
     mapper_msg_add_or_update_extra_params(router->props.extra, msg);
 }
 
-void mapper_router_num_instance_changed(mapper_router r,
-                                        mapper_signal sig)
+void mapper_router_num_instances_changed(mapper_router r,
+                                         mapper_signal sig)
 {
     // check if we have a reference to this signal
     mapper_router_signal rs = r->signals;
