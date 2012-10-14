@@ -148,6 +148,7 @@ static int handler_signal(const char *path, const char *types,
     else
         dataptr = argv[0];
 
+    lo_timetag tt = lo_message_get_timestamp(msg);
     while (si) {
         if (types[0] == LO_NIL) {
             si->has_value = 0;
@@ -161,18 +162,11 @@ static int handler_signal(const char *path, const char *types,
             memcpy(si->value, dataptr, msig_vector_bytes(sig));
             si->has_value = 1;
         }
-        lo_timetag tt = lo_message_get_timestamp(msg);
         si->timetag.sec = tt.sec;
         si->timetag.frac = tt.frac;
+        if (sig->handler)
+            sig->handler(sig, &sig->props, si->id_map->local, dataptr, count, &tt);
         si = si->next;
-    }
-
-    if (sig->handler) {
-        si = sig->active_instances;
-        while (si) {
-            sig->handler(sig, &sig->props, 0, dataptr, count, &si->timetag);
-            si = si->next;
-        }
     }
 
     return 0;
@@ -746,6 +740,8 @@ void mdev_route_signal(mapper_device md,
 // Function to start a mapper queue
 void mdev_start_queue(mapper_device md, mapper_timetag_t tt)
 {
+    if (!md)
+        return;
     mapper_router r = md->routers;
     while (r) {
         mapper_router_start_queue(r, tt);
@@ -755,6 +751,8 @@ void mdev_start_queue(mapper_device md, mapper_timetag_t tt)
 
 void mdev_send_queue(mapper_device md, mapper_timetag_t tt)
 {
+    if (!md)
+        return;
     mapper_router r = md->routers;
     while (r) {
         mapper_router_send_queue(r, tt);

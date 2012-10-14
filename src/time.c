@@ -70,6 +70,8 @@ void mdev_clock_adjust(mapper_device dev,
 void mdev_timetag_now(mapper_device dev,
                       mapper_timetag_t *timetag)
 {
+    if (!dev)
+        return;
     // first get current time from system clock
     // adjust using rate and offset from mapping network sync
     lo_timetag_now((lo_timetag*)timetag);
