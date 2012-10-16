@@ -557,9 +557,7 @@ void *msig_instance_value(mapper_signal sig,
                           mapper_timetag_t *timetag)
 {
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
-    if (si)
-        return msig_instance_value_internal(sig, si, timetag);
-    return 0;
+    return msig_instance_value_internal(sig, si, timetag);
 }
 
 void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)

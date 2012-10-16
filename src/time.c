@@ -86,6 +86,9 @@ double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)
 
 void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
 {
+    if (!b)
+        return;
+
     b += a->frac * 0.00000000023283064365;
     if (b >= 0.0) {
         a->sec += floor(b);
