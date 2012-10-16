@@ -21,8 +21,10 @@ void handler_freq(mapper_signal msig,
                   int count,
                   mapper_timetag_t *timetag)
 {
-    float *pfreq = (float*)value;
-    set_freq(*pfreq);
+    if (value) {
+        float *pfreq = (float*)value;
+        set_freq(*pfreq);
+    }
 }
 
 void handler_gain(mapper_signal msig,
@@ -32,8 +34,12 @@ void handler_gain(mapper_signal msig,
                   int count,
                   mapper_timetag_t *timetag)
 {
-    float *pgain = (float*)value;
-    set_gain(*pgain);
+    if (value) {
+        float *pgain = (float*)value;
+        set_gain(*pgain);
+    }
+    else
+        set_gain(0);
 }
 
 void handler_duty(mapper_signal msig,
@@ -43,8 +49,10 @@ void handler_duty(mapper_signal msig,
                   int count,
                   mapper_timetag_t *timetag)
 {
-    float *pduty = (float*)value;
-    set_duty(*pduty);
+    if (value) {
+        float *pduty = (float*)value;
+        set_duty(*pduty);
+    }
 }
 
 int main()
