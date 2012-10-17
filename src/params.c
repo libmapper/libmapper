@@ -1,6 +1,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "types_internal.h"
 #include "mapper_internal.h"
