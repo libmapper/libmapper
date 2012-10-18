@@ -986,6 +986,9 @@ void mdev_start_server(mapper_device md)
             pport = 0;
         }
 
+        // Disable liblo message queueing
+        lo_server_enable_queue(md->server, 0, 1);
+
         md->admin->port = lo_server_get_port(md->server);
         trace("bound to port %i\n", md->admin->port);
 
