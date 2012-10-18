@@ -258,14 +258,14 @@ typedef struct _mapper_instance_id_map {
 } *mapper_instance_id_map;
 
 /*! Bit flags indicating if information has already been
- *   sent in a given polling step. */
-#define FLAGS_WHO               0x01
-#define FLAGS_INPUTS_GET        0x02
-#define FLAGS_OUTPUTS_GET       0x04
-#define FLAGS_LINKS_GET         0x08
-#define FLAGS_CONNECTIONS_GET   0x10
-#define FLAGS_ADMIN_MESSAGES    0x1F
-#define FLAGS_ATTRIBS_CHANGED   0x20
+ *  sent in a given polling step. */
+#define FLAGS_SENT_DEVICE_INFO          0x01
+#define FLAGS_SENT_DEVICE_INPUTS        0x02
+#define FLAGS_SENT_DEVICE_OUTPUTS       0x04
+#define FLAGS_SENT_DEVICE_LINKS         0x08
+#define FLAGS_SENT_DEVICE_CONNECTIONS   0x10
+#define FLAGS_SENT_ALL_DEVICE_MESSAGES  0x1F
+#define FLAGS_DEVICE_ATTRIBS_CHANGED    0x20
 
 /**** Monitor ****/
 

@@ -461,7 +461,7 @@ int mapper_admin_poll(mapper_admin admin)
     int count = 0, status, i = 0;
 
     if (admin->device)
-        admin->device->flags &= ~FLAGS_ADMIN_MESSAGES;
+        admin->device->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
 
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
@@ -502,11 +502,11 @@ int mapper_admin_poll(mapper_admin admin)
         admin->registered = 1;
         trace("</%s.?::%p> registered as <%s>\n",
               admin->identifier, admin, mapper_admin_name(admin));
-        admin->device->flags |= FLAGS_ATTRIBS_CHANGED;
+        admin->device->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
     }
     if (admin->registered) {
-        if (admin->device->flags & FLAGS_ATTRIBS_CHANGED) {
-            admin->device->flags &= ~FLAGS_ATTRIBS_CHANGED;
+        if (admin->device->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
+            admin->device->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
             mapper_admin_send_osc(
                   admin, "/device", "s", mapper_admin_name(admin),
                   admin->port ? AT_PORT : -1, admin->port,
@@ -774,7 +774,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 {
     mapper_admin admin = (mapper_admin) user_data;
 
-    if (admin->device->flags & FLAGS_WHO)
+    if (admin->device->flags & FLAGS_SENT_DEVICE_INFO)
         return 0;
 
     mapper_admin_send_osc(
@@ -787,7 +787,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         AT_REV, admin->device->version,
         AT_EXTRA, admin->device->extra);
 
-    admin->device->flags |= FLAGS_WHO;
+    admin->device->flags |= FLAGS_SENT_DEVICE_INFO;
 
     return 0;
 }
@@ -895,7 +895,7 @@ static int handler_id_n_signals_input_get(const char *path,
     if (!md->n_inputs)
         return 0;
 
-    if (!argc && (md->flags & FLAGS_INPUTS_GET))
+    if (!argc && (md->flags & FLAGS_SENT_DEVICE_INPUTS))
         return 0;
 
     if (argc > 0) {
@@ -937,7 +937,7 @@ static int handler_id_n_signals_input_get(const char *path,
             AT_EXTRA, sig->props.extra);
     }
 
-    md->flags |= FLAGS_INPUTS_GET;
+    md->flags |= FLAGS_SENT_DEVICE_INPUTS;
 
     return 0;
 }
@@ -958,7 +958,7 @@ static int handler_id_n_signals_output_get(const char *path,
     if (!md->n_outputs)
         return 0;
 
-    if (!argc && (md->flags & FLAGS_OUTPUTS_GET))
+    if (!argc && (md->flags & FLAGS_SENT_DEVICE_OUTPUTS))
         return 0;
 
     if (argc > 0) {
@@ -1000,7 +1000,7 @@ static int handler_id_n_signals_output_get(const char *path,
             AT_EXTRA, sig->props.extra);
     }
 
-    md->flags |= FLAGS_OUTPUTS_GET;
+    md->flags |= FLAGS_SENT_DEVICE_OUTPUTS;
 
     return 0;
 }
@@ -1354,7 +1354,7 @@ static int handler_device_links_get(const char *path, const char *types,
     trace("<%s> got %s/links/get\n", mapper_admin_name(admin),
           mapper_admin_name(admin));
 
-    if (md->flags & FLAGS_LINKS_GET)
+    if (md->flags & FLAGS_SENT_DEVICE_LINKS)
         return 0;
 
     /*Search through linked devices */
@@ -1363,7 +1363,7 @@ static int handler_device_links_get(const char *path, const char *types,
         router = router->next;
     }
 
-    md->flags |= FLAGS_LINKS_GET;
+    md->flags |= FLAGS_SENT_DEVICE_LINKS;
 
     return 0;
 }
@@ -1948,7 +1948,7 @@ static int handler_device_connections_get(const char *path,
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
-    if (!argc && (md->flags & FLAGS_CONNECTIONS_GET))
+    if (!argc && (md->flags & FLAGS_SENT_DEVICE_CONNECTIONS))
         return 0;
 
     if (argc > 0) {
@@ -1986,7 +1986,7 @@ static int handler_device_connections_get(const char *path,
         router = router->next;
     }
 
-    md->flags |= FLAGS_CONNECTIONS_GET;
+    md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS;
     return 0;
 }
 

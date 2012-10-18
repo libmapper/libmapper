@@ -113,7 +113,7 @@ static void mdev_increment_version(mapper_device md)
 {
     md->version ++;
     if (md->admin->registered) {
-        md->flags |= FLAGS_ATTRIBS_CHANGED;
+        md->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
     }
 }
 

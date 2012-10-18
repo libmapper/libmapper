@@ -61,8 +61,13 @@ typedef struct _mapper_signal_instance
     /*! The instance's creation timestamp. */
     mapper_timetag_t creation_time;
 
+    /*! Indicates whether this instance has a value. */
     int has_value;
+
+    /*! The current value of this signal instance. */
     void *value;
+
+    /*! The timetag associated with the current value. */
     mapper_timetag_t timetag;
 
     /*! Pointer to the next instance. */
