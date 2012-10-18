@@ -276,8 +276,10 @@ mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
- *  \param  sig The signal owning the desired instance.
- *  \param  instance_id The requested signal instance ID.
+ *  \param  sig             The signal owning the desired instance.
+ *  \param  instance_id     The requested signal instance ID.
+ *  \param  is_new_instance Indicates whether instance has just been created,
+ *                          relevant for choosing instance stealing schemes.
  *  \return The retrieved signal instance, or NULL if no free
  *          instances were available and allocation of a new instance
  *          was unsuccessful according to the selected allocation
@@ -288,8 +290,10 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
- *  \param  sig The signal owning the desired instance.
- *  \param  map The ID map to match.
+ *  \param  sig             The signal owning the desired instance.
+ *  \param  map             The ID map to match.
+ *  \param  is_new_instance Indicates whether instance has just been created,
+ *                          relevant for choosing instance stealing schemes.
  *  \return The retrieved signal instance, or NULL if no free
  *          instances were available and allocation of a new instance
  *          was unsuccessful according to the selected allocation
