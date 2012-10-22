@@ -115,8 +115,9 @@ typedef enum _mapper_instance_allocation_type {
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {
-    char *src_name;                 //!< Source signal name (OSC path).
-    char *dest_name;                //!< Destination signal name (OSC path).
+    int id;                     //!< Connection index
+    char *src_name;             //!< Source signal name (OSC path).
+    char *dest_name;            //!< Destination signal name (OSC path).
 
     char src_type;              //!< Source signal type.
     char dest_type;             //!< Destination signal type.
@@ -189,6 +190,9 @@ typedef struct _mapper_signal_history
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal
 {
+    /*! Signal index */
+    int id;
+
 	/*! Flag to indicate whether signal is source or destination */
 	int is_output;
 

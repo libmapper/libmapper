@@ -111,27 +111,18 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(sig->device_name, dev_to_match->name) != 0)
         return;
-    int index;
-    lo_type type;
-    const lo_arg *value;
-    if (!mapper_db_signal_property_lookup(sig, "ID", &type, &value)) {
-        if (type == LO_INT32)
-            index = value->i32;
-        else
-            return;
-        if (index == (data->total_count - 1)) {
-            // signal reporting is complete
-            mapper_db_remove_signal_callback(&data->monitor->db,
-                                             on_signal_continue_batch_request, data);
-            free(data);
-            return;
-        }
-        if (index > 0 && (index % data->batch_size == 0))
-            mapper_monitor_request_signals_by_name_and_index(data->monitor,
-                                                             data->device->name,
-                                                             index + 1,
-                                                             index + data->batch_size);
+    if (sig->id == (data->total_count - 1)) {
+        // signal reporting is complete
+        mapper_db_remove_signal_callback(&data->monitor->db,
+                                         on_signal_continue_batch_request, data);
+        free(data);
+        return;
     }
+    if (sig->id > 0 && (sig->id % data->batch_size == 0))
+        mapper_monitor_request_signals_by_name_and_index(data->monitor,
+                                                         data->device->name,
+                                                         sig->id + 1,
+                                                         sig->id + data->batch_size);
 }
 
 int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
@@ -225,28 +216,19 @@ static void on_connection_continue_batch_request(mapper_db_connection con,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(con->src_name, dev_to_match->name) != 0)
         return;
-    int index;
-    lo_type type;
-    const lo_arg *value;
-    if (!mapper_db_connection_property_lookup(con, "ID", &type, &value)) {
-        if (type == LO_INT32)
-            index = value->i32;
-        else
-            return;
-        if (index == (data->total_count - 1)) {
-            // connection reporting is complete
-            mapper_db_remove_connection_callback(&data->monitor->db,
-                                                 on_connection_continue_batch_request,
-                                                 data);
-            free(data);
-            return;
-        }
-        if (index > 0 && (index % data->batch_size == 0))
-            mapper_monitor_request_connections_by_name_and_index(data->monitor,
-                                                                 data->device->name,
-                                                                 index + 1,
-                                                                 index + data->batch_size);
+    if (con->id == (data->total_count - 1)) {
+        // connection reporting is complete
+        mapper_db_remove_connection_callback(&data->monitor->db,
+                                             on_connection_continue_batch_request,
+                                             data);
+        free(data);
+        return;
     }
+    if (con->id > 0 && (con->id % data->batch_size == 0))
+        mapper_monitor_request_connections_by_name_and_index(data->monitor,
+                                                             data->device->name,
+                                                             con->id + 1,
+                                                             con->id + data->batch_size);
 }
 
 int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,

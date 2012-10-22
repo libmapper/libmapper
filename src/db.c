@@ -987,6 +987,8 @@ static void update_signal_record_params(mapper_db_signal sig,
     update_string_if_different((char**)&sig->name, name);
     update_string_if_different((char**)&sig->device_name, device_name);
 
+    update_int_if_arg(&sig->id, params, AT_ID);
+
     update_char_if_arg(&sig->type, params, AT_TYPE);
 
     update_int_if_arg(&sig->length, params, AT_LENGTH);
@@ -1344,6 +1346,7 @@ static void update_connection_record_params(mapper_db_connection con,
         }
     }
 
+    update_int_if_arg(&con->id, params, AT_ID);
     update_string_if_arg(&con->expression, params, AT_EXPRESSION);
     update_char_if_arg(&con->src_type, params, AT_SRCTYPE);
     update_char_if_arg(&con->dest_type, params, AT_DESTTYPE);
