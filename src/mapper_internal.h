@@ -100,7 +100,8 @@ const char *_real_mapper_admin_name(mapper_admin admin,
     _real_mapper_admin_send_osc(__VA_ARGS__, N_AT_PARAMS)
 
 /*! Message-sending function, not to be called directly. */
-void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
+void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
+                                 const char *path,
                                  const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */

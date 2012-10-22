@@ -82,7 +82,7 @@ int mapper_monitor_request_signals_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -93,7 +93,7 @@ int mapper_monitor_request_signals_by_name_and_index(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -169,7 +169,7 @@ int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
 
 int mapper_monitor_request_devices(mapper_monitor mon)
 {
-    mapper_admin_send_osc(mon->admin, "/who", "");
+    mapper_admin_send_osc(mon->admin, 0, "/who", "");
     return 0;
 }
 
@@ -178,7 +178,7 @@ int mapper_monitor_request_links_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -187,7 +187,7 @@ int mapper_monitor_request_connections_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -198,7 +198,7 @@ int mapper_monitor_request_connections_by_name_and_index(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -258,7 +258,7 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
     }
 
     mapper_db_batch_request data = (mapper_db_batch_request)
-    malloc(sizeof(struct _mapper_db_batch_request));
+                                    malloc(sizeof(struct _mapper_db_batch_request));
     data->monitor = mon;
     data->device = dev;
     data->index = 0;
@@ -300,7 +300,7 @@ void mapper_monitor_link(mapper_monitor mon,
         free(m);
     }
     else
-        mapper_admin_send_osc( mon->admin, "/link", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/link", "ss",
                                source_device, dest_device );
 }
 
@@ -308,7 +308,7 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            const char* source_device,
                            const char* dest_device)
 {
-    mapper_admin_send_osc( mon->admin, "/unlink", "ss",
+    mapper_admin_send_osc( mon->admin, 0, "/unlink", "ss",
                            source_device, dest_device );
 }
 
@@ -317,7 +317,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       unsigned int props_flags)
 {
     if (props) {
-        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
                                (props_flags & CONNECTION_CLIPMIN)
                                ? AT_CLIPMIN : -1, props->clip_min,
@@ -341,7 +341,7 @@ void mapper_monitor_connect(mapper_monitor mon,
                             unsigned int props_flags)
 {
     if (props) {
-        mapper_admin_send_osc( mon->admin, "/connect", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal,
                                (props_flags & CONNECTION_CLIPMIN)
                                ? AT_CLIPMIN : -1, props->clip_min,
@@ -357,7 +357,7 @@ void mapper_monitor_connect(mapper_monitor mon,
                                ? AT_MUTE : -1, props->muted );
     }
     else
-        mapper_admin_send_osc( mon->admin, "/connect", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal );
 }
 
@@ -365,7 +365,7 @@ void mapper_monitor_disconnect(mapper_monitor mon,
                                const char* source_signal,
                                const char* dest_signal)
 {
-    mapper_admin_send_osc( mon->admin, "/disconnect", "ss",
+    mapper_admin_send_osc( mon->admin, 0, "/disconnect", "ss",
                            source_signal, dest_signal );
 }
 

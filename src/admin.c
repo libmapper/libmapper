@@ -387,7 +387,7 @@ void mapper_admin_free(mapper_admin admin)
 
     if (admin->registered) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_send_osc(admin, "/logout", "s", mapper_admin_name(admin));
+        mapper_admin_send_osc(admin, 0, "/logout", "s", mapper_admin_name(admin));
     }
 
     if (admin->identifier)
@@ -452,7 +452,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
     if (mon) {
         admin->monitor = mon;
         mapper_admin_add_monitor_methods(admin);
-        mapper_admin_send_osc(admin, "/who", "");
+        mapper_admin_send_osc(admin, 0, "/who", "");
     }
 }
 
@@ -511,7 +511,7 @@ int mapper_admin_poll(mapper_admin admin)
         if (admin->device->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
             admin->device->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
             mapper_admin_send_osc(
-                  admin, "/device", "s", mapper_admin_name(admin),
+                  admin, 0, "/device", "s", mapper_admin_name(admin),
                   admin->port ? AT_PORT : -1, admin->port,
                   AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
                   AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -638,7 +638,8 @@ static int check_collisions(mapper_admin admin,
     return 0;
 }
 
-void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
+void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
+                                 const char *path,
                                  const char *types, ...)
 {
     char str[1024];
@@ -686,8 +687,12 @@ void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
 
     va_end(aq);
 
-    lo_send_message(admin->admin_addr, namedpath, m);
-    lo_message_free(m);
+    if (b)
+        lo_bundle_add_message(b, namedpath, m);
+    else {
+        lo_send_message(admin->admin_addr, namedpath, m);
+        lo_message_free(m);
+    }
 }
 
 void _real_mapper_admin_send_osc_with_params(const char *file, int line,
@@ -746,7 +751,7 @@ static void mapper_admin_send_linked(mapper_admin admin,
 static void mapper_admin_send_connected(mapper_admin admin,
                                         mapper_router router,
                                         mapper_connection c,
-                                        int index)
+                                        int index, lo_bundle b)
 {
     // Send /connected message
     lo_message m = lo_message_new();
@@ -772,8 +777,12 @@ static void mapper_admin_send_connected(mapper_admin admin,
 
     mapper_connection_prepare_osc_message(m, c);
 
-    lo_send_message(admin->admin_addr, "/connected", m);
-    lo_message_free(m);
+    if (b)
+        lo_bundle_add_message(b, "/connected", m);
+    else {
+        lo_send_message(admin->admin_addr, "/connected", m);
+        lo_message_free(m);
+    }
 }
 
 /**********************************/
@@ -790,7 +799,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         return 0;
 
     mapper_admin_send_osc(
-        admin, "/device", "s", mapper_admin_name(admin),
+        admin, 0, "/device", "s", mapper_admin_name(admin),
         admin->port ? AT_PORT : -1, admin->port,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
@@ -932,11 +941,12 @@ static int handler_id_n_signals_input_get(const char *path,
             j = md->n_inputs - 1;
     }
 
+    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
     for (; i <= j; i++) {
         mapper_signal sig = md->inputs[i];
         msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
-            admin, "/signal", "s", sig_name,
+            admin, b, "/signal", "s", sig_name,
             AT_ID, i,
             AT_DIRECTION, "input",
             AT_TYPE, sig->props.type,
@@ -948,6 +958,8 @@ static int handler_id_n_signals_input_get(const char *path,
             sig->props.rate ? AT_RATE : -1, sig,
             AT_EXTRA, sig->props.extra);
     }
+    lo_send_bundle(admin->admin_addr, b);
+    lo_bundle_free_messages(b);
 
     md->flags |= FLAGS_SENT_DEVICE_INPUTS;
 
@@ -995,11 +1007,12 @@ static int handler_id_n_signals_output_get(const char *path,
             j = md->n_outputs - 1;
     }
 
+    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
     for (; i <= j; i++) {
         mapper_signal sig = md->outputs[i];
         msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
-            admin, "/signal", "s", sig_name,
+            admin, b, "/signal", "s", sig_name,
             AT_ID, i,
             AT_DIRECTION, "output",
             AT_TYPE, sig->props.type,
@@ -1011,6 +1024,8 @@ static int handler_id_n_signals_output_get(const char *path,
             sig->props.rate ? AT_RATE : -1, sig,
             AT_EXTRA, sig->props.extra);
     }
+    lo_send_bundle(admin->admin_addr, b);
+    lo_bundle_free_messages(b);
 
     md->flags |= FLAGS_SENT_DEVICE_OUTPUTS;
 
@@ -1734,7 +1749,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         mapper_connection_set_from_message(c, &params);
     }
 
-    mapper_admin_send_connected(admin, router, c, -1);
+    mapper_admin_send_connected(admin, router, c, -1, 0);
 
     return 0;
 }
@@ -1827,7 +1842,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
 
     mapper_connection_set_from_message(c, &params);
 
-    mapper_admin_send_connected(admin, router, c, -1);
+    mapper_admin_send_connected(admin, router, c, -1, 0);
 
     return 0;
 }
@@ -1884,7 +1899,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_admin_send_osc(admin, "/disconnected", "ss",
+    mapper_admin_send_osc(admin, 0, "/disconnected", "ss",
                           src_name, dest_name);
     return 0;
 }
@@ -1980,6 +1995,7 @@ static int handler_device_connections_get(const char *path,
             max = min + 1;
     }
 
+    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
     while (router) {
         mapper_router_signal rs = router->signals;
         while (rs) {
@@ -1988,7 +2004,7 @@ static int handler_device_connections_get(const char *path,
                 if (max > 0 && i > max)
                     break;
                 if (i >= min) {
-                    mapper_admin_send_connected(admin, router, c, i);
+                    mapper_admin_send_connected(admin, router, c, i, b);
                 }
                 c = c->next;
                 i++;
@@ -1997,6 +2013,8 @@ static int handler_device_connections_get(const char *path,
         }
         router = router->next;
     }
+    lo_send_bundle(admin->admin_addr, b);
+    lo_bundle_free_messages(b);
 
     md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS;
     return 0;
