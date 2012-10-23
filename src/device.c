@@ -279,22 +279,23 @@ static int handler_query(const char *path, const char *types,
         return 0;
 
     int i;
-    lo_message m;
+    lo_message m = lo_message_new();
+    if (!m)
+        return 0;
+    lo_timetag tt = lo_message_get_timestamp(msg);
+    lo_bundle b = lo_bundle_new(tt);
 
     mapper_signal_instance si = sig->active_instances;
     if (!si) {
         // If there are no active instances, send null response
-        m = lo_message_new();
         lo_message_add_nil(m);
-        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
-        lo_message_free(m);
+        lo_bundle_add_message(b, &argv[0]->s, m);
+        lo_send_bundle(lo_message_get_source(msg), b);
+        lo_bundle_free_messages(b);
         return 0;
     }
 
     while (si) {
-        m = lo_message_new();
-        if (!m)
-            return 0;
         if (sig->props.num_instances > 1) {
             lo_message_add_int32(m, (long)si->id_map->group);
             lo_message_add_int32(m, (long)si->id_map->local);
@@ -319,10 +320,11 @@ static int handler_query(const char *path, const char *types,
         else {
             lo_message_add_nil(m);
         }
-        lo_send_message(lo_message_get_source(msg), &argv[0]->s, m);
-        lo_message_free(m);
+        lo_bundle_add_message(b, &argv[0]->s, m);
         si = si->next;
     }
+    lo_send_bundle(lo_message_get_source(msg), b);
+    lo_bundle_free_messages(b);
     return 0;
 }
 
