@@ -417,7 +417,9 @@ void mapper_router_send_queue(mapper_router r,
         q = q->next;
     }
     if (q) {
-        lo_send_bundle_from(r->props.dest_addr, r->device->server, q->bundle);
+        if (lo_bundle_count(q->bundle))
+            lo_send_bundle_from(r->props.dest_addr,
+                                r->device->server, q->bundle);
         lo_bundle_free_messages(q->bundle);
         mapper_router_release_queue(r, q);
     }
