@@ -1314,7 +1314,6 @@ static void update_connection_record_params(mapper_db_connection con,
     lo_arg **a_range = mapper_msg_get_param(params, AT_RANGE);
     const char *t_range = mapper_msg_get_type(params, AT_RANGE);
 
-    // TODO: currently ignoring strings such as 'invert', '-'
     if (a_range && (*a_range)) {
         if (t_range[0] == 'f') {
             con->range.src_min = a_range[0]->f;
