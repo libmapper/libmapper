@@ -483,6 +483,7 @@ void msig_release_instance_internal(mapper_signal sig,
     }
     else {
         si->is_active = 0;
+        si->id_map = 0;
         // Remove instance from active list, place in reserve
         mapper_signal_instance *msi = &sig->active_instances;
         while (*msi) {
@@ -570,12 +571,18 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
         return;
 
     // Find to instance
-    mapper_signal_instance si_to = msig_get_instance_with_id(to, instance_id, 1);
-    if (!si_to)
-        return;
-
-    // Copy instance ID map reference
-    si_to->id_map = si_from->id_map;
+    mapper_signal_instance si_to = msig_find_instance_with_id(to, instance_id);
+    if (si_to) {
+        if (si_from->id_map == si_to->id_map)
+            return;
+        if (si_to->id_map)
+            si_to->id_map->reference_count--;
+        si_from->id_map->reference_count++;
+        // Copy instance ID map reference
+        si_to->id_map = si_from->id_map;
+    }
+    else
+        msig_get_instance_with_id_map(to, si_from->id_map, 1);
 }
 
 int msig_num_active_instances(mapper_signal sig)
