@@ -417,7 +417,9 @@ void mapper_router_send_queue(mapper_router r,
         q = q->next;
     }
     if (q) {
+#ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count(q->bundle))
+#endif
             lo_send_bundle_from(r->props.dest_addr,
                                 r->device->server, q->bundle);
         lo_bundle_free_messages(q->bundle);
