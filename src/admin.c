@@ -737,11 +737,13 @@ static void mapper_admin_send_linked(mapper_admin admin,
     lo_message_add_string(m, mdev_name(router->device));
     lo_message_add_string(m, router->props.dest_name);
 
-    // Add link scopes
-    int i;
-    lo_message_add_string(m, "@scope");
-    for (i=0; i<router->props.num_scopes; i++) {
-        lo_message_add_string(m, router->props.scope_names[i]);
+    if (router->props.num_scopes) {
+        // Add link scopes
+        int i;
+        lo_message_add_string(m, "@scope");
+        for (i=0; i<router->props.num_scopes; i++) {
+            lo_message_add_string(m, router->props.scope_names[i]);
+        }
     }
 
     mapper_link_prepare_osc_message(m, router);
@@ -1349,7 +1351,6 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_db db = mapper_monitor_get_db(mon);
 
     const char *src_name, *dest_name, *host=0;
-    // TODO need to add handling of link scopes
     int port;
 
     if (argc < 2)
@@ -1461,10 +1462,8 @@ static int handler_device_unlink(const char *path, const char *types,
     if (router) {
         if (scope) {
             mapper_router_remove_scope(router, scope);
-            if (router->props.num_scopes > 0) {
-                mapper_admin_send_linked(admin, router);
-                return 0;
-            }
+            mapper_admin_send_linked(admin, router);
+            return 0;
         }
         else {
             lo_arg *arg_scope = (lo_arg*) admin->name;
@@ -1502,20 +1501,33 @@ static int handler_device_unlinked(const char *path, const char *types,
     const char *src_name = &argv[0]->s;
     const char *dest_name = &argv[1]->s;
 
+    mapper_message_t params;
+    memset(&params, 0, sizeof(mapper_message_t));
+    // add arguments from /unlink if any
+    if (mapper_msg_parse_params(&params, path, &types[2],
+                                argc-2, &argv[2]))
+    {
+        trace("<%s> error parsing message parameters in /unlinked.\n",
+              mapper_admin_name(admin));
+        return 0;
+    }
+    const char *scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
+
+
     if (mon) {
         trace("<monitor> got /unlinked %s %s + %i arguments\n",
               src_name, dest_name, argc-2);
 
-        // TODO: integrate scopes with monitor/db
         mapper_db db = mapper_monitor_get_db(mon);
 
-        mapper_db_remove_connections_by_query(db,
-            mapper_db_get_connections_by_src_dest_device_names(db, src_name,
-                                                               dest_name));
-
-        mapper_db_remove_link(db,
-            mapper_db_get_link_by_src_dest_names(db, src_name,
-                                                 dest_name));
+        if (!scope) {
+            mapper_db_remove_connections_by_query(db,
+                mapper_db_get_connections_by_src_dest_device_names(db, src_name,
+                                                                   dest_name));
+            mapper_db_remove_link(db,
+                mapper_db_get_link_by_src_dest_names(db, src_name,
+                                                     dest_name));
+        }
     }
 
     if (md) {
