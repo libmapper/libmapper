@@ -156,8 +156,8 @@ typedef mapper_admin_t *mapper_admin;
  *  defined in mapper_db.h. */
 typedef struct _mapper_connection {
     mapper_db_connection_t props;           //!< Properties
-    struct _mapper_router_signal *parent;   /*!< Parent signal
-                                             *   reference in router. */
+    struct _mapper_link_signal *parent;     /*!< Parent signal reference
+                                             *   in router or receiver. */
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */
@@ -169,41 +169,40 @@ typedef struct _mapper_connection {
     struct _mapper_connection *next;        //!< Next connection in the list.
 } *mapper_connection;
 
-/*! The router_signal is a linked list containing a signal and a
- *  list of connections.  For each router, there is one per signal of
- *  the associated device.  TODO: This should be replaced with a more
+/*! The link_signal is a linked list containing a signal and a
+ *  list of connections.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
-typedef struct _mapper_router_signal {
-    struct _mapper_router *router;          //!< The parent router.
+typedef struct _mapper_link_signal {
+    struct _mapper_link *link;              //!< The parent link.
     struct _mapper_signal *signal;          //!< The associated signal.
     int num_instances;                      //!< Number of instances allocated.
-    mapper_signal_history_t *history;       /*!< Array of input histories
+    mapper_signal_history_t *history;       /*!< Array of value histories
                                              *   for each signal instance. */
     mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
-    struct _mapper_router_signal *next;     /*!< The next signal connection
+    struct _mapper_link_signal *next;     /*!< The next signal connection
                                              *   in the list. */
-} *mapper_router_signal;
+} *mapper_link_signal, *mapper_router_signal, *mapper_receiver_signal;
 
-typedef struct _mapper_router_queue {
+typedef struct _mapper_queue {
     mapper_timetag_t tt;
     lo_bundle bundle;
-    struct _mapper_router_queue *next;
-} *mapper_router_queue;
+    struct _mapper_queue *next;
+} *mapper_queue;
 
-/*! The router structure is a linked list of routers each associated
+/*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_router {
+typedef struct _mapper_link {
     mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
-                                     *   this router */
-    mapper_router_signal signals;   /*!< The list of connections
+                                     *   this link */
+    mapper_link_signal signals;     /*!< The list of connections
                                      *  for each signal. */
-    int n_connections_out;          //!< Number of outgoing connections.
-    mapper_router_queue queues;     /*!< Linked-list of message queues
+    int n_connections;              //!< Number of connections in link.
+    mapper_queue queues;            /*!< Linked-list of message queues
                                      *   waiting to be sent. */
-    struct _mapper_router *next;    //!< Next router in the list.
-} *mapper_router;
+    struct _mapper_link *next;      //!< Next link in the list.
+} *mapper_link, *mapper_router, *mapper_receiver;
 
 /**** Device ****/
 
@@ -226,11 +225,13 @@ typedef struct _mapper_device {
     int n_query_inputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
-    int n_links;
+    int n_links_in;
+    int n_links_out;
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
+    mapper_receiver receivers;
     struct _mapper_instance_id_map *active_id_map; /*!< The list of active instance
                                                     * id mappings. */
     struct _mapper_instance_id_map *reserve_id_map; /*!< The list of reserve instance

@@ -240,6 +240,7 @@ typedef struct _mapper_db_signal
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
+    lo_address src_addr;            //!< Address of the source device.
     lo_address dest_addr;           //!< Address of the destination device.
     int num_scopes;                 //!< The number of instance group scopes.
     char **scope_names;             //!< Array of instance group scopes.

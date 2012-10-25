@@ -19,7 +19,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int port, const char *name, int local)
 {
     char str[16];
-    mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
+    mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_link));
     sprintf(str, "%d", port);
     router->props.dest_addr = lo_address_new(host, str);
     router->props.dest_name = strdup(name);
@@ -36,7 +36,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     router->props.extra = table_new();
     router->device = device;
     router->signals = 0;
-    router->n_connections_out = 0;
+    router->n_connections = 0;
 
     if (!router->props.dest_addr) {
         mapper_router_free(router);
@@ -351,7 +351,7 @@ void mapper_router_send_or_bundle_message(mapper_router r,
                                           mapper_timetag_t tt)
 {
     // Check if a matching bundle exists
-    mapper_router_queue q = r->queues;
+    mapper_queue q = r->queues;
     while (q) {
         if (memcmp(&q->tt, &tt,
                    sizeof(mapper_timetag_t))==0)
@@ -376,7 +376,7 @@ void mapper_router_start_queue(mapper_router r,
                                mapper_timetag_t tt)
 {
     // first check if queue already exists
-    mapper_router_queue q = r->queues;
+    mapper_queue q = r->queues;
     while (q) {
         if (memcmp(&q->tt, &tt,
                    sizeof(mapper_timetag_t))==0)
@@ -385,7 +385,7 @@ void mapper_router_start_queue(mapper_router r,
     }
 
     // need to create new queue
-    q = malloc(sizeof(struct _mapper_router_queue));
+    q = malloc(sizeof(struct _mapper_queue));
     memcpy(&q->tt, &tt, sizeof(mapper_timetag_t));
     //q->bundle = lo_bundle_new(tt);
     q->bundle = lo_bundle_new(LO_TT_IMMEDIATE);
@@ -394,9 +394,9 @@ void mapper_router_start_queue(mapper_router r,
 }
 
 void mapper_router_release_queue(mapper_router r,
-                                 mapper_router_queue q)
+                                 mapper_queue q)
 {
-    mapper_router_queue *temp = &r->queues;
+    mapper_queue *temp = &r->queues;
     while (*temp) {
         if (*temp == q) {
             *temp = q->next;
@@ -410,7 +410,7 @@ void mapper_router_release_queue(mapper_router r,
 void mapper_router_send_queue(mapper_router r,
                               mapper_timetag_t tt)
 {
-    mapper_router_queue q = r->queues;
+    mapper_queue q = r->queues;
     while (q) {
         if (memcmp(&q->tt, &tt, sizeof(mapper_timetag_t))==0)
             break;
@@ -451,7 +451,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     // if not found, create a new list entry
     if (!rs) {
         rs = (mapper_router_signal)
-            calloc(1, sizeof(struct _mapper_router_signal));
+            calloc(1, sizeof(struct _mapper_link_signal));
         rs->signal = sig;
         rs->history = malloc(sizeof(struct _mapper_signal_history)
                              * sig->props.num_instances);
@@ -502,7 +502,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->next = rs->connections;
     rs->connections = c;
     c->parent = rs;
-    r->n_connections_out++;
+    r->n_connections++;
 
     return c;
 }
@@ -524,7 +524,7 @@ int mapper_router_remove_connection(mapper_router r,
             if (c->blob)
                 free(c->blob);
             free(c);
-            r->n_connections_out--;
+            r->n_connections--;
             return 0;
         }
         temp = &(*temp)->next;

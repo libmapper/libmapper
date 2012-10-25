@@ -106,11 +106,13 @@ static struct handler_method_assoc device_handlers[] = {
     {"%s/links/get",            "",         handler_device_links_get},
     {"/link",                   NULL,       handler_device_link},
     {"/linkTo",                 NULL,       handler_device_linkTo},
+    {"/linked",                 NULL,       handler_device_linked},
     {"/unlink",                 NULL,       handler_device_unlink},
     {"/unlinked",               NULL,       handler_device_unlinked},
     {"%s/connections/get",      NULL,       handler_device_connections_get},
     {"/connect",                NULL,       handler_signal_connect},
     {"/connectTo",              NULL,       handler_signal_connectTo},
+    {"/connected",              NULL,       handler_signal_connected},
     {"/connection/modify",      NULL,       handler_signal_connection_modify},
     {"/disconnect",             "ss",       handler_signal_disconnect},
     {"/disconnected",           "ss",       handler_signal_disconnected},
@@ -803,8 +805,8 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
         admin->port ? AT_PORT : -1, admin->port,
         AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-        AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,
-        AT_NUMCONNECTIONS, admin->device ? mdev_num_connections(admin->device) : 0,
+        AT_NUMLINKS, admin->device ? mdev_num_links_out(admin->device) : 0,
+        AT_NUMCONNECTIONS, admin->device ? mdev_num_connections_out(admin->device) : 0,
         AT_REV, admin->device->version,
         AT_EXTRA, admin->device->extra);
 
@@ -1229,7 +1231,6 @@ static int handler_device_link(const char *path, const char *types,
           src_name, dest_name);
 
     mapper_message_t params;
-    memset(&params, 0, sizeof(mapper_message_t));
     // add arguments from /link if any
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
@@ -1281,7 +1282,6 @@ static int handler_device_linkTo(const char *path, const char *types,
           src_name, dest_name);
 
     // Parse the message.
-    memset(&params, 0, sizeof(mapper_message_t));
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
     {
@@ -1344,9 +1344,13 @@ static int handler_device_linked(const char *path, const char *types,
                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
-    const char *src_name, *dest_name;
+
+    const char *src_name, *dest_name, *host=0;
+    // TODO need to add handling of link scopes
+    int port;
 
     if (argc < 2)
         return 0;
@@ -1364,7 +1368,26 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, argv+2))
         return 0;
-    mapper_db_add_or_update_link_params(db, src_name, dest_name, &params);
+    if (mon)
+        mapper_db_add_or_update_link_params(db, src_name, dest_name, &params);
+    if (!md || strcmp(mdev_name(md), dest_name) == 0)
+        return 0;
+
+    // Add a receiver data structure
+    mapper_receiver receiver =
+        mapper_receiver_find_by_src_name(md->receivers, src_name);
+    if (!receiver) {
+        // Find the sender's hostname
+        lo_address a = lo_message_get_source(msg);
+        host = lo_address_get_hostname(a);
+        const char *temp = lo_address_get_port(a);
+        port = strtol(temp, NULL, 10);
+        if (!port)
+            return 0;
+        receiver = mapper_receiver_new(md, host, port, src_name);
+        if (receiver)
+            mdev_add_receiver(md, receiver);
+    }
 
     return 0;
 }
@@ -1418,7 +1441,6 @@ static int handler_device_unlink(const char *path, const char *types,
           src_name, dest_name, argc-2);
 
     mapper_message_t params;
-    memset(&params, 0, sizeof(mapper_message_t));
     // add arguments from /unlink if any
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
@@ -1484,6 +1506,7 @@ static int handler_device_unlinked(const char *path, const char *types,
         trace("<monitor> got /unlinked %s %s + %i arguments\n",
               src_name, dest_name, argc-2);
 
+        // TODO: integrate scopes with monitor/db
         mapper_db db = mapper_monitor_get_db(mon);
 
         mapper_db_remove_connections_by_query(db,
@@ -1503,8 +1526,6 @@ static int handler_device_unlinked(const char *path, const char *types,
             return 0;
 
         mapper_message_t params;
-        memset(&params, 0, sizeof(mapper_message_t));
-        // add arguments from /unlink if any
         if (mapper_msg_parse_params(&params, path, &types[2],
                                     argc-2, &argv[2]))
         {
@@ -1515,7 +1536,21 @@ static int handler_device_unlinked(const char *path, const char *types,
 
         const char *scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
 
-        mdev_release_scope(md, scope);
+        /* Remove the receiver for the source. */
+        mapper_receiver receiver =
+            mapper_receiver_find_by_src_name(md->receivers, src_name);
+        if (receiver) {
+            if (scope) {
+                mapper_receiver_remove_scope(receiver, scope);
+                if (receiver->props.num_scopes > 0)
+                    return 0;
+            }
+            mdev_remove_receiver(md, receiver);
+        }
+        else {
+            trace("<%s> no receiver for %s found in /unlinked handler\n",
+                  mapper_admin_name(admin), src_name);
+        }
     }
     return 0;
 }
@@ -1596,7 +1631,6 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     mapper_message_t params;
-    memset(&params, 0, sizeof(mapper_message_t));
 
     // add arguments from /connect if any
     if (mapper_msg_parse_params(&params, path, &types[2],
@@ -1782,8 +1816,9 @@ static int handler_signal_connected(const char *path, const char *types,
         lo_message_pp(msg);
         return 0;
     }
-    mapper_db_add_or_update_connection_params(db, src_signal_name,
-                                              dest_signal_name, &params);
+    if (mon)
+        mapper_db_add_or_update_connection_params(db, src_signal_name,
+                                                  dest_signal_name, &params);
 
     return 0;
 }

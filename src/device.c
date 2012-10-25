@@ -54,10 +54,6 @@ mapper_device mdev_new(const char *name_prefix, int port,
 
     mapper_admin_add_device(md->admin, md, name_prefix, port);
 
-    md->routers = 0;
-    md->active_id_map = 0;
-    md->reserve_id_map = 0;
-    md->id_counter = 0;
     md->extra = table_new();
     return md;
 }
@@ -90,6 +86,8 @@ void mdev_free(mapper_device md)
         }
         while (md->routers)
             mdev_remove_router(md, md->routers);
+        while (md->receivers)
+            mdev_remove_receiver(md, md->receivers);
         if (md->extra)
             table_free(md->extra, 1);
         free(md);
@@ -584,17 +582,33 @@ int mdev_num_outputs(mapper_device md)
     return md->n_outputs;
 }
 
-int mdev_num_links(mapper_device md)
+int mdev_num_links_in(mapper_device md)
 {
-    return md->n_links;
+    return md->n_links_in;
 }
 
-int mdev_num_connections(mapper_device md)
+int mdev_num_links_out(mapper_device md)
+{
+    return md->n_links_out;
+}
+
+int mdev_num_connections_in(mapper_device md)
+{
+    mapper_receiver r = md->receivers;
+    int count = 0;
+    while (r) {
+        count += r->n_connections;
+        r = r->next;
+    }
+    return count;
+}
+
+int mdev_num_connections_out(mapper_device md)
 {
     mapper_router r = md->routers;
     int count = 0;
     while (r) {
-        count += r->n_connections_out;
+        count += r->n_connections;
         r = r->next;
     }
     return count;
@@ -779,60 +793,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     mapper_router *r = &md->routers;
     rt->next = *r;
     *r = rt;
-    md->n_links++;
-}
-
-void mdev_release_scope(mapper_device md, const char *scope)
-{
-    if (!scope)
-        return;
-
-    int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    mapper_signal_instance si;
-
-    // Release input instances owned by remote device
-    mapper_signal *psig = mdev_get_inputs(md);
-    for (i=0; i < mdev_num_inputs(md); i++) {
-        // get instances
-        si = psig[i]->active_instances;
-        while (si) {
-            if (si->id_map->group == hash) {
-                if (psig[i]->handler) {
-                    psig[i]->handler(psig[i], &psig[i]->props,
-                                     si->id_map->local, 0, 0, 0);
-                }
-                msig_release_instance_internal(psig[i], si, 0,
-                                               MAPPER_TIMETAG_NOW);
-            }
-            si = si->next;
-        }
-    }
-
-    // Release output instances owned by remote device
-    psig = mdev_get_outputs(md);
-    for (i=0; i < mdev_num_outputs(md); i++) {
-        // get instances
-        si = psig[i]->active_instances;
-        while (si) {
-            if (si->id_map->group == hash) {
-                msig_release_instance_internal(psig[i], si, 0,
-                                               MAPPER_TIMETAG_NOW);
-            }
-            si = si->next;
-        }
-    }
-
-    // Remove instance maps referring to remote device
-    mapper_instance_id_map map = md->active_id_map;
-    while (map) {
-        if (map->group == hash) {
-            mapper_instance_id_map temp = map->next;
-            mdev_remove_instance_id_map(md, map);
-            map = temp;
-        }
-        else
-            map = map->next;
-    }
+    md->n_links_out++;
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
@@ -891,7 +852,50 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         r = &(*r)->next;
     }
 
-    md->n_links--;
+    md->n_links_out--;
+}
+
+void mdev_add_receiver(mapper_device md, mapper_receiver rc)
+{
+    mapper_router *r = &md->receivers;
+    rc->next = *r;
+    *r = rc;
+    md->n_links_in++;
+}
+
+void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
+{
+    // first remove connections
+    mapper_router_signal rs = rc->signals;
+    while (rs) {
+        mapper_connection c = rs->connections, temp;
+        while (c) {
+            temp = c->next;
+            mapper_receiver_remove_connection(rc, c);
+            c = temp;
+        }
+        rs = rs->next;
+    }
+    
+    int i;
+    for (i=0; i<rc->props.num_scopes; i++) {
+        free(rc->props.scope_names[i]);
+    }
+    free(rc->props.scope_names);
+    free(rc->props.scope_hashes);
+    
+    // remove receiver
+    mapper_receiver *r = &md->receivers;
+    while (*r) {
+        if (*r == rc) {
+            *r = rc->next;
+            free(rc);
+            break;
+        }
+        r = &(*r)->next;
+    }
+    
+    md->n_links_in--;
 }
 
 void mdev_reserve_instance_id_map(mapper_device dev)

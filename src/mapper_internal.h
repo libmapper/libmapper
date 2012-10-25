@@ -143,6 +143,10 @@ void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
 
+void mdev_add_receiver(mapper_device md, mapper_receiver r);
+
+void mdev_remove_receiver(mapper_device md, mapper_receiver r);
+
 void mdev_release_scope(mapper_device md, const char *scope);
 
 void mdev_start_server(mapper_device mdev);
@@ -232,6 +236,40 @@ void mapper_router_remove_scope(mapper_router router, const char *scope);
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
 void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
+
+/***** Receiver *****/
+
+mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
+                                    int port, const char *name);
+
+void mapper_receiver_free(mapper_receiver receiver);
+
+/*! Set a router's properties based on message parameters. */
+void mapper_receiver_set_from_message(mapper_receiver receiver,
+                                      mapper_message_t *msg);
+
+mapper_connection mapper_receiver_add_connection(mapper_receiver receiver,
+                                                 mapper_signal sig,
+                                                 const char *src_name,
+                                                 char src_type,
+                                                 int src_length);
+
+int mapper_receiver_remove_connection(mapper_receiver receiver,
+                                      mapper_connection connection);
+
+int mapper_receiver_in_scope(mapper_receiver receiver, int group_id);
+
+/*! Find a receiver by source address in a linked list of receivers. */
+mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
+                                                    lo_address src_addr);
+
+/*! Find a receiver by source device name in a linked list of receivers. */
+mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
+                                                 const char *src_name);
+
+int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
+
+void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 

@@ -360,11 +360,17 @@ int mdev_num_inputs(mapper_device dev);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
 
-//! Return the number of links.
-int mdev_num_links(mapper_device dev);
+//! Return the number of incoming links.
+int mdev_num_links_in(mapper_device dev);
 
-//! Return the number of connections.
-int mdev_num_connections(mapper_device dev);
+//! Return the number of outgoing links.
+int mdev_num_links_out(mapper_device dev);
+
+//! Return the number of incoming connections.
+int mdev_num_connections_in(mapper_device dev);
+
+//! Return the number of outgoing connections.
+int mdev_num_connections_out(mapper_device dev);
 
 /*! Get input signals.
  *  \param dev Device to search in.
