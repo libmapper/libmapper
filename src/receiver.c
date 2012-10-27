@@ -32,26 +32,16 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
 
 void mapper_receiver_free(mapper_receiver r)
 {
-    if (!r)
-        return;
+    int i;
 
-    if (r->props.src_addr)
-        lo_address_free(r->props.src_addr);
-    if (r->signals) {
-        mapper_receiver_signal rs = r->signals;
-        while (rs) {
+    if (r) {
+        if (r->props.src_addr)
+            lo_address_free(r->props.src_addr);
+        while (r->signals) {
+            mapper_receiver_signal rs = r->signals;
             mapper_receiver_signal tmp = rs->next;
-            if (rs->connections) {
-                mapper_connection c = rs->connections;
-                while (c) {
-                    mapper_connection tmp = c->next;
-                    if (tmp->props.src_name)
-                        free(tmp->props.src_name);
-                    if (tmp->props.dest_name)
-                        free(tmp->props.dest_name);
-                    free(c);
-                    c = tmp;
-                }
+            while (rs->connections) {
+                mapper_receiver_remove_connection(r, rs->connections);
             }
             int i;
             for (i=0; i<rs->num_instances; i++) {
@@ -59,11 +49,17 @@ void mapper_receiver_free(mapper_receiver r)
                 free(rs->history[i].timetag);
             }
             free(rs->history);
+            r->signals = rs->next;
             free(rs);
             rs = tmp;
         }
+        for (i=0; i<r->props.num_scopes; i++) {
+            free(r->props.scope_names[i]);
+        }
+        free(r->props.scope_names);
+        free(r->props.scope_hashes);
+        free(r);
     }
-    free(r);
 }
 
 mapper_connection mapper_receiver_add_connection(mapper_receiver r,
@@ -126,11 +122,15 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
 int mapper_receiver_remove_connection(mapper_receiver r,
                                       mapper_connection c)
 {
+    int i;
     mapper_connection *temp = &c->parent->connections;
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
-            int i;
+            if (c->props.src_name)
+                free(c->props.src_name);
+            if (c->props.dest_name)
+                free(c->props.dest_name);
             for (i=0; i<c->parent->num_instances; i++) {
                 free(c->history[i].value);
                 free(c->history[i].timetag);
@@ -148,11 +148,32 @@ int mapper_receiver_remove_connection(mapper_receiver r,
     return 1;
 }
 
+mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
+                                                           const char* src_name,
+                                                           const char* dest_name)
+{
+    // find associated receiver_signal
+    mapper_receiver_signal rs = rc->signals;
+    while (rs && strcmp(rs->signal->props.name, dest_name) != 0)
+        rs = rs->next;
+    if (!rs)
+        return NULL;
+
+    // find associated connection
+    mapper_connection c = rs->connections;
+    while (c && strcmp(c->props.src_name, src_name) != 0)
+        c = c->next;
+    if (!c)
+        return NULL;
+    else
+        return c;
+}
+
 int mapper_receiver_add_scope(mapper_receiver r, const char *scope)
 {
     if (!scope)
         return 1;
-    // Check if scope is already stored for this router
+    // Check if scope is already stored for this receiver
     int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     mapper_db_link props = &r->props;
     for (i=0; i<props->num_scopes; i++)
@@ -194,51 +215,49 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
         }
     }
 
-    // Check if there are other incoming links with this scope
+    /* If we are removing local scope, do not continue. */
+    if (hash == md->admin->name_hash)
+        return;
+
+    /* If there are other incoming links with this scope, do not continue. */
+    /* TODO: really we should proceed but with caution: we can release input
+     * instances as long as the signals are not mapper from another link with
+     * this scope. */
     mapper_receiver rc = md->receivers;
     while (rc) {
-        if (rc == receiver)
-            continue;
-        if (mapper_receiver_in_scope(rc, hash))
+        if (rc != receiver && mapper_receiver_in_scope(rc, hash))
             return;
         rc = rc->next;
     }
 
     mapper_signal_instance si;
 
-    // Release input instances owned by remote device
-    mapper_signal *psig = mdev_get_inputs(md);
-    for (i=0; i < mdev_num_inputs(md); i++) {
-        // get instances
-        si = psig[i]->active_instances;
+    /* Release input instances owned by remote device. */
+    mapper_receiver_signal rs = receiver->signals;
+    while (rs) {
+        si = rs->signal->active_instances;
         while (si) {
             if (si->id_map->group == hash) {
-                if (psig[i]->handler) {
-                    psig[i]->handler(psig[i], &psig[i]->props,
-                                     si->id_map->local, 0, 0, 0);
+                if (rs->signal->handler) {
+                    rs->signal->handler(rs->signal, &rs->signal->props,
+                                        si->id_map->local, 0, 0, 0);
                 }
-                msig_release_instance_internal(psig[i], si, 0,
+                mapper_signal_instance temp = si;
+                si = si->next;
+                msig_release_instance_internal(rs->signal, temp, 0,
                                                MAPPER_TIMETAG_NOW);
+                continue;
             }
             si = si->next;
         }
+        rs = rs->next;
     }
 
-    // Release output instances owned by remote device
-    psig = mdev_get_outputs(md);
-    for (i=0; i < mdev_num_outputs(md); i++) {
-        // get instances
-        si = psig[i]->active_instances;
-        while (si) {
-            if (si->id_map->group == hash) {
-                msig_release_instance_internal(psig[i], si, 0,
-                                               MAPPER_TIMETAG_NOW);
-            }
-            si = si->next;
-        }
-    }
+    /* Rather than releasing output signal instances owned by the remote scope,
+     * we will trust that whatever mechanism created these instances is also
+     * capable of releasing them appropriately when the input handlers are called. */
     
-    // Remove instance maps referring to remote device
+    /* Remove instance maps referring to remote device. */
     mapper_instance_id_map map = md->active_id_map;
     while (map) {
         if (map->group == hash) {

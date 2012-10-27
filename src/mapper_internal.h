@@ -219,6 +219,11 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
+/*! Find a connection in a router by source and destination signal names. */
+mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
+                                                         const char* src_name,
+                                                         const char* dest_name);
+
 int mapper_router_in_scope(mapper_router router, int group_id);
 
 /*! Find a router by destination address in a linked list of routers. */
@@ -256,6 +261,11 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver receiver,
 
 int mapper_receiver_remove_connection(mapper_receiver receiver,
                                       mapper_connection connection);
+
+/*! Find a connection in a receiver by source and destination signal names. */
+mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
+                                                           const char* src_name,
+                                                           const char* dest_name);
 
 int mapper_receiver_in_scope(mapper_receiver receiver, int group_id);
 
@@ -366,10 +376,6 @@ int mapper_connection_perform(mapper_connection connection,
 
 int mapper_clipping_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
-
-mapper_connection mapper_connection_find_by_names(mapper_device md,
-                                                  const char* src_name,
-                                                  const char* dest_name);
 
 /*! Set a connection's properties based on message parameters. */
 void mapper_connection_set_from_message(mapper_connection connection,

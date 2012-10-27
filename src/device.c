@@ -798,66 +798,21 @@ void mdev_add_router(mapper_device md, mapper_router rt)
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
 {
-    // first remove connections
-    mapper_router_signal rs = rt->signals;
-    while (rs) {
-        mapper_connection c = rs->connections, temp;
-        while (c) {
-            temp = c->next;
-            mapper_router_remove_connection(rt, c);
-            c = temp;
-        }
-        rs = rs->next;
-    }
-
-    int i;
-    for (i=0; i<rt->props.num_scopes; i++) {
-        // For each scope in this router...
-        mapper_router temp = md->routers;
-        int safe = 1;
-        while (temp) {
-            if (mapper_router_in_scope(temp, rt->props.scope_hashes[i])) {
-                safe = 1;
-                break;
-            }
-            temp = temp->next;
-        }
-        if (!safe) {
-            /* scope is not used by any other routers, safe to clear
-             * corresponding instances in instance id map. */
-            mapper_instance_id_map map = md->active_id_map;
-            while (map) {
-                if (map->group == rt->props.scope_hashes[i]) {
-                    mapper_instance_id_map temp = map->next;
-                    mdev_remove_instance_id_map(md, map);
-                    map = temp;
-                }
-                else
-                    map = map->next;
-            }
-        }
-        free(rt->props.scope_names[i]);
-    }
-    free(rt->props.scope_names);
-    free(rt->props.scope_hashes);
-
-    // remove router
     mapper_router *r = &md->routers;
     while (*r) {
         if (*r == rt) {
             *r = rt->next;
-            free(rt);
+            mapper_router_free(rt);
             break;
         }
         r = &(*r)->next;
     }
-
     md->n_links_out--;
 }
 
 void mdev_add_receiver(mapper_device md, mapper_receiver rc)
 {
-    mapper_router *r = &md->receivers;
+    mapper_receiver *r = &md->receivers;
     rc->next = *r;
     *r = rc;
     md->n_links_in++;
@@ -865,36 +820,21 @@ void mdev_add_receiver(mapper_device md, mapper_receiver rc)
 
 void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
 {
-    // first remove connections
-    mapper_router_signal rs = rc->signals;
-    while (rs) {
-        mapper_connection c = rs->connections, temp;
-        while (c) {
-            temp = c->next;
-            mapper_receiver_remove_connection(rc, c);
-            c = temp;
-        }
-        rs = rs->next;
+    // release remotely-owned instances
+    while (rc->props.num_scopes) {
+        mapper_receiver_remove_scope(rc, rc->props.scope_names[0]);
     }
-    
-    int i;
-    for (i=0; i<rc->props.num_scopes; i++) {
-        free(rc->props.scope_names[i]);
-    }
-    free(rc->props.scope_names);
-    free(rc->props.scope_hashes);
-    
+
     // remove receiver
     mapper_receiver *r = &md->receivers;
     while (*r) {
         if (*r == rc) {
             *r = rc->next;
-            free(rc);
+            mapper_receiver_free(rc);
             break;
         }
         r = &(*r)->next;
     }
-    
     md->n_links_in--;
 }
 

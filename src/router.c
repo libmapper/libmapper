@@ -45,38 +45,39 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     return router;
 }
 
-void mapper_router_free(mapper_router router)
+void mapper_router_free(mapper_router r)
 {
-    if (router) {
-        if (router->props.dest_addr)
-            lo_address_free(router->props.dest_addr);
-        if (router->signals) {
-            mapper_router_signal rs = router->signals;
-            while (rs) {
-                mapper_router_signal tmp = rs->next;
-                if (rs->connections) {
-                    mapper_connection c = rs->connections;
-                    while (c) {
-                        mapper_connection tmp = c->next;
-                        if (tmp->props.src_name)
-                            free(tmp->props.src_name);
-                        if (tmp->props.dest_name)
-                            free(tmp->props.dest_name);
-                        free(c);
-                        c = tmp;
-                    }
-                }
-                int i;
-                for (i=0; i<rs->num_instances; i++) {
-                    free(rs->history[i].value);
-                    free(rs->history[i].timetag);
-                }
-                free(rs->history);
-                free(rs);
-                rs = tmp;
+    int i;
+
+    if (r) {
+        if (r->props.dest_addr)
+            lo_address_free(r->props.dest_addr);
+        while (r->signals) {
+            mapper_router_signal rs = r->signals;
+            while (rs->connections) {
+                mapper_router_remove_connection(r, rs->connections);
             }
+            int i;
+            for (i=0; i<rs->num_instances; i++) {
+                free(rs->history[i].value);
+                free(rs->history[i].timetag);
+            }
+            free(rs->history);
+            r->signals = rs->next;
+            free(rs);
         }
-        free(router);
+        while (r->queues) {
+            mapper_queue q = r->queues;
+            lo_bundle_free_messages(q->bundle);
+            r->queues = q->next;
+            free(q);
+        }
+        for (i=0; i<r->props.num_scopes; i++) {
+            free(r->props.scope_names[i]);
+        }
+        free(r->props.scope_names);
+        free(r->props.scope_hashes);
+        free(r);
     }
 }
 
@@ -510,11 +511,15 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 int mapper_router_remove_connection(mapper_router r,
                                     mapper_connection c)
 {
+    int i;
     mapper_connection *temp = &c->parent->connections;
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
-            int i;
+            if (c->props.src_name)
+                free(c->props.src_name);
+            if (c->props.dest_name)
+                free(c->props.dest_name);
             for (i=0; i<c->parent->num_instances; i++) {
                 free(c->history[i].value);
                 free(c->history[i].timetag);
@@ -530,6 +535,27 @@ int mapper_router_remove_connection(mapper_router r,
         temp = &(*temp)->next;
     }
     return 1;
+}
+
+mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
+                                                         const char* src_name,
+                                                         const char* dest_name)
+{
+    // find associated router_signal
+    mapper_router_signal rs = rt->signals;
+    while (rs && strcmp(rs->signal->props.name, src_name) != 0)
+        rs = rs->next;
+    if (!rs)
+        return NULL;
+
+    // find associated connection
+    mapper_connection c = rs->connections;
+    while (c && strcmp(c->props.dest_name, dest_name) != 0)
+        c = c->next;
+    if (!c)
+        return NULL;
+    else
+        return c;
 }
 
 int mapper_router_add_scope(mapper_router router, const char *scope)
@@ -553,9 +579,13 @@ int mapper_router_add_scope(mapper_router router, const char *scope)
 
 void mapper_router_remove_scope(mapper_router router, const char *scope)
 {
+    int i, j, hash;
+
     if (!scope)
         return;
-    int i, j, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+
+    hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+
     mapper_db_link props = &router->props;
     for (i=0; i<props->num_scopes; i++) {
         if (props->scope_hashes[i] == hash) {
@@ -572,6 +602,9 @@ void mapper_router_remove_scope(mapper_router router, const char *scope)
             return;
         }
     }
+
+    /* Here we could release mapped signal instances with this scope,
+     * but we will let the receiver-side handle it instead. */
 }
 
 int mapper_router_in_scope(mapper_router router, int id)
