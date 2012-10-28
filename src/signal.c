@@ -224,7 +224,7 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
         return si;
     }
 
-    if (!is_new_instance) {
+    if (!is_new_instance || !sig->active_instances) {
         // Do not allow stealing unless this is a new instance
         return 0;
     }
@@ -261,7 +261,6 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
     return 0;
 
 stole:
-    /* value = NULL signifies release of the instance */
     if (sig->handler) {
         // TODO: should use current time for timetag?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
@@ -308,7 +307,7 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
         return si;
     }
 
-    if (!is_new_instance) {
+    if (!is_new_instance || !sig->active_instances) {
         // Do not allow stealing unless this is a new instance
         return 0;
     }
@@ -345,9 +344,8 @@ mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
     return 0;
 
 stole:
-    /* value = NULL signifies release of the instance */
     if (sig->handler) {
-        // TODO: should use current time for timetag?
+        // TODO: should use current time for timetag? Or take it from signal handler?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
     msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
@@ -473,7 +471,7 @@ void msig_release_instance_internal(mapper_signal sig,
         msig_update_internal(sig, si, NULL, 0, 1, timetag);
     }
 
-    if (si->id_map && --si->id_map->reference_count <= 0)
+    if (--si->id_map->reference_count <= 0 && !si->id_map->release_time)
         mdev_remove_instance_id_map(sig->device, si->id_map);
 
     if (stolen) {
@@ -565,24 +563,13 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
     if (from == to)
         return;
 
-    // Find from instance
+    // Find "from" instance
     mapper_signal_instance si_from = msig_find_instance_with_id(from, instance_id);
     if (!si_from)
         return;
 
-    // Find to instance
-    mapper_signal_instance si_to = msig_find_instance_with_id(to, instance_id);
-    if (si_to) {
-        if (si_from->id_map == si_to->id_map)
-            return;
-        if (si_to->id_map)
-            si_to->id_map->reference_count--;
-        si_from->id_map->reference_count++;
-        // Copy instance ID map reference
-        si_to->id_map = si_from->id_map;
-    }
-    else
-        msig_get_instance_with_id_map(to, si_from->id_map, 1);
+    // Get "to" instance with same map
+    msig_get_instance_with_id_map(to, si_from->id_map, 1);
 }
 
 int msig_num_active_instances(mapper_signal sig)
