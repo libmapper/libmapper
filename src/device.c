@@ -194,6 +194,14 @@ static int handler_signal_instance(const char *path, const char *types,
     mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id,
                                                                      instance_id);
 
+    // If map not found but I own the instance, stop here.
+    if (!map && group_id == md->admin->name_hash)
+        return 0;
+
+    // Map may be waiting for release
+    if (map && map->reference_count <= 0)
+        return 0;
+
     // Don't activate instance just to release it again
     if (types[2] == LO_NIL || types[2] == LO_FALSE) {
         if (!map || !msig_find_instance_with_id_map(sig, map))
@@ -254,6 +262,10 @@ static int handler_signal_instance(const char *path, const char *types,
                      dataptr, count, &si->timetag);
     }
     if (types[2] == LO_NIL) {
+        /* Set remote release time to 2 seconds in the future,
+         * since we want to filter out any stray packets. */
+        mdev_timetag_now(md, &md->admin->clock.now);
+        si->id_map->release_time = md->admin->clock.now.sec + 2;
         msig_release_instance_internal(sig, si, 0, si->timetag);
     }
     return 0;
@@ -857,6 +869,7 @@ mapper_instance_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
     map->group = group_id;
     map->remote = remote_id;
     map->reference_count = 1;
+    map->release_time = 0;
     dev->reserve_id_map = map->next;
     map->next = dev->active_id_map;
     dev->active_id_map = map;
@@ -880,12 +893,28 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
 mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
                                                           int local_id)
 {
-    mapper_instance_id_map map = dev->active_id_map;
+    mdev_timetag_now(dev, &dev->admin->clock.now);
 
-    while (map) {
-        if (map->local == local_id)
-            return map;
-        map = map->next;
+    mapper_instance_id_map *map = &dev->active_id_map;
+    while (*map) {
+        if ((*map)->reference_count <= 0) {
+            // Map has been released and is waiting for timeout
+            if (!(*map)->release_time ||
+                ((*map)->release_time < dev->admin->clock.now.sec)) {
+                // Clear expired maps as we go
+                mapper_instance_id_map temp = *map;
+                *map = (*map)->next;
+                temp->next = dev->reserve_id_map;
+                dev->reserve_id_map = temp;
+            }
+            else
+                map = &(*map)->next;
+            // We should never return an expired map locally
+            continue;
+        }
+        if ((*map)->local == local_id)
+            return (*map);
+        map = &(*map)->next;
     }
     return 0;
 }
@@ -893,11 +922,25 @@ mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
 mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
                                                            int group_id, int remote_id)
 {
-    mapper_instance_id_map map = dev->active_id_map;
-    while (map) {
-        if ((map->group == group_id) && (map->remote == remote_id))
-            return map;
-        map = map->next;
+    mdev_timetag_now(dev, &dev->admin->clock.now);
+
+    mapper_instance_id_map *map = &dev->active_id_map;
+    while (*map) {
+        if ((*map)->reference_count <= 0) {
+            // Map has been released and is waiting for timeout
+            if (!(*map)->release_time ||
+                ((*map)->release_time < dev->admin->clock.now.sec)) {
+                // Clear expired maps as we go
+                mapper_instance_id_map temp = *map;
+                *map = (*map)->next;
+                temp->next = dev->reserve_id_map;
+                dev->reserve_id_map = temp;
+                continue;
+            }
+        }
+        if (((*map)->group == group_id) && ((*map)->remote == remote_id))
+            return (*map);
+        map = &(*map)->next;
     }
     return 0;
 }
