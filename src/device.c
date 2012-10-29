@@ -832,11 +832,6 @@ void mdev_add_receiver(mapper_device md, mapper_receiver rc)
 
 void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
 {
-    // release remotely-owned instances
-    while (rc->props.num_scopes) {
-        mapper_receiver_remove_scope(rc, rc->props.scope_names[0]);
-    }
-
     // remove receiver
     mapper_receiver *r = &md->receivers;
     while (*r) {

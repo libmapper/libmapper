@@ -16,14 +16,14 @@ static void mapper_router_send_or_bundle_message(mapper_router router,
                                                  mapper_timetag_t tt);
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int local)
+                                int port, const char *name, int default_scope)
 {
     char str[16];
     mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_link));
     sprintf(str, "%d", port);
     router->props.dest_addr = lo_address_new(host, str);
     router->props.dest_name = strdup(name);
-    if (local) {
+    if (default_scope) {
         router->props.num_scopes = 1;
         router->props.scope_names = (char **) malloc(sizeof(char *));
         router->props.scope_names[0] = strdup(mdev_name(device));
@@ -121,7 +121,7 @@ void mapper_router_num_instances_changed(mapper_router r,
                                         * sig->props.history_size);
         rs->history[i].position = -1;
     }
-    
+
     // reallocate connection instances
     mapper_connection c = rs->connections;
     while (c) {
@@ -448,7 +448,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
         rs = rs->next;
-    
+
     // if not found, create a new list entry
     if (!rs) {
         rs = (mapper_router_signal)

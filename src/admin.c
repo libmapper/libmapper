@@ -1350,7 +1350,7 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
 
-    const char *src_name, *dest_name, *host=0;
+    const char *src_name, *dest_name, *host=0, *scope=0;
     int port;
 
     if (argc < 2)
@@ -1374,21 +1374,33 @@ static int handler_device_linked(const char *path, const char *types,
     if (!md || strcmp(mdev_name(md), dest_name))
         return 0;
 
+    // Retrieve scope if specified
+    scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
+
     // Add a receiver data structure
     mapper_receiver receiver =
         mapper_receiver_find_by_src_name(md->receivers, src_name);
-    if (!receiver) {
-        // Find the sender's hostname
-        lo_address a = lo_message_get_source(msg);
-        host = lo_address_get_hostname(a);
-        const char *temp = lo_address_get_port(a);
-        port = strtol(temp, NULL, 10);
-        if (!port)
-            return 0;
-        receiver = mapper_receiver_new(md, host, port, src_name);
-        if (receiver)
-            mdev_add_receiver(md, receiver);
+
+    if (receiver) {
+        // Already linked, add scope.
+        mapper_receiver_add_scope(receiver, scope);
+        return 0;
     }
+
+    // Find the sender's hostname
+    lo_address a = lo_message_get_source(msg);
+    host = lo_address_get_hostname(a);
+    const char *temp = lo_address_get_port(a);
+    port = strtol(temp, NULL, 10);
+    if (!port)
+        return 0;
+    receiver = mapper_receiver_new(md, host, port, src_name, scope ? 0 : 1);
+    if (!receiver) {
+        trace("Error: NULL receiver\n");
+        return 0;
+    }
+    mdev_add_receiver(md, receiver);
+    mapper_receiver_add_scope(receiver, scope);
 
     return 0;
 }
@@ -1465,12 +1477,6 @@ static int handler_device_unlink(const char *path, const char *types,
             mapper_admin_send_linked(admin, router);
             return 0;
         }
-        else {
-            lo_arg *arg_scope = (lo_arg*) admin->name;
-            params.values[AT_SCOPE] = &arg_scope;
-            params.types[AT_SCOPE] = "s";
-        }
-
         mdev_remove_router(md, router);
         mapper_admin_send_osc_with_params(
             admin, &params, 0, "/unlinked", "ss", mapper_admin_name(admin), dest_name);
@@ -1554,8 +1560,7 @@ static int handler_device_unlinked(const char *path, const char *types,
         if (receiver) {
             if (scope) {
                 mapper_receiver_remove_scope(receiver, scope);
-                if (receiver->props.num_scopes > 0)
-                    return 0;
+                return 0;
             }
             mdev_remove_receiver(md, receiver);
         }
@@ -1723,7 +1728,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
     }
 
     trace("<%s> got /connectTo %s %s + %d arguments\n",
-          mapper_admin_name(admin), src_name, dest_name, argc);
+          mapper_admin_name(admin), src_name, dest_name, argc-2);
 
     if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
@@ -1809,7 +1814,7 @@ static int handler_signal_connected(const char *path, const char *types,
     mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
     mapper_signal input;
-    
+
     const char *src_signal_name, *src_name;
     const char *dest_signal_name, *dest_name;
 
@@ -1843,7 +1848,7 @@ static int handler_signal_connected(const char *path, const char *types,
         return 0;
 
     trace("<%s> got /connected %s %s + %d arguments\n",
-          mapper_admin_name(admin), src_name, dest_name, argc);
+          mapper_admin_name(admin), src_name, dest_name, argc-2);
 
     src_signal_name = strchr(src_name+1, '/');
     if (!src_signal_name)
@@ -1852,7 +1857,6 @@ static int handler_signal_connected(const char *path, const char *types,
     if (!(input=mdev_get_input_by_name(md, dest_signal_name, 0)))
         return 0;
 
-    // Add a receiver data structure
     mapper_receiver receiver =
         mapper_receiver_find_by_src_name(md->receivers, src_name);
     if (!receiver) {
@@ -1868,7 +1872,7 @@ static int handler_signal_connected(const char *path, const char *types,
         /* Creation of a connection requires the type and length info. */
         if (!params.values[AT_SRCTYPE] || !params.values[AT_SRCLENGTH])
             return 0;
-        
+
         char src_type = 0;
         if (*params.types[AT_SRCTYPE] == 'c')
             src_type = (*params.values[AT_SRCTYPE])->c;
@@ -1876,7 +1880,7 @@ static int handler_signal_connected(const char *path, const char *types,
             src_type = (*params.values[AT_SRCTYPE])->s;
         else
             return 0;
-        
+
         int src_length = 0;
         if (*params.types[AT_SRCLENGTH] == 'i')
             src_length = (*params.values[AT_SRCLENGTH])->i;
@@ -2070,7 +2074,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
                               &dest_signal_name))
         return 0;
 
-    src_signal_name = strchr(src_name, '/');
+    src_signal_name = strchr(src_name+1, '/');
     if (!src_signal_name)
         return 0;
 
@@ -2085,10 +2089,10 @@ static int handler_signal_disconnected(const char *path, const char *types,
                                                          src_name);
     if (!r) {
         trace("<%s> ignoring /disconnected, no receiver found for '%s'\n",
-              mapper_admin_name(admin), &argv[0]->s);
+              mapper_admin_name(admin), src_name);
         return 0;
     }
-    
+
     mapper_connection c =
         mapper_receiver_find_connection_by_names(r, src_signal_name,
                                                  dest_signal_name);
@@ -2098,7 +2102,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
               mapper_admin_name(admin), src_name, dest_name);
         return 0;
     }
-    
+
     /* The connection is removed. */
     if (mapper_receiver_remove_connection(r, c)) {
         return 0;
