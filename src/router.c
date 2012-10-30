@@ -282,10 +282,6 @@ void mapper_router_send_update(mapper_router r,
         // If instance is locally owned, send instance release...
         lo_message_add_nil(m);
     }
-    else {
-        // ...otherwise send release request.
-        lo_message_add_false(m);
-    }
 
     mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
 }

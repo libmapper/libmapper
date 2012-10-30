@@ -208,12 +208,13 @@ static int handler_signal_instance(const char *path, const char *types,
             return 0;
     }
 
-    si = msig_get_instance_with_id_map(sig, map, is_new);
+    si = msig_get_instance_with_id_map(sig, map, is_new, 0);
     if (!si) {
-        if (sig->instance_management_handler) {
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_OVERFLOW)) {
             sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
             // try again
-            si = msig_get_instance_with_id_map(sig, map, is_new);
+            si = msig_get_instance_with_id_map(sig, map, is_new, 0);
         }
     }
     if (!si) {
@@ -227,15 +228,10 @@ static int handler_signal_instance(const char *path, const char *types,
     }
 
     if (types[2] == LO_TRUE) {
-        if (sig->instance_management_handler)
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_NEW))
             sig->instance_management_handler(sig, &sig->props, si->id_map->local,
                                              IN_NEW);
-        return 0;
-    }
-    else if (types[2] == LO_FALSE) {
-        if (sig->instance_management_handler)
-            sig->instance_management_handler(sig, &sig->props, si->id_map->local,
-                                             IN_REQUEST_RELEASE);
         return 0;
     }
 
@@ -266,7 +262,7 @@ static int handler_signal_instance(const char *path, const char *types,
          * since we want to filter out any stray packets. */
         mdev_timetag_now(md, &md->admin->clock.now);
         si->id_map->release_time = md->admin->clock.now.sec + 2;
-        msig_release_instance_internal(sig, si, 0, si->timetag);
+        msig_release_instance_internal(sig, si, 0, 0, si->timetag);
     }
     return 0;
 }
@@ -380,6 +376,33 @@ static int handler_query_response(const char *path, const char *types,
     return 0;
 }
 
+static int handler_instance_release_request(const char *path, const char *types,
+                                            lo_arg **argv, int argc, lo_message msg,
+                                            void *user_data)
+{
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md = sig->device;
+
+    if (!md || !sig->instance_management_handler ||
+        !(sig->instance_management_flags & IN_REQUEST_RELEASE))
+        return 0;
+
+    mapper_instance_id_map map =
+        mdev_find_instance_id_map_by_remote(md, argv[0]->i32, argv[1]->i32);
+    if (!map)
+        return 0;
+
+    mapper_signal_instance si = msig_get_instance_with_id_map(sig, map, 0, 0);
+    if (!si)
+        return 0;
+
+    if (sig->instance_management_handler)
+        sig->instance_management_handler(sig, &sig->props, si->id_map->local,
+                                         IN_REQUEST_RELEASE);
+
+    return 0;
+}
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -434,10 +457,6 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         lo_server_add_method(md->server,
                              sig->props.name,
                              "iiT",
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiF",
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -497,7 +516,7 @@ void mdev_add_signal_query_response_callback(mapper_device md, mapper_signal sig
                              NULL,
                              handler_query_response, (void *) (sig));
         free(path);
-        md->n_query_inputs ++;
+        md->n_output_callbacks ++;
     }
 }
 
@@ -517,7 +536,39 @@ void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal 
     path = (char*) realloc(path, len);
     snprintf(path, len, "%s%s", sig->props.name, "/got");
     lo_server_del_method(md->server, path, NULL);
-    md->n_query_inputs --;
+    md->n_output_callbacks --;
+}
+
+void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal sig)
+{
+    if (!sig->props.is_output)
+        return;
+    char *path = 0;
+    if (!md->server)
+        mdev_start_server(md);
+    else {
+        lo_server_add_method(md->server,
+                             sig->props.name,
+                             "iiF",
+                             handler_instance_release_request, (void *) (sig));
+        free(path);
+        md->n_output_callbacks ++;
+    }
+}
+
+void mdev_remove_instance_release_request_callback(mapper_device md, mapper_signal sig)
+{
+    int i;
+    if (!md || !sig)
+        return;
+    for (i=0; i<md->n_outputs; i++) {
+        if (md->outputs[i] == sig)
+            break;
+    }
+    if (i==md->n_outputs)
+        return;
+    lo_server_del_method(md->server, sig->props.name, "F");
+    md->n_output_callbacks --;
 }
 
 void mdev_remove_input(mapper_device md, mapper_signal sig)
@@ -714,7 +765,7 @@ int mdev_poll(mapper_device md, int block_ms)
          * no point.  Perhaps if this is supported in the future it
          * can be a heuristic based on a recent number of messages per
          * channel per poll. */
-        while (count < (md->n_inputs + md->n_query_inputs)*1
+        while (count < (md->n_inputs + md->n_output_callbacks)*1
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
@@ -798,6 +849,19 @@ int mdev_route_query(mapper_device md, mapper_signal sig,
         r = r->next;
     }
     return count;
+}
+
+void mdev_route_release_request(mapper_device md,
+                                mapper_signal sig,
+                                mapper_signal_instance si,
+                                mapper_timetag_t tt)
+{
+    // pass update to each receiver in turn
+    mapper_receiver r = md->receivers;
+    while (r) {
+        mapper_receiver_send_release_request(r, sig, si, tt);
+        r = r->next;
+    }
 }
 
 void mdev_add_router(mapper_device md, mapper_router rt)
@@ -1008,10 +1072,6 @@ void mdev_start_server(mapper_device md)
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 "iiF",
-                                 handler_signal_instance, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
                                  "iiN",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
@@ -1023,16 +1083,24 @@ void mdev_start_server(mapper_device md)
                                  handler_query, (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->n_outputs; i++) {
-            if (!md->outputs[i]->handler)
-                continue;
-            int len = (int) strlen(md->outputs[i]->props.name) + 5;
-            path = (char*) realloc(path, len);
-            snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
-            lo_server_add_method(md->server,
-                                 path,
-                                 NULL,
-                                 handler_query_response, (void *) (md->outputs[i]));
-            md->n_query_inputs ++;
+            if (md->outputs[i]->handler) {
+                int len = (int) strlen(md->outputs[i]->props.name) + 5;
+                path = (char*) realloc(path, len);
+                snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
+                lo_server_add_method(md->server,
+                                     path,
+                                     NULL,
+                                     handler_query_response, (void *) (md->outputs[i]));
+                md->n_output_callbacks ++;
+            }
+            if (md->outputs[i]->instance_management_handler) {
+                lo_server_add_method(md->server,
+                                     md->outputs[i]->props.name,
+                                     "iiF",
+                                     handler_instance_release_request,
+                                     (void *) (md->outputs[i]));
+                md->n_output_callbacks ++;
+            }
         }
         free(type);
         free(path);

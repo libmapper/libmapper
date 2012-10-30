@@ -1382,8 +1382,10 @@ static int handler_device_linked(const char *path, const char *types,
         mapper_receiver_find_by_src_name(md->receivers, src_name);
 
     if (receiver) {
-        // Already linked, add scope.
+        // Already linked, add scope and metadata.
         mapper_receiver_add_scope(receiver, scope);
+        if (argc > 2)
+            mapper_receiver_set_from_message(receiver, &params);
         return 0;
     }
 
@@ -1401,6 +1403,8 @@ static int handler_device_linked(const char *path, const char *types,
     }
     mdev_add_receiver(md, receiver);
     mapper_receiver_add_scope(receiver, scope);
+    if (argc > 2)
+        mapper_receiver_set_from_message(receiver, &params);
 
     return 0;
 }

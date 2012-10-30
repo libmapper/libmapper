@@ -37,6 +37,9 @@ struct _mapper_signal
     /*! An optional function to be called when the signal instance management
      *  events occur. */
     mapper_signal_instance_management_handler *instance_management_handler;
+
+    /*! Flags for deciding when to call the instance management handler. */
+    int instance_management_flags;
 };
 
 /**** Instances ****/
@@ -125,6 +128,12 @@ void mdev_add_signal_query_response_callback(mapper_device md,
 void mdev_remove_signal_query_response_callback(mapper_device md,
                                                 mapper_signal sig);
 
+void mdev_add_instance_release_request_callback(mapper_device md,
+                                                mapper_signal sig);
+
+void mdev_remove_instance_release_request_callback(mapper_device md,
+                                                   mapper_signal sig);
+
 void mdev_num_instances_changed(mapper_device md,
                                 mapper_signal sig);
 
@@ -138,6 +147,11 @@ void mdev_route_signal(mapper_device md,
 
 int mdev_route_query(mapper_device md, mapper_signal sig,
                      mapper_timetag_t tt);
+
+void mdev_route_release_request(mapper_device md,
+                                mapper_signal sig,
+                                mapper_signal_instance si,
+                                mapper_timetag_t tt);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
@@ -253,6 +267,11 @@ void mapper_receiver_free(mapper_receiver receiver);
 void mapper_receiver_set_from_message(mapper_receiver receiver,
                                       mapper_message_t *msg);
 
+void mapper_receiver_send_release_request(mapper_receiver r,
+                                          mapper_signal sig,
+                                          mapper_signal_instance si,
+                                          mapper_timetag_t tt);
+
 mapper_connection mapper_receiver_add_connection(mapper_receiver receiver,
                                                  mapper_signal sig,
                                                  const char *src_name,
@@ -354,12 +373,13 @@ mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
  *          strategy. */
 mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                                                      mapper_instance_id_map map,
-                                                     int is_new_instance);
+                                                     int is_new_instance,
+                                                     int local);
 
 /*! Release a specific signal instance. */
 void msig_release_instance_internal(mapper_signal sig,
                                     mapper_signal_instance si,
-                                    int stolen,
+                                    int stolen, int local,
                                     mapper_timetag_t timetag);
 
 /**** connections ****/

@@ -36,13 +36,13 @@ struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 struct _mapper_connection;
 
-/*! The set of possible actions on an instance, used
- *  to inform callbacks of what is happening. */
+/*! The set of possible actions on an instance, used to register callbacks
+ *  to inform them of what is happening. */
 typedef enum {
-    IN_NEW,             //!< New instance has been created.
-    IN_STOLEN,          //!< Instance has been stolen by another instance.
-    IN_REQUEST_RELEASE, //!< Instance release has been requested by remote device.
-    IN_OVERFLOW         //!< No local instances left for incoming remote instance.
+    IN_NEW              = 0x01, //!< New instance has been created.
+    IN_STOLEN           = 0x02, //!< Instance has been stolen by another instance.
+    IN_REQUEST_RELEASE  = 0x04, //!< Instance release has been requested by remote device.
+    IN_OVERFLOW         = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
@@ -191,9 +191,16 @@ int msig_active_instance_id(mapper_signal sig, int index);
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
 
-/*! Set the handler to be called on signal instance management events. */
+/*! Set the handler to be called on signal instance management events.
+ *  \param sig          The signal to operate on.
+ *  \param h            A handler function for processing instance managment events.
+ *  \param flags        Bitflags for indicating the types of events which should
+ *                      trigger the callback. Can be a combination of IN_NEW,
+ *                      IN_STOLEN, IN_RELEASE_REQUEST, and IN_OVERFLOW.
+ *  \param user_data    User context pointer to be passed to handler. */
 void msig_set_instance_management_callback(mapper_signal sig,
-                                           mapper_signal_instance_management_handler h);
+                                           mapper_signal_instance_management_handler h,
+                                           int flags, void *user_data);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.

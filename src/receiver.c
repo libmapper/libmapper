@@ -72,6 +72,55 @@ void mapper_receiver_free(mapper_receiver r)
     }
 }
 
+/*! Set a router's properties based on message parameters. */
+void mapper_receiver_set_from_message(mapper_receiver rc,
+                                      mapper_message_t *msg)
+{
+    /* Extra properties. */
+    mapper_msg_add_or_update_extra_params(rc->props.extra, msg);
+}
+
+void mapper_receiver_send_release_request(mapper_receiver rc,
+                                          mapper_signal sig,
+                                          mapper_signal_instance si,
+                                          mapper_timetag_t tt)
+{
+    mapper_receiver_signal rs = rc->signals;
+    mapper_connection c;
+
+    if (!mapper_receiver_in_scope(rc, si->id_map->group))
+        return;
+
+    while (rs) {
+        if (rs->signal == sig)
+            break;
+        rs = rs->next;
+    }
+    if (!rs)
+        return;
+
+    //lo_bundle b = lo_bundle_new(tt);
+    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+
+    c = rs->connections;
+    while (c) {
+        lo_message m = lo_message_new();
+        if (!m)
+            return;
+        lo_message_add_int32(m, si->id_map->group);
+        lo_message_add_int32(m, si->id_map->remote);
+        lo_message_add_false(m);
+        lo_bundle_add_message(b, c->props.src_name, m);
+        c = c->next;
+    }
+
+    if (rc->device->server)
+        lo_send_bundle_from(rc->props.src_addr, rc->device->server, b);
+    else
+        lo_send_bundle(rc->props.src_addr, b);
+    lo_bundle_free_messages(b);
+}
+
 mapper_connection mapper_receiver_add_connection(mapper_receiver r,
                                                  mapper_signal sig,
                                                  const char *src_name,
@@ -197,7 +246,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                         }
                         mapper_signal_instance temp = si;
                         si = si->next;
-                        msig_release_instance_internal(rs->signal, temp, 0,
+                        msig_release_instance_internal(rs->signal, temp, 0, 0,
                                                        MAPPER_TIMETAG_NOW);
                         continue;
                     }
@@ -325,7 +374,7 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
                 }
                 mapper_signal_instance temp = si;
                 si = si->next;
-                msig_release_instance_internal(rs->signal, temp, 0,
+                msig_release_instance_internal(rs->signal, temp, 0, 0,
                                                MAPPER_TIMETAG_NOW);
                 continue;
             }
