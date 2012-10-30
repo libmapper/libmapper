@@ -1300,9 +1300,11 @@ static int handler_device_linkTo(const char *path, const char *types,
         mapper_router_find_by_dest_name(md->routers, dest_name);
 
     if (router) {
-        // Already linked, add scope.
+        // Already linked, add scope and metadata.
         if (!mapper_router_add_scope(router, scope))
             mapper_admin_send_linked(admin, router);
+        if (argc > 2)
+            mapper_router_set_from_message(router, &params);
         return 0;
     }
 

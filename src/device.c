@@ -747,8 +747,6 @@ void mdev_route_signal(mapper_device md,
                                      timetag, flags);
         r = r->next;
     }
-
-    return;
 }
 
 // Function to start a mapper queue

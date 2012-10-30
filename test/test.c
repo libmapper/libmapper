@@ -145,35 +145,21 @@ void loop()
     int i = 0;
 
     if (automate) {
-        char source_name_1[1024], destination_name_1[1024];
-        char source_name_2[1024], destination_name_2[1024];
+        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
+        char src_name[1024], dest_name[1024];
+        mapper_monitor_link(mon, mdev_name(source),
+                            mdev_name(destination), 0, 0);
 
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
+        msig_full_name(sendsig_1, src_name, 1024);
+        msig_full_name(recvsig_1, dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+        msig_full_name(sendsig_2, src_name, 1024);
+        msig_full_name(recvsig_2, dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-        msig_full_name(sendsig_1, source_name_1, 1024);
-        msig_full_name(recvsig_1, destination_name_1, 1024);
-
-        int j = 50;
-        while (j >= 0) {
-            mdev_poll(source, 10);
-            mdev_poll(destination, 10);
-            j--;
-        }
-
-        lo_send(a, "/connect", "ss", source_name_1, destination_name_1);
-
-        msig_full_name(sendsig_2, source_name_2, 1024);
-        msig_full_name(recvsig_2, destination_name_2, 1024);
-
-        lo_send(a, "/connect", "ss", source_name_2, destination_name_2);
-
-        lo_address_free(a);
+        mapper_monitor_free(mon);
     }
 
     while (i >= 0 && !done) {
