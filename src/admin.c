@@ -748,7 +748,8 @@ static void mapper_admin_send_linked(mapper_admin admin,
 
     mapper_link_prepare_osc_message(m, router);
 
-    lo_send_message(admin->admin_addr, "/linked", m);
+    lo_send_message_from(admin->admin_addr, admin->device->server,
+                         "/linked", m);
     lo_message_free(m);
 }
 

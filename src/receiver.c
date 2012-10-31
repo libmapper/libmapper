@@ -114,10 +114,9 @@ void mapper_receiver_send_release_request(mapper_receiver rc,
         c = c->next;
     }
 
-    if (rc->device->server)
+    if (lo_bundle_count(b))
         lo_send_bundle_from(rc->props.src_addr, rc->device->server, b);
-    else
-        lo_send_bundle(rc->props.src_addr, b);
+
     lo_bundle_free_messages(b);
 }
 

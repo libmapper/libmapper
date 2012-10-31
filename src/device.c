@@ -383,7 +383,10 @@ static int handler_instance_release_request(const char *path, const char *types,
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
 
-    if (!md || !sig->instance_management_handler ||
+    if (!md)
+        return 0;
+
+    if (!sig->instance_management_handler ||
         !(sig->instance_management_flags & IN_REQUEST_RELEASE))
         return 0;
 
@@ -543,7 +546,7 @@ void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal 
 {
     if (!sig->props.is_output)
         return;
-    char *path = 0;
+
     if (!md->server)
         mdev_start_server(md);
     else {
@@ -551,7 +554,6 @@ void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal 
                              sig->props.name,
                              "iiF",
                              handler_instance_release_request, (void *) (sig));
-        free(path);
         md->n_output_callbacks ++;
     }
 }
@@ -567,7 +569,7 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     }
     if (i==md->n_outputs)
         return;
-    lo_server_del_method(md->server, sig->props.name, "F");
+    lo_server_del_method(md->server, sig->props.name, "iiF");
     md->n_output_callbacks --;
 }
 
@@ -629,6 +631,10 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         strncat(path, "/got", len);
         lo_server_del_method(md->server, path, NULL);
         free(path);
+    }
+    if (sig->instance_management_handler &&
+        (sig->instance_management_flags & IN_REQUEST_RELEASE)) {
+        lo_server_del_method(md->server, sig->props.name, "iiF");
     }
     md->n_outputs --;
     mdev_increment_version(md);
@@ -1093,7 +1099,8 @@ void mdev_start_server(mapper_device md)
                                      handler_query_response, (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
             }
-            if (md->outputs[i]->instance_management_handler) {
+            if (md->outputs[i]->instance_management_handler &&
+                (md->outputs[i]->instance_management_flags & IN_REQUEST_RELEASE)) {
                 lo_server_add_method(md->server,
                                      md->outputs[i]->props.name,
                                      "iiF",

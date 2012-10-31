@@ -649,16 +649,17 @@ void msig_set_instance_management_callback(mapper_signal sig,
     if (flags & IN_REQUEST_RELEASE) {
         if (!(sig->instance_management_flags & IN_REQUEST_RELEASE)) {
             // Add liblo method for processing instance release requests
+            sig->instance_management_flags = flags;
             mdev_add_instance_release_request_callback(sig->device, sig);
         }
     }
     else {
         if (sig->instance_management_flags & IN_REQUEST_RELEASE) {
             // Remove liblo method for processing instance release requests
+            sig->instance_management_flags = flags;
             mdev_remove_instance_release_request_callback(sig->device, sig);
         }
     }
-    sig->instance_management_flags = flags;
 }
 
 void msig_set_instance_data(mapper_signal sig,
