@@ -441,14 +441,6 @@ void mdev_remove_property(mapper_device dev, const char *property);
  *          nothing to do. */
 int mdev_poll(mapper_device dev, int block_ms);
 
-/*! Send the current value of a signal.
- *  This is called by msig_update(), so use that to change the value
- *  of a signal rather than calling this function directly.
- *  \param dev The device containing the signal to send.
- *  \param sig The signal to send.
- *  \return zero if the signal was sent, non-zero otherwise. */
-int mdev_send_signal(mapper_device dev, mapper_signal sig);
-
 /*! Detect whether a device is completely initialized.
  *  \return Non-zero if device is completely initialized, i.e., has an
  *  allocated receiving port and unique network name.  Zero

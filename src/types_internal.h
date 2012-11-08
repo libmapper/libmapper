@@ -231,10 +231,12 @@ typedef struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
-    struct _mapper_instance_id_map *active_id_map; /*!< The list of active instance
-                                                    * id mappings. */
-    struct _mapper_instance_id_map *reserve_id_map; /*!< The list of reserve instance
-                                                     * id mappings. */
+
+    /*!< The list of active instance id mappings. */
+    struct _mapper_instance_id_map *active_id_map;
+
+    /*!< The list of reserve instance id mappings. */
+    struct _mapper_instance_id_map *reserve_id_map;
 
     int id_counter;
 
@@ -254,6 +256,7 @@ typedef struct _mapper_instance_id_map {
     int group;                          //!< Link group id.
     int remote;                         //!< Remote instance id to map.
     int reference_count;
+    uint32_t release_time;
     struct _mapper_instance_id_map *next;  //!< The next id map in the list.
 } *mapper_instance_id_map;
 
