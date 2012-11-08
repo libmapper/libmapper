@@ -634,7 +634,7 @@ void msig_set_instance_management_callback(mapper_signal sig,
     /* TODO: should we allow setting separate user_data pointer for query
      * callback and instance management callback? */
 
-    if (!sig || !sig->props.is_output)
+    if (!sig)
         return;
 
     if (!h || !flags) {
@@ -660,6 +660,7 @@ void msig_set_instance_management_callback(mapper_signal sig,
             mdev_remove_instance_release_request_callback(sig->device, sig);
         }
     }
+    sig->instance_management_flags = flags;
 }
 
 void msig_set_instance_data(mapper_signal sig,
