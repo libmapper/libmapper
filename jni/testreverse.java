@@ -27,10 +27,10 @@ class test {
         System.out.println("Input signal name: "+inp1.name());
 
         Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
-        out1.set_query_callback(
+        out1.set_callback(
             new InputListener() {
                 public void onInput(int[] v) {
-                    System.out.println("in onQueryResponse(): "+Arrays.toString(v));
+                    System.out.println("in onOutput(): "+Arrays.toString(v));
                 }});
 
         System.out.println("Output signal index: "+out1.index());
@@ -76,7 +76,6 @@ class test {
             dev.poll(10);
             --i;
             inp1.update(new int[] {i});
-            out1.query_remotes();
         }
         dev.free();
     }
