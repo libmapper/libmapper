@@ -216,24 +216,14 @@ void msig_set_instance_data(mapper_signal sig, int instance_id,
  *  \return             A pointer associated with this instance. */
 void *msig_get_instance_data(mapper_signal sig, int instance_id);
 
-/**** Queries ****/
-
-/*! Set or unset the hidden property of a signal.
- *  \param sig           The signal to operate on.
- *  \param query_handler A pointer to a mapper_signal_handler function for
- *                       processing query responses.
- *  \param user_data     User context pointer to be passed to handler. */
-void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *query_handler,
-                             void *user_data);
-
-/*! Query the values of any signals connected via mapping connections.
- *  \param sig      A local output signal. We will be querying the remote
- *                  ends of this signal's mapping connections.
- *  \param tt       A timetag to be attached to the outgoing query. Query
- *                  responses should also be tagged with this time. 
- *  \return The number of queries sent, or -1 for error. */
-int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
+/*! Set or unset the message handler for a signal.
+ *  \param sig       The signal to operate on.
+ *  \param handler   A pointer to a mapper_signal_handler function for
+ *                   processing incoming messages.
+ *  \param user_data User context pointer to be passed to handler. */
+void msig_set_callback(mapper_signal sig,
+                       mapper_signal_handler *handler,
+                       void *user_data);
 
 /**** Signal properties ****/
 

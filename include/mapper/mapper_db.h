@@ -100,6 +100,7 @@ typedef enum _mapper_mode_type {
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
     MO_CALIBRATE,    //!< Calibrate to source signal
+    MO_REVERSE,      //!< Update source on dest change
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
@@ -118,6 +119,7 @@ typedef struct _mapper_db_connection {
     int id;                     //!< Connection index
     char *src_name;             //!< Source signal name (OSC path).
     char *dest_name;            //!< Destination signal name (OSC path).
+    char *query_name;           //!< Used for sending queries/responses.
 
     char src_type;              //!< Source signal type.
     char dest_type;             //!< Destination signal type.

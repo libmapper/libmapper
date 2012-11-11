@@ -591,6 +591,8 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return MO_EXPRESSION;
     else if (strcmp(&(*a)->s, "calibrate") == 0)
         return MO_CALIBRATE;
+    else if (strcmp(&(*a)->s, "reverse") == 0)
+        return MO_REVERSE;
     else
         return -1;
 

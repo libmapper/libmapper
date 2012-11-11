@@ -449,6 +449,9 @@ static void msig_update_internal(mapper_signal sig,
         mdev_route_signal(sig->device, sig, si, value,
                           count, si->timetag, flags);
     }
+    else {
+        mdev_receive_update(sig->device, sig, si, si->timetag);
+    }
 }
 
 void msig_release_instance(mapper_signal sig, int instance_id,
@@ -631,8 +634,8 @@ void msig_set_instance_management_callback(mapper_signal sig,
                                            int flags,
                                            void *user_data)
 {
-    /* TODO: should we allow setting separate user_data pointer for query
-     * callback and instance management callback? */
+    /* TODO: should we allow setting separate user_data pointer for reverse
+     * connection callback and instance management callback? */
 
     if (!sig)
         return;
@@ -681,44 +684,26 @@ void *msig_get_instance_data(mapper_signal sig,
     return 0;
 }
 
-/**** Queries ****/
+/**** Reverse connections ****/
 
-void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *handler,
-                             void *user_data)
+void msig_set_callback(mapper_signal sig,
+                       mapper_signal_handler *handler,
+                       void *user_data)
 {
-    if (!sig || !sig->props.is_output)
+    if (!sig)
         return;
     if (!sig->handler && handler) {
-        // Need to register a new liblo handler
+        // Need to register a new liblo methods
         sig->handler = handler;
         sig->props.user_data = user_data;
-        mdev_add_signal_query_response_callback(sig->device, sig);
+        mdev_add_signal_methods(sig->device, sig);
     }
     else if (sig->handler && !handler) {
-        // Need to remove liblo query handler
+        // Need to remove liblo methods
         sig->handler = 0;
         sig->props.user_data = user_data;
-        mdev_remove_signal_query_response_callback(sig->device, sig);
+        mdev_remove_signal_methods(sig->device, sig);
     }
-}
-
-int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
-{
-    // stick to output signals for now
-    // TODO: process queries on inputs also
-    if (!sig->props.is_output)
-        return -1;
-    if (!sig->device->server) {
-        // no server running so we cannot process query returns
-        // TODO: start server if necessary
-        return -1;
-    }
-    if (!sig->handler) {
-        // no handler defined so we cannot process query returns
-        return -1;
-    }
-    return mdev_route_query(sig->device, sig, tt);
 }
 
 /**** Signal Properties ****/

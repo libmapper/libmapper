@@ -122,11 +122,9 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
-void mdev_add_signal_query_response_callback(mapper_device md,
-                                             mapper_signal sig);
+void mdev_add_signal_methods(mapper_device md, mapper_signal sig);
 
-void mdev_remove_signal_query_response_callback(mapper_device md,
-                                                mapper_signal sig);
+void mdev_remove_signal_methods(mapper_device md, mapper_signal sig);
 
 void mdev_add_instance_release_request_callback(mapper_device md,
                                                 mapper_signal sig);
@@ -160,6 +158,9 @@ void mdev_remove_router(mapper_device md, mapper_router rt);
 void mdev_add_receiver(mapper_device md, mapper_receiver r);
 
 void mdev_remove_receiver(mapper_device md, mapper_receiver r);
+
+void mdev_receive_update(mapper_device md, mapper_signal sig,
+                         mapper_signal_instance si, mapper_timetag_t tt);
 
 void mdev_release_scope(mapper_device md, const char *scope);
 
@@ -266,6 +267,11 @@ void mapper_receiver_free(mapper_receiver receiver);
 /*! Set a router's properties based on message parameters. */
 void mapper_receiver_set_from_message(mapper_receiver receiver,
                                       mapper_message_t *msg);
+
+void mapper_receiver_send_update(mapper_receiver r,
+                                 mapper_signal sig,
+                                 mapper_signal_instance si,
+                                 mapper_timetag_t tt);
 
 void mapper_receiver_send_release_request(mapper_receiver r,
                                           mapper_signal sig,

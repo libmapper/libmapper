@@ -172,9 +172,11 @@ void mapper_router_process_signal(mapper_router r,
         rs->history[id].position = -1;
         c = rs->connections;
         while (c) {
-            c->history[id].position = -1;
-            mapper_router_send_update(r, c, id, send_as_instance ?
-                                      si->id_map : 0, tt, 0);
+            if (c->props.mode != MO_REVERSE) {
+                c->history[id].position = -1;
+                mapper_router_send_update(r, c, id, send_as_instance ?
+                                          si->id_map : 0, tt, 0);
+            }
             c = c->next;
         }
         return;
@@ -184,8 +186,10 @@ void mapper_router_process_signal(mapper_router r,
         // allocate blob for each connection
         c = rs->connections;
         while (c) {
-            c->blob = realloc(c->blob, mapper_type_size(c->props.dest_type)
-                              * c->props.dest_length * count);
+            if (c->props.mode != MO_REVERSE) {
+                c->blob = realloc(c->blob, mapper_type_size(c->props.dest_type)
+                                  * c->props.dest_length * count);
+            }
             c = c->next;
         }
     }
@@ -203,8 +207,9 @@ void mapper_router_process_signal(mapper_router r,
 
         c = rs->connections;
         while (c) {
-            if (mapper_connection_perform(c, &rs->history[id],
-                                          &c->history[id]))
+            if ((c->props.mode != MO_REVERSE) &&
+                 mapper_connection_perform(c, &rs->history[id],
+                                           &c->history[id]))
             {
                 if (mapper_clipping_perform(c, &c->history[id])) {
                     if (send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
@@ -228,10 +233,12 @@ void mapper_router_process_signal(mapper_router r,
     if (count > 1) {
         c = rs->connections;
         while (c) {
-            lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
-                                       * c->props.dest_length * count, c->blob);
-            mapper_router_send_update(r, c, id, send_as_instance ?
-                                      si->id_map : 0, tt, blob);
+            if (c->props.mode != MO_REVERSE) {
+                lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
+                                           * c->props.dest_length * count, c->blob);
+                mapper_router_send_update(r, c, id, send_as_instance ?
+                                          si->id_map : 0, tt, blob);
+            }
             c = c->next;
         }
     }
@@ -480,6 +487,10 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.clip_max = CT_NONE;
     c->props.muted = 0;
     c->props.extra = table_new();
+
+    int len = strlen(dest_name) + 5;
+    c->props.query_name = malloc(len);
+    snprintf(c->props.query_name, len, "%s%s", dest_name, "/get");
 
     c->history = malloc(sizeof(struct _mapper_signal_history)
                         * sig->props.num_instances);

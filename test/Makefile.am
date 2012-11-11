@@ -9,7 +9,7 @@ endif
 
 noinst_PROGRAMS = test testmany testadmin testsend testrecv \
                   testexpression testlinear testparams testmonitor \
-                  testdb testparser testprops testquery testvector \
+                  testdb testparser testprops testreverse testvector \
                   testinstance testspeed testrate testqueue testsync
 
 testadmin_CFLAGS = $(TEST_CFLAGS)
@@ -64,10 +64,6 @@ test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
 test_LDADD = $(TEST_LDADD)
 
-testquery_CFLAGS = $(TEST_CFLAGS)
-testquery_SOURCES = testquery.c
-testquery_LDADD = $(TEST_LDADD)
-
 testinstance_CFLAGS = $(TEST_CFLAGS)
 testinstance_SOURCES = testinstance.c
 testinstance_LDADD = $(TEST_LDADD)
@@ -87,3 +83,7 @@ testqueue_LDADD = $(TEST_LDADD)
 testsync_CFLAGS = $(TEST_CFLAGS)
 testsync_SOURCES = testsync.c
 testsync_LDADD = $(TEST_LDADD)
+
+testreverse_CFLAGS = $(TEST_CFLAGS)
+testreverse_SOURCES = testreverse.c
+testreverse_LDADD = $(TEST_LDADD)
