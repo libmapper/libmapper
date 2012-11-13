@@ -941,11 +941,11 @@ void mapper_db_connection_done(mapper_db_connection_t **s);
  *                  type.
  *  \param value    Address of a lo_arg* to receive the property value.
  *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connecion_property_index(mapper_db_connection con,
-                                       unsigned int index,
-                                       const char **property,
-                                       lo_type *type,
-                                       const lo_arg **value);
+int mapper_db_connection_property_index(mapper_db_connection con,
+                                        unsigned int index,
+                                        const char **property,
+                                        lo_type *type,
+                                        const lo_arg **value);
 
 /*! Look up a connection property by name.
  *  \param con      The connection to look at.
