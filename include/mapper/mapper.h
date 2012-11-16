@@ -494,6 +494,9 @@ void mdev_start_queue(mapper_device md, mapper_timetag_t tt);
 /*! Dispatch a time-tagged mapper queue. */
 void mdev_send_queue(mapper_device md, mapper_timetag_t tt);
 
+/*! Get access to the device's underlying lo_server. */
+lo_server mdev_get_lo_server(mapper_device md);
+
 /* @} */
 
 /*** Admins ***/

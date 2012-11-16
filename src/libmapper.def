@@ -96,3 +96,4 @@ EXPORTS
     msig_update_float                                    @95
     msig_update_int                                      @96
     msig_value                                           @97
+    mdev_get_lo_server                                   @98
