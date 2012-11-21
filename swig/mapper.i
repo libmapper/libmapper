@@ -8,7 +8,6 @@
     $1 = $input;
  }
 %typemap(in) maybeSigVal %{
-    {
     sigval val;
     if ($input == Py_None)
         $1 = 0;
@@ -26,7 +25,6 @@
             }
         }
         $1 = &val;
-    }
     }
 %}
 %typemap(out) maybeSigVal {
