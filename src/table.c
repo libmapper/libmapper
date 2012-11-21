@@ -152,10 +152,13 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
          * string, otherwise just copy over the old value. */
         if (type == 's' || type == 'S')
         {
-            *pval = realloc(*pval, (strlen(&arg->s)
-                                    + sizeof(mapper_osc_value_t)));
+            int n = strlen(&arg->s);
+            *pval = realloc(*pval, sizeof(mapper_osc_value_t) + n + 1);
             (*pval)->type = type;
-            strcpy(&(*pval)->value.s, &arg->s);
+
+            // For unknown reasons, strcpy crashes here with -O2, so
+            // we'll use memcpy instead, which does not crash.
+            memcpy(&(*pval)->value.s, &arg->s, n+1);
         } else {
             (*pval)->type = type;
             if (arg)
@@ -168,9 +171,12 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
         /* Need to add a new entry. */
         mapper_osc_value_t *val = 0;
         if (type == 's' || type == 'S') {
-            val = malloc(sizeof(mapper_osc_value_t)
-                         + strlen(&arg->s));
-            strcpy(&val->value.s, &arg->s);
+            int n = strlen(&arg->s);
+            val = malloc(sizeof(mapper_osc_value_t) + n + 1);
+
+            // For unknown reasons, strcpy crashes here with -O2, so
+            // we'll use memcpy instead, which does not crash.
+            memcpy(&val->value.s, &arg->s, n+1);
         }
         else {
             val = malloc(sizeof(mapper_osc_value_t));
