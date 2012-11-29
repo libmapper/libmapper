@@ -36,7 +36,6 @@ mapper_device mdev_new(const char *name_prefix, int port,
 {
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
-    md->name_prefix = strdup(name_prefix);
 
     if (admin) {
         md->admin = admin;
@@ -52,13 +51,21 @@ mapper_device mdev_new(const char *name_prefix, int port,
         return NULL;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix, port);
-
+    md->props.identifier = strdup(name_prefix);
+    md->props.name = 0;
+    md->props.name_hash = 0;
+    md->ordinal.value = 1;
+    md->ordinal.locked = 0;
+    md->props.port = port;
+    md->registered = 0;
     md->routers = 0;
     md->active_id_map = 0;
     md->reserve_id_map = 0;
     md->id_counter = 0;
-    md->extra = table_new();
+    md->props.extra = table_new();
+
+    mapper_admin_add_device(md->admin, md, name_prefix, port);
+
     return md;
 }
 
@@ -66,34 +73,46 @@ mapper_device mdev_new(const char *name_prefix, int port,
 void mdev_free(mapper_device md)
 {
     int i;
-    if (md) {
-        if (md->admin && md->own_admin)
-            mapper_admin_free(md->admin);
-        for (i = 0; i < md->n_inputs; i++)
-            msig_free(md->inputs[i]);
-        if (md->inputs)
-            free(md->inputs);
-        for (i = 0; i < md->n_outputs; i++)
-            msig_free(md->outputs[i]);
-        if (md->outputs)
-            free(md->outputs);
-        mapper_instance_id_map map;
-        while (md->active_id_map) {
-            map = md->active_id_map;
-            md->active_id_map = map->next;
-            free(map);
-        }
-        while (md->reserve_id_map) {
-            map = md->reserve_id_map;
-            md->reserve_id_map = map->next;
-            free(map);
-        }
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        if (md->extra)
-            table_free(md->extra, 1);
-        free(md);
+    if (!md)
+        return;
+
+    if (md->registered) {
+        // A registered device must tell the network it is leaving.
+        mapper_admin_send_osc(md->admin, 0, "/logout", "s", mdev_name(md));
     }
+
+    if (md->admin && md->own_admin)
+        mapper_admin_free(md->admin);
+    for (i = 0; i < md->props.n_inputs; i++)
+        msig_free(md->inputs[i]);
+    if (md->inputs)
+        free(md->inputs);
+    for (i = 0; i < md->props.n_outputs; i++)
+        msig_free(md->outputs[i]);
+    if (md->outputs)
+        free(md->outputs);
+    mapper_instance_id_map map;
+    while (md->active_id_map) {
+        map = md->active_id_map;
+        md->active_id_map = map->next;
+        free(map);
+    }
+    while (md->reserve_id_map) {
+        map = md->reserve_id_map;
+        md->reserve_id_map = map->next;
+        free(map);
+    }
+    while (md->routers)
+        mdev_remove_router(md, md->routers);
+    if (md->props.identifier)
+        free(md->props.identifier);
+    if (md->props.name)
+        free(md->props.name);
+    if (md->props.host)
+        free(md->props.host);
+    if (md->props.extra)
+        table_free(md->props.extra, 1);
+    free(md);
 }
 
 #ifdef __GNUC__
@@ -111,8 +130,8 @@ static void grow_ptr_array(void **array, int length, int *size)
 
 static void mdev_increment_version(mapper_device md)
 {
-    md->version ++;
-    if (md->admin->registered) {
+    md->props.version ++;
+    if (md->registered) {
         md->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
     }
 }
@@ -197,7 +216,7 @@ static int handler_signal_instance(const char *path, const char *types,
                                                                      instance_id);
 
     // If map not found but I own the instance, stop here.
-    if (!map && group_id == md->admin->name_hash)
+    if (!map && group_id == md->props.name_hash)
         return 0;
 
     // Map may be waiting for release
@@ -395,16 +414,14 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                                  maximum, handler, user_data);
     if (!sig)
         return 0;
-    md->n_inputs++;
-    grow_ptr_array((void **) &md->inputs, md->n_inputs,
+    md->props.n_inputs++;
+    grow_ptr_array((void **) &md->inputs, md->props.n_inputs,
                    &md->n_alloc_inputs);
 
     mdev_increment_version(md);
 
-    md->inputs[md->n_inputs - 1] = sig;
+    md->inputs[md->props.n_inputs - 1] = sig;
     sig->device = md;
-    if (md->admin->name)
-        sig->props.device_name = md->admin->name;
 
     if (!md->server)
         mdev_start_server(md);
@@ -469,16 +486,14 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                                  maximum, 0, 0);
     if (!sig)
         return 0;
-    md->n_outputs++;
-    grow_ptr_array((void **) &md->outputs, md->n_outputs,
+    md->props.n_outputs++;
+    grow_ptr_array((void **) &md->outputs, md->props.n_outputs,
                    &md->n_alloc_outputs);
 
     mdev_increment_version(md);
 
-    md->outputs[md->n_outputs - 1] = sig;
+    md->outputs[md->props.n_outputs - 1] = sig;
     sig->device = md;
-    if (md->admin->name)
-        sig->props.device_name = md->admin->name;
     return sig;
 }
 
@@ -509,11 +524,11 @@ void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal 
     int len, i;
     if (!md || !sig)
         return;
-    for (i=0; i<md->n_outputs; i++) {
+    for (i=0; i<md->props.n_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
     }
-    if (i==md->n_outputs)
+    if (i==md->props.n_outputs)
         return;
     len = (int) strlen(sig->props.name) + 5;
     path = (char*) realloc(path, len);
@@ -525,14 +540,14 @@ void mdev_remove_signal_query_response_callback(mapper_device md, mapper_signal 
 void mdev_remove_input(mapper_device md, mapper_signal sig)
 {
     int i, n;
-    for (i=0; i<md->n_inputs; i++) {
+    for (i=0; i<md->props.n_inputs; i++) {
         if (md->inputs[i] == sig)
             break;
     }
-    if (i==md->n_inputs)
+    if (i==md->props.n_inputs)
         return;
 
-    for (n=i; n<(md->n_inputs-1); n++) {
+    for (n=i; n<(md->props.n_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
     }
     if (md->server) {
@@ -555,7 +570,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, signal_get, NULL);
         free(signal_get);
     }
-    md->n_inputs --;
+    md->props.n_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
@@ -563,14 +578,14 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 void mdev_remove_output(mapper_device md, mapper_signal sig)
 {
     int i, n;
-    for (i=0; i<md->n_outputs; i++) {
+    for (i=0; i<md->props.n_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
     }
-    if (i==md->n_outputs)
+    if (i==md->props.n_outputs)
         return;
 
-    for (n=i; n<(md->n_outputs-1); n++) {
+    for (n=i; n<(md->props.n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
     if (sig->handler && md->server) {
@@ -581,24 +596,24 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, path, NULL);
         free(path);
     }
-    md->n_outputs --;
+    md->props.n_outputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
 
 int mdev_num_inputs(mapper_device md)
 {
-    return md->n_inputs;
+    return md->props.n_inputs;
 }
 
 int mdev_num_outputs(mapper_device md)
 {
-    return md->n_outputs;
+    return md->props.n_outputs;
 }
 
 int mdev_num_links(mapper_device md)
 {
-    return md->n_links;
+    return md->props.n_links;
 }
 
 int mdev_num_connections(mapper_device md)
@@ -627,7 +642,7 @@ mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
 {
     int i;
     int slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->n_inputs; i++)
+    for (i=0; i<md->props.n_inputs; i++)
     {
         if (strcmp(md->inputs[i]->props.name + 1,
                    name + slash)==0)
@@ -645,7 +660,7 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
 {
     int i;
     int slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->n_outputs; i++)
+    for (i=0; i<md->props.n_outputs; i++)
     {
         if (strcmp(md->outputs[i]->props.name + 1,
                    name + slash)==0)
@@ -660,14 +675,14 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
 
 mapper_signal mdev_get_input_by_index(mapper_device md, int index)
 {
-    if (index >= 0 && index < md->n_inputs)
+    if (index >= 0 && index < md->props.n_inputs)
         return md->inputs[index];
     return 0;
 }
 
 mapper_signal mdev_get_output_by_index(mapper_device md, int index)
 {
-    if (index >= 0 && index < md->n_outputs)
+    if (index >= 0 && index < md->props.n_outputs)
         return md->outputs[index];
     return 0;
 }
@@ -700,7 +715,7 @@ int mdev_poll(mapper_device md, int block_ms)
          * no point.  Perhaps if this is supported in the future it
          * can be a heuristic based on a recent number of messages per
          * channel per poll. */
-        while (count < (md->n_inputs + md->n_query_inputs)*1
+        while (count < (md->props.n_inputs + md->n_query_inputs)*1
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
@@ -1020,8 +1035,8 @@ void mdev_start_server(mapper_device md)
         int i;
         char port[16], *pport = port, *type = 0, *path = 0;
 
-        if (md->admin->port)
-            sprintf(port, "%d", md->admin->port);
+        if (md->props.port)
+            sprintf(port, "%d", md->props.port);
         else
             pport = 0;
 
@@ -1032,10 +1047,10 @@ void mdev_start_server(mapper_device md)
         // Disable liblo message queueing
         lo_server_enable_queue(md->server, 0, 1);
 
-        md->admin->port = lo_server_get_port(md->server);
-        trace("bound to port %i\n", md->admin->port);
+        md->props.port = lo_server_get_port(md->server);
+        trace("bound to port %i\n", md->props.port);
 
-        for (i = 0; i < md->n_inputs; i++) {
+        for (i = 0; i < md->props.n_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 3);
             type[0] = type[1] = 'i';
             memset(type + 2, md->inputs[i]->props.type,
@@ -1081,7 +1096,7 @@ void mdev_start_server(mapper_device md)
                                  "s",
                                  handler_query, (void *) (md->inputs[i]));
         }
-        for (i = 0; i < md->n_outputs; i++) {
+        for (i = 0; i < md->props.n_outputs; i++) {
             if (!md->outputs[i]->handler)
                 continue;
             int len = (int) strlen(md->outputs[i]->props.name) + 5;
@@ -1100,35 +1115,39 @@ void mdev_start_server(mapper_device md)
 
 const char *mdev_name(mapper_device md)
 {
-    /* Hand this off to the admin struct, where the name may be
-     * cached. However: manually checking ordinal.locked here so that
-     * we can safely trace bad usage when mapper_admin_full_name is
-     * called inappropriately. */
-    if (md->admin->registered)
-        return mapper_admin_name(md->admin);
-    else
+    if (!md->registered || !md->ordinal.locked)
         return 0;
+
+    if (md->props.name)
+        return md->props.name;
+
+    unsigned int len = strlen(md->props.identifier) + 6;
+    md->props.name = (char *) malloc(len);
+    md->props.name[0] = 0;
+    snprintf(md->props.name, len, "/%s.%d", md->props.identifier,
+             md->ordinal.value);
+    return md->props.name;
 }
 
 unsigned int mdev_id(mapper_device md)
 {
-    if (md->admin->registered)
-        return md->admin->name_hash;
+    if (md->registered)
+        return md->props.name_hash;
     else
         return 0;
 }
 
 unsigned int mdev_port(mapper_device md)
 {
-    if (md->admin->registered)
-        return md->admin->port;
+    if (md->registered)
+        return md->props.port;
     else
         return 0;
 }
 
 const struct in_addr *mdev_ip4(mapper_device md)
 {
-    if (md->admin->registered)
+    if (md->registered)
         return &md->admin->interface_ip;
     else
         return 0;
@@ -1141,8 +1160,8 @@ const char *mdev_interface(mapper_device md)
 
 unsigned int mdev_ordinal(mapper_device md)
 {
-    if (md->admin->registered)
-        return md->admin->ordinal.value;
+    if (md->registered)
+        return md->ordinal.value;
     else
         return 0;
 }
@@ -1152,19 +1171,24 @@ int mdev_ready(mapper_device device)
     if (!device)
         return 0;
 
-    return device->admin->registered;
+    return device->registered;
 }
 
 void mdev_set_property(mapper_device dev, const char *property,
                        lo_type type, lo_arg *value)
 {
-    mapper_table_add_or_update_osc_value(dev->extra,
+    mapper_table_add_or_update_osc_value(dev->props.extra,
                                          property, type, value);
 }
 
 void mdev_remove_property(mapper_device dev, const char *property)
 {
-    table_remove_key(dev->extra, property, 1);
+    table_remove_key(dev->props.extra, property, 1);
+}
+
+void mdev_timetag_now(mapper_device dev, mapper_timetag_t *timetag)
+{
+    mapper_clock_now(dev->admin->clock, timetag);
 }
 
 lo_server mdev_get_lo_server(mapper_device md)

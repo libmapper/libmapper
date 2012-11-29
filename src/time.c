@@ -11,11 +11,12 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-void mdev_clock_init(mapper_device dev)
+static double multiplier = 1.0/((double)(1LL<<32));
+
+void mapper_clock_init(mapper_clock_t *clock)
 {
-    mapper_clock_t *clock = &dev->admin->clock;
-    clock->rate = 1;
-    clock->offset = 0;
+    clock->rate = 1.0;
+    clock->offset = 0.0;
     clock->confidence = 0.1;
     clock->local_index = 0;
     int i;
@@ -23,16 +24,15 @@ void mdev_clock_init(mapper_device dev)
         clock->local[i].device_id = 0;
     }
     clock->remote.device_id = 0;
-    mdev_timetag_now(dev, &clock->now);
+    mapper_clock_now(*clock, &clock->now);
     clock->next_ping = clock->now.sec + 10;
 }
 
-void mdev_clock_adjust(mapper_device dev,
-                       double difference,
-                       double confidence,
-                       int is_latency_adjusted)
+void mapper_clock_adjust(mapper_clock_t *clock,
+                         double difference,
+                         double confidence,
+                         int is_latency_adjusted)
 {
-    mapper_clock_t *clock = &dev->admin->clock;
     // set confidence to 1 for now since it is not being updated
     confidence = 1;
 
@@ -67,21 +67,19 @@ void mdev_clock_adjust(mapper_device dev,
     clock->offset = new_offset;
 }
 
-void mdev_timetag_now(mapper_device dev,
+void mapper_clock_now(mapper_clock_t clock,
                       mapper_timetag_t *timetag)
 {
-    if (!dev)
-        return;
     // first get current time from system clock
     // adjust using rate and offset from mapping network sync
     lo_timetag_now((lo_timetag*)timetag);
-    mapper_timetag_add_seconds(timetag, dev->admin->clock.offset);
+    mapper_timetag_add_seconds(timetag, clock.offset);
 }
 
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)
 {
     return (double)a.sec - (double)b.sec +
-        ((double)a.frac - (double)b.frac) * 0.00000000023283064365;
+        ((double)a.frac - (double)b.frac) * multiplier;
 }
 
 void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
@@ -89,7 +87,7 @@ void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
     if (!b)
         return;
 
-    b += a->frac * 0.00000000023283064365;
+    b += a->frac * multiplier;
     if (b >= 0.0) {
         a->sec += floor(b);
         b -= floor(b);
@@ -107,5 +105,5 @@ void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
 
 double mapper_timetag_get_double(mapper_timetag_t timetag)
 {
-    return (double)timetag.sec + (double)timetag.frac * 0.00000000023283064365;
+    return (double)timetag.sec + (double)timetag.frac * multiplier;
 }

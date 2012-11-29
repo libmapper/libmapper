@@ -829,7 +829,6 @@ void mapper_db_remove_device(mapper_db db, const char *name)
 mapper_db_device mapper_db_get_device_by_name(mapper_db db,
                                               const char *name)
 {
-
     mapper_db_device reg = db->registered_devices;
     while (reg) {
         if (strcmp(reg->name, name)==0)
@@ -837,7 +836,18 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
         reg = list_get_next(reg);
     }
     return 0;
+}
 
+mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
+                                                   int hash)
+{
+    mapper_db_device reg = db->registered_devices;
+    while (reg) {
+        if (reg->name_hash == hash)
+            return reg;
+        reg = list_get_next(reg);
+    }
+    return 0;
 }
 
 mapper_db_device *mapper_db_get_all_devices(mapper_db db)

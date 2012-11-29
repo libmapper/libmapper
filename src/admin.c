@@ -295,7 +295,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin)
     for (i=0; i < N_DEVICE_HANDLERS; i++)
     {
         snprintf(fullpath, 256, device_handlers[i].path,
-                 mapper_admin_name(admin));
+                 mdev_name(admin->device));
         lo_server_add_method(admin->admin_server, fullpath,
                              device_handlers[i].types,
                              device_handlers[i].h,
@@ -340,7 +340,6 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     /* Open address */
     admin->admin_addr = lo_address_new(group, s_port);
     if (!admin->admin_addr) {
-        free(admin->identifier);
         free(admin);
         return NULL;
     }
@@ -365,7 +364,6 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
 #endif
 
     if (!admin->admin_server) {
-        free(admin->identifier);
         lo_address_free(admin->admin_addr);
         free(admin);
         return NULL;
@@ -384,17 +382,6 @@ void mapper_admin_free(mapper_admin admin)
 {
     if (!admin)
         return;
-
-    if (admin->registered) {
-        // A registered device must tell the network it is leaving.
-        mapper_admin_send_osc(admin, 0, "/logout", "s", mapper_admin_name(admin));
-    }
-
-    if (admin->identifier)
-        free(admin->identifier);
-
-    if (admin->name)
-        free(admin->name);
 
     if (admin->interface_name)
         free(admin->interface_name);
@@ -415,16 +402,9 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
     /* Initialize data structures */
     if (dev)
     {
-        admin->identifier = strdup(identifier);
-        admin->name = 0;
-        admin->name_hash = 0;
-        admin->ordinal.value = 1;
-        admin->ordinal.locked = 0;
-        admin->port = port;
-        admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;
-        mdev_clock_init(admin->device);
+        mapper_clock_init(&admin->clock);
 
         /* Seed the random number generator. */
         seed_srand();
@@ -441,7 +421,7 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
                              handler_device_name_registered, admin);
 
         /* Probe potential name to admin bus. */
-        mapper_admin_name_probe(admin);
+        mapper_admin_probe_device_name(admin, dev);
     }
 }
 
@@ -461,7 +441,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
  */
 int mapper_admin_poll(mapper_admin admin)
 {
-    int count = 0, status, i = 0;
+    int count = 0, status;
 
     if (admin->device)
         admin->device->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
@@ -473,50 +453,43 @@ int mapper_admin_poll(mapper_admin admin)
     if (!admin->device)
         return count;
 
+    mapper_device md = admin->device;
+
     /* If the ordinal is not yet locked, process collision timing.
      * Once the ordinal is locked it won't change. */
-    if (!admin->registered) {
-        status = check_collisions(admin, &admin->ordinal);
+    if (!md->registered) {
+        status = check_collisions(admin, &md->ordinal);
         if (status == 1) {
             /* If the ordinal has changed, re-probe the new name. */
-            mapper_admin_name_probe(admin);
+            mapper_admin_probe_device_name(admin, md);
         }
         else if (status == 2) {
-            /* If the allocation routine has succeeded, add device name to signals */
-            for (i = 0; i < admin->device->n_inputs; i++) {
-                admin->device->inputs[i]->props.device_name = mapper_admin_name(admin);
-            }
-            for (i = 0; i < admin->device->n_outputs; i++) {
-                admin->device->outputs[i]->props.device_name = mapper_admin_name(admin);
-            }
+            /* If the allocation routine has succeeded... */
 
-            /* ... and send registered msg. */
+            /* Add the needed message handlers. */
+            mapper_admin_add_device_methods(admin);
+
+            md->registered = 1;
+            trace("</%s.?::%p> registered as <%s>\n",
+                  md->props.identifier, admin, mdev_name(md));
+
+            /* Send the "/registered" msg. */
             lo_send(admin->admin_addr, "/name/registered",
-                    "s", mapper_admin_name(admin));
+                    "s", mdev_name(md));
+            md->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
         }
     }
-
-    /* If we are ready to register the device, add the needed message
-     * handlers. */
-    if (!admin->registered && admin->ordinal.locked)
-    {
-        mapper_admin_add_device_methods(admin);
-
-        admin->registered = 1;
-        trace("</%s.?::%p> registered as <%s>\n",
-              admin->identifier, admin, mapper_admin_name(admin));
-        admin->device->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
-    }
-    if (admin->registered) {
-        if (admin->device->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
-            admin->device->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
+    if (md->registered) {
+        if (md->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
+            md->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
             mapper_admin_send_osc(
-                  admin, 0, "/device", "s", mapper_admin_name(admin),
-                  admin->port ? AT_PORT : -1, admin->port,
-                  AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-                  AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-                  AT_REV, admin->device->version,
-                  AT_EXTRA, admin->device->extra);
+                  admin, 0, "/device", "s", mdev_name(md),
+                  AT_ID, md->props.name_hash,
+                  md->props.port ? AT_PORT : -1, md->props.port,
+                  AT_NUMINPUTS, md ? mdev_num_inputs(md) : 0,
+                  AT_NUMOUTPUTS, md ? mdev_num_outputs(md) : 0,
+                  AT_REV, md->props.version,
+                  AT_EXTRA, md->props.extra);
         }
         // Send out clock sync messages occasionally
         mapper_clock_t *clock = &admin->clock;
@@ -551,56 +524,25 @@ int mapper_admin_poll(mapper_admin admin)
 /*! Probe the admin bus to see if a device's proposed name.ordinal is
  *  already taken.
  */
-void mapper_admin_name_probe(mapper_admin admin)
+void mapper_admin_probe_device_name(mapper_admin admin, mapper_device device)
 {
-    admin->ordinal.collision_count = -1;
-    admin->ordinal.count_time = get_current_time();
+    device->ordinal.collision_count = -1;
+    device->ordinal.count_time = get_current_time();
 
     /* Note: mapper_admin_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
     char name[256];
-    trace("</%s.?::%p> probing name\n", admin->identifier, admin);
-    snprintf(name, 256, "/%s.%d", admin->identifier, admin->ordinal.value);
+    trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
+    snprintf(name, 256, "/%s.%d", device->props.identifier, device->ordinal.value);
 
     /* Calculate a hash from the name and store it in id.value */
-    admin->name_hash = crc32(0L, (const Bytef *)name, strlen(name));
+    device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     /* For the same reason, we can't use mapper_admin_send_osc()
      * here. */
     lo_send(admin->admin_addr, "/name/probe", "si",
             name, admin->random_id);
-}
-
-const char *_real_mapper_admin_name(mapper_admin admin,
-                                    const char *file, unsigned int line)
-{
-#ifdef DEBUG
-    if (!admin->identifier || !admin->device)
-        trace("mapper_admin_name() called on non-device admin at %s:%d.\n",
-              file, line);
-#endif
-
-    if (!admin->ordinal.locked) {
-        /* Since this function is intended to be used internally in a
-         * fairly liberal manner, we want to trace any situations
-         * where returning 0 might cause a problem.  The external call
-         * to this function, mdev_full_name(), has been special-cased
-         * to allow this. */
-        trace("mapper_admin_name() returning 0 at %s:%d.\n", file, line);
-        return 0;
-    }
-
-    if (admin->name)
-        return admin->name;
-
-    unsigned int len = strlen(admin->identifier) + 6;
-    admin->name = (char *) malloc(len);
-    admin->name[0] = 0;
-    snprintf(admin->name, len, "/%s.%d", admin->identifier,
-             admin->ordinal.value);
-
-    return admin->name;
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
@@ -642,23 +584,6 @@ void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
                                  const char *path,
                                  const char *types, ...)
 {
-    char str[1024];
-    const char *namedpath=str;
-
-    /* If string wants a name, mapper_admin_name() will complain about
-     * no device in debug mode.  Otherwise, in non-debug mode, just
-     * don't ask for the name if there's no device. */
-#ifdef DEBUG
-    if (strstr(path, "%s"))
-#else
-    if (admin->device)
-#endif
-    {
-        snprintf(str, 1024, path, mapper_admin_name(admin));
-    }
-    else
-        namedpath = path;
-
     char t[]=" ";
 
     lo_message m = lo_message_new();
@@ -688,9 +613,9 @@ void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
     va_end(aq);
 
     if (b)
-        lo_bundle_add_message(b, namedpath, m);
+        lo_bundle_add_message(b, path, m);
     else {
-        lo_send_message(admin->admin_addr, namedpath, m);
+        lo_send_message(admin->admin_addr, path, m);
         lo_message_free(m);
     }
 }
@@ -702,9 +627,6 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
                                              const char *path,
                                              const char *types, ...)
 {
-    char namedpath[1024];
-    snprintf(namedpath, 1024, path, mapper_admin_name(admin));
-
     lo_message m = lo_message_new();
     if (!m) {
         trace("couldn't allocate lo_message\n");
@@ -719,7 +641,7 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     if (extra)
         mapper_msg_add_osc_value_table(m, extra);
 
-    lo_send_message(admin->admin_addr, namedpath, m);
+    lo_send_message(admin->admin_addr, path, m);
     lo_message_free(m);
 }
 
@@ -796,19 +718,21 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
 
-    if (admin->device->flags & FLAGS_SENT_DEVICE_INFO)
+    if (md->flags & FLAGS_SENT_DEVICE_INFO)
         return 0;
 
     mapper_admin_send_osc(
-        admin, 0, "/device", "s", mapper_admin_name(admin),
-        admin->port ? AT_PORT : -1, admin->port,
-        AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-        AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-        AT_NUMLINKS, admin->device ? mdev_num_links(admin->device) : 0,
-        AT_NUMCONNECTIONS, admin->device ? mdev_num_connections(admin->device) : 0,
-        AT_REV, admin->device->version,
-        AT_EXTRA, admin->device->extra);
+        admin, 0, "/device", "s", mdev_name(md),
+        AT_ID, md->props.name_hash,
+        md->props.port ? AT_PORT : -1, md->props.port,
+        AT_NUMINPUTS, md ? mdev_num_inputs(md) : 0,
+        AT_NUMOUTPUTS, md ? mdev_num_outputs(md) : 0,
+        AT_NUMLINKS, md ? mdev_num_links(md) : 0,
+        AT_NUMCONNECTIONS, md ? mdev_num_connections(md) : 0,
+        AT_REV, md->props.version,
+        AT_EXTRA, md->props.extra);
 
     admin->device->flags |= FLAGS_SENT_DEVICE_INFO;
 
@@ -857,6 +781,7 @@ static int handler_logout(const char *path, const char *types,
                           void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
     int diff, ordinal;
@@ -877,7 +802,7 @@ static int handler_logout(const char *path, const char *types,
     }
 
     // If device exists and is registered
-    if (admin->ordinal.locked) {
+    if (md && md->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
          * format: /<name>.<n> */
         s = name;
@@ -890,11 +815,11 @@ static int handler_logout(const char *path, const char *types,
         // If device name matches
         strtok(name, ".");
         name++;
-        if (strcmp(name, admin->identifier) == 0) {
+        if (strcmp(name, md->props.identifier) == 0) {
             // if registered ordinal is within my block, free it
-            diff = ordinal - admin->ordinal.value;
+            diff = ordinal - md->ordinal.value;
             if (diff > 0 && diff < 9) {
-                admin->ordinal.suggestion[diff-1] = 0;
+                md->ordinal.suggestion[diff-1] = 0;
             }
         }
     }
@@ -913,9 +838,9 @@ static int handler_id_n_signals_input_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->n_inputs - 1;
+    int i = 0, j = md->props.n_inputs - 1;
 
-    if (!md->n_inputs)
+    if (!md->props.n_inputs)
         return 0;
 
     if (!argc && (md->flags & FLAGS_SENT_DEVICE_INPUTS))
@@ -928,8 +853,8 @@ static int handler_id_n_signals_input_get(const char *path,
             i = (int)argv[0]->f;
         if (i < 0)
             i = 0;
-        else if (i >= md->n_inputs)
-            i = md->n_inputs - 1;
+        else if (i >= md->props.n_inputs)
+            i = md->props.n_inputs - 1;
         j = i;
     }
     if (argc > 1) {
@@ -939,8 +864,8 @@ static int handler_id_n_signals_input_get(const char *path,
             j = (int)argv[1]->f;
         if (j < i)
             j = i;
-        if (j >= md->n_inputs)
-            j = md->n_inputs - 1;
+        if (j >= md->props.n_inputs)
+            j = md->props.n_inputs - 1;
     }
 
     lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
@@ -979,9 +904,9 @@ static int handler_id_n_signals_output_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->n_outputs - 1;
+    int i = 0, j = md->props.n_outputs - 1;
 
-    if (!md->n_outputs)
+    if (!md->props.n_outputs)
         return 0;
 
     if (!argc && (md->flags & FLAGS_SENT_DEVICE_OUTPUTS))
@@ -994,8 +919,8 @@ static int handler_id_n_signals_output_get(const char *path,
             i = (int)argv[0]->f;
         if (i < 0)
             i = 0;
-        else if (i >= md->n_outputs)
-            i = md->n_outputs - 1;
+        else if (i >= md->props.n_outputs)
+            i = md->props.n_outputs - 1;
         j = i;
     }
     if (argc > 1) {
@@ -1005,8 +930,8 @@ static int handler_id_n_signals_output_get(const char *path,
             j = (int)argv[1]->f;
         if (j < i)
             j = i;
-        if (j >= md->n_outputs)
-            j = md->n_outputs - 1;
+        if (j >= md->props.n_outputs)
+            j = md->props.n_outputs - 1;
     }
 
     lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
@@ -1094,6 +1019,7 @@ static int handler_device_name_registered(const char *path, const char *types,
                                           lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
     char *name, *s;
     int hash, ordinal, diff;
     int temp_id = -1, suggestion = -1;
@@ -1107,9 +1033,9 @@ static int handler_device_name_registered(const char *path, const char *types,
     name = &argv[0]->s;
 
     trace("</%s.?::%p> got /name/registered %s %i \n",
-          admin->identifier, admin, name, temp_id);
+          md->props.identifier, admin, name, temp_id);
 
-    if (admin->ordinal.locked) {
+    if (md->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
          * format: /<name>.<n> */
         s = name;
@@ -1122,17 +1048,17 @@ static int handler_device_name_registered(const char *path, const char *types,
         *s = 0;
 
         // If device name matches
-        if (strcmp(name+1, admin->identifier) == 0) {
+        if (strcmp(name+1, md->props.identifier) == 0) {
             // if id is locked and registered id is within my block, store it
-            diff = ordinal - admin->ordinal.value;
+            diff = ordinal - md->ordinal.value;
             if (diff > 0 && diff < 9) {
-                admin->ordinal.suggestion[diff-1] = -1;
+                md->ordinal.suggestion[diff-1] = -1;
             }
         }
     }
     else {
         hash = crc32(0L, (const Bytef *)name, strlen(name));
-        if (hash == admin->name_hash) {
+        if (hash == md->props.name_hash) {
             if (argc > 1) {
                 if (types[1] == 'i')
                     temp_id = argv[1]->i;
@@ -1140,14 +1066,14 @@ static int handler_device_name_registered(const char *path, const char *types,
                     suggestion = argv[2]->i;
             }
             if (temp_id == admin->random_id &&
-                suggestion != admin->ordinal.value && suggestion > 0) {
-                admin->ordinal.value = suggestion;
-                mapper_admin_name_probe(admin);
+                suggestion != md->ordinal.value && suggestion > 0) {
+                md->ordinal.value = suggestion;
+                mapper_admin_probe_device_name(admin, md);
             }
             else {
                 /* Count ordinal collisions. */
-                admin->ordinal.collision_count++;
-                admin->ordinal.count_time = get_current_time();
+                md->ordinal.collision_count++;
+                md->ordinal.count_time = get_current_time();
             }
         }
     }
@@ -1160,6 +1086,7 @@ static int handler_device_name_probe(const char *path, const char *types,
                                      lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
     char *name;
     double current_time;
     int hash, temp_id = -1, i;
@@ -1177,17 +1104,17 @@ static int handler_device_name_probe(const char *path, const char *types,
     }
 
     trace("</%s.?::%p> got /name/probe %s %i \n",
-          admin->identifier, admin, name, temp_id);
+          md->props.identifier, admin, name, temp_id);
 
     hash = crc32(0L, (const Bytef *)name, strlen(name));
-    if (hash == admin->name_hash) {
-        if (admin->ordinal.locked) {
+    if (hash == md->props.name_hash) {
+        if (md->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (admin->ordinal.suggestion[i] >= 0
-                    && (current_time - admin->ordinal.suggestion[i]) > 2.0) {
+                if (md->ordinal.suggestion[i] >= 0
+                    && (current_time - md->ordinal.suggestion[i]) > 2.0) {
                     // reserve suggested ordinal
-                    admin->ordinal.suggestion[i] = get_current_time();
+                    md->ordinal.suggestion[i] = get_current_time();
                     break;
                 }
             }
@@ -1195,11 +1122,11 @@ static int handler_device_name_probe(const char *path, const char *types,
              * mapper_admin_send_osc() here. */
             lo_send(admin->admin_addr, "/name/registered",
                     "sii", name, temp_id,
-                    (admin->ordinal.value+i+1));
+                    (md->ordinal.value+i+1));
         }
         else {
-            admin->ordinal.collision_count++;
-            admin->ordinal.count_time = get_current_time();
+            md->ordinal.collision_count++;
+            md->ordinal.count_time = get_current_time();
         }
     }
     return 0;
@@ -1211,6 +1138,7 @@ static int handler_device_link(const char *path, const char *types,
                                void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
     const char *src_name, *dest_name;
 
     if (argc < 2)
@@ -1224,10 +1152,10 @@ static int handler_device_link(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    if (strcmp(mapper_admin_name(admin), dest_name))
+    if (strcmp(mdev_name(md), dest_name))
         return 0;
 
-    trace("<%s> got /link %s %s\n", mapper_admin_name(admin),
+    trace("<%s> got /link %s %s\n", mdev_name(md),
           src_name, dest_name);
 
     mapper_message_t params;
@@ -1237,11 +1165,11 @@ static int handler_device_link(const char *path, const char *types,
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /link.\n",
-              mapper_admin_name(admin));
+              mdev_name(md));
         return 0;
     }
 
-    lo_arg *arg_port = (lo_arg*) &admin->port;
+    lo_arg *arg_port = (lo_arg*) &md->props.port;
     params.values[AT_PORT] = &arg_port;
     params.types[AT_PORT] = "i";
     mapper_admin_send_osc_with_params(
@@ -1272,14 +1200,14 @@ static int handler_device_linkTo(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    if (strcmp(src_name, mapper_admin_name(admin)))
+    if (strcmp(src_name, mdev_name(md)))
     {
         trace("<%s> ignoring /linkTo %s %s\n",
-              mapper_admin_name(admin), src_name, dest_name);
+              mdev_name(md), src_name, dest_name);
         return 0;
     }
 
-    trace("<%s> got /linkTo %s %s\n", mapper_admin_name(admin),
+    trace("<%s> got /linkTo %s %s\n", mdev_name(md),
           src_name, dest_name);
 
     // Parse the message.
@@ -1288,7 +1216,7 @@ static int handler_device_linkTo(const char *path, const char *types,
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /linkTo.\n",
-              mapper_admin_name(admin));
+              mdev_name(md));
         return 0;
     }
 
@@ -1337,7 +1265,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin_send_linked(admin, router);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
-          mapper_admin_name(admin), dest_name, host, port);
+          mdev_name(md), dest_name, host, port);
 
     return 0;
 }
@@ -1382,8 +1310,8 @@ static int handler_device_links_get(const char *path, const char *types,
     mapper_device md = admin->device;
     mapper_router router = md->routers;
 
-    trace("<%s> got %s/links/get\n", mapper_admin_name(admin),
-          mapper_admin_name(admin));
+    trace("<%s> got %s/links/get\n", mdev_name(md),
+          mdev_name(md));
 
     if (md->flags & FLAGS_SENT_DEVICE_LINKS)
         return 0;
@@ -1418,7 +1346,7 @@ static int handler_device_unlink(const char *path, const char *types,
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
 
-    trace("<%s> got /unlink %s %s + %i arguments\n", mapper_admin_name(admin),
+    trace("<%s> got /unlink %s %s + %i arguments\n", mdev_name(md),
           src_name, dest_name, argc-2);
 
     mapper_message_t params;
@@ -1428,13 +1356,13 @@ static int handler_device_unlink(const char *path, const char *types,
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /unlink.\n",
-              mapper_admin_name(admin));
+              mdev_name(md));
         return 0;
     }
 
     scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
 
-    if (strcmp(mapper_admin_name(admin), src_name))
+    if (strcmp(mdev_name(md), src_name))
         return 0;
 
     /* Remove the router for the destination. */
@@ -1447,18 +1375,18 @@ static int handler_device_unlink(const char *path, const char *types,
             return 0;
         }
         else {
-            lo_arg *arg_scope = (lo_arg*) admin->name;
+            lo_arg *arg_scope = (lo_arg*) md->props.name;
             params.values[AT_SCOPE] = &arg_scope;
             params.types[AT_SCOPE] = "s";
         }
 
         mdev_remove_router(md, router);
         mapper_admin_send_osc_with_params(
-            admin, &params, 0, "/unlinked", "ss", mapper_admin_name(admin), dest_name);
+            admin, &params, 0, "/unlinked", "ss", mdev_name(md), dest_name);
     }
     else {
         trace("<%s> no router for %s found in /unlink handler\n",
-              mapper_admin_name(admin), dest_name);
+              mdev_name(md), dest_name);
     }
     return 0;
 }
@@ -1489,7 +1417,7 @@ static int handler_device_unlinked(const char *path, const char *types,
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /unlinked.\n",
-              mapper_admin_name(admin));
+              mdev_name(md));
         return 0;
     }
     const char *scope = mapper_msg_get_param_if_string(&params, AT_SCOPE);
@@ -1513,9 +1441,9 @@ static int handler_device_unlinked(const char *path, const char *types,
 
     if (md) {
         trace("<%s> got /unlinked %s %s + %i arguments\n",
-              mapper_admin_name(admin), src_name, dest_name, argc-2);
+              mdev_name(md), src_name, dest_name, argc-2);
 
-        if (strcmp(mapper_admin_name(admin), dest_name) == 0)
+        if (strcmp(mdev_name(md), dest_name) == 0)
             mdev_release_scope(md, scope);
     }
     return 0;
@@ -1573,7 +1501,7 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
 
     dest_name = &argv[1]->s;
-    if (osc_prefix_cmp(dest_name, mapper_admin_name(admin),
+    if (osc_prefix_cmp(dest_name, mdev_name(md),
                        &dest_signal_name))
         return 0;
 
@@ -1582,17 +1510,17 @@ static int handler_signal_connect(const char *path, const char *types,
 
     if (!src_signal_name) {
         trace("<%s> source '%s' has no parameter in /connect.\n",
-              mapper_admin_name(admin), src_name);
+              mdev_name(md), src_name);
         return 0;
     }
 
-    trace("<%s> got /connect %s %s\n", mapper_admin_name(admin),
+    trace("<%s> got /connect %s %s\n", mdev_name(md),
           src_name, dest_name);
 
     if (!(input=mdev_get_input_by_name(md, dest_signal_name, 0)))
     {
         trace("<%s> no input signal found for '%s' in /connectTo\n",
-              mapper_admin_name(admin), dest_signal_name);
+              mdev_name(md), dest_signal_name);
         return 0;
     }
 
@@ -1604,7 +1532,7 @@ static int handler_signal_connect(const char *path, const char *types,
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /connect.\n",
-              mapper_admin_name(admin));
+              mdev_name(md));
         return 0;
     }
 
@@ -1664,7 +1592,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
+    if (osc_prefix_cmp(src_name, mdev_name(md),
                        &src_signal_name))
         return 0;
 
@@ -1673,17 +1601,17 @@ static int handler_signal_connectTo(const char *path, const char *types,
 
     if (!dest_signal_name) {
         trace("<%s> destination '%s' has no parameter in /connectTo.\n",
-              mapper_admin_name(admin), dest_name);
+              mdev_name(md), dest_name);
         return 0;
     }
 
     trace("<%s> got /connectTo %s %s + %d arguments\n",
-          mapper_admin_name(admin), src_name, dest_name, argc);
+          mdev_name(md), src_name, dest_name, argc);
 
     if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /connectTo\n",
-              mapper_admin_name(admin), src_signal_name);
+              mdev_name(md), src_signal_name);
         return 0;
     }
 
@@ -1691,7 +1619,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
     {
         trace("<%s> error parsing parameters in /connectTo, "
-              "continuing anyway.\n", mapper_admin_name(admin));
+              "continuing anyway.\n", mdev_name(md));
     }
 
     mapper_router router =
@@ -1703,7 +1631,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
      * applications. */
     if (!router) {
         trace("<%s> not linked to '%s' on /connectTo.\n",
-              mapper_admin_name(admin), dest_name);
+              mdev_name(md), dest_name);
         return 0;
     }
 
@@ -1810,14 +1738,14 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    if (osc_prefix_cmp(src_name, mapper_admin_name(admin),
+    if (osc_prefix_cmp(src_name, mdev_name(md),
                        &src_signal_name))
         return 0;
 
     if (!(output=mdev_get_output_by_name(md, src_signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /connectTo\n",
-              mapper_admin_name(admin), src_signal_name);
+              mdev_name(md), src_signal_name);
         return 0;
     }
 
@@ -1826,7 +1754,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     if (!router)
     {
         trace("<%s> no router found for '%s' in /connectTo\n",
-              mapper_admin_name(admin), &argv[1]->s);
+              mdev_name(md), &argv[1]->s);
     }
 
     mapper_connection c = mapper_connection_find_by_names(md, &argv[0]->s,
@@ -1838,7 +1766,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     if (mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]))
     {
         trace("<%s> error parsing parameters in /connectTo, "
-              "continuing anyway.\n", mapper_admin_name(admin));
+              "continuing anyway.\n", mdev_name(md));
     }
 
     mapper_connection_set_from_message(c, &params);
@@ -1868,13 +1796,13 @@ static int handler_signal_disconnect(const char *path, const char *types,
 
     src_name = &argv[0]->s;
     dest_name = &argv[1]->s;
-    if (osc_prefix_cmp(src_name, mapper_admin_name(admin), &signal_name) != 0)
+    if (osc_prefix_cmp(src_name, mdev_name(md), &signal_name) != 0)
         return 0;
 
     if (!(sig=mdev_get_output_by_name(md, signal_name, 0)))
     {
         trace("<%s> no output signal found for '%s' in /disconnect\n",
-              mapper_admin_name(admin), signal_name);
+              mdev_name(md), signal_name);
         return 0;
     }
 
@@ -1882,7 +1810,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
                                                            dest_name);
     if (!router) {
         trace("<%s> ignoring /disconnect, no router found for '%s'\n",
-              mapper_admin_name(admin), &argv[1]->s);
+              mdev_name(md), &argv[1]->s);
         return 0;
     }
 
@@ -1891,7 +1819,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
     if (!m) {
         trace("<%s> ignoring /disconnect, "
               "no connection found for '%s' -> '%s'\n",
-              mapper_admin_name(admin), src_name, dest_name);
+              mdev_name(md), src_name, dest_name);
         return 0;
     }
 
@@ -1940,9 +1868,9 @@ static int handler_signal_disconnected(const char *path, const char *types,
 
     if (md) {
         trace("<%s> got /disconnected %s %s\n",
-              mapper_admin_name(admin), src_name, dest_name);
+              mdev_name(md), src_name, dest_name);
 
-        if (osc_prefix_cmp(dest_name, mapper_admin_name(admin),
+        if (osc_prefix_cmp(dest_name, mdev_name(md),
                                 &dest_signal_name) == 0) {
             mapper_signal sig;
             if (!(sig=mdev_get_input_by_name(md, dest_signal_name, 0)))
@@ -1974,7 +1902,7 @@ static int handler_device_connections_get(const char *path,
     mapper_router router = md->routers;
     int i = 0, min = -1, max = -1;
 
-    trace("<%s> got /connections/get\n", mapper_admin_name(admin));
+    trace("<%s> got /connections/get\n", mdev_name(md));
 
     if (!argc && (md->flags & FLAGS_SENT_DEVICE_CONNECTIONS))
         return 0;
@@ -2039,7 +1967,7 @@ static int handler_sync(const char *path,
 
     // get current time
     mapper_timetag_t now;
-    mdev_timetag_now(md, &now);
+    mapper_clock_now(*clock, &now);
 
     // store remote timetag
     clock->remote.device_id = device_id;
@@ -2052,7 +1980,7 @@ static int handler_sync(const char *path,
 
     // if remote timetag is in the future, adjust to remote time
     double diff = mapper_timetag_difference(then, now);
-    mdev_clock_adjust(md, diff, confidence, 0);
+    mapper_clock_adjust(&admin->clock, diff, confidence, 0);
 
     // look at the second part of the message
     device_id = argv[3]->i;
@@ -2067,7 +1995,7 @@ static int handler_sync(const char *path,
     double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
                       - argv[5]->d) * 0.5;
     if (latency > 0 && latency < 100)
-        mdev_clock_adjust(md, diff + latency, confidence, 1);
+        mapper_clock_adjust(&admin->clock, diff + latency, confidence, 1);
 
     return 0;
 }

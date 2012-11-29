@@ -105,7 +105,7 @@ void cleanup_destination()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->admin->port,
+    router = mapper_router_new(source, host, destination->props.port,
                                mdev_name(destination), 1);
     /* router = mapper_router_new(source, "127.0.0.1", 9001, */
     /*                            mdev_name(destination), 0); */

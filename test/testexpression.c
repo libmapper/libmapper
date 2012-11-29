@@ -4,6 +4,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include <unistd.h>
 
@@ -93,32 +94,29 @@ void cleanup_destination()
     }
 }
 
-int setup_router()
+int setup_connection()
 {
-    const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->admin->port, 
-                               mdev_name(destination), 0);
-    mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, destination->admin->port);
+    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char signame_in[1024];
-    if (!msig_full_name(recvsig, signame_in, 1024)) {
-        printf("Could not get destination signal name.\n");
-        return 1;
+    char src_name[1024], dest_name[1024];
+    mapper_monitor_link(mon, mdev_name(source),
+                        mdev_name(destination), 0, 0);
+
+    msig_full_name(sendsig, src_name, 1024);
+    msig_full_name(recvsig, dest_name, 1024);
+    mapper_db_connection_t props;
+    props.mode = MO_EXPRESSION;
+    props.expression = strdup("y=x*10");
+    mapper_monitor_connect(mon, src_name, dest_name, &props,
+                           CONNECTION_MODE | CONNECTION_EXPRESSION);
+
+    mapper_monitor_free(mon);
+
+    int i=5;
+    while (i-- > 0) {
+        mdev_poll(source, 0);
+        mdev_poll(destination, 0);
     }
-
-    char signame_out[1024];
-    if (!msig_full_name(sendsig, signame_out, 1024)) {
-        printf("Could not get source signal name.\n");
-        return 1;
-    }
-
-    printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_connection c = mapper_router_add_connection(router, sendsig,
-                                                       recvsig->props.name,
-                                                       'f', 1);
-    const char *expr = "y=x*10";
-    mapper_connection_set_expression(c, expr);
 
     return 0;
 }
@@ -165,8 +163,8 @@ int main()
 
     wait_ready();
 
-    if (setup_router()) {
-        printf("Error initializing router.\n");
+    if (setup_connection()) {
+        printf("Error setting connection.\n");
         result = 1;
         goto done;
     }

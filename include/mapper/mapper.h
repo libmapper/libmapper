@@ -592,6 +592,12 @@ mapper_db_device_t **mapper_db_get_all_devices(mapper_db db);
 mapper_db_device mapper_db_get_device_by_name(mapper_db db,
                                               const char *device_name);
 
+/*! Find information for a registered device.
+ *  \param db          The database to query.
+ *  \param name_hash   Name hash of the device to find in the database.
+ *  \return            Information about the device, or zero if not found. */
+mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db, int hash);
+
 /*! Return the list of devices with a substring in their name.
  *  \param db             The database to query.
  *  \param device_pattern The substring to search for.

@@ -85,15 +85,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_name_probe(mapper_admin admin);
-
-/* A macro allow tracing bad usage of this function. */
-#define mapper_admin_name(admin)                        \
-    _real_mapper_admin_name(admin, __FILE__, __LINE__)
-
-/* The real function, don't call directly. */
-const char *_real_mapper_admin_name(mapper_admin admin,
-                                    const char *file, unsigned int line);
+void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Macro for calling message-sending function. */
 #define mapper_admin_send_osc(...)                  \
@@ -636,13 +628,16 @@ void mapper_msg_add_osc_value_table(lo_message m, table t);
 /**** Clock synchronization ****/
 
 /*! Initialize a mapper_clock. */
-void mdev_clock_init(mapper_device dev);
+void mapper_clock_init(mapper_clock_t *clock);
 
 /*! Adjust the internal clock synchonization. */
-void mdev_clock_adjust(mapper_device dev,
-                       double difference,
-                       double confidence,
-                       int is_latency_adjusted);
+void mapper_clock_adjust(mapper_clock_t *clock,
+                         double difference,
+                         double confidence,
+                         int is_latency_adjusted);
+
+/*! Get the current time from a mapper_clock. */
+void mapper_clock_now(mapper_clock_t clock, mapper_timetag_t *timetag);
 
 /**** Debug macros ****/
 

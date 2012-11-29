@@ -54,7 +54,7 @@ int test_recv()
     }
 	
 	char port[10];
-	sprintf(port, "%i", md->admin->port);
+	sprintf(port, "%i", md->props.port);
 	printf("using port = %s\n", port);
 	
 	lo_address a = lo_address_new("localhost", port);

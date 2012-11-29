@@ -23,15 +23,22 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *name;   //!< Device name.
-    char *host;   //!< Device network host name.
-    int port;     //!< Device network port.
-    int n_inputs; //!< Number of associated input signals.
-    int n_outputs;//!< Number of associated output signals.
-    int n_links;  //!< Number of associated links.
-    int n_connections; //!< Number of associated connections.
-    int version;  //!< Reported device state version.
-    void* user_data; //!< User modifiable data.
+    char *identifier;           /*!< The identifier (prefix) for
+                                 *   this device. */
+    char *name;                 /*!< The full name for this
+                                 *   device, or zero. */
+    int ordinal;
+    int name_hash;              /*!< CRC-32 hash of full device name
+                                 *   in the form <name>.<ordinal> */
+    char *host;         //!< Device network host name.
+    int port;           //!< Device network port.
+    int n_inputs;       //!< Number of associated input signals.
+    int n_outputs;      //!< Number of associated output signals.
+    int n_links;        //!< Number of associated links.
+    int n_connections;  //!< Number of associated connections.
+    int version;        //!< Reported device state version.
+    void* user_data;    //!< User modifiable data.
+    mapper_timetag_t timetag;
 
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
@@ -212,13 +219,13 @@ typedef struct _mapper_db_signal
     /*! The name of this signal, an OSC path.  Must start with '/'. */
     const char *name;
 
-    /*! The device name of which this signal is a member. An OSC path.
+    /*! The name of the device owning this signal. An OSC path. 
      *  Must start with '/'. */
     const char *device_name;
 
     /*! The unit of this signal, or NULL for N/A. */
     const char *unit;
-
+    
     /*! The minimum of this signal, or NULL for no minimum. */
     mapper_signal_value_t *minimum;
 

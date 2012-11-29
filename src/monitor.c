@@ -340,6 +340,7 @@ void mapper_monitor_connect(mapper_monitor mon,
                             mapper_db_connection_t *props,
                             unsigned int props_flags)
 {
+    printf("mapper_monitor_connect: flags = %i\n", props_flags);
     if (props) {
         mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal,
