@@ -515,8 +515,15 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1callback
                              (*env)->NewGlobalRef(env, listener));
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
   (JNIEnv *env, jobject obj, jlong s)
+{
+    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    return msig_query_remotes(sig, MAPPER_TIMETAG_NOW);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+(JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
     return jlong_ptr(msig_properties(sig));
