@@ -933,6 +933,9 @@ typedef struct _admin {} admin;
         }
         return msig_set_callback((mapper_signal)$self, h, PyFunc);
     }
+    int query_remotes() {
+        return msig_query_remotes((mapper_signal)$self, MAPPER_TIMETAG_NOW);
+    }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
         if (!v)
