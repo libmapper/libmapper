@@ -300,6 +300,74 @@ static int handler_instance_release_request(const char *path, const char *types,
     return 0;
 }
 
+static int handler_query(const char *path, const char *types,
+                         lo_arg **argv, int argc, lo_message msg,
+                         void *user_data)
+{
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md = sig->device;
+
+    if (!md) {
+        trace("error, sig->device==0\n");
+        return 0;
+    }
+
+    if (!argc)
+        return 0;
+    else if (types[0] != 's' && types[0] != 'S')
+        return 0;
+
+    int i;
+    lo_message m = lo_message_new();
+    if (!m)
+        return 0;
+    lo_timetag tt = lo_message_get_timestamp(msg);
+    lo_bundle b = lo_bundle_new(tt);
+
+    mapper_signal_instance si = sig->active_instances;
+    if (!si) {
+        // If there are no active instances, send null response
+        lo_message_add_nil(m);
+        lo_bundle_add_message(b, &argv[0]->s, m);
+        lo_send_bundle(lo_message_get_source(msg), b);
+        lo_bundle_free_messages(b);
+        return 0;
+    }
+
+    while (si) {
+        if (sig->props.num_instances > 1) {
+            lo_message_add_int32(m, (long)si->id_map->group);
+            lo_message_add_int32(m, (long)si->id_map->local);
+        }
+        if (si->has_value) {
+            if (sig->props.type == 'f') {
+                float *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
+                    lo_message_add_float(m, v[i]);
+            }
+            else if (sig->props.type == 'i') {
+                int *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
+                    lo_message_add_int32(m, v[i]);
+            }
+            else if (sig->props.type == 'd') {
+                double *v = si->value;
+                for (i = 0; i < sig->props.length; i++)
+                    lo_message_add_double(m, v[i]);
+            }
+        }
+        else {
+            lo_message_add_nil(m);
+        }
+        lo_bundle_add_message(b, &argv[0]->s, m);
+        si = si->next;
+    }
+    lo_send_bundle(lo_message_get_source(msg), b);
+    lo_bundle_free_messages(b);
+    return 0;
+}
+
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -359,6 +427,13 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              sig->props.name,
                              "iiN",
                              handler_signal_instance, (void *) (sig));
+        int len = strlen(sig->props.name) + 5;
+        signal_get = (char*) realloc(signal_get, len);
+        snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+        lo_server_add_method(md->server,
+                             signal_get,
+                             "s",
+                             handler_query, (void *) (sig));
         free(type_string);
         free(signal_get);
     }
@@ -418,6 +493,14 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
                              path,
                              type,
                              handler_signal_instance, (void *)sig);
+        lo_server_add_method(md->server,
+                             path,
+                             "N",
+                             handler_signal, (void *)sig);
+        lo_server_add_method(md->server,
+                             path,
+                             "iiN",
+                             handler_signal_instance, (void *)sig);
         md->n_output_callbacks ++;
         free(path);
     }
@@ -445,6 +528,8 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
     snprintf(path, len, "%s%s", sig->props.name, "/got");
     lo_server_del_method(md->server, path, type);
     lo_server_del_method(md->server, path, type + 2);
+    lo_server_del_method(md->server, path, "N");
+    lo_server_del_method(md->server, path, "iiN");
     md->n_output_callbacks --;
 }
 
@@ -1002,6 +1087,13 @@ void mdev_start_server(mapper_device md)
                                  md->inputs[i]->props.name,
                                  "iiN",
                                  handler_signal_instance, (void *) (md->inputs[i]));
+            int len = (int) strlen(md->inputs[i]->props.name) + 5;
+            path = (char*) realloc(path, len);
+            snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
+            lo_server_add_method(md->server,
+                                 path,
+                                 "s",
+                                 handler_query, (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->n_outputs; i++) {
             if (md->outputs[i]->handler) {
@@ -1020,6 +1112,14 @@ void mdev_start_server(mapper_device md)
                 lo_server_add_method(md->server,
                                      path,
                                      type,
+                                     handler_signal_instance, (void *) (md->outputs[i]));
+                lo_server_add_method(md->server,
+                                     path,
+                                     "N",
+                                     handler_signal, (void *) (md->outputs[i]));
+                lo_server_add_method(md->server,
+                                     path,
+                                     "iiN",
                                      handler_signal_instance, (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
             }

@@ -325,20 +325,16 @@ int mapper_router_send_query(mapper_router r,
     }
     // for each connection, query the remote signal
     mapper_connection c = rs->connections;
-    int count = 0, query_len = 0;
-    char *query_string = 0;
+    int count = 0;
     int response_len = (int) strlen(sig->props.name) + 5;
     char *response_string = (char*) malloc(response_len);
     snprintf(response_string, response_len, "%s%s", sig->props.name, "/got");
     while (c) {
-        query_len = (int) strlen(c->props.dest_name) + 5;
-        query_string = (char*) realloc(query_string, query_len);
-        snprintf(query_string, query_len, "%s%s", c->props.dest_name, "/get");
         lo_message m = lo_message_new();
         if (!m)
             continue;
         lo_message_add_string(m, response_string);
-        mapper_router_send_or_bundle_message(r, query_string, m, tt);
+        mapper_router_send_or_bundle_message(r, c->props.query_name, m, tt);
         count++;
         c = c->next;
     }
