@@ -22,12 +22,12 @@ EXPORTS
     mapper_db_get_links_by_src_dest_devices              @21
     mapper_db_get_links_by_src_device_name               @22
     mapper_db_get_connection_by_signal_full_names        @23
-    mapper_db_get_connections_by_device_and_input_name   @24
-    mapper_db_get_connections_by_device_and_output_name  @25
+    mapper_db_get_connections_by_src_device_and_signal_names  @24
+    mapper_db_get_connections_by_dest_device_and_signal_names @25
     mapper_db_get_connections_by_device_and_signal_names @26
     mapper_db_get_connections_by_device_name             @27
-    mapper_db_get_connections_by_input_name              @28
-    mapper_db_get_connections_by_output_name             @29
+    mapper_db_get_connections_by_src_signal_name         @28
+    mapper_db_get_connections_by_dest_signal_name        @29
     mapper_db_get_connections_by_signal_queries          @30
     mapper_db_get_connections_by_src_dest_device_names   @31
     mapper_db_get_outputs_by_device_name                 @32
@@ -35,46 +35,46 @@ EXPORTS
     mapper_db_link_next                                  @34
     mapper_db_connection_done                            @35
     mapper_db_connection_next                            @36
-    mapper_db_match_devices_by_name                      @37
-    mapper_db_match_inputs_by_device_name                @38
-    mapper_db_match_outputs_by_device_name               @39
-    mapper_db_remove_device_callback                     @40
-    mapper_db_remove_link_callback                       @41
-    mapper_db_remove_connection_callback                 @42
-    mapper_db_remove_signal_callback                     @43
-    mapper_db_signal_done                                @44
-    mapper_db_signal_next                                @45
-    mapper_db_signal_property_index                      @46
-    mapper_db_signal_property_lookup                     @47
-    mapper_monitor_new                                   @48
-    mapper_monitor_autorequest                           @49
-    mapper_monitor_connect                               @50
-    mapper_monitor_disconnect                            @51
-    mapper_monitor_free                                  @52
-    mapper_monitor_get_db                                @53
-    mapper_monitor_link                                  @54
-    mapper_monitor_connection_modify                     @55
-    mapper_monitor_poll                                  @56
-    mapper_monitor_request_devices                       @57
-    mapper_monitor_request_links_by_name                 @58
-    mapper_monitor_request_connections_by_name           @59
-    mapper_monitor_request_signals_by_name               @60
-    mapper_monitor_unlink                                @61
-    mdev_add_hidden_input                                @62
-    mdev_add_input                                       @63
-    mdev_add_output                                      @64
-    mdev_free                                            @65
-    mdev_get_input_by_index                              @66
-    mdev_get_input_by_name                               @67
-    mdev_get_inputs                                      @68
-    mdev_get_output_by_index                             @69
-    mdev_get_output_by_name                              @70
-    mdev_get_outputs                                     @71
-    mdev_interface                                       @72
-    mdev_ip4                                             @73
-    mdev_name                                            @74
-    mdev_new                                             @75
-    mdev_num_hidden_inputs                               @76
+	mapper_db_connection_property_index                  @37
+	mapper_db_connection_property_lookup                 @38
+    mapper_db_match_devices_by_name                      @39
+    mapper_db_match_inputs_by_device_name                @40
+    mapper_db_match_outputs_by_device_name               @41
+    mapper_db_remove_device_callback                     @42
+    mapper_db_remove_link_callback                       @43
+    mapper_db_remove_connection_callback                 @44
+    mapper_db_remove_signal_callback                     @45
+    mapper_db_signal_done                                @46
+    mapper_db_signal_next                                @47
+    mapper_db_signal_property_index                      @48
+    mapper_db_signal_property_lookup                     @49
+    mapper_monitor_new                                   @50
+    mapper_monitor_autorequest                           @51
+    mapper_monitor_connect                               @52
+    mapper_monitor_disconnect                            @53
+    mapper_monitor_free                                  @54
+    mapper_monitor_get_db                                @55
+    mapper_monitor_link                                  @56
+    mapper_monitor_connection_modify                     @57
+    mapper_monitor_poll                                  @58
+    mapper_monitor_request_devices                       @59
+    mapper_monitor_request_links_by_name                 @60
+    mapper_monitor_request_connections_by_name           @61
+    mapper_monitor_request_signals_by_name               @62
+    mapper_monitor_unlink                                @63
+    mdev_add_input                                       @64
+    mdev_add_output                                      @65
+    mdev_free                                            @66
+    mdev_get_input_by_index                              @67
+    mdev_get_input_by_name                               @68
+    mdev_get_inputs                                      @69
+    mdev_get_output_by_index                             @70
+    mdev_get_output_by_name                              @71
+    mdev_get_outputs                                     @72
+    mdev_interface                                       @73
+    mdev_ip4                                             @74
+    mdev_name                                            @75
+    mdev_new                                             @76
     mdev_num_inputs                                      @77
     mdev_num_outputs                                     @78
     mdev_ordinal                                         @79
@@ -85,16 +85,15 @@ EXPORTS
     mdev_remove_output                                   @84
     mdev_remove_property                                 @85
     mdev_set_property                                    @86
-    mdev_set_queue_size                                  @87
-    mdev_set_timetag                                     @88
-    msig_full_name                                       @89
-    msig_properties                                      @90
-    msig_query_remote                                    @91
-    msig_remove_property                                 @92
-    msig_set_maximum                                     @93
-    msig_set_minimum                                     @94
-    msig_set_property                                    @95
-    msig_update                                          @96
-    msig_update_float                                    @97
-    msig_update_int                                      @98
-    msig_value                                           @99
+    msig_full_name                                       @87
+    msig_properties                                      @88
+    msig_query_remotes                                   @89
+    msig_remove_property                                 @90
+    msig_set_maximum                                     @91
+    msig_set_minimum                                     @92
+    msig_set_property                                    @93
+    msig_update                                          @94
+    msig_update_float                                    @95
+    msig_update_int                                      @96
+    msig_value                                           @97
+    mdev_get_lo_server                                   @98

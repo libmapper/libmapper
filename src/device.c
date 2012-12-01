@@ -809,8 +809,6 @@ void mdev_route_signal(mapper_device md,
                                      timetag, flags);
         r = r->next;
     }
-
-    return;
 }
 
 void mdev_receive_update(mapper_device md,
@@ -1205,4 +1203,9 @@ void mdev_set_property(mapper_device dev, const char *property,
 void mdev_remove_property(mapper_device dev, const char *property)
 {
     table_remove_key(dev->extra, property, 1);
+}
+
+lo_server mdev_get_lo_server(mapper_device md)
+{
+    return md->server;
 }

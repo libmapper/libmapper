@@ -452,14 +452,6 @@ void mdev_remove_property(mapper_device dev, const char *property);
  *          nothing to do. */
 int mdev_poll(mapper_device dev, int block_ms);
 
-/*! Send the current value of a signal.
- *  This is called by msig_update(), so use that to change the value
- *  of a signal rather than calling this function directly.
- *  \param dev The device containing the signal to send.
- *  \param sig The signal to send.
- *  \return zero if the signal was sent, non-zero otherwise. */
-int mdev_send_signal(mapper_device dev, mapper_signal sig);
-
 /*! Detect whether a device is completely initialized.
  *  \return Non-zero if device is completely initialized, i.e., has an
  *  allocated receiving port and unique network name.  Zero
@@ -512,6 +504,9 @@ void mdev_start_queue(mapper_device md, mapper_timetag_t tt);
 
 /*! Dispatch a time-tagged mapper queue. */
 void mdev_send_queue(mapper_device md, mapper_timetag_t tt);
+
+/*! Get access to the device's underlying lo_server. */
+lo_server mdev_get_lo_server(mapper_device md);
 
 /* @} */
 
@@ -960,11 +955,11 @@ void mapper_db_connection_done(mapper_db_connection_t **s);
  *                  type.
  *  \param value    Address of a lo_arg* to receive the property value.
  *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connecion_property_index(mapper_db_connection con,
-                                       unsigned int index,
-                                       const char **property,
-                                       lo_type *type,
-                                       const lo_arg **value);
+int mapper_db_connection_property_index(mapper_db_connection con,
+                                        unsigned int index,
+                                        const char **property,
+                                        lo_type *type,
+                                        const lo_arg **value);
 
 /*! Look up a connection property by name.
  *  \param con      The connection to look at.

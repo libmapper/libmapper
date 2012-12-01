@@ -38,7 +38,6 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
-    sig->instance_management_handler = 0;
     sig->props.num_instances = 0;
     sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
@@ -46,8 +45,6 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->instance_allocation_type = IN_UNDEFINED;
 
     // Reserve one instance to start
-    sig->active_instances = 0;
-    sig->reserve_instances = 0;
     msig_reserve_instances(sig, 1);
     return sig;
 }

@@ -639,11 +639,11 @@ typedef struct _db {} db;
 typedef struct _admin {} admin;
 
 %extend device {
-    _device(const char *name, int port=0, admin *DISOWN=0) {
+    device(const char *name, int port=9000, admin *DISOWN=0) {
         device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
-    ~_device() {
+    ~device() {
         mdev_free((mapper_device)$self);
     }
     int poll(int timeout=0) {
@@ -1045,11 +1045,11 @@ typedef struct _admin {} admin;
 }
 
 %extend monitor {
-    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
+    monitor(admin *DISOWN=0, int enable_autorequest=1) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
                                              enable_autorequest);
     }
-    ~_monitor() {
+    ~monitor() {
         mapper_monitor_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
@@ -1314,10 +1314,10 @@ typedef struct _admin {} admin;
 }
 
 %extend admin {
-    _admin(const char *iface=0, const char *ip=0, int port=7570) {
+    admin(const char *iface=0, const char *ip=0, int port=7570) {
         return (admin *)mapper_admin_new(iface, ip, port);
     }
-    ~_admin() {
+    ~admin() {
         mapper_admin_free((mapper_admin)$self);
     }
 }
