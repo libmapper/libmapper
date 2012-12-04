@@ -132,6 +132,8 @@ typedef struct _mapper_db_connection {
     mapper_clipping_type clip_min;    /*!< Operation for exceeded
                                        *   lower boundary. */
 
+    int send_as_instance;       //!< 1 to send as instance, 0 otherwise.
+
     mapper_connection_range_t range;  //!< Range information.
     char *expression;
 

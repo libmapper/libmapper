@@ -656,6 +656,11 @@ void mapper_connection_set_from_message(mapper_connection c,
         }
     }
 
+    /* Instances. */
+    int send_as_instance;
+    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance))
+        c->props.send_as_instance = send_as_instance;
+
     /* Extra properties. */
     mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 

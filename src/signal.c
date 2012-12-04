@@ -13,7 +13,6 @@ static void msig_update_internal(mapper_signal sig,
                                  mapper_signal_instance si,
                                  void *value,
                                  int count,
-                                 int send_as_instance,
                                  mapper_timetag_t timetag);
 
 static void *msig_instance_value_internal(mapper_signal sig,
@@ -86,7 +85,7 @@ void msig_update(mapper_signal sig, void *value,
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances,
-                         value, count, 0, tt);
+                         value, count, tt);
 }
 
 void msig_update_int(mapper_signal sig, int value)
@@ -114,7 +113,7 @@ void msig_update_int(mapper_signal sig, int value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, 0, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_TIMETAG_NOW);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -142,7 +141,7 @@ void msig_update_float(mapper_signal sig, float value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, 0, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_TIMETAG_NOW);
 }
 
 void *msig_value(mapper_signal sig,
@@ -408,14 +407,13 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
-        msig_update_internal(sig, si, value, count, 1, timetag);
+        msig_update_internal(sig, si, value, count, timetag);
 }
 
 static void msig_update_internal(mapper_signal sig,
                                  mapper_signal_instance si,
                                  void *value,
                                  int count,
-                                 int send_as_instance,
                                  mapper_timetag_t tt)
 {
     if (!si) return;
@@ -439,9 +437,8 @@ static void msig_update_internal(mapper_signal sig,
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
 
     if (sig->props.is_output) {
-        int flags = FLAGS_SEND_AS_INSTANCE * send_as_instance;
         mdev_route_signal(sig->device, sig, si, value,
-                          count, si->timetag, flags);
+                          count, si->timetag);
     }
 }
 
@@ -465,7 +462,7 @@ void msig_release_instance_internal(mapper_signal sig,
 
     if (sig->props.is_output) {
         // Send release notification to remote devices
-        msig_update_internal(sig, si, NULL, 0, 1, timetag);
+        msig_update_internal(sig, si, NULL, 0, timetag);
     }
 
     if (--si->id_map->reference_count <= 0 && !si->id_map->release_time)

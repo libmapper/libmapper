@@ -147,7 +147,6 @@ typedef mapper_admin_t *mapper_admin;
 /*! Bit flags for indicating routing configuration. */
 #define FLAGS_SEND_IMMEDIATELY  0x01
 #define FLAGS_IS_NEW_INSTANCE   0x02
-#define FLAGS_SEND_AS_INSTANCE  0x04
 
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
@@ -329,6 +328,7 @@ typedef enum {
     AT_RATE,
     AT_REV,
     AT_SCOPE,
+    AT_SEND_AS_INSTANCE,
     AT_SRCLENGTH,
     AT_SRCTYPE,
     AT_TYPE,
