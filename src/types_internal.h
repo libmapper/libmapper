@@ -115,7 +115,7 @@ typedef struct _mapper_admin {
                                        *   device, or zero. */
     mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
                                        *   device instance. */
-    int name_hash;                    /*!< CRC-32 hash of full device name
+    uint32_t name_hash;               /*!< CRC-32 hash of full device name
                                        *   in the form <name>.<ordinal> */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
@@ -237,7 +237,7 @@ typedef struct _mapper_device {
     /*!< The list of reserve instance id mappings. */
     struct _mapper_instance_id_map *reserve_id_map;
 
-    int id_counter;
+    uint32_t id_counter;
 
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
@@ -251,12 +251,12 @@ typedef struct _mapper_device {
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
 typedef struct _mapper_instance_id_map {
-    int local;                          //!< Local instance id to map.
-    int group;                          //!< Link group id.
-    int remote;                         //!< Remote instance id to map.
+    int local;                              //!< Local instance id to map.
+    uint32_t group;                         //!< Link group id.
+    uint32_t remote;                        //!< Remote instance id to map.
     int reference_count;
     uint32_t release_time;
-    struct _mapper_instance_id_map *next;  //!< The next id map in the list.
+    struct _mapper_instance_id_map *next;   //!< The next id map in the list.
 } *mapper_instance_id_map;
 
 /*! Bit flags indicating if information has already been
