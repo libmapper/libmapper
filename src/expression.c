@@ -213,8 +213,17 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         }
     case 'e':
         if (!integer_found) {
-            printf("unexpected `e' outside float\n");
-            break;
+            s = *str;
+            while (c && (isalpha(c) || isdigit(c)))
+                c = (*(++*str));
+            tok->type = TOK_FUNC;
+            tok->func = function_lookup(s, *str-s);
+            if (tok->func == FUNC_UNKNOWN) {
+                printf("unexpected `e' outside float\n");
+                break;
+            }
+            else
+                return 0;
         }
         c = (*(++*str));
         if (c!='-' && c!='+' && !isdigit(c)) {
