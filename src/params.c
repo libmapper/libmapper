@@ -506,9 +506,9 @@ void mapper_msg_prepare_params(lo_message m,
 }
 
 void mapper_link_prepare_osc_message(lo_message m,
-                                     mapper_router router)
+                                     mapper_link link)
 {
-    mapper_msg_add_osc_value_table(m, router->props.extra);
+    mapper_msg_add_osc_value_table(m, link->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,
