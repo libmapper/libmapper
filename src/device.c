@@ -795,11 +795,11 @@ void mdev_route_signal(mapper_device md,
                        mapper_signal_instance si,
                        void *value,
                        int count,
-                       mapper_timetag_t timetag,
-                       int flags)
+                       mapper_timetag_t timetag)
 {
+    int flags = 0;
     if (!si->is_active && si->has_value) {
-        flags |= FLAGS_IS_NEW_INSTANCE;
+        flags = FLAGS_IS_NEW_INSTANCE;
         si->is_active = 1;
     }
     // pass update to each router in turn

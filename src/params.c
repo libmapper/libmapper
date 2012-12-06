@@ -31,6 +31,7 @@ const char* mapper_msg_param_strings[] =
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
+    "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@srcLength",       /* AT_SRCLENGTH */
     "@srcType",         /* AT_SRCTYPE */
     "@type",            /* AT_TYPE */
@@ -557,6 +558,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_int32(m, con->props.src_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
     lo_message_add_int32(m, con->props.dest_length);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SEND_AS_INSTANCE]);
+    lo_message_add_int32(m, con->props.send_as_instance);
 
     mapper_msg_add_osc_value_table(m, con->props.extra);
 }

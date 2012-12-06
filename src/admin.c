@@ -1803,6 +1803,20 @@ static int handler_signal_connectTo(const char *path, const char *types,
     }
 
     if (argc > 2) {
+        /* If send_as_instance property is not set, make connection
+         * default to passing updates as instances if both source
+         * and destination signals have multiple instances. */
+        if (!params.values[AT_SEND_AS_INSTANCE]) {
+            int dest_instances;
+            mapper_msg_get_param_if_int(&params, AT_SEND_AS_INSTANCE,
+                                        &dest_instances);
+            if (dest_instances && c->props.send_as_instance) {
+                c->props.send_as_instance = 1;
+            }
+            else
+                c->props.send_as_instance = 0;
+        }
+
         /* Set its properties. */
         mapper_connection_set_from_message(c, &params);
     }
