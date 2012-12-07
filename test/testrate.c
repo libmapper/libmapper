@@ -69,16 +69,15 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination got %s [%i message vector]",
+        printf("--> destination %s got %i message vector\n[",
                props->name, count);
         float *v = value;
         for (int i = 0; i < count; i++) {
-            printf("\n");
             for (int j = 0; j < props->length; j++) {
-                printf(" %f", v[i*props->length+j]);
+                printf(" %.1f ", v[i*props->length+j]);
             }
         }
-        printf("\n");
+        printf("]\n");
     }
     received++;
 }
