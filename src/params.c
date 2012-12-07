@@ -299,18 +299,18 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
-        case AT_PORT:
+        case AT_DEST_LENGTH:
         case AT_ID:
-        case AT_NUM_INPUTS:
-        case AT_NUM_OUTPUTS:
-        case AT_NUM_LINKS_IN:
-        case AT_NUM_LINKS_OUT:
+        case AT_LENGTH:
         case AT_NUM_CONNECTIONS_IN:
         case AT_NUM_CONNECTIONS_OUT:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
+        case AT_NUM_INPUTS:
+        case AT_NUM_LINKS_IN:
+        case AT_NUM_LINKS_OUT:
+        case AT_NUM_OUTPUTS:
+        case AT_PORT:
         case AT_REV:
+        case AT_SRC_LENGTH:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
@@ -378,12 +378,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_MUTE:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i!=0);
-            break;
-        case AT_LENGTH:
-        case AT_SRC_LENGTH:
-        case AT_DEST_LENGTH:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
             break;
         case AT_DIRECTION:
             s = va_arg(aq, char*);

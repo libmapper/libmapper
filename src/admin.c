@@ -1809,7 +1809,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
          * default to passing updates as instances if both source
          * and destination signals have multiple instances. */
         if (!params.values[AT_SEND_AS_INSTANCE]) {
-            int dest_instances;
+            int dest_instances = 0;
             mapper_msg_get_param_if_int(&params, AT_INSTANCES,
                                         &dest_instances);
             if ((dest_instances > 1) && c->props.send_as_instance) {
