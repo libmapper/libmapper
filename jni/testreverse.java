@@ -30,7 +30,7 @@ class test {
         out1.set_callback(
             new InputListener() {
                 public void onInput(int[] v) {
-                    System.out.println("in onQueryResponse(): "+Arrays.toString(v));
+                    System.out.println("in onOutput(): "+Arrays.toString(v));
                 }});
 
         System.out.println("Output signal index: "+out1.index());
@@ -76,7 +76,6 @@ class test {
             dev.poll(10);
             --i;
             inp1.update(new int[] {i});
-            out1.query_remotes();
         }
         dev.free();
     }

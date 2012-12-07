@@ -507,16 +507,23 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
     }
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1query_1callback
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1callback
 (JNIEnv *env, jobject obj, jlong s, jobject listener)
 {
     mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    return msig_set_query_callback(sig, java_msig_input_cb,
-                                   (*env)->NewGlobalRef(env, listener));
+    return msig_set_callback(sig, java_msig_input_cb,
+                             (*env)->NewGlobalRef(env, listener));
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
   (JNIEnv *env, jobject obj, jlong s)
+{
+    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    return msig_query_remotes(sig, MAPPER_TIMETAG_NOW);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+(JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
     return jlong_ptr(msig_properties(sig));
@@ -574,13 +581,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1remove_1property
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
     msig_remove_property(sig, ckey);
     (*env)->ReleaseStringUTFChars(env, key, ckey);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
-  (JNIEnv *env, jobject obj, jlong s)
-{
-    mapper_signal sig  = (mapper_signal)ptr_jlong(s);
-    return msig_query_remotes(sig, MAPPER_TIMETAG_NOW);
 }
 
 static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)

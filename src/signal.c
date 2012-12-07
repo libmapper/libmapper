@@ -13,7 +13,6 @@ static void msig_update_internal(mapper_signal sig,
                                  mapper_signal_instance si,
                                  void *value,
                                  int count,
-                                 int send_as_instance,
                                  mapper_timetag_t timetag);
 
 static void *msig_instance_value_internal(mapper_signal sig,
@@ -86,7 +85,7 @@ void msig_update(mapper_signal sig, void *value,
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances,
-                         value, count, 0, tt);
+                         value, count, tt);
 }
 
 void msig_update_int(mapper_signal sig, int value)
@@ -114,7 +113,7 @@ void msig_update_int(mapper_signal sig, int value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, 0, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_TIMETAG_NOW);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -142,7 +141,7 @@ void msig_update_float(mapper_signal sig, float value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, 0, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_TIMETAG_NOW);
 }
 
 void *msig_value(mapper_signal sig,
@@ -262,7 +261,7 @@ stole:
         // TODO: should use current time for timetag?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
-    msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, stolen, 1, 1, MAPPER_TIMETAG_NOW);
     if (!map) {
         // Claim id map locally
         map = mdev_add_instance_id_map(sig->device, instance_id,
@@ -278,7 +277,8 @@ stole:
 
 mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
                                                      mapper_instance_id_map map,
-                                                     int is_new_instance)
+                                                     int is_new_instance,
+                                                     int local)
 {
     // If the map pointer is null, we need to create a new map if necessary
     if (!sig)
@@ -345,7 +345,7 @@ stole:
         // TODO: should use current time for timetag? Or take it from signal handler?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
-    msig_release_instance_internal(sig, stolen, 1, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, stolen, 1, local, MAPPER_TIMETAG_NOW);
     if (map) {
         map->reference_count++;
     }
@@ -383,7 +383,8 @@ void msig_start_new_instance(mapper_signal sig, int instance_id)
         return;
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 1);
-    if (!si && sig->instance_management_handler) {
+    if (!si && sig->instance_management_handler &&
+        (sig->instance_management_flags & IN_OVERFLOW)) {
         sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 1);
@@ -402,20 +403,20 @@ void msig_update_instance(mapper_signal sig, int instance_id,
     }
 
     mapper_signal_instance si = msig_get_instance_with_id(sig, instance_id, 0);
-    if (!si && sig->instance_management_handler) {
+    if (!si && sig->instance_management_handler &&
+        (sig->instance_management_flags & IN_OVERFLOW)) {
         sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
         // try again
         si = msig_get_instance_with_id(sig, instance_id, 0);
     }
     if (si)
-        msig_update_internal(sig, si, value, count, 1, timetag);
+        msig_update_internal(sig, si, value, count, timetag);
 }
 
 static void msig_update_internal(mapper_signal sig,
                                  mapper_signal_instance si,
                                  void *value,
                                  int count,
-                                 int send_as_instance,
                                  mapper_timetag_t tt)
 {
     if (!si) return;
@@ -439,9 +440,11 @@ static void msig_update_internal(mapper_signal sig,
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
 
     if (sig->props.is_output) {
-        int flags = FLAGS_SEND_AS_INSTANCE * send_as_instance;
         mdev_route_signal(sig->device, sig, si, value,
-                          count, si->timetag, flags);
+                          count, si->timetag);
+    }
+    else {
+        mdev_receive_update(sig->device, sig, si, si->timetag);
     }
 }
 
@@ -452,27 +455,32 @@ void msig_release_instance(mapper_signal sig, int instance_id,
         return;
     mapper_signal_instance si = msig_find_instance_with_id(sig, instance_id);
     if (si)
-        msig_release_instance_internal(sig, si, 0, timetag);
+        msig_release_instance_internal(sig, si, 0, 1, timetag);
 }
 
 void msig_release_instance_internal(mapper_signal sig,
                                     mapper_signal_instance si,
-                                    int stolen,
+                                    int stolen, int local,
                                     mapper_timetag_t timetag)
 {
     if (!si || !si->is_active)
         return;
 
     if (sig->props.is_output) {
-        // Send release notification to remote devices
-        msig_update_internal(sig, si, NULL, 0, 1, timetag);
+        // Send release notification to downstream devices
+        msig_update_internal(sig, si, NULL, 0, timetag);
+    }
+    else if (local && si->id_map->group != sig->device->props.name_hash) {
+        // Send release request to upstream devices
+        mdev_route_release_request(sig->device, sig, si, timetag);
     }
 
     if (--si->id_map->reference_count <= 0 && !si->id_map->release_time)
         mdev_remove_instance_id_map(sig->device, si->id_map);
 
     if (stolen) {
-        if (sig->instance_management_handler)
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_STOLEN))
             sig->instance_management_handler(sig, &sig->props,
                                              si->id_map->local, IN_STOLEN);
     }
@@ -499,7 +507,7 @@ void msig_remove_instance(mapper_signal sig,
     if (!si) return;
 
     // First release instance
-    msig_release_instance_internal(sig, si, 0, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, si, 0, 0, MAPPER_TIMETAG_NOW);
 
     // Remove signal instance
     mapper_signal_instance *msi = &sig->active_instances;
@@ -529,7 +537,7 @@ static void msig_free_instance(mapper_signal sig,
 {
     if (!si)
         return;
-    msig_release_instance_internal(sig, si, 0, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, si, 0, 0, MAPPER_TIMETAG_NOW);
     if (si->value)
         free(si->value);
     free(si);
@@ -566,7 +574,7 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
         return;
 
     // Get "to" instance with same map
-    msig_get_instance_with_id_map(to, si_from->id_map, 1);
+    msig_get_instance_with_id_map(to, si_from->id_map, 1, 1);
 }
 
 int msig_num_active_instances(mapper_signal sig)
@@ -616,9 +624,40 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
 }
 
 void msig_set_instance_management_callback(mapper_signal sig,
-                                           mapper_signal_instance_management_handler h)
+                                           mapper_signal_instance_management_handler h,
+                                           int flags,
+                                           void *user_data)
 {
+    /* TODO: should we allow setting separate user_data pointer for reverse
+     * connection callback and instance management callback? */
+
+    if (!sig)
+        return;
+
+    if (!h || !flags) {
+        sig->instance_management_handler = 0;
+        sig->instance_management_flags = 0;
+        return;
+    }
+
     sig->instance_management_handler = h;
+    sig->props.user_data = user_data;
+
+    if (flags & IN_REQUEST_RELEASE) {
+        if (!(sig->instance_management_flags & IN_REQUEST_RELEASE)) {
+            // Add liblo method for processing instance release requests
+            sig->instance_management_flags = flags;
+            mdev_add_instance_release_request_callback(sig->device, sig);
+        }
+    }
+    else {
+        if (sig->instance_management_flags & IN_REQUEST_RELEASE) {
+            // Remove liblo method for processing instance release requests
+            sig->instance_management_flags = flags;
+            mdev_remove_instance_release_request_callback(sig->device, sig);
+        }
+    }
+    sig->instance_management_flags = flags;
 }
 
 void msig_set_instance_data(mapper_signal sig,
@@ -639,43 +678,39 @@ void *msig_get_instance_data(mapper_signal sig,
     return 0;
 }
 
-/**** Queries ****/
+/**** Queries and reverse connections ****/
 
-void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *handler,
-                             void *user_data)
+void msig_set_callback(mapper_signal sig,
+                       mapper_signal_handler *handler,
+                       void *user_data)
 {
-    if (!sig || !sig->props.is_output)
+    if (!sig)
         return;
     if (!sig->handler && handler) {
-        // Need to register a new liblo handler
+        // Need to register a new liblo methods
         sig->handler = handler;
         sig->props.user_data = user_data;
-        mdev_add_signal_query_response_callback(sig->device, sig);
+        mdev_add_signal_methods(sig->device, sig);
     }
     else if (sig->handler && !handler) {
-        // Need to remove liblo query handler
+        // Need to remove liblo methods
         sig->handler = 0;
         sig->props.user_data = user_data;
-        mdev_remove_signal_query_response_callback(sig->device, sig);
+        mdev_remove_signal_methods(sig->device, sig);
     }
 }
 
 int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 {
-    // stick to output signals for now
     // TODO: process queries on inputs also
     if (!sig->props.is_output)
         return -1;
-    if (!sig->device->server) {
-        // no server running so we cannot process query returns
-        // TODO: start server if necessary
-        return -1;
-    }
     if (!sig->handler) {
-        // no handler defined so we cannot process query returns
+        // no handler defined so we cannot process query responses
         return -1;
     }
+    if (!sig->device->server)
+        mdev_start_server(sig->device);
     return mdev_route_query(sig->device, sig, tt);
 }
 

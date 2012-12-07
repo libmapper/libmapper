@@ -4,7 +4,7 @@ import sys, mapper
 
 def h(sig, id, f, timetag):
     try:
-        print '--> received query response:', f
+        print '--> source received', f
     except:
         print 'exception'
         print sig, f
@@ -25,11 +25,10 @@ monitor = mapper.monitor()
 monitor.link('%s' %src.name, '%s' %dest.name)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
-                {'mode': mapper.MO_LINEAR})
+                {'mode': mapper.MO_REVERSE})
 
 for i in range(100):
     print 'updating destination to', i, '-->'
     insig.update(i)
-    outsig.query_remotes()
     src.poll(10)
     dest.poll(10)

@@ -36,13 +36,13 @@ struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 struct _mapper_connection;
 
-/*! The set of possible actions on an instance, used
- *  to inform callbacks of what is happening. */
+/*! The set of possible actions on an instance, used to register callbacks
+ *  to inform them of what is happening. */
 typedef enum {
-    IN_NEW,             //!< New instance has been created.
-    IN_STOLEN,          //!< Instance has been stolen by another instance.
-    IN_REQUEST_RELEASE, //!< Instance release has been requested by remote device.
-    IN_OVERFLOW         //!< No local instances left for incoming remote instance.
+    IN_NEW              = 0x01, //!< New instance has been created.
+    IN_STOLEN           = 0x02, //!< Instance has been stolen by another instance.
+    IN_REQUEST_RELEASE  = 0x04, //!< Instance release has been requested by remote device.
+    IN_OVERFLOW         = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
@@ -52,7 +52,7 @@ typedef void mapper_signal_handler(mapper_signal msig,
                                    int instance_id,
                                    void *value,
                                    int count,
-                                   mapper_timetag_t *timetag);
+                                   mapper_timetag_t *tt);
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
@@ -78,7 +78,7 @@ typedef void mapper_signal_instance_management_handler(mapper_signal msig,
  *                  time. See mdev_start_queue() for more information on
  *                  bundling multiple signal updates with the same timetag. */
 void msig_update(mapper_signal sig, void *value,
-                 int count, mapper_timetag_t timetag);
+                 int count, mapper_timetag_t tt);
 
 /*! Update the value of a scalar signal of type int.
  *  This is a scalar equivalent to msig_update(), for when passing by
@@ -102,7 +102,15 @@ void msig_update_float(mapper_signal sig, float value);
  *                  May be 0.
  *  \return         A pointer to an array containing the value
  *                  of the signal, or 0 if the signal has no value. */
-void *msig_value(mapper_signal sig, mapper_timetag_t *timetag);
+void *msig_value(mapper_signal sig, mapper_timetag_t *tt);
+
+/*! Query the values of any signals connected via mapping connections.
+ *  \param sig      A local output signal. We will be querying the remote
+ *                  ends of this signal's mapping connections.
+ *  \param tt       A timetag to be attached to the outgoing query. Query
+ *                  responses should also be tagged with this time.
+ *  \return The number of queries sent, or -1 for error. */
+int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
 
 /**** Instances ****/
 
@@ -133,7 +141,7 @@ void msig_start_new_instance(mapper_signal sig, int instance_id);
  *                      time. See mdev_start_queue() for more information on
  *                      bundling multiple signal updates with the same timetag. */
 void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count, mapper_timetag_t timetag);
+                          void *value, int count, mapper_timetag_t tt);
 
 /*! Release a specific instance of a signal by removing it from the list
  *  of active instances and adding it to the reserve list.
@@ -144,7 +152,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
  *                     See mdev_start_queue() for more information on
  *                     bundling multiple signal updates with the same timetag. */
 void msig_release_instance(mapper_signal sig, int instance_id,
-                           mapper_timetag_t timetag);
+                           mapper_timetag_t tt);
 
 /*! Get a signal_instance's value.
  *  \param sig         The signal to operate on.
@@ -155,7 +163,7 @@ void msig_release_instance(mapper_signal sig, int instance_id,
  *                     of the signal instance, or 0 if the signal instance
  *                     has no value. */
 void *msig_instance_value(mapper_signal sig, int instance_id,
-                          mapper_timetag_t *timetag);
+                          mapper_timetag_t *tt);
 
 /*! Copy group/routing data for sharing an instance abstraction
  *  between multiple signals.
@@ -191,9 +199,16 @@ int msig_active_instance_id(mapper_signal sig, int index);
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
 
-/*! Set the handler to be called on signal instance management events. */
+/*! Set the handler to be called on signal instance management events.
+ *  \param sig          The signal to operate on.
+ *  \param h            A handler function for processing instance managment events.
+ *  \param flags        Bitflags for indicating the types of events which should
+ *                      trigger the callback. Can be a combination of IN_NEW,
+ *                      IN_STOLEN, IN_RELEASE_REQUEST, and IN_OVERFLOW.
+ *  \param user_data    User context pointer to be passed to handler. */
 void msig_set_instance_management_callback(mapper_signal sig,
-                                           mapper_signal_instance_management_handler h);
+                                           mapper_signal_instance_management_handler h,
+                                           int flags, void *user_data);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
@@ -209,24 +224,14 @@ void msig_set_instance_data(mapper_signal sig, int instance_id,
  *  \return             A pointer associated with this instance. */
 void *msig_get_instance_data(mapper_signal sig, int instance_id);
 
-/**** Queries ****/
-
-/*! Set or unset the hidden property of a signal.
- *  \param sig           The signal to operate on.
- *  \param query_handler A pointer to a mapper_signal_handler function for
- *                       processing query responses.
- *  \param user_data     User context pointer to be passed to handler. */
-void msig_set_query_callback(mapper_signal sig,
-                             mapper_signal_handler *query_handler,
-                             void *user_data);
-
-/*! Query the values of any signals connected via mapping connections.
- *  \param sig      A local output signal. We will be querying the remote
- *                  ends of this signal's mapping connections.
- *  \param tt       A timetag to be attached to the outgoing query. Query
- *                  responses should also be tagged with this time. 
- *  \return The number of queries sent, or -1 for error. */
-int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
+/*! Set or unset the message handler for a signal.
+ *  \param sig       The signal to operate on.
+ *  \param handler   A pointer to a mapper_signal_handler function for
+ *                   processing incoming messages.
+ *  \param user_data User context pointer to be passed to handler. */
+void msig_set_callback(mapper_signal sig,
+                       mapper_signal_handler *handler,
+                       void *user_data);
 
 /**** Signal properties ****/
 
@@ -360,11 +365,17 @@ int mdev_num_inputs(mapper_device dev);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
 
-//! Return the number of links.
-int mdev_num_links(mapper_device dev);
+//! Return the number of incoming links.
+int mdev_num_links_in(mapper_device dev);
 
-//! Return the number of connections.
-int mdev_num_connections(mapper_device dev);
+//! Return the number of outgoing links.
+int mdev_num_links_out(mapper_device dev);
+
+//! Return the number of incoming connections.
+int mdev_num_connections_in(mapper_device dev);
+
+//! Return the number of outgoing connections.
+int mdev_num_connections_out(mapper_device dev);
 
 /*! Get input signals.
  *  \param dev Device to search in.
@@ -1248,7 +1259,7 @@ void mapper_monitor_disconnect(mapper_monitor mon,
  *  \param dev      The device whose time we are asking for.
  *  \param timetag  A previously allocated timetag to initialize. */
 void mdev_timetag_now(mapper_device dev,
-                      mapper_timetag_t *timetag);
+                      mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param a    The minuend.
@@ -1259,10 +1270,10 @@ double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
 /*! Add seconds to a given timetag.
  *  \param timetag  A previously allocated timetag to augment.
  *  \param addend   An amount in seconds to add. */
-void mapper_timetag_add_seconds(mapper_timetag_t *timetag, double addend);
+void mapper_timetag_add_seconds(mapper_timetag_t *tt, double addend);
 
 /*! Return value of mapper_timetag as a double-precision floating point value. */
-double mapper_timetag_get_double(mapper_timetag_t timetag);
+double mapper_timetag_get_double(mapper_timetag_t tt);
 
 /* @} */
 

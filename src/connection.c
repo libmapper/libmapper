@@ -34,6 +34,7 @@ const char* mapper_mode_type_strings[] =
     "linear",      /* MO_LINEAR */
     "expression",  /* MO_EXPRESSION */
     "calibrate",   /* MO_CALIBRATE */
+    "reverse",     /* MO_REVERSE */
 };
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
@@ -444,6 +445,11 @@ void mapper_connection_set_expression(mapper_connection c,
                                     output_history_size);
 }
 
+void mapper_connection_set_reverse(mapper_connection c)
+{
+    c->props.mode = MO_REVERSE;
+}
+
 void mapper_connection_set_calibrate(mapper_connection c,
                                      float dest_min, float dest_max)
 {
@@ -636,11 +642,11 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.muted = muting;
 
     /* Clipping. */
-    int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
+    int clip_min = mapper_msg_get_clipping(msg, AT_CLIP_MIN);
     if (clip_min >= 0)
         c->props.clip_min = clip_min;
 
-    int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
+    int clip_max = mapper_msg_get_clipping(msg, AT_CLIP_MAX);
     if (clip_max >= 0)
         c->props.clip_max = clip_max;
 
@@ -655,6 +661,11 @@ void mapper_connection_set_from_message(mapper_connection c,
                                                 output_history_size);
         }
     }
+
+    /* Instances. */
+    int send_as_instance;
+    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance))
+        c->props.send_as_instance = send_as_instance;
 
     /* Extra properties. */
     mapper_msg_add_or_update_extra_params(c->props.extra, msg);
@@ -709,6 +720,9 @@ void mapper_connection_set_from_message(mapper_connection c,
                 c->props.expression = strdup("y=x");
             mapper_connection_set_expression(c, c->props.expression);
         }
+        break;
+    case MO_REVERSE:
+        mapper_connection_set_reverse(c);
         break;
     default:
         trace("unknown result from mapper_msg_get_mode()\n");

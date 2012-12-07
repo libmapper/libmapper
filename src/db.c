@@ -538,9 +538,11 @@ static mapper_string_table_t sigdb_table =
 
 static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
-    { 'i', 0, DEVDB_OFFSET(n_connections) },
+    { 'i', 0, DEVDB_OFFSET(n_connections_in) },
+    { 'i', 0, DEVDB_OFFSET(n_connections_out) },
     { 'i', 0, DEVDB_OFFSET(n_inputs) },
-    { 'i', 0, DEVDB_OFFSET(n_links) },
+    { 'i', 0, DEVDB_OFFSET(n_links_in) },
+    { 'i', 0, DEVDB_OFFSET(n_links_out) },
     { 'i', 0, DEVDB_OFFSET(n_outputs) },
     { 's', 1, DEVDB_OFFSET(name) },
     { 'i', 0, DEVDB_OFFSET(port) },
@@ -550,15 +552,17 @@ static property_table_value_t devdb_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
-    { "host",      &devdb_values[0] },
-    { "n_connections", &devdb_values[1] },
-    { "n_inputs",  &devdb_values[2] },
-    { "n_links",   &devdb_values[3] },
-    { "n_outputs", &devdb_values[4] },
-    { "name",      &devdb_values[5] },
-    { "port",      &devdb_values[6] },
-    { "user_data", &devdb_values[7] },
-    { "version",   &devdb_values[8] },
+    { "host",               &devdb_values[0] },
+    { "n_connections_in",   &devdb_values[1] },
+    { "n_connections_out",  &devdb_values[2] },
+    { "n_inputs",           &devdb_values[3] },
+    { "n_links_in",         &devdb_values[4] },
+    { "n_links_out",        &devdb_values[5] },
+    { "n_outputs",          &devdb_values[6] },
+    { "name",               &devdb_values[7] },
+    { "port",               &devdb_values[8] },
+    { "user_data",          &devdb_values[9] },
+    { "version",            &devdb_values[10] },
 };
 
 static mapper_string_table_t devdb_table =
@@ -737,13 +741,17 @@ static void update_device_record_params(mapper_db_device reg,
 
     update_int_if_arg(&reg->port, params, AT_PORT);
 
-    update_int_if_arg(&reg->n_inputs, params, AT_NUMINPUTS);
+    update_int_if_arg(&reg->n_inputs, params, AT_NUM_INPUTS);
 
-    update_int_if_arg(&reg->n_outputs, params, AT_NUMOUTPUTS);
+    update_int_if_arg(&reg->n_outputs, params, AT_NUM_OUTPUTS);
 
-    update_int_if_arg(&reg->n_links, params, AT_NUMLINKS);
+    update_int_if_arg(&reg->n_links_in, params, AT_NUM_LINKS_IN);
 
-    update_int_if_arg(&reg->n_connections, params, AT_NUMCONNECTIONS);
+    update_int_if_arg(&reg->n_links_out, params, AT_NUM_LINKS_OUT);
+
+    update_int_if_arg(&reg->n_connections_in, params, AT_NUM_CONNECTIONS_IN);
+
+    update_int_if_arg(&reg->n_connections_out, params, AT_NUM_CONNECTIONS_OUT);
 
     update_int_if_arg(&reg->version, params, AT_REV);
 
@@ -1313,11 +1321,11 @@ static void update_connection_record_params(mapper_db_connection con,
     /* char dest_type; */
 
     mapper_clipping_type clip;
-    clip = mapper_msg_get_clipping(params, AT_CLIPMAX);
+    clip = mapper_msg_get_clipping(params, AT_CLIP_MAX);
     if (clip!=-1)
         con->clip_max = clip;
 
-    clip = mapper_msg_get_clipping(params, AT_CLIPMIN);
+    clip = mapper_msg_get_clipping(params, AT_CLIP_MIN);
     if (clip!=-1)
         con->clip_min = clip;
 
@@ -1357,10 +1365,10 @@ static void update_connection_record_params(mapper_db_connection con,
 
     update_int_if_arg(&con->id, params, AT_ID);
     update_string_if_arg(&con->expression, params, AT_EXPRESSION);
-    update_char_if_arg(&con->src_type, params, AT_SRCTYPE);
-    update_char_if_arg(&con->dest_type, params, AT_DESTTYPE);
-    update_int_if_arg(&con->src_length, params, AT_SRCLENGTH);
-    update_int_if_arg(&con->dest_length, params, AT_DESTLENGTH);
+    update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
+    update_char_if_arg(&con->dest_type, params, AT_DEST_TYPE);
+    update_int_if_arg(&con->src_length, params, AT_SRC_LENGTH);
+    update_int_if_arg(&con->dest_length, params, AT_DEST_LENGTH);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
     if (mode!=-1)

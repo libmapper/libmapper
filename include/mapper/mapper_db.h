@@ -23,21 +23,23 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *identifier;           /*!< The identifier (prefix) for
-                                 *   this device. */
-    char *name;                 /*!< The full name for this
-                                 *   device, or zero. */
+    char *identifier;       /*!< The identifier (prefix) for
+                             *   this device. */
+    char *name;             /*!< The full name for this
+                             *   device, or zero. */
     int ordinal;
-    int name_hash;              /*!< CRC-32 hash of full device name
-                                 *   in the form <name>.<ordinal> */
-    char *host;         //!< Device network host name.
-    int port;           //!< Device network port.
-    int n_inputs;       //!< Number of associated input signals.
-    int n_outputs;      //!< Number of associated output signals.
-    int n_links;        //!< Number of associated links.
-    int n_connections;  //!< Number of associated connections.
-    int version;        //!< Reported device state version.
-    void* user_data;    //!< User modifiable data.
+    uint32_t name_hash;     /*!< CRC-32 hash of full device name
+                             *   in the form <name>.<ordinal> */
+    char *host;             //!< Device network host name.
+    int port;               //!< Device network port.
+    int n_inputs;           //!< Number of associated input signals.
+    int n_outputs;          //!< Number of associated output signals.
+    int n_links_in;         //!< Number of associated incoming links.
+    int n_links_out;        //!< Number of associated outgoing links.
+    int n_connections_in;   //!< Number of associated incoming connections.
+    int n_connections_out;  //!< Number of associated outgoing connections.
+    int version;            //!< Reported device state version.
+    void* user_data;        //!< User modifiable data.
     mapper_timetag_t timetag;
 
     /*! Extra properties associated with this device. */
@@ -66,8 +68,8 @@ typedef struct _mapper_db_device {
  * properties via the mapper_monitor_connect() or
  * mapper_monitor_connection_modify() functions. Should be combined with the
  * above range bitflags. */
-#define CONNECTION_CLIPMIN       0x0010
-#define CONNECTION_CLIPMAX       0x0020
+#define CONNECTION_CLIP_MIN      0x0010
+#define CONNECTION_CLIP_MAX      0x0020
 #define CONNECTION_EXPRESSION    0x0040
 #define CONNECTION_MODE          0x0080
 #define CONNECTION_MUTED         0x0100
@@ -107,6 +109,7 @@ typedef enum _mapper_mode_type {
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
     MO_CALIBRATE,    //!< Calibrate to source signal
+    MO_REVERSE,      //!< Update source on dest change
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
@@ -125,6 +128,7 @@ typedef struct _mapper_db_connection {
     int id;                     //!< Connection index
     char *src_name;             //!< Source signal name (OSC path).
     char *dest_name;            //!< Destination signal name (OSC path).
+    char *query_name;           //!< Used for sending queries/responses.
 
     char src_type;              //!< Source signal type.
     char dest_type;             //!< Destination signal type.
@@ -138,6 +142,8 @@ typedef struct _mapper_db_connection {
                                        *   upper boundary. */
     mapper_clipping_type clip_min;    /*!< Operation for exceeded
                                        *   lower boundary. */
+
+    int send_as_instance;       //!< 1 to send as instance, 0 otherwise.
 
     mapper_connection_range_t range;  //!< Range information.
     char *expression;
@@ -247,6 +253,7 @@ typedef struct _mapper_db_signal
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
     char *dest_name;                //!< Destination device name (OSC path).
+    lo_address src_addr;            //!< Address of the source device.
     lo_address dest_addr;           //!< Address of the destination device.
     int num_scopes;                 //!< The number of instance group scopes.
     char **scope_names;             //!< Array of instance group scopes.
