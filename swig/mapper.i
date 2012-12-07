@@ -118,14 +118,14 @@
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p.props.clip_max = k;
-                            p.flags |= CONNECTION_CLIPMAX;
+                            p.flags |= CONNECTION_CLIP_MAX;
                         }
                     }
                     else if (strcmp(s, "clip_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p.props.clip_min = k;
-                            p.flags |= CONNECTION_CLIPMIN;
+                            p.flags |= CONNECTION_CLIP_MIN;
                         }
                     }
                     else if (strcmp(s, "range")==0) {

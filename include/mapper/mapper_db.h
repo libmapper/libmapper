@@ -23,15 +23,17 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *name;   //!< Device name.
-    char *host;   //!< Device network host name.
-    int port;     //!< Device network port.
-    int n_inputs; //!< Number of associated input signals.
-    int n_outputs;//!< Number of associated output signals.
-    int n_links;  //!< Number of associated links.
-    int n_connections; //!< Number of associated connections.
-    int version;  //!< Reported device state version.
-    void* user_data; //!< User modifiable data.
+    char *name;             //!< Device name.
+    char *host;             //!< Device network host name.
+    int port;               //!< Device network port.
+    int n_inputs;           //!< Number of associated input signals.
+    int n_outputs;          //!< Number of associated output signals.
+    int n_links_in;         //!< Number of associated incoming links.
+    int n_links_out;        //!< Number of associated outgoing links.
+    int n_connections_in;   //!< Number of associated incoming connections.
+    int n_connections_out;  //!< Number of associated outgoing connections.
+    int version;            //!< Reported device state version.
+    void* user_data;        //!< User modifiable data.
 
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
@@ -59,8 +61,8 @@ typedef struct _mapper_db_device {
  * properties via the mapper_monitor_connect() or
  * mapper_monitor_connection_modify() functions. Should be combined with the
  * above range bitflags. */
-#define CONNECTION_CLIPMIN       0x0010
-#define CONNECTION_CLIPMAX       0x0020
+#define CONNECTION_CLIP_MIN      0x0010
+#define CONNECTION_CLIP_MAX      0x0020
 #define CONNECTION_EXPRESSION    0x0040
 #define CONNECTION_MODE          0x0080
 #define CONNECTION_MUTED         0x0100

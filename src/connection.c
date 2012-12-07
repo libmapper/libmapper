@@ -642,11 +642,11 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.muted = muting;
 
     /* Clipping. */
-    int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
+    int clip_min = mapper_msg_get_clipping(msg, AT_CLIP_MIN);
     if (clip_min >= 0)
         c->props.clip_min = clip_min;
 
-    int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
+    int clip_max = mapper_msg_get_clipping(msg, AT_CLIP_MAX);
     if (clip_max >= 0)
         c->props.clip_max = clip_max;
 

@@ -319,10 +319,10 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
     if (props) {
         mapper_admin_send_osc( mon->admin, 0, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
-                               (props_flags & CONNECTION_CLIPMIN)
-                               ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIPMAX)
-                               ? AT_CLIPMAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_CLIP_MIN)
+                               ? AT_CLIP_MIN : -1, props->clip_min,
+                               (props_flags & CONNECTION_CLIP_MAX)
+                               ? AT_CLIP_MAX : -1, props->clip_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)
@@ -343,10 +343,10 @@ void mapper_monitor_connect(mapper_monitor mon,
     if (props) {
         mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal,
-                               (props_flags & CONNECTION_CLIPMIN)
-                               ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIPMAX)
-                               ? AT_CLIPMAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_CLIP_MIN)
+                               ? AT_CLIP_MIN : -1, props->clip_min,
+                               (props_flags & CONNECTION_CLIP_MAX)
+                               ? AT_CLIP_MAX : -1, props->clip_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)

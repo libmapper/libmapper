@@ -527,8 +527,8 @@ int mapper_admin_poll(mapper_admin admin)
             mapper_admin_send_osc(
                   admin, 0, "/device", "s", mapper_admin_name(admin),
                   admin->port ? AT_PORT : -1, admin->port,
-                  AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-                  AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+                  AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+                  AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
                   AT_REV, admin->device->version,
                   AT_EXTRA, admin->device->extra);
         }
@@ -832,10 +832,12 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     mapper_admin_send_osc(
         admin, 0, "/device", "s", mapper_admin_name(admin),
         admin->port ? AT_PORT : -1, admin->port,
-        AT_NUMINPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-        AT_NUMOUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-        AT_NUMLINKS, admin->device ? mdev_num_links_out(admin->device) : 0,
-        AT_NUMCONNECTIONS, admin->device ? mdev_num_connections_out(admin->device) : 0,
+        AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+        AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+        AT_NUM_LINKS_IN, admin->device ? mdev_num_links_in(admin->device) : 0,
+        AT_NUM_LINKS_OUT, admin->device ? mdev_num_links_out(admin->device) : 0,
+        AT_NUM_CONNECTIONS_IN, admin->device ? mdev_num_connections_in(admin->device) : 0,
+        AT_NUM_CONNECTIONS_OUT, admin->device ? mdev_num_connections_out(admin->device) : 0,
         AT_REV, admin->device->version,
         AT_EXTRA, admin->device->extra);
 
@@ -1964,20 +1966,20 @@ static int handler_signal_connected(const char *path, const char *types,
                                                  dest_signal_name);
     if (!c) {
         /* Creation of a connection requires the type and length info. */
-        if (!params.values[AT_SRCTYPE] || !params.values[AT_SRCLENGTH])
+        if (!params.values[AT_SRC_TYPE] || !params.values[AT_SRC_LENGTH])
             return 0;
 
         char src_type = 0;
-        if (*params.types[AT_SRCTYPE] == 'c')
-            src_type = (*params.values[AT_SRCTYPE])->c;
-        else if (*params.types[AT_SRCTYPE] == 's')
-            src_type = (*params.values[AT_SRCTYPE])->s;
+        if (*params.types[AT_SRC_TYPE] == 'c')
+            src_type = (*params.values[AT_SRC_TYPE])->c;
+        else if (*params.types[AT_SRC_TYPE] == 's')
+            src_type = (*params.values[AT_SRC_TYPE])->s;
         else
             return 0;
 
         int src_length = 0;
-        if (*params.types[AT_SRCLENGTH] == 'i')
-            src_length = (*params.values[AT_SRCLENGTH])->i;
+        if (*params.types[AT_SRC_LENGTH] == 'i')
+            src_length = (*params.values[AT_SRC_LENGTH])->i;
         else
             return 0;
 
