@@ -29,7 +29,7 @@ mapper_signal msig_new(const char *name, int length, char type,
 {
     if (length < 1) return 0;
     if (!name) return 0;
-    if (type != 'f' && type != 'i')
+    if (type != 'f' && type != 'i' && type != 'd')
         return 0;
 
     mapper_signal sig =

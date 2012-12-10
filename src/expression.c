@@ -132,7 +132,8 @@ typedef float func_float_arity2(float,float);
 typedef struct _token {
     enum {
         TOK_FLOAT,
-        TOK_INT,
+        TOK_INT32,
+        TOK_DOUBLE,
         TOK_OP,
         TOK_OPEN_PAREN,
         TOK_CLOSE_PAREN,
@@ -144,12 +145,17 @@ typedef struct _token {
         TOK_FUNC,
         TOK_COMMA,
         TOK_END,
-        TOK_TOFLOAT,
-        TOK_TOINT32,
+        TOK_INT32_TO_FLOAT,
+        TOK_INT32_TO_DOUBLE,
+        TOK_FLOAT_TO_INT32,
+        TOK_FLOAT_TO_DOUBLE,
+        TOK_DOUBLE_TO_INT32,
+        TOK_DOUBLE_TO_FLOAT,
     } type;
     union {
         float f;
         int i;
+        double d;
         char var;
         char op;
         expr_func_t func;
@@ -188,7 +194,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         integer_found = 1;
         if (c!='.' && c!='e') {
             tok->i = n;
-            tok->type = TOK_INT;
+            tok->type = TOK_INT32;
             return 0;
         }
     }
@@ -306,7 +312,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
 typedef struct _exprnode
 {
     mapper_token_t tok;
-    int is_float;
+    char type;
     int history_index;  // when tok.type==TOK_VAR
     int vector_index;   // when tok.type==TOK_VAR
     struct _exprnode *next;
@@ -352,12 +358,12 @@ typedef struct _stack_obj
     } type;
 } stack_obj_t;
 
-static exprnode exprnode_new(mapper_token_t *tok, int is_float)
+static exprnode exprnode_new(mapper_token_t *tok, char type)
 {
     exprnode t = (exprnode)
         malloc(sizeof(struct _exprnode));
     t->tok = *tok;
-    t->is_float = is_float;
+    t->type = type;
     t->history_index = 0;
     t->vector_index = 0;
     t->next = 0;
@@ -383,24 +389,29 @@ void mapper_expr_free(mapper_expr expr)
 void printtoken(mapper_token_t *tok)
 {
     switch (tok->type) {
-    case TOK_FLOAT:        printf("%f", tok->f);          break;
-    case TOK_INT:          printf("%d", tok->i);          break;
-    case TOK_OP:           printf("%c", tok->op);         break;
-    case TOK_OPEN_PAREN:   printf("(");                   break;
-    case TOK_CLOSE_PAREN:  printf(")");                   break;
-    case TOK_VAR:          printf("VAR(%c)", tok->var);   break;
-    case TOK_OPEN_SQUARE:  printf("[");                   break;
-    case TOK_CLOSE_SQUARE: printf("]");                   break;
-    case TOK_OPEN_CURLY:   printf("{");                   break;
-    case TOK_CLOSE_CURLY:  printf("}");                   break;
-    case TOK_FUNC:         printf("FUNC(%s)",
-                                  function_table[tok->func].name);
+    case TOK_FLOAT:             printf("%f", tok->f);           break;
+    case TOK_INT32:             printf("%d", tok->i);           break;
+    case TOK_DOUBLE:            printf("%f", tok->d);           break;
+    case TOK_OP:                printf("%c", tok->op);          break;
+    case TOK_OPEN_PAREN:        printf("(");                    break;
+    case TOK_CLOSE_PAREN:       printf(")");                    break;
+    case TOK_VAR:               printf("VAR(%c)", tok->var);    break;
+    case TOK_OPEN_SQUARE:       printf("[");                    break;
+    case TOK_CLOSE_SQUARE:      printf("]");                    break;
+    case TOK_OPEN_CURLY:        printf("{");                    break;
+    case TOK_CLOSE_CURLY:       printf("}");                    break;
+    case TOK_FUNC:              printf("FUNC(%s)",
+                                       function_table[tok->func].name);
         break;
-    case TOK_COMMA:        printf(",");                   break;
-    case TOK_END:          printf("END");                 break;
-    case TOK_TOFLOAT:      printf("(float)");             break;
-    case TOK_TOINT32:      printf("(int32)");             break;
-    default:               printf("(unknown token)");     break;
+    case TOK_COMMA:             printf(",");                    break;
+    case TOK_END:               printf("END");                  break;
+    case TOK_INT32_TO_FLOAT:
+    case TOK_DOUBLE_TO_FLOAT:   printf("(float)");              break;
+    case TOK_INT32_TO_DOUBLE:
+    case TOK_FLOAT_TO_DOUBLE:   printf("(double)");             break;
+    case TOK_FLOAT_TO_INT32:
+    case TOK_DOUBLE_TO_INT32:   printf("(int32)");              break;
+    default:                    printf("(unknown token)");      break;
     }
 }
 
@@ -408,9 +419,11 @@ void printexprnode(const char *s, exprnode list)
 {
     printf("%s", s);
     while (list) {
-        if (list->is_float
+        if ((list->type == 'f' || list->type == 'd')
             && list->tok.type != TOK_FLOAT
-            && list->tok.type != TOK_TOFLOAT)
+            && list->tok.type != TOK_DOUBLE
+            && list->tok.type != TOK_INT32_TO_FLOAT
+            && list->tok.type != TOK_INT32_TO_DOUBLE)
             printf(".");
         printtoken(&list->tok);
         if (list->tok.type == TOK_VAR) {
@@ -453,13 +466,31 @@ void printstack(stack_obj_t *stack, int top)
 }
 #endif
 
+static void set_coerce_type(mapper_token_t *tok,
+                            char input_type,
+                            char output_type)
+{
+    if (input_type == 'i' && output_type == 'f')
+        tok->type = TOK_INT32_TO_FLOAT;
+    else if (input_type == 'i' && output_type == 'd')
+        tok->type = TOK_INT32_TO_DOUBLE;
+    else if (input_type == 'f' && output_type == 'i')
+        tok->type = TOK_FLOAT_TO_INT32;
+    else if (input_type == 'f' && output_type == 'd')
+        tok->type = TOK_FLOAT_TO_DOUBLE;
+    else if (input_type == 'd' && output_type == 'i')
+        tok->type = TOK_DOUBLE_TO_INT32;
+    else if (input_type == 'd' && output_type == 'f')
+        tok->type = TOK_DOUBLE_TO_FLOAT;
+}
+
 static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
                                   int constant_folding)
 {
     // track whether any variable references
     int refvar = 0;
     int refrand = 0;
-    int is_float = 0;
+    char type = 'i';
 
     // find trailing operator on right hand side
     exprnode rhs_last = rhs;
@@ -493,16 +524,21 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 
     // insert float coercion if sides disagree on type
     mapper_token_t coerce;
-    coerce.type = TOK_TOFLOAT;
-    is_float = (*plhs_last)->is_float || rhs_last->is_float;
-    if ((*plhs_last)->is_float && !rhs_last->is_float) {
+    set_coerce_type(&coerce, (*plhs_last)->type, rhs_last->type);
+    if ((*plhs_last)->type == 'f' || rhs_last->type == 'f')
+        type = 'f';
+    if ((*plhs_last)->type == 'd' || rhs_last->type == 'd')
+        type = 'd';
+    if (((*plhs_last)->type == 'd' && rhs_last->type != 'd')
+        || ((*plhs_last)->type == 'f' && rhs_last->type == 'i')) {
         rhs_last = rhs_last->next = exprnode_new(&coerce, 1);
-    } else if (!(*plhs_last)->is_float && rhs_last->is_float) {
+    } else if (((*plhs_last)->type == 'i' && rhs_last->type != 'i')
+               || ((*plhs)->type == 'f' && rhs_last->type == 'd')) {
         exprnode e = exprnode_new(&coerce, 1);
         e->next = (*plhs_last);
         (*plhs_last) = e;
         plhs_last = &e->next;
-        e->next->is_float = 1;
+        e->next->type = rhs_last->type;
     }
 
     // insert the list before the trailing op of left hand side
@@ -516,7 +552,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
         e.node = *plhs;
         mapper_signal_history_t h;
         mapper_signal_value_t v;
-        h.type = is_float ? 'f' : 'i';
+        h.type = type;
         h.value = &v;
         h.position = -1;
         h.length = 1;
@@ -525,15 +561,23 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 
         exprnode_free((*plhs)->next);
         (*plhs)->next = 0;
-        (*plhs)->is_float = is_float;
+        (*plhs)->type = type;
 
-        if (is_float) {
-            (*plhs)->tok.type = TOK_FLOAT;
-            (*plhs)->tok.f = v.f;
-        }
-        else {
-            (*plhs)->tok.type = TOK_INT;
-            (*plhs)->tok.i = v.i32;
+        switch (type) {
+            case 'i':
+                (*plhs)->tok.type = TOK_INT32;
+                (*plhs)->tok.i = v.i32;
+                break;
+            case 'f':
+                (*plhs)->tok.type = TOK_FLOAT;
+                (*plhs)->tok.f = v.f;
+                break;
+            case 'd':
+                (*plhs)->tok.type = TOK_DOUBLE;
+                (*plhs)->tok.d = v.d;
+                break;
+            default:
+                break;
         }
     }
 }
@@ -548,15 +592,15 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
         exprnode e = stack[top].node;                                   \
         while (e->next) e = e->next;                                    \
         e->next = exprnode_new(&tok, 0);                                \
-        e->next->is_float = e->is_float;                                \
+        e->next->type = e->type;                                \
     }
 #define SUCCESS(x) { result = x; goto done; }
 #define FAIL(msg) { error_message = msg; result = 0; goto done; }
 
 /*! Create a new expression by parsing the given string. */
 mapper_expr mapper_expr_new_from_string(const char *str,
-                                        int input_is_float,
-                                        int output_is_float,
+                                        char input_type,
+                                        char output_type,
                                         int vector_size,
                                         int *input_history_size,
                                         int *output_history_size)
@@ -602,11 +646,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {
                         die_unless(stack[top-2].node->tok.type == TOK_VAR,
                                    "expected VAR two-down on the stack.\n");
-                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT
-                                                              || stack[top].node->tok.type == TOK_FLOAT),
+                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT32
+                                                              || stack[top].node->tok.type == TOK_FLOAT
+                                                              || stack[top].node->tok.type == TOK_DOUBLE),
                                    "expected lonely INT or FLOAT expression on the stack.\n");
                         if (stack[top].node->tok.type == TOK_FLOAT)
                             stack[top-2].node->history_index = (int)stack[top].node->tok.f;
+                        else if (stack[top].node->tok.type == TOK_DOUBLE)
+                            stack[top-2].node->history_index = (int)stack[top].node->tok.d;
                         else
                             stack[top-2].node->history_index = stack[top].node->tok.i;
 
@@ -630,11 +677,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {
                         die_unless(stack[top-2].node->tok.type == TOK_VAR,
                                    "expected VAR two-down on the stack.\n");
-                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT
-                                                              || stack[top].node->tok.type == TOK_FLOAT),
+                        die_unless(!stack[top].node->next && (stack[top].node->tok.type == TOK_INT32
+                                                              || stack[top].node->tok.type == TOK_FLOAT
+                                                              || stack[top].node->tok.type == TOK_DOUBLE),
                                    "expected lonely INT or FLOAT expression on the stack.\n");
                         if (stack[top].node->tok.type == TOK_FLOAT)
                             stack[top-2].node->vector_index = (int)stack[top].node->tok.f;
+                        else if (stack[top].node->tok.type == TOK_DOUBLE)
+                            stack[top-2].node->vector_index = (int)stack[top].node->tok.d;
                         else
                             stack[top-2].node->vector_index = stack[top].node->tok.i;
                         if (stack[top-2].node->vector_index > 0)
@@ -710,7 +760,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             else POP();
             break;
         case VALUE:
-            if (tok.type == TOK_INT) {
+            if (tok.type == TOK_INT32) {
                 POP();
                 PUSHEXPR(tok, 0);
                 next_token = 1;
@@ -721,7 +771,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             } else if (tok.type == TOK_VAR) {
                 if (var_allowed) {
                     POP();
-                    PUSHEXPR(tok, input_is_float);
+                    PUSHEXPR(tok, input_type);
                     PUSHSTATE(VAR_RIGHT);
                     next_token = 1;
                 }
@@ -764,7 +814,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             // set is_float according to trailing operator.
             if (stack[top].type == ST_NODE) {
                 mapper_token_t t;
-                t.type = TOK_INT;
+                t.type = TOK_INT32;
                 t.i = 0;
                 exprnode e = exprnode_new(&t, 0);
                 t.type = TOK_OP;
@@ -890,18 +940,41 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // Coerce the final output if necessary
     exprnode e = result;
-    while (e->next) e = e->next;
-    if (e->is_float && !output_is_float) {
+    if (e->type == 'i' && output_type == 'f') {
         mapper_token_t coerce;
-        coerce.type = TOK_TOINT32;
+        coerce.type = TOK_INT32_TO_FLOAT;
         e->next = exprnode_new(&coerce, 0);
-        e->next->is_float = 0;
+        e->next->type = 'f';
     }
-    else if (!e->is_float && output_is_float) {
+    else if (e->type == 'i' && output_type == 'd') {
         mapper_token_t coerce;
-        coerce.type = TOK_TOFLOAT;
+        coerce.type = TOK_INT32_TO_DOUBLE;
         e->next = exprnode_new(&coerce, 0);
-        e->next->is_float = 1;
+        e->next->type = 'd';
+    }
+    else if (e->type == 'f' && output_type == 'i') {
+        mapper_token_t coerce;
+        coerce.type = TOK_FLOAT_TO_INT32;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->type = 'i';
+    }
+    else if (e->type == 'f' && output_type == 'd') {
+        mapper_token_t coerce;
+        coerce.type = TOK_FLOAT_TO_DOUBLE;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->type = 'd';
+    }
+    else if (e->type == 'd' && output_type == 'i') {
+        mapper_token_t coerce;
+        coerce.type = TOK_DOUBLE_TO_INT32;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->type = 'i';
+    }
+    else if (e->type == 'd' && output_type == 'f') {
+        mapper_token_t coerce;
+        coerce.type = TOK_DOUBLE_TO_FLOAT;
+        e->next = exprnode_new(&coerce, 0);
+        e->next->type = 'f';
     }
 
     /* Special case: if this is a vector expression, we currently do
@@ -964,7 +1037,7 @@ int mapper_expr_evaluate(mapper_expr expr,
     to->position = (to->position + 1) % to->size;
     while (node) {
             switch (node->tok.type) {
-        case TOK_INT:
+        case TOK_INT32:
             ++top;
             for (i = 0; i < to->length; i++)
                 stack[i][top].i32 = node->tok.i;
@@ -973,6 +1046,11 @@ int mapper_expr_evaluate(mapper_expr expr,
             ++top;
             for (i = 0; i < to->length; i++)
                 stack[i][top].f = node->tok.f;
+            break;
+        case TOK_DOUBLE:
+            ++top;
+            for (i = 0; i < to->length; i++)
+                stack[i][top].d = node->tok.d;
             break;
         case TOK_VAR:
             {
@@ -1012,18 +1090,34 @@ int mapper_expr_evaluate(mapper_expr expr,
                 }
             }
             break;
-        case TOK_TOFLOAT:
+        case TOK_INT32_TO_FLOAT:
             for (i = 0; i < to->length; i++)
                 stack[i][top].f = (float)stack[i][top].i32;
             break;
-        case TOK_TOINT32:
+        case TOK_INT32_TO_DOUBLE:
+            for (i = 0; i < to->length; i++)
+                stack[i][top].d = (double)stack[i][top].i32;
+            break;
+        case TOK_FLOAT_TO_INT32:
             for (i = 0; i < to->length; i++)
                 stack[i][top].i32 = (int)stack[i][top].f;
+            break;
+        case TOK_FLOAT_TO_DOUBLE:
+            for (i = 0; i < to->length; i++)
+                stack[i][top].d = (int)stack[i][top].f;
+            break;
+        case TOK_DOUBLE_TO_FLOAT:
+            for (i = 0; i < to->length; i++)
+                stack[i][top].f = (int)stack[i][top].d;
+            break;
+        case TOK_DOUBLE_TO_INT32:
+            for (i = 0; i < to->length; i++)
+                stack[i][top].i32 = (int)stack[i][top].d;
             break;
         case TOK_OP:
             --top;
             for (i = 0; i < to->length; i++) {
-                if (node->is_float) {
+                if (node->type == 'f') {
                     trace_eval("%f %c %f = ", stack[i][top].f, node->tok.op, stack[i][top + 1].f);
                     switch (node->tok.op) {
                     case '+': stack[i][top].f = stack[i][top].f + stack[i][top + 1].f; break;
@@ -1034,7 +1128,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                     default: goto error;
                     }
                     trace_eval("%f\n", stack[i][top].f);
-                } else {
+                } else if (node->type == 'd') {
+                    trace_eval("%f %c %f = ", stack[i][top].d, node->tok.op, stack[i][top + 1].d);
+                    switch (node->tok.op) {
+                        case '+': stack[i][top].d = stack[i][top].d + stack[i][top + 1].d; break;
+                        case '-': stack[i][top].d = stack[i][top].d - stack[i][top + 1].d; break;
+                        case '*': stack[i][top].d = stack[i][top].d * stack[i][top + 1].d; break;
+                        case '/': stack[i][top].d = stack[i][top].d / stack[i][top + 1].d; break;
+                        case '%': stack[i][top].d = fmod(stack[i][top].d, stack[i][top + 1].d); break;
+                        default: goto error;
+                    }
+                    trace_eval("%f\n", stack[i][top].f);
+                }
+                else {
                     trace_eval("%d %c %d = ", stack[i][top].i32, node->tok.op, stack[i][top + 1].i32);
                     switch (node->tok.op) {
                     case '+': stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32; break;
