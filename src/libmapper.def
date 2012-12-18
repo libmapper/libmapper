@@ -104,3 +104,4 @@ EXPORTS
     msig_num_reserved_instances                          @103
     msig_num_active_instances                            @104
     msig_active_instance_id                              @105
+    msig_set_instance_management_callback                @106
