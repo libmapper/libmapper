@@ -944,7 +944,7 @@ static int handler_id_n_signals_input_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->n_inputs - 1;
+    int i = 0, j = md->n_inputs - 1, count = 0;
 
     if (!md->n_inputs)
         return 0;
@@ -976,6 +976,13 @@ static int handler_id_n_signals_input_get(const char *path,
 
     lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
     for (; i <= j; i++) {
+        if (count++ >= 20) {
+            // split into multiple bundles
+            lo_send_bundle(admin->admin_addr, b);
+            lo_bundle_free_messages(b);
+            b = lo_bundle_new(LO_TT_IMMEDIATE);
+            count = 0;
+        }
         mapper_signal sig = md->inputs[i];
         msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
@@ -1010,7 +1017,7 @@ static int handler_id_n_signals_output_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->n_outputs - 1;
+    int i = 0, j = md->n_outputs - 1, count = 0;
 
     if (!md->n_outputs)
         return 0;
@@ -1042,6 +1049,13 @@ static int handler_id_n_signals_output_get(const char *path,
 
     lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
     for (; i <= j; i++) {
+        if (count++ >= 20) {
+            // split into multiple bundles
+            lo_send_bundle(admin->admin_addr, b);
+            lo_bundle_free_messages(b);
+            b = lo_bundle_new(LO_TT_IMMEDIATE);
+            count = 0;
+        }
         mapper_signal sig = md->outputs[i];
         msig_full_name(sig, sig_name, 1024);
         mapper_admin_send_osc(
@@ -2227,7 +2241,7 @@ static int handler_device_connections_in_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router receiver = md->receivers;
-    int i = 0, min = -1, max = -1;
+    int i = 0, min = -1, max = -1, count = 0;
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
@@ -2260,6 +2274,13 @@ static int handler_device_connections_in_get(const char *path,
                 if (max > 0 && i > max)
                     break;
                 if (i >= min) {
+                    if (count++ >= 20) {
+                        // split into multiple bundles
+                        lo_send_bundle(admin->admin_addr, b);
+                        lo_bundle_free_messages(b);
+                        b = lo_bundle_new(LO_TT_IMMEDIATE);
+                        count = 0;
+                    }
                     mapper_admin_send_connected(admin, receiver, c, i, b, 0);
                 }
                 c = c->next;
@@ -2285,7 +2306,7 @@ static int handler_device_connections_out_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_router router = md->routers;
-    int i = 0, min = -1, max = -1;
+    int i = 0, min = -1, max = -1, count = 0;
 
     trace("<%s> got /connections/get\n", mapper_admin_name(admin));
 
@@ -2318,6 +2339,13 @@ static int handler_device_connections_out_get(const char *path,
                 if (max > 0 && i > max)
                     break;
                 if (i >= min) {
+                    if (count++ >= 20) {
+                        // split into multiple bundles
+                        lo_send_bundle(admin->admin_addr, b);
+                        lo_bundle_free_messages(b);
+                        b = lo_bundle_new(LO_TT_IMMEDIATE);
+                        count = 0;
+                    }
                     mapper_admin_send_connected(admin, router, c, i, b, 1);
                 }
                 c = c->next;
