@@ -191,7 +191,7 @@ void loop(int iterations)
                            (long)sendinst[j]);
                     msig_release_instance(sendsig,
                                           sendinst[j],
-                                          MAPPER_TIMETAG_NOW);
+                                          MAPPER_NOW);
                     sendinst[j] = 0;
                     break;
                 }
@@ -204,7 +204,7 @@ void loop(int iterations)
                     msig_update_instance(sendsig,
                                          sendinst[j],
                                          &value, 0,
-                                         MAPPER_TIMETAG_NOW);
+                                         MAPPER_NOW);
                     printf("--> sender instance %d updated to %f\n",
                            sendinst[j], value);
                     sent++;
@@ -260,7 +260,7 @@ int main()
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, sendinst[i], MAPPER_TIMETAG_NOW);
+        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
     sent = received = 0;
 
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);

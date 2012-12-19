@@ -88,10 +88,10 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
-            msig_update_instance(sendsig, counter, value, 1, MAPPER_TIMETAG_NOW);
+            msig_update_instance(sendsig, counter, value, 1, MAPPER_NOW);
         }
         else
-            msig_update(sendsig, value, 1, MAPPER_TIMETAG_NOW);
+            msig_update(sendsig, value, 1, MAPPER_NOW);
     }
     else
         printf("--> destination %s instance %ld got NULL\n",
@@ -205,7 +205,7 @@ void switch_modes()
         case 1:
             use_instance = 0;
             for (i=1; i<10; i++) {
-                msig_release_instance(sendsig, i, MAPPER_TIMETAG_NOW);
+                msig_release_instance(sendsig, i, MAPPER_NOW);
             }
             break;
     }
@@ -259,7 +259,7 @@ int main()
     // start things off
     printf("STARTING TEST...\n");
     times[0] = get_current_time();
-    msig_update_instance(sendsig, counter++, &value, 0, MAPPER_TIMETAG_NOW);
+    msig_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
     while (!done) {
         mdev_poll(destination, 0);
         mdev_poll(source, 0);

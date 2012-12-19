@@ -160,7 +160,7 @@ void loop()
         // periodically-sampled signal of 100 Hz.
         printf("Sending [%g..%g]...\n", phasor[0], phasor[9]);
 
-        msig_update(sendsig, phasor, 10, MAPPER_TIMETAG_NOW);
+        msig_update(sendsig, phasor, 10, MAPPER_NOW);
         int r = mdev_poll(destination, 100);
         printf("Destination got %d message%s.\n", r, r==1?"":"s");
         i++;

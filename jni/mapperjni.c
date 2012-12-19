@@ -519,7 +519,7 @@ JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
   (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
-    return msig_query_remotes(sig, MAPPER_TIMETAG_NOW);
+    return msig_query_remotes(sig, MAPPER_NOW);
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1properties
@@ -691,14 +691,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3I
     jint *array = (*env)->GetIntArrayElements(env, value, 0);
     if (array) {
         if (props->type == 'i') {
-            msig_update(sig, array, 0, MAPPER_TIMETAG_NOW);
+            msig_update(sig, array, 0, MAPPER_NOW);
         }
         else if (props->type == 'f') {
             float *arraycopy = malloc(sizeof(float)*length);
             int i;
             for (i=0; i<length; i++)
                 arraycopy[i] = (float)array[i];
-            msig_update(sig, arraycopy, 0, MAPPER_TIMETAG_NOW);
+            msig_update(sig, arraycopy, 0, MAPPER_NOW);
             free(arraycopy);
         }
         (*env)->ReleaseIntArrayElements(env, value, array, JNI_ABORT);
@@ -723,7 +723,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3F
     }
     jfloat *array = (*env)->GetFloatArrayElements(env, value, 0);
     if (array) {
-        msig_update(sig, array, 0, MAPPER_TIMETAG_NOW);
+        msig_update(sig, array, 0, MAPPER_NOW);
         (*env)->ReleaseFloatArrayElements(env, value, array, JNI_ABORT);
     }
 }
@@ -751,7 +751,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3D
         for (i=0; i<length; i++)
             arraycopy[i] = (float)array[i];
         (*env)->ReleaseDoubleArrayElements(env, value, array, JNI_ABORT);
-        msig_update(sig, arraycopy, 0, MAPPER_TIMETAG_NOW);
+        msig_update(sig, arraycopy, 0, MAPPER_NOW);
         free(arraycopy);
     }
 }

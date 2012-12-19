@@ -378,7 +378,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                         mapper_signal_instance temp = si;
                         si = si->next;
                         msig_release_instance_internal(rs->signal, temp, 0, 0,
-                                                       MAPPER_TIMETAG_NOW);
+                                                       MAPPER_NOW);
                         continue;
                     }
                     si = si->next;
@@ -506,7 +506,7 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
                 mapper_signal_instance temp = si;
                 si = si->next;
                 msig_release_instance_internal(rs->signal, temp, 0, 0,
-                                               MAPPER_TIMETAG_NOW);
+                                               MAPPER_NOW);
                 continue;
             }
             si = si->next;
