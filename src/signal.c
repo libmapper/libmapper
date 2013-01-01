@@ -466,14 +466,15 @@ void msig_release_instance_internal(mapper_signal sig,
     if (!si || !si->is_active)
         return;
 
-    if (sig->props.is_output) {
-        // Send release notification to downstream devices
-        msig_update_internal(sig, si, NULL, 0, timetag);
-    }
-    else if (local && si->id_map->group != sig->device->admin->name_hash) {
+    if (!sig->props.is_output && local
+        && si->id_map->group != sig->device->admin->name_hash) {
         // Send release request to upstream devices
         mdev_route_release_request(sig->device, sig, si, timetag);
+        return;
     }
+
+    // Send release notification to downstream devices
+    msig_update_internal(sig, si, NULL, 0, timetag);
 
     if (--si->id_map->reference_count <= 0 && !si->id_map->release_time)
         mdev_remove_instance_id_map(sig->device, si->id_map);
