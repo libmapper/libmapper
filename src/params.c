@@ -1,37 +1,45 @@
 
 #include <string.h>
+#include <stdio.h>
+#include <assert.h>
 
 #include "types_internal.h"
 #include "mapper_internal.h"
 
 const char* mapper_msg_param_strings[] =
 {
-    "@IP",         /* AT_IP */
-    "@port",       /* AT_PORT */
-    "@numInputs",  /* AT_NUMINPUTS */
-    "@numOutputs", /* AT_NUMOUTPUTS */
-    "@numLinks",   /* AT_NUMLINKS */
-    "@numConnects",/* AT_NUM_CONNECTIONS */
-    "@rev",        /* AT_REV */
-    "@type",       /* AT_TYPE */
-    "@min",        /* AT_MIN */
-    "@max",        /* AT_MAX */
-    "@mode",       /* AT_MODE */
-    "@expression", /* AT_EXPRESSION */
-    "@clipMin",    /* AT_CLIPMIN */
-    "@clipMax",    /* AT_CLIPMAX */
-    "@range",      /* AT_RANGE */
-    "@units",      /* AT_UNITS */
-    "@mute",       /* AT_MUTE */
-    "@length",     /* AT_LENGTH */
-    "@direction",  /* AT_DIRECTION */
-    "@instances",  /* AT_INSTANCES */
-    "@srcType",    /* AT_SRCTYPE */
-    "@destType",   /* AT_DESTTYPE */
-    "@srcLength",  /* AT_SRCLENGTH */
-    "@destLength", /* AT_DESTLENGTH */
-    "",            /* AT_EXTRA (special case, does not represent a
-                    * specific property name) */
+    "@clipMax",         /* AT_CLIP_MAX */
+    "@clipMin",         /* AT_CLIP_MIN */
+    "@destLength",      /* AT_DEST_LENGTH */
+    "@destType",        /* AT_DEST_TYPE */
+    "@direction",       /* AT_DIRECTION */
+    "@expression",      /* AT_EXPRESSION */
+    "@ID",              /* AT_ID */
+    "@instances",       /* AT_INSTANCES */
+    "@IP",              /* AT_IP */
+    "@length",          /* AT_LENGTH */
+    "@max",             /* AT_MAX */
+    "@min",             /* AT_MIN */
+    "@mode",            /* AT_MODE */
+    "@mute",            /* AT_MUTE */
+    "@numConnectsIn",   /* AT_NUM_CONNECTIONS_IN */
+    "@numConnectsOut",  /* AT_NUM_CONNECTIONS_OUT */
+    "@numInputs",       /* AT_NUM_INPUTS */
+    "@numLinksIn",      /* AT_NUM_LINKS_IN */
+    "@numLinksOut",     /* AT_NUM_LINKS_OUT */
+    "@numOutputs",      /* AT_NUM_OUTPUTS */
+    "@port",            /* AT_PORT */
+    "@range",           /* AT_RANGE */
+    "@rate",            /* AT_RATE */
+    "@rev",             /* AT_REV */
+    "@scope",           /* AT_SCOPE */
+    "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
+    "@srcLength",       /* AT_SRC_LENGTH */
+    "@srcType",         /* AT_SRC_TYPE */
+    "@type",            /* AT_TYPE */
+    "@units",           /* AT_UNITS */
+    "",                 /* AT_EXTRA (special case, does not represent a
+                         * specific property name) */
 };
 
 int mapper_msg_parse_params(mapper_message_t *msg,
@@ -225,6 +233,41 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
     return 0;
 }
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                           mapper_message_t *params)
+{
+    int i=0;
+    while (params->extra_args[i])
+    {
+        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
+        lo_arg *arg = *(params->extra_args[i]+1);
+        char type = params->extra_types[i];
+        mapper_table_add_or_update_osc_value(t, key, type, arg);
+        i++;
+    }
+}
+
+/* helper for mapper_msg_prepare_varargs() */
+static void mval_add_to_message(lo_message m, char type,
+                                mapper_signal_value_t *value)
+{
+    switch (type) {
+        case 'f':
+            lo_message_add_float(m, value->f);
+            break;
+        case 'd':
+            lo_message_add_double(m, value->d);
+            break;
+        case 'i':
+            lo_message_add_int32(m, value->i32);
+            break;
+        default:
+            // Unknown signal type
+            assert(0);
+            break;
+    }
+}
+
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
@@ -256,21 +299,24 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
+        case AT_DEST_LENGTH:
+        case AT_ID:
+        case AT_LENGTH:
+        case AT_NUM_CONNECTIONS_IN:
+        case AT_NUM_CONNECTIONS_OUT:
+        case AT_NUM_INPUTS:
+        case AT_NUM_LINKS_IN:
+        case AT_NUM_LINKS_OUT:
+        case AT_NUM_OUTPUTS:
         case AT_PORT:
-        case AT_NUMINPUTS:
-        case AT_NUMOUTPUTS:
-        case AT_NUMLINKS:
-        case AT_NUMCONNECTIONS:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
         case AT_REV:
+        case AT_SRC_LENGTH:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
         case AT_TYPE:
-        case AT_SRCTYPE:
-        case AT_DESTTYPE:
+        case AT_SRC_TYPE:
+        case AT_DEST_TYPE:
             i = va_arg(aq, int);
             t[0] = (char)i;
             lo_message_add_string(m, t);
@@ -287,6 +333,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             sig = va_arg(aq, mapper_signal);
             mval_add_to_message(m, sig->props.type, sig->props.maximum);
             break;
+        case AT_RATE:
+            sig = va_arg(aq, mapper_signal);
+            lo_message_add_float(m, sig->props.rate);
+            break;
         case AT_MODE:
             i = va_arg(aq, int);
             if (i >= 0 && i < N_MAPPER_MODE_TYPES)
@@ -298,8 +348,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
-        case AT_CLIPMIN:
-        case AT_CLIPMAX:
+        case AT_CLIP_MIN:
+        case AT_CLIP_MAX:
             i = va_arg(aq, int);
             if (i >= 0 && i < N_MAPPER_CLIPPING_TYPES)
                 lo_message_add_string(m, mapper_clipping_type_strings[i]);
@@ -329,19 +379,13 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i!=0);
             break;
-        case AT_LENGTH:
-        case AT_SRCLENGTH:
-        case AT_DESTLENGTH:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
         case AT_DIRECTION:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
         case AT_INSTANCES:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
+            sig = va_arg(aq, mapper_signal);
+            lo_message_add_int32(m, sig->props.num_instances);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
@@ -450,6 +494,19 @@ void mapper_msg_prepare_params(lo_message m,
             msg_add_lo_arg(m, *msg->types[pa], a);
         }
     }
+    pa = 0;
+    while (msg->extra_args[pa])
+    {
+        msg_add_lo_arg(m, 's', (lo_arg*) (&msg->extra_args[pa][0]->s));
+        msg_add_lo_arg(m, msg->extra_types[pa], *(msg->extra_args[pa]+1));
+        pa++;
+    }
+}
+
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_link link)
+{
+    mapper_msg_add_osc_value_table(m, link->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,
@@ -485,20 +542,24 @@ void mapper_connection_prepare_osc_message(lo_message m,
         else
             lo_message_add_char(m, '-');
     }
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMIN]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MIN]);
     lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_min]);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIPMAX]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MAX]);
     lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, con->props.muted);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_SRCTYPE]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_TYPE]);
     lo_message_add_char(m, con->props.src_type);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_DESTTYPE]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_TYPE]);
     lo_message_add_char(m, con->props.dest_type);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_SRCLENGTH]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_LENGTH]);
     lo_message_add_int32(m, con->props.src_length);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_DESTLENGTH]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_LENGTH]);
     lo_message_add_int32(m, con->props.dest_length);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SEND_AS_INSTANCE]);
+    lo_message_add_int32(m, con->props.send_as_instance);
+
+    mapper_msg_add_osc_value_table(m, con->props.extra);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
@@ -513,7 +574,7 @@ mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
         return 1;
     else
         return -1;
-    
+
     return -1;
 }
 
@@ -531,6 +592,8 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return MO_EXPRESSION;
     else if (strcmp(&(*a)->s, "calibrate") == 0)
         return MO_CALIBRATE;
+    else if (strcmp(&(*a)->s, "reverse") == 0)
+        return MO_REVERSE;
     else
         return -1;
 
@@ -540,7 +603,7 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
 mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
                                              mapper_msg_param_t param)
 {
-    die_unless(param == AT_CLIPMIN || param == AT_CLIPMAX,
+    die_unless(param == AT_CLIP_MIN || param == AT_CLIP_MAX,
                "bad param in mapper_msg_get_clipping()\n");
     lo_arg **a = mapper_msg_get_param(msg, param);
     if (!a || !*a)

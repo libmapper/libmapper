@@ -14,19 +14,45 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal sig, float *pfreq)
+void handler_freq(mapper_signal msig,
+                  mapper_db_signal props,
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
-    set_freq(*pfreq);
+    if (value) {
+        float *pfreq = (float*)value;
+        set_freq(*pfreq);
+    }
 }
 
-void handler_gain(mapper_signal sig, float *pgain)
+void handler_gain(mapper_signal msig,
+                  mapper_db_signal props,
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
-    set_gain(*pgain);
+    if (value) {
+        float *pgain = (float*)value;
+        set_gain(*pgain);
+    }
+    else
+        set_gain(0);
 }
 
-void handler_duty(mapper_signal sig, float *pduty)
+void handler_duty(mapper_signal msig,
+                  mapper_db_signal props,
+                  int instance_id,
+                  void *value,
+                  int count,
+                  mapper_timetag_t *timetag)
 {
-    set_duty(*pduty);
+    if (value) {
+        float *pduty = (float*)value;
+        set_duty(*pduty);
+    }
 }
 
 int main()
@@ -40,11 +66,11 @@ int main()
     float max1000 = 1000;
 
     mdev_add_input(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                   (mapper_signal_handler*)handler_freq, 0);
+                   handler_freq, 0);
     mdev_add_input(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
-                   (mapper_signal_handler*)handler_gain, 0);
+                   handler_gain, 0);
     mdev_add_input(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
-                   (mapper_signal_handler*)handler_duty, 0);
+                   handler_duty, 0);
 
     run_synth();
 

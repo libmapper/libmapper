@@ -7,7 +7,7 @@ import mapper
 def on_gui_change(x):
     sig_out.update(int(x))
 
-def on_mapper_change(sig, x):
+def on_mapper_change(sig, id, x, timetag):
     w.set(int(x))
 
 dev = mapper.device("tkgui", 9000)

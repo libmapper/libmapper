@@ -21,14 +21,11 @@ struct _mapper_signal
     /*! The device associated with this signal. */
     struct _mapper_device *device;
 
-    /*! The first instance of this signal. */
-    struct _mapper_signal_instance *active;
+    /*! The first active instance of this signal. */
+    struct _mapper_signal_instance *active_instances;
 
-    /*! Reserved instances ready for use. */
-    struct _mapper_signal_instance *reserve;
-
-    /*! Counter for generating instance ids. */
-    int instance_count;
+    /*! The first reserve instance of this signal. */
+    struct _mapper_signal_instance *reserve_instances;
 
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
@@ -37,9 +34,12 @@ struct _mapper_signal
      *  changes. */
     mapper_signal_handler *handler;
 
-    /*! An optional function to be called when a signal instance value
-     *  changes. */
-    mapper_signal_instance_handler *instance_handler;
+    /*! An optional function to be called when the signal instance management
+     *  events occur. */
+    mapper_signal_instance_management_handler *instance_management_handler;
+
+    /*! Flags for deciding when to call the instance management handler. */
+    int instance_management_flags;
 };
 
 /**** Instances ****/
@@ -49,8 +49,11 @@ struct _mapper_signal
 
 typedef struct _mapper_signal_instance
 {
-    /*! ID number of this instance. */
+    /*! Unique instance ID */
     int id;
+
+    /*! Pointer to the id_map to use (managed by device). */
+    mapper_instance_id_map id_map;
 
     /*! User data of this instance. */
     void *user_data;
@@ -58,53 +61,32 @@ typedef struct _mapper_signal_instance
     /*! Flag to show if this instance is active */
     int is_active;
 
-    /*! Signal this instance belongs to. */
-    struct _mapper_signal *signal;
-
-    /*! The value of this instance. */    
-    mapper_signal_history_t history;
-
     /*! The instance's creation timestamp. */
     mapper_timetag_t creation_time;
 
-    /*! Linked list of connection instances corresponding to this 
-     *  signal instance. */
-    struct _mapper_connection_instance *connections;
+    /*! Indicates whether this instance has a value. */
+    int has_value;
+
+    /*! The current value of this signal instance. */
+    void *value;
+
+    /*! The timetag associated with the current value. */
+    mapper_timetag_t timetag;
 
     /*! Pointer to the next instance. */
     struct _mapper_signal_instance *next;
 } *mapper_signal_instance;
-
-/*! A connection instance is defined as a vector of values, along with some
- *  metadata. */
-
-typedef struct _mapper_connection_instance
-{
-    /*! Pointer to input instance. */
-    struct _mapper_signal_instance *parent;
-
-    /*! Connection this instance belongs to. */
-    struct _mapper_connection *connection;
-
-    /*! The value of this instance. */    
-    mapper_signal_history_t history;
-
-    /*! Pointer to the next instance. */
-    struct _mapper_connection_instance *next;
-} *mapper_connection_instance;
 
 // Mapper internal functions
 
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int initial_port);
+                             const char *identifier, int port);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
-
-void mapper_admin_port_probe(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);
 
@@ -121,7 +103,8 @@ const char *_real_mapper_admin_name(mapper_admin admin,
     _real_mapper_admin_send_osc(__VA_ARGS__, N_AT_PARAMS)
 
 /*! Message-sending function, not to be called directly. */
-void _real_mapper_admin_send_osc(mapper_admin admin, const char *path,
+void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
+                                 const char *path,
                                  const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
@@ -139,30 +122,107 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
-int mdev_route_query(mapper_device md, mapper_signal sig, const char *alias);
+void mdev_add_signal_methods(mapper_device md, mapper_signal sig);
+
+void mdev_remove_signal_methods(mapper_device md, mapper_signal sig);
+
+void mdev_add_instance_release_request_callback(mapper_device md,
+                                                mapper_signal sig);
+
+void mdev_remove_instance_release_request_callback(mapper_device md,
+                                                   mapper_signal sig);
+
+void mdev_num_instances_changed(mapper_device md,
+                                mapper_signal sig);
+
+void mdev_route_signal(mapper_device md,
+                       mapper_signal sig,
+                       mapper_signal_instance si,
+                       void *value,
+                       int count,
+                       mapper_timetag_t tt);
+
+int mdev_route_query(mapper_device md, mapper_signal sig,
+                     mapper_timetag_t tt);
+
+void mdev_route_release_request(mapper_device md,
+                                mapper_signal sig,
+                                mapper_signal_instance si,
+                                mapper_timetag_t tt);
 
 void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
 
+void mdev_add_receiver(mapper_device md, mapper_receiver r);
+
+void mdev_remove_receiver(mapper_device md, mapper_receiver r);
+
+void mdev_receive_update(mapper_device md, mapper_signal sig,
+                         mapper_signal_instance si, mapper_timetag_t tt);
+
+void mdev_release_scope(mapper_device md, const char *scope);
+
 void mdev_start_server(mapper_device mdev);
 
-void mdev_on_port_and_ordinal(mapper_device md,
-                              mapper_admin_allocated_t *resource);
+void mdev_on_id_and_ordinal(mapper_device md,
+                            mapper_admin_allocated_t *resource);
+
+mapper_instance_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
+                                                int group_id, int remote_id);
+
+void mdev_remove_instance_id_map(mapper_device device, mapper_instance_id_map map);
+
+mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device device,
+                                                          int local_id);
+
+mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
+                                                           int group_id, int remote_id);
 
 const char *mdev_name(mapper_device md);
+
+void mdev_num_instances_changed(mapper_device md, mapper_signal sig);
 
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name);
+                                int port, const char *name, int default_scope);
 
 void mapper_router_free(mapper_router router);
 
-void mapper_router_send_signal(mapper_connection_instance ci);
+/*! Set a router's properties based on message parameters. */
+void mapper_router_set_from_message(mapper_router router,
+                                    mapper_message_t *msg);
 
-int mapper_router_send_query(mapper_router router, mapper_signal sig,
-                             const char *alias);
+void mapper_router_num_instances_changed(mapper_router r,
+                                         mapper_signal sig);
+
+/*! For a given connection instance, construct a mapped signal and
+ *  send it on to the destination. */
+void mapper_router_process_signal(mapper_router r,
+                                  mapper_signal sig,
+                                  mapper_signal_instance si,
+                                  void *value,
+                                  int count,
+                                  mapper_timetag_t timetag,
+                                  int flags);
+
+void mapper_router_send_new_instance(mapper_router r,
+                                     mapper_connection c,
+                                     int index,
+                                     mapper_instance_id_map id_map,
+                                     mapper_timetag_t tt);
+
+void mapper_router_send_update(mapper_router r,
+                               mapper_connection c,
+                               int index,
+                               mapper_instance_id_map id_map,
+                               mapper_timetag_t tt,
+                               lo_blob blob);
+
+int mapper_router_send_query(mapper_router router,
+                             mapper_signal sig,
+                             mapper_timetag_t tt);
 
 mapper_connection mapper_router_add_connection(mapper_router router,
                                                mapper_signal sig,
@@ -173,9 +233,77 @@ mapper_connection mapper_router_add_connection(mapper_router router,
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-/*! Find a router by destination name in a linked list of routers. */
+/*! Find a connection in a router by source and destination signal names. */
+mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
+                                                         const char* src_name,
+                                                         const char* dest_name);
+
+int mapper_router_in_scope(mapper_router router, int group_id);
+
+/*! Find a router by destination address in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_address(mapper_router routers,
+                                                 lo_address dest_addr);
+
+/*! Find a router by destination device name in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
-                                                const char* dest_name);
+                                              const char *dest_name);
+
+int mapper_router_add_scope(mapper_router router, const char *scope);
+
+void mapper_router_remove_scope(mapper_router router, const char *scope);
+
+void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
+
+void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
+
+/***** Receiver *****/
+
+mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
+                                    int port, const char *name, int default_scope);
+
+void mapper_receiver_free(mapper_receiver receiver);
+
+/*! Set a router's properties based on message parameters. */
+void mapper_receiver_set_from_message(mapper_receiver receiver,
+                                      mapper_message_t *msg);
+
+void mapper_receiver_send_update(mapper_receiver r,
+                                 mapper_signal sig,
+                                 mapper_signal_instance si,
+                                 mapper_timetag_t tt);
+
+void mapper_receiver_send_release_request(mapper_receiver r,
+                                          mapper_signal sig,
+                                          mapper_signal_instance si,
+                                          mapper_timetag_t tt);
+
+mapper_connection mapper_receiver_add_connection(mapper_receiver receiver,
+                                                 mapper_signal sig,
+                                                 const char *src_name,
+                                                 char src_type,
+                                                 int src_length);
+
+int mapper_receiver_remove_connection(mapper_receiver receiver,
+                                      mapper_connection connection);
+
+/*! Find a connection in a receiver by source and destination signal names. */
+mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
+                                                           const char* src_name,
+                                                           const char* dest_name);
+
+int mapper_receiver_in_scope(mapper_receiver receiver, int group_id);
+
+/*! Find a receiver by source address in a linked list of receivers. */
+mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
+                                                    lo_address src_addr);
+
+/*! Find a receiver by source device name in a linked list of receivers. */
+mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
+                                                 const char *src_name);
+
+int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
+
+void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 
@@ -206,65 +334,66 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
-/*! Add a new instance of a signal.
- *  \param sig The signal to which the instance will be added.
- *  \return A pointer to the new signal instance. */
-mapper_signal_instance msig_add_instance(mapper_signal sig,
-                                         mapper_signal_instance_handler *handler,
-                                         void *user_data);
-
-/*! Add a new connection instance to a signal.
- *  \param si The signal instance corresponding to the new connection instance.
- *  \param c The connection corresponding to the new connection instance.
- *  \return The new connection instance. */
-mapper_connection_instance msig_add_connection_instance(mapper_signal_instance si,
-                                                        struct _mapper_connection *c);
-
-mapper_signal_instance msig_find_instance(mapper_signal sig,
-                                          int instance_id);
-
-/*! Resume a reserved (preallocated) signal instance.
- *  \param  si The signal instance to resume. */
-void msig_resume_instance(mapper_signal_instance si);
-
-/*! Reallocate memory used by signal instances. */
-void msig_reallocate_instances(mapper_signal sig, int input_history_size,
-                               mapper_connection c, int output_history_size);
-
-void mhist_realloc(mapper_signal_history_t *history, int history_size,
-                   int sample_size, int is_output);
-
-void msig_send_instance(mapper_signal_instance si);
-
-/*! Free memory used by a mapper_signal_instance. */
-void msig_free_instance(mapper_signal_instance instance);
-
-/*! Free memory used by a mapper_connection_instance. */
-void msig_free_connection_instance(mapper_connection_instance instance);
-
-void mval_add_to_message(lo_message m, char type,
-                         mapper_signal_value_t *value);
-
 /**** Instances ****/
 
-/*! Fetch a reserved (preallocated) signal instance.
- *  \param  sig The signal owning the desired instance.
- *  \param  sig_instance The requested signal instance ID.
+/*! Find an active instance with the given instance ID.
+ *  \param sig          The signal owning the desired instance.
+ *  \param instance_id  The requested signal instance ID.
+ *  \return             The retrieved signal instance, or NULL if no active
+ *                      instances match the specified instance ID. */
+mapper_signal_instance msig_find_instance_with_id(mapper_signal sig,
+                                                  int instance_id);
+
+/*! Find an active instance with the given instance ID.
+ *  \param sig  The signal owning the desired instance.
+ *  \param map  The requested signal instance ID.
+ *  \return     The retrieved signal instance, or NULL if no active
+ *              instances match the specified instance ID map. */
+mapper_signal_instance msig_find_instance_with_id_map(mapper_signal sig,
+                                                      mapper_instance_id_map map);
+
+/*! Fetch a reserved (preallocated) signal instance using an instance id,
+ *  activating it if necessary.
+ *  \param  sig             The signal owning the desired instance.
+ *  \param  instance_id     The requested signal instance ID.
+ *  \param  is_new_instance Indicates whether instance has just been created,
+ *                          relevant for choosing instance stealing schemes.
  *  \return The retrieved signal instance, or NULL if no free
  *          instances were available and allocation of a new instance
  *          was unsuccessful according to the selected allocation
  *          strategy. */
-mapper_signal_instance msig_get_instance(mapper_signal sig,
-                                         int instance_id);
+mapper_signal_instance msig_get_instance_with_id(mapper_signal sig,
+                                                 int instance_id,
+                                                 int is_new_instance);
+
+/*! Fetch a reserved (preallocated) signal instance using instance id map,
+ *  activating it if necessary.
+ *  \param  sig             The signal owning the desired instance.
+ *  \param  map             The ID map to match.
+ *  \param  is_new_instance Indicates whether instance has just been created,
+ *                          relevant for choosing instance stealing schemes.
+ *  \return The retrieved signal instance, or NULL if no free
+ *          instances were available and allocation of a new instance
+ *          was unsuccessful according to the selected allocation
+ *          strategy. */
+mapper_signal_instance msig_get_instance_with_id_map(mapper_signal sig,
+                                                     mapper_instance_id_map map,
+                                                     int is_new_instance,
+                                                     int local);
+
+/*! Release a specific signal instance. */
+void msig_release_instance_internal(mapper_signal sig,
+                                    mapper_signal_instance si,
+                                    int stolen, int local,
+                                    mapper_timetag_t timetag);
 
 /**** connections ****/
 
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
- *  \param ci         The mapping process to perform.
- *  \param from_value Pointer to first value in a vector of the
- *                    expected size.
- *  \param from_value Pointer to a value to receive the scalar result.
+ *  \param connection The mapping process to perform.
+ *  \param from_value Pointer to current value of the source signal.
+ *  \param to_value   Pointer to a value to receive the result.
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
@@ -273,27 +402,19 @@ int mapper_connection_perform(mapper_connection connection,
 int mapper_clipping_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
-mapper_connection mapper_connection_find_by_names(mapper_device md,
-                                                  const char* src_name,
-                                                  const char* dest_name);
-
 /*! Set a connection's properties based on message parameters. */
 void mapper_connection_set_from_message(mapper_connection connection,
-                                        mapper_signal sig,
                                         mapper_message_t *msg);
 
 void mapper_connection_set_direct(mapper_connection connection);
 
 void mapper_connection_set_linear_range(mapper_connection connection,
-                                        mapper_signal sig,
                                         mapper_connection_range_t *range);
 
 void mapper_connection_set_expression(mapper_connection connection,
-                                      mapper_signal sig,
                                       const char *expr);
 
 void mapper_connection_set_calibrate(mapper_connection connection,
-                                     mapper_signal sig,
                                      float dest_min, float dest_max);
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
@@ -304,27 +425,27 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 /*! Add or update an entry in the device database using parsed message
  *  parameters.
- *  \param db     The database to operate on.
- *  \param name   The name of the device.
- *  \param params The parsed message parameters containing new device
- *                information.
- *  \return       Non-zero if device was added to the database, or
- *                zero if it was already present. */
+ *  \param db          The database to operate on.
+ *  \param device_name The name of the device.
+ *  \param params      The parsed message parameters containing new device
+ *                     information.
+ *  \return            Non-zero if device was added to the database, or
+ *                     zero if it was already present. */
 int mapper_db_add_or_update_device_params(mapper_db db,
-                                          const char *name,
+                                          const char *device_name,
                                           mapper_message_t *params);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
- *  \param db     The database to operate on.
- *  \param name   The name of the signal.
- *  \param name   The name of the device associated with this signal.
- *  \param params The parsed message parameters containing new signal
- *                information.
- *  \return       Non-zero if signal was added to the database, or
- *                zero if it was already present. */
+ *  \param db          The database to operate on.
+ *  \param signal_name The name of the signal.
+ *  \param device_name The name of the device associated with this signal.
+ *  \param params      The parsed message parameters containing new signal
+ *                     information.
+ *  \return            Non-zero if signal was added to the database, or
+ *                     zero if it was already present. */
 int mapper_db_add_or_update_signal_params(mapper_db db,
-                                          const char *name,
+                                          const char *signal_name,
                                           const char *device_name,
                                           mapper_message_t *params);
 
@@ -335,13 +456,13 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
 
 /*! Add or update an entry in the connection database using parsed
  *  message parameters.
- *  \param db     The database to operate on.
- *  \param name   The full name of the source signal.
- *  \param name   The full name of the destination signal.
- *  \param params The parsed message parameters containing new
- *                connection information.
- *  \return       Non-zero if connection was added to the database,
- *                or zero if it was already present. */
+ *  \param db        The database to operate on.
+ *  \param src_name  The full name of the source signal.
+ *  \param dest_name The full name of the destination signal.
+ *  \param params    The parsed message parameters containing new
+ *                   connection information.
+ *  \return          Non-zero if connection was added to the database,
+ *                   or zero if it was already present. */
 int mapper_db_add_or_update_connection_params(mapper_db db,
                                               const char *src_name,
                                               const char *dest_name,
@@ -382,6 +503,7 @@ void mapper_db_dump(mapper_db db);
 
 /*! Add or update an entry in the link database using parsed message
  *  parameters.
+ *  \param db     The database to operate on.
  *  \param src_name  The name of the source device.
  *  \param dest_name The name of the destination device.
  *  \param params The parsed message parameters containing new link
@@ -417,7 +539,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
  *  Note that it's possible the returned type string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
  *  function to ensure it only processes the a priori expected number
- *  of parameters.  (e.g., @range has 4 parameters.)
+ *  of parameters.  (e.g., "@range" has 4 parameters.)
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
  *  \return       String containing type of each parameter argument.
@@ -482,6 +604,9 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
+void mapper_msg_add_or_update_extra_params(table t,
+                                                  mapper_message_t *params);
+
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
 void mapper_msg_prepare_varargs(lo_message m, va_list aq);
@@ -491,8 +616,12 @@ void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_router router);
+
+/*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
-                                           mapper_connection map);
+                                           mapper_connection c);
 
 /**** Expression parser/evaluator ****/
 
@@ -573,6 +702,17 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
 /*! Add OSC arguments contained in a string table to a lo_message */
 void mapper_msg_add_osc_value_table(lo_message m, table t);
 
+/**** Clock synchronization ****/
+
+/*! Initialize a mapper_clock. */
+void mdev_clock_init(mapper_device dev);
+
+/*! Adjust the internal clock synchonization. */
+void mdev_clock_adjust(mapper_device dev,
+                       double difference,
+                       double confidence,
+                       int is_latency_adjusted);
+
 /**** Debug macros ****/
 
 /*! Debug tracer */
@@ -624,6 +764,12 @@ inline static int msig_vector_bytes(mapper_signal sig)
 inline static void* msig_history_value_pointer(mapper_signal_history_t h)
 {
     return h.value + h.position * h.length * mapper_type_size(h.type);
+}
+
+/*! Helper to find the pointer to the current timetag in a mapper_signal_history_t. */
+inline static void* msig_history_tt_pointer(mapper_signal_history_t h)
+{
+    return &h.timetag[h.position];
 }
 
 #endif // __MAPPER_INTERNAL_H__

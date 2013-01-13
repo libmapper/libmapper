@@ -18,11 +18,8 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-int sendinst[5] = {0, 0, 0, 0, 0};
-int recvinst[5] = {0, 0, 0, 0, 0};
+int sendinst[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int nextid = 1;
-
-int port = 9000;
 
 int sent = 0;
 int received = 0;
@@ -31,7 +28,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testInstanceSend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -39,8 +36,9 @@ int setup_source()
     float mn=0, mx=10;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
-    // reserve an appropriate number of instances
-    msig_reserve_instances(sendsig, 5, 0);
+    if (!sendsig)
+        goto error;
+    msig_reserve_instances(sendsig, 9);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -54,12 +52,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -67,46 +59,44 @@ void cleanup_source()
     }
 }
 
-void normal_handler(mapper_signal sig, mapper_db_signal props,
-                    mapper_timetag_t *timetag, void *v)
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
-    if (v) {
-        printf("--> destination %s (no instance) got %f\n",
-               props->name, (*(float*)v));
-        received++;
-    }
-    else
-        printf("--> destination %s (no instance) got NULL\n",
-               props->name);
-}
-
-void instance_handler(mapper_signal sig, mapper_db_signal props,
-                      mapper_timetag_t *timetag, void *v,
-                      int id, void *user_data)
-{
-    if (v) {
+    if (value) {
         printf("--> destination %s instance %ld got %f\n",
-               props->name, (long)id, (*(float*)v));
+               props->name, (long)instance_id, (*(float*)value));
         received++;
     }
     else
         printf("--> destination %s instance %ld got NULL\n",
-               props->name, (long)id);
+               props->name, (long)instance_id);
+}
+
+void overflow_handler(mapper_signal sig, mapper_db_signal props,
+                      int instance_id, msig_instance_event_t event)
+{
+    if (event == IN_OVERFLOW) {
+        printf("OVERFLOW!!\n");
+        msig_reserve_instances(sig, 1);
+    }
 }
 
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testInstanceRecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
 
     float mn=0, mx=1;
-        
-    recvsig = mdev_add_input(destination, "/insig", 1, 
-                             'f', 0, &mn, &mx, normal_handler, 0);
-    msig_reserve_instances(recvsig, 5, instance_handler);
+
+    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
+                             0, &mn, &mx, insig_handler, 0);
+    if (!recvsig)
+        goto error;
+    msig_reserve_instances(recvsig, 4);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));
@@ -146,37 +136,45 @@ void print_instance_ids(mapper_signal sig)
     printf(" ]   ");
 }
 
-void loop()
+void connect_signals()
+{
+    char source_name[1024], destination_name[1024];
+
+    printf("%s\n", mdev_name(source));
+    printf("%s\n", mdev_name(destination));
+
+    lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
+    lo_address_set_ttl(a, 1);
+
+    lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+
+    int j = 50;
+    while (j >= 0) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+        j--;
+    }
+
+    msig_full_name(sendsig, source_name, 1024);
+    msig_full_name(recvsig, destination_name, 1024);
+
+    lo_send(a, "/connect", "ss", source_name, destination_name);
+
+    lo_address_free(a);
+}
+
+void loop(int iterations)
 {
     printf("-------------------- GO ! --------------------\n");
     int i = 0, j = 0;
     float value = 0;
 
-    if (automate) {
-        char source_name[1024], destination_name[1024];
-
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
-
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
-
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
-
-        msig_full_name(sendsig, source_name, 1024);
-        msig_full_name(recvsig, destination_name, 1024);
-
-        lo_send(a, "/connect", "ss", source_name, destination_name);
-
-        lo_address_free(a);
-    }
-
-    while (i >= 0 && !done) {
+    while (i >= 0 && iterations-- >= 0 && !done) {
         // here we should create, update and destroy some instances
         switch (rand() % 5) {
             case 0:
                 // try to create a new instance
-                for (j = 0; j < 5; j++) {
+                for (j = 0; j < 10; j++) {
                     if (!sendinst[j]) {
                         sendinst[j] = nextid++;
                         printf("--> Created new sender instance: %d\n",
@@ -187,24 +185,26 @@ void loop()
                 break;
             case 1:
                 // try to destroy an instance
-                j = rand() % 5;
+                j = rand() % 10;
                 if (sendinst[j]) {
                     printf("--> Retiring sender instance %ld\n",
                            (long)sendinst[j]);
                     msig_release_instance(sendsig,
-                                          sendinst[j]);
+                                          sendinst[j],
+                                          MAPPER_NOW);
                     sendinst[j] = 0;
                     break;
                 }
                 break;
             default:
-                j = rand() % 5;
+                j = rand() % 10;
                 if (sendinst[j]) {
                     // try to update an instance
                     value = (rand() % 10) * 1.0f;
                     msig_update_instance(sendsig,
                                          sendinst[j],
-                                         &value);
+                                         &value, 0,
+                                         MAPPER_NOW);
                     printf("--> sender instance %d updated to %f\n",
                            sendinst[j], value);
                     sent++;
@@ -219,7 +219,7 @@ void loop()
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
-        usleep(100 * 1000);
+        //usleep(1 * 1000);
     }
 }
 
@@ -231,6 +231,7 @@ void ctrlc(int sig)
 int main()
 {
     int result = 0;
+    int stats[6], i;
 
     signal(SIGINT, ctrlc);
 
@@ -248,14 +249,45 @@ int main()
 
     wait_local_devices();
 
-    loop();
+    if (automate)
+        connect_signals();
 
-    if (sent != received) {
-        printf("Not all sent messages were received.\n");
-        printf("Updated value %d time%s, but received %d of them.\n",
-               sent, sent == 1 ? "" : "s", received);
-        result = 1;
-    }
+    printf("\n**********************************************\n");
+    printf("************ NO INSTANCE STEALING ************\n");
+    loop(100);
+
+    stats[0] = sent;
+    stats[1] = received;
+
+    for (i=0; i<10; i++)
+        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
+    sent = received = 0;
+
+    msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
+    printf("\n**********************************************\n");
+    printf("*************** IN_STEAL_OLDEST **************\n");
+    loop(100);
+
+    stats[2] = sent;
+    stats[3] = received;
+
+    sent = received = 0;
+
+    msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
+    msig_set_instance_management_callback(recvsig, overflow_handler,
+                                          IN_OVERFLOW, 0);
+    printf("\n**********************************************\n");
+    printf("*********** CALLBACK > ADD INSTANCE **********\n");
+    loop(100);
+
+    stats[4] = sent;
+    stats[5] = received;
+
+    printf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n", stats[0], stats[1]);
+    printf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n", stats[2], stats[3]);
+    printf("ADD INSTANCE: sent %i updates, received %i updates.\n", stats[4], stats[5]);
+
+    result = (stats[4] != stats[5]);
 
   done:
     cleanup_destination();

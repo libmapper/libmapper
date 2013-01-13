@@ -38,6 +38,7 @@ AM_SANITY_CHECK
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([winsock2.h])
 AC_CHECK_FUNC([inet_ptoa],[AC_DEFINE([HAVE_INET_PTOA],[],[Define if inet_ptoa() is available.])],[])
 AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs() is available.])],[
@@ -49,6 +50,9 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
     ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
+
+AC_CHECK_LIB([z], [gzread], ,
+    [AC_MSG_ERROR([zlib not found, see http://www.zlib.net])])
 
 AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
 AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
@@ -111,7 +115,7 @@ if test x$swig_enabled = xyes; then
      if test x$have_python = xyes; then
        SWIGDIR=swig
        AC_SUBST(SWIGDIR)
-       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'dylib','linux2':'so'}[[sys.platform]]")
+       PYEXT=$($PYTHON -c "import sys; print {'win32':'pyd','darwin':'so','linux2':'so'}[[sys.platform]]")
        AC_SUBST(PYEXT)
      else
        swig_enabled=no
@@ -123,7 +127,11 @@ fi
 # Check for JNI
 if test x$jni_enabled = xyes; then
    JDKPATH=
-   if test -d /usr/lib/jvm/java-6-openjdk; then
+   if test -d /usr/lib/jvm/java-7-openjdk-i386; then
+      JDKPATH=/usr/lib/jvm/java-7-openjdk-i386
+   elif test -d /usr/lib/jvm/java-7-openjdk-x86_64; then
+      JDKPATH=/usr/lib/jvm/java-7-openjdk-x86_64
+   elif test -d /usr/lib/jvm/java-6-openjdk; then
       JDKPATH=/usr/lib/jvm/java-6-openjdk
    elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
       JDKPATH=/System/Library/Frameworks/JavaVM.framework
@@ -231,6 +239,8 @@ AS_IF([test x$with_liblo != xno],[
     [AC_DEFINE([HAVE_LIBLO_SET_IFACE],[],[Define to use lo_address_set_iface function in liblo.])])
   AC_CHECK_FUNC([lo_server_new_multicast_iface],
     [AC_DEFINE([HAVE_LIBLO_SERVER_IFACE],[],[Define to use lo_server_new_multicast_iface function in liblo.])])
+  AC_CHECK_FUNC([lo_bundle_count],
+    [AC_DEFINE([HAVE_LIBLO_BUNDLE_COUNT],[],[Define to use lo_bundle_count function in liblo.])])
   LIBS="$tmpLIBS"
 ])
 

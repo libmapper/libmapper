@@ -31,6 +31,7 @@ typedef struct _mapper_expr *mapper_expr;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
+struct _mapper_instance_map;
 
 /**** String tables ****/
 
@@ -76,7 +77,7 @@ typedef struct _mapper_admin_allocated_t {
                                    * collision count was updated. */
     int locked;                   /*!< Whether or not the value has
                                    *   been locked in (allocated). */
-    double suggestion[8];         /*!< Availability of a range 
+    double suggestion[8];         /*!< Availability of a range
                                        of resource values. */
 
     //!< Function to call when resource becomes locked.
@@ -86,17 +87,39 @@ typedef struct _mapper_admin_allocated_t {
     mapper_admin_resource_on_collision *on_collision;
 } mapper_admin_allocated_t;
 
+/*! Clock and timing information. */
+typedef struct _mapper_sync_timetag_t {
+    int device_id;
+    int message_id;
+    lo_timetag timetag;
+} mapper_sync_timetag_t;
+
+typedef struct _mapper_clock_t {
+    int wait_time;
+    double rate;
+    double offset;
+    float confidence;
+    mapper_timetag_t now;
+    uint32_t next_ping;
+    int message_id;
+    int local_index;
+    mapper_sync_timetag_t local[10];
+    mapper_sync_timetag_t remote;
+} mapper_clock_t;
+
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
     char *identifier;                 /*!< The identifier (prefix) for
                                        *   this device. */
     char *name;                       /*!< The full name for this
                                        *   device, or zero. */
+    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
+                                       *   device instance. */
+    uint32_t name_hash;               /*!< CRC-32 hash of full device name
+                                       *   in the form <name>.<ordinal> */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    mapper_admin_allocated_t ordinal; /*!< The unique ordinal for this
-                                       *   device. */
-    mapper_admin_allocated_t port;    /*!< This device's UDP port number. */
+    int port;                         /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
@@ -111,6 +134,8 @@ typedef struct _mapper_admin {
                                        *   in charge of. */
     struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
                                        *   in charge of. */
+    mapper_clock_t clock;             /*!< Clock for providing global
+                                       *   time syncronization. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -119,48 +144,64 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! The connection structure is a linked list of connections for a
+/*! Bit flags for indicating routing configuration. */
+#define FLAGS_SEND_IMMEDIATELY  0x01
+#define FLAGS_IS_NEW_INSTANCE   0x02
+
+/*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
  *  performing mapping, the connection properties are publically
  *  defined in mapper_db.h. */
-
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;               //!< Properties
-    struct _mapper_connection *next;            //!< Next connection in the list.
-    struct _mapper_signal *source;              //!< Source signal
-    struct _mapper_router *router;              //!< Parent router
-    int calibrating;   /*!< 1 if the source range is currently being
-                        *   calibrated, 0 otherwise. */
-
-    mapper_expr expr;  //!< The mapping expression.
+    mapper_db_connection_t props;           //!< Properties
+    struct _mapper_link_signal *parent;     /*!< Parent signal reference
+                                             *   in router or receiver. */
+    int calibrating;                        /*!< 1 if the source range is
+                                             *   currently being calibrated,
+                                             *   0 otherwise. */
+    void *blob;                             /*!< Blob for staging vector
+                                             *   signal updates. */
+    mapper_expr expr;                       //!< The mapping expression.
+    mapper_signal_history_t *history;       /*!< Array of output histories
+                                             *   for each signal instance. */
+    struct _mapper_connection *next;        //!< Next connection in the list.
 } *mapper_connection;
 
-
-/*! The signal connection is a linked list containing a signal and a
- *  list of connections.  For each router, there is one per signal of
- *  the associated device.  TODO: This should be replaced with a more
+/*! The link_signal is a linked list containing a signal and a
+ *  list of connections.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
-typedef struct _mapper_signal_connection {
+typedef struct _mapper_link_signal {
+    struct _mapper_link *link;              //!< The parent link.
     struct _mapper_signal *signal;          //!< The associated signal.
-    mapper_connection connection;           /*!< The first connection for
+    int num_instances;                      //!< Number of instances allocated.
+    mapper_signal_history_t *history;       /*!< Array of value histories
+                                             *   for each signal instance. */
+    mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
-    struct _mapper_signal_connection *next; /*!< The next signal connection
+    struct _mapper_link_signal *next;     /*!< The next signal connection
                                              *   in the list. */
-} *mapper_signal_connection;
+} *mapper_link_signal, *mapper_router_signal, *mapper_receiver_signal;
 
-/*! The router structure is a linked list of routers each associated
+typedef struct _mapper_queue {
+    mapper_timetag_t tt;
+    lo_bundle bundle;
+    struct _mapper_queue *next;
+} *mapper_queue;
+
+/*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_router {
-    const char *dest_name;                /*!< Router name given by the
-                                           *   destination name. */
-    struct _mapper_device *device;        /*!< The device associated with
-                                           *   this router */
-    lo_address addr;                      //!< Sending address.
-    struct _mapper_router *next;          //!< Next router in the list.
-    mapper_signal_connection connections; /*!< The list of connections
-                                            *  for each signal. */
-} *mapper_router;
+typedef struct _mapper_link {
+    mapper_db_link_t props;         //!< Properties.
+    struct _mapper_device *device;  /*!< The device associated with
+                                     *   this link */
+    mapper_link_signal signals;     /*!< The list of connections
+                                     *  for each signal. */
+    int n_connections;              //!< Number of connections in link.
+    mapper_queue queues;            /*!< Linked-list of message queues
+                                     *   waiting to be sent. */
+    struct _mapper_link *next;      //!< Next link in the list.
+} *mapper_link, *mapper_router, *mapper_receiver;
 
 /**** Device ****/
 
@@ -180,15 +221,24 @@ typedef struct _mapper_device {
     struct _mapper_signal **outputs;
     int n_inputs;
     int n_outputs;
-    int n_hidden_inputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
-    int n_links;
-    int n_connections;
+    int n_output_callbacks;
+    int n_links_in;
+    int n_links_out;
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
+    mapper_receiver receivers;
+
+    /*!< The list of active instance id mappings. */
+    struct _mapper_instance_id_map *active_id_map;
+
+    /*!< The list of reserve instance id mappings. */
+    struct _mapper_instance_id_map *reserve_id_map;
+
+    uint32_t id_counter;
 
     /*! Server used to handle incoming messages.  NULL until at least
      *  one input has been registered and the incoming port has been
@@ -199,15 +249,28 @@ typedef struct _mapper_device {
     struct _mapper_string_table *extra;
 } *mapper_device;
 
+/*! The instance ID map is a linked list of int32 instance ids for coordinating
+ *  remote and local instances. */
+typedef struct _mapper_instance_id_map {
+    int local;                              //!< Local instance id to map.
+    uint32_t group;                         //!< Link group id.
+    uint32_t remote;                        //!< Remote instance id to map.
+    int reference_count;
+    uint32_t release_time;
+    struct _mapper_instance_id_map *next;   //!< The next id map in the list.
+} *mapper_instance_id_map;
+
 /*! Bit flags indicating if information has already been
- *   sent in a given polling step. */
-#define FLAGS_WHO               0x01
-#define FLAGS_INPUTS_GET        0x02
-#define FLAGS_OUTPUTS_GET       0x04
-#define FLAGS_LINKS_GET         0x08
-#define FLAGS_CONNECTIONS_GET   0x10
-#define FLAGS_ADMIN_MESSAGES    0x1F
-#define FLAGS_ATTRIBS_CHANGED   0x20
+ *  sent in a given polling step. */
+#define FLAGS_SENT_DEVICE_INFO              0x01
+#define FLAGS_SENT_DEVICE_INPUTS            0x02
+#define FLAGS_SENT_DEVICE_OUTPUTS           0x04
+#define FLAGS_SENT_DEVICE_LINKS_IN          0x08
+#define FLAGS_SENT_DEVICE_LINKS_OUT         0x10
+#define FLAGS_SENT_DEVICE_CONNECTIONS_IN    0x20
+#define FLAGS_SENT_DEVICE_CONNECTIONS_OUT   0x40
+#define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x7F
+#define FLAGS_DEVICE_ATTRIBS_CHANGED        0x80
 
 /**** Monitor ****/
 
@@ -238,37 +301,43 @@ typedef struct _mapper_monitor {
      *  mapper_monitor_free(). */
     int own_admin;
 
-    mapper_db_t       db;       //<! Database for this monitor. 
+    mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
 
 /**** Messages ****/
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_IP,
-    AT_PORT,
-    AT_NUMINPUTS,
-    AT_NUMOUTPUTS,
-    AT_NUMLINKS,
-    AT_NUMCONNECTIONS,
-    AT_REV,
-    AT_TYPE,
-    AT_MIN,
-    AT_MAX,
-    AT_MODE,
-    AT_EXPRESSION,
-    AT_CLIPMIN,
-    AT_CLIPMAX,
-    AT_RANGE,
-    AT_UNITS,
-    AT_MUTE,
-    AT_LENGTH,
+    AT_CLIP_MAX,
+    AT_CLIP_MIN,
+    AT_DEST_LENGTH,
+    AT_DEST_TYPE,
     AT_DIRECTION,
+    AT_EXPRESSION,
+    AT_ID,
     AT_INSTANCES,
-    AT_SRCTYPE,
-    AT_DESTTYPE,
-    AT_SRCLENGTH,
-    AT_DESTLENGTH,
+    AT_IP,
+    AT_LENGTH,
+    AT_MAX,
+    AT_MIN,
+    AT_MODE,
+    AT_MUTE,
+    AT_NUM_CONNECTIONS_IN,
+    AT_NUM_CONNECTIONS_OUT,
+    AT_NUM_INPUTS,
+    AT_NUM_LINKS_IN,
+    AT_NUM_LINKS_OUT,
+    AT_NUM_OUTPUTS,
+    AT_PORT,
+    AT_RANGE,
+    AT_RATE,
+    AT_REV,
+    AT_SCOPE,
+    AT_SEND_AS_INSTANCE,
+    AT_SRC_LENGTH,
+    AT_SRC_TYPE,
+    AT_TYPE,
+    AT_UNITS,
     AT_EXTRA,
     N_AT_PARAMS
 } mapper_msg_param_t;

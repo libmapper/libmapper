@@ -17,14 +17,12 @@ mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -57,7 +55,8 @@ void cleanup_source()
 }
 
 void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *value)
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
     if (value) {
         printf("handler: Got %f\n", (*(float*)value));
@@ -67,7 +66,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -97,10 +96,10 @@ void cleanup_destination()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->admin->port.value, 
-                               mdev_name(destination));
+    router = mapper_router_new(source, host, destination->admin->port, 
+                               mdev_name(destination), 0);
     mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, port);
+    printf("Router to %s:%d added.\n", host, destination->admin->port);
 
     char signame_in[1024];
     if (!msig_full_name(recvsig, signame_in, 1024)) {
@@ -119,7 +118,7 @@ int setup_router()
                                                        recvsig->props.name,
                                                        'f', 1);
     const char *expr = "y=x*10";
-    mapper_connection_set_expression(c, sendsig, expr);
+    mapper_connection_set_expression(c, expr);
 
     return 0;
 }

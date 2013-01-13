@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/time.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -22,8 +23,6 @@ int max_num_signals = 4;
 mapper_device *source_device_list = 0;
 mapper_device *dest_device_list = 0;
 int *num_signals = 0;
-
-int port = 9000;
 
 int sent = 0;
 int received = 0;
@@ -44,7 +43,7 @@ int setup_sources() {
 
 	for ( int i=0; i<num_sources; i++ ) {
 		
-		source_device_list[i] = mdev_new("source", port, 0);
+		source_device_list[i] = mdev_new("source", 0, 0);
 		number = num_signals[i+num_dests];
 
 		for ( int j=0; j<number; j++ ) {
@@ -95,9 +94,13 @@ void cleanup_sources() {
 
 }
 
-void insig_handler(mapper_signal sig, mapper_signal_value_t *v) {
-
-    //printf("--> destination got %s %f\n\n", sig->props.name, (*v).f);
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t timetag)
+{
+    if (value) {
+        printf("handler: Got %f\n", (*(float*)value));
+    }
     received++;
 
 }
@@ -110,7 +113,7 @@ int setup_destinations() {
 
 	for ( int i=0; i<num_dests; i++ ) {
 		
-		dest_device_list[i] = mdev_new("dest", port, 0);
+		dest_device_list[i] = mdev_new("dest", 0, 0);
 		number = num_signals[i];
 
 		for ( int j=0; j<number; j++ ) {

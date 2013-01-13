@@ -40,38 +40,47 @@ static float hzToMidi(float x)
     return 69. + 12. * log2(x / 440.);
 }
 
+static float uniform(float x)
+{
+    return rand() / (RAND_MAX + 1.0) * x;
+}
+
 typedef enum {
     FUNC_UNKNOWN=-1,
-    FUNC_POW=0,
-    FUNC_SIN,
-    FUNC_COS,
-    FUNC_TAN,
-    FUNC_ABS,
-    FUNC_SQRT,
-    FUNC_LOG,
-    FUNC_LOG10,
-    FUNC_EXP,
-    FUNC_FLOOR,
-    FUNC_ROUND,
-    FUNC_CEIL,
-    FUNC_ASIN,
+    FUNC_ABS=0,
     FUNC_ACOS,
+    FUNC_ACOSH,
+    FUNC_ASIN,
+    FUNC_ASINH,
     FUNC_ATAN,
     FUNC_ATAN2,
-    FUNC_SINH,
-    FUNC_COSH,
-    FUNC_TANH,
-    FUNC_LOGB,
-    FUNC_EXP2,
-    FUNC_LOG2,
-    FUNC_HYPOT,
+    FUNC_ATANH,
     FUNC_CBRT,
-    FUNC_TRUNC,
-    FUNC_MIN,
-    FUNC_MAX,
-    FUNC_PI,
-    FUNC_MIDITOHZ,
+    FUNC_CEIL,
+    FUNC_COS,
+    FUNC_COSH,
+    FUNC_EXP,
+    FUNC_EXP2,
+    FUNC_FLOOR,
+    FUNC_HYPOT,
     FUNC_HZTOMIDI,
+    FUNC_LOG,
+    FUNC_LOG10,
+    FUNC_LOG2,
+    FUNC_LOGB,
+    FUNC_MAX,
+    FUNC_MIDITOHZ,
+    FUNC_MIN,
+    FUNC_PI,
+    FUNC_POW,
+    FUNC_ROUND,
+    FUNC_SIN,
+    FUNC_SINH,
+    FUNC_SQRT,
+    FUNC_TAN,
+    FUNC_TANH,
+    FUNC_TRUNC,
+    FUNC_UNIFORM,
     N_FUNCS
 } expr_func_t;
 
@@ -80,36 +89,40 @@ static struct {
     unsigned int arity;
     void *func;
 } function_table[] = {
-    { "pow", 2, powf },
-    { "sin", 1, sinf },
-    { "cos", 1, cosf },
-    { "tan", 1, tanf },
     { "abs", 1, fabsf },
-    { "sqrt", 1, sqrtf },
-    { "log", 1, logf },
-    { "log10", 1, log10f },
-    { "exp", 1, expf },
-    { "floor", 1, floorf },
-    { "round", 1, roundf },
-    { "ceil", 1, ceilf },
-    { "asin", 1, asinf },
     { "acos", 1, acosf },
+    { "acosh", 1, acoshf },
+    { "asin", 1, asinf },
+    { "asinh", 1, asinhf },
     { "atan", 1, atanf },
     { "atan2", 2, atan2f },
-    { "sinh", 1, sinhf },
-    { "cosh", 1, coshf },
-    { "tanh", 1, tanhf },
-    { "logb", 1, logbf },
-    { "exp2", 1, exp2f },
-    { "log2", 1, log2f },
-    { "hypot", 2, hypotf },
+    { "atanh", 1, atanhf },
     { "cbrt", 1, cbrtf },
-    { "trunc", 1, truncf },
-    { "min", 2, minf },
-    { "max", 2, maxf },
-    { "pi", 0, pif },
-    { "midiToHz", 1, midiToHz },
+    { "ceil", 1, ceilf },
+    { "cos", 1, cosf },
+    { "cosh", 1, coshf },
+    { "exp", 1, expf },
+    { "exp2", 1, exp2f },
+    { "floor", 1, floorf },
+    { "hypot", 2, hypotf },
     { "hzToMidi", 1, hzToMidi },
+    { "log", 1, logf },
+    { "log10", 1, log10f },
+    { "log2", 1, log2f },
+    { "logb", 1, logbf },
+    { "max", 2, maxf },
+    { "midiToHz", 1, midiToHz },
+    { "min", 2, minf },
+    { "pi", 0, pif },
+    { "pow", 2, powf },
+    { "round", 1, roundf },
+    { "sin", 1, sinf },
+    { "sinh", 1, sinhf },
+    { "sqrt", 1, sqrtf },
+    { "tan", 1, tanf },
+    { "tanh", 1, tanhf },
+    { "trunc", 1, truncf },
+    { "uniform", 1, uniform },
 };
 
 typedef enum {
@@ -157,7 +170,7 @@ typedef struct _token {
         char op;
         expr_func_t func;
     };
-} token_t;
+} mapper_token_t;
 
 static expr_func_t function_lookup(const char *s, int len)
 {
@@ -169,11 +182,11 @@ static expr_func_t function_lookup(const char *s, int len)
     return FUNC_UNKNOWN;
 }
 
-static int expr_lex(const char **str, token_t *tok)
+static int expr_lex(const char **str, mapper_token_t *tok)
 {
     int n=0;
     char c = **str;
-    const char *s;
+    const char *s = *str;
     int integer_found = 0;
 
     if (c==0) {
@@ -184,7 +197,6 @@ static int expr_lex(const char **str, token_t *tok)
   again:
 
     if (isdigit(c)) {
-        s = *str;
         do {
             c = (*(++*str));
         } while (c && isdigit(c));
@@ -217,15 +229,24 @@ static int expr_lex(const char **str, token_t *tok)
         }
     case 'e':
         if (!integer_found) {
-            printf("unexpected `e' outside float\n");
-            break;
+            s = *str;
+            while (c && (isalpha(c) || isdigit(c)))
+                c = (*(++*str));
+            tok->type = TOK_FUNC;
+            tok->func = function_lookup(s, *str-s);
+            if (tok->func == FUNC_UNKNOWN) {
+                printf("unexpected `e' outside float\n");
+                break;
+            }
+            else
+                return 0;
         }
         c = (*(++*str));
-        if (c!='-' && !isdigit(c)) {
+        if (c!='-' && c!='+' && !isdigit(c)) {
             printf("Incomplete scientific notation `%s'.\n",s);
             break;
         }
-        if (c=='-')
+        if (c=='-' || c=='+')
             c = (*(++*str));
         while (c && isdigit(c))
             c = (*(++*str));
@@ -377,7 +398,7 @@ static int expr_lex(const char **str, token_t *tok)
 
 typedef struct _exprnode
 {
-    token_t tok;
+    mapper_token_t tok;
     int is_float;
     int history_index;  // when tok.type==TOK_VAR
     int vector_index;   // when tok.type==TOK_VAR
@@ -424,7 +445,7 @@ typedef struct _stack_obj
     } type;
 } stack_obj_t;
 
-static exprnode exprnode_new(token_t *tok, int is_float)
+static exprnode exprnode_new(mapper_token_t *tok, int is_float)
 {
     exprnode t = (exprnode)
         malloc(sizeof(struct _exprnode));
@@ -452,7 +473,7 @@ void mapper_expr_free(mapper_expr expr)
 }
 
 #ifdef DEBUG
-void printtoken(token_t *tok)
+void printtoken(mapper_token_t *tok)
 {
     switch (tok->type) {
     case TOK_FLOAT:        printf("%f", tok->f);          break;
@@ -530,16 +551,21 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 {
     // track whether any variable references
     int refvar = 0;
+    int refrand = 0;
     int is_float = 0;
 
     // find trailing operator on right hand side
     exprnode rhs_last = rhs;
     if (rhs->tok.type == TOK_VAR)
         refvar = 1;
+    else if (rhs->tok.type == TOK_FUNC && rhs->tok.func == FUNC_UNIFORM)
+        refrand = 1;
     while (rhs_last->next) {
+        rhs_last = rhs_last->next;
         if (rhs_last->tok.type == TOK_VAR)
             refvar = 1;
-        rhs_last = rhs_last->next;
+        else if (rhs_last->tok.type == TOK_FUNC && rhs_last->tok.func == FUNC_UNIFORM)
+            refrand = 1;
     }
 
     // find pointer to insertion place:
@@ -548,14 +574,18 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     exprnode *plhs_last = plhs;
     if ((*plhs_last)->tok.type == TOK_VAR)
         refvar = 1;
+    else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
+        refrand = 1;
     while ((*plhs_last)->next) {
         if ((*plhs_last)->tok.type == TOK_VAR)
             refvar = 1;
+        else if ((*plhs_last)->tok.type == TOK_FUNC && (*plhs_last)->tok.func == FUNC_UNIFORM)
+            refrand = 1;
         plhs_last = &(*plhs_last)->next;
     }
 
-    // insert float coersion if sides disagree on type
-    token_t coerce;
+    // insert float coercion if sides disagree on type
+    mapper_token_t coerce;
     coerce.type = TOK_TOFLOAT;
     is_float = (*plhs_last)->is_float || rhs_last->is_float;
     if ((*plhs_last)->is_float && !rhs_last->is_float) {
@@ -574,7 +604,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
 
     // if there were no variable references, then expression is
     // constant, so evaluate it immediately
-    if (constant_folding && !refvar) {
+    if (constant_folding && !refvar && !refrand) {
         struct _mapper_expr e;
         e.node = *plhs;
         mapper_signal_history_t h;
@@ -631,7 +661,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     exprnode result = 0;
     const char *error_message = 0;
 
-    token_t tok;
+    mapper_token_t tok;
     int i, next_token = 1;
 
     int var_allowed = 1;
@@ -840,7 +870,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             // insert '0' before, and '-' after the expression.
             // set is_float according to trailing operator.
             if (stack[top].type == ST_NODE) {
-                token_t t;
+                mapper_token_t t;
                 t.type = TOK_INT;
                 t.i = 0;
                 exprnode e = exprnode_new(&t, 0);
@@ -969,13 +999,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     exprnode e = result;
     while (e->next) e = e->next;
     if (e->is_float && !output_is_float) {
-        token_t coerce;
+        mapper_token_t coerce;
         coerce.type = TOK_TOINT32;
         e->next = exprnode_new(&coerce, 0);
         e->next->is_float = 0;
     }
     else if (!e->is_float && output_is_float) {
-        token_t coerce;
+        mapper_token_t coerce;
         coerce.type = TOK_TOFLOAT;
         e->next = exprnode_new(&coerce, 0);
         e->next->is_float = 1;

@@ -82,7 +82,7 @@ int mapper_monitor_request_signals_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -93,7 +93,7 @@ int mapper_monitor_request_signals_by_name_and_index(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -111,27 +111,18 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(sig->device_name, dev_to_match->name) != 0)
         return;
-    int index;
-    lo_type type;
-    const lo_arg *value;
-    if (!mapper_db_signal_property_lookup(sig, "ID", &type, &value)) {
-        if (type == LO_INT32)
-            index = value->i32;
-        else
-            return;
-        if (index == (data->total_count - 1)) {
-            // signal reporting is complete
-            mapper_db_remove_signal_callback(&data->monitor->db,
-                                             on_signal_continue_batch_request, data);
-            free(data);
-            return;
-        }
-        if (index > 0 && (index % data->batch_size == 0))
-            mapper_monitor_request_signals_by_name_and_index(data->monitor,
-                                                             data->device->name,
-                                                             index + 1,
-                                                             index + data->batch_size);
+    if (sig->id == (data->total_count - 1)) {
+        // signal reporting is complete
+        mapper_db_remove_signal_callback(&data->monitor->db,
+                                         on_signal_continue_batch_request, data);
+        free(data);
+        return;
     }
+    if (sig->id > 0 && (sig->id % data->batch_size == 0))
+        mapper_monitor_request_signals_by_name_and_index(data->monitor,
+                                                         data->device->name,
+                                                         sig->id + 1,
+                                                         sig->id + data->batch_size);
 }
 
 int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
@@ -178,7 +169,7 @@ int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
 
 int mapper_monitor_request_devices(mapper_monitor mon)
 {
-    mapper_admin_send_osc(mon->admin, "/who", "");
+    mapper_admin_send_osc(mon->admin, 0, "/who", "");
     return 0;
 }
 
@@ -187,7 +178,7 @@ int mapper_monitor_request_links_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -196,7 +187,7 @@ int mapper_monitor_request_connections_by_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "");
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
@@ -207,7 +198,7 @@ int mapper_monitor_request_connections_by_name_and_index(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, cmd, "ii", start_index, stop_index);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -225,28 +216,19 @@ static void on_connection_continue_batch_request(mapper_db_connection con,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(con->src_name, dev_to_match->name) != 0)
         return;
-    int index;
-    lo_type type;
-    const lo_arg *value;
-    if (!mapper_db_connection_property_lookup(con, "ID", &type, &value)) {
-        if (type == LO_INT32)
-            index = value->i32;
-        else
-            return;
-        if (index == (data->total_count - 1)) {
-            // connection reporting is complete
-            mapper_db_remove_connection_callback(&data->monitor->db,
-                                                 on_connection_continue_batch_request,
-                                                 data);
-            free(data);
-            return;
-        }
-        if (index > 0 && (index % data->batch_size == 0))
-            mapper_monitor_request_connections_by_name_and_index(data->monitor,
-                                                                 data->device->name,
-                                                                 index + 1,
-                                                                 index + data->batch_size);
+    if (con->id == (data->total_count - 1)) {
+        // connection reporting is complete
+        mapper_db_remove_connection_callback(&data->monitor->db,
+                                             on_connection_continue_batch_request,
+                                             data);
+        free(data);
+        return;
     }
+    if (con->id > 0 && (con->id % data->batch_size == 0))
+        mapper_monitor_request_connections_by_name_and_index(data->monitor,
+                                                             data->device->name,
+                                                             con->id + 1,
+                                                             con->id + data->batch_size);
 }
 
 int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
@@ -276,7 +258,7 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
     }
 
     mapper_db_batch_request data = (mapper_db_batch_request)
-    malloc(sizeof(struct _mapper_db_batch_request));
+                                    malloc(sizeof(struct _mapper_db_batch_request));
     data->monitor = mon;
     data->device = dev;
     data->index = 0;
@@ -289,18 +271,44 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
 }
 
 void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device, 
-                         const char* dest_device)
+                         const char* source_device,
+                         const char* dest_device,
+                         mapper_db_link_t *props,
+                         unsigned int props_flags)
 {
-    mapper_admin_send_osc( mon->admin, "/link", "ss",
-                           source_device, dest_device );
+    if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes &&
+        ((props_flags & LINK_SCOPE_NAMES) || (props_flags & LINK_SCOPE_HASHES))) {
+        lo_message m = lo_message_new();
+        if (!m)
+            return;
+        lo_message_add_string(m, source_device);
+        lo_message_add_string(m, dest_device);
+        lo_message_add_string(m, "@scope");
+        int i;
+        if (props_flags & LINK_SCOPE_NAMES) {
+            for (i=0; i<props->num_scopes; i++) {
+                lo_message_add_string(m, props->scope_names[i]);
+            }
+        }
+        else if (props_flags & LINK_SCOPE_HASHES) {
+            for (i=0; i<props->num_scopes; i++) {
+                lo_message_add_int32(m, props->scope_hashes[i]);
+            }
+        }
+
+        lo_send_message(mon->admin->admin_addr, "/link", m);
+        free(m);
+    }
+    else
+        mapper_admin_send_osc( mon->admin, 0, "/link", "ss",
+                               source_device, dest_device );
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device, 
+                           const char* source_device,
                            const char* dest_device)
 {
-    mapper_admin_send_osc( mon->admin, "/unlink", "ss",
+    mapper_admin_send_osc( mon->admin, 0, "/unlink", "ss",
                            source_device, dest_device );
 }
 
@@ -308,14 +316,13 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       mapper_db_connection_t *props,
                                       unsigned int props_flags)
 {
-
     if (props) {
-        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
-                               (props_flags & CONNECTION_CLIPMIN)
-                               ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIPMAX)
-                               ? AT_CLIPMAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_CLIP_MIN)
+                               ? AT_CLIP_MIN : -1, props->clip_min,
+                               (props_flags & CONNECTION_CLIP_MAX)
+                               ? AT_CLIP_MAX : -1, props->clip_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)
@@ -324,11 +331,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                ? AT_MODE : -1, props->mode,
                                (props_flags & CONNECTION_MUTED)
                                ? AT_MUTE : -1, props->muted );
-    } else {
-        mapper_admin_send_osc( mon->admin, "/connection/modify", "ss",
-                               props->src_name, props->dest_name );
-	}
-
+    }
 }
 
 void mapper_monitor_connect(mapper_monitor mon,
@@ -338,12 +341,12 @@ void mapper_monitor_connect(mapper_monitor mon,
                             unsigned int props_flags)
 {
     if (props) {
-        mapper_admin_send_osc( mon->admin, "/connect", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal,
-                               (props_flags & CONNECTION_CLIPMIN)
-                               ? AT_CLIPMIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIPMAX)
-                               ? AT_CLIPMAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_CLIP_MIN)
+                               ? AT_CLIP_MIN : -1, props->clip_min,
+                               (props_flags & CONNECTION_CLIP_MAX)
+                               ? AT_CLIP_MAX : -1, props->clip_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)
@@ -354,15 +357,15 @@ void mapper_monitor_connect(mapper_monitor mon,
                                ? AT_MUTE : -1, props->muted );
     }
     else
-        mapper_admin_send_osc( mon->admin, "/connect", "ss",
+        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal );
 }
 
 void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal, 
+                               const char* source_signal,
                                const char* dest_signal)
 {
-    mapper_admin_send_osc( mon->admin, "/disconnect", "ss",
+    mapper_admin_send_osc( mon->admin, 0, "/disconnect", "ss",
                            source_signal, dest_signal );
 }
 

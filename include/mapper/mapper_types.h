@@ -21,6 +21,10 @@ typedef void *mapper_admin;
 //! This should be retrieved by calling mapper_monitor_get_db().
 typedef void *mapper_db;
 
+//! An internal data structure defining a mapper queue
+//! Used to handle a queue of mapper signals
+typedef void *mapper_queue;
+
 #ifdef __cplusplus
 }
 #endif

@@ -16,7 +16,8 @@ int sent = 0;
 int received = 0;
 
 void handler(mapper_signal sig, mapper_db_signal props,
-             mapper_timetag_t *timetag, void *value)
+             int instance_id, void *value, int count,
+             mapper_timetag_t *timetag)
 {
     if (value) {
         printf("handler: Got %f\n", (*(float*)value));
@@ -26,7 +27,7 @@ void handler(mapper_signal sig, mapper_db_signal props,
 
 int test_recv()
 {
-    mapper_device md = mdev_new("synth", 9000, 0);
+    mapper_device md = mdev_new("synth", 0, 0);
     if (!md)
         goto error;
     printf("Mapper device created.\n");
@@ -53,8 +54,8 @@ int test_recv()
     }
 	
 	char port[10];
-	sprintf(port, "%i", md->admin->port.value);
-	printf("allocated port = %s\n", port);
+	sprintf(port, "%i", md->admin->port);
+	printf("using port = %s\n", port);
 	
 	lo_address a = lo_address_new("localhost", port);
     if (!a) {

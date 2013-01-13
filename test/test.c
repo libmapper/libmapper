@@ -25,8 +25,6 @@ mapper_signal recvsig_3 = 0;
 mapper_signal sendsig_4 = 0;
 mapper_signal recvsig_4 = 0;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 int done = 0;
@@ -34,7 +32,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -63,12 +61,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -77,7 +69,8 @@ void cleanup_source()
 }
 
 void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   mapper_timetag_t *timetag, void *value)
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
 {
     if (value) {
         printf("--> destination got %s", props->name);
@@ -93,7 +86,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -152,28 +145,21 @@ void loop()
     int i = 0;
 
     if (automate) {
-        char source_name_1[1024], destination_name_1[1024];
-        char source_name_2[1024], destination_name_2[1024];
+        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
+        char src_name[1024], dest_name[1024];
+        mapper_monitor_link(mon, mdev_name(source),
+                            mdev_name(destination), 0, 0);
 
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
+        msig_full_name(sendsig_1, src_name, 1024);
+        msig_full_name(recvsig_1, dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+        msig_full_name(sendsig_2, src_name, 1024);
+        msig_full_name(recvsig_2, dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-        msig_full_name(sendsig_1, source_name_1, 1024);
-        msig_full_name(recvsig_1, destination_name_1, 1024);
-
-        lo_send(a, "/connect", "ss", source_name_1, destination_name_1);
-
-        msig_full_name(sendsig_2, source_name_2, 1024);
-        msig_full_name(recvsig_2, destination_name_2, 1024);
-
-        lo_send(a, "/connect", "ss", source_name_2, destination_name_2);
-
-        lo_address_free(a);
+        mapper_monitor_free(mon);
     }
 
     while (i >= 0 && !done) {

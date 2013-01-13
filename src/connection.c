@@ -8,6 +8,16 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+/*! Reallocate memory used by connection. */
+static void reallocate_connection_histories(mapper_connection c,
+                                            int input_history_size,
+                                            int output_history_size);
+
+static void mhist_realloc(mapper_signal_history_t *history,
+                          int history_size,
+                          int sample_size,
+                          int is_output);
+
 const char* mapper_clipping_type_strings[] =
 {
     "none",        /* CT_NONE */
@@ -19,11 +29,12 @@ const char* mapper_clipping_type_strings[] =
 
 const char* mapper_mode_type_strings[] =
 {
-    NULL,          /* MO__UNDEFINED */
+    NULL,          /* MO_UNDEFINED */
     "bypass",      /* MO_BYPASS */
     "linear",      /* MO_LINEAR */
     "expression",  /* MO_EXPRESSION */
     "calibrate",   /* MO_CALIBRATE */
+    "reverse",     /* MO_REVERSE */
 };
 
 const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
@@ -51,7 +62,7 @@ int mapper_connection_perform(mapper_connection connection,
     /* Currently expressions on vectors are not supported by the
      * evaluator.  For now, we half-support it by performing
      * element-wise operations on each item in the vector. */
-    
+
     int changed = 0, i;
     float f = 0;
 
@@ -140,7 +151,7 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (changed) {
-            mapper_connection_set_linear_range(connection, connection->source,
+            mapper_connection_set_linear_range(connection,
                                                &connection->props.range);
 
             /* Stay in calibrate mode. */
@@ -345,14 +356,13 @@ int mapper_clipping_perform(mapper_connection connection,
 /* Helper to replace a connection's expression only if the given string
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expression_string(mapper_connection c,
-                                     mapper_signal s,
                                      const char *expr_str,
                                      int *input_history_size,
                                      int *output_history_size)
 {
     mapper_expr expr = mapper_expr_new_from_string(
-        expr_str, s->props.type=='f', c->props.dest_type=='f',
-        s->props.length, input_history_size, output_history_size);
+        expr_str, c->props.src_type=='f', c->props.dest_type=='f',
+        c->props.src_length, input_history_size, output_history_size);
 
     if (!expr)
         return 1;
@@ -371,11 +381,10 @@ static int replace_expression_string(mapper_connection c,
 void mapper_connection_set_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
-    msig_reallocate_instances(c->source, 1, c, 1);
+    reallocate_connection_histories(c, 1, 1);
 }
 
 void mapper_connection_set_linear_range(mapper_connection c,
-                                        mapper_signal sig,
                                         mapper_connection_range_t *r)
 {
     char expr[256] = "";
@@ -415,30 +424,33 @@ void mapper_connection_set_linear_range(mapper_connection c,
     // If everything is successful, replace the connection's expression.
     if (e) {
         int input_history_size, output_history_size;
-        if (!replace_expression_string(c, sig, e, &input_history_size,
+        if (!replace_expression_string(c, e, &input_history_size,
                                        &output_history_size)) {
-            msig_reallocate_instances(sig, 1, c, 1);
+            reallocate_connection_histories(c, 1, 1);
             c->props.mode = MO_LINEAR;
         }
     }
 }
 
 void mapper_connection_set_expression(mapper_connection c,
-                                      mapper_signal sig,
                                       const char *expr)
 {
-    int input_history_size, output_history_size;    
-    if (replace_expression_string(c, sig, expr, &input_history_size,
+    int input_history_size, output_history_size;
+    if (replace_expression_string(c, expr, &input_history_size,
                                   &output_history_size))
         return;
 
     c->props.mode = MO_EXPRESSION;
-    msig_reallocate_instances(sig, input_history_size,
-                              c, output_history_size);
+    reallocate_connection_histories(c, input_history_size,
+                                    output_history_size);
+}
+
+void mapper_connection_set_reverse(mapper_connection c)
+{
+    c->props.mode = MO_REVERSE;
 }
 
 void mapper_connection_set_calibrate(mapper_connection c,
-                                     mapper_signal sig,
                                      float dest_min, float dest_max)
 {
     c->props.mode = MO_CALIBRATE;
@@ -460,7 +472,7 @@ void mapper_connection_set_calibrate(mapper_connection c,
  * based on message parameters and known connection and signal
  * properties; return flags to indicate which parts of the range were
  * found. */
-static int get_range(mapper_signal sig, mapper_connection connection,
+static int get_range(mapper_connection connection,
                      mapper_message_t *msg, float range[4])
 {
     lo_arg **a_range    = mapper_msg_get_param(msg, AT_RANGE);
@@ -552,7 +564,7 @@ static int get_range(mapper_signal sig, mapper_connection connection,
     }
 
     /* Signal */
-
+    mapper_signal sig = connection->parent->signal;
     if (sig) {
         if (!(range_known & CONNECTION_RANGE_SRC_MIN)
             && sig->props.minimum)
@@ -583,7 +595,6 @@ static int get_range(mapper_signal sig, mapper_connection connection,
 }
 
 void mapper_connection_set_from_message(mapper_connection c,
-                                        mapper_signal sig,
                                         mapper_message_t *msg)
 {
     /* First record any provided parameters. */
@@ -597,7 +608,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     /* Range information. */
 
     float range[4];
-    int range_known = get_range(sig, c, msg, range);
+    int range_known = get_range(c, msg, range);
 
     if (range_known & CONNECTION_RANGE_SRC_MIN) {
         c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
@@ -618,37 +629,46 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
         c->props.range.dest_max = range[3];
     }
-    
+
     // TO DO: test if range has actually changed
-    if (c->props.range.known == CONNECTION_RANGE_KNOWN 
+    if (c->props.range.known == CONNECTION_RANGE_KNOWN
         && c->props.mode == MO_LINEAR) {
-        mapper_connection_set_linear_range(c, sig, &c->props.range);
+        mapper_connection_set_linear_range(c, &c->props.range);
     }
 
     /* Muting. */
     int muting;
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
         c->props.muted = muting;
-    
+
     /* Clipping. */
-    int clip_min = mapper_msg_get_clipping(msg, AT_CLIPMIN);
+    int clip_min = mapper_msg_get_clipping(msg, AT_CLIP_MIN);
     if (clip_min >= 0)
         c->props.clip_min = clip_min;
 
-    int clip_max = mapper_msg_get_clipping(msg, AT_CLIPMAX);
+    int clip_max = mapper_msg_get_clipping(msg, AT_CLIP_MAX);
     if (clip_max >= 0)
         c->props.clip_max = clip_max;
-    
+
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr) {
         int input_history_size, output_history_size;
-        replace_expression_string(c, sig, expr, &input_history_size,
-                                  &output_history_size);
-        if (c->props.mode == MO_EXPRESSION)
-            msig_reallocate_instances(sig, input_history_size,
-                                      c, output_history_size);
+        if (!replace_expression_string(c, expr, &input_history_size,
+                                       &output_history_size)) {
+            if (c->props.mode == MO_EXPRESSION)
+                reallocate_connection_histories(c, input_history_size,
+                                                output_history_size);
+        }
     }
+
+    /* Instances. */
+    int send_as_instance;
+    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance))
+        c->props.send_as_instance = send_as_instance;
+
+    /* Extra properties. */
+    mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 
     /* Now set the mode type depending on the requested type and
      * the known properties. */
@@ -658,7 +678,7 @@ void mapper_connection_set_from_message(mapper_connection c,
     switch (mode)
     {
     case -1:
-        /* No mode type specified; if mode not yet set, see if 
+        /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
             if (c->props.mode == MO_UNDEFINED) {
                 if (range_known == CONNECTION_RANGE_KNOWN) {
@@ -669,7 +689,7 @@ void mapper_connection_set_from_message(mapper_connection c,
                     r.dest_min = range[2];
                     r.dest_max = range[3];
                     r.known = range_known;
-                    mapper_connection_set_linear_range(c, sig, &r);
+                    mapper_connection_set_linear_range(c, &r);
                 } else
                     /* No range, default to direct connection. */
                     mapper_connection_set_direct(c);
@@ -686,20 +706,23 @@ void mapper_connection_set_from_message(mapper_connection c,
             r.dest_min = range[2];
             r.dest_max = range[3];
             r.known = range_known;
-            mapper_connection_set_linear_range(c, sig, &r);
+            mapper_connection_set_linear_range(c, &r);
         }
         break;
     case MO_CALIBRATE:
         if (range_known & (CONNECTION_RANGE_DEST_MIN
                            | CONNECTION_RANGE_DEST_MAX))
-            mapper_connection_set_calibrate(c, sig, range[2], range[3]);
+            mapper_connection_set_calibrate(c, range[2], range[3]);
         break;
     case MO_EXPRESSION:
         {
             if (!c->props.expression)
                 c->props.expression = strdup("y=x");
-            mapper_connection_set_expression(c, sig, c->props.expression);
+            mapper_connection_set_expression(c, c->props.expression);
         }
+        break;
+    case MO_REVERSE:
+        mapper_connection_set_reverse(c);
         break;
     default:
         trace("unknown result from mapper_msg_get_mode()\n");
@@ -707,47 +730,131 @@ void mapper_connection_set_from_message(mapper_connection c,
     }
 }
 
-mapper_connection mapper_connection_find_by_names(mapper_device md, 
-                                                  const char* src_name,
-                                                  const char* dest_name)
+void reallocate_connection_histories(mapper_connection c,
+                                     int input_history_size,
+                                     int output_history_size)
 {
-    mapper_router router = md->routers;
-    int i = 0;
-    int n = strlen(dest_name);
-    const char *slash = strchr(dest_name+1, '/');
-    if (slash)
-        n = n - strlen(slash);
-        
-    src_name = strchr(src_name+1, '/');
-    
-    while (i < md->n_outputs) {
-        // Check if device outputs includes src_name
-        if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
-            while (router != NULL) {
-                // find associated router
-                if (strncmp(router->dest_name, dest_name, n) == 0) {
-                    // find associated connection
-                    mapper_signal_connection sc = router->connections;
-                    while (sc && sc->signal != md->outputs[i])
-                        sc = sc->next;
-                    if (!sc)
-                        return NULL;
-                    mapper_connection c = sc->connection;
-                    while (c && strcmp(c->props.dest_name,
-                                       (dest_name + n)) != 0)
-                        c = c->next;
-                    if (!c)
-                        return NULL;
-                    else
-                        return c;
-                }
-                else {
-                    router = router->next;
+    mapper_signal sig = c->parent->signal;
+    int i;
+
+    // At least for now, exit if this is an input signal
+    if (!sig->props.is_output)
+        return;
+
+    // If there is no expression, then no memory needs to be
+    // reallocated.
+    if (!c->expr)
+        return;
+
+    if (input_history_size < 1)
+        input_history_size = 1;
+
+    if (input_history_size > sig->props.history_size) {
+        int sample_size = msig_vector_bytes(sig);
+        for (i=0; i<sig->props.num_instances; i++) {
+            mhist_realloc(&c->parent->history[i], input_history_size,
+                          sample_size, 0);
+        }
+        sig->props.history_size = input_history_size;
+    }
+    else if (input_history_size < sig->props.history_size) {
+        // Do nothing for now...
+        // Find maximum input length needed for connections
+        /*mapper_connection temp = c->parent->connections;
+        while (c) {
+            if (c->props.mode == MO_EXPRESSION) {
+                if (c->expr->input_history_size > input_history_size) {
+                    input_history_size = c->expr->input_history_size;
                 }
             }
-            return NULL;
-        }
-        i++;
+            c = c->next;
+        }*/
     }
-    return NULL;
+    if (output_history_size > c->props.dest_history_size) {
+        int sample_size = mapper_type_size(c->props.dest_type) * c->props.dest_length;
+        for (i=0; i<sig->props.num_instances; i++) {
+            mhist_realloc(&c->history[i], output_history_size, sample_size, 1);
+        }
+        c->props.dest_history_size = output_history_size;
+    }
+    else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
+        // Do nothing for now...
+    }
+}
+
+void mhist_realloc(mapper_signal_history_t *history,
+                   int history_size,
+                   int sample_size,
+                   int is_output)
+{
+    if (!history || !history_size || !sample_size)
+        return;
+    if (history_size == history->size)
+        return;
+    if (is_output || (history_size > history->size) || (history->position == 0)) {
+        // realloc in place
+        history->value = realloc(history->value, history_size * sample_size);
+        history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
+        if (is_output) {
+            history->position = -1;
+        }
+        else if (history->position != 0) {
+            int new_position = history_size - history->size + history->position;
+            memcpy(history->value + sample_size * new_position,
+                   history->value + sample_size * history->position,
+                   sample_size * (history->size - history->position));
+            memcpy(&history->timetag[new_position],
+                   &history->timetag[history->position], sizeof(mapper_timetag_t)
+                   * (history->size - history->position));
+            history->position = new_position;
+        }
+    }
+    else {
+        // copying into smaller array
+        if (history->position >= history_size * 2) {
+            // no overlap - memcpy ok
+            int new_position = history_size - history->size + history->position;
+            memcpy(history->value,
+                   history->value + sample_size * (new_position - history_size),
+                   sample_size * history_size);
+            memcpy(&history->timetag,
+                   &history->timetag[history->position - history_size],
+                   sizeof(mapper_timetag_t) * history_size);
+            history->value = realloc(history->value, history_size * sample_size);
+            history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
+        }
+        else {
+            // there is overlap between new and old arrays - need to allocate new memory
+            mapper_signal_history_t temp;
+            temp.value = malloc(sample_size * history_size);
+            temp.timetag = malloc(sizeof(mapper_timetag_t) * history_size);
+            if (history->position < history_size) {
+                memcpy(temp.value, history->value,
+                       sample_size * history->position);
+                memcpy(temp.value + sample_size * history->position,
+                       history->value + sample_size
+                       * (history->size - history_size + history->position),
+                       sample_size * (history_size - history->position));
+                memcpy(temp.timetag, history->timetag,
+                       sizeof(mapper_timetag_t) * history->position);
+                memcpy(&temp.timetag[history->position],
+                       &history->timetag[history->size - history_size + history->position],
+                       sizeof(mapper_timetag_t) * (history_size - history->position));
+            }
+            else {
+                memcpy(temp.value, history->value + sample_size
+                       * (history->position - history_size),
+                       sample_size * history_size);
+                memcpy(temp.timetag,
+                       &history->timetag[history->position - history_size],
+                       sizeof(mapper_timetag_t) * history_size);
+                history->position = history_size - 1;
+            }
+            free(history->value);
+            free(history->timetag);
+            history->value = temp.value;
+            history->timetag = temp.timetag;
+        }
+    }
+    history->size = history_size;
 }
