@@ -97,3 +97,11 @@ EXPORTS
     msig_update_int                                      @96
     msig_value                                           @97
     mdev_get_lo_server                                   @98
+    msig_set_instance_allocation_mode                    @99
+    msig_release_instance                                @100
+    msig_update_instance                                 @101
+    msig_reserve_instances                               @102
+    msig_num_reserved_instances                          @103
+    msig_num_active_instances                            @104
+    msig_active_instance_id                              @105
+    msig_set_instance_management_callback                @106

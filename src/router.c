@@ -19,30 +19,31 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int port, const char *name, int default_scope)
 {
     char str[16];
-    mapper_router router = (mapper_router) calloc(1, sizeof(struct _mapper_link));
+    mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
     sprintf(str, "%d", port);
-    router->props.dest_addr = lo_address_new(host, str);
-    router->props.dest_name = strdup(name);
+    r->props.dest_addr = lo_address_new(host, str);
+    r->props.dest_name = strdup(name);
+    r->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     if (default_scope) {
-        router->props.num_scopes = 1;
-        router->props.scope_names = (char **) malloc(sizeof(char *));
-        router->props.scope_names[0] = strdup(mdev_name(device));
-        router->props.scope_hashes = (int *) malloc(sizeof(int));
-        router->props.scope_hashes[0] = mdev_id(device);
+        r->props.num_scopes = 1;
+        r->props.scope_names = (char **) malloc(sizeof(char *));
+        r->props.scope_names[0] = strdup(mdev_name(device));
+        r->props.scope_hashes = (int *) malloc(sizeof(int));
+        r->props.scope_hashes[0] = mdev_id(device);
     }
     else {
-        router->props.num_scopes = 0;
+        r->props.num_scopes = 0;
     }
-    router->props.extra = table_new();
-    router->device = device;
-    router->signals = 0;
-    router->n_connections = 0;
+    r->props.extra = table_new();
+    r->device = device;
+    r->signals = 0;
+    r->n_connections = 0;
 
-    if (!router->props.dest_addr) {
-        mapper_router_free(router);
+    if (!r->props.dest_addr) {
+        mapper_router_free(r);
         return 0;
     }
-    return router;
+    return r;
 }
 
 void mapper_router_free(mapper_router r)
@@ -289,13 +290,15 @@ void mapper_router_send_update(mapper_router r,
         }
     }
     else if (id_map) {
-        if (mdev_id(r->device) == id_map->group) {
-            // If instance is locally owned, send instance release...
-            lo_message_add_nil(m);
+        if (r->props.name_hash == id_map->group
+            && mdev_id(r->device) != r->props.name_hash) {
+            /* If destination owns this instance, send release "request"
+             * instead of command (unless I am also the destination)... */
+            lo_message_add_false(m);
         }
         else {
-            // ...otherwise send release request.
-            lo_message_add_false(m);
+            // ...otherwise send instance release.
+            lo_message_add_nil(m);
         }
     }
 
