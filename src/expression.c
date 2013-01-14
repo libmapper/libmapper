@@ -126,20 +126,26 @@ static struct {
 };
 
 typedef enum {
-    OP_EQUAL,
-    OP_NOT_EQUAL,
-    OP_LESS_THAN,
-    OP_LESS_THAN_OR_EQUAL,
-    OP_GREATER_THAN,
-    OP_GREATER_THAN_OR_EQUAL,
-    OP_LEFT_BIT_SHIFT,
-    OP_RIGHT_BIT_SHIFT,
     OP_BITWISE_AND,
     OP_BITWISE_OR,
     OP_BITWISE_XOR,
+    OP_DIVIDE,
+    OP_EQUALS,
+    OP_IS_EQUAL,
+    OP_IS_GREATER_THAN,
+    OP_IS_GREATER_THAN_OR_EQUAL,
+    OP_IS_LESS_THAN,
+    OP_IS_LESS_THAN_OR_EQUAL,
+    OP_IS_NOT_EQUAL,
+    OP_LEFT_BIT_SHIFT,
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
-} extra_ops;
+    OP_MINUS,
+    OP_MODULUS,
+    OP_MULTIPLY,
+    OP_PLUS,
+    OP_RIGHT_BIT_SHIFT,
+} mapper_op;
 
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
@@ -254,29 +260,49 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         tok->f = atof(s);
         return 0;
     case '+':
+        tok->type = TOK_OP;
+        tok->op = OP_PLUS;
+        ++*str;
+        return 0;
     case '-':
+        tok->type = TOK_OP;
+        tok->op = OP_MINUS;
+        ++*str;
+        return 0;
     case '/':
+        tok->type = TOK_OP;
+        tok->op = OP_DIVIDE;
+        ++*str;
+        return 0;
     case '*':
+        tok->type = TOK_OP;
+        tok->op = OP_MULTIPLY;
+        ++*str;
+        return 0;
     case '%':
+        tok->type = TOK_OP;
+        tok->op = OP_MODULUS;
+        ++*str;
+        return 0;
     case '=':
         // could be '=', '=='
         tok->type = TOK_OP;
-        tok->op = c;
+        tok->op = OP_EQUALS;
         ++*str;
         c = **str;
         if (c == '=') {
-            tok->op = OP_EQUAL;
+            tok->op = OP_IS_EQUAL;
             ++*str;
         }
         return 0;
     case '<':
         // could be '<', '<=', '<<'
         tok->type = TOK_OP;
-        tok->op = OP_LESS_THAN;
+        tok->op = OP_IS_LESS_THAN;
         ++*str;
         c = **str;
         if (c == '=') {
-            tok->op = OP_LESS_THAN_OR_EQUAL;
+            tok->op = OP_IS_LESS_THAN_OR_EQUAL;
             ++*str;
         }
         else if (c == '<') {
@@ -287,11 +313,11 @@ static int expr_lex(const char **str, mapper_token_t *tok)
     case '>':
         // could be '>', '>=', '>>'
         tok->type = TOK_OP;
-        tok->op = OP_GREATER_THAN;
+        tok->op = OP_IS_GREATER_THAN;
         ++*str;
         c = **str;
         if (c == '=') {
-            tok->op = OP_GREATER_THAN_OR_EQUAL;
+            tok->op = OP_IS_GREATER_THAN_OR_EQUAL;
             ++*str;
         }
         else if (c == '>') {
@@ -303,11 +329,10 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         // could be '!', '!='
         // will handle factorial case later
         tok->type = TOK_OP;
-        //tok->op = c;
         ++*str;
         c = **str;
         if (c == '=') {
-            tok->op = OP_NOT_EQUAL;
+            tok->op = OP_IS_NOT_EQUAL;
             ++*str;
             return 0;
         }
@@ -473,12 +498,38 @@ void mapper_expr_free(mapper_expr expr)
 }
 
 #ifdef DEBUG
+void printop(mapper_op op)
+{
+    switch (op) {
+    case OP_BITWISE_AND:              printf("&");            break;
+    case OP_BITWISE_OR:               printf("|");            break;
+    case OP_BITWISE_XOR:              printf("^");            break;
+    case OP_DIVIDE:                   printf("/");            break;
+    case OP_EQUALS:                   printf("=");            break;
+    case OP_IS_EQUAL:                 printf("==");           break;
+    case OP_IS_GREATER_THAN:          printf(">");            break;
+    case OP_IS_GREATER_THAN_OR_EQUAL: printf(">=");           break;
+    case OP_IS_LESS_THAN:             printf("<");            break;
+    case OP_IS_LESS_THAN_OR_EQUAL:    printf("<=");           break;
+    case OP_IS_NOT_EQUAL:             printf("!=");           break;
+    case OP_LEFT_BIT_SHIFT:           printf("<<");           break;
+    case OP_LOGICAL_AND:              printf("&&");           break;
+    case OP_LOGICAL_OR:               printf("||");           break;
+    case OP_MINUS:                    printf("-");            break;
+    case OP_MODULUS:                  printf("%%");           break;
+    case OP_MULTIPLY:                 printf("*");            break;
+    case OP_PLUS:                     printf("+");            break;
+    case OP_RIGHT_BIT_SHIFT:          printf(">>");           break;
+    default:                          printf("(unknown op)"); break;
+    }
+}
+
 void printtoken(mapper_token_t *tok)
 {
     switch (tok->type) {
     case TOK_FLOAT:        printf("%f", tok->f);          break;
     case TOK_INT:          printf("%d", tok->i);          break;
-    case TOK_OP:           printf("%c", tok->op);         break;
+    case TOK_OP:           printop(tok->op);              break;
     case TOK_OPEN_PAREN:   printf("(");                   break;
     case TOK_CLOSE_PAREN:  printf(")");                   break;
     case TOK_VAR:          printf("VAR(%c)", tok->var);   break;
@@ -763,7 +814,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             next_token = 1;
             break;
         case YEQUAL_EQ:
-            if (tok.type == TOK_OP && tok.op == '=') {
+            if (tok.type == TOK_OP && tok.op == OP_EQUALS) {
                 POP();
             } else {
                 {FAIL("Error in y= prefix.");}
@@ -779,23 +830,34 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             if (tok.type == TOK_OP) {
                 POP();
                 // TODO: this doesn't properly handle order-of-operations
-                if (tok.op == '+' || tok.op == '-' ||
-                    tok.op == OP_EQUAL ||
-                    tok.op == OP_NOT_EQUAL ||
-                    tok.op == OP_LESS_THAN ||
-                    tok.op == OP_LESS_THAN_OR_EQUAL ||
-                    tok.op == OP_GREATER_THAN ||
-                    tok.op == OP_GREATER_THAN_OR_EQUAL ||
-                    tok.op == OP_LEFT_BIT_SHIFT ||
-                    tok.op == OP_RIGHT_BIT_SHIFT ||
-                    tok.op == OP_BITWISE_AND ||
-                    tok.op == OP_BITWISE_OR ||
-                    tok.op == OP_BITWISE_XOR ||
-                    tok.op == OP_LOGICAL_AND ||
-                    tok.op == OP_LOGICAL_OR) {
+                if (tok.op == OP_PLUS
+                    || tok.op == OP_MINUS
+                    || tok.op == OP_IS_EQUAL
+                    || tok.op == OP_IS_NOT_EQUAL
+                    || tok.op == OP_IS_LESS_THAN
+                    || tok.op == OP_IS_LESS_THAN_OR_EQUAL
+                    || tok.op == OP_IS_GREATER_THAN
+                    || tok.op == OP_IS_GREATER_THAN_OR_EQUAL
+                    || tok.op == OP_LOGICAL_AND
+                    || tok.op == OP_LOGICAL_OR) {
                     APPEND_OP(tok);
                     PUSHSTATE(EXPR);
                     next_token = 1;
+                }
+                else if (tok.op == OP_LEFT_BIT_SHIFT
+                         || tok.op == OP_RIGHT_BIT_SHIFT
+                         || tok.op == OP_BITWISE_AND
+                         || tok.op == OP_BITWISE_OR
+                         || tok.op == OP_BITWISE_XOR) {
+                    if (stack[top].type == ST_NODE
+                        &&stack[top].node->is_float) {
+                        {FAIL("Can't call bitwise operations on float.");}
+                    }
+                    else {
+                        APPEND_OP(tok);
+                        PUSHSTATE(EXPR);
+                        next_token = 1;
+                    }
                 }
             }
             else POP();
@@ -808,7 +870,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         case TERM_RIGHT:
             if (tok.type == TOK_OP) {
                 POP();
-                if (tok.op == '*' || tok.op == '/' || tok.op == '%') {
+                if (tok.op == OP_MULTIPLY
+                    || tok.op == OP_DIVIDE
+                    || tok.op == OP_MODULUS) {
                     APPEND_OP(tok);
                     PUSHSTATE(TERM);
                     next_token = 1;
@@ -857,7 +921,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     }
                     next_token = 1;
                 }
-            } else if (tok.type == TOK_OP && tok.op == '-') {
+            } else if (tok.type == TOK_OP && tok.op == OP_MINUS) {
                 POP();
                 PUSHSTATE(NEGATE);
                 PUSHSTATE(VALUE);
@@ -875,7 +939,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 t.i = 0;
                 exprnode e = exprnode_new(&t, 0);
                 t.type = TOK_OP;
-                t.op = '-';
+                t.op = OP_MINUS;
                 e->next = exprnode_new(&t, 0);
                 collapse_expr_to_left(&e, stack[top].node, 1);
                 stack[top].node = e;
@@ -1128,33 +1192,22 @@ int mapper_expr_evaluate(mapper_expr expr,
                 stack[i][top].i32 = (int)stack[i][top].f;
             break;
         case TOK_OP:
-                    /*
-                    OP_BITWISE_AND,
-                    OP_BITWISE_OR,
-                    OP_BITWISE_XOR,
-                    OP_LOGICAL_AND,
-                    OP_LOGICAL_OR,*/
             --top;
             for (i = 0; i < to->length; i++) {
                 if (node->is_float) {
                     trace_eval("%f %c %f = ", stack[i][top].f, node->tok.op, stack[i][top + 1].f);
                     switch (node->tok.op) {
-                    case '+': stack[i][top].f = stack[i][top].f + stack[i][top + 1].f; break;
-                    case '-': stack[i][top].f = stack[i][top].f - stack[i][top + 1].f; break;
-                    case '*': stack[i][top].f = stack[i][top].f * stack[i][top + 1].f; break;
-                    case '/': stack[i][top].f = stack[i][top].f / stack[i][top + 1].f; break;
-                    case '%': stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f); break;
-                    case OP_EQUAL: stack[i][top].f = stack[i][top].f == stack[i][top + 1].f; break;
-                    case OP_NOT_EQUAL: stack[i][top].f = stack[i][top].f != stack[i][top + 1].f; break;
-                    case OP_LESS_THAN: stack[i][top].f = stack[i][top].f < stack[i][top + 1].f; break;
-                    case OP_LESS_THAN_OR_EQUAL: stack[i][top].f = stack[i][top].f <= stack[i][top + 1].f; break;
-                    case OP_GREATER_THAN: stack[i][top].f = stack[i][top].f > stack[i][top + 1].f; break;
-                    case OP_GREATER_THAN_OR_EQUAL: stack[i][top].f = stack[i][top].f >= stack[i][top + 1].f; break;
-                    case OP_LEFT_BIT_SHIFT: stack[i][top].f = (float)((int)stack[i][top].f << (int)stack[i][top + 1].f); break;
-                    case OP_RIGHT_BIT_SHIFT: stack[i][top].f = (float)((int)stack[i][top].f >> (int)stack[i][top + 1].f); break;
-                    case OP_BITWISE_AND: stack[i][top].f = (float)((int)stack[i][top].f & (int)stack[i][top + 1].f); break;
-                    case OP_BITWISE_OR: stack[i][top].f = (float)((int)stack[i][top].f | (int)stack[i][top + 1].f); break;
-                    case OP_BITWISE_XOR: stack[i][top].f = (float)((int)stack[i][top].f ^ (int)stack[i][top + 1].f); break;
+                    case OP_PLUS: stack[i][top].f = stack[i][top].f + stack[i][top + 1].f; break;
+                    case OP_MINUS: stack[i][top].f = stack[i][top].f - stack[i][top + 1].f; break;
+                    case OP_MULTIPLY: stack[i][top].f = stack[i][top].f * stack[i][top + 1].f; break;
+                    case OP_DIVIDE: stack[i][top].f = stack[i][top].f / stack[i][top + 1].f; break;
+                    case OP_MODULUS: stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f); break;
+                    case OP_IS_EQUAL: stack[i][top].f = stack[i][top].f == stack[i][top + 1].f; break;
+                    case OP_IS_NOT_EQUAL: stack[i][top].f = stack[i][top].f != stack[i][top + 1].f; break;
+                    case OP_IS_LESS_THAN: stack[i][top].f = stack[i][top].f < stack[i][top + 1].f; break;
+                    case OP_IS_LESS_THAN_OR_EQUAL: stack[i][top].f = stack[i][top].f <= stack[i][top + 1].f; break;
+                    case OP_IS_GREATER_THAN: stack[i][top].f = stack[i][top].f > stack[i][top + 1].f; break;
+                    case OP_IS_GREATER_THAN_OR_EQUAL: stack[i][top].f = stack[i][top].f >= stack[i][top + 1].f; break;
                     case OP_LOGICAL_AND: stack[i][top].f = stack[i][top].f && stack[i][top + 1].f; break;
                     case OP_LOGICAL_OR: stack[i][top].f = stack[i][top].f || stack[i][top + 1].f; break;
                     default: goto error;
@@ -1163,17 +1216,17 @@ int mapper_expr_evaluate(mapper_expr expr,
                 } else {
                     trace_eval("%d %c %d = ", stack[i][top].i32, node->tok.op, stack[i][top + 1].i32);
                     switch (node->tok.op) {
-                    case '+': stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32; break;
-                    case '-': stack[i][top].i32 = stack[i][top].i32 - stack[i][top + 1].i32; break;
-                    case '*': stack[i][top].i32 = stack[i][top].i32 * stack[i][top + 1].i32; break;
-                    case '/': stack[i][top].i32 = stack[i][top].i32 / stack[i][top + 1].i32; break;
-                    case '%': stack[i][top].i32 = stack[i][top].i32 % stack[i][top + 1].i32; break;
-                    case OP_EQUAL: stack[i][top].i32 = stack[i][top].i32 == stack[i][top + 1].i32; break;
-                    case OP_NOT_EQUAL: stack[i][top].i32 = stack[i][top].i32 != stack[i][top + 1].i32; break;
-                    case OP_LESS_THAN: stack[i][top].i32 = stack[i][top].i32 < stack[i][top + 1].i32; break;
-                    case OP_LESS_THAN_OR_EQUAL: stack[i][top].i32 = stack[i][top].i32 <= stack[i][top + 1].i32; break;
-                    case OP_GREATER_THAN: stack[i][top].i32 = stack[i][top].i32 > stack[i][top + 1].i32; break;
-                    case OP_GREATER_THAN_OR_EQUAL: stack[i][top].i32 = stack[i][top].i32 >= stack[i][top + 1].i32; break;
+                    case OP_PLUS: stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32; break;
+                    case OP_MINUS: stack[i][top].i32 = stack[i][top].i32 - stack[i][top + 1].i32; break;
+                    case OP_MULTIPLY: stack[i][top].i32 = stack[i][top].i32 * stack[i][top + 1].i32; break;
+                    case OP_DIVIDE: stack[i][top].i32 = stack[i][top].i32 / stack[i][top + 1].i32; break;
+                    case OP_MODULUS: stack[i][top].i32 = stack[i][top].i32 % stack[i][top + 1].i32; break;
+                    case OP_IS_EQUAL: stack[i][top].i32 = stack[i][top].i32 == stack[i][top + 1].i32; break;
+                    case OP_IS_NOT_EQUAL: stack[i][top].i32 = stack[i][top].i32 != stack[i][top + 1].i32; break;
+                    case OP_IS_LESS_THAN: stack[i][top].i32 = stack[i][top].i32 < stack[i][top + 1].i32; break;
+                    case OP_IS_LESS_THAN_OR_EQUAL: stack[i][top].i32 = stack[i][top].i32 <= stack[i][top + 1].i32; break;
+                    case OP_IS_GREATER_THAN: stack[i][top].i32 = stack[i][top].i32 > stack[i][top + 1].i32; break;
+                    case OP_IS_GREATER_THAN_OR_EQUAL: stack[i][top].i32 = stack[i][top].i32 >= stack[i][top + 1].i32; break;
                     case OP_LEFT_BIT_SHIFT: stack[i][top].i32 = stack[i][top].i32 << stack[i][top + 1].i32; break;
                     case OP_RIGHT_BIT_SHIFT: stack[i][top].i32 = stack[i][top].i32 >> stack[i][top + 1].i32; break;
                     case OP_BITWISE_AND: stack[i][top].i32 = stack[i][top].i32 & stack[i][top + 1].i32; break;
