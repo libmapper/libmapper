@@ -327,7 +327,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '!':
         // could be '!', '!='
-        // will handle factorial case later
+        // TODO: handle factorial and logical negation cases
         tok->type = TOK_OP;
         ++*str;
         c = **str;
