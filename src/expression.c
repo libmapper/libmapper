@@ -8,9 +8,9 @@
 
 #define STACK_SIZE 256
 #ifdef DEBUG
-#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 1
+#define TRACING 0
 #endif
 
 static double min(double x, double y)
@@ -960,9 +960,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // Coerce the final output if necessary
     exprnode e = result;
+    while (e->next) e = e->next;
     if (e->type != output_type) {
         mapper_token_t coerce;
-        set_coerce_type(&coerce, input_type, output_type, 1);
+        set_coerce_type(&coerce, e->type, output_type, 1);
         e->next = exprnode_new(&coerce, output_type);
     }
 
@@ -1103,11 +1104,11 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         case TOK_FLOAT_TO_DOUBLE:
             for (i = 0; i < to->length; i++)
-                stack[i][top].d = (int)stack[i][top].f;
+                stack[i][top].d = (double)stack[i][top].f;
             break;
         case TOK_DOUBLE_TO_FLOAT:
             for (i = 0; i < to->length; i++)
-                stack[i][top].f = (int)stack[i][top].d;
+                stack[i][top].f = (float)stack[i][top].d;
             break;
         case TOK_DOUBLE_TO_INT32:
             for (i = 0; i < to->length; i++)
@@ -1137,7 +1138,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                         case '%': stack[i][top].d = fmod(stack[i][top].d, stack[i][top + 1].d); break;
                         default: goto error;
                     }
-                    trace_eval("%f\n", stack[i][top].f);
+                    trace_eval("%f\n", stack[i][top].d);
                 }
                 else {
                     trace_eval("%d %c %d = ", stack[i][top].i32, node->tok.op, stack[i][top + 1].i32);

@@ -16,18 +16,18 @@ int main()
 #endif
     printf("\n");
 
-    double inp = 3.0, outp;
+    float inp = 3.0, outp;
 
     // create signal_history structures
     mapper_signal_history_t inh, outh;
-    inh.type = 'd';
+    inh.type = 'f';
     inh.size = 1;
     inh.length = 1;
     inh.value = &inp;
     inh.timetag = calloc(1, sizeof(mapper_timetag_t));
     inh.position = 0;
 
-    outh.type = 'd';
+    outh.type = 'f';
     outh.size = 1;
     outh.length = 1;
     outh.value = &outp;
@@ -38,7 +38,7 @@ int main()
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
            inp, outp,
-           26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp)*3*4+cosf(2.0f));
+           (float)(26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+inp)*3*4+cos(2.0)));
 
     mapper_expr_free(e);
     free(inh.timetag);
