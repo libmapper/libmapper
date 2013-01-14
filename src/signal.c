@@ -144,6 +144,34 @@ void msig_update_float(mapper_signal sig, float value)
                          1, MAPPER_TIMETAG_NOW);
 }
 
+void msig_update_double(mapper_signal sig, double value)
+{
+    if (!sig)
+        return;
+    
+#ifdef DEBUG
+    if (sig->props.type != 'd') {
+        trace("called msig_update_double() on non-double signal!\n");
+        return;
+    }
+    
+    if (sig->props.length != 1) {
+        trace("called msig_update_double() on non-scalar signal!\n");
+        return;
+    }
+    
+    if (!sig->device) {
+        trace("signal does not have a device in msig_update_double().\n");
+        return;
+    }
+#endif
+    
+    if (!sig->active_instances)
+        msig_get_instance_with_id(sig, 0, 1);
+    msig_update_internal(sig, sig->active_instances, &value,
+                         1, MAPPER_TIMETAG_NOW);
+}
+
 void *msig_value(mapper_signal sig,
                  mapper_timetag_t *timetag)
 {
@@ -743,6 +771,8 @@ void msig_set_minimum(mapper_signal sig, void *minimum)
             sig->props.minimum->f = *(float*)minimum;
         else if (sig->props.type == 'i')
             sig->props.minimum->i32 = *(int*)minimum;
+        else if (sig->props.type == 'd')
+            sig->props.minimum->d = *(double*)minimum;
     }
     else {
         if (sig->props.minimum)
@@ -761,6 +791,8 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
             sig->props.maximum->f = *(float*)maximum;
         else if (sig->props.type == 'i')
             sig->props.maximum->i32 = *(int*)maximum;
+        else if (sig->props.type == 'd')
+            sig->props.maximum->d = *(double*)maximum;
     }
     else {
         if (sig->props.maximum)
