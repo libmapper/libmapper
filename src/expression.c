@@ -8,39 +8,39 @@
 
 #define STACK_SIZE 256
 #ifdef DEBUG
-#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 0
+#define TRACING 1
 #endif
 
-static float minf(float x, float y)
+static double min(double x, double y)
 {
     if (y < x) return y;
     else return x;
 }
 
-static float maxf(float x, float y)
+static double max(double x, double y)
 {
     if (y > x) return y;
     else return x;
 }
 
-static float pif()
+static double pif()
 {
     return M_PI;
 }
 
-static float midiToHz(float x)
+static double midiToHz(double x)
 {
     return 440. * pow(2.0, (x - 69) / 12.0);
 }
 
-static float hzToMidi(float x)
+static double hzToMidi(double x)
 {
     return 69. + 12. * log2(x / 440.);
 }
 
-static float uniform(float x)
+static double uniform(double x)
 {
     return rand() / (RAND_MAX + 1.0) * x;
 }
@@ -89,45 +89,45 @@ static struct {
     unsigned int arity;
     void *func;
 } function_table[] = {
-    { "abs", 1, fabsf },
-    { "acos", 1, acosf },
-    { "acosh", 1, acoshf },
-    { "asin", 1, asinf },
-    { "asinh", 1, asinhf },
-    { "atan", 1, atanf },
-    { "atan2", 2, atan2f },
-    { "atanh", 1, atanhf },
-    { "cbrt", 1, cbrtf },
-    { "ceil", 1, ceilf },
-    { "cos", 1, cosf },
-    { "cosh", 1, coshf },
-    { "exp", 1, expf },
-    { "exp2", 1, exp2f },
-    { "floor", 1, floorf },
-    { "hypot", 2, hypotf },
+    { "abs", 1, fabs },
+    { "acos", 1, acos },
+    { "acosh", 1, acosh },
+    { "asin", 1, asin },
+    { "asinh", 1, asinh },
+    { "atan", 1, atan },
+    { "atan2", 2, atan2 },
+    { "atanh", 1, atanh },
+    { "cbrt", 1, cbrt },
+    { "ceil", 1, ceil },
+    { "cos", 1, cos },
+    { "cosh", 1, cosh },
+    { "exp", 1, exp },
+    { "exp2", 1, exp2 },
+    { "floor", 1, floor },
+    { "hypot", 2, hypot },
     { "hzToMidi", 1, hzToMidi },
-    { "log", 1, logf },
-    { "log10", 1, log10f },
-    { "log2", 1, log2f },
-    { "logb", 1, logbf },
-    { "max", 2, maxf },
+    { "log", 1, log },
+    { "log10", 1, log10 },
+    { "log2", 1, log2 },
+    { "logb", 1, logb },
+    { "max", 2, max },
     { "midiToHz", 1, midiToHz },
-    { "min", 2, minf },
+    { "min", 2, min },
     { "pi", 0, pif },
-    { "pow", 2, powf },
-    { "round", 1, roundf },
-    { "sin", 1, sinf },
-    { "sinh", 1, sinhf },
-    { "sqrt", 1, sqrtf },
-    { "tan", 1, tanf },
-    { "tanh", 1, tanhf },
-    { "trunc", 1, truncf },
+    { "pow", 2, pow },
+    { "round", 1, round },
+    { "sin", 1, sin },
+    { "sinh", 1, sinh },
+    { "sqrt", 1, sqrt },
+    { "tan", 1, tan },
+    { "tanh", 1, tanh },
+    { "trunc", 1, trunc },
     { "uniform", 1, uniform },
 };
 
-typedef float func_float_arity0();
-typedef float func_float_arity1(float);
-typedef float func_float_arity2(float,float);
+typedef double func_double_arity0();
+typedef double func_double_arity1(double);
+typedef double func_double_arity2(double,double);
 
 typedef struct _token {
     enum {
@@ -203,8 +203,8 @@ static int expr_lex(const char **str, mapper_token_t *tok)
     case '.':
         c = (*(++*str));
         if (!isdigit(c) && c!='e' && integer_found) {
-            tok->type = TOK_FLOAT;
-            tok->f = (float)n;
+            tok->type = TOK_DOUBLE;
+            tok->d = (double)n;
             return 0;
         }
         if (!isdigit(c) && c!='e')
@@ -213,8 +213,8 @@ static int expr_lex(const char **str, mapper_token_t *tok)
             c = (*(++*str));
         } while (c && isdigit(c));
         if (c!='e') {
-            tok->f = atof(s);
-            tok->type = TOK_FLOAT;
+            tok->d = atof(s);
+            tok->type = TOK_DOUBLE;
             return 0;
         }
     case 'e':
@@ -240,8 +240,8 @@ static int expr_lex(const char **str, mapper_token_t *tok)
             c = (*(++*str));
         while (c && isdigit(c))
             c = (*(++*str));
-        tok->type = TOK_FLOAT;
-        tok->f = atof(s);
+        tok->type = TOK_DOUBLE;
+        tok->d = atof(s);
         return 0;
     case '+':
     case '-':
@@ -468,20 +468,33 @@ void printstack(stack_obj_t *stack, int top)
 
 static void set_coerce_type(mapper_token_t *tok,
                             char input_type,
-                            char output_type)
+                            char output_type,
+                            int ordered)
 {
     if (input_type == 'i' && output_type == 'f')
         tok->type = TOK_INT32_TO_FLOAT;
     else if (input_type == 'i' && output_type == 'd')
         tok->type = TOK_INT32_TO_DOUBLE;
-    else if (input_type == 'f' && output_type == 'i')
-        tok->type = TOK_FLOAT_TO_INT32;
+    else if (input_type == 'f' && output_type == 'i') {
+        if (ordered)
+            tok->type = TOK_FLOAT_TO_INT32;
+        else
+            tok->type = TOK_INT32_TO_FLOAT;
+    }
     else if (input_type == 'f' && output_type == 'd')
         tok->type = TOK_FLOAT_TO_DOUBLE;
-    else if (input_type == 'd' && output_type == 'i')
-        tok->type = TOK_DOUBLE_TO_INT32;
-    else if (input_type == 'd' && output_type == 'f')
-        tok->type = TOK_DOUBLE_TO_FLOAT;
+    else if (input_type == 'd' && output_type == 'i') {
+        if (ordered)
+            tok->type = TOK_DOUBLE_TO_INT32;
+        else
+            tok->type = TOK_INT32_TO_DOUBLE;
+    }
+    else if (input_type == 'd' && output_type == 'f') {
+        if (ordered)
+            tok->type = TOK_DOUBLE_TO_FLOAT;
+        else
+            tok->type = TOK_FLOAT_TO_DOUBLE;
+    }
 }
 
 static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
@@ -522,23 +535,26 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
         plhs_last = &(*plhs_last)->next;
     }
 
-    // insert float coercion if sides disagree on type
-    mapper_token_t coerce;
-    set_coerce_type(&coerce, (*plhs_last)->type, rhs_last->type);
     if ((*plhs_last)->type == 'f' || rhs_last->type == 'f')
         type = 'f';
     if ((*plhs_last)->type == 'd' || rhs_last->type == 'd')
         type = 'd';
-    if (((*plhs_last)->type == 'd' && rhs_last->type != 'd')
-        || ((*plhs_last)->type == 'f' && rhs_last->type == 'i')) {
-        rhs_last = rhs_last->next = exprnode_new(&coerce, 1);
-    } else if (((*plhs_last)->type == 'i' && rhs_last->type != 'i')
-               || ((*plhs)->type == 'f' && rhs_last->type == 'd')) {
-        exprnode e = exprnode_new(&coerce, 1);
-        e->next = (*plhs_last);
-        (*plhs_last) = e;
-        plhs_last = &e->next;
-        e->next->type = rhs_last->type;
+
+    if (((*plhs_last)->type != rhs_last->type)) {
+        // insert type coercion if sides disagree on type
+
+        mapper_token_t coerce;
+        set_coerce_type(&coerce, (*plhs_last)->type, rhs_last->type, 0);
+
+        if (((*plhs_last)->type == 'd') || (rhs_last->type == 'i')) {
+            rhs_last = rhs_last->next = exprnode_new(&coerce, 1);
+        } else if (((*plhs_last)->type == 'i') || (rhs_last->type == 'd')) {
+            exprnode e = exprnode_new(&coerce, 1);
+            e->next = (*plhs_last);
+            (*plhs_last) = e;
+            plhs_last = &e->next;
+            e->next->type = rhs_last->type;
+        }
     }
 
     // insert the list before the trailing op of left hand side
@@ -591,7 +607,7 @@ static void collapse_expr_to_left(exprnode* plhs, exprnode rhs,
     if (stack[top].type == ST_NODE) {                                   \
         exprnode e = stack[top].node;                                   \
         while (e->next) e = e->next;                                    \
-        e->next = exprnode_new(&tok, 0);                                \
+        e->next = exprnode_new(&tok, 'i');                              \
         e->next->type = e->type;                                \
     }
 #define SUCCESS(x) { result = x; goto done; }
@@ -606,7 +622,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         int *output_history_size)
 {
     const char *s = str;
-    if (!str) return 0;
+    if (!str || !input_type || !output_type) return 0;
     stack_obj_t stack[STACK_SIZE];
     int top = -1;
     exprnode result = 0;
@@ -762,11 +778,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         case VALUE:
             if (tok.type == TOK_INT32) {
                 POP();
-                PUSHEXPR(tok, 0);
+                PUSHEXPR(tok, 'i');
                 next_token = 1;
             } else if (tok.type == TOK_FLOAT) {
                 POP();
-                PUSHEXPR(tok, 1);
+                PUSHEXPR(tok, 'f');
+                next_token = 1;
+            } else if (tok.type == TOK_DOUBLE) {
+                POP();
+                PUSHEXPR(tok, 'd');
                 next_token = 1;
             } else if (tok.type == TOK_VAR) {
                 if (var_allowed) {
@@ -787,7 +807,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (tok.func == FUNC_UNKNOWN)
                     {FAIL("Unknown function.");}
                 else {
-                    PUSHEXPR(tok, 1);
+                    PUSHEXPR(tok, 'd');
                     int arity = function_table[tok.func].arity;
                     if (arity > 0) {
                         PUSHSTATE(CLOSE_PAREN);
@@ -811,15 +831,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         case NEGATE:
             POP();
             // insert '0' before, and '-' after the expression.
-            // set is_float according to trailing operator.
+            // set type according to trailing operator.
             if (stack[top].type == ST_NODE) {
                 mapper_token_t t;
                 t.type = TOK_INT32;
                 t.i = 0;
-                exprnode e = exprnode_new(&t, 0);
+                exprnode e = exprnode_new(&t, 'i');
                 t.type = TOK_OP;
                 t.op = '-';
-                e->next = exprnode_new(&t, 0);
+                e->next = exprnode_new(&t, 'i');
                 collapse_expr_to_left(&e, stack[top].node, 1);
                 stack[top].node = e;
             }
@@ -940,41 +960,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // Coerce the final output if necessary
     exprnode e = result;
-    if (e->type == 'i' && output_type == 'f') {
+    if (e->type != output_type) {
         mapper_token_t coerce;
-        coerce.type = TOK_INT32_TO_FLOAT;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'f';
-    }
-    else if (e->type == 'i' && output_type == 'd') {
-        mapper_token_t coerce;
-        coerce.type = TOK_INT32_TO_DOUBLE;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'd';
-    }
-    else if (e->type == 'f' && output_type == 'i') {
-        mapper_token_t coerce;
-        coerce.type = TOK_FLOAT_TO_INT32;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'i';
-    }
-    else if (e->type == 'f' && output_type == 'd') {
-        mapper_token_t coerce;
-        coerce.type = TOK_FLOAT_TO_DOUBLE;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'd';
-    }
-    else if (e->type == 'd' && output_type == 'i') {
-        mapper_token_t coerce;
-        coerce.type = TOK_DOUBLE_TO_INT32;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'i';
-    }
-    else if (e->type == 'd' && output_type == 'f') {
-        mapper_token_t coerce;
-        coerce.type = TOK_DOUBLE_TO_FLOAT;
-        e->next = exprnode_new(&coerce, 0);
-        e->next->type = 'f';
+        set_coerce_type(&coerce, input_type, output_type, 1);
+        e->next = exprnode_new(&coerce, output_type);
     }
 
     /* Special case: if this is a vector expression, we currently do
@@ -1060,7 +1049,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                     ++top;
                     idx = ((node->history_index + from->position
                             + from->size) % from->size);
-                    if (from->type == 'f') {
+                    if (from->type == 'd') {
+                        double *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].d = v[i];
+                    }
+                    else if (from->type == 'f') {
                         float *v = from->value + idx * from->length * mapper_type_size(from->type);
                         for (i = 0; i < from->length; i++)
                             stack[i][top].f = v[i];
@@ -1075,7 +1069,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                     ++top;
                     idx = ((node->history_index + to->position
                             + to->size) % to->size);
-                    if (to->type == 'f') {
+                    if (to->type == 'd') {
+                        double *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].d = v[i];
+                    }
+                    else if (to->type == 'f') {
                         float *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < to->length; i++)
                             stack[i][top].f = v[i];
@@ -1159,24 +1158,24 @@ int mapper_expr_evaluate(mapper_expr expr,
             case 0:
                 ++top;
                 for (i = 0; i < to->length; i++) {
-                    stack[i][top].f = ((func_float_arity0*)function_table[node->tok.func].func)();
+                    stack[i][top].d = ((func_double_arity0*)function_table[node->tok.func].func)();
                     trace_eval("%s = %f\n", function_table[node->tok.func].name,
-                               stack[i][top].f);
+                               stack[i][top].d);
                 }
                 break;
             case 1:
                 for (i = 0; i < to->length; i++) {
-                    trace_eval("%s(%f) = ", function_table[node->tok.func].name, stack[i][top].f);
-                    stack[i][top].f = ((func_float_arity1*)function_table[node->tok.func].func)(stack[i][top].f);
-                    trace_eval("%f\n", stack[i][top].f);
+                    trace_eval("%s(%f) = ", function_table[node->tok.func].name, stack[i][top].d);
+                    stack[i][top].d = ((func_double_arity1*)function_table[node->tok.func].func)(stack[i][top].d);
+                    trace_eval("%f\n", stack[i][top].d);
                 }
                 break;
             case 2:
                 --top;
                 for (i = 0; i < to->length; i++) {
-                    trace_eval("%s(%f,%f) = ", function_table[node->tok.func].name, stack[i][top].f, stack[i][top + 1].f);
-                    stack[i][top].f = ((func_float_arity2*)function_table[node->tok.func].func)(stack[i][top].f, stack[i][top + 1].f);
-                    trace_eval("%f\n", stack[i][top].f);
+                    trace_eval("%s(%f,%f) = ", function_table[node->tok.func].name, stack[i][top].d, stack[i][top + 1].d);
+                    stack[i][top].d = ((func_double_arity2*)function_table[node->tok.func].func)(stack[i][top].d, stack[i][top + 1].d);
+                    trace_eval("%f\n", stack[i][top].d);
                 }
                 break;
             default: goto error;
@@ -1187,7 +1186,12 @@ int mapper_expr_evaluate(mapper_expr expr,
         node = node->next;
     }
 
-    if (to->type == 'f') {
+    if (to->type == 'd') {
+        double *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].d;
+    }
+    else if (to->type == 'f') {
         float *v = msig_history_value_pointer(*to);
         for (i = 0; i < to->length; i++)
             v[i] = stack[i][top].f;

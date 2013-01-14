@@ -361,7 +361,7 @@ static int replace_expression_string(mapper_connection c,
                                      int *output_history_size)
 {
     mapper_expr expr = mapper_expr_new_from_string(
-        expr_str, c->props.src_type=='f', c->props.dest_type=='f',
+        expr_str, c->props.src_type, c->props.dest_type,
         c->props.src_length, input_history_size, output_history_size);
 
     if (!expr)
