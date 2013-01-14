@@ -169,7 +169,7 @@ void msig_update_double(mapper_signal sig, double value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_NOW);
 }
 
 void *msig_value(mapper_signal sig,
