@@ -131,6 +131,7 @@ typedef enum {
     OP_BITWISE_XOR,
     OP_DIVIDE,
     OP_EQUALS,
+    OP_EXCLAMATION,
     OP_IS_EQUAL,
     OP_IS_GREATER_THAN,
     OP_IS_GREATER_THAN_OR_EQUAL,
@@ -329,14 +330,14 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         // could be '!', '!='
         // TODO: handle factorial and logical negation cases
         tok->type = TOK_OP;
+        tok->op = OP_EXCLAMATION;
         ++*str;
         c = **str;
         if (c == '=') {
             tok->op = OP_IS_NOT_EQUAL;
             ++*str;
-            return 0;
         }
-        break;
+        return 0;
     case '&':
         // could be '&', '&&'
         tok->type = TOK_OP;
@@ -447,6 +448,7 @@ typedef enum {
     TERM_RIGHT,
     VALUE,
     NEGATE,
+    NOT,
     VAR_RIGHT,
     VAR_VECTINDEX,
     VAR_HISTINDEX,
@@ -921,11 +923,18 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     }
                     next_token = 1;
                 }
-            } else if (tok.type == TOK_OP && tok.op == OP_MINUS) {
-                POP();
-                PUSHSTATE(NEGATE);
-                PUSHSTATE(VALUE);
-                next_token = 1;
+            } else if (tok.type == TOK_OP) {
+                if (tok.op == OP_MINUS) {
+                    POP();
+                    PUSHSTATE(NEGATE);
+                    PUSHSTATE(VALUE);
+                    next_token = 1;
+                } else if (tok.op == OP_EXCLAMATION) {
+                    POP();
+                    PUSHSTATE(NOT);
+                    PUSHSTATE(VALUE);
+                    next_token = 1;
+                }
             } else
                 {FAIL("Expected value.");}
             break;
@@ -946,6 +955,24 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             }
             else
                 {FAIL("Expected to negate an expression.");}
+            break;
+        case NOT:
+            POP();
+            // insert '0' before, and '==' after the expression.
+            // set is_float according to trailing operator.
+            if (stack[top].type == ST_NODE) {
+                mapper_token_t t;
+                t.type = TOK_INT;
+                t.i = 0;
+                exprnode e = exprnode_new(&t, 0);
+                t.type = TOK_OP;
+                t.op = OP_IS_EQUAL;
+                e->next = exprnode_new(&t, 0);
+                collapse_expr_to_left(&e, stack[top].node, 1);
+                stack[top].node = e;
+            }
+            else
+            {FAIL("Expected to apply logical not to an expression.");}
             break;
         case VAR_RIGHT:
             if (tok.type == TOK_OPEN_SQUARE) {
