@@ -1203,7 +1203,7 @@ static int cmp_match_signal_device_name(void *context_data,
     const char *signal_pattern = ((const char*)context_data
                                   + strlen(device_name) + 1);
     return strcmp(device_name, sig->device_name)==0
-        && strstr(sig->name, signal_pattern);
+        && strcmp(sig->name, signal_pattern) == 0;
 }
 
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
