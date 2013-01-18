@@ -665,6 +665,18 @@ int add_typecast(mapper_token_t *stack, int top)
     return top-arity;
 }
 
+/* Macros to help express stack operations in parser. */
+#define PUSH_TO_OUTPUT(x) ( memcpy(outstack + (++outstack_index), &x, sizeof(mapper_token_t)) )
+#define PUSH_TO_OPERATOR(x) ( memcpy(opstack + (++opstack_index), &x, sizeof(mapper_token_t)) )
+#define POP_OPERATOR() ( opstack_index-- )
+#define POP_OPERATOR_TO_OUTPUT()                                                                \
+{                                                                                               \
+    memcpy(outstack + (++outstack_index), opstack + opstack_index, sizeof(mapper_token_t));     \
+    outstack_index = add_typecast(outstack, outstack_index);                                    \
+    opstack_index--;                                                                            \
+}
+#define FAIL(msg) { printf("%s\n", msg); return 0; }
+
 /*! Create a new expression by parsing the given string. */
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
@@ -679,9 +691,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // all expressions must start with "y=" (ignoring spaces)
     if (s[0] != 'y') return 0;
     s++;
-
     while (s[0] == ' ') s++;
-
     if (s[0] != '=') return 0;
     s++;
 
@@ -689,11 +699,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int outstack_index = -1;
     mapper_token_t opstack[STACK_SIZE];
     int opstack_index = -1;
-
     int oldest_input = 0, oldest_output = 0;
-
-   // const char *error_message = 0;
-
     mapper_token_t tok;
 
     while (*s && !expr_lex(&s, &tok)) {
@@ -707,39 +713,27 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.datatype = tok.var == 'x' ? input_type : output_type;
                 tok.history_index = 0;
                 tok.vector_index = 0;
-                // push to output stack
-                memcpy(outstack + (++outstack_index), &tok, sizeof(mapper_token_t));
+                PUSH_TO_OUTPUT(tok);
                 break;
             case TOK_FUNC:
             case TOK_OPEN_PAREN:
                 tok.datatype = 'f';
-                // push to operator stack
-                memcpy(opstack + (++opstack_index), &tok, sizeof(mapper_token_t));
+                PUSH_TO_OPERATOR(tok);
                 break;
             case TOK_COMMA:
             case TOK_CLOSE_PAREN:
                 // pop from operator stack to output until left parenthesis found
                 while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_OPEN_PAREN) {
-                    memcpy(outstack + (++outstack_index),
-                           opstack + opstack_index,
-                           sizeof(mapper_token_t));
-                    outstack_index = add_typecast(outstack, outstack_index);
-                    opstack_index--;
+                    POP_OPERATOR_TO_OUTPUT();
                 }
-                if (opstack_index < 0) {
-                    printf("error: unmatched parentheses or misplaced comma!\n");
-                    return 0;
-                }
+                if (opstack_index < 0)
+                    {FAIL("Unmatched parentheses or misplaces comma.");}
                 // remove left parenthesis from operator stack
                 if (tok.toktype == TOK_CLOSE_PAREN) {
-                    opstack_index--;
+                    POP_OPERATOR();
                     if (opstack[opstack_index].toktype == TOK_FUNC) {
                         // if stack[top] is tok_func, pop to output
-                        memcpy(outstack + (++outstack_index),
-                               opstack + opstack_index,
-                               sizeof(mapper_token_t));
-                        outstack_index = add_typecast(outstack, outstack_index);
-                        opstack_index--;
+                        POP_OPERATOR_TO_OUTPUT();
                     }
                 }
                 break;
@@ -748,41 +742,26 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 while (opstack_index >= 0 && opstack[opstack_index].toktype == TOK_OP
                        && op_table[opstack[opstack_index].op].precedence >=
                        op_table[tok.op].precedence) {
-                    memcpy(outstack + (++outstack_index),
-                           opstack + opstack_index,
-                           sizeof(mapper_token_t));
-                    outstack_index = add_typecast(outstack, outstack_index);
-                    opstack_index--;
+                    POP_OPERATOR_TO_OUTPUT();
                 }
-                // push to operator stack
-                memcpy(opstack + (++opstack_index), &tok, sizeof(mapper_token_t));
+                PUSH_TO_OPERATOR(tok);
                 break;
             case TOK_OPEN_SQUARE:
-                if (outstack[outstack_index].toktype != TOK_VAR) {
-                    printf("error: misplaced brackets\n");
-                }
+                if (outstack[outstack_index].toktype != TOK_VAR)
+                    {FAIL("Misplaced brackets.");}
                 if (expr_lex(&s, &tok))
                     return 0;
-                if (tok.toktype != TOK_CONST || tok.datatype != 'i') {
-                    // we will only allow integer indices
-                    printf("error: non-integer vector index.\n");
-                    return 0;
-                }
-                else if (tok.i > 0) {
-                    // for now we will disable vector indexing
-                    printf("error: vector indexing disabled for now.\n");
-                    return 0;
-                }
+                if (tok.toktype != TOK_CONST || tok.datatype != 'i')
+                    {FAIL("Non-integer vector index.");}
+                else if (tok.i > 0)
+                    {FAIL("Vector indexing disabled for now.");}
                 outstack[outstack_index].vector_index = tok.i;
-                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_SQUARE) {
-                    printf("error: unmatched bracket.\n");
-                    return 0;
-                }
+                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_SQUARE)
+                    {FAIL("Unmatched bracket.");}
                 break;
             case TOK_OPEN_CURLY:
-                if (outstack[outstack_index].toktype != TOK_VAR) {
-                    printf("error: misplaced brackets\n");
-                }
+                if (outstack[outstack_index].toktype != TOK_VAR)
+                    {FAIL("Misplaced brackets.");}
                 if (expr_lex(&s, &tok))
                     return 0;
                 if (tok.toktype == TOK_OP && tok.op == OP_SUBTRACT) {
@@ -791,34 +770,25 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     if (expr_lex(&s, &tok))
                         return 0;
                 }
-                if (tok.toktype != TOK_CONST || tok.datatype != 'i') {
-                    printf("error: non-integer history index.\n");
-                    return 0;
-                }
+                if (tok.toktype != TOK_CONST || tok.datatype != 'i')
+                    {FAIL("Non-integer history index.");}
                 outstack[outstack_index].history_index *= tok.i;
                 if (outstack[outstack_index].var == 'x') {
-                        if (outstack[outstack_index].history_index > 0) {
-                        printf("input index cannot be > 0\n");
-                        return 0;
-                    }
+                    if (outstack[outstack_index].history_index > 0)
+                        {FAIL("Input history index cannot be > 0.");}
                 }
-                else if (outstack[outstack_index].history_index > -1) {
-                    printf("output index cannot be > -1\n");
-                    return 0;
-                }
+                else if (outstack[outstack_index].history_index > -1)
+                    {FAIL("Output history index cannot be > -1.");}
 
                 if (outstack[outstack_index].var == 'x' && tok.i < oldest_input)
                     oldest_input = tok.i;
                 else if (tok.i < oldest_output)
                     oldest_output = tok.i;
-                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_CURLY) {
-                    printf("error: unmatched brace.\n");
-                    return 0;
-                }
+                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_CURLY)
+                    {FAIL("Unmatched brace.");}
                 break;
             default:
-                printf("unknown token!\n");
-                return 0;
+                {FAIL("Unknown token type.");}
                 break;
         }
 #if TRACING
@@ -831,19 +801,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0) {
-        if (opstack[opstack_index].toktype == TOK_OPEN_PAREN) {
-            printf("error: unmatched parentheses or misplaced comma!\n");
-            return 0;
-        }
-        memcpy(outstack + (++outstack_index),
-               opstack + opstack_index,
-               sizeof(mapper_token_t));
-        outstack_index = add_typecast(outstack, outstack_index);
-        opstack_index--;
+        if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
+            {FAIL("Unmatched parentheses or misplaces comma.");}
+        POP_OPERATOR_TO_OUTPUT();
     }
-
-    printf("OUTPUT:");
-    printstack(outstack, outstack_index);
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->length = outstack_index + 1;
@@ -931,7 +892,8 @@ int mapper_expr_evaluate(mapper_expr expr,
             // promote types as necessary
             for (i = 0; i < to->length; i++) {
                 if (tok->datatype == 'f') {
-                    trace_eval("%f %c %f = ", stack[i][top].f, tok->op, stack[i][top + 1].f);
+                    trace_eval("%f %c %f = ", stack[i][top].f,
+                               op_table[tok->op].name, stack[i][top + 1].f);
                     switch (tok->op) {
                         case OP_ADD:
                                 stack[i][top].f = stack[i][top].f + stack[i][top + 1].f;
@@ -979,7 +941,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                     }
                     trace_eval("%f\n", stack[i][top].f);
                 } else {
-                    trace_eval("%d %c %d = ", stack[i][top].i32, tok->op, stack[i][top + 1].i32);
+                    trace_eval("%d %c %d = ", stack[i][top].i32,
+                               op_table[tok->op].name, stack[i][top + 1].i32);
                     switch (tok->op) {
                         case OP_ADD:
                             stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32;
@@ -1065,7 +1028,8 @@ int mapper_expr_evaluate(mapper_expr expr,
             case 2:
                 --top;
                 for (i = 0; i < to->length; i++) {
-                    trace_eval("%s(%f,%f) = ", function_table[tok->func].name, stack[i][top].f, stack[i][top + 1].f);
+                    trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
+                               stack[i][top].f, stack[i][top + 1].f);
                     stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func)(stack[i][top].f, stack[i][top + 1].f);
                     trace_eval("%f\n", stack[i][top].f);
                 }
@@ -1076,7 +1040,6 @@ int mapper_expr_evaluate(mapper_expr expr,
         default: goto error;
         }
         if (tok->casttype) {
-            printf("casting %c to %c\n", tok->datatype, tok->casttype);
             // need to cast to a different type
             if (tok->datatype == 'i') {
                 if (tok->casttype == 'f') {
