@@ -626,8 +626,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
 /**** Expression parser/evaluator ****/
 
 mapper_expr mapper_expr_new_from_string(const char *str,
-                                        int input_is_float,
-                                        int output_is_float,
+                                        char input_type,
+                                        char output_type,
                                         int vector_size,
                                         int *input_history_size,
                                         int *output_history_size);

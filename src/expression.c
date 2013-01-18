@@ -8,9 +8,9 @@
 
 #define STACK_SIZE 256
 #ifdef DEBUG
-#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 1
+#define TRACING 0
 #endif
 
 static float minf(float x, float y)
@@ -146,29 +146,33 @@ typedef enum {
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
     OP_ASSIGNMENT,
-} op_t;
+} expr_op_t;
 
-static unsigned int mapper_op_precedence[] = {
-    11, // OP_LOGICAL_NOT,
-    10, // OP_MULTIPLY,
-    10, // OP_DIVIDE,
-    10, // OP_MODULO,
-    9,  // OP_ADD,
-    9,  // OP_SUBTRACT,
-    8,  // OP_LEFT_BIT_SHIFT,
-    8,  // OP_RIGHT_BIT_SHIFT,
-    7,  // OP_IS_GREATER_THAN,
-    7,  // OP_IS_GREATER_THAN_OR_EQUAL,
-    7,  // OP_IS_LESS_THAN,
-    7,  // OP_IS_LESS_THAN_OR_EQUAL,
-    6,  // OP_IS_EQUAL,
-    6,  // OP_IS_NOT_EQUAL,
-    5,  // OP_BITWISE_AND,
-    4,  // OP_BITWISE_XOR,
-    3,  // OP_BITWISE_OR,
-    2,  // OP_LOGICAL_AND,
-    1,  // OP_LOGICAL_OR,
-    0,  // OP_ASSIGNMENT,
+static struct {
+    const char *name;
+    unsigned int arity;
+    unsigned int precedence;
+} op_table[] = {
+    { "!",  1,  11 },
+    { "*",  2,  10 },
+    { "/",  2,  10 },
+    { "%",  2,  10 },
+    { "+",  2,   9 },
+    { "-",  2,   9 },
+    { "<<", 2,   8 },
+    { ">>", 2,   8 },
+    { ">",  2,   7 },
+    { ">=", 2,   7 },
+    { "<",  2,   7 },
+    { "<=", 2,   7 },
+    { "==", 2,   6 },
+    { "!=", 2,   6 },
+    { "&",  2,   5 },
+    { "^",  2,   4 },
+    { "|",  2,   3 },
+    { "&&", 2,   2 },
+    { "||", 2,   1 },
+    { "=",  2,   0 },
 };
 
 typedef float func_float_arity0();
@@ -177,14 +181,8 @@ typedef float func_float_arity2(float,float);
 
 typedef struct _token {
     enum {
-        TOK_FLOAT,
-        TOK_INT32,
-        TOK_DOUBLE,
-        TOK_TT,
+        TOK_CONST,
         TOK_OP,
-        TOK_OP_INT32,
-        TOK_OP_FLOAT,
-        TOK_OP_DOUBLE,
         TOK_VAR,
         TOK_FUNC,
         TOK_OPEN_PAREN,
@@ -197,16 +195,17 @@ typedef struct _token {
         TOK_QUESTION,
         TOK_COLON,
         TOK_END,
-    } type;
+    } toktype;
     union {
         float f;
         int i;
         double d;
         char var;
-        op_t op;
+        expr_op_t op;
         expr_func_t func;
     };
     char datatype;
+    char casttype;
     char history_index;
     char vector_index;
 } mapper_token_t, *mapper_token;
@@ -223,14 +222,14 @@ static expr_func_t function_lookup(const char *s, int len)
 
 static int expr_lex(const char **str, mapper_token_t *tok)
 {
-    printf("expr_lex:%s\n", *str);
+    tok->casttype = 0;
     int n=0;
     char c = **str;
     const char *s = *str;
     int integer_found = 0;
 
     if (c==0) {
-        tok->type = TOK_END;
+        tok->toktype = TOK_END;
         return 0;
     }
 
@@ -244,7 +243,8 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         integer_found = 1;
         if (c!='.' && c!='e') {
             tok->i = n;
-            tok->type = TOK_INT32;
+            tok->toktype = TOK_CONST;
+            tok->datatype = 'i';
             return 0;
         }
     }
@@ -253,8 +253,9 @@ static int expr_lex(const char **str, mapper_token_t *tok)
     case '.':
         c = (*(++*str));
         if (!isdigit(c) && c!='e' && integer_found) {
-            tok->type = TOK_FLOAT;
+            tok->toktype = TOK_CONST;
             tok->f = (float)n;
+            tok->datatype = 'f';
             return 0;
         }
         if (!isdigit(c) && c!='e')
@@ -264,7 +265,8 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         } while (c && isdigit(c));
         if (c!='e') {
             tok->f = atof(s);
-            tok->type = TOK_FLOAT;
+            tok->toktype = TOK_CONST;
+            tok->datatype = 'f';
             return 0;
         }
     case 'e':
@@ -272,7 +274,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
             s = *str;
             while (c && (isalpha(c) || isdigit(c)))
                 c = (*(++*str));
-            tok->type = TOK_FUNC;
+            tok->toktype = TOK_FUNC;
             tok->func = function_lookup(s, *str-s);
             if (tok->func == FUNC_UNKNOWN) {
                 printf("unexpected `e' outside float\n");
@@ -290,37 +292,38 @@ static int expr_lex(const char **str, mapper_token_t *tok)
             c = (*(++*str));
         while (c && isdigit(c))
             c = (*(++*str));
-        tok->type = TOK_FLOAT;
+        tok->toktype = TOK_CONST;
+        tok->datatype = 'f';
         tok->f = atof(s);
         return 0;
     case '+':
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_ADD;
         ++*str;
         return 0;
     case '-':
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_SUBTRACT;
         ++*str;
         return 0;
     case '/':
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_DIVIDE;
         ++*str;
         return 0;
     case '*':
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_MULTIPLY;
         ++*str;
         return 0;
     case '%':
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_MODULO;
         ++*str;
         return 0;
     case '=':
         // could be '=', '=='
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_ASSIGNMENT;
         ++*str;
         c = **str;
@@ -331,7 +334,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '<':
         // could be '<', '<=', '<<'
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_IS_LESS_THAN;
         ++*str;
         c = **str;
@@ -346,7 +349,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '>':
         // could be '>', '>=', '>>'
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_IS_GREATER_THAN;
         ++*str;
         c = **str;
@@ -362,7 +365,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
     case '!':
         // could be '!', '!='
         // TODO: handle factorial and logical negation cases
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_LOGICAL_NOT;
         ++*str;
         c = **str;
@@ -373,7 +376,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '&':
         // could be '&', '&&'
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_BITWISE_AND;
         ++*str;
         c = **str;
@@ -384,7 +387,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '|':
         // could be '|', '||'
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_BITWISE_OR;
         ++*str;
         c = **str;
@@ -395,38 +398,38 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         return 0;
     case '^':
         // bitwise XOR
-        tok->type = TOK_OP;
+        tok->toktype = TOK_OP;
         tok->op = OP_BITWISE_XOR;
         ++*str;
         return 0;
     case '(':
-        tok->type = TOK_OPEN_PAREN;
+        tok->toktype = TOK_OPEN_PAREN;
         ++*str;
         return 0;
     case ')':
-        tok->type = TOK_CLOSE_PAREN;
+        tok->toktype = TOK_CLOSE_PAREN;
         ++*str;
         return 0;
     case 'x':
     case 'y':
-        tok->type = TOK_VAR;
+        tok->toktype = TOK_VAR;
         tok->var = c;
         ++*str;
         return 0;
     case '[':
-        tok->type = TOK_OPEN_SQUARE;
+        tok->toktype = TOK_OPEN_SQUARE;
         ++*str;
         return 0;
     case ']':
-        tok->type = TOK_CLOSE_SQUARE;
+        tok->toktype = TOK_CLOSE_SQUARE;
         ++*str;
         return 0;
     case '{':
-        tok->type = TOK_OPEN_CURLY;
+        tok->toktype = TOK_OPEN_CURLY;
         ++*str;
         return 0;
     case '}':
-        tok->type = TOK_CLOSE_CURLY;
+        tok->toktype = TOK_CLOSE_CURLY;
         ++*str;
         return 0;
     case ' ':
@@ -436,7 +439,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         c = (*(++*str));
         goto again;
     case ',':
-        tok->type = TOK_COMMA;
+        tok->toktype = TOK_COMMA;
         ++*str;
         return 0;
     default:
@@ -447,7 +450,7 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         s = *str;
         while (c && (isalpha(c) || isdigit(c)))
             c = (*(++*str));
-        tok->type = TOK_FUNC;
+        tok->toktype = TOK_FUNC;
         tok->func = function_lookup(s, *str-s);
         return 0;
     }
@@ -493,48 +496,28 @@ void mapper_expr_free(mapper_expr expr)
 }
 
 #ifdef DEBUG
-void printop(op_t op)
-{
-    switch (op) {
-    case OP_BITWISE_AND:              printf("&");            break;
-    case OP_BITWISE_OR:               printf("|");            break;
-    case OP_BITWISE_XOR:              printf("^");            break;
-    case OP_DIVIDE:                   printf("/");            break;
-    case OP_ASSIGNMENT:               printf("=");            break;
-    case OP_IS_EQUAL:                 printf("==");           break;
-    case OP_IS_GREATER_THAN:          printf(">");            break;
-    case OP_IS_GREATER_THAN_OR_EQUAL: printf(">=");           break;
-    case OP_IS_LESS_THAN:             printf("<");            break;
-    case OP_IS_LESS_THAN_OR_EQUAL:    printf("<=");           break;
-    case OP_IS_NOT_EQUAL:             printf("!=");           break;
-    case OP_LEFT_BIT_SHIFT:           printf("<<");           break;
-    case OP_LOGICAL_AND:              printf("&&");           break;
-    case OP_LOGICAL_OR:               printf("||");           break;
-    case OP_LOGICAL_NOT:              printf("!");            break;
-    case OP_SUBTRACT:                 printf("-");            break;
-    case OP_MODULO:                   printf("%%");           break;
-    case OP_MULTIPLY:                 printf("*");            break;
-    case OP_ADD:                      printf("+");            break;
-    case OP_RIGHT_BIT_SHIFT:          printf(">>");           break;
-    default:                          printf("(unknown op)"); break;
-    }
-}
 
 void printtoken(mapper_token_t tok)
 {
-    switch (tok.type) {
-    case TOK_FLOAT:        printf("%f", tok.f);          break;
-    case TOK_DOUBLE:       printf("%f", tok.d);          break;
-    case TOK_INT:          printf("%d", tok.i);          break;
-    case TOK_OP:           printop(tok.op);              break;
-    case TOK_OPEN_PAREN:   printf("(");                  break;
-    case TOK_CLOSE_PAREN:  printf(")");                  break;
-    case TOK_VAR:          printf("VAR(%c){%d}[%d]",
-                                  tok.var,
+    switch (tok.toktype) {
+    case TOK_CONST:
+        switch (tok.datatype) {
+            case 'f':      printf("%ff", tok.f);          break;
+            case 'd':      printf("%fd", tok.d);          break;
+            case 'i':      printf("%di", tok.i);          break;
+        }                                                 break;
+    case TOK_OP:           printf("%s%c",
+                                  op_table[tok.op].name,
+                                  tok.datatype);          break;
+    case TOK_OPEN_PAREN:   printf("(");                   break;
+    case TOK_CLOSE_PAREN:  printf(")");                   break;
+    case TOK_VAR:          printf("VAR(%c%c){%d}[%d]",
+                                  tok.var, tok.datatype,
                                   tok.history_index,
-                                  tok.vector_index);    break;
-    case TOK_FUNC:         printf("FUNC(%s)",
-                                  function_table[tok.func].name);
+                                  tok.vector_index);      break;
+    case TOK_FUNC:         printf("FUNC(%s%c)",
+                                  function_table[tok.func].name,
+                                  tok.datatype);
         break;
     case TOK_COMMA:        printf(",");                   break;
     case TOK_QUESTION:     printf("?");                   break;
@@ -557,15 +540,135 @@ void printstack(mapper_token_t *stack, int top)
 
 void printexpr(const char *s, mapper_expr e)
 {
-    printstack(e->start, e->length);
+    printf("%s\n", s);
+    printstack(e->start, e->length-1);
 }
 
 #endif
 
+
+void promote_datatype(mapper_token_t *tok, char type)
+{
+    if (tok->datatype == type)
+        return;
+
+    if (tok->toktype == TOK_CONST) {
+        // constants can be cast immediately
+        if (tok->datatype == 'i') {
+            if (type == 'f') {
+                tok->f = (float)tok->i;
+                tok->datatype = 'f';
+            }
+            else if (type == 'd') {
+                tok->d = (double)tok->i;
+                tok->datatype = 'd';
+            }
+        }
+        else if (tok->datatype == 'f') {
+            if (type == 'd') {
+                tok->d = (double)tok->f;
+                tok->datatype = 'd';
+            }
+        }
+    }
+    else if (tok->toktype == TOK_VAR) {
+        // we may need to cast variable at runtime
+        if (tok->datatype == 'i' || type == 'd')
+            tok->casttype = type;
+    }
+    else if (tok->datatype == 'i' || type == 'd') {
+        tok->datatype = type;
+    }
+}
+
+int add_typecast(mapper_token_t *stack, int top)
+{
+    int i, arity, depth, can_precompute = 1;
+    if (top < 1) return top;
+
+    // walk down stack distance of arity
+    if (stack[top].toktype == TOK_OP) {
+        if (stack[top].op == OP_LOGICAL_NOT)
+            arity = 1;
+        else
+            arity = 2;
+    }
+    else if (stack[top].toktype == TOK_FUNC) {
+        arity = function_table[stack[top].func].arity;
+    }
+    else
+        return top;
+
+    if (arity) {
+        // find operator or function inputs
+        stack[top].datatype = stack[top-1].datatype;
+        i = top;
+        depth = arity;
+        while (--i >= 0) {
+            depth--;
+            if (stack[i].toktype != TOK_CONST)
+                can_precompute = 0;
+            if (depth == 0) {
+                promote_datatype(&stack[top], stack[i].datatype);
+                promote_datatype(&stack[i], stack[top].datatype);
+                break;
+            }
+            if (stack[i].toktype == TOK_OP)
+                depth += op_table[stack[i].op].arity;
+            else if (stack[i].toktype == TOK_FUNC)
+                depth += function_table[stack[i].func].arity;
+        }
+        promote_datatype(&stack[top-1], stack[top].datatype);
+
+        if (depth) {
+            printf("error: malformed expression\n");
+            return top;
+        }
+    }
+    else {
+        stack[top].datatype = 'f';
+    }
+
+    // if stack within bounds of arity was only constants, we're ok to compute
+    if (!can_precompute)
+        return top;
+
+    struct _mapper_expr e;
+    e.start = &stack[top-arity];
+    e.length = arity+1;
+    mapper_signal_history_t h;
+    mapper_signal_value_t v;
+    h.type = stack[top].datatype;
+    h.value = &v;
+    h.position = -1;
+    h.length = 1;
+    h.size = 1;
+    if (!mapper_expr_evaluate(&e, 0, &h))
+        return top;
+
+    switch (stack[top].datatype) {
+        case 'f':
+            stack[top-arity].f = v.f;
+            break;
+        case 'd':
+            stack[top-arity].d = v.d;
+            break;
+        case 'i':
+            stack[top-arity].i = v.i32;
+            break;
+        default:
+            printf("error: no datatype!\n");
+            return 0;
+            break;
+    }
+    stack[top-arity].toktype = TOK_CONST;
+    return top-arity;
+}
+
 /*! Create a new expression by parsing the given string. */
 mapper_expr mapper_expr_new_from_string(const char *str,
-                                        int input_is_float,
-                                        int output_is_float,
+                                        char input_type,
+                                        char output_type,
                                         int vector_size,
                                         int *input_history_size,
                                         int *output_history_size)
@@ -587,34 +690,40 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_token_t opstack[STACK_SIZE];
     int opstack_index = -1;
 
-   // int oldest_input = 0, oldest_output = 0;
+    int oldest_input = 0, oldest_output = 0;
 
    // const char *error_message = 0;
 
     mapper_token_t tok;
 
     while (*s && !expr_lex(&s, &tok)) {
-        switch (tok.type) {
-            case TOK_INT32:
-            case TOK_FLOAT:
-            case TOK_DOUBLE:
+        switch (tok.toktype) {
+            case TOK_CONST:
+                // push to output stack
+                memcpy(outstack + (++outstack_index), &tok, sizeof(mapper_token_t));
+                break;
             case TOK_VAR:
+                // set datatype
+                tok.datatype = tok.var == 'x' ? input_type : output_type;
+                tok.history_index = 0;
+                tok.vector_index = 0;
                 // push to output stack
                 memcpy(outstack + (++outstack_index), &tok, sizeof(mapper_token_t));
                 break;
             case TOK_FUNC:
             case TOK_OPEN_PAREN:
+                tok.datatype = 'f';
                 // push to operator stack
                 memcpy(opstack + (++opstack_index), &tok, sizeof(mapper_token_t));
                 break;
             case TOK_COMMA:
             case TOK_CLOSE_PAREN:
                 // pop from operator stack to output until left parenthesis found
-                while (opstack_index >= 0 && opstack[opstack_index].type != TOK_OPEN_PAREN) {
+                while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_OPEN_PAREN) {
                     memcpy(outstack + (++outstack_index),
                            opstack + opstack_index,
                            sizeof(mapper_token_t));
-                    
+                    outstack_index = add_typecast(outstack, outstack_index);
                     opstack_index--;
                 }
                 if (opstack_index < 0) {
@@ -622,37 +731,39 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     return 0;
                 }
                 // remove left parenthesis from operator stack
-                if (tok.type == TOK_CLOSE_PAREN) {
+                if (tok.toktype == TOK_CLOSE_PAREN) {
                     opstack_index--;
-                    if (opstack[opstack_index].type == TOK_FUNC) {
+                    if (opstack[opstack_index].toktype == TOK_FUNC) {
                         // if stack[top] is tok_func, pop to output
                         memcpy(outstack + (++outstack_index),
                                opstack + opstack_index,
                                sizeof(mapper_token_t));
+                        outstack_index = add_typecast(outstack, outstack_index);
                         opstack_index--;
                     }
                 }
                 break;
             case TOK_OP:
                 // check precedence of operators on stack
-                while (opstack_index >= 0 && opstack[opstack_index].type == TOK_OP
-                       && mapper_op_precedence[opstack[opstack_index].op] >=
-                       mapper_op_precedence[tok.op]) {
+                while (opstack_index >= 0 && opstack[opstack_index].toktype == TOK_OP
+                       && op_table[opstack[opstack_index].op].precedence >=
+                       op_table[tok.op].precedence) {
                     memcpy(outstack + (++outstack_index),
                            opstack + opstack_index,
                            sizeof(mapper_token_t));
+                    outstack_index = add_typecast(outstack, outstack_index);
                     opstack_index--;
                 }
                 // push to operator stack
                 memcpy(opstack + (++opstack_index), &tok, sizeof(mapper_token_t));
                 break;
             case TOK_OPEN_SQUARE:
-                if (outstack[outstack_index].type != TOK_VAR) {
+                if (outstack[outstack_index].toktype != TOK_VAR) {
                     printf("error: misplaced brackets\n");
                 }
                 if (expr_lex(&s, &tok))
                     return 0;
-                if (tok.type != TOK_INT32) {
+                if (tok.toktype != TOK_CONST || tok.datatype != 'i') {
                     // we will only allow integer indices
                     printf("error: non-integer vector index.\n");
                     return 0;
@@ -663,28 +774,44 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     return 0;
                 }
                 outstack[outstack_index].vector_index = tok.i;
-                if (expr_lex(&s, &tok) || tok.type != TOK_CLOSE_SQUARE) {
+                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_SQUARE) {
                     printf("error: unmatched bracket.\n");
                     return 0;
                 }
                 break;
             case TOK_OPEN_CURLY:
-                if (outstack[outstack_index].type != TOK_VAR) {
+                if (outstack[outstack_index].toktype != TOK_VAR) {
                     printf("error: misplaced brackets\n");
                 }
                 if (expr_lex(&s, &tok))
                     return 0;
-                // we will only allow negative integer indices
-                if (tok.type != TOK_OP || tok.op != OP_SUBTRACT) {
-                    printf("error: non-negative history index.\n");
-                    return 0;
+                if (tok.toktype == TOK_OP && tok.op == OP_SUBTRACT) {
+                    // if negative sign found, get next token
+                    outstack[outstack_index].history_index = -1;
+                    if (expr_lex(&s, &tok))
+                        return 0;
                 }
-                if (expr_lex(&s, &tok) || tok.type != TOK_INT32) {
+                if (tok.toktype != TOK_CONST || tok.datatype != 'i') {
                     printf("error: non-integer history index.\n");
                     return 0;
                 }
-                outstack[outstack_index].history_index = tok.i * -1;
-                if (expr_lex(&s, &tok) || tok.type != TOK_CLOSE_CURLY) {
+                outstack[outstack_index].history_index *= tok.i;
+                if (outstack[outstack_index].var == 'x') {
+                        if (outstack[outstack_index].history_index > 0) {
+                        printf("input index cannot be > 0\n");
+                        return 0;
+                    }
+                }
+                else if (outstack[outstack_index].history_index > -1) {
+                    printf("output index cannot be > -1\n");
+                    return 0;
+                }
+
+                if (outstack[outstack_index].var == 'x' && tok.i < oldest_input)
+                    oldest_input = tok.i;
+                else if (tok.i < oldest_output)
+                    oldest_output = tok.i;
+                if (expr_lex(&s, &tok) || tok.toktype != TOK_CLOSE_CURLY) {
                     printf("error: unmatched brace.\n");
                     return 0;
                 }
@@ -694,32 +821,38 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 return 0;
                 break;
         }
+#if TRACING
         printf("OUTPUT:");
         printstack(outstack, outstack_index);
         printf("OPERATOR:");
         printstack(opstack, opstack_index);
+#endif
     }
 
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0) {
-        if (opstack[opstack_index].type == TOK_OPEN_PAREN) {
+        if (opstack[opstack_index].toktype == TOK_OPEN_PAREN) {
             printf("error: unmatched parentheses or misplaced comma!\n");
             return 0;
         }
         memcpy(outstack + (++outstack_index),
                opstack + opstack_index,
                sizeof(mapper_token_t));
+        outstack_index = add_typecast(outstack, outstack_index);
         opstack_index--;
     }
-    outstack[++outstack_index].type = TOK_END;
 
     printf("OUTPUT:");
     printstack(outstack, outstack_index);
-    
-    // todo: allocate and return expression
-    blarg
-    
-    return 0;
+
+    mapper_expr expr = malloc(sizeof(struct _mapper_expr));
+    expr->length = outstack_index + 1;
+    expr->start = malloc(sizeof(struct _token)*expr->length);
+    memcpy(expr->start, &outstack, sizeof(struct _token)*expr->length);
+    expr->vector_size = vector_size;
+    expr->input_history_size = *input_history_size = -oldest_input+1;
+    expr->output_history_size = *output_history_size = -oldest_output+1;
+    return expr;
 }
 
 int mapper_expr_input_history_size(mapper_expr expr)
@@ -744,21 +877,16 @@ int mapper_expr_evaluate(mapper_expr expr,
 {
     mapper_signal_value_t stack[to->length][expr->length];
 
-    int i = 0, top = -1;
+    int i = 0, top = -1, count = 0;
     mapper_token_t *tok = expr->start;
     /* Increment index position of output data structure. */
     to->position = (to->position + 1) % to->size;
-    while (tok->type != TOK_END) {
-        switch (tok->type) {
-        case TOK_INT32:
+    while (count < expr->length && tok->toktype != TOK_END) {
+        switch (tok->toktype) {
+        case TOK_CONST:
             ++top;
             for (i = 0; i < to->length; i++)
-                stack[i][top].i32 = tok->i;
-            break;
-        case TOK_FLOAT:
-            ++top;
-            for (i = 0; i < to->length; i++)
-                stack[i][top].f = tok->f;
+                stack[i][top].d = tok->d;
             break;
         case TOK_VAR:
             {
@@ -798,124 +926,123 @@ int mapper_expr_evaluate(mapper_expr expr,
                 }
             }
             break;
-        case TOK_OP_FLOAT:
+        case TOK_OP:
             --top;
+            // promote types as necessary
             for (i = 0; i < to->length; i++) {
-                trace_eval("%f %c %f = ", stack[i][top].f, tok->op, stack[i][top + 1].f);
-                switch (tok->op) {
-                    case OP_ADD:
-                            stack[i][top].f = stack[i][top].f + stack[i][top + 1].f;
-                            break;
-                    case OP_SUBTRACT:
-                            stack[i][top].f = stack[i][top].f - stack[i][top + 1].f;
-                            break;
-                    case OP_MULTIPLY:
-                            stack[i][top].f = stack[i][top].f * stack[i][top + 1].f;
-                            break;
-                    case OP_DIVIDE:
-                            stack[i][top].f = stack[i][top].f / stack[i][top + 1].f;
-                            break;
-                    case OP_MODULO:
-                            stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f);
-                            break;
-                    case OP_IS_EQUAL:
-                            stack[i][top].f = stack[i][top].f == stack[i][top + 1].f;
-                            break;
-                    case OP_IS_NOT_EQUAL:
-                            stack[i][top].f = stack[i][top].f != stack[i][top + 1].f;
-                            break;
-                    case OP_IS_LESS_THAN:
-                            stack[i][top].f = stack[i][top].f < stack[i][top + 1].f;
-                            break;
-                    case OP_IS_LESS_THAN_OR_EQUAL:
-                            stack[i][top].f = stack[i][top].f <= stack[i][top + 1].f;
-                            break;
-                    case OP_IS_GREATER_THAN:
-                            stack[i][top].f = stack[i][top].f > stack[i][top + 1].f;
-                            break;
-                    case OP_IS_GREATER_THAN_OR_EQUAL:
-                            stack[i][top].f = stack[i][top].f >= stack[i][top + 1].f;
-                            break;
-                    case OP_LOGICAL_AND:
-                            stack[i][top].f = stack[i][top].f && stack[i][top + 1].f;
-                            break;
-                    case OP_LOGICAL_OR:
-                            stack[i][top].f = stack[i][top].f || stack[i][top + 1].f;
-                            break;
-                    case OP_LOGICAL_NOT:
-                            stack[i][top].f = !stack[i][top].f;
-                            break;
-                    default: goto error;
-                }
-                trace_eval("%f\n", stack[i][top].f);
-            }
-            break;
-        case TOK_OP_INT32:
-            --top;
-            for (i = 0; i < to->length; i++) {
-                trace_eval("%d %c %d = ", stack[i][top].i32, tok->op, stack[i][top + 1].i32);
-                switch (tok->op) {
-                    case OP_ADD:
+                if (tok->datatype == 'f') {
+                    trace_eval("%f %c %f = ", stack[i][top].f, tok->op, stack[i][top + 1].f);
+                    switch (tok->op) {
+                        case OP_ADD:
+                                stack[i][top].f = stack[i][top].f + stack[i][top + 1].f;
+                                break;
+                        case OP_SUBTRACT:
+                                stack[i][top].f = stack[i][top].f - stack[i][top + 1].f;
+                                break;
+                        case OP_MULTIPLY:
+                                stack[i][top].f = stack[i][top].f * stack[i][top + 1].f;
+                                break;
+                        case OP_DIVIDE:
+                                stack[i][top].f = stack[i][top].f / stack[i][top + 1].f;
+                                break;
+                        case OP_MODULO:
+                                stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f);
+                                break;
+                        case OP_IS_EQUAL:
+                                stack[i][top].f = stack[i][top].f == stack[i][top + 1].f;
+                                break;
+                        case OP_IS_NOT_EQUAL:
+                                stack[i][top].f = stack[i][top].f != stack[i][top + 1].f;
+                                break;
+                        case OP_IS_LESS_THAN:
+                                stack[i][top].f = stack[i][top].f < stack[i][top + 1].f;
+                                break;
+                        case OP_IS_LESS_THAN_OR_EQUAL:
+                                stack[i][top].f = stack[i][top].f <= stack[i][top + 1].f;
+                                break;
+                        case OP_IS_GREATER_THAN:
+                                stack[i][top].f = stack[i][top].f > stack[i][top + 1].f;
+                                break;
+                        case OP_IS_GREATER_THAN_OR_EQUAL:
+                                stack[i][top].f = stack[i][top].f >= stack[i][top + 1].f;
+                                break;
+                        case OP_LOGICAL_AND:
+                                stack[i][top].f = stack[i][top].f && stack[i][top + 1].f;
+                                break;
+                        case OP_LOGICAL_OR:
+                                stack[i][top].f = stack[i][top].f || stack[i][top + 1].f;
+                                break;
+                        case OP_LOGICAL_NOT:
+                                stack[i][top].f = !stack[i][top].f;
+                                break;
+                        default: goto error;
+                    }
+                    trace_eval("%f\n", stack[i][top].f);
+                } else {
+                    trace_eval("%d %c %d = ", stack[i][top].i32, tok->op, stack[i][top + 1].i32);
+                    switch (tok->op) {
+                        case OP_ADD:
                             stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32;
                             break;
-                    case OP_SUBTRACT:
+                        case OP_SUBTRACT:
                             stack[i][top].i32 = stack[i][top].i32 - stack[i][top + 1].i32;
                             break;
-                    case OP_MULTIPLY:
+                        case OP_MULTIPLY:
                             stack[i][top].i32 = stack[i][top].i32 * stack[i][top + 1].i32;
                             break;
-                    case OP_DIVIDE:
+                        case OP_DIVIDE:
                             stack[i][top].i32 = stack[i][top].i32 / stack[i][top + 1].i32;
                             break;
-                    case OP_MODULO:
+                        case OP_MODULO:
                             stack[i][top].i32 = stack[i][top].i32 % stack[i][top + 1].i32;
                             break;
-                    case OP_IS_EQUAL:
+                        case OP_IS_EQUAL:
                             stack[i][top].i32 = stack[i][top].i32 == stack[i][top + 1].i32;
                             break;
-                    case OP_IS_NOT_EQUAL:
+                        case OP_IS_NOT_EQUAL:
                             stack[i][top].i32 = stack[i][top].i32 != stack[i][top + 1].i32;
                             break;
-                    case OP_IS_LESS_THAN:
+                        case OP_IS_LESS_THAN:
                             stack[i][top].i32 = stack[i][top].i32 < stack[i][top + 1].i32;
                             break;
-                    case OP_IS_LESS_THAN_OR_EQUAL:
+                        case OP_IS_LESS_THAN_OR_EQUAL:
                             stack[i][top].i32 = stack[i][top].i32 <= stack[i][top + 1].i32;
                             break;
-                    case OP_IS_GREATER_THAN:
+                        case OP_IS_GREATER_THAN:
                             stack[i][top].i32 = stack[i][top].i32 > stack[i][top + 1].i32;
                             break;
-                    case OP_IS_GREATER_THAN_OR_EQUAL:
+                        case OP_IS_GREATER_THAN_OR_EQUAL:
                             stack[i][top].i32 = stack[i][top].i32 >= stack[i][top + 1].i32;
                             break;
-                    case OP_LEFT_BIT_SHIFT:
+                        case OP_LEFT_BIT_SHIFT:
                             stack[i][top].i32 = stack[i][top].i32 << stack[i][top + 1].i32;
                             break;
-                    case OP_RIGHT_BIT_SHIFT:
+                        case OP_RIGHT_BIT_SHIFT:
                             stack[i][top].i32 = stack[i][top].i32 >> stack[i][top + 1].i32;
                             break;
-                    case OP_BITWISE_AND:
+                        case OP_BITWISE_AND:
                             stack[i][top].i32 = stack[i][top].i32 & stack[i][top + 1].i32;
                             break;
-                    case OP_BITWISE_OR:
+                        case OP_BITWISE_OR:
                             stack[i][top].i32 = stack[i][top].i32 | stack[i][top + 1].i32;
                             break;
-                    case OP_BITWISE_XOR:
+                        case OP_BITWISE_XOR:
                             stack[i][top].i32 = stack[i][top].i32 ^ stack[i][top + 1].i32;
                             break;
-                    case OP_LOGICAL_AND:
+                        case OP_LOGICAL_AND:
                             stack[i][top].i32 = stack[i][top].i32 && stack[i][top + 1].i32;
                             break;
-                    case OP_LOGICAL_OR:
+                        case OP_LOGICAL_OR:
                             stack[i][top].i32 = stack[i][top].i32 || stack[i][top + 1].i32;
                             break;
-                    case OP_LOGICAL_NOT:
+                        case OP_LOGICAL_NOT:
                             ++top;
                             stack[i][top].i32 = !stack[i][top].i32;
                             break;
-                    default: goto error;
+                        default: goto error;
                     }
-                trace_eval("%d\n", stack[i][top].i32);
+                    trace_eval("%d\n", stack[i][top].i32);
+                }
             }
             break;
         case TOK_FUNC:
@@ -948,7 +1075,29 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         default: goto error;
         }
+        if (tok->casttype) {
+            printf("casting %c to %c\n", tok->datatype, tok->casttype);
+            // need to cast to a different type
+            if (tok->datatype == 'i') {
+                if (tok->casttype == 'f') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].f = (float)stack[i][top].i32;
+                    }
+                }
+                else if (tok->casttype == 'd') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].d = (double)stack[i][top].i32;
+                    }
+                }
+            }
+            else if (tok->datatype == 'f') {
+                for (i = 0; i < to->length; i++) {
+                    stack[i][top].d = (double)stack[i][top].f;
+                }
+            }
+        }
         tok++;
+        count++;
     }
 
     if (to->type == 'f') {

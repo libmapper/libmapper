@@ -3,12 +3,22 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/time.h>
+
+/*! Internal function to get the current time. */
+static double get_current_time()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
+}
 
 int main()
 {
-    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{-3}[0])*3*4+cos(2.)";
+    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
     int input_history_size, output_history_size;
-    mapper_expr e = mapper_expr_new_from_string(str, 1, 1, 1, &input_history_size, &output_history_size);
+    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 1, &input_history_size, &output_history_size);
     printf("Parsing %s\n", str);
     if (!e) { printf("Test FAILED.\n"); return 1; }
 #ifdef DEBUG
@@ -34,7 +44,14 @@ int main()
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
 
-    mapper_expr_evaluate(e, &inh, &outh);
+    int iterations = 1000000;
+    double then = get_current_time();
+    printf("Calculate expression %i times... ", iterations);
+    while (iterations--) {
+        mapper_expr_evaluate(e, &inh, &outh);
+    }
+    double now = get_current_time();
+    printf("%f seconds.\n", now-then);
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
            inp, outp,
