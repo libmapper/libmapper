@@ -8,10 +8,17 @@
 
 #define STACK_SIZE 128
 #ifdef DEBUG
-#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 0
+#define TRACING 1
 #endif
+
+
+static int mini(int x, int y)
+{
+    if (y < x) return y;
+    else return x;
+}
 
 static float minf(float x, float y)
 {
@@ -19,7 +26,27 @@ static float minf(float x, float y)
     else return x;
 }
 
+static double mind(double x, double y)
+{
+    if (y < x) return y;
+    else return x;
+}
+
+
+static int maxi(int x, int y)
+{
+    if (y > x) return y;
+    else return x;
+}
+
 static float maxf(float x, float y)
+{
+    if (y > x) return y;
+    else return x;
+}
+
+
+static double maxd(double x, double y)
 {
     if (y > x) return y;
     else return x;
@@ -30,17 +57,37 @@ static float pif()
     return M_PI;
 }
 
-static float midiToHz(float x)
+static double pid()
+{
+    return M_PI;
+}
+
+static float midiToHzf(float x)
 {
     return 440. * pow(2.0, (x - 69) / 12.0);
 }
 
-static float hzToMidi(float x)
+static double midiToHzd(double x)
+{
+    return 440. * pow(2.0, (x - 69) / 12.0);
+}
+
+static float hzToMidif(float x)
 {
     return 69. + 12. * log2(x / 440.);
 }
 
-static float uniform(float x)
+static double hzToMidid(double x)
+{
+    return 69. + 12. * log2(x / 440.);
+}
+
+static float uniformf(float x)
+{
+    return rand() / (RAND_MAX + 1.0) * x;
+}
+
+static double uniformd(double x)
 {
     return rand() / (RAND_MAX + 1.0) * x;
 }
@@ -87,42 +134,44 @@ typedef enum {
 static struct {
     const char *name;
     unsigned int arity;
-    void *func;
+    void *func_int32;
+    void *func_float;
+    void *func_double;
 } function_table[] = {
-    { "abs", 1, fabsf },
-    { "acos", 1, acosf },
-    { "acosh", 1, acoshf },
-    { "asin", 1, asinf },
-    { "asinh", 1, asinhf },
-    { "atan", 1, atanf },
-    { "atan2", 2, atan2f },
-    { "atanh", 1, atanhf },
-    { "cbrt", 1, cbrtf },
-    { "ceil", 1, ceilf },
-    { "cos", 1, cosf },
-    { "cosh", 1, coshf },
-    { "exp", 1, expf },
-    { "exp2", 1, exp2f },
-    { "floor", 1, floorf },
-    { "hypot", 2, hypotf },
-    { "hzToMidi", 1, hzToMidi },
-    { "log", 1, logf },
-    { "log10", 1, log10f },
-    { "log2", 1, log2f },
-    { "logb", 1, logbf },
-    { "max", 2, maxf },
-    { "midiToHz", 1, midiToHz },
-    { "min", 2, minf },
-    { "pi", 0, pif },
-    { "pow", 2, powf },
-    { "round", 1, roundf },
-    { "sin", 1, sinf },
-    { "sinh", 1, sinhf },
-    { "sqrt", 1, sqrtf },
-    { "tan", 1, tanf },
-    { "tanh", 1, tanhf },
-    { "trunc", 1, truncf },
-    { "uniform", 1, uniform },
+    { "abs",      1,    abs,        fabsf,      fabs        },
+    { "acos",     1,    0,          acosf,      acos        },
+    { "acosh",    1,    0,          acoshf,     acosh       },
+    { "asin",     1,    0,          asinf,      asin        },
+    { "asinh",    1,    0,          asinhf,     asinh       },
+    { "atan",     1,    0,          atanf,      atan        },
+    { "atan2",    2,    0,          atan2f,     atan2       },
+    { "atanh",    1,    0,          atanhf,     atanh       },
+    { "cbrt",     1,    0,          cbrtf,      cbrt        },
+    { "ceil",     1,    0,          ceilf,      ceil        },
+    { "cos",      1,    0,          cosf,       cos         },
+    { "cosh",     1,    0,          coshf,      cosh        },
+    { "exp",      1,    0,          expf,       exp         },
+    { "exp2",     1,    0,          exp2f,      exp2        },
+    { "floor",    1,    0,          floorf,     floor       },
+    { "hypot",    2,    0,          hypotf,     hypot       },
+    { "hzToMidi", 1,    0,          hzToMidif,  hzToMidid   },
+    { "log",      1,    0,          logf,       log         },
+    { "log10",    1,    0,          log10f,     log10       },
+    { "log2",     1,    0,          log2f,      log2        },
+    { "logb",     1,    0,          logbf,      logb        },
+    { "max",      2,    maxi,       maxf,       maxd        },
+    { "midiToHz", 1,    0,          midiToHzf,  midiToHzd   },
+    { "min",      2,    mini,       minf,       mind        },
+    { "pi",       0,    0,          pif,        pid         },
+    { "pow",      2,    0,          powf,       pow         },
+    { "round",    1,    0,          roundf,     round       },
+    { "sin",      1,    0,          sinf,       sin         },
+    { "sinh",     1,    0,          sinhf,      sinh        },
+    { "sqrt",     1,    0,          sqrtf,      sqrt        },
+    { "tan",      1,    0,          tanf,       tan         },
+    { "tanh",     1,    0,          tanhf,      tanh        },
+    { "trunc",    1,    0,          truncf,     trunc       },
+    { "uniform",  1,    0,          uniformf,   uniformd    },
 };
 
 typedef enum {
@@ -146,6 +195,9 @@ typedef enum {
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
     OP_ASSIGNMENT,
+    OP_CONDITIONAL_IF,
+    OP_CONDITIONAL_IFELSE,
+    OP_CONDITIONAL_IFNOT,
 } expr_op_t;
 
 static struct {
@@ -153,26 +205,29 @@ static struct {
     unsigned int arity;
     unsigned int precedence;
 } op_table[] = {
-    { "!",  1,  11 },
-    { "*",  2,  10 },
-    { "/",  2,  10 },
-    { "%",  2,  10 },
-    { "+",  2,   9 },
-    { "-",  2,   9 },
-    { "<<", 2,   8 },
-    { ">>", 2,   8 },
-    { ">",  2,   7 },
-    { ">=", 2,   7 },
-    { "<",  2,   7 },
-    { "<=", 2,   7 },
-    { "==", 2,   6 },
-    { "!=", 2,   6 },
-    { "&",  2,   5 },
-    { "^",  2,   4 },
-    { "|",  2,   3 },
-    { "&&", 2,   2 },
-    { "||", 2,   1 },
-    { "=",  2,   0 },
+    { "!",      1,  11 },
+    { "*",      2,  10 },
+    { "/",      2,  10 },
+    { "%",      2,  10 },
+    { "+",      2,   9 },
+    { "-",      2,   9 },
+    { "<<",     2,   8 },
+    { ">>",     2,   8 },
+    { ">",      2,   7 },
+    { ">=",     2,   7 },
+    { "<",      2,   7 },
+    { "<=",     2,   7 },
+    { "==",     2,   6 },
+    { "!=",     2,   6 },
+    { "&",      2,   5 },
+    { "^",      2,   4 },
+    { "|",      2,   3 },
+    { "&&",     2,   2 },
+    { "||",     2,   1 },
+    { "=",      2,   0 },
+    { "IF",     2,   0 },
+    { "IFELSE", 3,   0 },
+    { "IFNOT",  2,   0 },
 };
 
 typedef float func_float_arity0();
@@ -442,6 +497,15 @@ static int expr_lex(const char **str, mapper_token_t *tok)
         tok->toktype = TOK_COMMA;
         ++*str;
         return 0;
+    case '?':
+        // conditional
+        tok->toktype = TOK_QUESTION;
+        ++*str;
+        return 0;
+    case ':':
+        tok->toktype = TOK_COLON;
+        ++*str;
+        return 0;
     default:
         if (!isalpha(c)) {
             printf("unknown character '%c' in lexer\n", c);
@@ -671,6 +735,10 @@ int add_typecast(mapper_token_t *stack, int top)
 #define POP_OPERATOR() ( opstack_index-- )
 #define POP_OPERATOR_TO_OUTPUT()                                                                \
 {                                                                                               \
+    if (opstack[opstack_index].toktype == TOK_QUESTION) {                                       \
+        opstack[opstack_index].toktype = TOK_OP;                                                \
+        opstack[opstack_index].op = OP_CONDITIONAL_IF;                                          \
+    }                                                                                           \
     memcpy(outstack + (++outstack_index), opstack + opstack_index, sizeof(mapper_token_t));     \
     outstack_index = add_typecast(outstack, outstack_index);                                    \
     opstack_index--;                                                                            \
@@ -716,9 +784,18 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 PUSH_TO_OUTPUT(tok);
                 break;
             case TOK_FUNC:
-            case TOK_OPEN_PAREN:
-                tok.datatype = 'f';
+                if (function_table[tok.func].func_int32)
+                    tok.datatype = 'i';
+                else
+                    tok.datatype = 'f';
                 PUSH_TO_OPERATOR(tok);
+                break;
+            case TOK_OPEN_PAREN:
+                PUSH_TO_OPERATOR(tok);
+                break;
+            case TOK_QUESTION:
+                need to check next token to see if it is a colon, or count tokens so we know if any intervening tokens have occured.
+                alternately, can we tell from the output stack? I don't think so...
                 break;
             case TOK_COMMA:
             case TOK_CLOSE_PAREN:
@@ -727,7 +804,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 if (opstack_index < 0)
-                    {FAIL("Unmatched parentheses or misplaces comma.");}
+                    {FAIL("Unmatched parentheses or misplaced comma.");}
                 // remove left parenthesis from operator stack
                 if (tok.toktype == TOK_CLOSE_PAREN) {
                     POP_OPERATOR();
@@ -736,6 +813,21 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         POP_OPERATOR_TO_OUTPUT();
                     }
                 }
+                break;
+            case TOK_COLON:
+                // pop from operator stack to output until conditional found
+                if (opstack[opstack_index].toktype == TOK_QUESTION) {
+                    opstack[opstack_index].toktype = TOK_OP;
+                    opstack[opstack_index].op = OP_CONDITIONAL_IFNOT;
+                    break;
+                }
+                while (opstack_index >= 0 && (opstack[opstack_index].toktype != TOK_QUESTION)) {
+                    POP_OPERATOR_TO_OUTPUT();
+                }
+                if (opstack_index < 0)
+                    {FAIL("Unmatched colon.");}
+                opstack[opstack_index].toktype = TOK_OP;
+                opstack[opstack_index].op = OP_CONDITIONAL_IFELSE;
                 break;
             case TOK_OP:
                 // check precedence of operators on stack
@@ -802,7 +894,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0) {
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
-            {FAIL("Unmatched parentheses or misplaces comma.");}
+            {FAIL("Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
     }
 
@@ -888,120 +980,213 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_OP:
-            --top;
+            top -= op_table[tok->op].arity-1 ;
             // promote types as necessary
             for (i = 0; i < to->length; i++) {
                 if (tok->datatype == 'f') {
-                    trace_eval("%f %c %f = ", stack[i][top].f,
-                               op_table[tok->op].name, stack[i][top + 1].f);
+                    trace_eval("%f %s %f = ", stack[i][top].f,
+                               op_table[tok->op].name, stack[i][top+1].f);
                     switch (tok->op) {
                         case OP_ADD:
-                                stack[i][top].f = stack[i][top].f + stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f + stack[i][top+1].f;
+                            break;
                         case OP_SUBTRACT:
-                                stack[i][top].f = stack[i][top].f - stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f - stack[i][top+1].f;
+                            break;
                         case OP_MULTIPLY:
-                                stack[i][top].f = stack[i][top].f * stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f * stack[i][top+1].f;
+                            break;
                         case OP_DIVIDE:
-                                stack[i][top].f = stack[i][top].f / stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f / stack[i][top+1].f;
+                            break;
                         case OP_MODULO:
-                                stack[i][top].f = fmod(stack[i][top].f, stack[i][top + 1].f);
-                                break;
+                            stack[i][top].f = fmod(stack[i][top].f, stack[i][top+1].f);
+                            break;
                         case OP_IS_EQUAL:
-                                stack[i][top].f = stack[i][top].f == stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f == stack[i][top+1].f;
+                            break;
                         case OP_IS_NOT_EQUAL:
-                                stack[i][top].f = stack[i][top].f != stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f != stack[i][top+1].f;
+                            break;
                         case OP_IS_LESS_THAN:
-                                stack[i][top].f = stack[i][top].f < stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f < stack[i][top+1].f;
+                            break;
                         case OP_IS_LESS_THAN_OR_EQUAL:
-                                stack[i][top].f = stack[i][top].f <= stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f <= stack[i][top+1].f;
+                            break;
                         case OP_IS_GREATER_THAN:
-                                stack[i][top].f = stack[i][top].f > stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f > stack[i][top+1].f;
+                            break;
                         case OP_IS_GREATER_THAN_OR_EQUAL:
-                                stack[i][top].f = stack[i][top].f >= stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f >= stack[i][top+1].f;
+                            break;
                         case OP_LOGICAL_AND:
-                                stack[i][top].f = stack[i][top].f && stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f && stack[i][top+1].f;
+                            break;
                         case OP_LOGICAL_OR:
-                                stack[i][top].f = stack[i][top].f || stack[i][top + 1].f;
-                                break;
+                            stack[i][top].f = stack[i][top].f || stack[i][top+1].f;
+                            break;
                         case OP_LOGICAL_NOT:
-                                stack[i][top].f = !stack[i][top].f;
-                                break;
+                            stack[i][top].f = !stack[i][top].f;
+                            break;
+                        case OP_CONDITIONAL_IF:
+                            if (stack[i][top].f)
+                                stack[i][top].f = stack[i+1][top].f;
+                            else
+                                return 0;
+                        case OP_CONDITIONAL_IFELSE:
+                            if (stack[i][top].f)
+                                stack[i][top].f = stack[i+1][top].f;
+                            else
+                                stack[i][top].f = stack[i+2][top].f;
+                        case OP_CONDITIONAL_IFNOT:
+                            if (!stack[i][top].i32)
+                                stack[i][top].f = stack[i+1][top].f;
+                            else
+                                return 0;
                         default: goto error;
                     }
                     trace_eval("%f\n", stack[i][top].f);
-                } else {
-                    trace_eval("%d %c %d = ", stack[i][top].i32,
-                               op_table[tok->op].name, stack[i][top + 1].i32);
+                } else if (tok->datatype == 'd') {
+                    trace_eval("%f %s %f = ", stack[i][top].d,
+                               op_table[tok->op].name, stack[i][top+1].d);
                     switch (tok->op) {
                         case OP_ADD:
-                            stack[i][top].i32 = stack[i][top].i32 + stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d + stack[i][top+1].d;
                             break;
                         case OP_SUBTRACT:
-                            stack[i][top].i32 = stack[i][top].i32 - stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d - stack[i][top+1].d;
                             break;
                         case OP_MULTIPLY:
-                            stack[i][top].i32 = stack[i][top].i32 * stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d * stack[i][top+1].d;
                             break;
                         case OP_DIVIDE:
-                            stack[i][top].i32 = stack[i][top].i32 / stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d / stack[i][top+1].d;
                             break;
                         case OP_MODULO:
-                            stack[i][top].i32 = stack[i][top].i32 % stack[i][top + 1].i32;
+                            stack[i][top].d = fmod(stack[i][top].d, stack[i][top+1].d);
                             break;
                         case OP_IS_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 == stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d == stack[i][top+1].d;
                             break;
                         case OP_IS_NOT_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 != stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d != stack[i][top+1].d;
                             break;
                         case OP_IS_LESS_THAN:
-                            stack[i][top].i32 = stack[i][top].i32 < stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d < stack[i][top+1].d;
                             break;
                         case OP_IS_LESS_THAN_OR_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 <= stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d <= stack[i][top+1].d;
                             break;
                         case OP_IS_GREATER_THAN:
-                            stack[i][top].i32 = stack[i][top].i32 > stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d > stack[i][top+1].d;
                             break;
                         case OP_IS_GREATER_THAN_OR_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 >= stack[i][top + 1].i32;
-                            break;
-                        case OP_LEFT_BIT_SHIFT:
-                            stack[i][top].i32 = stack[i][top].i32 << stack[i][top + 1].i32;
-                            break;
-                        case OP_RIGHT_BIT_SHIFT:
-                            stack[i][top].i32 = stack[i][top].i32 >> stack[i][top + 1].i32;
-                            break;
-                        case OP_BITWISE_AND:
-                            stack[i][top].i32 = stack[i][top].i32 & stack[i][top + 1].i32;
-                            break;
-                        case OP_BITWISE_OR:
-                            stack[i][top].i32 = stack[i][top].i32 | stack[i][top + 1].i32;
-                            break;
-                        case OP_BITWISE_XOR:
-                            stack[i][top].i32 = stack[i][top].i32 ^ stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d >= stack[i][top+1].d;
                             break;
                         case OP_LOGICAL_AND:
-                            stack[i][top].i32 = stack[i][top].i32 && stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d && stack[i][top+1].d;
                             break;
                         case OP_LOGICAL_OR:
-                            stack[i][top].i32 = stack[i][top].i32 || stack[i][top + 1].i32;
+                            stack[i][top].d = stack[i][top].d || stack[i][top+1].d;
                             break;
                         case OP_LOGICAL_NOT:
-                            ++top;
+                            stack[i][top].d = !stack[i][top].d;
+                            break;
+                        case OP_CONDITIONAL_IF:
+                            if (stack[i][top].d)
+                                stack[i][top].d = stack[i+1][top].d;
+                            else
+                                return 0;
+                        case OP_CONDITIONAL_IFELSE:
+                            if (stack[i][top].d)
+                                stack[i][top].d = stack[i+1][top].d;
+                            else
+                                stack[i][top].d = stack[i+2][top].d;
+                        case OP_CONDITIONAL_IFNOT:
+                            if (!stack[i][top].d)
+                                stack[i][top].d = stack[i+1][top].d;
+                            else
+                                return 0;
+                        default: goto error;
+                    }
+                    trace_eval("%f\n", stack[i][top].d);
+                } else {
+                    trace_eval("%d %s %d = ", stack[i][top].i32,
+                               op_table[tok->op].name, stack[i][top+1].i32);
+                    switch (tok->op) {
+                        case OP_ADD:
+                            stack[i][top].i32 = stack[i][top].i32 + stack[i][top+1].i32;
+                            break;
+                        case OP_SUBTRACT:
+                            stack[i][top].i32 = stack[i][top].i32 - stack[i][top+1].i32;
+                            break;
+                        case OP_MULTIPLY:
+                            stack[i][top].i32 = stack[i][top].i32 * stack[i][top+1].i32;
+                            break;
+                        case OP_DIVIDE:
+                            stack[i][top].i32 = stack[i][top].i32 / stack[i][top+1].i32;
+                            break;
+                        case OP_MODULO:
+                            stack[i][top].i32 = stack[i][top].i32 % stack[i][top+1].i32;
+                            break;
+                        case OP_IS_EQUAL:
+                            stack[i][top].i32 = stack[i][top].i32 == stack[i][top+1].i32;
+                            break;
+                        case OP_IS_NOT_EQUAL:
+                            stack[i][top].i32 = stack[i][top].i32 != stack[i][top+1].i32;
+                            break;
+                        case OP_IS_LESS_THAN:
+                            stack[i][top].i32 = stack[i][top].i32 < stack[i][top+1].i32;
+                            break;
+                        case OP_IS_LESS_THAN_OR_EQUAL:
+                            stack[i][top].i32 = stack[i][top].i32 <= stack[i][top+1].i32;
+                            break;
+                        case OP_IS_GREATER_THAN:
+                            stack[i][top].i32 = stack[i][top].i32 > stack[i][top+1].i32;
+                            break;
+                        case OP_IS_GREATER_THAN_OR_EQUAL:
+                            stack[i][top].i32 = stack[i][top].i32 >= stack[i][top+1].i32;
+                            break;
+                        case OP_LEFT_BIT_SHIFT:
+                            stack[i][top].i32 = stack[i][top].i32 << stack[i][top+1].i32;
+                            break;
+                        case OP_RIGHT_BIT_SHIFT:
+                            stack[i][top].i32 = stack[i][top].i32 >> stack[i][top+1].i32;
+                            break;
+                        case OP_BITWISE_AND:
+                            stack[i][top].i32 = stack[i][top].i32 & stack[i][top+1].i32;
+                            break;
+                        case OP_BITWISE_OR:
+                            stack[i][top].i32 = stack[i][top].i32 | stack[i][top+1].i32;
+                            break;
+                        case OP_BITWISE_XOR:
+                            stack[i][top].i32 = stack[i][top].i32 ^ stack[i][top+1].i32;
+                            break;
+                        case OP_LOGICAL_AND:
+                            stack[i][top].i32 = stack[i][top].i32 && stack[i][top+1].i32;
+                            break;
+                        case OP_LOGICAL_OR:
+                            stack[i][top].i32 = stack[i][top].i32 || stack[i][top+1].i32;
+                            break;
+                        case OP_LOGICAL_NOT:
                             stack[i][top].i32 = !stack[i][top].i32;
                             break;
+                        case OP_CONDITIONAL_IF:
+                            if (stack[i][top].i32)
+                                stack[i][top].i32 = stack[i+1][top].i32;
+                            else
+                                return 0;
+                        case OP_CONDITIONAL_IFELSE:
+                            if (stack[i][top].i32)
+                                stack[i][top].i32 = stack[i+1][top].i32;
+                            else
+                                stack[i][top].i32 = stack[i+2][top].i32;
+                        case OP_CONDITIONAL_IFNOT:
+                            if (!stack[i][top].i32)
+                                stack[i][top].i32 = stack[i+1][top].i32;
+                            else
+                                return 0;
                         default: goto error;
                     }
                     trace_eval("%d\n", stack[i][top].i32);
@@ -1009,32 +1194,71 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_FUNC:
-            switch (function_table[tok->func].arity) {
-            case 0:
-                ++top;
-                for (i = 0; i < to->length; i++) {
-                    stack[i][top].f = ((func_float_arity0*)function_table[tok->func].func)();
-                    trace_eval("%s = %f\n", function_table[tok->func].name,
-                               stack[i][top].f);
+            top -= function_table[tok->func].arity-1;
+            for (i = 0; i < to->length; i++) {
+                if (tok->datatype == 'f') {
+                    switch (function_table[tok->func].arity) {
+                        case 0:
+                            stack[i][top].f = ((func_float_arity0*)function_table[tok->func].func_float)();
+                            trace_eval("%s = %f\n", function_table[tok->func].name,
+                                       stack[i][top].f);
+                            break;
+                        case 1:
+                            trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].f);
+                            stack[i][top].f = ((func_float_arity1*)function_table[tok->func].func_float)(stack[i][top].f);
+                            trace_eval("%f\n", stack[i][top].f);
+                            break;
+                        case 2:
+                            trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
+                                       stack[i][top].f, stack[i][top+1].f);
+                            stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f);
+                            trace_eval("%f\n", stack[i][top].f);
+                            break;
+                        default: goto error;
+                    }
                 }
-                break;
-            case 1:
-                for (i = 0; i < to->length; i++) {
-                    trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].f);
-                    stack[i][top].f = ((func_float_arity1*)function_table[tok->func].func)(stack[i][top].f);
-                    trace_eval("%f\n", stack[i][top].f);
+                else if (tok->datatype == 'd') {
+                    switch (function_table[tok->func].arity) {
+                        case 0:
+                            stack[i][top].d = ((func_float_arity0*)function_table[tok->func].func_double)();
+                            trace_eval("%s = %f\n", function_table[tok->func].name,
+                                       stack[i][top].d);
+                            break;
+                        case 1:
+                            trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].d);
+                            stack[i][top].d = ((func_float_arity1*)function_table[tok->func].func_double)(stack[i][top].d);
+                            trace_eval("%f\n", stack[i][top].d);
+                            break;
+                        case 2:
+                            trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
+                                       stack[i][top].d, stack[i][top+1].d);
+                            stack[i][top].d = ((func_float_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
+                            trace_eval("%f\n", stack[i][top].d);
+                            break;
+                        default: goto error;
+                    }
                 }
-                break;
-            case 2:
-                --top;
-                for (i = 0; i < to->length; i++) {
-                    trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
-                               stack[i][top].f, stack[i][top + 1].f);
-                    stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func)(stack[i][top].f, stack[i][top + 1].f);
-                    trace_eval("%f\n", stack[i][top].f);
+                else if (tok->datatype == 'i') {
+                    switch (function_table[tok->func].arity) {
+                        case 0:
+                            stack[i][top].i32 = ((func_float_arity0*)function_table[tok->func].func_int32)();
+                            trace_eval("%s = %d\n", function_table[tok->func].name,
+                                       stack[i][top].i32);
+                            break;
+                        case 1:
+                            trace_eval("%s(%d) = ", function_table[tok->func].name, stack[i][top].i32);
+                            stack[i][top].i32 = ((func_float_arity1*)function_table[tok->func].func_int32)(stack[i][top].i32);
+                            trace_eval("%d\n", stack[i][top].i32);
+                            break;
+                        case 2:
+                            trace_eval("%s(%d,%d) = ", function_table[tok->func].name,
+                                       stack[i][top].i32, stack[i][top+1].i32);
+                            stack[i][top].i32 = ((func_float_arity2*)function_table[tok->func].func_int32)(stack[i][top].i32, stack[i][top+1].i32);
+                            trace_eval("%d\n", stack[i][top].i32);
+                            break;
+                        default: goto error;
+                    }
                 }
-                break;
-            default: goto error;
             }
             break;
         default: goto error;

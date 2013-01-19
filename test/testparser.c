@@ -16,7 +16,8 @@ static double get_current_time()
 
 int main()
 {
-    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
+    //const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
+    const char str[] = "y=x?1:2";
     int input_history_size, output_history_size;
     mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 1, &input_history_size, &output_history_size);
     printf("Parsing %s\n", str);
@@ -44,7 +45,7 @@ int main()
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
 
-    int iterations = 1000000;
+    int iterations = 1;
     double then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
     while (iterations--) {
