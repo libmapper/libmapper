@@ -6,7 +6,7 @@
 
 #include "mapper_internal.h"
 
-#define STACK_SIZE 256
+#define STACK_SIZE 128
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
@@ -706,7 +706,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         switch (tok.toktype) {
             case TOK_CONST:
                 // push to output stack
-                memcpy(outstack + (++outstack_index), &tok, sizeof(mapper_token_t));
+                PUSH_TO_OUTPUT(tok);
                 break;
             case TOK_VAR:
                 // set datatype
