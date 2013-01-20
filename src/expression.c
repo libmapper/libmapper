@@ -945,8 +945,7 @@ int mapper_expr_evaluate(mapper_expr expr,
 
     int i = 0, top = -1, count = 0;
     mapper_token_t *tok = expr->start;
-    /* Increment index position of output data structure. */
-    to->position = (to->position + 1) % to->size;
+
     while (count < expr->length && tok->toktype != TOK_END) {
         switch (tok->toktype) {
         case TOK_CONST:
@@ -985,7 +984,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                     break;
                 case 'y':
                     ++top;
-                    idx = ((tok->history_index + to->position
+                    idx = ((tok->history_index + to->position + 1
                             + to->size) % to->size);
                     if (to->type == 'f') {
                         float *v = to->value + idx * to->length * mapper_type_size(to->type);
@@ -1300,6 +1299,10 @@ int mapper_expr_evaluate(mapper_expr expr,
         tok++;
         count++;
     }
+
+    /* Increment index position of output data structure.
+     * We do this after computation to handle conditional output. */
+    to->position = (to->position + 1) % to->size;
 
     if (to->type == 'f') {
         float *v = msig_history_value_pointer(*to);
