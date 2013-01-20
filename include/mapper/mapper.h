@@ -722,6 +722,22 @@ mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
 mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
     mapper_db db, const char *device_name);
 
+/*! Find information for a registered input signal.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to find in the database.
+ *  \param signal_name Name of the input signal to find in the database.
+ *  \return            Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
+    mapper_db db, const char *device_name, const char *signal_name);
+
+/*! Find information for a registered output signal.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to find in the database.
+ *  \param signal_name Name of the output signal to find in the database.
+ *  \return            Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
+    mapper_db db, const char *device_name, char const *signal_name);
+
 /*! Return the list of inputs for a given device.
  *  \param db            The database to query.
  *  \param device_name   Name of the device to match for inputs.

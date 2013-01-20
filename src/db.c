@@ -1024,31 +1024,29 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
                                           mapper_message_t *params)
 {
     mapper_db_signal sig;
-    mapper_db_signal *psig = 0;
+    int is_new = 0;
 
     //need to find out if signal is output from params
     int is_output = mapper_msg_get_direction(params);
     if (is_output == 1)
-        psig = mapper_db_match_outputs_by_device_name(db, device_name, name);
+        sig = mapper_db_get_output_by_device_and_signal_names(db, device_name, name);
     else if (is_output == 0)
-        psig = mapper_db_match_inputs_by_device_name(db, device_name, name);
+        sig = mapper_db_get_input_by_device_and_signal_names(db, device_name, name);
     else
         return 0;
-    // TODO: actually we want to find the exact signal
 
-    if (psig)
-        sig = *psig;
-    else {
+    if (!sig) {
         sig = (mapper_db_signal) list_new_item(sizeof(mapper_db_signal_t));
 
         // Defaults (int, length=1)
         mapper_db_signal_init(sig, is_output, 'i', 1, 0, 0);
+        is_new = 1;
     }
 
     if (sig) {
         update_signal_record_params(sig, name, device_name, params);
 
-        if (!psig)
+        if (is_new)
             list_prepend_item(sig, (void**)(is_output
                                             ? &db->registered_outputs
                                             : &db->registered_inputs));
@@ -1057,13 +1055,10 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
         while (cb) {
             temp = cb->next;
             signal_callback_func *f = cb->f;
-            f(sig, psig ? MDB_MODIFY : MDB_NEW, cb->context);
+            f(sig, is_new ? MDB_NEW : MDB_MODIFY, cb->context);
             cb = temp;
         }
     }
-
-    if (psig)
-        mapper_db_signal_done(psig);
 
     return 1;
 }
@@ -1196,6 +1191,38 @@ mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
     return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
+mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
+    mapper_db db, const char *device_name, const char *signal_name)
+{
+    mapper_db_signal sig = db->registered_inputs;
+    if (!sig)
+        return 0;
+
+    while (sig) {
+        if (strcmp(sig->device_name, device_name)==0
+            && strcmp(sig->name, signal_name)==0)
+            return sig;
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
+mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
+    mapper_db db, const char *device_name, const char *signal_name)
+{
+    mapper_db_signal sig = db->registered_outputs;
+    if (!sig)
+        return 0;
+
+    while (sig) {
+        if (strcmp(sig->device_name, device_name)==0
+            && strcmp(sig->name, signal_name)==0)
+            return sig;
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
 static int cmp_match_signal_device_name(void *context_data,
                                         mapper_db_signal sig)
 {
@@ -1203,7 +1230,7 @@ static int cmp_match_signal_device_name(void *context_data,
     const char *signal_pattern = ((const char*)context_data
                                   + strlen(device_name) + 1);
     return strcmp(device_name, sig->device_name)==0
-        && strcmp(sig->name, signal_pattern) == 0;
+        && strstr(sig->name, signal_pattern);
 }
 
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
