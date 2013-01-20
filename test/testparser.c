@@ -45,21 +45,23 @@ int main()
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
 
-    int iterations = 1;
+    int iterations = 1000000;
+    int results = 0;
     double then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
     while (iterations--) {
-        if (!mapper_expr_evaluate(e, &inh, &outh)) {
-            printf("nothing returned.\n");
-            break;
-        }
+        results += mapper_expr_evaluate(e, &inh, &outh);
     }
     double now = get_current_time();
     printf("%f seconds.\n", now-then);
 
-    printf("Evaluate with x=%f: %f (expected: %f)\n",
-           inp, outp,
-           26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp)*3*4+cosf(2.0f));
+    if (results) {
+        printf("Evaluate with x=%f: %f (expected: %f)\n",
+               inp, outp,
+               26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp)*3*4+cosf(2.0f));
+    }
+    else
+        printf("NO results.\n");
 
     mapper_expr_free(e);
     free(inh.timetag);

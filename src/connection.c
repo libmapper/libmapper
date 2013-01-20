@@ -796,9 +796,15 @@ void mhist_realloc(mapper_signal_history_t *history,
         history->value = realloc(history->value, history_size * sample_size);
         history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
         if (is_output) {
+            // Initialize entire history to 0
+            memset(history->value, 0, history_size * sample_size);
             history->position = -1;
         }
-        else if (history->position != 0) {
+        else if (history->position == 0) {
+            memset(history->value + sample_size * history->size, 0,
+                   sample_size * (history_size - history->size));
+        }
+        else {
             int new_position = history_size - history->size + history->position;
             memcpy(history->value + sample_size * new_position,
                    history->value + sample_size * history->position,
@@ -806,7 +812,8 @@ void mhist_realloc(mapper_signal_history_t *history,
             memcpy(&history->timetag[new_position],
                    &history->timetag[history->position], sizeof(mapper_timetag_t)
                    * (history->size - history->position));
-            history->position = new_position;
+            memset(history->value + sample_size * history->position, 0,
+                   sample_size * (history_size - history->size));
         }
     }
     else {

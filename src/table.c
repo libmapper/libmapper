@@ -86,7 +86,7 @@ void table_remove_key(table t, const char *key, int free_value)
 {
     void **v = table_find_pp(t, key);
     if (v) {
-        /* Some pointer magic to jump back to the begging of the table node. */
+        /* Some pointer magic to jump back to the beginning of the table node. */
         string_table_node_t *n = 0;
         n = (string_table_node_t*)((char*)v-((char*)&n->value - (char*)n));
 
@@ -138,8 +138,8 @@ int table_size(table t)
 /* Higher-level interface, where table stores arbitrary OSC arguments
  * along with their type. */
 
-void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          lo_type type, lo_arg *arg)
+int mapper_table_add_or_update_osc_value(table t, const char *key,
+                                         lo_type type, lo_arg *arg)
 {
     mapper_osc_value_t **pval =
         (mapper_osc_value_t**)table_find_pp(t, key);
@@ -152,16 +152,26 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
          * string, otherwise just copy over the old value. */
         if (type == 's' || type == 'S')
         {
+            if (((*pval)->type == 's' || (*pval)->type == 'S')
+                && strcmp(&arg->s, &(*pval)->value.s)==0)
+                return 0;
+
             *pval = realloc(*pval, (strlen(&arg->s)
                                     + sizeof(mapper_osc_value_t)));
             (*pval)->type = type;
             strcpy(&(*pval)->value.s, &arg->s);
+            return 1;
         } else {
+            if ((*pval)->type == type
+                && memcmp(&(*pval)->value, arg, sizeof(lo_arg))==0)
+                return 0;
+
             (*pval)->type = type;
             if (arg)
                 (*pval)->value = *arg;
             else
                 (*pval)->value.h = 0;
+            return 1;
         }
     }
     else {
@@ -182,7 +192,9 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
         val->type = type;
         table_add(t, key, val);
         table_sort(t);
+        return 1;
     }
+    return 0;
 }
 
 #ifdef DEBUG
