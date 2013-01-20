@@ -8,9 +8,9 @@
 
 #define STACK_SIZE 128
 #ifdef DEBUG
-#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 1
+#define TRACING 0
 #endif
 
 
@@ -356,13 +356,15 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         return ++index;
     case '-':
         // could be either subtraction or negation
-        tok->toktype = TOK_OP;
-        tok->op = OP_SUBTRACT;
         i = index-1;
         // back up one character
         while (i && strchr(" \t\r\n", str[i]))
            i--;
-        if (!isalpha(str[i]) && !strchr(")]}", str[i])) {
+        if (isalpha(str[i]) || isdigit(str[i]) || strchr(")]}", str[i])) {
+            tok->toktype = TOK_OP;
+            tok->op = OP_SUBTRACT;
+        }
+        else {
             tok->toktype = TOK_NEGATE;
         }
         return ++index;
@@ -872,10 +874,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else if (outstack[outstack_index].history_index > -1)
                     {FAIL("Output history index cannot be > -1.");}
 
-                if (outstack[outstack_index].var == 'x' && tok.i < oldest_input)
-                    oldest_input = tok.i;
-                else if (tok.i < oldest_output)
-                    oldest_output = tok.i;
+                if (outstack[outstack_index].var == 'x'
+                    && outstack[outstack_index].history_index < oldest_input)
+                    oldest_input = outstack[outstack_index].history_index;
+                else if (outstack[outstack_index].var == 'y'
+                         && outstack[outstack_index].history_index < oldest_output)
+                    oldest_output = outstack[outstack_index].history_index;
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype != TOK_CLOSE_CURLY)
                     {FAIL("Unmatched brace.");}
