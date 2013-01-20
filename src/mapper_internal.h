@@ -604,8 +604,12 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
-void mapper_msg_add_or_update_extra_params(table t,
-                                                  mapper_message_t *params);
+/*! Store 'extra' parameters specified in a mapper_message to a table.
+ *  \param t      Table to edit.
+ *  \param params Message containing parameters.
+ *  \return The number of parameters added or modified. */
+int mapper_msg_add_or_update_extra_params(table t,
+                                          mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
@@ -695,9 +699,14 @@ int table_add_or_update(table t, const char *key, void *value);
 void table_dump_osc_values(table t);
 #endif
 
-/*! Add a typed OSC argument to a string table. */
-void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          lo_type type, lo_arg *arg);
+/*! Add a typed OSC argument to a string table.
+ *  \param t    Table to update.
+ *  \param key  Key to store.
+ *  \param type OSC type of value to add.
+ *  \param arg  OSC value to add
+ *  \return The number of table values added or modified. */
+int mapper_table_add_or_update_osc_value(table t, const char *key,
+                                         lo_type type, lo_arg *arg);
 
 /*! Add OSC arguments contained in a string table to a lo_message */
 void mapper_msg_add_osc_value_table(lo_message m, table t);

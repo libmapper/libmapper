@@ -372,16 +372,16 @@ static void free_query_src_dest_queries(list_header_t *lh)
 /* Helper functions for updating struct fields based on message
  * parameters. */
 
-static void update_signal_value_if_arg(mapper_message_t *params,
-                                       mapper_msg_param_t field,
-                                       char sigtype,
-                                       mapper_signal_value_t **pv)
+static int update_signal_value_if_arg(mapper_message_t *params,
+                                      mapper_msg_param_t field,
+                                      char sigtype,
+                                      mapper_signal_value_t **pv)
 {
     lo_arg **a = mapper_msg_get_param(params, field);
     const char *type = mapper_msg_get_type(params, field);
 
     if (!a || !(*a))
-        return;
+        return 0;
 
     mapper_signal_value_t v;
     int update = 0;
@@ -405,26 +405,30 @@ static void update_signal_value_if_arg(mapper_message_t *params,
             update = 1;
         }
     }
-    if (update) {
+    if (update && (!*pv || memcmp(&v, pv, sizeof(mapper_signal_value_t))==0)) {
         *pv = realloc(*pv, sizeof(mapper_signal_value_t));
         **pv = v;
+        return 1;
     }
+    return 0;
 }
 
-static void update_string_if_different(char **pdest_str,
-                                       const char *src_str)
+static int update_string_if_different(char **pdest_str,
+                                      const char *src_str)
 {
     if (!(*pdest_str) || strcmp((*pdest_str), src_str)) {
         char *str = (char*) realloc((void*)(*pdest_str),
                                     strlen(src_str)+1);
         strcpy(str, src_str);
         (*pdest_str) = str;
+        return 1;
     }
+    return 0;
 }
 
-static void update_string_if_arg(char **pdest_str,
-                                 mapper_message_t *params,
-                                 mapper_msg_param_t field)
+static int update_string_if_arg(char **pdest_str,
+                                mapper_message_t *params,
+                                mapper_msg_param_t field)
 {
     lo_arg **a = mapper_msg_get_param(params, field);
     const char *type = mapper_msg_get_type(params, field);
@@ -436,31 +440,45 @@ static void update_string_if_arg(char **pdest_str,
                                     strlen(&(*a)->s)+1);
         strcpy(str, &(*a)->s);
         (*pdest_str) = str;
+        return 1;
     }
+    return 0;
 }
 
-static void update_char_if_arg(char *pdest_char,
-                               mapper_message_t *params,
-                               mapper_msg_param_t field)
-{
-    lo_arg **a = mapper_msg_get_param(params, field);
-    const char *type = mapper_msg_get_type(params, field);
-
-    if (a && (*a) && (type[0]=='s' || type[0]=='S'))
-        (*pdest_char) = (&(*a)->s)[0];
-    else if (a && (*a) && type[0]=='c')
-        (*pdest_char) = (*a)->c;
-}
-
-static void update_int_if_arg(int *pdest_int,
+static int update_char_if_arg(char *pdest_char,
                               mapper_message_t *params,
                               mapper_msg_param_t field)
 {
     lo_arg **a = mapper_msg_get_param(params, field);
     const char *type = mapper_msg_get_type(params, field);
 
-    if (a && (*a) && (type[0]=='i'))
+    if (a && (*a) && (type[0]=='s' || type[0]=='S')) {
+        if (*pdest_char != (&(*a)->s)[0]) {
+            (*pdest_char) = (&(*a)->s)[0];
+            return 1;
+        }
+    }
+    else if (a && (*a) && type[0]=='c') {
+        if (*pdest_char != (*a)->c) {
+            (*pdest_char) = (*a)->c;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int update_int_if_arg(int *pdest_int,
+                             mapper_message_t *params,
+                             mapper_msg_param_t field)
+{
+    lo_arg **a = mapper_msg_get_param(params, field);
+    const char *type = mapper_msg_get_type(params, field);
+
+    if (a && (*a) && (type[0]=='i') && (*pdest_int != (&(*a)->i)[0])) {
         (*pdest_int) = (&(*a)->i)[0];
+        return 1;
+    }
+    return 0;
 }
 
 /* Static data for property tables embedded in the db data
@@ -731,31 +749,35 @@ int mapper_db_property_lookup(void *thestruct, char o_type,
 
 /*! Update information about a given device record based on message
  *  parameters. */
-static void update_device_record_params(mapper_db_device reg,
+static int update_device_record_params(mapper_db_device reg,
                                         const char *name,
                                         mapper_message_t *params)
 {
-    update_string_if_different(&reg->name, name);
+    int updated = 0;
 
-    update_string_if_arg(&reg->host, params, AT_IP);
+    updated |= update_string_if_different(&reg->name, name);
 
-    update_int_if_arg(&reg->port, params, AT_PORT);
+    updated += update_string_if_arg(&reg->host, params, AT_IP);
 
-    update_int_if_arg(&reg->n_inputs, params, AT_NUM_INPUTS);
+    updated += update_int_if_arg(&reg->port, params, AT_PORT);
 
-    update_int_if_arg(&reg->n_outputs, params, AT_NUM_OUTPUTS);
+    updated += update_int_if_arg(&reg->n_inputs, params, AT_NUM_INPUTS);
 
-    update_int_if_arg(&reg->n_links_in, params, AT_NUM_LINKS_IN);
+    updated += update_int_if_arg(&reg->n_outputs, params, AT_NUM_OUTPUTS);
 
-    update_int_if_arg(&reg->n_links_out, params, AT_NUM_LINKS_OUT);
+    updated += update_int_if_arg(&reg->n_links_in, params, AT_NUM_LINKS_IN);
 
-    update_int_if_arg(&reg->n_connections_in, params, AT_NUM_CONNECTIONS_IN);
+    updated += update_int_if_arg(&reg->n_links_out, params, AT_NUM_LINKS_OUT);
 
-    update_int_if_arg(&reg->n_connections_out, params, AT_NUM_CONNECTIONS_OUT);
+    updated += update_int_if_arg(&reg->n_connections_in, params, AT_NUM_CONNECTIONS_IN);
 
-    update_int_if_arg(&reg->version, params, AT_REV);
+    updated += update_int_if_arg(&reg->n_connections_out, params, AT_NUM_CONNECTIONS_OUT);
 
-    mapper_msg_add_or_update_extra_params(reg->extra, params);
+    updated += update_int_if_arg(&reg->version, params, AT_REV);
+
+    updated += mapper_msg_add_or_update_extra_params(reg->extra, params);
+
+    return updated;
 }
 
 int mapper_db_add_or_update_device_params(mapper_db db,
@@ -763,7 +785,7 @@ int mapper_db_add_or_update_device_params(mapper_db db,
                                           mapper_message_t *params)
 {
     mapper_db_device reg = mapper_db_get_device_by_name(db, name);
-    int rc = 0;
+    int rc = 0, updated = 0;
 
     if (!reg) {
         reg = (mapper_db_device) list_new_item(sizeof(*reg));
@@ -774,13 +796,15 @@ int mapper_db_add_or_update_device_params(mapper_db db,
     }
 
     if (reg) {
-        update_device_record_params(reg, name, params);
+        updated = update_device_record_params(reg, name, params);
 
-        fptr_list cb = db->device_callbacks;
-        while (cb) {
-            device_callback_func *f = cb->f;
-            f(reg, rc ? MDB_NEW : MDB_MODIFY, cb->context);
-            cb = cb->next;
+        if (rc || updated) {
+            fptr_list cb = db->device_callbacks;
+            while (cb) {
+                device_callback_func *f = cb->f;
+                f(reg, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                cb = cb->next;
+            }
         }
     }
 
@@ -837,7 +861,6 @@ void mapper_db_remove_device(mapper_db db, const char *name)
 mapper_db_device mapper_db_get_device_by_name(mapper_db db,
                                               const char *name)
 {
-
     mapper_db_device reg = db->registered_devices;
     while (reg) {
         if (strcmp(reg->name, name)==0)
@@ -845,7 +868,6 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
         reg = list_get_next(reg);
     }
     return 0;
-
 }
 
 mapper_db_device *mapper_db_get_all_devices(mapper_db db)
@@ -987,35 +1009,40 @@ void mapper_db_remove_device_callback(mapper_db db,
 
 /*! Update information about a given signal record based on message
  *  parameters. */
-static void update_signal_record_params(mapper_db_signal sig,
-                                        const char *name,
-                                        const char *device_name,
-                                        mapper_message_t *params)
+static int update_signal_record_params(mapper_db_signal sig,
+                                       const char *name,
+                                       const char *device_name,
+                                       mapper_message_t *params)
 {
-    update_string_if_different((char**)&sig->name, name);
-    update_string_if_different((char**)&sig->device_name, device_name);
+    int updated = 0;
+    updated += update_string_if_different((char**)&sig->name, name);
+    updated += update_string_if_different((char**)&sig->device_name, device_name);
 
-    update_int_if_arg(&sig->id, params, AT_ID);
+    updated += update_int_if_arg(&sig->id, params, AT_ID);
 
-    update_char_if_arg(&sig->type, params, AT_TYPE);
+    updated += update_char_if_arg(&sig->type, params, AT_TYPE);
 
-    update_int_if_arg(&sig->length, params, AT_LENGTH);
+    updated += update_int_if_arg(&sig->length, params, AT_LENGTH);
 
-    update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
+    updated += update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
-    update_signal_value_if_arg(params, AT_MAX,
-                               sig->type, &sig->maximum);
+    updated += update_signal_value_if_arg(params, AT_MAX,
+                                          sig->type, &sig->maximum);
 
-    update_signal_value_if_arg(params, AT_MIN,
-                               sig->type, &sig->minimum);
+    updated += update_signal_value_if_arg(params, AT_MIN,
+                                          sig->type, &sig->minimum);
 
     int is_output = mapper_msg_get_direction(params);
-    if (is_output != -1)
+    if (is_output != -1 && is_output != sig->is_output) {
         sig->is_output = is_output;
+        updated++;
+    }
 
-    update_int_if_arg(&sig->num_instances, params, AT_INSTANCES);
+    updated += update_int_if_arg(&sig->num_instances, params, AT_INSTANCES);
 
-    mapper_msg_add_or_update_extra_params(sig->extra, params);
+    updated += mapper_msg_add_or_update_extra_params(sig->extra, params);
+
+    return updated;
 }
 
 int mapper_db_add_or_update_signal_params(mapper_db db,
@@ -1024,7 +1051,7 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
                                           mapper_message_t *params)
 {
     mapper_db_signal sig;
-    int is_new = 0;
+    int rc = 0, updated = 0;
 
     //need to find out if signal is output from params
     int is_output = mapper_msg_get_direction(params);
@@ -1040,27 +1067,30 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
 
         // Defaults (int, length=1)
         mapper_db_signal_init(sig, is_output, 'i', 1, 0, 0);
-        is_new = 1;
+        rc = 1;
     }
 
     if (sig) {
         update_signal_record_params(sig, name, device_name, params);
 
-        if (is_new)
+        if (rc)
             list_prepend_item(sig, (void**)(is_output
                                             ? &db->registered_outputs
                                             : &db->registered_inputs));
-        // TODO: Should we really allow callbacks to free themselves?
-        fptr_list cb = db->signal_callbacks, temp;
-        while (cb) {
-            temp = cb->next;
-            signal_callback_func *f = cb->f;
-            f(sig, is_new ? MDB_NEW : MDB_MODIFY, cb->context);
-            cb = temp;
+
+        if (rc || updated) {
+            // TODO: Should we really allow callbacks to free themselves?
+            fptr_list cb = db->signal_callbacks, temp;
+            while (cb) {
+                temp = cb->next;
+                signal_callback_func *f = cb->f;
+                f(sig, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                cb = temp;
+            }
         }
     }
 
-    return 1;
+    return rc;
 }
 
 void mapper_db_signal_init(mapper_db_signal sig, int is_output,
@@ -1325,13 +1355,14 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /*! Update information about a given connection record based on
  *  message parameters. */
-static void update_connection_record_params(mapper_db_connection con,
-                                            const char *src_name,
-                                            const char *dest_name,
-                                            mapper_message_t *params)
+static int update_connection_record_params(mapper_db_connection con,
+                                           const char *src_name,
+                                           const char *dest_name,
+                                           mapper_message_t *params)
 {
-    update_string_if_different(&con->src_name, src_name);
-    update_string_if_different(&con->dest_name, dest_name);
+    int updated = 0;
+    updated += update_string_if_different(&con->src_name, src_name);
+    updated += update_string_if_different(&con->dest_name, dest_name);
 
     // TODO: Unhandled fields --
     /* char src_type; */
@@ -1339,63 +1370,96 @@ static void update_connection_record_params(mapper_db_connection con,
 
     mapper_clipping_type clip;
     clip = mapper_msg_get_clipping(params, AT_CLIP_MAX);
-    if (clip!=-1)
+    if (clip != -1 && clip != con->clip_max) {
         con->clip_max = clip;
+        updated++;
+    }
 
     clip = mapper_msg_get_clipping(params, AT_CLIP_MIN);
-    if (clip!=-1)
+    if (clip != -1 && clip != con->clip_min) {
         con->clip_min = clip;
+        updated++;
+    }
 
     lo_arg **a_range = mapper_msg_get_param(params, AT_RANGE);
     const char *t_range = mapper_msg_get_type(params, AT_RANGE);
 
     if (a_range && (*a_range)) {
         if (t_range[0] == 'f') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
+                || con->range.src_min != a_range[0]->f)
+                updated++;
             con->range.src_min = a_range[0]->f;
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
         } else if (t_range[0] == 'i') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
+                || con->range.src_min != (float)a_range[0]->i)
+                updated++;
             con->range.src_min = (float)a_range[0]->i;
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
         }
         if (t_range[1] == 'f') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
+                || con->range.src_max != a_range[1]->f)
+                updated++;
             con->range.src_max = a_range[1]->f;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         } else if (t_range[1] == 'i') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
+                || con->range.src_max != a_range[1]->i)
+                updated++;
             con->range.src_max = (float)a_range[1]->i;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         }
         if (t_range[2] == 'f') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
+                || con->range.dest_min != a_range[2]->f)
+                updated++;
             con->range.dest_min = a_range[2]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         } else if (t_range[2] == 'i') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
+                || con->range.dest_min != a_range[2]->i)
+                updated++;
             con->range.dest_min = (float)a_range[2]->i;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         }
         if (t_range[3] == 'f') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
+                || con->range.dest_max != a_range[3]->f)
+                updated++;
             con->range.dest_max = a_range[3]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         } else if (t_range[3] == 'i') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
+                || con->range.dest_max != a_range[3]->i)
+                updated++;
             con->range.dest_max = (float)a_range[3]->i;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         }
     }
 
-    update_int_if_arg(&con->id, params, AT_ID);
-    update_string_if_arg(&con->expression, params, AT_EXPRESSION);
-    update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
-    update_char_if_arg(&con->dest_type, params, AT_DEST_TYPE);
-    update_int_if_arg(&con->src_length, params, AT_SRC_LENGTH);
-    update_int_if_arg(&con->dest_length, params, AT_DEST_LENGTH);
+    updated += update_int_if_arg(&con->id, params, AT_ID);
+    updated += update_string_if_arg(&con->expression, params, AT_EXPRESSION);
+    updated += update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
+    updated += update_char_if_arg(&con->dest_type, params, AT_DEST_TYPE);
+    updated += update_int_if_arg(&con->src_length, params, AT_SRC_LENGTH);
+    updated += update_int_if_arg(&con->dest_length, params, AT_DEST_LENGTH);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
-    if (mode!=-1)
+    if (mode != -1 && mode != con->mode) {
         con->mode = mode;
+        updated++;
+    }
 
     int mute = mapper_msg_get_mute(params);
-    if (mute!=-1)
+    if (mute != -1 && mute != con->muted) {
         con->muted = mute;
+        updated++;
+    }
 
-    mapper_msg_add_or_update_extra_params(con->extra, params);
+    updated += mapper_msg_add_or_update_extra_params(con->extra, params);
+    return updated;
 }
 
 int mapper_db_add_or_update_connection_params(mapper_db db,
@@ -1404,34 +1468,35 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                               mapper_message_t *params)
 {
     mapper_db_connection con;
-    int found = 0;
+    int rc = 0, updated = 0;
 
     con = mapper_db_get_connection_by_signal_full_names(db, src_name,
                                                         dest_name);
-    if (con)
-        found = 1;
 
-    if (!found) {
+    if (!con) {
         con = (mapper_db_connection)
             list_new_item(sizeof(mapper_db_connection_t));
         con->extra = table_new();
+        rc = 1;
     }
 
     if (con) {
-        update_connection_record_params(con, src_name, dest_name, params);
+        updated = update_connection_record_params(con, src_name, dest_name, params);
 
-        if (!found)
+        if (rc)
             list_prepend_item(con, (void**)&db->registered_connections);
 
-        fptr_list cb = db->connection_callbacks;
-        while (cb) {
-            connection_callback_func *f = cb->f;
-            f(con, found ? MDB_MODIFY : MDB_NEW, cb->context);
-            cb = cb->next;
+        if (rc || updated) {
+            fptr_list cb = db->connection_callbacks;
+            while (cb) {
+                connection_callback_func *f = cb->f;
+                f(con, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                cb = cb->next;
+            }
         }
     }
 
-    return found;
+    return rc;
 }
 
 int mapper_db_connection_property_index(mapper_db_connection con,
@@ -1869,15 +1934,17 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 
 /*! Update information about a given link record based on message
  *  parameters. */
-static void update_link_record_params(mapper_db_link link,
-                                      const char *src_name,
-                                      const char *dest_name,
-                                      mapper_message_t *params)
+static int update_link_record_params(mapper_db_link link,
+                                     const char *src_name,
+                                     const char *dest_name,
+                                     mapper_message_t *params)
 {
-    update_string_if_different(&link->src_name, src_name);
-    update_string_if_different(&link->dest_name, dest_name);
+    int updated = 0;
+    updated += update_string_if_different(&link->src_name, src_name);
+    updated += update_string_if_different(&link->dest_name, dest_name);
 
-    mapper_msg_add_or_update_extra_params(link->extra, params);
+    updated += mapper_msg_add_or_update_extra_params(link->extra, params);
+    return updated;
 }
 
 int mapper_db_add_or_update_link_params(mapper_db db,
@@ -1886,7 +1953,7 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         mapper_message_t *params)
 {
     mapper_db_link link;
-    int rc = 0;
+    int rc = 0, updated = 0;
 
     link = mapper_db_get_link_by_src_dest_names(db, src_name, dest_name);
 
@@ -1897,16 +1964,18 @@ int mapper_db_add_or_update_link_params(mapper_db db,
     }
 
     if (link) {
-        update_link_record_params(link, src_name, dest_name, params);
+        updated = update_link_record_params(link, src_name, dest_name, params);
 
         if (rc)
             list_prepend_item(link, (void**)&db->registered_links);
 
-        fptr_list cb = db->link_callbacks;
-        while (cb) {
-            link_callback_func *f = cb->f;
-            f(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
-            cb = cb->next;
+        if (rc || updated) {
+            fptr_list cb = db->link_callbacks;
+            while (cb) {
+                link_callback_func *f = cb->f;
+                f(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                cb = cb->next;
+            }
         }
     }
     else {

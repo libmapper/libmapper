@@ -95,8 +95,8 @@ void loop()
         update = 0;
 
         // clear screen & cursor to home
-        printf("\e[2J\e[0;0H");
-        fflush(stdout);
+       // printf("\e[2J\e[0;0H");
+       // fflush(stdout);
 
         printf("Registered devices:\n");
         mapper_db_device *pdev = mapper_db_get_all_devices(db);
