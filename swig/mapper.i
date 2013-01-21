@@ -1156,6 +1156,9 @@ typedef struct _admin {} admin;
         mapper_db_remove_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
+    mapper_db_device get_device_by_name(const char *device_name) {
+        return mapper_db_get_device_by_name((mapper_db)$self, device_name);
+    }
     mapper_db_device_t **get_all_devices() {
         return mapper_db_get_all_devices((mapper_db)$self);
     }
@@ -1178,6 +1181,18 @@ typedef struct _admin {} admin;
     mapper_db_signal_t **get_outputs_by_device_name(const char *device_name) {
         return mapper_db_get_outputs_by_device_name((mapper_db)$self,
                                                     device_name);
+    }
+    mapper_db_signal get_input_by_device_and_signal_name(const char *device_name,
+                                                         const char *signal_name) {
+        return mapper_db_get_input_by_device_and_signal_names((mapper_db)$self,
+                                                              device_name,
+                                                              signal_name);
+    }
+    mapper_db_signal get_output_by_device_and_signal_name(const char *device_name,
+                                                          const char *signal_name) {
+        return mapper_db_get_output_by_device_and_signal_names((mapper_db)$self,
+                                                               device_name,
+                                                               signal_name);
     }
     mapper_db_signal_t **__match_inputs_by_device_name(
         const char *device_name, const char *input_pattern) {
