@@ -538,6 +538,11 @@ int mapper_router_remove_connection(mapper_router r,
                 free(c->props.src_name);
             if (c->props.dest_name)
                 free(c->props.dest_name);
+            if (c->props.expression)
+                free(c->props.expression);
+            if (c->props.query_name)
+                free(c->props.query_name);
+            table_free(c->props.extra, 1);
             for (i=0; i<c->parent->num_instances; i++) {
                 free(c->history[i].value);
                 free(c->history[i].timetag);
