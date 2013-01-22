@@ -569,7 +569,7 @@ void printtoken(mapper_token_t tok)
                                   tok.var, tok.datatype,
                                   tok.history_index,
                                   tok.vector_index);      break;
-    case TOK_FUNC:         printf("FUNC(%s%c)",
+    case TOK_FUNC:         printf("FUNC(%s)%c",
                                   function_table[tok.func].name,
                                   tok.datatype);
         break;
@@ -579,6 +579,8 @@ void printtoken(mapper_token_t tok)
     case TOK_END:          printf("END");                 break;
     default:               printf("(unknown token)");     break;
     }
+    if (tok.casttype)
+        printf("->%c", tok.casttype);
 }
 
 void printstack(const char *s, mapper_token_t *stack, int top)
@@ -599,18 +601,18 @@ void printexpr(const char *s, mapper_expr e)
 
 #endif
 
-static char compare_datatype(char l, char r)
+static char compare_token_datatype(mapper_token_t tok, char type)
 {
     // return the higher datatype
-    if (l == 'd' || r == 'd')
+    if (tok.datatype == 'd' || tok.casttype == 'd' || type == 'd')
         return 'd';
-    else if (l == 'f' || r == 'f')
+    else if (tok.datatype == 'f' || tok.casttype == 'f' || type == 'f')
         return 'f';
     else
         return 'i';
 }
 
-static void promote_datatype(mapper_token_t *tok, char type)
+static void promote_token_datatype(mapper_token_t *tok, char type)
 {
     if (tok->datatype == type)
         return;
@@ -634,20 +636,17 @@ static void promote_datatype(mapper_token_t *tok, char type)
             }
         }
     }
-    else if (tok->toktype == TOK_VAR) {
-        // we may need to cast variable at runtime
+    else {
+        // we need to cast at runtime
         if (tok->datatype == 'i' || type == 'd')
             tok->casttype = type;
-    }
-    else if (tok->datatype == 'i' || type == 'd') {
-        tok->datatype = type;
     }
 }
 
 static int add_typecast(mapper_token_t *stack, int top)
 {
-    int i, arity, depth, can_precompute = 1;
-    char type = 0;
+    int i, arity, can_precompute = 1;
+    char type = stack[top].datatype;
     if (top < 1) return top;
 
     if (stack[top].toktype == TOK_OP)
@@ -659,32 +658,37 @@ static int add_typecast(mapper_token_t *stack, int top)
 
     if (arity) {
         // find operator or function inputs
-        stack[top].datatype = stack[top-1].datatype;
         i = top;
-        depth = arity;
+        int depth[2] = {arity,0};
+        // last arg of op or func is at top-1
+        type = compare_token_datatype(stack[top-1], type);
         while (--i >= 0) {
-            // walk down stack distance of arity, checking datatypes
-            depth--;
             if (stack[i].toktype != TOK_CONST)
                 can_precompute = 0;
-            type = compare_datatype(type, stack[i].datatype);
-            if (depth == 0)
-                break;
+            // walk down stack distance of arity, checking datatypes
+            if (depth[1] == 0) {
+                type = compare_token_datatype(stack[i], type);
+                depth[0]--;
+                if (depth[0] == 0)
+                    break;
+            }
+            else
+                depth[1]--;
             if (stack[i].toktype == TOK_OP)
-                depth += op_table[stack[i].op].arity;
+                depth[1] += op_table[stack[i].op].arity;
             else if (stack[i].toktype == TOK_FUNC)
-                depth += function_table[stack[i].func].arity;
+                depth[1] += function_table[stack[i].func].arity;
         }
 
-        if (depth)
+        if (depth[0])
             return -1;
 
-        stack[top].datatype = type;
-        while (i <= top) {
+        while (i < top) {
             // walk back up to top typecasting as necessary
-            promote_datatype(&stack[i], type);
+            promote_token_datatype(&stack[i], type);
             i++;
         }
+        stack[top].datatype = type;
     }
     else {
         stack[top].datatype = 'f';
@@ -1024,7 +1028,7 @@ int mapper_expr_evaluate(mapper_expr expr,
             // promote types as necessary
             for (i = 0; i < to->length; i++) {
                 if (tok->datatype == 'f') {
-                    trace_eval("%f %s %f = ", stack[i][top].f,
+                    trace_eval("%f %sf %f = ", stack[i][top].f,
                                op_table[tok->op].name, stack[i][top+1].f);
                     switch (tok->op) {
                         case OP_ADD:
@@ -1085,7 +1089,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                     }
                     trace_eval("%f\n", stack[i][top].f);
                 } else if (tok->datatype == 'd') {
-                    trace_eval("%f %s %f = ", stack[i][top].d,
+                    trace_eval("%f %sd %f = ", stack[i][top].d,
                                op_table[tok->op].name, stack[i][top+1].d);
                     switch (tok->op) {
                         case OP_ADD:
@@ -1146,7 +1150,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                     }
                     trace_eval("%f\n", stack[i][top].d);
                 } else {
-                    trace_eval("%d %s %d = ", stack[i][top].i32,
+                    trace_eval("%d %si %d = ", stack[i][top].i32,
                                op_table[tok->op].name, stack[i][top+1].i32);
                     switch (tok->op) {
                         case OP_ADD:
