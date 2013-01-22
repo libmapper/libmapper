@@ -915,6 +915,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         POP_OPERATOR_TO_OUTPUT();
     }
 
+    // If stack top type doesn't match output type, add cast
+    if (outstack[outstack_index].datatype != output_type)
+        outstack[outstack_index].casttype = output_type;
+
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->length = outstack_index + 1;
     expr->start = malloc(sizeof(struct _token)*expr->length);
@@ -1291,6 +1295,7 @@ int mapper_expr_evaluate(mapper_expr expr,
         default: goto error;
         }
         if (tok->casttype) {
+            trace_eval("casting from %c to %c", tok->datatype, tok->casttype);
             // need to cast to a different type
             if (tok->datatype == 'i') {
                 if (tok->casttype == 'f') {
@@ -1305,8 +1310,27 @@ int mapper_expr_evaluate(mapper_expr expr,
                 }
             }
             else if (tok->datatype == 'f') {
-                for (i = 0; i < to->length; i++) {
-                    stack[i][top].d = (double)stack[i][top].f;
+                if (tok->casttype == 'i') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].i32 = (int)stack[i][top].f;
+                    }
+                }
+                else if (tok->casttype == 'd') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].d = (double)stack[i][top].f;
+                    }
+                }
+            }
+            else if (tok->datatype == 'd') {
+                if (tok->casttype == 'i') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].i32 = (int)stack[i][top].d;
+                    }
+                }
+                else if (tok->casttype == 'f') {
+                    for (i = 0; i < to->length; i++) {
+                        stack[i][top].f = (float)stack[i][top].d;
+                    }
                 }
             }
         }
