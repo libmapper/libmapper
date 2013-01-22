@@ -72,10 +72,10 @@ typedef struct _mapper_db_device {
  *  which parts of the range are known.
  *  @ingroup connectiondb */
 typedef struct _mapper_connection_range {
-    float src_min;              //!< Source minimum.
-    float src_max;              //!< Source maximum.
-    float dest_min;             //!< Destination minimum.
-    float dest_max;             //!< Destination maximum.
+    double src_min;              //!< Source minimum.
+    double src_max;              //!< Source maximum.
+    double dest_min;             //!< Destination minimum.
+    double dest_max;             //!< Destination maximum.
     int known;                  /*!< Bitfield identifying which range
                                  *   extremities are known. */
 } mapper_connection_range_t;

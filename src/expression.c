@@ -13,7 +13,6 @@
 #define TRACING 0
 #endif
 
-
 static int mini(int x, int y)
 {
     if (y < x) return y;
@@ -44,7 +43,6 @@ static float maxf(float x, float y)
     if (y > x) return y;
     else return x;
 }
-
 
 static double maxd(double x, double y)
 {
@@ -228,9 +226,15 @@ static struct {
     { "IFELSE", 3,   0 },
 };
 
+typedef int func_int32_arity0();
+typedef int func_int32_arity1(int);
+typedef int func_int32_arity2(int,int);
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
+typedef double func_double_arity0();
+typedef double func_double_arity1(double);
+typedef double func_double_arity2(double,double);
 
 typedef struct _token {
     enum {
@@ -971,7 +975,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                     ++top;
                     idx = ((tok->history_index + from->position
                             + from->size) % from->size);
-                    if (from->type == 'f') {
+                    if (from->type == 'd') {
+                        double *v = from->value + idx * from->length * mapper_type_size(from->type);
+                        for (i = 0; i < from->length; i++)
+                            stack[i][top].d = v[i];
+                    }
+                    else if (from->type == 'f') {
                         float *v = from->value + idx * from->length * mapper_type_size(from->type);
                         for (i = 0; i < from->length; i++)
                             stack[i][top].f = v[i];
@@ -986,7 +995,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                     ++top;
                     idx = ((tok->history_index + to->position + 1
                             + to->size) % to->size);
-                    if (to->type == 'f') {
+                    if (to->type == 'd') {
+                        double *v = to->value + idx * to->length * mapper_type_size(to->type);
+                        for (i = 0; i < to->length; i++)
+                            stack[i][top].d = v[i];
+                    }
+                    else if (to->type == 'f') {
                         float *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < to->length; i++)
                             stack[i][top].f = v[i];
@@ -1233,19 +1247,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                 else if (tok->datatype == 'd') {
                     switch (function_table[tok->func].arity) {
                         case 0:
-                            stack[i][top].d = ((func_float_arity0*)function_table[tok->func].func_double)();
+                            stack[i][top].d = ((func_double_arity0*)function_table[tok->func].func_double)();
                             trace_eval("%s = %f\n", function_table[tok->func].name,
                                        stack[i][top].d);
                             break;
                         case 1:
                             trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].d);
-                            stack[i][top].d = ((func_float_arity1*)function_table[tok->func].func_double)(stack[i][top].d);
+                            stack[i][top].d = ((func_double_arity1*)function_table[tok->func].func_double)(stack[i][top].d);
                             trace_eval("%f\n", stack[i][top].d);
                             break;
                         case 2:
                             trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
                                        stack[i][top].d, stack[i][top+1].d);
-                            stack[i][top].d = ((func_float_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
+                            stack[i][top].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
                             trace_eval("%f\n", stack[i][top].d);
                             break;
                         default: goto error;
@@ -1254,19 +1268,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                 else if (tok->datatype == 'i') {
                     switch (function_table[tok->func].arity) {
                         case 0:
-                            stack[i][top].i32 = ((func_float_arity0*)function_table[tok->func].func_int32)();
+                            stack[i][top].i32 = ((func_int32_arity0*)function_table[tok->func].func_int32)();
                             trace_eval("%s = %d\n", function_table[tok->func].name,
                                        stack[i][top].i32);
                             break;
                         case 1:
                             trace_eval("%s(%d) = ", function_table[tok->func].name, stack[i][top].i32);
-                            stack[i][top].i32 = ((func_float_arity1*)function_table[tok->func].func_int32)(stack[i][top].i32);
+                            stack[i][top].i32 = ((func_int32_arity1*)function_table[tok->func].func_int32)(stack[i][top].i32);
                             trace_eval("%d\n", stack[i][top].i32);
                             break;
                         case 2:
                             trace_eval("%s(%d,%d) = ", function_table[tok->func].name,
                                        stack[i][top].i32, stack[i][top+1].i32);
-                            stack[i][top].i32 = ((func_float_arity2*)function_table[tok->func].func_int32)(stack[i][top].i32, stack[i][top+1].i32);
+                            stack[i][top].i32 = ((func_int32_arity2*)function_table[tok->func].func_int32)(stack[i][top].i32, stack[i][top+1].i32);
                             trace_eval("%d\n", stack[i][top].i32);
                             break;
                         default: goto error;

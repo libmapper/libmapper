@@ -96,6 +96,14 @@ void msig_update_int(mapper_signal sig, int value);
  *  \param value A new scalar value for this signal. */
 void msig_update_float(mapper_signal sig, float value);
 
+/*! Update the value of a scalar signal of type double.
+ *  This is a scalar equivalent to msig_update(), for when passing by
+ *  value is more convenient than passing a pointer.
+ *  The signal will be routed according to external requests.
+ *  \param sig The signal to update.
+ *  \param value A new scalar value for this signal. */
+void msig_update_double(mapper_signal sig, double value);
+
 /*! Get a signal's value.
  *  \param sig      The signal to operate on.
  *  \param timetag  A location to receive the value's time tag.
