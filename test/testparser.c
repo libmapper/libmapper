@@ -16,8 +16,8 @@ static double get_current_time()
 
 int main()
 {
-    //const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
-    const char str[] = "y=x?1:2";
+    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
+    //const char str[] = "y=x?1:2";
     int input_history_size, output_history_size;
     mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 1, &input_history_size, &output_history_size);
     printf("Parsing %s\n", str);
