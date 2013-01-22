@@ -1356,6 +1356,11 @@ int mapper_expr_evaluate(mapper_expr expr,
         for (i = 0; i < to->length; i++)
             v[i] = stack[i][top].i32;
     }
+    else if (to->type == 'd') {
+        double *v = msig_history_value_pointer(*to);
+        for (i = 0; i < to->length; i++)
+            v[i] = stack[i][top].d;
+    }
     return 1;
 
   error:
