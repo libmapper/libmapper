@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>libmapper by libmapper</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">libmapper</h1>
+        <p class="header">a library for connecting things.</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/libmapper/libmapper/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/libmapper/libmapper/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="https://github.com/libmapper/libmapper">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/libmapper">libmapper</a></p>
+
+
+      </header>
+      <section>
+        <p>libmapper provides a simple API for declaring your data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.</p>
+
+<p>Open Sound Control (OSC) has been adopted by the academic and experimental-music communities for interactive media programming due to its flexibility in representing control data, strong semantics/human-readability, precise time-tagging, etc. Unfortunately, different projects utilizing OSC are rarely protocol-compatible. Many proposals have been made for creating standardized address-spaces/schemas to enable intercommunication, but we believe this is the wrong approach since it destroys the most powerful and useful aspect of OSC – the flexibility it allows for each user/designer/programmer to represent control signals and structures according to their specific needs or desires.</p>
+
+<p>libmapper takes a different approach: instead of enforcing preset schemas we provide simple, distributed discovery and description; instead of address standardization we provide automatic translation; instead of normalization we provide automatic scaling... but that’s not all!</p>
+
+<p>In addition to the flexibility of data-representation provided by Open Sound Control, libmapper provides:
+automatic negotiation for resources (e.g. ports, unique names)</p>
+
+<ul>
+<li>automatic peer discovery</li>
+<li>a semantic abstraction of the networking layer (make connections between devices and signals by name rather than having to manually set namespaces/IP addresses/ports</li>
+<li>description, including extensible properties as key-value pairs</li>
+<li>automatic translation of OSC addresses between peers</li>
+<li>automatic type coercion &amp; linear scaling between peers</li>
+<li>arbitrary signal processing within connections, including FIR and IIR filtering</li>
+<li>remote connection management for persistence, automatic recovery, session management, saving and loading mapping configurations</li>
+<li>the ability to query or stream the current value of remote destinations, enabling the use of supervised machine learning techniques for mapping</li>
+<li>a powerful abstraction of signal “instances”, supporting arbitrary interconnection of polyphonic media synthesizers, multitouch interfaces, tangible interfaces, computer-vision blob-tracking algorithms, etc</li>
+</ul><p>libmapper creates a distributed mapping system/network, with no central points of failure, the potential for tight collaboration and easy parallelization of media synthesis.</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+		
+  </body>
+</html>
