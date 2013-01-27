@@ -31,7 +31,7 @@ typedef struct _mapper_expr *mapper_expr;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
-struct _mapper_instance_map;
+struct _mapper_id_map;
 
 /**** String tables ****/
 
@@ -205,6 +205,17 @@ typedef struct _mapper_link {
 
 /**** Device ****/
 
+/*! The instance ID map is a linked list of int32 instance ids for coordinating
+ *  remote and local instances. */
+typedef struct _mapper_id_map {
+    int local;                              //!< Local instance id to map.
+    uint32_t group;                         //!< Link group id.
+    uint32_t remote;                        //!< Remote instance id to map.
+    int refcount_local;
+    int refcount_remote;
+    struct _mapper_id_map *next;   //!< The next id map in the list.
+} *mapper_id_map;
+
 typedef struct _mapper_device {
     /*! Prefix for the name of this device.  It gets a unique ordinal
      *  appended to it to differentiate from other devices of the same
@@ -233,10 +244,10 @@ typedef struct _mapper_device {
     mapper_receiver receivers;
 
     /*!< The list of active instance id mappings. */
-    struct _mapper_instance_id_map *active_id_map;
+    struct _mapper_id_map *active_id_map;
 
     /*!< The list of reserve instance id mappings. */
-    struct _mapper_instance_id_map *reserve_id_map;
+    struct _mapper_id_map *reserve_id_map;
 
     uint32_t id_counter;
 
@@ -248,17 +259,6 @@ typedef struct _mapper_device {
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
 } *mapper_device;
-
-/*! The instance ID map is a linked list of int32 instance ids for coordinating
- *  remote and local instances. */
-typedef struct _mapper_instance_id_map {
-    int local;                              //!< Local instance id to map.
-    uint32_t group;                         //!< Link group id.
-    uint32_t remote;                        //!< Remote instance id to map.
-    int reference_count;
-    uint32_t release_time;
-    struct _mapper_instance_id_map *next;   //!< The next id map in the list.
-} *mapper_instance_id_map;
 
 /*! Bit flags indicating if information has already been
  *  sent in a given polling step. */

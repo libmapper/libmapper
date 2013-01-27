@@ -73,7 +73,7 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
-        mapper_instance_id_map map;
+        mapper_id_map map;
         while (md->active_id_map) {
             map = md->active_id_map;
             md->active_id_map = map->next;
@@ -132,11 +132,13 @@ static int handler_signal(const char *path, const char *types,
     if (!sig)
         return 0;
 
-    mapper_signal_instance si = sig->active_instances;
-    if (!si)
-        si = msig_get_instance_with_id(sig, 0, 1);
-    if (!si)
+    int index = 0;
+    if (!sig->id_maps[0].instance)
+        index = msig_get_instance_with_local_id(sig, 0, 1);
+    if (index < 0)
         return 0;
+
+    mapper_signal_instance si = sig->id_maps[index].instance;
 
     if (types[0] == LO_BLOB) {
         dataptr = lo_blob_dataptr((lo_blob)argv[0]);
@@ -156,17 +158,18 @@ static int handler_signal(const char *path, const char *types,
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        // TODO: should copy last value from sample vector
+        // TODO: should copy last value from sample vector (or add history)
         memcpy(si->value, dataptr, msig_vector_bytes(sig));
         si->has_value = 1;
     }
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
     if (sig->handler)
-        sig->handler(sig, &sig->props, si->id_map->local, dataptr, count, &tt);
+        sig->handler(sig, &sig->props, sig->id_maps[index].map->local,
+                     dataptr, count, &tt);
     si = si->next;
     if (!sig->props.is_output)
-        mdev_receive_update(md, sig, si, tt);
+        mdev_receive_update(md, sig, index, tt);
 
     return 0;
 }
@@ -175,6 +178,7 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
+    printf("handler_signal_instance\n");
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     void *dataptr = 0;
@@ -189,52 +193,61 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int group_id = argv[0]->i32;
     int instance_id = argv[1]->i32;
-    int is_new = (types[2] == LO_TRUE);
 
-    mapper_signal_instance si = 0;
-    mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id,
-                                                                     instance_id);
+    int index = msig_find_instance_with_remote_ids(sig, group_id, instance_id,
+                                                   IN_RELEASED_LOCALLY);
 
-    // If map not found but I own the instance, stop here.
-    if (!map && group_id == md->admin->name_hash)
-        return 0;
+    mapper_id_map map;
+    if (index < 0) {
+        // no instance found with this map
 
-    // Map may be waiting for release
-    if (map && map->reference_count <= 0)
-        return 0;
-
-    // Don't activate instance just to release it again
-    if (types[2] == LO_NIL || types[2] == LO_FALSE) {
-        if (!map || !msig_find_instance_with_id_map(sig, map))
+        // Don't activate instance just to release it again
+        if (types[2] == LO_NIL || types[2] == LO_FALSE)
             return 0;
-    }
 
-    si = msig_get_instance_with_id_map(sig, map, is_new, 0);
-    if (!si) {
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_OVERFLOW)) {
-            sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-            // try again
-            si = msig_get_instance_with_id_map(sig, map, is_new, 0);
+        // check if device has record
+        map = mdev_find_instance_id_map_by_remote(md, group_id, instance_id);
+        if (map && map->refcount_remote <= 0) {
+            // map is waiting for release
+            return 0;
+        }
+
+        // otherwise try to init reserved/stolen instance with device map
+        index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0);
+        if (index < 0) {
+            if (sig->instance_management_handler &&
+                (sig->instance_management_flags & IN_OVERFLOW)) {
+                sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
+                // try again
+                index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0);
+            }
+        }
+        if (index < 0) {
+            trace("no instances available for group=%ld, id=%ld\n",
+                  (long)group_id, (long)instance_id);
+            return 0;
         }
     }
-    if (!si) {
-        trace("no instances available for group=%ld, id=%ld\n",
-              (long)group_id, (long)instance_id);
-        return 0;
+    else {
+        map = sig->id_maps[index].map;
+        if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
+            // map was already released locally, we are only interested in release messages
+            if (types[2] == LO_NIL || types[2] == LO_FALSE) {
+                map->refcount_remote--;
+                if (map->refcount_remote <= 0) {
+                    // we can clear signal's reference to map
+                    map->refcount_local--;
+                    sig->id_maps[index].map = 0;
+                    if (map->refcount_local <= 0)
+                        mdev_remove_instance_id_map(md, map);
+                }
+            }
+            return 0;
+        }
     }
-    else if (!map) {
-        // Need to add id map to device and link to new signal instance
-        si->id_map = mdev_add_instance_id_map(md, si->id, group_id, instance_id);
-    }
-
-    if (types[2] == LO_TRUE) {
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW))
-            sig->instance_management_handler(sig, &sig->props, si->id_map->local,
-                                             IN_NEW);
-        return 0;
-    }
+printf("got index %i\n", index);
+    mapper_signal_instance si = sig->id_maps[index].instance;
+    map = sig->id_maps[index].map;
 
     if (types[2] == LO_BLOB) {
         dataptr = lo_blob_dataptr((lo_blob)argv[2]);
@@ -250,23 +263,21 @@ static int handler_signal_instance(const char *path, const char *types,
         si->has_value = 1;
         dataptr = si->value;
     }
+    else {
+        sig->id_maps[index].status &= IN_RELEASED_REMOTELY;
+        map->refcount_remote--;
+    }
+
     lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
     if (sig->handler) {
-        sig->handler(sig, &sig->props, si->id_map->local,
+        sig->handler(sig, &sig->props, map->local,
                      dataptr, count, &si->timetag);
     }
     if (!sig->props.is_output)
-        mdev_receive_update(md, sig, si, tt);
-    if (types[2] == LO_NIL) {
-        /* Set remote release time to 2 seconds in the future,
-         * since we want to filter out any stray packets. */
-        mdev_timetag_now(md, &md->admin->clock.now);
-        si->id_map->release_time = md->admin->clock.now.sec + 2;
-        msig_release_instance_internal(sig, si, 0, 0, si->timetag);
-    }
+        mdev_receive_update(md, sig, index, tt);
     return 0;
 }
 
@@ -284,17 +295,12 @@ static int handler_instance_release_request(const char *path, const char *types,
         !(sig->instance_management_flags & IN_REQUEST_RELEASE))
         return 0;
 
-    mapper_instance_id_map map =
-        mdev_find_instance_id_map_by_remote(md, argv[0]->i32, argv[1]->i32);
-    if (!map)
-        return 0;
-
-    mapper_signal_instance si = msig_get_instance_with_id_map(sig, map, 0, 0);
-    if (!si)
+    int index = msig_get_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
+    if (index < 0)
         return 0;
 
     if (sig->instance_management_handler)
-        sig->instance_management_handler(sig, &sig->props, si->id_map->local,
+        sig->instance_management_handler(sig, &sig->props, sig->id_maps[index].map->local,
                                          IN_REQUEST_RELEASE);
 
     return 0;
@@ -317,50 +323,48 @@ static int handler_query(const char *path, const char *types,
     else if (types[0] != 's' && types[0] != 'S')
         return 0;
 
-    int i;
+    int i, j, sent = 0;
     lo_message m = lo_message_new();
     if (!m)
         return 0;
     lo_timetag tt = lo_message_get_timestamp(msg);
     lo_bundle b = lo_bundle_new(tt);
 
-    mapper_signal_instance si = sig->active_instances;
-    if (!si) {
-        // If there are no active instances, send null response
-        lo_message_add_nil(m);
-        lo_bundle_add_message(b, &argv[0]->s, m);
-        lo_send_bundle(lo_message_get_source(msg), b);
-        lo_bundle_free_messages(b);
-        return 0;
-    }
-
-    while (si) {
+    mapper_signal_instance si;
+    for (i = 0; i < sig->id_map_length; i++) {
+        if (!(si = sig->id_maps[i].instance))
+            continue;
         if (sig->props.num_instances > 1) {
-            lo_message_add_int32(m, (long)si->id_map->group);
-            lo_message_add_int32(m, (long)si->id_map->local);
+            lo_message_add_int32(m, (long)sig->id_maps[i].map->group);
+            lo_message_add_int32(m, (long)sig->id_maps[i].map->local);
         }
         if (si->has_value) {
             if (sig->props.type == 'f') {
                 float *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_float(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_float(m, v[j]);
             }
             else if (sig->props.type == 'i') {
                 int *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_int32(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_int32(m, v[j]);
             }
             else if (sig->props.type == 'd') {
                 double *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_double(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_double(m, v[j]);
             }
         }
         else {
             lo_message_add_nil(m);
         }
         lo_bundle_add_message(b, &argv[0]->s, m);
-        si = si->next;
+        sent++;
+    }
+    if (!sent) {
+        // If there are no active instances, send null response
+        lo_message_add_nil(m);
+        lo_bundle_add_message(b, &argv[0]->s, m);
     }
     lo_send_bundle(lo_message_get_source(msg), b);
     lo_bundle_free_messages(b);
@@ -418,10 +422,6 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         lo_server_add_method(md->server,
                              sig->props.name,
                              "iib",
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiT",
                              handler_signal_instance, (void *) (sig));
         lo_server_add_method(md->server,
                              sig->props.name,
@@ -587,7 +587,6 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, sig->props.name, "b");
         lo_server_del_method(md->server, sig->props.name, "N");
         lo_server_del_method(md->server, sig->props.name, "iib");
-        lo_server_del_method(md->server, sig->props.name, "iiT");
         lo_server_del_method(md->server, sig->props.name, "iiN");
         free(type_string);
         int len = strlen(sig->props.name) + 5;
@@ -792,34 +791,32 @@ void mdev_num_instances_changed(mapper_device md,
 
 void mdev_route_signal(mapper_device md,
                        mapper_signal sig,
-                       mapper_signal_instance si,
+                       int instance_index,
                        void *value,
                        int count,
                        mapper_timetag_t timetag)
 {
+    printf("mdev_route_signal\n");
     int flags = 0;
-    if (!si->is_active && si->has_value) {
-        flags = FLAGS_IS_NEW_INSTANCE;
-        si->is_active = 1;
-    }
     // pass update to each router in turn
     mapper_router r = md->routers;
     while (r) {
-        mapper_router_process_signal(r, sig, si, value, count,
-                                     timetag, flags);
+        mapper_router_process_signal(r, sig, instance_index, value,
+                                     count, timetag, flags);
         r = r->next;
     }
 }
 
 void mdev_receive_update(mapper_device md,
                          mapper_signal sig,
-                         mapper_signal_instance si,
+                         int instance_index,
                          mapper_timetag_t tt)
 {
+    printf("mdev_receive_update\n");
     // pass update to each receiver in turn
     mapper_receiver r = md->receivers;
     while (r) {
-        mapper_receiver_send_update(r, sig, si, tt);
+        mapper_receiver_send_update(r, sig, instance_index, tt);
         r = r->next;
     }
 
@@ -862,16 +859,18 @@ int mdev_route_query(mapper_device md, mapper_signal sig,
     return count;
 }
 
-void mdev_route_release_request(mapper_device md,
-                                mapper_signal sig,
-                                mapper_signal_instance si,
-                                mapper_timetag_t tt)
+void mdev_route_released(mapper_device md, mapper_signal sig,
+                         int instance_index, mapper_timetag_t tt)
 {
-    // pass update to each receiver in turn
-    mapper_receiver r = md->receivers;
-    while (r) {
-        mapper_receiver_send_release_request(r, sig, si, tt);
-        r = r->next;
+    if (sig->props.is_output)
+        mdev_route_signal(md, sig, instance_index, 0, 0, tt);
+    else {
+        // pass update to each receiver in turn
+        mapper_receiver r = md->receivers;
+        while (r) {
+            mapper_receiver_send_released(r, sig, instance_index, tt);
+            r = r->next;
+        }
     }
 }
 
@@ -922,33 +921,33 @@ void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
 
 void mdev_reserve_instance_id_map(mapper_device dev)
 {
-    mapper_instance_id_map map;
-    map = (mapper_instance_id_map)calloc(1, sizeof(struct _mapper_instance_id_map));
+    mapper_id_map map;
+    map = (mapper_id_map)calloc(1, sizeof(struct _mapper_id_map));
     map->next = dev->reserve_id_map;
     dev->reserve_id_map = map;
 }
 
-mapper_instance_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
-                                                int group_id, int remote_id)
+mapper_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
+                                       int group_id, int remote_id)
 {
     if (!dev->reserve_id_map)
         mdev_reserve_instance_id_map(dev);
 
-    mapper_instance_id_map map = dev->reserve_id_map;
+    mapper_id_map map = dev->reserve_id_map;
     map->local = local_id;
     map->group = group_id;
     map->remote = remote_id;
-    map->reference_count = 1;
-    map->release_time = 0;
+    map->refcount_local = 0;
+    map->refcount_remote = 0;
     dev->reserve_id_map = map->next;
     map->next = dev->active_id_map;
     dev->active_id_map = map;
     return map;
 }
 
-void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
+void mdev_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 {
-    mapper_instance_id_map *id_map = &dev->active_id_map;
+    mapper_id_map *id_map = &dev->active_id_map;
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
@@ -960,55 +959,31 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
     }
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
-                                                          int local_id)
+mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
+                                                 int local_id)
 {
     mdev_timetag_now(dev, &dev->admin->clock.now);
 
-    mapper_instance_id_map *map = &dev->active_id_map;
+    mapper_id_map *map = &dev->active_id_map;
     while (*map) {
-        if ((*map)->reference_count <= 0) {
-            // Map has been released and is waiting for timeout
-            if (!(*map)->release_time ||
-                ((*map)->release_time < dev->admin->clock.now.sec)) {
-                // Clear expired maps as we go
-                mapper_instance_id_map temp = *map;
-                *map = (*map)->next;
-                temp->next = dev->reserve_id_map;
-                dev->reserve_id_map = temp;
-            }
-            else
-                map = &(*map)->next;
-            // We should never return an expired map locally
-            continue;
-        }
-        if ((*map)->local == local_id)
+        if ((*map)->refcount_remote > 0 && (*map)->local == local_id)
             return (*map);
         map = &(*map)->next;
     }
     return 0;
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
-                                                           int group_id, int remote_id)
+mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
+                                                  int group_id, int remote_id)
 {
     mdev_timetag_now(dev, &dev->admin->clock.now);
 
-    mapper_instance_id_map *map = &dev->active_id_map;
+    mapper_id_map *map = &dev->active_id_map;
     while (*map) {
-        if ((*map)->reference_count <= 0) {
-            // Map has been released and is waiting for timeout
-            if (!(*map)->release_time ||
-                ((*map)->release_time < dev->admin->clock.now.sec)) {
-                // Clear expired maps as we go
-                mapper_instance_id_map temp = *map;
-                *map = (*map)->next;
-                temp->next = dev->reserve_id_map;
-                dev->reserve_id_map = temp;
-                continue;
-            }
-        }
-        if (((*map)->group == group_id) && ((*map)->remote == remote_id))
+        /* We will not reuse a remotely-released id map (even if it is still in use
+         * by a local instance) since it may represent a new object. */
+        if ((*map)->refcount_remote <= 0 && (*map)->group == group_id
+            && (*map)->remote == remote_id)
             return (*map);
         map = &(*map)->next;
     }
@@ -1076,10 +1051,6 @@ void mdev_start_server(mapper_device md)
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
                                  "iib",
-                                 handler_signal_instance, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 "iiT",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,

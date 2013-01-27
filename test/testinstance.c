@@ -68,9 +68,11 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                props->name, (long)instance_id, (*(float*)value));
         received++;
     }
-    else
+    else {
         printf("--> destination %s instance %ld got NULL\n",
                props->name, (long)instance_id);
+        msig_release_instance(sig, instance_id, MAPPER_NOW);
+    }
 }
 
 void overflow_handler(mapper_signal sig, mapper_db_signal props,
@@ -90,10 +92,10 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    float mn=0, mx=1;
+    float mn=0;//, mx=1;
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, &mx, insig_handler, 0);
+                             0, &mn, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
     msig_reserve_instances(recvsig, 4);
