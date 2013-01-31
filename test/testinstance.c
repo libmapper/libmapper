@@ -265,7 +265,8 @@ int main()
         msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
     sent = received = 0;
 
-    msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
+    msig_set_instance_management_callback(recvsig, overflow_handler,
+                                          IN_OVERFLOW, 0);
     printf("\n**********************************************\n");
     printf("*************** IN_STEAL_OLDEST **************\n");
     loop(100);
@@ -275,7 +276,6 @@ int main()
 
     sent = received = 0;
 
-    msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
     msig_set_instance_management_callback(recvsig, overflow_handler,
                                           IN_OVERFLOW, 0);
     printf("\n**********************************************\n");

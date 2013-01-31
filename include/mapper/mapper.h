@@ -39,10 +39,10 @@ struct _mapper_connection;
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
 typedef enum {
-    IN_NEW              = 0x01, //!< New instance has been created.
-    IN_STOLEN           = 0x02, //!< Instance has been stolen by another instance.
-    IN_REQUEST_RELEASE  = 0x04, //!< Instance release has been requested by remote device.
-    IN_OVERFLOW         = 0x08  //!< No local instances left for incoming remote instance.
+    IN_NEW                  = 0x01, //!< New instance has been created.
+    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
+    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
+    IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
@@ -119,13 +119,6 @@ int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
  *  \param num          The number of instances to add. */
 void msig_reserve_instances(mapper_signal sig, int num);
 
-/*! Explicitly activate an instance with a given id. This instance will be marked
- *  as "new" allowing it to steal a previous instance depending on the allocation
- *  mode set with msig_set_instance_allocation_mode().
- *  \param sig          The signal to operate on.
- *  \param instance_id  The instance to activate. */
-void msig_start_new_instance(mapper_signal sig, int instance_id);
-
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
@@ -153,6 +146,18 @@ void msig_update_instance(mapper_signal sig, int instance_id,
  *                     bundling multiple signal updates with the same timetag. */
 void msig_release_instance(mapper_signal sig, int instance_id,
                            mapper_timetag_t tt);
+
+/*! Get the local id of the oldest active instance.
+ *  \param sig         The signal to operate on.
+ *  \param instance_id A location to receive the instance id.
+ *  \return            Zero if an instance id has been found, non-zero otherwise. */
+int msig_get_oldest_active_instance(mapper_signal sig, int *instance_id);
+
+/*! Get the local id of the newest active instance.
+ *  \param sig         The signal to operate on.
+ *  \param instance_id A location to receive the instance id.
+ *  \return            Zero if an instance id has been found, non-zero otherwise. */
+int msig_get_newest_active_instance(mapper_signal sig, int *instance_id);
 
 /*! Get a signal_instance's value.
  *  \param sig         The signal to operate on.
@@ -190,14 +195,6 @@ int msig_num_reserved_instances(mapper_signal sig);
  *                msig_num_active_instances().
  *  \return       The instance ID associated with the given index. */
 int msig_active_instance_id(mapper_signal sig, int index);
-
-/*! Set the allocation method to be used when a previously-unseen
- *  instance ID is received.
- *  \param sig  The signal to operate on.
- *  \param mode Method to use for adding or reallocating active instances
- *              if no reserved instances are available. */
-void msig_set_instance_allocation_mode(mapper_signal sig,
-                                       mapper_instance_allocation_type mode);
 
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.

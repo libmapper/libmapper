@@ -152,7 +152,6 @@ void mapper_router_process_signal(mapper_router r,
                                   mapper_timetag_t tt,
                                   int flags)
 {
-    printf("mapper_router_process_signal\n");
     mapper_id_map map = sig->id_maps[instance_index].map;
     int in_scope = mapper_router_in_scope(r, map->group);
 
@@ -166,7 +165,8 @@ void mapper_router_process_signal(mapper_router r,
     if (!rs)
         return;
 
-    int id = map->local;
+    // TODO: need to store histories using a different index?
+    int id = sig->id_maps[instance_index].instance->id;
     mapper_connection c;
 
     if (!value) {
@@ -255,7 +255,6 @@ void mapper_router_send_update(mapper_router r,
                                mapper_timetag_t tt,
                                lo_blob blob)
 {
-    printf("mapper_router_send_update\n");
     int i;
     if (!r->props.dest_addr)
         return;
@@ -336,7 +335,6 @@ void mapper_router_send_or_bundle_message(mapper_router r,
                                           lo_message m,
                                           mapper_timetag_t tt)
 {
-    printf("mapper_router_send_or_bundle_message\n");
     // Check if a matching bundle exists
     mapper_queue q = r->queues;
     while (q) {
@@ -420,7 +418,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                                                char dest_type,
                                                int dest_length)
 {
-    printf("mapper_router_add_connection\n");
     /* Currently, fail if lengths don't match.  TODO: In the future,
      * we'll have to examine the expression to see if its input and
      * output lengths are compatible. */

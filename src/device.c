@@ -178,7 +178,8 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
-    printf("handler_signal_instance\n");
+    // TODO: check if instance management handler has been declared with flag IN_UPSTREAM_RELEASE
+    // if so && sig type is LO_NIL, call instance management handler instead of sig handler
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     void *dataptr = 0;
@@ -196,7 +197,6 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int index = msig_find_instance_with_remote_ids(sig, group_id, instance_id,
                                                    IN_RELEASED_LOCALLY);
-
     mapper_id_map map;
     if (index < 0) {
         // no instance found with this map
@@ -245,7 +245,7 @@ static int handler_signal_instance(const char *path, const char *types,
             return 0;
         }
     }
-printf("got index %i\n", index);
+
     mapper_signal_instance si = sig->id_maps[index].instance;
     map = sig->id_maps[index].map;
 
@@ -292,7 +292,7 @@ static int handler_instance_release_request(const char *path, const char *types,
         return 0;
 
     if (!sig->instance_management_handler ||
-        !(sig->instance_management_flags & IN_REQUEST_RELEASE))
+        !(sig->instance_management_flags & IN_DOWNSTREAM_RELEASE))
         return 0;
 
     int index = msig_get_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
@@ -301,7 +301,7 @@ static int handler_instance_release_request(const char *path, const char *types,
 
     if (sig->instance_management_handler)
         sig->instance_management_handler(sig, &sig->props, sig->id_maps[index].map->local,
-                                         IN_REQUEST_RELEASE);
+                                         IN_DOWNSTREAM_RELEASE);
 
     return 0;
 }
@@ -623,7 +623,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         free(path);
     }
     if (sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_REQUEST_RELEASE)) {
+        (sig->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
     md->n_outputs --;
@@ -796,7 +796,6 @@ void mdev_route_signal(mapper_device md,
                        int count,
                        mapper_timetag_t timetag)
 {
-    printf("mdev_route_signal\n");
     int flags = 0;
     // pass update to each router in turn
     mapper_router r = md->routers;
@@ -812,7 +811,6 @@ void mdev_receive_update(mapper_device md,
                          int instance_index,
                          mapper_timetag_t tt)
 {
-    printf("mdev_receive_update\n");
     // pass update to each receiver in turn
     mapper_receiver r = md->receivers;
     while (r) {
@@ -1093,7 +1091,7 @@ void mdev_start_server(mapper_device md)
                 md->n_output_callbacks ++;
             }
             if (md->outputs[i]->instance_management_handler &&
-                (md->outputs[i]->instance_management_flags & IN_REQUEST_RELEASE)) {
+                (md->outputs[i]->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
                 lo_server_add_method(md->server,
                                      md->outputs[i]->props.name,
                                      "iiF",

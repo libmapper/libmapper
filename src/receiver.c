@@ -138,7 +138,6 @@ void mapper_receiver_send_update(mapper_receiver r,
                                  int instance_index,
                                  mapper_timetag_t tt)
 {
-    printf("mapper_receiver_send_update\n");
     int i;
     mapper_id_map map = sig->id_maps[instance_index].map;
 

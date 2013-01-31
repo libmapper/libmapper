@@ -29,9 +29,6 @@ struct _mapper_signal
     /*! The first reserve instance of this signal. */
     struct _mapper_signal_instance *reserve_instances;
 
-    /*! Type of voice stealing to perform on instances. */
-    mapper_instance_allocation_type instance_allocation_type;
-
     /*! An optional function to be called when the signal value
      *  changes. */
     mapper_signal_handler *handler;
@@ -389,7 +386,6 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group,
 /*! Release a specific signal instance. */
 void msig_release_instance_internal(mapper_signal sig,
                                     int instance_index,
-                                    int stolen,
                                     mapper_timetag_t timetag);
 
 /**** connections ****/
