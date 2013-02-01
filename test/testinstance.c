@@ -75,11 +75,22 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
     }
 }
 
-void overflow_handler(mapper_signal sig, mapper_db_signal props,
-                      int instance_id, msig_instance_event_t event)
+void steal_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, msig_instance_event_t event)
 {
-    if (event == IN_OVERFLOW) {
-        printf("OVERFLOW!!\n");
+    if (event & IN_OVERFLOW) {
+        printf("OVERFLOW!! STEALING OLDEST ACTIVE INSTANCE.\n");
+        int instance_id;
+        if (!msig_get_oldest_active_instance(sig, &instance_id))
+            msig_release_instance(sig, instance_id, MAPPER_NOW);
+    }
+}
+
+void more_handler(mapper_signal sig, mapper_db_signal props,
+                  int instance_id, msig_instance_event_t event)
+{
+    if (event & IN_OVERFLOW) {
+        printf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
         msig_reserve_instances(sig, 1);
     }
 }
@@ -265,7 +276,7 @@ int main()
         msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
     sent = received = 0;
 
-    msig_set_instance_management_callback(recvsig, overflow_handler,
+    msig_set_instance_management_callback(recvsig, steal_handler,
                                           IN_OVERFLOW, 0);
     printf("\n**********************************************\n");
     printf("*************** IN_STEAL_OLDEST **************\n");
@@ -276,7 +287,7 @@ int main()
 
     sent = received = 0;
 
-    msig_set_instance_management_callback(recvsig, overflow_handler,
+    msig_set_instance_management_callback(recvsig, more_handler,
                                           IN_OVERFLOW, 0);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
