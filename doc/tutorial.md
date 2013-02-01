@@ -96,7 +96,7 @@ it if someone else on the network is already using it.  We usually use
 a port number of 9000, and let the system decide if this is
 appropriate.^[Strictly this is only necessary for devices on the same
 computer, but port numbers are in abundance so we just allocate one
-per device to keep things consistant.]
+per device to keep things consistent.]
 
 The third parameter of mdev_new is an optional admin instance.  It is
 not necessary to provide this, but can be used to specify different
@@ -342,7 +342,7 @@ signal instead, providing the unit information as well.
 
 We call such signals "semantic", because they provide information with
 more meaning than a relatively uninformative value based on the
-electrical properties of the sensing technqiue.  Some sensors can
+electrical properties of the sensing technique.  Some sensors can
 benefit from low-pass filtering or other measures to reduce noise.
 Some sensors may need to be combined in order to derive physical
 meaning.  What you choose to expose as outputs of your device is
@@ -370,19 +370,23 @@ which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
 audio thread.
 
-Create the handler function, which is fairly simple,
+Create the handler function, which is fairly simple. For simplicity,
+we will ignore most of the information provided to the handler.
 
     void pulsewidth_handler ( mapper_signal msig,
-                              void *v )
+                              mapper_db_signal props,
+                              int instance_id,
+                              void *value,
+                              int count,
+                              mapper_timetag_t *tt )
     {
-        mapper_db_signal props = msig_properties(msig);
         Synthesizer *s = (Synthesizer*) props->user_data;
         s->setPulseWidth(*(float*)v);
     }
 
 First, the pointer to the `Synthesizer` instance is extracted from the
 `user_data` pointer, then it is dereferenced to set the pulse width
-according to the value pointed to by `v`.
+according to the value pointed to by `value`.
 
 Then `main()` will look like,
 
