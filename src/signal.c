@@ -457,7 +457,7 @@ void msig_release_instance(mapper_signal sig, int id,
 {
     if (!sig)
         return;
-    int index = msig_find_instance_with_local_id(sig, id, 0);
+    int index = msig_find_instance_with_local_id(sig, id, IN_RELEASED_REMOTELY);
     if (index >= 0)
         msig_release_instance_internal(sig, index, timetag);
 }
@@ -485,7 +485,7 @@ void msig_release_instance_internal(mapper_signal sig,
     }
     else {
         // mark map as locally-released but do not remove it
-        smap->status &= IN_RELEASED_LOCALLY;
+        sig->id_maps[instance_index].status |= IN_RELEASED_LOCALLY;
     }
 
     // Put instance back in reserve list

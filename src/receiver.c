@@ -330,6 +330,8 @@ int mapper_receiver_remove_connection(mapper_receiver r,
      * connections to this signal. In the latter case, we can still release
      * instances scoped uniquely to this connection's receiver. */
 
+    // TODO: this situation should be avoided using e.g. signal "slots"
+
     mapper_connection *ctemp = &c->parent->connections;
     while (*ctemp) {
         i++;
@@ -372,19 +374,19 @@ int mapper_receiver_remove_connection(mapper_receiver r,
 
         if (count < r->props.num_scopes) {
             // can release instances with untouched scopes
-            for (i = 0; i < c->parent->signal->id_map_length; i++) {
-                mapper_signal_id_map_t id_map = c->parent->signal->id_maps[i];
-                if (!id_map.map || !id_map.instance || id_map.status & IN_RELEASED_REMOTELY)
+            for (i = 0; i < rs->signal->id_map_length; i++) {
+                mapper_signal_id_map_t *id_map = &rs->signal->id_maps[i];
+                if (!id_map->map || !id_map->instance || id_map->status & IN_RELEASED_REMOTELY)
                     continue;
                 for (j = 0; j < r->props.num_scopes; j++) {
                     if (scope_matches[j]) {
                         // scope is used by another link
                         continue;
                     }
-                    if (id_map.map->group == r->props.scope_hashes[j]) {
+                    if (id_map->map->group == r->props.scope_hashes[j]) {
                         if (rs->signal->handler)
                             rs->signal->handler(rs->signal, &rs->signal->props,
-                                                id_map.map->local, 0, 0, 0);
+                                                id_map->map->local, 0, 0, 0);
                         // TODO: call instance management handler with IN_DISCONNECTED
                         continue;
                     }

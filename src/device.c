@@ -63,8 +63,10 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        if (md->admin && md->own_admin)
-            mapper_admin_free(md->admin);
+        while (md->routers)
+            mdev_remove_router(md, md->routers);
+        while (md->receivers)
+            mdev_remove_receiver(md, md->receivers);
         for (i = 0; i < md->n_inputs; i++)
             msig_free(md->inputs[i]);
         if (md->inputs)
@@ -84,12 +86,10 @@ void mdev_free(mapper_device md)
             md->reserve_id_map = map->next;
             free(map);
         }
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        while (md->receivers)
-            mdev_remove_receiver(md, md->receivers);
         if (md->extra)
             table_free(md->extra, 1);
+        if (md->admin && md->own_admin)
+            mapper_admin_free(md->admin);
         free(md);
     }
 }
@@ -244,6 +244,10 @@ static int handler_signal_instance(const char *path, const char *types,
             }
             return 0;
         }
+        else if (!sig->id_maps[index].instance) {
+            trace("error: missing instance!\n");
+            return 0;
+        }
     }
 
     mapper_signal_instance si = sig->id_maps[index].instance;
@@ -264,7 +268,7 @@ static int handler_signal_instance(const char *path, const char *types,
         dataptr = si->value;
     }
     else {
-        sig->id_maps[index].status &= IN_RELEASED_REMOTELY;
+        sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
         map->refcount_remote--;
     }
 

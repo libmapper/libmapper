@@ -284,7 +284,10 @@ int main()
 
     stats[2] = sent;
     stats[3] = received;
+    sent = received = 0;
 
+    for (i=0; i<10; i++)
+        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
     sent = received = 0;
 
     msig_set_instance_management_callback(recvsig, more_handler,
