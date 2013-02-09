@@ -10,8 +10,6 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c);
-
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
                                     int port, const char *name, int default_scope)
 {
@@ -51,9 +49,10 @@ void mapper_receiver_free(mapper_receiver r)
             lo_address_free(r->props.src_addr);
         while (r->signals) {
             mapper_receiver_signal rs = r->signals;
-            mapper_receiver_signal tmp = rs->next;
             while (rs->connections) {
+                mapper_connection temp = rs->connections->next;
                 mapper_receiver_free_connection(r, rs->connections);
+                rs->connections = temp;
             }
             int i;
             for (i=0; i<rs->num_instances; i++) {
@@ -63,7 +62,6 @@ void mapper_receiver_free(mapper_receiver r)
             free(rs->history);
             r->signals = rs->next;
             free(rs);
-            rs = tmp;
         }
         for (i=0; i<r->props.num_scopes; i++) {
             free(r->props.scope_names[i]);
@@ -399,39 +397,41 @@ int mapper_receiver_remove_connection(mapper_receiver r,
     }
 
     // Now free the connection
-    mapper_receiver_free_connection(r, c);
-    return 1;
-}
-
-static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c)
-{
-    int i;
     mapper_connection *temp = &c->parent->connections;
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
-            if (c->props.src_name)
-                free(c->props.src_name);
-            if (c->props.dest_name)
-                free(c->props.dest_name);
-            if (c->props.expression)
-                free(c->props.expression);
-            if (c->props.query_name)
-                free(c->props.query_name);
-            table_free(c->props.extra, 1);
-            for (i=0; i<c->parent->num_instances; i++) {
-                free(c->history[i].value);
-                free(c->history[i].timetag);
-            }
-            if (c->history)
-                free(c->history);
-            if (c->blob)
-                free(c->blob);
-            free(c);
-            r->n_connections--;
-            return;
+            mapper_receiver_free_connection(r, c);
         }
         temp = &(*temp)->next;
+    }
+    return 1;
+}
+
+void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c)
+{
+    int i;
+    if (r && c) {
+        if (c->props.src_name)
+            free(c->props.src_name);
+        if (c->props.dest_name)
+            free(c->props.dest_name);
+        if (c->props.expression)
+            free(c->props.expression);
+        if (c->props.query_name)
+            free(c->props.query_name);
+        table_free(c->props.extra, 1);
+        for (i=0; i<c->parent->num_instances; i++) {
+            free(c->history[i].value);
+            free(c->history[i].timetag);
+        }
+        if (c->history)
+            free(c->history);
+        if (c->blob)
+            free(c->blob);
+        free(c);
+        r->n_connections--;
+        return;
     }
 }
 

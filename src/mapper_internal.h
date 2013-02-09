@@ -192,6 +192,8 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 
 void mapper_router_free(mapper_router router);
 
+void mapper_router_free_connection(mapper_router r, mapper_connection c);
+
 /*! Set a router's properties based on message parameters. */
 void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
@@ -258,6 +260,8 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
                                     int port, const char *name, int default_scope);
 
 void mapper_receiver_free(mapper_receiver receiver);
+
+void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c);
 
 /*! Set a router's properties based on message parameters. */
 void mapper_receiver_set_from_message(mapper_receiver receiver,

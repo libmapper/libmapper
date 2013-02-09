@@ -600,6 +600,27 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, signal_get, NULL);
         free(signal_get);
     }
+    mapper_receiver r = md->receivers;
+    while (r) {
+        mapper_receiver_signal *rs = &r->signals;
+        while (*rs) {
+            if ((*rs)->signal == sig) {
+                mapper_connection c = (*rs)->connections;
+                while (c) {
+                    mapper_connection temp = c->next;
+                    // TODO: try to send disconnect?
+                    mapper_receiver_free_connection(r, c);
+                    c = temp;
+                }
+                mapper_receiver_signal temp = *rs;
+                *rs = (*rs)->next;
+                free(temp);
+                break;
+            }
+            rs = &(*rs)->next;
+        }
+        r = r->next;
+    }
     md->n_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
@@ -629,6 +650,24 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
+    }
+    mapper_router r = md->routers;
+    while (r) {
+        mapper_router_signal *rs = &r->signals;
+        while (*rs) {
+            if ((*rs)->signal == sig) {
+                while ((*rs)->connections) {
+                    // TODO: try to send disconnect?
+                    mapper_router_remove_connection(r, (*rs)->connections);
+                }
+                mapper_router_signal temp = *rs;
+                *rs = (*rs)->next;
+                free(temp);
+                break;
+            }
+            rs = &(*rs)->next;
+        }
+        r = r->next;
     }
     md->n_outputs --;
     mdev_increment_version(md);
