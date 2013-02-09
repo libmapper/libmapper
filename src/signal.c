@@ -7,7 +7,7 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-#define MAX_INSTANCES 100
+#define MAX_INSTANCES 128
 
 static void msig_update_internal(mapper_signal sig,
                                  int instance_index,
@@ -85,7 +85,7 @@ void msig_update(mapper_signal sig, void *value,
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 1);
+        index = msig_get_instance_with_local_id(sig, 0, 0);
     msig_update_internal(sig, index, value, count, tt);
 }
 
@@ -113,7 +113,7 @@ void msig_update_int(mapper_signal sig, int value)
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 1);
+        index = msig_get_instance_with_local_id(sig, 0, 0);
     msig_update_internal(sig, index, &value, 1, MAPPER_NOW);
 }
 
@@ -141,7 +141,7 @@ void msig_update_float(mapper_signal sig, float value)
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 1);
+        index = msig_get_instance_with_local_id(sig, 0, 0);
     msig_update_internal(sig, index, &value, 1, MAPPER_NOW);
 }
 
@@ -525,7 +525,6 @@ void msig_release_instance_internal(mapper_signal sig,
 void msig_remove_instance(mapper_signal sig,
                           mapper_signal_instance si)
 {
-    // TODO: decrement refcount / free map is instance is active?
     if (!si) return;
 
     // Remove signal instance
@@ -823,8 +822,11 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
     }
     if (i == sig->id_map_length) {
         // need more memory
+        if (sig->id_map_length >= MAX_INSTANCES) {
+            // Arbitrary limit to number of tracked id_maps
+            return -1;
+        }
         sig->id_map_length *= 2;
-        // TODO: watch out for memory!
         sig->id_maps = realloc(sig->id_maps, sig->id_map_length *
                                sizeof(struct _mapper_signal_id_map));
         memset(sig->id_maps + i,
