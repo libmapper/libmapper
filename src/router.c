@@ -166,7 +166,7 @@ void mapper_router_process_signal(mapper_router r,
         return;
 
     // TODO: need to store histories using a different index?
-    int id = sig->id_maps[instance_index].instance->id;
+    int id = sig->id_maps[instance_index].instance->index;
     mapper_connection c;
 
     if (!value) {

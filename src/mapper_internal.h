@@ -48,7 +48,7 @@ struct _mapper_signal
 typedef struct _mapper_signal_instance
 {
     /*! Unique instance ID */
-    int id;
+    int index;
 
     /*! User data of this instance. */
     void *user_data;
