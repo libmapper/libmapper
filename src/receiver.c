@@ -10,6 +10,8 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c);
+
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
                                     int port, const char *name, int default_scope)
 {
@@ -51,7 +53,7 @@ void mapper_receiver_free(mapper_receiver r)
             mapper_receiver_signal rs = r->signals;
             mapper_receiver_signal tmp = rs->next;
             while (rs->connections) {
-                mapper_receiver_remove_connection(r, rs->connections);
+                mapper_receiver_free_connection(r, rs->connections);
             }
             int i;
             for (i=0; i<rs->num_instances; i++) {
@@ -397,6 +399,13 @@ int mapper_receiver_remove_connection(mapper_receiver r,
     }
 
     // Now free the connection
+    mapper_receiver_free_connection(r, c);
+    return 1;
+}
+
+static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c)
+{
+    int i;
     mapper_connection *temp = &c->parent->connections;
     while (*temp) {
         if (*temp == c) {
@@ -420,11 +429,10 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                 free(c->blob);
             free(c);
             r->n_connections--;
-            return 0;
+            return;
         }
         temp = &(*temp)->next;
     }
-    return 1;
 }
 
 mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,

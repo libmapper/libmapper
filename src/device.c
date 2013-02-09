@@ -63,10 +63,6 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        while (md->receivers)
-            mdev_remove_receiver(md, md->receivers);
         for (i = 0; i < md->n_inputs; i++)
             msig_free(md->inputs[i]);
         if (md->inputs)
@@ -75,6 +71,10 @@ void mdev_free(mapper_device md)
             msig_free(md->outputs[i]);
         if (md->outputs)
             free(md->outputs);
+        while (md->routers)
+            mdev_remove_router(md, md->routers);
+        while (md->receivers)
+            mdev_remove_receiver(md, md->receivers);
         mapper_id_map map;
         while (md->active_id_map) {
             map = md->active_id_map;

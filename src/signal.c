@@ -54,9 +54,15 @@ mapper_signal msig_new(const char *name, int length, char type,
 
 void msig_free(mapper_signal sig)
 {
+    int i;
     if (!sig) return;
 
     // Free instances
+    for (i = 0; i < sig->id_map_length; i++) {
+        if (sig->id_maps[i].instance) {
+            msig_free_instance(sig, sig->id_maps[i].instance);
+        }
+    }
     free(sig->id_maps);
     mapper_signal_instance si;
     while (sig->reserve_instances) {
