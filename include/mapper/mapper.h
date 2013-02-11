@@ -196,6 +196,14 @@ int msig_num_reserved_instances(mapper_signal sig);
  *  \return       The instance ID associated with the given index. */
 int msig_active_instance_id(mapper_signal sig, int index);
 
+/*! Set the allocation method to be used when a previously-unseen
+ *  instance ID is received.
+ *  \param sig  The signal to operate on.
+ *  \param mode Method to use for adding or reallocating active instances
+ *              if no reserved instances are available. */
+void msig_set_instance_allocation_mode(mapper_signal sig,
+                                       mapper_instance_allocation_type mode);
+
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.
  *  \param h            A handler function for processing instance managment events.

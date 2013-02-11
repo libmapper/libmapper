@@ -19,6 +19,10 @@ static void *msig_instance_value_internal(mapper_signal sig,
                                           int instance_index,
                                           mapper_timetag_t *timetag);
 
+static int msig_get_oldest_active_instance_internal(mapper_signal sig);
+
+static int msig_get_newest_active_instance_internal(mapper_signal sig);
+
 static void msig_free_instance(mapper_signal sig,
                                mapper_signal_instance si);
 
@@ -244,24 +248,48 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
         return msig_add_id_map(sig, si, map);
     }
 
-    if (sig->instance_management_handler) {
+    if (sig->instance_management_handler &&
+        (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
         sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-        // try again
-        if ((si = sig->reserve_instances)) {
-            if (!map) {
-                // add id map to device and link from signal
-                // TODO: this is probably not the correct way to get a local id
-                map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device), id);
-                map->refcount_local = 1;
-            }
-            else {
-                map->refcount_local++;
-            }
-            sig->reserve_instances = si->next;
-            msig_init_instance(si);
-            return msig_add_id_map(sig, si, map);
+    }
+    else if (sig->handler) {
+        if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
+            i = msig_get_oldest_active_instance_internal(sig);
+            if (i < 0)
+                return -1;
+            // TODO: should use real timetag here
+            sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
+                         0, 0, &MAPPER_NOW);
         }
+        else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
+            i = msig_get_newest_active_instance_internal(sig);
+            if (i < 0)
+                return -1;
+            // TODO: should use real timetag here
+            sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
+                         0, 0, &MAPPER_NOW);
+        }
+        else
+            return -1;
+    }
+    else
+        return -1;
+
+    // try again
+    if ((si = sig->reserve_instances)) {
+        if (!map) {
+            // add id map to device and link from signal
+            // TODO: this is probably not the correct way to get a local id
+            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device), id);
+            map->refcount_local = 1;
+        }
+        else {
+            map->refcount_local++;
+        }
+        sig->reserve_instances = si->next;
+        msig_init_instance(si);
+        return msig_add_id_map(sig, si, map);
     }
     return -1;
 }
@@ -304,23 +332,47 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id, int 
         return msig_add_id_map(sig, si, map);
     }
 
-    if (sig->instance_management_handler) {
+    if (sig->instance_management_handler &&
+        (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
         sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-        // try again
-        if ((si = sig->reserve_instances)) {
-            if (!map) {
-                // add id map to device
-                map = mdev_add_instance_id_map(sig->device, si->index, group, id);
-                map->refcount_remote = 1;
-            }
-            else {
-                map->refcount_remote++;
-            }
-            sig->reserve_instances = si->next;
-            msig_init_instance(si);
-            return msig_add_id_map(sig, si, map);
+    }
+    else if (sig->handler) {
+        if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
+            i = msig_get_oldest_active_instance_internal(sig);
+            if (i < 0)
+                return -1;
+            // TODO: should use real timetag here
+            sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
+                         0, 0, &MAPPER_NOW);
         }
+        else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
+            i = msig_get_newest_active_instance_internal(sig);
+            if (i < 0)
+                return -1;
+            // TODO: should use real timetag here
+            sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
+                         0, 0, &MAPPER_NOW);
+        }
+        else
+            return -1;
+    }
+    else
+        return -1;
+
+    // try again
+    if ((si = sig->reserve_instances)) {
+        if (!map) {
+            // add id map to device
+            map = mdev_add_instance_id_map(sig->device, si->index, group, id);
+            map->refcount_remote = 1;
+        }
+        else {
+            map->refcount_remote++;
+        }
+        sig->reserve_instances = si->next;
+        msig_init_instance(si);
+        return msig_add_id_map(sig, si, map);
     }
     return -1;
 }
@@ -391,17 +443,22 @@ void msig_update_instance(mapper_signal sig, int instance_id,
     }
 
     int index = msig_get_instance_with_local_id(sig, instance_id, 0);
-    if (index == -1 && sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_OVERFLOW)) {
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-        // try again
-        index = msig_get_instance_with_local_id(sig, instance_id, 0);
-    }
     if (index >= 0)
         msig_update_internal(sig, index, value, count, timetag);
 }
 
+
 int msig_get_oldest_active_instance(mapper_signal sig, int *id)
+{
+    int index = msig_get_oldest_active_instance_internal(sig);
+    if (index < 0)
+        return 1;
+    else
+        *id = sig->id_maps[index].map->local;
+    return 0;
+}
+
+int msig_get_oldest_active_instance_internal(mapper_signal sig)
 {
     int i;
     mapper_signal_instance si;
@@ -411,7 +468,7 @@ int msig_get_oldest_active_instance(mapper_signal sig, int *id)
     }
     if (i == sig->id_map_length) {
         // no active instances to steal!
-        return 1;
+        return -1;
     }
     int oldest = i;
     for (i = oldest+1; i < sig->id_map_length; i++) {
@@ -422,11 +479,20 @@ int msig_get_oldest_active_instance(mapper_signal sig, int *id)
              si->creation_time.frac < sig->id_maps[oldest].instance->creation_time.frac))
             oldest = i;
     }
-    *id = sig->id_maps[oldest].map->local;
-    return 0;
+    return oldest;
 }
 
 int msig_get_newest_active_instance(mapper_signal sig, int *id)
+{
+    int index = msig_get_newest_active_instance_internal(sig);
+    if (index < 0)
+        return 1;
+    else
+        *id = sig->id_maps[index].map->local;
+    return 0;
+}
+
+int msig_get_newest_active_instance_internal(mapper_signal sig)
 {
     int i;
     mapper_signal_instance si;
@@ -436,7 +502,7 @@ int msig_get_newest_active_instance(mapper_signal sig, int *id)
     }
     if (i == sig->id_map_length) {
         // no active instances to steal!
-        return 1;
+        return -1;
     }
     int newest = i;
     for (i = newest+1; i < sig->id_map_length; i++) {
@@ -447,8 +513,7 @@ int msig_get_newest_active_instance(mapper_signal sig, int *id)
              si->creation_time.frac > sig->id_maps[newest].instance->creation_time.frac))
             newest = i;
     }
-    *id = sig->id_maps[newest].map->local;
-    return 0;
+    return newest;
 }
 
 static void msig_update_internal(mapper_signal sig,
@@ -640,6 +705,13 @@ int msig_active_instance_id(mapper_signal sig, int index)
             return sig->id_maps[i].map->local;
     }
     return -1;
+}
+
+void msig_set_instance_allocation_mode(mapper_signal sig,
+                                       mapper_instance_allocation_type mode)
+{
+    if (sig)
+        sig->instance_allocation_type = mode;
 }
 
 void msig_set_instance_management_callback(mapper_signal sig,

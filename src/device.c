@@ -215,14 +215,6 @@ static int handler_signal_instance(const char *path, const char *types,
         // otherwise try to init reserved/stolen instance with device map
         index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0);
         if (index < 0) {
-            if (sig->instance_management_handler &&
-                (sig->instance_management_flags & IN_OVERFLOW)) {
-                sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-                // try again
-                index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0);
-            }
-        }
-        if (index < 0) {
             trace("no instances available for group=%ld, id=%ld\n",
                   (long)group_id, (long)instance_id);
             return 0;
