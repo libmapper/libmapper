@@ -484,7 +484,34 @@ static void msig_handler_py(struct _mapper_signal *msig,
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
         return;
     }
-    result = PyEval_CallObject((PyObject*)props->user_data, arglist);
+    PyObject **callbacks = (PyObject**)props->user_data;
+    result = PyEval_CallObject(callbacks[0], arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a mapper_signal_instance_management
+ * handler is called. */
+static void msig_instance_management_handler_py(struct _mapper_signal *msig,
+                                                mapper_db_signal props,
+                                                int instance_id,
+                                                msig_instance_event_t event)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist=0;
+    PyObject *result=0;
+
+    PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
+                                          SWIGTYPE_p__signal, 0);
+
+    arglist = Py_BuildValue("(Oii)", py_msig, instance_id, event);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (msig_instance_management_handler_py).\n");
+        return;
+    }
+    PyObject **callbacks = (PyObject**)props->user_data;
+    result = PyEval_CallObject(callbacks[1], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -624,6 +651,15 @@ typedef enum _mapper_instance_allocation_type {
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
+/*! The set of possible actions on an instance, used to register callbacks
+ *  to inform them of what is happening. */
+typedef enum {
+    IN_NEW                  = 0x01, //!< New instance has been created.
+    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
+    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
+    IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
+} msig_instance_event_t;
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -664,9 +700,13 @@ typedef struct _admin {} admin;
                       maybeSigVal maximum=0, PyObject *PyFunc=0)
     {
         void *h = 0;
+        PyObject **callbacks = 0;
         if (PyFunc) {
             h = msig_handler_py;
-            Py_XINCREF(PyFunc);
+            callbacks = malloc(2 * sizeof(PyObject*));
+            callbacks[0] = PyFunc;
+            callbacks[1] = 0;
+            Py_INCREF(PyFunc);
         }
         mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
         if (type == 'f')
@@ -709,7 +749,7 @@ typedef struct _admin {} admin;
         }
         mapper_signal msig = mdev_add_input((mapper_device)$self, name,
                                             length, type, unit, pmn, pmx,
-                                            h, PyFunc);
+                                            h, callbacks);
         return (signal *)msig;
     }
     signal* add_output(const char *name, int length=1, const char type='f',
@@ -762,7 +802,10 @@ typedef struct _admin {} admin;
     void remove_input(signal *sig) {
         mapper_signal msig = (mapper_signal)sig;
         if (msig->props.user_data) {
-            Py_XDECREF((PyObject*)msig->props.user_data);
+            PyObject **callbacks = msig->props.user_data;
+            Py_XDECREF(callbacks[0]);
+            Py_XDECREF(callbacks[1]);
+            free(callbacks);
         }
         return mdev_remove_input((mapper_device)$self, (mapper_signal)sig);
     }
@@ -921,17 +964,61 @@ typedef struct _admin {} admin;
     void set_allocation_mode(mapper_instance_allocation_type mode) {
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
+    void set_instance_management_callback(PyObject *PyFunc=0, int flags=0) {
+        mapper_signal_instance_management_handler *h = 0;
+        mapper_signal msig = (mapper_signal)$self;
+        PyObject **callbacks = (PyObject**)msig->props.user_data;
+        if (PyFunc) {
+            h = msig_instance_management_handler_py;
+            if (callbacks) {
+                callbacks[1] = PyFunc;
+            }
+            else {
+                callbacks = malloc(2 * sizeof(PyObject*));
+                callbacks[0] = 0;
+                callbacks[1] = PyFunc;
+            }
+            Py_XINCREF(PyFunc);
+        }
+        else if (callbacks) {
+            Py_XDECREF(callbacks[1]);
+            if (callbacks[0])
+                callbacks[1] = 0;
+            else {
+                free(callbacks);
+                callbacks = 0;
+            }
+        }
+        msig_set_instance_management_callback((mapper_signal)$self, h, flags, callbacks);
+    }
     void set_callback(PyObject *PyFunc=0) {
         mapper_signal_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
-        if (PyFunc && !msig->props.user_data) {
+        PyObject **callbacks = (PyObject**)msig->props.user_data;
+        if (PyFunc) {
             h = msig_handler_py;
+            if (callbacks) {
+                callbacks[0] = PyFunc;
+            }
+            else {
+                callbacks = malloc(2 * sizeof(PyObject*));
+                callbacks[0] = PyFunc;
+                callbacks[1] = 0;
+                Py_XINCREF(callbacks);
+            }
             Py_XINCREF(PyFunc);
         }
-        else if (!PyFunc && msig->props.user_data) {
-            Py_XDECREF((PyObject*)msig->props.user_data);
+        else if (callbacks) {
+            Py_XDECREF(callbacks[0]);
+            if (callbacks[1]) {
+                callbacks[0] = 0;
+            }
+            else {
+                Py_XDECREF(callbacks);
+                callbacks = 0;
+            }
         }
-        return msig_set_callback((mapper_signal)$self, h, PyFunc);
+        return msig_set_callback((mapper_signal)$self, h, callbacks);
     }
     int query_remotes() {
         return msig_query_remotes((mapper_signal)$self, MAPPER_NOW);
