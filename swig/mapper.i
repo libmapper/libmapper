@@ -496,7 +496,8 @@ static void msig_handler_py(struct _mapper_signal *msig,
 static void msig_instance_management_handler_py(struct _mapper_signal *msig,
                                                 mapper_db_signal props,
                                                 int instance_id,
-                                                msig_instance_event_t event)
+                                                msig_instance_event_t event,
+                                                mapper_timetag_t *tt)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
@@ -505,7 +506,13 @@ static void msig_instance_management_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    arglist = Py_BuildValue("(Oii)", py_msig, instance_id, event);
+    unsigned long long int timetag = 0;
+    if (tt) {
+        timetag = tt->sec;
+        timetag = (timetag << 32) + tt->frac;
+    }
+
+    arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, event, timetag);
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_instance_management_handler_py).\n");
         return;

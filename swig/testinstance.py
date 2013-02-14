@@ -12,7 +12,7 @@ def h(sig, id, f, timetag):
         print '--> exception'
         print sig, id, f
 
-def manage_instances(sig, id, flag):
+def manage_instances(sig, id, flag, timetag):
     try:
         if flag == mapper.IN_OVERFLOW:
             print '--> OVERFLOW for sig', sig.name, 'instance', id
