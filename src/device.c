@@ -178,8 +178,6 @@ static int handler_signal_instance(const char *path, const char *types,
                                    lo_arg **argv, int argc, lo_message msg,
                                    void *user_data)
 {
-    // TODO: check if instance management handler has been declared with flag IN_UPSTREAM_RELEASE
-    // if so && sig type is LO_NIL, call instance management handler instead of sig handler
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     void *dataptr = 0;
@@ -198,9 +196,7 @@ static int handler_signal_instance(const char *path, const char *types,
     int index = msig_find_instance_with_remote_ids(sig, group_id, instance_id,
                                                    IN_RELEASED_LOCALLY);
     mapper_id_map map;
-    if (index < 0) {
-        // no instance found with this map
-
+    if (index < 0) {    // no instance found with this map
         // Don't activate instance just to release it again
         if (types[2] == LO_NIL || types[2] == LO_FALSE)
             return 0;
@@ -245,32 +241,42 @@ static int handler_signal_instance(const char *path, const char *types,
     mapper_signal_instance si = sig->id_maps[index].instance;
     map = sig->id_maps[index].map;
 
-    if (types[2] == LO_BLOB) {
-        dataptr = lo_blob_dataptr((lo_blob)argv[2]);
-        count = lo_blob_datasize((lo_blob)argv[2]) /
-            mapper_type_size(sig->props.type);
-    }
-    else if (types[2] != LO_NIL) {
-        /* This is cheating a bit since we know that the arguments pointed
-         * to by argv are layed out sequentially in memory.  It's not
-         * clear if liblo's semantics guarantee it, but known to be true
-         * on all platforms. */
-        memcpy(si->value, argv[2], msig_vector_bytes(sig));
-        si->has_value = 1;
-        dataptr = si->value;
-    }
-    else {
-        sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
-        map->refcount_remote--;
-    }
-
     lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
-    if (sig->handler) {
-        sig->handler(sig, &sig->props, map->local,
-                     dataptr, count, &si->timetag);
+    if (types[2] == LO_NIL) {
+        sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
+        map->refcount_remote--;
+        if (sig->instance_management_handler
+            && (sig->instance_management_flags & IN_UPSTREAM_RELEASE)) {
+            sig->instance_management_handler(sig, &sig->props, map->local,
+                                             IN_UPSTREAM_RELEASE);
+        }
+        else if (sig->handler) {
+            sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
+        }
+    }
+    else {
+        if (types[2] == LO_BLOB) {
+            dataptr = lo_blob_dataptr((lo_blob)argv[2]);
+            count = lo_blob_datasize((lo_blob)argv[2]) /
+                mapper_type_size(sig->props.type);
+        }
+        else {
+            /* This is cheating a bit since we know that the arguments pointed
+             * to by argv are layed out sequentially in memory.  It's not
+             * clear if liblo's semantics guarantee it, but known to be true
+             * on all platforms. */
+            // TODO: should copy last value from sample vector (or add history)
+            memcpy(si->value, argv[2], msig_vector_bytes(sig));
+            si->has_value = 1;
+            dataptr = si->value;
+        }
+
+        if (sig->handler) {
+            sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
+        }
     }
     if (!sig->props.is_output)
         mdev_receive_update(md, sig, index, tt);

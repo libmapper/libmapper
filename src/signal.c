@@ -209,7 +209,6 @@ int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
 
 int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
 {
-    // TODO: remove flags argument?
     if (!sig)
         return 0;
 
@@ -719,9 +718,6 @@ void msig_set_instance_management_callback(mapper_signal sig,
                                            int flags,
                                            void *user_data)
 {
-    /* TODO: should we allow setting separate user_data pointer for reverse
-     * connection callback and instance management callback? */
-
     if (!sig)
         return;
 
