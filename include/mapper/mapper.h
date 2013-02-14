@@ -59,7 +59,8 @@ typedef void mapper_signal_handler(mapper_signal msig,
 typedef void mapper_signal_instance_management_handler(mapper_signal msig,
                                                        mapper_db_signal props,
                                                        int instance_id,
-                                                       msig_instance_event_t event);
+                                                       msig_instance_event_t event,
+                                                       mapper_timetag_t *tt);
 
 /*! Update the value of a signal.
  *  The signal will be routed according to external requests.

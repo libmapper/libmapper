@@ -76,7 +76,8 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 }
 
 void more_handler(mapper_signal sig, mapper_db_signal props,
-                  int instance_id, msig_instance_event_t event)
+                  int instance_id, msig_instance_event_t event,
+                  mapper_timetag_t *timetag)
 {
     if (event & IN_OVERFLOW) {
         printf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");

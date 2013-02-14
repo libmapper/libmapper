@@ -251,7 +251,7 @@ static int handler_signal_instance(const char *path, const char *types,
         if (sig->instance_management_handler
             && (sig->instance_management_flags & IN_UPSTREAM_RELEASE)) {
             sig->instance_management_handler(sig, &sig->props, map->local,
-                                             IN_UPSTREAM_RELEASE);
+                                             IN_UPSTREAM_RELEASE, &tt);
         }
         else if (sig->handler) {
             sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
@@ -301,9 +301,11 @@ static int handler_instance_release_request(const char *path, const char *types,
     if (index < 0)
         return 0;
 
-    if (sig->instance_management_handler)
+    if (sig->instance_management_handler) {
+        lo_timetag tt = lo_message_get_timestamp(msg);
         sig->instance_management_handler(sig, &sig->props, sig->id_maps[index].map->local,
-                                         IN_DOWNSTREAM_RELEASE);
+                                         IN_DOWNSTREAM_RELEASE, &tt);
+    }
 
     return 0;
 }

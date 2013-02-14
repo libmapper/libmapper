@@ -250,7 +250,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
+        // TODO: should use real timetag here
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, &MAPPER_NOW);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
@@ -334,7 +335,8 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id, int 
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
+        // TODO: should use real timetag here
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, &MAPPER_NOW);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
