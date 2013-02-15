@@ -881,6 +881,28 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
+    void update(float f, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        }
+    }
+    void update(int i, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        }
+    }
     void reserve_instances(int num) {
         msig_reserve_instances((mapper_signal)$self, num);
     }
