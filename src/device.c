@@ -1209,3 +1209,8 @@ lo_server mdev_get_lo_server(mapper_device md)
 {
     return md->server;
 }
+
+void mdev_timetag_now(mapper_device dev, mapper_timetag_t *timetag)
+{
+    mapper_clock_now(&dev->admin->clock, timetag);
+}
