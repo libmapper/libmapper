@@ -353,8 +353,7 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
  *  \param flags Bitflags indicating if search should include released instances.
  *  \return      The index of the retrieved signal instance, or -1 if no active
  *               instances match the specified instance ID. */
-int msig_find_instance_with_local_id(mapper_signal sig,
-                                     int id, int flags);
+int msig_find_instance_with_local_id(mapper_signal sig, int id, int flags);
 
 /*! Find an active instance with the given instance ID.
  *  \param sig   The signal owning the desired instance.
@@ -371,11 +370,13 @@ int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
  *  \param sig   The signal owning the desired instance.
  *  \param id    The requested signal instance ID.
  *  \param flags Bitflags indicating if search should include released instances.
+ *  \param tt    Timetag associated with this action.
  *  \return      The index of the retrieved signal instance, or -1 if no free
  *               instances were available and allocation of a new instance
  *               was unsuccessful according to the selected allocation
  *               strategy. */
-int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags);
+int msig_get_instance_with_local_id(mapper_signal sig, int id,
+                                    int flags, mapper_timetag_t *tt);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
@@ -383,12 +384,13 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags);
  *  \param group The remote group.
  *  \param id    The remote id.
  *  \param flags Bitflags indicating if search should include released instances.
+ *  \param tt    Timetag associated with this action.
  *  \return      The index of the retrieved signal instance, or NULL if no free
  *               instances were available and allocation of a new instance
  *               was unsuccessful according to the selected allocation
  *               strategy. */
-int msig_get_instance_with_remote_ids(mapper_signal sig, int group,
-                                      int id, int flags);
+int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
+                                      int flags, mapper_timetag_t *tt);
 
 /*! Release a specific signal instance. */
 void msig_release_instance_internal(mapper_signal sig,

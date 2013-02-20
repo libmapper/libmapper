@@ -42,7 +42,8 @@ typedef enum {
     IN_NEW                  = 0x01, //!< New instance has been created.
     IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
     IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
-    IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
+    IN_OVERFLOW             = 0x08, //!< No local instances left for incoming remote instance.
+    IN_ALL                  = 0xFF
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value

@@ -132,9 +132,11 @@ static int handler_signal(const char *path, const char *types,
     if (!sig)
         return 0;
 
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 1);
+        index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
     if (index < 0)
         return 0;
 
@@ -147,8 +149,6 @@ static int handler_signal(const char *path, const char *types,
     }
     else
         dataptr = argv[0];
-
-    lo_timetag tt = lo_message_get_timestamp(msg);
 
     if (types[0] == LO_NIL) {
         si->has_value = 0;
@@ -195,6 +195,9 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int index = msig_find_instance_with_remote_ids(sig, group_id, instance_id,
                                                    IN_RELEASED_LOCALLY);
+
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
     mapper_id_map map;
     if (index < 0) {    // no instance found with this map
         // Don't activate instance just to release it again
@@ -209,7 +212,7 @@ static int handler_signal_instance(const char *path, const char *types,
         }
 
         // otherwise try to init reserved/stolen instance with device map
-        index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0);
+        index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0, &tt);
         if (index < 0) {
             trace("no instances available for group=%ld, id=%ld\n",
                   (long)group_id, (long)instance_id);
@@ -241,7 +244,6 @@ static int handler_signal_instance(const char *path, const char *types,
     mapper_signal_instance si = sig->id_maps[index].instance;
     map = sig->id_maps[index].map;
 
-    lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
@@ -297,12 +299,13 @@ static int handler_instance_release_request(const char *path, const char *types,
         !(sig->instance_management_flags & IN_DOWNSTREAM_RELEASE))
         return 0;
 
-    int index = msig_get_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
+    int index = msig_get_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0, &tt);
     if (index < 0)
         return 0;
 
     if (sig->instance_management_handler) {
-        lo_timetag tt = lo_message_get_timestamp(msg);
         sig->instance_management_handler(sig, &sig->props, sig->id_maps[index].map->local,
                                          IN_DOWNSTREAM_RELEASE, &tt);
     }

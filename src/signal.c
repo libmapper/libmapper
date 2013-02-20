@@ -93,10 +93,18 @@ void msig_update(mapper_signal sig, void *value,
     if (!sig)
         return;
 
+    mapper_timetag_t *ttp;
+    if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
+        ttp = &sig->device->admin->clock.now;
+        mdev_timetag_now(sig->device, ttp);
+    }
+    else
+        ttp = &tt;
+
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0);
-    msig_update_internal(sig, index, value, count, tt);
+        index = msig_get_instance_with_local_id(sig, 0, 0, ttp);
+    msig_update_internal(sig, index, value, count, *ttp);
 }
 
 void msig_update_int(mapper_signal sig, int value)
@@ -121,10 +129,13 @@ void msig_update_int(mapper_signal sig, int value)
     }
 #endif
 
+    mapper_timetag_t *tt = &sig->device->admin->clock.now;
+    mdev_timetag_now(sig->device, tt);
+
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0);
-    msig_update_internal(sig, index, &value, 1, MAPPER_NOW);
+        index = msig_get_instance_with_local_id(sig, 0, 0, tt);
+    msig_update_internal(sig, index, &value, 1, *tt);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -149,10 +160,13 @@ void msig_update_float(mapper_signal sig, float value)
     }
 #endif
 
+    mapper_timetag_t *tt = &sig->device->admin->clock.now;
+    mdev_timetag_now(sig->device, tt);
+
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0);
-    msig_update_internal(sig, index, &value, 1, MAPPER_NOW);
+        index = msig_get_instance_with_local_id(sig, 0, 0, tt);
+    msig_update_internal(sig, index, &value, 1, *tt);
 }
 
 void *msig_value(mapper_signal sig,
@@ -207,7 +221,8 @@ int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
     return -1;
 }
 
-int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
+int msig_get_instance_with_local_id(mapper_signal sig, int id,
+                                    int flags, mapper_timetag_t *tt)
 {
     if (!sig)
         return 0;
@@ -250,25 +265,22 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
-        // TODO: should use real timetag here
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, &MAPPER_NOW);
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
             i = msig_get_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            // TODO: should use real timetag here
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
-                         0, 0, &MAPPER_NOW);
+                         0, 0, tt);
         }
         else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
             i = msig_get_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            // TODO: should use real timetag here
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
-                         0, 0, &MAPPER_NOW);
+                         0, 0, tt);
         }
         else
             return -1;
@@ -294,7 +306,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id, int flags)
     return -1;
 }
 
-int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id, int flags)
+int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
+                                      int flags, mapper_timetag_t *tt)
 {
     // If the map pointer is null, we need to create a new map if necessary
     if (!sig)
@@ -335,25 +348,22 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id, int 
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_OVERFLOW)) {
         // call instance management handler
-        // TODO: should use real timetag here
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, &MAPPER_NOW);
+        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
             i = msig_get_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            // TODO: should use real timetag here
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
-                         0, 0, &MAPPER_NOW);
+                         0, 0, tt);
         }
         else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
             i = msig_get_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            // TODO: should use real timetag here
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
-                         0, 0, &MAPPER_NOW);
+                         0, 0, tt);
         }
         else
             return -1;
@@ -443,7 +453,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         return;
     }
 
-    int index = msig_get_instance_with_local_id(sig, instance_id, 0);
+    int index = msig_get_instance_with_local_id(sig, instance_id, 0, &timetag);
     if (index >= 0)
         msig_update_internal(sig, index, value, count, timetag);
 }
@@ -570,8 +580,16 @@ void msig_release_instance_internal(mapper_signal sig,
     if (!smap->instance)
         return;
 
+    mapper_timetag_t *ttp;
+    if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
+        ttp = &sig->device->admin->clock.now;
+        mdev_timetag_now(sig->device, ttp);
+    }
+    else
+        ttp = &tt;
+
     if (!(smap->status & IN_RELEASED_REMOTELY)) {
-        mdev_route_released(sig->device, sig, instance_index, tt);
+        mdev_route_released(sig->device, sig, instance_index, *ttp);
     }
 
     smap->map->refcount_local--;
@@ -604,7 +622,9 @@ void msig_remove_instance(mapper_signal sig,
     for (i = 0; i < sig->id_map_length; i++) {
         if (sig->id_maps[i].instance == si) {
             // First release instance
-            msig_release_instance_internal(sig, i, MAPPER_NOW);
+            mapper_timetag_t tt = sig->device->admin->clock.now;
+            mdev_timetag_now(sig->device, &tt);
+            msig_release_instance_internal(sig, i, tt);
             msig_free_instance(sig, si);
             sig->id_maps[i].instance = 0;
             --sig->props.num_instances;
@@ -666,9 +686,13 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
     if (index < 0)
         return;
 
+    mapper_timetag_t tt = from->device->admin->clock.now;
+    mdev_timetag_now(from->device, &tt);
+
     // Get "to" instance with same map
     msig_get_instance_with_remote_ids(to, from->id_maps[index].map->group,
-                                      from->id_maps[index].map->remote, 0);
+                                      from->id_maps[index].map->remote, 0,
+                                      &tt);
 }
 
 int msig_num_active_instances(mapper_signal sig)
@@ -753,7 +777,10 @@ void msig_set_instance_data(mapper_signal sig,
                             int instance_id,
                             void *user_data)
 {
-    int index = msig_get_instance_with_local_id(sig, instance_id, 0);
+    mapper_timetag_t tt = sig->device->admin->clock.now;
+    mdev_timetag_now(sig->device, &tt);
+
+    int index = msig_get_instance_with_local_id(sig, instance_id, 0, &tt);
     if (index >= 0)
         sig->id_maps[index].instance->user_data = user_data;
 }

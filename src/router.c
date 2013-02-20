@@ -349,8 +349,7 @@ void mapper_router_send_or_bundle_message(mapper_router r,
     }
     else {
         // Send message immediately
-        //lo_bundle b = lo_bundle_new(tt);
-        lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+        lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, m);
         lo_send_bundle_from(r->props.dest_addr, r->device->server, b);
         lo_bundle_free_messages(b);
@@ -372,8 +371,7 @@ void mapper_router_start_queue(mapper_router r,
     // need to create new queue
     q = malloc(sizeof(struct _mapper_queue));
     memcpy(&q->tt, &tt, sizeof(mapper_timetag_t));
-    //q->bundle = lo_bundle_new(tt);
-    q->bundle = lo_bundle_new(LO_TT_IMMEDIATE);
+    q->bundle = lo_bundle_new(tt);
     q->next = r->queues;
     r->queues = q;
 }

@@ -235,8 +235,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
     if (!rs)
         return;
 
-    //lo_bundle b = lo_bundle_new(tt);
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    lo_bundle b = lo_bundle_new(tt);
 
     c = rs->connections;
     while (c) {
