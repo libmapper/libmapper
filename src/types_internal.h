@@ -144,10 +144,6 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! Bit flags for indicating routing configuration. */
-#define FLAGS_SEND_IMMEDIATELY  0x01
-#define FLAGS_IS_NEW_INSTANCE   0x02
-
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
