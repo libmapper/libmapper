@@ -401,6 +401,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
         if (*temp == c) {
             *temp = c->next;
             mapper_receiver_free_connection(r, c);
+            return 0;
         }
         temp = &(*temp)->next;
     }
