@@ -206,10 +206,10 @@ static int handler_signal_instance(const char *path, const char *types,
 
         // check if device has record
         map = mdev_find_instance_id_map_by_remote(md, group_id, instance_id);
-        if (map && map->refcount_remote <= 0) {
+        /*if (map && map->refcount_remote <= 0) {
             // map is waiting for release
             return 0;
-        }
+        }*/
 
         // otherwise try to init reserved/stolen instance with device map
         index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0, &tt);
