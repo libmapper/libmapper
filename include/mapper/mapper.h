@@ -206,6 +206,12 @@ int msig_active_instance_id(mapper_signal sig, int index);
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
 
+/*! Get the allocation method to be used when a previously-unseen
+ *  instance ID is received.
+ *  \param sig  The signal to operate on.
+ *  \return     The allocation mode of the provided signal. */
+mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal sig);
+
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.
  *  \param h            A handler function for processing instance managment events.

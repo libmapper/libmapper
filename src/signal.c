@@ -739,6 +739,13 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
         sig->instance_allocation_type = mode;
 }
 
+mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal sig)
+{
+    if (sig)
+        return sig->instance_allocation_type;
+    return 0;
+}
+
 void msig_set_instance_management_callback(mapper_signal sig,
                                            mapper_signal_instance_management_handler h,
                                            int flags,
