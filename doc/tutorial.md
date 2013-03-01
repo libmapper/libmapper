@@ -41,6 +41,8 @@ compile the Python bindings.  On Mac OS X, we provide a precompiled
 Framework bundle for 32- and 64-bit Intel platforms, so using it with
 XCode should be a matter of including it in your project.
 
+// TODO: macports/fink/homebrew/etc
+
 Overview of the API organization
 ================================
 
@@ -81,7 +83,7 @@ parameters to `mdev_new`:
 
     mapper_device mdev_new( const char *name_prefix,
                             int initial_port,
-                            mapper_admin admin )
+                            mapper_admin admin );
 
 Every device on the network needs a name and port.  In fact the
 requested name and port are only "starting values".  There is an
@@ -105,7 +107,7 @@ interface to use.
 
 An example of creating a device:
 
-    mapper_device my_device = mdev_new("test", 9000, 0);
+    mapper_device my_device = mdev_new( "test", 9000, 0 );
 
 Polling the device
 ------------------
@@ -135,7 +137,7 @@ milliseconds during which it should do some work, or 0 if it should
 check for any immediate actions and then return without waiting:
 
     int mdev_poll( mapper_device md,
-                   int block_ms )
+                   int block_ms );
 
 An example of calling it with non-blocking behaviour:
 
@@ -201,7 +203,7 @@ is optional:
                                   void *minimum,
                                   void *maximum,
                                   mapper_signal_handler *handler,
-                                  void *user_data )
+                                  void *user_data );
 
     mapper_signal mdev_add_output( mapper_device dev,
                                    const char *name,
@@ -209,7 +211,7 @@ is optional:
                                    char type,
                                    const char *unit,
                                    void *minimum,
-                                   void *maximum )
+                                   void *maximum );
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -225,11 +227,11 @@ information you provide, the more the mapper can do some things
 automatically.  For example, if `minimum` and `maximum` are provided,
 it will be possible to create linear-scaled connections very quickly.
 If `unit` is provided, the mapper will be able to similarly figure out
-a linear scaling based on unit conversion. (Centimeters to inches for
-example.)^[Currently automatic unit-based scaling is not a supported
+a linear scaling based on unit conversion (from centimeters to inches for
+example). Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of
 this future development by simply providing unit information whenever
-it is available.  It is also helpful documentation for users.]
+it is available.  It is also helpful documentation for users.
 
 Notice that optional values are provided as `void*` pointers.  This is
 because a signal can either be `float` or `int`, and your maximum and
@@ -257,23 +259,23 @@ An example of a `float` signal where some more information is provided:
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
  
-    mapper_device my_sender = mdev_new("test_sender", 9000, 0);
+    mapper_device my_sender = mdev_new( "test_sender", 9000, 0 );
     mapper_signal sensor1_voltage = mdev_add_output( my_sender, "/sensor1",
                                                      1, 'f', "V",
-                                                     &minimum, &maximum )
+                                                     &minimum, &maximum );
     
-    while (!done) {
-        mdev_poll(my_sender, 50);
+    while ( !done ) {
+        mdev_poll( my_sender, 50 );
         ... do stuff ...
         ... update signals ...
     }
     
-    mdev_free(my_sender);
+    mdev_free( my_sender );
 
 Note that although you have a pointer to the mapper_signal structure,
-which was retuned by `mdev_add_output`, its memory "owned" by the
+which was retuned by `mdev_add_output`, its memory is "owned" by the
 device.  In other words, you should not worry about freeing its
-memory--this will happen automatically when the device is destroyed.
+memory - this will happen automatically when the device is destroyed.
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions
 `mdev_get_<input/output>_by_<name/index>`.
@@ -291,27 +293,36 @@ devices if that signal is mapped.
 
 This is accomplished by the `msig_update` function:
 
-    void msig_update( mapper_signal sig, void *value )
+    void msig_update( mapper_signal sig,
+                      void *value,
+                      int count,
+                      mapper_timetag_t timetag );
 
 As you can see, a `void*` pointer must be provided.  This must point
 to a data structure identified by the signal's `length` and `type`.
 In other words, if the signal is a 10-vector of `int`, then `value`
 should point to the first item in a C array of 10 `int`s.  If it is a
 scalar `float`, it should be provided with the address of a `float`
-variable.
+variable. The `count` argument allows you to specify the number of
+value samples that are being updated - for now we will set this to 1.
+Lastly the `timetag` argument allows you to specify a time associated with
+the signal update. If your value update was generated locally, or if your
+program does not have access to upstream timing information (e.g., from a
+microcontroller sampling sensor values), you can use the macro `MAPPER_NOW`
+and libmapper will tag the update with the current time.
 
-A short-hand is provided for scalar signals of particular types:
+To simplify things even further, a short-hand is provided for scalar signals of particular types:
 
-    void msig_update_int( mapper_signal sig, int value )
+    void msig_update_int( mapper_signal sig, int value );
 
-    void msig_update_float( mapper_signal sig, float value )
+    void msig_update_float( mapper_signal sig, float value );
 
 So in the "sensor 1 voltage" example, assuming in "do stuff" we have
 some code which reads sensor 1's value into a float variable called
 `v1`, the loop becomes:
 
-    while (!done) {
-        mdev_poll(my_device, 50);
+    while ( !done ) {
+        mdev_poll( my_device, 50 );
         float v1 = read_sensor_1();
         msig_update_float( sensor1_voltage, v1 );
     }
@@ -344,7 +355,7 @@ signal instead, providing the unit information as well.
 
 We call such signals "semantic", because they provide information with
 more meaning than a relatively uninformative value based on the
-electrical properties of the sensing technique.  Some sensors can
+electrical properties of the sensing technqiue.  Some sensors can
 benefit from low-pass filtering or other measures to reduce noise.
 Some sensors may need to be combined in order to derive physical
 meaning.  What you choose to expose as outputs of your device is
@@ -372,8 +383,7 @@ which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
 audio thread.
 
-Create the handler function, which is fairly simple. For simplicity,
-we will ignore most of the information provided to the handler.
+Create the handler function, which is fairly simple,
 
     void pulsewidth_handler ( mapper_signal msig,
                               mapper_db_signal props,
@@ -383,12 +393,12 @@ we will ignore most of the information provided to the handler.
                               mapper_timetag_t *tt )
     {
         Synthesizer *s = (Synthesizer*) props->user_data;
-        s->setPulseWidth(*(float*)v);
+        s->setPulseWidth( *(float*)v );
     }
 
 First, the pointer to the `Synthesizer` instance is extracted from the
 `user_data` pointer, then it is dereferenced to set the pulse width
-according to the value pointed to by `value`.
+according to the value pointed to by `v`.
 
 Then `main()` will look like,
 
@@ -400,17 +410,17 @@ Then `main()` will look like,
         float min_pw = 0.0f;
         float max_pw = 1.0f;
         
-        mapper_device my_receiver = mdev_new("test_receiver", 9000, 0);
+        mapper_device my_receiver = mdev_new( "test_receiver", 9000, 0 );
         
         mapper_signal synth_pulsewidth =
             mdev_add_input( my_receiver, "/synth/pulsewidth",
                             1, 'f', 0, &min_pw, &max_pw,
                             pulsewidth_handler, &synth );
         
-        while (!done)
-            mdev_poll(my_receiver, 50);
+        while ( !done )
+            mdev_poll( my_receiver, 50 );
         
-        mdev_free(my_receiver);
+        mdev_free( my_receiver );
     }
 
 Publishing metadata
@@ -457,12 +467,12 @@ you can call it like this:
 
     lo_arg x;
     x.f = 12.5;
-    mdev_set_property( my_device, "x", 'f', &x);
+    mdev_set_property( my_device, "x", 'f', &x );
 
 In practice it is safe to cast to `lo_arg*`:
 
     float x = 12.5;
-    mdev_set_property( my_device, "x", 'f', (lo_arg*)&x);
+    mdev_set_property( my_device, "x", 'f', (lo_arg*)&x );
 
 To specify strings, it is necessary to perform such a cast, since the
 `lo_arg*` you provide should actually point to the beginning of the
@@ -470,7 +480,7 @@ string:
 
     char *sensingMethod = "resistive";
     msig_set_property( sensor1, "sensingMethod",
-                       's', (lo_arg*)sensingMethod);
+                       's', (lo_arg*)sensingMethod );
 
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are:
