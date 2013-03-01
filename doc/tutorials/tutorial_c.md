@@ -1,36 +1,3 @@
-% libmapper tutorial
-
-Introduction
-============
-
-This tutorial introduces a new user to _libmapper_, providing steps to
-construct _devices_ that are compatible with the _libmapper_ network
-protocol.  Programs that implement a _device_ interface provide
-_signals_, which can be inputs or outputs, which are announced on the
-network.  A compatible GUI program can then be used to _map_ signals
-between devices.
-
-Conceptually, a device typically consists only of outputs, for example
-in the case of a program that gets information from a human input
-device like a joystick, or only of inputs, for example a
-software-controlled synthesizer.  For convenience, we will call output
-devices "controllers", or "senders", and input devices "synthesizers",
-or "receivers".  This betrays the use case that was in mind when the
-_libmapper_ system was conceived, but of course receivers could just
-as well be programs that control motors, lights, or anything else that
-might need control information.  Similarly, senders could easily be
-programs that generate trajectory data based on algorithmic
-composition, or whatever you can imagine.
-
-It is also possible to create devices which have inputs and outputs,
-and these can be mapped "in between" senders and receivers in order to
-perform some intermediate processing for example.  However, this is a
-more advanced topic that won't be covered in this tutorial.
-
-First we will cover how to create a sender, and then how to create a
-receiver.  This should be enough for you to try creating a connection
-and explore the possibilities afforded by dynamic mapping design.
-
 Getting started
 ===============
 
