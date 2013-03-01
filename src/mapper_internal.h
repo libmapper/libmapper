@@ -724,13 +724,15 @@ void mapper_msg_add_osc_value_table(lo_message m, table t);
 /**** Clock synchronization ****/
 
 /*! Initialize a mapper_clock. */
-void mdev_clock_init(mapper_device dev);
+void mapper_clock_init(mapper_clock clock);
 
 /*! Adjust the internal clock synchonization. */
-void mdev_clock_adjust(mapper_device dev,
-                       double difference,
-                       double confidence,
-                       int is_latency_adjusted);
+void mapper_clock_adjust(mapper_clock clock,
+                         double difference,
+                         float confidence);
+
+/*! Get the current time from a mapper_clock. */
+void mapper_clock_now(mapper_clock clock, mapper_timetag_t *timetag);
 
 /**** Debug macros ****/
 

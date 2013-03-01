@@ -465,20 +465,16 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    unsigned long long int timetag = 0;
-    if (tt) {
-        timetag = tt->sec;
-        timetag = (timetag << 32) + tt->frac;
-    }
+    double timetag = mapper_timetag_get_double(*tt);
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
+            arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
+            arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -929,6 +925,28 @@ typedef struct _admin {} admin;
             msig_update_int((mapper_signal)$self, i);
         else if (sig->props.type == 'f') {
             msig_update_float((mapper_signal)$self, (float)i);
+        }
+    }
+    void update(float f, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        }
+    }
+    void update(int i, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update((mapper_signal)$self, &f, 1, tt);
         }
     }
     void reserve_instances(int num) {

@@ -438,7 +438,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;
-        mdev_clock_init(admin->device);
+        // TODO: should we init clocks for monitors also?
+        mapper_clock_init(&admin->clock);
 
         /* Seed the random number generator. */
         seed_srand();
@@ -534,7 +535,7 @@ int mapper_admin_poll(mapper_admin admin)
         }
         // Send out clock sync messages occasionally
         mapper_clock_t *clock = &admin->clock;
-        mdev_timetag_now(admin->device, &clock->now);
+        mapper_clock_now(clock, &clock->now);
         if (clock->now.sec >= clock->next_ping) {
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
@@ -2380,7 +2381,7 @@ static int handler_sync(const char *path,
 
     // get current time
     mapper_timetag_t now;
-    mdev_timetag_now(md, &now);
+    mapper_clock_now(&admin->clock, &now);
 
     // store remote timetag
     clock->remote.device_id = device_id;
@@ -2393,7 +2394,7 @@ static int handler_sync(const char *path,
 
     // if remote timetag is in the future, adjust to remote time
     double diff = mapper_timetag_difference(then, now);
-    mdev_clock_adjust(md, diff, confidence, 0);
+    mapper_clock_adjust(&admin->clock, diff, 1.0);
 
     // look at the second part of the message
     device_id = argv[3]->i;
@@ -2408,7 +2409,7 @@ static int handler_sync(const char *path,
     double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
                       - argv[5]->d) * 0.5;
     if (latency > 0 && latency < 100)
-        mdev_clock_adjust(md, diff + latency, confidence, 1);
+        mapper_clock_adjust(&admin->clock, diff + latency, confidence);
 
     return 0;
 }
