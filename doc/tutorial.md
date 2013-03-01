@@ -193,7 +193,8 @@ Creating a signal
 A signal requires a bit more information than a device, much of which
 is optional:
 
-    mapper_signal mdev_add_input( const char *name,
+    mapper_signal mdev_add_input( mapper_device dev,
+                                  const char *name,
                                   int length,
                                   char type,
                                   const char *unit,
@@ -202,7 +203,8 @@ is optional:
                                   mapper_signal_handler *handler,
                                   void *user_data )
 
-    mapper_signal mdev_add_output( const char *name,
+    mapper_signal mdev_add_output( mapper_device dev,
+                                   const char *name,
                                    int length,
                                    char type,
                                    const char *unit,
