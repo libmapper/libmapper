@@ -465,20 +465,16 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    unsigned long long int timetag = 0;
-    if (tt) {
-        timetag = tt->sec;
-        timetag = (timetag << 32) + tt->frac;
-    }
+    double timetag = mapper_timetag_get_double(*tt);
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
+            arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
+            arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
