@@ -933,11 +933,11 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         if (*r == rt) {
             *r = rt->next;
             mapper_router_free(rt);
+            md->n_links_out--;
             break;
         }
         r = &(*r)->next;
     }
-    md->n_links_out--;
 }
 
 void mdev_add_receiver(mapper_device md, mapper_receiver rc)
@@ -956,11 +956,11 @@ void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
         if (*r == rc) {
             *r = rc->next;
             mapper_receiver_free(rc);
+            md->n_links_in--;
             break;
         }
         r = &(*r)->next;
     }
-    md->n_links_in--;
 }
 
 void mdev_reserve_instance_id_map(mapper_device dev)

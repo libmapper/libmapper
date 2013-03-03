@@ -62,9 +62,11 @@ void msig_free(mapper_signal sig)
     if (!sig) return;
 
     // Free instances
+    mapper_timetag_t tt;
+    mdev_timetag_now(sig->device, &tt);
     for (i = 0; i < sig->id_map_length; i++) {
         if (sig->id_maps[i].instance) {
-            msig_free_instance(sig, sig->id_maps[i].instance);
+            msig_release_instance_internal(sig, i, tt);
         }
     }
     free(sig->id_maps);
