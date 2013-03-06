@@ -244,7 +244,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
             return;
         lo_message_add_int32(m, map->group);
         lo_message_add_int32(m, map->remote);
-        lo_message_add_nil(m);
+        lo_message_add_false(m);
         lo_bundle_add_message(b, c->props.src_name, m);
         c = c->next;
     }
