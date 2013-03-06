@@ -302,7 +302,8 @@ static int handler_instance_release_request(const char *path, const char *types,
 
     lo_timetag tt = lo_message_get_timestamp(msg);
 
-    int index = msig_get_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0, &tt);
+    int index = msig_find_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32,
+                                                   IN_RELEASED_REMOTELY);
     if (index < 0)
         return 0;
 
