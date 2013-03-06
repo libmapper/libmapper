@@ -54,6 +54,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
 
     mapper_admin_add_device(md->admin, md, name_prefix, port);
 
+    md->id_counter = 0;
     md->extra = table_new();
     return md;
 }

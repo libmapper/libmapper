@@ -217,7 +217,7 @@ mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal 
  *  \param h            A handler function for processing instance managment events.
  *  \param flags        Bitflags for indicating the types of events which should
  *                      trigger the callback. Can be a combination of IN_NEW,
- *                      IN_STOLEN, IN_RELEASE_REQUEST, and IN_OVERFLOW.
+ *                      IN_UPSTREM_RELEASE, IN_DOWNSTREAM_RELEASE, and IN_OVERFLOW.
  *  \param user_data    User context pointer to be passed to handler. */
 void msig_set_instance_management_callback(mapper_signal sig,
                                            mapper_signal_instance_management_handler h,

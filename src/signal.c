@@ -250,7 +250,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     if ((si = sig->reserve_instances)) {
         if (!map) {
             // Claim ID map locally
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device), id);
+            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+                                           sig->device->id_counter++);
             map->refcount_local = 1;
         }
         else {
@@ -294,8 +295,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     if ((si = sig->reserve_instances)) {
         if (!map) {
             // add id map to device and link from signal
-            // TODO: this is probably not the correct way to get a local id
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device), id);
+            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+                                           sig->device->id_counter++);
             map->refcount_local = 1;
         }
         else {
