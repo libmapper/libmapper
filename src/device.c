@@ -228,7 +228,6 @@ static int handler_signal_instance(const char *path, const char *types,
                 map->refcount_remote--;
                 if (map->refcount_remote <= 0) {
                     // we can clear signal's reference to map
-                    map->refcount_local--;
                     sig->id_maps[index].map = 0;
                     if (map->refcount_local <= 0)
                         mdev_remove_instance_id_map(md, map);
@@ -1008,13 +1007,11 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
                                                  int local_id)
 {
-    mdev_timetag_now(dev, &dev->admin->clock.now);
-
-    mapper_id_map *map = &dev->active_id_map;
-    while (*map) {
-        if ((*map)->refcount_remote > 0 && (*map)->local == local_id)
-            return (*map);
-        map = &(*map)->next;
+    mapper_id_map map = dev->active_id_map;
+    while (map) {
+        if (map->local == local_id)
+            return map;
+        map = map->next;
     }
     return 0;
 }
@@ -1022,16 +1019,11 @@ mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
 mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
                                                   int group_id, int remote_id)
 {
-    mdev_timetag_now(dev, &dev->admin->clock.now);
-
-    mapper_id_map *map = &dev->active_id_map;
-    while (*map) {
-        /* We will not reuse a remotely-released id map (even if it is still in use
-         * by a local instance) since it may represent a new object. */
-        if ((*map)->refcount_remote <= 0 && (*map)->group == group_id
-            && (*map)->remote == remote_id)
-            return (*map);
-        map = &(*map)->next;
+    mapper_id_map map = dev->active_id_map;
+    while (map) {
+        if (map->group == group_id && map->remote == remote_id)
+            return map;
+        map = map->next;
     }
     return 0;
 }
