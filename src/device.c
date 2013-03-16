@@ -225,12 +225,11 @@ static int handler_signal_instance(const char *path, const char *types,
         if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
             // map was already released locally, we are only interested in release messages
             if (types[2] == LO_NIL || types[2] == LO_FALSE) {
+                // we can clear signal's reference to map
+                sig->id_maps[index].map = 0;
                 map->refcount_remote--;
-                if (map->refcount_remote <= 0) {
-                    // we can clear signal's reference to map
-                    sig->id_maps[index].map = 0;
-                    if (map->refcount_local <= 0)
-                        mdev_remove_instance_id_map(md, map);
+                if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
+                    mdev_remove_instance_id_map(md, map);
                 }
             }
             return 0;
@@ -301,8 +300,7 @@ static int handler_instance_release_request(const char *path, const char *types,
 
     lo_timetag tt = lo_message_get_timestamp(msg);
 
-    int index = msig_find_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32,
-                                                   IN_RELEASED_REMOTELY);
+    int index = msig_find_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
     if (index < 0)
         return 0;
 

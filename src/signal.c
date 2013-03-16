@@ -600,7 +600,7 @@ void msig_release_instance_internal(mapper_signal sig,
         mdev_remove_instance_id_map(sig->device, smap->map);
         smap->map = 0;
     }
-    else if (smap->status & IN_RELEASED_REMOTELY) {
+    else if (sig->props.is_output || smap->status & IN_RELEASED_REMOTELY) {
         // TODO: consider multiple upstream source instances?
         smap->map = 0;
     }
