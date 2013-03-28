@@ -42,6 +42,60 @@ struct _mapper_signal
     int instance_management_flags;
 };
 
+/**** Devices ****/
+
+struct _mapper_device {
+    /*! Prefix for the name of this device.  It gets a unique ordinal
+     *  appended to it to differentiate from other devices of the same
+     *  name. */
+    const char *name_prefix;
+
+    /*! Non-zero if this device is the sole owner of this admin, i.e.,
+     *  it was created during mdev_new() and should be freed during
+     *  mdev_free(). */
+    int own_admin;
+
+    mapper_admin admin;
+    struct _mapper_signal **inputs;
+    struct _mapper_signal **outputs;
+    int n_inputs;
+    int n_outputs;
+    int n_alloc_inputs;
+    int n_alloc_outputs;
+    int n_output_callbacks;
+    int n_links_in;
+    int n_links_out;
+    int version;
+    int flags;    /*!< Bitflags indicating if information has already been
+                   *   sent in a given polling step. */
+    mapper_router routers;
+    mapper_receiver receivers;
+
+    /*! Function to call for custom link handling. */
+    on_mdev_link_cb_func *link_cb;
+    void *link_cb_userdata;
+
+    /*!< Function to call for custom connection handling. */
+    on_mdev_connection_cb_func *connection_cb;
+    void *connection_cb_userdata;
+
+    /*!< The list of active instance id mappings. */
+    struct _mapper_instance_id_map *active_id_map;
+
+    /*!< The list of reserve instance id mappings. */
+    struct _mapper_instance_id_map *reserve_id_map;
+
+    uint32_t id_counter;
+
+    /*! Server used to handle incoming messages.  NULL until at least
+     *  one input has been registered and the incoming port has been
+     *  allocated. */
+    lo_server server;
+
+    /*! Extra properties associated with this device. */
+    struct _mapper_string_table *extra;
+};
+
 /**** Instances ****/
 
 /*! A signal instance is defined as a vector of values, along with some
