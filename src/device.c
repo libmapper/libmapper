@@ -205,13 +205,6 @@ static int handler_signal_instance(const char *path, const char *types,
         if (types[2] == LO_NIL || types[2] == LO_FALSE)
             return 0;
 
-        // check if device has record
-        map = mdev_find_instance_id_map_by_remote(md, group_id, instance_id);
-        /*if (map && map->refcount_remote <= 0) {
-            // map is waiting for release
-            return 0;
-        }*/
-
         // otherwise try to init reserved/stolen instance with device map
         index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0, &tt);
         if (index < 0) {
@@ -221,11 +214,11 @@ static int handler_signal_instance(const char *path, const char *types,
         }
     }
     else {
-        map = sig->id_maps[index].map;
         if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
             // map was already released locally, we are only interested in release messages
             if (types[2] == LO_NIL || types[2] == LO_FALSE) {
                 // we can clear signal's reference to map
+                map = sig->id_maps[index].map;
                 sig->id_maps[index].map = 0;
                 map->refcount_remote--;
                 if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
