@@ -1167,31 +1167,87 @@ mapper_db mapper_monitor_get_db(mapper_monitor mon);
 int mapper_monitor_request_devices(mapper_monitor mon);
 
 /*! Request signals for specific device. */
-int mapper_monitor_request_signals_by_name(
+int mapper_monitor_request_signals_by_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request output signals for specific device. */
+int mapper_monitor_request_output_signals_by_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request input signals for specific device. */
+int mapper_monitor_request_input_signals_by_device_name(
     mapper_monitor mon, const char* name);
 
 /*! Request an indexed subset of signals for specific device. */
-int mapper_monitor_request_signals_by_name_and_index(
+int mapper_monitor_request_signal_range_by_device_name(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+
+/*! Request an indexed subset of output signals for specific device. */
+int mapper_monitor_request_output_signal_range_by_device_name(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+
+/*! Request an indexed subset of input signals for specific device. */
+int mapper_monitor_request_intput_signal_range_by_device_name(
     mapper_monitor mon, const char* name, int start_index, int stop_index);
 
 /*! Request signals for specific device in measured batches. */
-int mapper_monitor_batch_request_signals_by_name(
+int mapper_monitor_batch_request_signals_by_device_name(
+    mapper_monitor mon, const char* name, int batch_size);
+
+/*! Request output signals for specific device in measured batches. */
+int mapper_monitor_batch_request_output_signals_by_device_name(
+    mapper_monitor mon, const char* name, int batch_size);
+
+/*! Request input signals for specific device in measured batches. */
+int mapper_monitor_batch_request_input_signals_by_device_name(
     mapper_monitor mon, const char* name, int batch_size);
 
 /*! Request links for specific device. */
-int mapper_monitor_request_links_by_name(
+int mapper_monitor_request_links_by_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request outgoing links for specific device. */
+int mapper_monitor_request_links_by_src_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request incoming links for specific device. */
+int mapper_monitor_request_links_by_dest_device_name(
     mapper_monitor mon, const char* name);
 
 /*! Request connections for specific device. */
-int mapper_monitor_request_connections_by_name(
+int mapper_monitor_request_connections_by_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request outgoing connections for specific device. */
+int mapper_monitor_request_connections_by_src_device_name(
+    mapper_monitor mon, const char* name);
+
+/*! Request incoming connections for specific device. */
+int mapper_monitor_request_connections_by_dest_device_name(
     mapper_monitor mon, const char* name);
 
 /*! Request an indexed subset of connections for specific device. */
-int mapper_monitor_request_connections_by_name_and_index(
+int mapper_monitor_request_connection_range_by_device_name(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+    
+/*! Request an indexed subset of outgoing connections for specific device. */
+int mapper_monitor_request_connection_range_by_src_device_name(
+    mapper_monitor mon, const char* name, int start_index, int stop_index);
+
+/*! Request an indexed subset of incoming connections for specific device. */
+int mapper_monitor_request_connection_range_by_dest_device_name(
     mapper_monitor mon, const char* name, int start_index, int stop_index);
 
 /*! Request connections for specific device in measured batches. */
-int mapper_monitor_batch_request_connections_by_name(
+int mapper_monitor_batch_request_connections_by_device_name(
+    mapper_monitor mon, const char* name, int batch_size);
+
+/*! Request outgoing connections for specific device in measured batches. */
+int mapper_monitor_batch_request_connections_by_src_device_name(
+    mapper_monitor mon, const char* name, int batch_size);
+
+/*! Request incoming connections for specific device in measured batches. */
+int mapper_monitor_batch_request_connections_by_dest_device_name(
     mapper_monitor mon, const char* name, int batch_size);
 
 /*! When auto-request is enabled (enable=1), the monitor automatically
