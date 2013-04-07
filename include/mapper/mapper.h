@@ -233,6 +233,11 @@ void msig_set_callback(mapper_signal sig,
                        mapper_signal_handler *handler,
                        void *user_data);
 
+/*! Get the number of connections attatched to a specific signal.
+ *  \param sig      The signal to check.
+ *  \return         The number of attached connections. */
+int msig_num_connections(mapper_signal sig);
+
 /**** Signal properties ****/
 
 /*! Get the full OSC name of a signal, including device name

@@ -797,3 +797,25 @@ void msig_remove_property(mapper_signal sig, const char *property)
 {
     table_remove_key(sig->props.extra, property, 1);
 }
+
+int msig_num_connections(mapper_signal sig)
+{
+    mapper_link l = sig->props.is_output ?
+                    sig->device->routers : sig->device->receivers;
+    int count = 0;
+    while (l) {
+        mapper_link_signal ls = l->signals;
+        while (ls) {
+            if (ls->signal == sig) {
+                mapper_connection c = ls->connections;
+                while (c) {
+                    count++;
+                    c = c->next;
+                }
+            }
+            ls = ls->next;
+        }
+        l = l->next;
+    }
+    return count;
+}
