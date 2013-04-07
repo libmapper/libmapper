@@ -1083,6 +1083,9 @@ typedef struct _admin {} admin;
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
     }
+    int request_device_info(const char* name) {
+        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
+    }
     int request_signals_by_device_name(const char* name) {
         return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
     }

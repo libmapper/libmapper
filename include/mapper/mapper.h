@@ -1166,6 +1166,10 @@ mapper_db mapper_monitor_get_db(mapper_monitor mon);
 /*! Request that all devices report in. */
 int mapper_monitor_request_devices(mapper_monitor mon);
 
+/*! Request properties for specific device. */
+int mapper_monitor_request_device_info(
+    mapper_monitor mon, const char* name);
+
 /*! Request signals for specific device. */
 int mapper_monitor_request_signals_by_device_name(
     mapper_monitor mon, const char* name);

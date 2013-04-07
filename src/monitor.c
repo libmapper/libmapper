@@ -272,6 +272,15 @@ int mapper_monitor_request_devices(mapper_monitor mon)
     return 0;
 }
 
+int mapper_monitor_request_device_info(mapper_monitor mon,
+                                       const char* name)
+{
+    char cmd[1024];
+	snprintf(cmd, 1024, "%s/info/get", name);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+    return 0;
+}
+
 int mapper_monitor_request_links_by_device_name(mapper_monitor mon,
                                                 const char* name)
 {
