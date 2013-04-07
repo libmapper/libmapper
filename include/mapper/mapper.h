@@ -522,14 +522,17 @@ typedef enum {
  *  destroyed. */
 typedef void on_mdev_link_cb_func(mapper_device dev,
                                   mapper_db_link link,
-                                  mapper_device_local_action_t action);
+                                  mapper_device_local_action_t action,
+                                  void *user);
 
 /*! Function to call when a local device connection is established or
  *  destroyed. */
 typedef void on_mdev_connection_cb_func(mapper_device dev,
                                         mapper_db_link link,
+                                        mapper_signal sig,
                                         mapper_db_connection connection,
-                                        mapper_device_local_action_t action);
+                                        mapper_device_local_action_t action,
+                                        void *user);
 
 /*! Add a function to be called when a local device link is
  *  established or destroyed, indicated by the action parameter to the
