@@ -1757,16 +1757,12 @@ static int handler_signal_connect(const char *path, const char *types,
 
     // substitute some missing parameters with known properties
     lo_arg *arg_type = (lo_arg*) &input->props.type;
-    if (!params.values[AT_TYPE]) {
-        params.values[AT_TYPE] = &arg_type;
-        params.types[AT_TYPE] = "c";
-    }
+    params.values[AT_TYPE] = &arg_type;
+    params.types[AT_TYPE] = "c";
 
     lo_arg *arg_length = (lo_arg*) &input->props.length;
-    if (!params.values[AT_LENGTH]) {
-        params.values[AT_LENGTH] = &arg_length;
-        params.types[AT_LENGTH] = "i";
-    }
+    params.values[AT_LENGTH] = &arg_length;
+    params.types[AT_LENGTH] = "i";
 
     lo_arg *arg_min = (lo_arg*) input->props.minimum;
     if (!params.values[AT_MIN] && input->props.minimum) {
