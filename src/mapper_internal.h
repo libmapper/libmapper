@@ -32,7 +32,7 @@ struct _mapper_signal
 
     /*! An optional function to be called when the signal value
      *  changes. */
-    mapper_signal_handler *handler;
+    mapper_signal_update_handler *handler;
 
     /*! An optional function to be called when the signal instance management
      *  events occur. */
@@ -380,7 +380,8 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
                        void *minimum, void *maximum,
-                       mapper_signal_handler *handler, void *user_data);
+                       mapper_signal_update_handler *handler,
+                       void *user_data);
 
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be

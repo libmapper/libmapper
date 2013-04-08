@@ -372,7 +372,8 @@ static int handler_query(const char *path, const char *types,
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
                              void *minimum, void *maximum,
-                             mapper_signal_handler *handler, void *user_data)
+                             mapper_signal_update_handler *handler,
+                             void *user_data)
 {
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
