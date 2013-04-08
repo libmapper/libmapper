@@ -40,7 +40,8 @@ int tcp_port = 12000;
 
 void on_mdev_link(mapper_device dev,
                   mapper_db_link link,
-                  mapper_device_local_action_t action)
+                  mapper_device_local_action_t action,
+                  void *user)
 {
     printf("%s link for %s (%s -> %s), ",
            action == MDEV_LOCAL_ESTABLISHED ? "New"
@@ -53,9 +54,11 @@ void on_mdev_link(mapper_device dev,
 }
 
 void on_mdev_connection(mapper_device dev,
-                   mapper_db_link link,
-                   mapper_db_connection connection,
-                   mapper_device_local_action_t action)
+                        mapper_db_link link,
+                        mapper_signal sig,
+                        mapper_db_connection connection,
+                        mapper_device_local_action_t action,
+                        void *user)
 {
     printf("%s connection for %s (%s:%s -> %s:%s), ",
            action == MDEV_LOCAL_ESTABLISHED ? "New"

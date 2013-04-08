@@ -1379,7 +1379,8 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     // Inform user code of the new link if requested
     if (md->link_cb)
-        md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED);
+        md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED,
+                    md->link_cb_userdata);
 
     // Announce the result.
     mapper_admin_send_linked(admin, router, 0, 1);
@@ -1436,6 +1437,10 @@ static int handler_device_linked(const char *path, const char *types,
         mapper_receiver_add_scope(receiver, scope);
         if (argc > 2)
             mapper_receiver_set_from_message(receiver, &params);
+        // Inform user code of the new link if requested
+        if (md->link_cb)
+            md->link_cb(md, &receiver->props, MDEV_LOCAL_ESTABLISHED,
+                        md->link_cb_userdata);
         return 0;
     }
 
@@ -1581,7 +1586,8 @@ static int handler_device_unlink(const char *path, const char *types,
 
         // Inform user code of the destroyed link if requested
         if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED);
+            md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+                        md->link_cb_userdata);
 
         mdev_remove_router(md, router);
         mapper_admin_send_osc_with_params(
@@ -1668,6 +1674,10 @@ static int handler_device_unlinked(const char *path, const char *types,
                 mapper_receiver_remove_scope(receiver, scope);
                 return 0;
             }
+            // Inform user code of the destroyed link if requested
+            if (md->link_cb)
+                md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,
+                            md->link_cb_userdata);
             mdev_remove_receiver(md, receiver);
         }
         else {
@@ -1924,8 +1934,9 @@ static int handler_signal_connectTo(const char *path, const char *types,
 
     // Inform user code of the new connection if requested
     if (md->connection_cb)
-        md->connection_cb(md, &router->props,
-                          &c->props, MDEV_LOCAL_ESTABLISHED);
+        md->connection_cb(md, &router->props, output,
+                          &c->props, MDEV_LOCAL_ESTABLISHED,
+                          md->connection_cb_userdata);
 
     return 0;
 }
@@ -2021,6 +2032,12 @@ static int handler_signal_connected(const char *path, const char *types,
         /* Set its properties. */
         mapper_connection_set_from_message(c, &params);
     }
+
+    // Inform user code of the new connection if requested
+    if (md->connection_cb)
+        md->connection_cb(md, &receiver->props, input,
+                          &c->props, MDEV_LOCAL_ESTABLISHED,
+                          md->connection_cb_userdata);
 
     return 0;
 }
@@ -2154,7 +2171,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
 
     // Inform user code of the destroyed connection if requested
     if (md->connection_cb)
-        md->connection_cb(md, &r->props, &c->props, MDEV_LOCAL_DESTROYED);
+        md->connection_cb(md, &r->props, sig, &c->props, MDEV_LOCAL_DESTROYED,
+                          md->connection_cb_userdata);
 
     /* The connection is removed. */
     if (mapper_router_remove_connection(r, c)) {
@@ -2232,6 +2250,11 @@ static int handler_signal_disconnected(const char *path, const char *types,
               mapper_admin_name(admin), src_name, dest_name);
         return 0;
     }
+
+    // Inform user code of the destroyed connection if requested
+    if (md->connection_cb)
+        md->connection_cb(md, &r->props, sig, &c->props, MDEV_LOCAL_DESTROYED,
+                          md->connection_cb_userdata);
 
     /* The connection is removed. */
     if (mapper_receiver_remove_connection(r, c)) {

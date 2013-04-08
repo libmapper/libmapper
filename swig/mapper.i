@@ -1083,14 +1083,35 @@ typedef struct _admin {} admin;
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
     }
-    int request_signals_by_name(const char* name) {
-        return mapper_monitor_request_signals_by_name((mapper_monitor)$self, name);
+    int request_device_info(const char* name) {
+        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
     }
-    int request_links_by_name(const char* name) {
-        return mapper_monitor_request_links_by_name((mapper_monitor)$self, name);
+    int request_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
     }
-    int request_connections_by_name(const char* name) {
-        return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
+    int request_input_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_input_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_output_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_output_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_device_name(const char* name) {
+        return mapper_monitor_request_links_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_src_device_name(const char* name) {
+        return mapper_monitor_request_links_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_links_by_dest_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_src_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_dest_device_name((mapper_monitor)$self, name);
     }
     void link(const char* source_device,
               const char* dest_device,

@@ -21,6 +21,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     char str[16];
     mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
     sprintf(str, "%d", port);
+    r->props.src_name = strdup(mdev_name(device));
     r->props.dest_addr = lo_address_new(host, str);
     r->props.dest_name = strdup(name);
     r->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
@@ -51,8 +52,6 @@ void mapper_router_free(mapper_router r)
     int i;
 
     if (r) {
-        if (r->props.dest_addr)
-            lo_address_free(r->props.dest_addr);
         while (r->signals) {
             mapper_router_signal rs = r->signals;
             while (rs->connections) {
@@ -78,6 +77,12 @@ void mapper_router_free(mapper_router r)
         }
         free(r->props.scope_names);
         free(r->props.scope_hashes);
+        if (r->props.src_name)
+            free(r->props.src_name);
+        if (r->props.dest_name)
+            free(r->props.dest_name);
+        if (r->props.dest_addr)
+            lo_address_free(r->props.dest_addr);
         free(r);
     }
 }

@@ -18,6 +18,7 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     sprintf(str, "%d", port);
     r->props.src_addr = lo_address_new(host, str);
     r->props.src_name = strdup(name);
+    r->props.dest_name = strdup(mdev_name(device));
     if (default_scope) {
         r->props.num_scopes = 1;
         r->props.scope_names = (char **) malloc(sizeof(char *));
@@ -45,8 +46,6 @@ void mapper_receiver_free(mapper_receiver r)
     int i;
 
     if (r) {
-        if (r->props.src_addr)
-            lo_address_free(r->props.src_addr);
         while (r->signals) {
             mapper_receiver_signal rs = r->signals;
             mapper_receiver_signal tmp = rs->next;
@@ -68,6 +67,12 @@ void mapper_receiver_free(mapper_receiver r)
         }
         free(r->props.scope_names);
         free(r->props.scope_hashes);
+        if (r->props.src_name)
+            free(r->props.src_name);
+        if (r->props.src_addr)
+            lo_address_free(r->props.src_addr);
+        if (r->props.dest_name)
+            free(r->props.dest_name);
         free(r);
     }
 }
