@@ -72,11 +72,11 @@ struct _mapper_device {
     mapper_receiver receivers;
 
     /*! Function to call for custom link handling. */
-    on_mdev_link_cb_func *link_cb;
+    mapper_device_link_handler *link_cb;
     void *link_cb_userdata;
 
     /*!< Function to call for custom connection handling. */
-    on_mdev_connection_cb_func *connection_cb;
+    mapper_device_connection_handler *connection_cb;
     void *connection_cb_userdata;
 
     /*!< The list of active instance id mappings. */

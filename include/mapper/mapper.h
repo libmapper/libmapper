@@ -525,32 +525,32 @@ typedef enum {
 
 /*! Function to call when a local device link is established or
  *  destroyed. */
-typedef void on_mdev_link_cb_func(mapper_device dev,
-                                  mapper_db_link link,
-                                  mapper_device_local_action_t action,
-                                  void *user);
+typedef void mapper_device_link_handler(mapper_device dev,
+                                        mapper_db_link link,
+                                        mapper_device_local_action_t action,
+                                        void *user);
 
 /*! Function to call when a local device connection is established or
  *  destroyed. */
-typedef void on_mdev_connection_cb_func(mapper_device dev,
-                                        mapper_db_link link,
-                                        mapper_signal sig,
-                                        mapper_db_connection connection,
-                                        mapper_device_local_action_t action,
-                                        void *user);
+typedef void mapper_device_connection_handler(mapper_device dev,
+                                              mapper_db_link link,
+                                              mapper_signal sig,
+                                              mapper_db_connection connection,
+                                              mapper_device_local_action_t action,
+                                              void *user);
 
 /*! Add a function to be called when a local device link is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. */
 void mdev_add_link_callback(mapper_device dev,
-                            on_mdev_link_cb_func *f, void *user);
+                            mapper_device_link_handler *h, void *user);
 
 /*! Add a function to be called when a local device connection is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. Important: if a link is destroyed, this
  *  function will not be called for all connections in the link. */
 void mdev_add_connection_callback(mapper_device dev,
-                                  on_mdev_connection_cb_func *f,
+                                  mapper_device_connection_handler *h,
                                   void *user);
 
 /* @} */
