@@ -457,7 +457,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         return 0;
     }
 
-    // find signal in signal connection list
+    // find signal in router_signal list
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
         rs = rs->next;
@@ -529,7 +529,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 int mapper_router_remove_connection(mapper_router r,
                                     mapper_connection c)
 {
-    int i;
+    int i, found = 0, count = 0;
+    mapper_router_signal rs = c->parent;
     mapper_connection *temp = &c->parent->connections;
     while (*temp) {
         if (*temp == c) {
@@ -553,11 +554,36 @@ int mapper_router_remove_connection(mapper_router r,
                 free(c->blob);
             free(c);
             r->n_connections--;
-            return 0;
+            found = 1;
+            break;
         }
         temp = &(*temp)->next;
     }
-    return 1;
+    // Count remaining connections
+    temp = &rs->connections;
+    while (*temp) {
+        count++;
+        temp = &(*temp)->next;
+    }
+    if (!count) {
+        // We need to remove the router_signal also
+        mapper_router_signal *rstemp = &r->signals;
+        while (*rstemp) {
+            if (*rstemp == rs) {
+                *rstemp = rs->next;
+                int i;
+                for (i=0; i < rs->num_instances; i++) {
+                    free(rs->history[i].value);
+                    free(rs->history[i].timetag);
+                }
+                free(rs->history);
+                free(rs);
+                break;
+            }
+            rstemp = &(*rstemp)->next;
+        }
+    }
+    return !found;
 }
 
 mapper_connection mapper_router_find_connection_by_names(mapper_router rt,

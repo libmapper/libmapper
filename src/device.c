@@ -568,6 +568,7 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
 void mdev_remove_input(mapper_device md, mapper_signal sig)
 {
     int i, n;
+    char str1[1024], str2[1024];
     for (i=0; i<md->n_inputs; i++) {
         if (md->inputs[i] == sig)
             break;
@@ -579,25 +580,44 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         md->inputs[n] = md->inputs[n+1];
     }
     if (md->server) {
-        char *type_string = (char*) malloc(sig->props.length + 3);
-        type_string[0] = type_string[1] = 'i';
-        memset(type_string + 2, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 2] = 0;
-        lo_server_del_method(md->server, sig->props.name, type_string);
-        lo_server_del_method(md->server, sig->props.name, type_string + 2);
+        str1[0] = str1[1] = 'i';
+        memset(str1 + 2, sig->props.type, sig->props.length);
+        str1[sig->props.length + 2] = 0;
+        lo_server_del_method(md->server, sig->props.name, str1);
+        lo_server_del_method(md->server, sig->props.name, str1 + 2);
         lo_server_del_method(md->server, sig->props.name, "b");
         lo_server_del_method(md->server, sig->props.name, "N");
         lo_server_del_method(md->server, sig->props.name, "iib");
         lo_server_del_method(md->server, sig->props.name, "iiT");
         lo_server_del_method(md->server, sig->props.name, "iiN");
-        free(type_string);
-        int len = strlen(sig->props.name) + 5;
-        char *signal_get = (char*) malloc(len);
-        strncpy(signal_get, sig->props.name, len);
-        strncat(signal_get, "/get", len);
-        lo_server_del_method(md->server, signal_get, NULL);
-        free(signal_get);
+
+        snprintf(str1, 1024, "%s/get", sig->props.name);
+        lo_server_del_method(md->server, str1, NULL);
     }
+
+    mapper_receiver r = md->receivers;
+    msig_full_name(sig, str2, 1024);
+    while (r) {
+        mapper_link_signal ls = r->signals;
+        while (ls) {
+            if (ls->signal == sig) {
+                // need to disconnect?
+                mapper_connection c = ls->connections;
+                while (c) {
+                    snprintf(str1, 1024, "%s%s", r->props.src_name, c->props.src_name);
+                    mapper_admin_send_osc(md->admin, 0, "/disconnect", "ss",
+                                          str1, str2);
+                    mapper_connection temp = c->next;
+                    mapper_receiver_remove_connection(r, c);
+                    c = temp;
+                }
+                break;
+            }
+            ls = ls->next;
+        }
+        r = r->next;
+    }
+
     md->n_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
@@ -606,6 +626,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 void mdev_remove_output(mapper_device md, mapper_signal sig)
 {
     int i, n;
+    char str1[1024], str2[1024];
     for (i=0; i<md->n_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
@@ -617,17 +638,37 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         md->outputs[n] = md->outputs[n+1];
     }
     if (sig->handler && md->server) {
-        int len = strlen(sig->props.name) + 5;
-        char *path = (char*) malloc(len);
-        strncpy(path, sig->props.name, len);
-        strncat(path, "/got", len);
-        lo_server_del_method(md->server, path, NULL);
-        free(path);
+        snprintf(str1, 1024, "%s/got", sig->props.name);
+        lo_server_del_method(md->server, str1, NULL);
     }
     if (sig->instance_management_handler &&
         (sig->instance_management_flags & IN_REQUEST_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
+
+    mapper_router r = md->routers;
+    msig_full_name(sig, str1, 1024);
+    while (r) {
+        mapper_link_signal ls = r->signals;
+        while (ls) {
+            if (ls->signal == sig) {
+                // need to disconnect?
+                mapper_connection c = ls->connections;
+                while (c) {
+                    snprintf(str2, 1024, "%s%s", r->props.dest_name, c->props.dest_name);
+                    mapper_admin_send_osc(md->admin, 0, "/disconnected", "ss",
+                                          str1, str2);
+                    mapper_connection temp = c->next;
+                    mapper_router_remove_connection(r, c);
+                    c = temp;
+                }
+                break;
+            }
+            ls = ls->next;
+        }
+        r = r->next;
+    }
+
     md->n_outputs --;
     mdev_increment_version(md);
     msig_free(sig);

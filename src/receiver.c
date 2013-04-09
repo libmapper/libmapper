@@ -312,7 +312,7 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
 int mapper_receiver_remove_connection(mapper_receiver r,
                                       mapper_connection c)
 {
-    int i = 0;
+    int i = 0, found = 0, count = 0;
     mapper_receiver_signal rs = c->parent;
 
     /* Release signal instances owned by remote device. This is a bit tricky
@@ -411,11 +411,36 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                 free(c->blob);
             free(c);
             r->n_connections--;
-            return 0;
+            found = 1;
+            break;
         }
         temp = &(*temp)->next;
     }
-    return 1;
+    // Count remaining connections
+    temp = &rs->connections;
+    while (*temp) {
+        count++;
+        temp = &(*temp)->next;
+    }
+    if (!count) {
+        // We need to remove the router_signal also
+        mapper_router_signal *rstemp = &r->signals;
+        while (*rstemp) {
+            if (*rstemp == rs) {
+                *rstemp = rs->next;
+                int i;
+                for (i=0; i < rs->num_instances; i++) {
+                    free(rs->history[i].value);
+                    free(rs->history[i].timetag);
+                }
+                free(rs->history);
+                free(rs);
+                break;
+            }
+            rstemp = &(*rstemp)->next;
+        }
+    }
+    return !found;
 }
 
 mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
