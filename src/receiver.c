@@ -324,7 +324,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
         i++;
         ctemp = &(*ctemp)->next;
     }
-    if (i <= 1) {
+    if (i <= 1 && c->parent->signal) {
         /* need to compile a list of scopes used by this link not used by other
          * links including connections to this signal. */
         int count = 0;
