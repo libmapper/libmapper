@@ -49,19 +49,16 @@ void mapper_receiver_free(mapper_receiver r)
             lo_address_free(r->props.src_addr);
         while (r->signals) {
             mapper_receiver_signal rs = r->signals;
-            mapper_receiver_signal tmp = rs->next;
-            while (rs->connections) {
-                mapper_receiver_remove_connection(r, rs->connections);
-            }
-            int i;
+            r->signals = rs->next;
             for (i=0; i<rs->num_instances; i++) {
                 free(rs->history[i].value);
                 free(rs->history[i].timetag);
             }
             free(rs->history);
-            r->signals = rs->next;
-            free(rs);
-            rs = tmp;
+            while (rs->connections) {
+                mapper_receiver_remove_connection(r, rs->connections);
+            }
+            // receiver_signal is freed with last connection
         }
         for (i=0; i<r->props.num_scopes; i++) {
             free(r->props.scope_names[i]);

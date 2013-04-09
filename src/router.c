@@ -55,17 +55,16 @@ void mapper_router_free(mapper_router r)
             lo_address_free(r->props.dest_addr);
         while (r->signals) {
             mapper_router_signal rs = r->signals;
-            while (rs->connections) {
-                mapper_router_remove_connection(r, rs->connections);
-            }
-            int i;
+            r->signals = rs->next;
             for (i=0; i<rs->num_instances; i++) {
                 free(rs->history[i].value);
                 free(rs->history[i].timetag);
             }
             free(rs->history);
-            r->signals = rs->next;
-            free(rs);
+            while (rs->connections) {
+                mapper_router_remove_connection(r, rs->connections);
+            }
+            // router_signal is freed with last connection
         }
         while (r->queues) {
             mapper_queue q = r->queues;
