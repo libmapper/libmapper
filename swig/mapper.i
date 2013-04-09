@@ -938,7 +938,7 @@ typedef struct _admin {} admin;
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
     void set_callback(PyObject *PyFunc=0) {
-        mapper_signal_handler *h = 0;
+        mapper_signal_update_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
         if (PyFunc && !msig->props.user_data) {
             h = msig_handler_py;

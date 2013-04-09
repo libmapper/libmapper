@@ -372,7 +372,8 @@ static int handler_query(const char *path, const char *types,
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
                              void *minimum, void *maximum,
-                             mapper_signal_handler *handler, void *user_data)
+                             mapper_signal_update_handler *handler,
+                             void *user_data)
 {
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
@@ -1216,16 +1217,16 @@ void mdev_timetag_now(mapper_device dev, mapper_timetag_t *timetag)
 }
 
 void mdev_add_link_callback(mapper_device dev,
-                            on_mdev_link_cb_func *f, void *user)
+                            mapper_device_link_handler *h, void *user)
 {
-    dev->link_cb = f;
+    dev->link_cb = h;
     dev->link_cb_userdata = user;
 }
 
 void mdev_add_connection_callback(mapper_device dev,
-                                  on_mdev_connection_cb_func *f,
+                                  mapper_device_connection_handler *h,
                                   void *user)
 {
-    dev->connection_cb = f;
+    dev->connection_cb = h;
     dev->connection_cb_userdata = user;
 }

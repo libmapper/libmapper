@@ -47,12 +47,12 @@ typedef enum {
 
 /*! A signal handler function can be called whenever a signal value
  *  changes. */
-typedef void mapper_signal_handler(mapper_signal msig,
-                                   mapper_db_signal props,
-                                   int instance_id,
-                                   void *value,
-                                   int count,
-                                   mapper_timetag_t *tt);
+typedef void mapper_signal_update_handler(mapper_signal msig,
+                                          mapper_db_signal props,
+                                          int instance_id,
+                                          void *value,
+                                          int count,
+                                          mapper_timetag_t *tt);
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
@@ -226,11 +226,11 @@ void *msig_get_instance_data(mapper_signal sig, int instance_id);
 
 /*! Set or unset the message handler for a signal.
  *  \param sig       The signal to operate on.
- *  \param handler   A pointer to a mapper_signal_handler function for
- *                   processing incoming messages.
+ *  \param handler   A pointer to a mapper_signal_update_handler
+ *                   function for processing incoming messages.
  *  \param user_data User context pointer to be passed to handler. */
 void msig_set_callback(mapper_signal sig,
-                       mapper_signal_handler *handler,
+                       mapper_signal_update_handler *handler,
                        void *user_data);
 
 /*! Get the number of connections attatched to a specific signal.
@@ -336,7 +336,7 @@ void mdev_free(mapper_device dev);
 mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              int length, char type, const char *unit,
                              void *minimum, void *maximum,
-                             mapper_signal_handler *handler,
+                             mapper_signal_update_handler *handler,
                              void *user_data);
 
 /*! Add an output signal to a mapper device.  Values and strings
@@ -525,32 +525,32 @@ typedef enum {
 
 /*! Function to call when a local device link is established or
  *  destroyed. */
-typedef void on_mdev_link_cb_func(mapper_device dev,
-                                  mapper_db_link link,
-                                  mapper_device_local_action_t action,
-                                  void *user);
+typedef void mapper_device_link_handler(mapper_device dev,
+                                        mapper_db_link link,
+                                        mapper_device_local_action_t action,
+                                        void *user);
 
 /*! Function to call when a local device connection is established or
  *  destroyed. */
-typedef void on_mdev_connection_cb_func(mapper_device dev,
-                                        mapper_db_link link,
-                                        mapper_signal sig,
-                                        mapper_db_connection connection,
-                                        mapper_device_local_action_t action,
-                                        void *user);
+typedef void mapper_device_connection_handler(mapper_device dev,
+                                              mapper_db_link link,
+                                              mapper_signal sig,
+                                              mapper_db_connection connection,
+                                              mapper_device_local_action_t action,
+                                              void *user);
 
 /*! Add a function to be called when a local device link is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. */
 void mdev_add_link_callback(mapper_device dev,
-                            on_mdev_link_cb_func *f, void *user);
+                            mapper_device_link_handler *h, void *user);
 
 /*! Add a function to be called when a local device connection is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. Important: if a link is destroyed, this
  *  function will not be called for all connections in the link. */
 void mdev_add_connection_callback(mapper_device dev,
-                                  on_mdev_connection_cb_func *f,
+                                  mapper_device_connection_handler *h,
                                   void *user);
 
 /* @} */
@@ -613,26 +613,28 @@ typedef enum {
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void device_callback_func(mapper_db_device record,
-                                  mapper_db_action_t action,
-                                  void *user);
+typedef void mapper_db_device_handler(mapper_db_device record,
+                                      mapper_db_action_t action,
+                                      void *user);
 
 /*! Register a callback for when a device record is added or updated
  *  in the database.
  *  \param db   The database to query.
- *  \param f   Callback function.
+ *  \param h    Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
 void mapper_db_add_device_callback(mapper_db db,
-                                   device_callback_func *f, void *user);
+                                   mapper_db_device_handler *h,
+                                   void *user);
 
 /*! Remove a device record callback from the database service.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_device_callback(mapper_db db,
-                                      device_callback_func *f, void *user);
+                                      mapper_db_device_handler *h,
+                                      void *user);
 
 /*! Return the whole list of devices.
  *  \param db   The database to query.
@@ -714,26 +716,28 @@ int mapper_db_device_property_lookup(mapper_db_device dev,
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void signal_callback_func(mapper_db_signal record,
-                                  mapper_db_action_t action,
-                                  void *user);
+typedef void mapper_db_signal_handler(mapper_db_signal record,
+                                      mapper_db_action_t action,
+                                      void *user);
 
 /*! Register a callback for when a signal record is added or updated
  *  in the database.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
 void mapper_db_add_signal_callback(mapper_db db,
-                                   signal_callback_func *f, void *user);
+                                   mapper_db_signal_handler *h,
+                                   void *user);
 
 /*! Remove a signal record callback from the database service.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_signal_callback(mapper_db db,
-                                      signal_callback_func *f, void *user);
+                                      mapper_db_signal_handler *h,
+                                      void *user);
 
 /*! Return the list of all known inputs across all devices.
  *  \param db   The database to query.
@@ -859,27 +863,27 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void connection_callback_func(mapper_db_connection record,
-                                      mapper_db_action_t action,
-                                      void *user);
+typedef void mapper_db_connection_handler(mapper_db_connection record,
+                                          mapper_db_action_t action,
+                                          void *user);
 
 /*! Register a callback for when a connection record is added or
  *  updated in the database.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
 void mapper_db_add_connection_callback(mapper_db db,
-                                       connection_callback_func *f,
+                                       mapper_db_connection_handler *h,
                                        void *user);
 
 /*! Remove a connection record callback from the database service.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_connection_callback(mapper_db db,
-                                          connection_callback_func *f,
+                                          mapper_db_connection_handler *h,
                                           void *user);
 
 /*! Return a list of all registered connections.
@@ -1052,26 +1056,28 @@ int mapper_db_connection_property_lookup(mapper_db_connection con,
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void link_callback_func(mapper_db_link record,
-                                mapper_db_action_t action,
-                                void *user);
+typedef void mapper_db_link_handler(mapper_db_link record,
+                                    mapper_db_action_t action,
+                                    void *user);
 
 /*! Register a callback for when a link record is added or updated
  *  in the database.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
 void mapper_db_add_link_callback(mapper_db db,
-                                 link_callback_func *f, void *user);
+                                 mapper_db_link_handler *h,
+                                 void *user);
 
 /*! Remove a link record callback from the database service.
  *  \param db   The database to query.
- *  \param f    Callback function.
+ *  \param h    Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
 void mapper_db_remove_link_callback(mapper_db db,
-                                    link_callback_func *f, void *user);
+                                    mapper_db_link_handler *h,
+                                    void *user);
 
 /*! Return the whole list of links.
  *  \param db The database to query.
