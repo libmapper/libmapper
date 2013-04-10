@@ -86,6 +86,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
+void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
+
 int mapper_admin_poll(mapper_admin admin);
 
 void mapper_admin_name_probe(mapper_admin admin);

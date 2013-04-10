@@ -330,6 +330,17 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
     }
 }
 
+static void mapper_admin_remove_monitor_methods(mapper_admin admin)
+{
+    int i;
+    for (i=0; i < N_MONITOR_HANDLERS; i++)
+    {
+        lo_server_del_method(admin->admin_server,
+                             monitor_handlers[i].path,
+                             monitor_handlers[i].types);
+    }
+}
+
 mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
 {
     mapper_admin admin = (mapper_admin)calloc(1, sizeof(mapper_admin_t));
@@ -468,6 +479,14 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
         admin->monitor = mon;
         mapper_admin_add_monitor_methods(admin);
         mapper_admin_send_osc(admin, 0, "/who", "");
+    }
+}
+
+void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon)
+{
+    if (mon) {
+        admin->monitor = 0;
+        mapper_admin_remove_monitor_methods(admin);
     }
 }
 

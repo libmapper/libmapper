@@ -90,6 +90,8 @@ void mdev_free(mapper_device md)
             mdev_remove_receiver(md, md->receivers);
         if (md->extra)
             table_free(md->extra, 1);
+        if (md->server)
+            lo_server_free(md->server);
         free(md);
     }
 }

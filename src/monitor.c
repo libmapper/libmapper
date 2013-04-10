@@ -54,11 +54,17 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 void mapper_monitor_free(mapper_monitor mon)
 {
     // TODO: free structures pointed to by the database
-    if (!mon) {
-        if (mon->admin && mon->own_admin)
+    if (!mon)
+        return;
+    while (mon->db.registered_devices)
+        mapper_db_remove_device_by_name(&mon->db, mon->db.registered_devices->name);
+    if (mon->admin) {
+        if (mon->own_admin)
             mapper_admin_free(mon->admin);
-        free(mon);
+        else
+            mapper_admin_remove_monitor(mon->admin, mon);
     }
+    free(mon);
 }
 
 int mapper_monitor_poll(mapper_monitor mon, int block_ms)

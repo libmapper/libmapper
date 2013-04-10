@@ -30,6 +30,7 @@ void table_free(table t, int free_values)
         if (free_values && t->store[i].value)
             free(t->store[i].value);
     }
+    free(t->store);
     free(t);
 }
 

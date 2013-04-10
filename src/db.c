@@ -855,6 +855,8 @@ void mapper_db_remove_device_by_name(mapper_db db, const char *name)
         cb = cb->next;
     }
 
+    if (dev->extra)
+        free(dev->extra);
     list_remove_item(dev, (void**)&db->registered_devices);
 }
 
@@ -1329,6 +1331,8 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
             cb = cb->next;
         }
 
+        if (sig->extra)
+            free(sig->extra);
         list_remove_item(sig, (void**)&db->registered_inputs);
     }
 }
@@ -1347,6 +1351,8 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
             cb = cb->next;
         }
 
+        if (sig->extra)
+            free(sig->extra);
         list_remove_item(sig, (void**)&db->registered_outputs);
     }
 }
@@ -1927,6 +1933,8 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
         cb = cb->next;
     }
 
+    if (con->extra)
+        free(con->extra);
     list_remove_item(con, (void**)&db->registered_connections);
 }
 
@@ -2247,5 +2255,7 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         cb = cb->next;
     }
 
+    if (link->extra)
+        free(link->extra);
     list_remove_item(link, (void**)&db->registered_links);
 }
