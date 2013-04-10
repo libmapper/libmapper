@@ -51,20 +51,13 @@ void mapper_router_free(mapper_router r)
     int i;
 
     if (r) {
+        if (r->props.dest_name)
+            free(r->props.dest_name);
         if (r->props.dest_addr)
             lo_address_free(r->props.dest_addr);
-        while (r->signals) {
-            mapper_router_signal rs = r->signals;
-            r->signals = rs->next;
-            for (i=0; i<rs->num_instances; i++) {
-                free(rs->history[i].value);
-                free(rs->history[i].timetag);
-            }
-            free(rs->history);
-            while (rs->connections) {
-                mapper_router_remove_connection(r, rs->connections);
-            }
-            // router_signal is freed with last connection
+        while (r->signals && r->signals->connections) {
+            // router_signal is freed with last child connection
+            mapper_router_remove_connection(r, r->signals->connections);
         }
         while (r->queues) {
             mapper_queue q = r->queues;
@@ -77,6 +70,8 @@ void mapper_router_free(mapper_router r)
         }
         free(r->props.scope_names);
         free(r->props.scope_hashes);
+        if (r->props.extra)
+            table_free(r->props.extra, 1);
         free(r);
     }
 }
@@ -466,10 +461,11 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         rs = (mapper_router_signal)
             calloc(1, sizeof(struct _mapper_link_signal));
         rs->signal = sig;
+        rs->num_instances = sig->props.num_instances;
         rs->history = malloc(sizeof(struct _mapper_signal_history)
-                             * sig->props.num_instances);
+                             * rs->num_instances);
         int i;
-        for (i=0; i<sig->props.num_instances; i++) {
+        for (i=0; i<rs->num_instances; i++) {
             rs->history[i].type = sig->props.type;
             rs->history[i].length = sig->props.length;
             rs->history[i].size = 1;
@@ -495,7 +491,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.clip_min = CT_NONE;
     c->props.clip_max = CT_NONE;
     c->props.muted = 0;
-    c->props.send_as_instance = (sig->props.num_instances > 1);
+    c->props.send_as_instance = (rs->num_instances > 1);
     c->props.extra = table_new();
 
     int len = strlen(dest_name) + 5;
@@ -503,9 +499,9 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     snprintf(c->props.query_name, len, "%s%s", dest_name, "/get");
 
     c->history = malloc(sizeof(struct _mapper_signal_history)
-                        * sig->props.num_instances);
+                        * rs->num_instances);
     int i;
-    for (i=0; i<sig->props.num_instances; i++) {
+    for (i=0; i<rs->num_instances; i++) {
         // allocate history vectors
         c->history[i].type = dest_type;
         c->history[i].length = dest_length;
@@ -538,6 +534,8 @@ int mapper_router_remove_connection(mapper_router r,
                 free(c->props.src_name);
             if (c->props.dest_name)
                 free(c->props.dest_name);
+            if (c->expr)
+                mapper_expr_free(c->expr);
             if (c->props.expression)
                 free(c->props.expression);
             if (c->props.query_name)

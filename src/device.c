@@ -63,8 +63,10 @@ void mdev_free(mapper_device md)
 {
     int i;
     if (md) {
-        if (md->admin && md->own_admin)
-            mapper_admin_free(md->admin);
+        while (md->routers)
+            mdev_remove_router(md, md->routers);
+        while (md->receivers)
+            mdev_remove_receiver(md, md->receivers);
         for (i = 0; i < md->n_inputs; i++)
             msig_free(md->inputs[i]);
         if (md->inputs)
@@ -84,14 +86,14 @@ void mdev_free(mapper_device md)
             md->reserve_id_map = map->next;
             free(map);
         }
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        while (md->receivers)
-            mdev_remove_receiver(md, md->receivers);
         if (md->extra)
             table_free(md->extra, 1);
         if (md->server)
             lo_server_free(md->server);
+        if (md->name_prefix)
+            free(md->name_prefix);
+        if (md->admin && md->own_admin)
+            mapper_admin_free(md->admin);
         free(md);
     }
 }

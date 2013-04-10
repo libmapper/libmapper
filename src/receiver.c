@@ -45,26 +45,21 @@ void mapper_receiver_free(mapper_receiver r)
     int i;
 
     if (r) {
+        if (r->props.src_name)
+            free(r->props.src_name);
         if (r->props.src_addr)
             lo_address_free(r->props.src_addr);
-        while (r->signals) {
-            mapper_receiver_signal rs = r->signals;
-            r->signals = rs->next;
-            for (i=0; i<rs->num_instances; i++) {
-                free(rs->history[i].value);
-                free(rs->history[i].timetag);
-            }
-            free(rs->history);
-            while (rs->connections) {
-                mapper_receiver_remove_connection(r, rs->connections);
-            }
-            // receiver_signal is freed with last connection
+        while (r->signals && r->signals->connections) {
+            // receiver_signal is freed with last child connection
+            mapper_receiver_remove_connection(r, r->signals->connections);
         }
         for (i=0; i<r->props.num_scopes; i++) {
             free(r->props.scope_names[i]);
         }
         free(r->props.scope_names);
         free(r->props.scope_hashes);
+        if (r->props.extra)
+            table_free(r->props.extra, 1);
         free(r);
     }
 }
@@ -382,6 +377,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                 }
             }
         }
+        free(scope_matches);
     }
 
     // Now free the connection
@@ -393,6 +389,8 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                 free(c->props.src_name);
             if (c->props.dest_name)
                 free(c->props.dest_name);
+            if (c->expr)
+                mapper_expr_free(c->expr);
             if (c->props.expression)
                 free(c->props.expression);
             if (c->props.query_name)

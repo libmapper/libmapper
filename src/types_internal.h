@@ -209,7 +209,7 @@ typedef struct _mapper_device {
     /*! Prefix for the name of this device.  It gets a unique ordinal
      *  appended to it to differentiate from other devices of the same
      *  name. */
-    const char *name_prefix;
+    char *name_prefix;
 
     /*! Non-zero if this device is the sole owner of this admin, i.e.,
      *  it was created during mdev_new() and should be freed during
