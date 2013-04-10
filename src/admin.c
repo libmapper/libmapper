@@ -994,13 +994,14 @@ static int handler_id_n_signals_input_get(const char *path,
             j = md->n_inputs - 1;
     }
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     for (; i <= j; i++) {
         if (count++ >= 20) {
             // split into multiple bundles
             lo_send_bundle(admin->admin_addr, b);
             lo_bundle_free_messages(b);
-            b = lo_bundle_new(LO_TT_IMMEDIATE);
+            b = lo_bundle_new(admin->clock.now);
             count = 0;
         }
         mapper_signal sig = md->inputs[i];
@@ -1067,13 +1068,14 @@ static int handler_id_n_signals_output_get(const char *path,
             j = md->n_outputs - 1;
     }
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     for (; i <= j; i++) {
         if (count++ >= 20) {
             // split into multiple bundles
             lo_send_bundle(admin->admin_addr, b);
             lo_bundle_free_messages(b);
-            b = lo_bundle_new(LO_TT_IMMEDIATE);
+            b = lo_bundle_new(admin->clock.now);
             count = 0;
         }
         mapper_signal sig = md->outputs[i];
@@ -1500,7 +1502,8 @@ static int handler_device_links_in_get(const char *path, const char *types,
     if (md->flags & FLAGS_SENT_DEVICE_LINKS_IN)
         return 0;
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     /* Iterate through outgoing links */
     while (receiver != NULL) {
         mapper_admin_send_linked(admin, receiver, b, 0);
@@ -1531,7 +1534,8 @@ static int handler_device_links_out_get(const char *path, const char *types,
     if (md->flags & FLAGS_SENT_DEVICE_LINKS_OUT)
         return 0;
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     /* Iterate through outgoing links */
     while (router != NULL) {
         mapper_admin_send_linked(admin, router, b, 1);
@@ -2281,7 +2285,8 @@ static int handler_device_connections_in_get(const char *path,
             max = min + 1;
     }
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     while (receiver) {
         mapper_receiver_signal rs = receiver->signals;
         while (rs) {
@@ -2294,7 +2299,7 @@ static int handler_device_connections_in_get(const char *path,
                         // split into multiple bundles
                         lo_send_bundle(admin->admin_addr, b);
                         lo_bundle_free_messages(b);
-                        b = lo_bundle_new(LO_TT_IMMEDIATE);
+                        b = lo_bundle_new(admin->clock.now);
                         count = 0;
                     }
                     mapper_admin_send_connected(admin, receiver, c, i, b, 0);
@@ -2346,7 +2351,8 @@ static int handler_device_connections_out_get(const char *path,
             max = min + 1;
     }
 
-    lo_bundle b = lo_bundle_new(LO_TT_IMMEDIATE);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    lo_bundle b = lo_bundle_new(admin->clock.now);
     while (router) {
         mapper_router_signal rs = router->signals;
         while (rs) {
@@ -2359,7 +2365,7 @@ static int handler_device_connections_out_get(const char *path,
                         // split into multiple bundles
                         lo_send_bundle(admin->admin_addr, b);
                         lo_bundle_free_messages(b);
-                        b = lo_bundle_new(LO_TT_IMMEDIATE);
+                        b = lo_bundle_new(admin->clock.now);
                         count = 0;
                     }
                     mapper_admin_send_connected(admin, router, c, i, b, 1);
