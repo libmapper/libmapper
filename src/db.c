@@ -830,7 +830,7 @@ int mapper_db_device_property_lookup(mapper_db_device dev,
                                      &devdb_table);
 }
 
-void mapper_db_remove_device(mapper_db db, const char *name)
+void mapper_db_remove_device_by_name(mapper_db db, const char *name)
 {
     mapper_db_device dev = mapper_db_get_device_by_name(db, name);
     if (!dev)

@@ -905,7 +905,7 @@ static int handler_logout(const char *path, const char *types,
     trace("got /logout %s\n", name);
 
     if (mon) {
-        mapper_db_remove_device(db, name);
+        mapper_db_remove_device_by_name(db, name);
     }
 
     // If device exists and is registered

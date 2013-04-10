@@ -470,7 +470,7 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                               mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
-void mapper_db_remove_device(mapper_db db, const char *name);
+void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,
