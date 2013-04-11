@@ -444,9 +444,22 @@ static int batch_request_connections_by_device_name_internal(mapper_monitor mon,
     int connection_count = 0;
     lo_type type;
     const lo_arg *value;
+
+    // This property lookup is only necessary for devices using libmapper <= v0.2
     if (!mapper_db_device_property_lookup(dev, "n_connections", &type, &value)) {
         if (type == LO_INT32)
-            connection_count = value->i32;
+            connection_count += value->i32;
+    }
+
+    if ((direction == DIRECTION_IN || direction == DIRECTION_BOTH) &&
+        !mapper_db_device_property_lookup(dev, "n_connections_in", &type, &value)) {
+        if (type == LO_INT32)
+            connection_count += value->i32;
+    }
+    if ((direction == DIRECTION_OUT || direction == DIRECTION_BOTH) &&
+        !mapper_db_device_property_lookup(dev, "n_connections_out", &type, &value)) {
+        if (type == LO_INT32)
+            connection_count += value->i32;
     }
 
     if (!connection_count)
@@ -607,8 +620,8 @@ static void on_device_autorequest(mapper_db_device dev,
 
         // Request signals, links, connections for new devices.
         mapper_monitor_batch_request_signals_by_device_name(mon, dev->name, 10);
-        mapper_monitor_request_links_by_device_name(mon, dev->name);
-        mapper_monitor_batch_request_connections_by_device_name(mon, dev->name, 10);
+        mapper_monitor_request_links_by_src_device_name(mon, dev->name);
+        mapper_monitor_batch_request_connections_by_src_device_name(mon, dev->name, 10);
     }
 }
 
