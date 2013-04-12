@@ -2040,7 +2040,7 @@ static int handler_signal_connected(const char *path, const char *types,
 }
 
 /*! Modify the connection properties : mode, range, expression,
- *  clipMin, clipMax. */
+ *  boundMin, boundMax. */
 static int handler_signal_connection_modify(const char *path, const char *types,
                                             lo_arg **argv, int argc, lo_message msg,
                                             void *user_data)

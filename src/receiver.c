@@ -282,8 +282,8 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     c->props.dest_length = sig->props.length;
     c->props.mode = MO_UNDEFINED;
     c->props.expression = strdup("y=x");
-    c->props.clip_min = CT_NONE;
-    c->props.clip_max = CT_NONE;
+    c->props.bound_min = BA_NONE;
+    c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.extra = table_new();
 

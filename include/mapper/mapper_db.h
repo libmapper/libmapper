@@ -61,8 +61,8 @@ typedef struct _mapper_db_device {
  * properties via the mapper_monitor_connect() or
  * mapper_monitor_connection_modify() functions. Should be combined with the
  * above range bitflags. */
-#define CONNECTION_CLIP_MIN      0x0010
-#define CONNECTION_CLIP_MAX      0x0020
+#define CONNECTION_BOUND_MIN     0x0010
+#define CONNECTION_BOUND_MAX     0x0020
 #define CONNECTION_EXPRESSION    0x0040
 #define CONNECTION_MODE          0x0080
 #define CONNECTION_MUTED         0x0100
@@ -80,19 +80,19 @@ typedef struct _mapper_connection_range {
                                  *   extremities are known. */
 } mapper_connection_range_t;
 
-/*! Describes what happens when the clipping boundaries are
+/*! Describes what happens when the range boundaries are
  *  exceeded.
  *  @ingroup connectiondb */
-typedef enum _mapper_clipping_type {
-    CT_NONE,    /*!< Value is passed through unchanged. This is the
+typedef enum _mapper_boundary_action {
+    BA_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
-    CT_MUTE,    //!< Value is muted.
-    CT_CLAMP,   //!< Value is limited to the boundary.
-    CT_FOLD,    //!< Value continues in opposite direction.
-    CT_WRAP,    /*!< Value appears as modulus offset at the opposite
+    BA_MUTE,    //!< Value is muted.
+    BA_CLAMP,   //!< Value is limited to the boundary.
+    BA_FOLD,    //!< Value continues in opposite direction.
+    BA_WRAP,    /*!< Value appears as modulus offset at the opposite
                  *   boundary. */
-    N_MAPPER_CLIPPING_TYPES
-} mapper_clipping_type;
+    N_MAPPER_BOUNDARY_ACTIONS
+} mapper_boundary_action;
 
 /*! Describes the connection mode.
  *  @ingroup connectiondb */
@@ -131,9 +131,9 @@ typedef struct _mapper_db_connection {
     int src_history_size;       //!< Source history size.
     int dest_history_size;      //!< Destination history size.
 
-    mapper_clipping_type clip_max;    /*!< Operation for exceeded
+    mapper_boundary_action bound_max; /*!< Operation for exceeded
                                        *   upper boundary. */
-    mapper_clipping_type clip_min;    /*!< Operation for exceeded
+    mapper_boundary_action bound_min; /*!< Operation for exceeded
                                        *   lower boundary. */
 
     int send_as_instance;       //!< 1 to send as instance, 0 otherwise.

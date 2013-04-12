@@ -402,7 +402,7 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
                               mapper_signal_history_t *to_value);
 
-int mapper_clipping_perform(mapper_connection connection,
+int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
 /*! Set a connection's properties based on message parameters. */
@@ -420,7 +420,7 @@ void mapper_connection_set_expression(mapper_connection connection,
 void mapper_connection_set_calibrate(mapper_connection connection,
                                      float dest_min, float dest_max);
 
-const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
+const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
@@ -585,12 +585,12 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value);
 
-/*! Helper to return the clipping type from a message parameter.
+/*! Helper to return the boundary action from a message parameter.
  *  \param msg Structure containing parameter info.
- *  \param param Either AT_CLIPMIN or AT_CLIPMAX.
- *  \return The clipping type, or -1 if not found. */
-mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
-                                             mapper_msg_param_t param);
+ *  \param param Either AT_BOUND_MIN or AT_BOUND_MAX.
+ *  \return The boundary action, or -1 if not found. */
+mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
+                                                      mapper_msg_param_t param);
 
 /*! Helper to return the signal direction from a message parameter.
  *  \param msg Structure containing parameter info.

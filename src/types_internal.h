@@ -308,8 +308,8 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_CLIP_MAX,
-    AT_CLIP_MIN,
+    AT_BOUND_MAX,
+    AT_BOUND_MIN,
     AT_DEST_LENGTH,
     AT_DEST_TYPE,
     AT_DIRECTION,
@@ -349,9 +349,9 @@ typedef enum {
 /*! Strings that correspond to mapper_msg_param_t. */
 extern const char* mapper_msg_param_strings[];
 
-/*! Strings that correspond to mapper_clipping_type, defined in
+/*! Strings that correspond to mapper_boundary_action, defined in
  *  mapper_db.h. */
-extern const char* mapper_clipping_type_strings[];
+extern const char* mapper_boundary_action_strings[];
 
 /*! Strings that correspond to mapper_mode_type, defined in
  *  mapper_db.h. */

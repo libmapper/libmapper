@@ -601,8 +601,8 @@ static mapper_string_table_t linkdb_table =
 { linkdb_nodes, 2, 2 };
 
 static property_table_value_t condb_values[] = {
-    //{ 's', 1, CONDB_OFFSET(clip_min) },
-    //{ 's', 1, CONDB_OFFSET(clip_max) },
+    //{ 's', 1, CONDB_OFFSET(bound_min) },
+    //{ 's', 1, CONDB_OFFSET(bound_max) },
     { 'i', 0, CONDB_OFFSET(dest_length) },
     { 's', 1, CONDB_OFFSET(dest_name) },
     { 'c', 0, CONDB_OFFSET(dest_type) },
@@ -625,8 +625,8 @@ static string_table_node_t condb_nodes[] = {
     { "src_length",  &condb_values[5] },
     { "src_name",    &condb_values[6] },
     { "src_type",    &condb_values[7] },
-    /*{ "clip_min",    &condb_values[0] },
-    { "clip_max",    &condb_values[1] },
+    /*{ "bound_min",    &condb_values[0] },
+    { "bound_max",    &condb_values[1] },
     { "dest_length", &condb_values[2] },
     { "dest_name",   &condb_values[3] },
     { "dest_type",   &condb_values[4] },
@@ -973,13 +973,13 @@ void mapper_db_dump(mapper_db db)
         strcat(r, ")");
         trace("  src_name=%s, dest_name=%s,\n"
               "      src_type=%d, dest_type=%d,\n"
-              "      clip_upper=%s, clip_lower=%s,\n"
+              "      bound_max=%s, bound_min=%s,\n"
               "      range=%s,\n"
               "      expression=%s, mode=%s, muted=%d\n",
               con->src_name, con->dest_name, con->src_type,
               con->dest_type,
-              mapper_get_clipping_type_string(con->clip_max),
-              mapper_get_clipping_type_string(con->clip_min),
+              mapper_get_boundary_action_string(con->bound_max),
+              mapper_get_boundary_action_string(con->bound_min),
               r, con->expression,
               mapper_get_mode_type_string(con->mode),
               con->muted);
@@ -1374,16 +1374,16 @@ static int update_connection_record_params(mapper_db_connection con,
     /* char src_type; */
     /* char dest_type; */
 
-    mapper_clipping_type clip;
-    clip = mapper_msg_get_clipping(params, AT_CLIP_MAX);
-    if (clip != -1 && clip != con->clip_max) {
-        con->clip_max = clip;
+    mapper_boundary_action bound;
+    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MAX);
+    if (bound != -1 && bound != con->bound_max) {
+        con->bound_max = bound;
         updated++;
     }
 
-    clip = mapper_msg_get_clipping(params, AT_CLIP_MIN);
-    if (clip != -1 && clip != con->clip_min) {
-        con->clip_min = clip;
+    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MIN);
+    if (bound != -1 && bound != con->bound_min) {
+        con->bound_min = bound;
         updated++;
     }
 

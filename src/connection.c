@@ -18,13 +18,13 @@ static void mhist_realloc(mapper_signal_history_t *history,
                           int sample_size,
                           int is_output);
 
-const char* mapper_clipping_type_strings[] =
+const char* mapper_boundary_action_strings[] =
 {
-    "none",        /* CT_NONE */
-    "mute",        /* CT_MUTE */
-    "clamp",       /* CT_CLAMP */
-    "fold",        /* CT_FOLD */
-    "wrap",        /* CT_WRAP */
+    "none",        /* BA_NONE */
+    "mute",        /* BA_MUTE */
+    "clamp",       /* BA_CLAMP */
+    "fold",        /* BA_FOLD */
+    "wrap",        /* BA_WRAP */
 };
 
 const char* mapper_mode_type_strings[] =
@@ -37,13 +37,13 @@ const char* mapper_mode_type_strings[] =
     "reverse",     /* MO_REVERSE */
 };
 
-const char *mapper_get_clipping_type_string(mapper_clipping_type clipping)
+const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 {
-    die_unless(clipping < N_MAPPER_CLIPPING_TYPES && clipping >= 0,
-               "called mapper_get_clipping_type_string() with "
+    die_unless(bound < N_MAPPER_BOUNDARY_ACTIONS && bound >= 0,
+               "called mapper_get_boundary_action_string() with "
                "bad parameter.\n");
 
-    return mapper_clipping_type_strings[clipping];
+    return mapper_boundary_action_strings[bound];
 }
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode)
@@ -166,21 +166,21 @@ int mapper_connection_perform(mapper_connection connection,
     return 1;
 }
 
-int mapper_clipping_perform(mapper_connection connection,
+int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *history)
 {
-    /* TODO: We are currently saving the clipped values to output history.
-     * it needs to be decided whether clipping should be inside the
+    /* TODO: We are currently saving the processed values to output history.
+     * it needs to be decided whether boundary processing should be inside the
      * feedback loop when past samples are called in expressions. */
     int i, muted = 0;
     float v[connection->props.dest_length];
     float total_range = fabsf(connection->props.range.dest_max
                               - connection->props.range.dest_min);
     float dest_min, dest_max, difference, modulo_difference;
-    mapper_clipping_type clip_min, clip_max;
+    mapper_boundary_action bound_min, bound_max;
 
-    if (connection->props.clip_min == CT_NONE
-        && connection->props.clip_max == CT_NONE)
+    if (connection->props.bound_min == BA_NONE
+        && connection->props.bound_max == BA_NONE)
     {
         return 1;
     }
@@ -196,51 +196,51 @@ int mapper_clipping_perform(mapper_connection connection,
             v[i] = (float)vhistory[i];
     }
     else {
-        trace("unknown type in mapper_clipping_perform()\n");
+        trace("unknown type in mapper_boundary_perform()\n");
         return 0;
     }
 
     if (connection->props.range.known) {
         if (connection->props.range.dest_min <= connection->props.range.dest_max) {
-            clip_min = connection->props.clip_min;
-            clip_max = connection->props.clip_max;
+            bound_min = connection->props.bound_min;
+            bound_max = connection->props.bound_max;
             dest_min = connection->props.range.dest_min;
             dest_max = connection->props.range.dest_max;
         }
         else {
-            clip_min = connection->props.clip_max;
-            clip_max = connection->props.clip_min;
+            bound_min = connection->props.bound_max;
+            bound_max = connection->props.bound_min;
             dest_min = connection->props.range.dest_max;
             dest_max = connection->props.range.dest_min;
         }
         for (i = 0; i < history->length; i++) {
             if (v[i] < dest_min) {
-                switch (clip_min) {
-                    case CT_MUTE:
+                switch (bound_min) {
+                    case BA_MUTE:
                         // need to prevent value from being sent at all
                         muted = 1;
                         break;
-                    case CT_CLAMP:
+                    case BA_CLAMP:
                         // clamp value to range minimum
                         v[i] = dest_min;
                         break;
-                    case CT_FOLD:
+                    case BA_FOLD:
                         // fold value around range minimum
                         difference = fabsf(v[i] - dest_min);
                         v[i] = dest_min + difference;
                         if (v[i] > dest_max) {
                             // value now exceeds range maximum!
-                            switch (clip_max) {
-                                case CT_MUTE:
+                            switch (bound_max) {
+                                case BA_MUTE:
                                     // need to prevent value from being sent at all
                                     muted = 1;
                                     break;
-                                case CT_CLAMP:
+                                case BA_CLAMP:
                                     // clamp value to range minimum
                                     v[i] = dest_max;
                                     break;
-                                case CT_FOLD:
-                                    // both clip modes are set to fold!
+                                case BA_FOLD:
+                                    // both boundary actions are set to fold!
                                     difference = fabsf(v[i] - dest_max);
                                     modulo_difference = difference
                                         - ((int)(difference / total_range)
@@ -251,7 +251,7 @@ int mapper_clipping_perform(mapper_connection connection,
                                     else
                                         v[i] = dest_min + modulo_difference;
                                     break;
-                                case CT_WRAP:
+                                case BA_WRAP:
                                     // wrap value back from range minimum
                                     difference = fabsf(v[i] - dest_max);
                                     modulo_difference = difference
@@ -264,7 +264,7 @@ int mapper_clipping_perform(mapper_connection connection,
                             }
                         }
                         break;
-                    case CT_WRAP:
+                    case BA_WRAP:
                         // wrap value back from range maximum
                         difference = fabsf(v[i] - dest_min);
                         modulo_difference = difference
@@ -277,32 +277,32 @@ int mapper_clipping_perform(mapper_connection connection,
                 }
             }
             else if (v[i] > dest_max) {
-                switch (clip_max) {
-                    case CT_MUTE:
+                switch (bound_max) {
+                    case BA_MUTE:
                         // need to prevent value from being sent at all
                         muted = 1;
                         break;
-                    case CT_CLAMP:
+                    case BA_CLAMP:
                         // clamp value to range maximum
                         v[i] = dest_max;
                         break;
-                    case CT_FOLD:
+                    case BA_FOLD:
                         // fold value around range maximum
                         difference = fabsf(v[i] - dest_max);
                         v[i] = dest_max - difference;
                         if (v[i] < dest_min) {
                             // value now exceeds range minimum!
-                            switch (clip_min) {
-                                case CT_MUTE:
+                            switch (bound_min) {
+                                case BA_MUTE:
                                     // need to prevent value from being sent at all
                                     muted = 1;
                                     break;
-                                case CT_CLAMP:
+                                case BA_CLAMP:
                                     // clamp value to range minimum
                                     v[i] = dest_min;
                                     break;
-                                case CT_FOLD:
-                                    // both clip modes are set to fold!
+                                case BA_FOLD:
+                                    // both boundary actions are set to fold!
                                     difference = fabsf(v[i] - dest_min);
                                     modulo_difference = difference
                                         - ((int)(difference / total_range)
@@ -313,7 +313,7 @@ int mapper_clipping_perform(mapper_connection connection,
                                     else
                                         v[i] = dest_min - modulo_difference;
                                     break;
-                                case CT_WRAP:
+                                case BA_WRAP:
                                     // wrap value back from range maximum
                                     difference = fabsf(v[i] - dest_min);
                                     modulo_difference = difference
@@ -326,7 +326,7 @@ int mapper_clipping_perform(mapper_connection connection,
                             }
                         }
                         break;
-                    case CT_WRAP:
+                    case BA_WRAP:
                         // wrap value back from range minimum
                         difference = fabsf(v[i] - dest_max);
                         modulo_difference = difference
@@ -641,14 +641,14 @@ void mapper_connection_set_from_message(mapper_connection c,
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
         c->props.muted = muting;
 
-    /* Clipping. */
-    int clip_min = mapper_msg_get_clipping(msg, AT_CLIP_MIN);
-    if (clip_min >= 0)
-        c->props.clip_min = clip_min;
+    /* Range boundary actions. */
+    int bound_min = mapper_msg_get_boundary_action(msg, AT_BOUND_MIN);
+    if (bound_min >= 0)
+        c->props.bound_min = bound_min;
 
-    int clip_max = mapper_msg_get_clipping(msg, AT_CLIP_MAX);
-    if (clip_max >= 0)
-        c->props.clip_max = clip_max;
+    int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
+    if (bound_max >= 0)
+        c->props.bound_max = bound_max;
 
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);

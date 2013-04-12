@@ -209,7 +209,7 @@ void mapper_router_process_signal(mapper_router r,
             if (mapper_connection_perform(c, &rs->history[id],
                                           &c->history[id]))
             {
-                if (mapper_clipping_perform(c, &c->history[id])) {
+                if (mapper_boundary_perform(c, &c->history[id])) {
                     if (c->props.send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
                         mapper_router_send_new_instance(r, c, id,
                                                         si->id_map, tt);
@@ -486,8 +486,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.dest_length = dest_length;
     c->props.mode = MO_UNDEFINED;
     c->props.expression = strdup("y=x");
-    c->props.clip_min = CT_NONE;
-    c->props.clip_max = CT_NONE;
+    c->props.bound_min = BA_NONE;
+    c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
     c->props.extra = table_new();
