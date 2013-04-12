@@ -584,7 +584,7 @@ static string_table_node_t devdb_nodes[] = {
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 9, 9 };
+  { devdb_nodes, 11, 11 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', 1, LINKDB_OFFSET(dest_name) },
@@ -640,7 +640,7 @@ static string_table_node_t condb_nodes[] = {
 };
 
 static mapper_string_table_t condb_table =
-{ condb_nodes, 7, 7 };
+{ condb_nodes, 8, 8 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
