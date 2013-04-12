@@ -445,12 +445,6 @@ static int batch_request_connections_by_device_name_internal(mapper_monitor mon,
     lo_type type;
     const lo_arg *value;
 
-    // This property lookup is only necessary for devices using libmapper <= v0.2
-    if (!mapper_db_device_property_lookup(dev, "n_connections", &type, &value)) {
-        if (type == LO_INT32)
-            connection_count += value->i32;
-    }
-
     if ((direction == DIRECTION_IN || direction == DIRECTION_BOTH) &&
         !mapper_db_device_property_lookup(dev, "n_connections_in", &type, &value)) {
         if (type == LO_INT32)
