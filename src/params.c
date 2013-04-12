@@ -18,6 +18,7 @@ const char* mapper_msg_param_strings[] =
     "@instances",       /* AT_INSTANCES */
     "@IP",              /* AT_IP */
     "@length",          /* AT_LENGTH */
+    "@libVersion",      /* AT_LIB_VERSION */
     "@max",             /* AT_MAX */
     "@min",             /* AT_MIN */
     "@mode",            /* AT_MODE */
@@ -387,6 +388,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_INSTANCES:
             sig = va_arg(aq, mapper_signal);
             lo_message_add_int32(m, sig->props.num_instances);
+            break;
+        case AT_LIB_VERSION:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);

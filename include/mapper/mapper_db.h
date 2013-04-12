@@ -268,6 +268,7 @@ typedef struct _mapper_db_batch_request
     // total signal count
     int total_count;
     int batch_size;
+    int direction;
 } mapper_db_batch_request_t, *mapper_db_batch_request;
 
 #ifdef __cplusplus

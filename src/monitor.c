@@ -20,6 +20,12 @@ static double get_current_time()
 #endif
 }
 
+typedef enum _db_request_direction {
+    DIRECTION_IN,
+    DIRECTION_OUT,
+    DIRECTION_BOTH
+} db_request_direction;
+
 mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 {
     mapper_monitor mon = (mapper_monitor)
@@ -48,11 +54,17 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 void mapper_monitor_free(mapper_monitor mon)
 {
     // TODO: free structures pointed to by the database
-    if (!mon) {
-        if (mon->admin && mon->own_admin)
+    if (!mon)
+        return;
+    while (mon->db.registered_devices)
+        mapper_db_remove_device_by_name(&mon->db, mon->db.registered_devices->name);
+    if (mon->admin) {
+        if (mon->own_admin)
             mapper_admin_free(mon->admin);
-        free(mon);
+        else
+            mapper_admin_remove_monitor(mon->admin, mon);
     }
+    free(mon);
 }
 
 int mapper_monitor_poll(mapper_monitor mon, int block_ms)
@@ -77,24 +89,87 @@ mapper_db mapper_monitor_get_db(mapper_monitor mon)
     return &mon->db;
 }
 
-int mapper_monitor_request_signals_by_name(mapper_monitor mon,
-                                           const char* name)
+static int request_signals_by_device_name_internal(mapper_monitor mon,
+                                                   const char* name,
+                                                   int direction)
 {
 	char cmd[1024];
-	snprintf(cmd, 1024, "%s/signals/get", name);
+    if (direction == DIRECTION_IN)
+        snprintf(cmd, 1024, "%s/signals/input/get", name);
+    else if (direction == DIRECTION_OUT)
+        snprintf(cmd, 1024, "%s/signals/output/get", name);
+    else
+        snprintf(cmd, 1024, "%s/signals/get", name);
 	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
-int mapper_monitor_request_signals_by_name_and_index(mapper_monitor mon,
-                                                     const char* name,
-                                                     int start_index,
-                                                     int stop_index)
+int mapper_monitor_request_signals_by_device_name(mapper_monitor mon,
+                                                  const char* name)
+{
+    return request_signals_by_device_name_internal(mon, name, DIRECTION_BOTH);
+}
+
+int mapper_monitor_request_input_signals_by_device_name(mapper_monitor mon,
+                                                        const char* name)
+{
+    return request_signals_by_device_name_internal(mon, name, DIRECTION_IN);
+}
+
+int mapper_monitor_request_output_signals_by_device_name(mapper_monitor mon,
+                                                         const char* name)
+{
+    return request_signals_by_device_name_internal(mon, name, DIRECTION_OUT);
+}
+
+static int request_signal_range_by_device_name_internal(mapper_monitor mon,
+                                                        const char* name,
+                                                        int start_index,
+                                                        int stop_index,
+                                                        int direction)
 {
 	char cmd[1024];
-	snprintf(cmd, 1024, "%s/signals/get", name);
+    if (direction == DIRECTION_IN)
+        snprintf(cmd, 1024, "%s/signals/input/get", name);
+    else if (direction == DIRECTION_OUT)
+        snprintf(cmd, 1024, "%s/signals/output/get", name);
+    else
+        snprintf(cmd, 1024, "%s/signals/get", name);
 	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
+}
+
+int mapper_monitor_request_signal_range_by_device_name(mapper_monitor mon,
+                                                       const char* name,
+                                                       int start_index,
+                                                       int stop_index)
+{
+    return request_signal_range_by_device_name_internal(mon, name,
+                                                        start_index,
+                                                        stop_index,
+                                                        DIRECTION_BOTH);
+}
+
+int mapper_monitor_request_input_signal_range_by_device_name(mapper_monitor mon,
+                                                             const char* name,
+                                                             int start_index,
+                                                             int stop_index)
+{
+    return request_signal_range_by_device_name_internal(mon, name,
+                                                        start_index,
+                                                        stop_index,
+                                                        DIRECTION_IN);
+}
+
+int mapper_monitor_request_output_signal_range_by_device_name(mapper_monitor mon,
+                                                              const char* name,
+                                                              int start_index,
+                                                              int stop_index)
+{
+	return request_signal_range_by_device_name_internal(mon, name,
+                                                        start_index,
+                                                        stop_index,
+                                                        DIRECTION_OUT);
 }
 
 static void on_signal_continue_batch_request(mapper_db_signal sig,
@@ -111,23 +186,25 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(sig->device_name, dev_to_match->name) != 0)
         return;
-    if (sig->id == (data->total_count - 1)) {
+    if (sig->id >= (data->total_count - 1)) {
         // signal reporting is complete
         mapper_db_remove_signal_callback(&data->monitor->db,
                                          on_signal_continue_batch_request, data);
         free(data);
         return;
     }
-    if (sig->id > 0 && (sig->id % data->batch_size == 0))
-        mapper_monitor_request_signals_by_name_and_index(data->monitor,
-                                                         data->device->name,
-                                                         sig->id + 1,
-                                                         sig->id + data->batch_size);
+    if (sig->id < 0 && (sig->id % data->batch_size != 0))
+        request_signal_range_by_device_name_internal(data->monitor,
+                                                     data->device->name,
+                                                     sig->id + 1,
+                                                     sig->id + data->batch_size,
+                                                     data->direction);
 }
 
-int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
-                                                 const char* name,
-                                                 int batch_size)
+static int batch_request_signals_by_device_name_internal(mapper_monitor mon,
+                                                         const char* name,
+                                                         int batch_size,
+                                                         int direction)
 {
     // find the db record of device
     mapper_db_device dev = mapper_db_get_device_by_name(&mon->db, name);
@@ -150,21 +227,49 @@ int mapper_monitor_batch_request_signals_by_name(mapper_monitor mon,
         return 1;
 
     if (signal_count <= batch_size) {
-        mapper_monitor_request_signals_by_name(mon, name);
+        request_signals_by_device_name_internal(mon, name, direction);
         return 1;
     }
 
     mapper_db_batch_request data = (mapper_db_batch_request)
-                                    malloc(sizeof(struct _mapper_db_batch_request));
+    malloc(sizeof(struct _mapper_db_batch_request));
     data->monitor = mon;
     data->device = dev;
     data->index = 0;
     data->total_count = signal_count;
     data->batch_size = batch_size;
+    data->direction = direction;
 
     mapper_db_add_signal_callback(&mon->db, on_signal_continue_batch_request, data);
-    mapper_monitor_request_signals_by_name_and_index(mon, name, 0, batch_size);
+    request_signal_range_by_device_name_internal(mon, name, 0, batch_size, direction);
     return 0;
+}
+
+int mapper_monitor_batch_request_signals_by_device_name(mapper_monitor mon,
+                                                        const char* name,
+                                                        int batch_size)
+{
+    return batch_request_signals_by_device_name_internal(mon, name,
+                                                         batch_size,
+                                                         DIRECTION_BOTH);
+}
+
+int mapper_monitor_batch_request_input_signals_by_device_name(mapper_monitor mon,
+                                                              const char* name,
+                                                              int batch_size)
+{
+    return batch_request_signals_by_device_name_internal(mon, name,
+                                                         batch_size,
+                                                         DIRECTION_IN);
+}
+
+int mapper_monitor_batch_request_output_signals_by_device_name(mapper_monitor mon,
+                                                               const char* name,
+                                                               int batch_size)
+{
+    return batch_request_signals_by_device_name_internal(mon, name,
+                                                         batch_size,
+                                                         DIRECTION_OUT);
 }
 
 int mapper_monitor_request_devices(mapper_monitor mon)
@@ -173,8 +278,17 @@ int mapper_monitor_request_devices(mapper_monitor mon)
     return 0;
 }
 
-int mapper_monitor_request_links_by_name(mapper_monitor mon,
-                                         const char* name)
+int mapper_monitor_request_device_info(mapper_monitor mon,
+                                       const char* name)
+{
+    char cmd[1024];
+	snprintf(cmd, 1024, "%s/info/get", name);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+    return 0;
+}
+
+int mapper_monitor_request_links_by_device_name(mapper_monitor mon,
+                                                const char* name)
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/get", name);
@@ -182,24 +296,108 @@ int mapper_monitor_request_links_by_name(mapper_monitor mon,
     return 0;
 }
 
-int mapper_monitor_request_connections_by_name(mapper_monitor mon,
-                                               const char* name)
+int mapper_monitor_request_links_by_src_device_name(mapper_monitor mon,
+                                                    const char* name)
 {
 	char cmd[1024];
-	snprintf(cmd, 1024, "%s/connections/get", name);
+	snprintf(cmd, 1024, "%s/links/out/get", name);
 	mapper_admin_send_osc(mon->admin, 0, cmd, "");
     return 0;
 }
 
-int mapper_monitor_request_connections_by_name_and_index(mapper_monitor mon,
-                                                         const char* name,
-                                                         int start_index,
-                                                         int stop_index)
+int mapper_monitor_request_links_by_dest_device_name(mapper_monitor mon,
+                                                    const char* name)
 {
 	char cmd[1024];
-	snprintf(cmd, 1024, "%s/connections/get", name);
+	snprintf(cmd, 1024, "%s/links/in/get", name);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+    return 0;
+}
+
+static int request_connections_by_device_name_internal(mapper_monitor mon,
+                                                       const char* name,
+                                                       int direction)
+{
+	char cmd[1024];
+    if (direction == DIRECTION_IN)
+        snprintf(cmd, 1024, "%s/connections/in/get", name);
+    else if (direction == DIRECTION_OUT)
+        snprintf(cmd, 1024, "%s/connections/out/get", name);
+    else
+        snprintf(cmd, 1024, "%s/connections/get", name);
+	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+    return 0;
+}
+
+int mapper_monitor_request_connections_by_device_name(mapper_monitor mon,
+                                                      const char* name)
+{
+    return request_connections_by_device_name_internal(mon, name,
+                                                       DIRECTION_BOTH);
+}
+
+int mapper_monitor_request_connections_by_src_device_name(mapper_monitor mon,
+                                                          const char* name)
+{
+    return request_connections_by_device_name_internal(mon, name,
+                                                       DIRECTION_OUT);
+}
+
+int mapper_monitor_request_connections_by_dest_device_name(mapper_monitor mon,
+                                                           const char* name)
+{
+    return request_connections_by_device_name_internal(mon, name,
+                                                       DIRECTION_IN);
+}
+
+static int request_connection_range_by_device_name_internal(mapper_monitor mon,
+                                                            const char* name,
+                                                            int start_index,
+                                                            int stop_index,
+                                                            int direction)
+{
+	char cmd[1024];
+    if (direction == DIRECTION_IN)
+        snprintf(cmd, 1024, "%s/connections/in/get", name);
+    else if (direction == DIRECTION_OUT)
+        snprintf(cmd, 1024, "%s/connections/out/get", name);
+    else
+        snprintf(cmd, 1024, "%s/connections/get", name);
 	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
     return 0;
+}
+
+int mapper_monitor_request_connection_range_by_device_name(mapper_monitor mon,
+                                                           const char* name,
+                                                           int start_index,
+                                                           int stop_index)
+{
+    return request_connection_range_by_device_name_internal(mon, name,
+                                                            start_index,
+                                                            stop_index,
+                                                            DIRECTION_BOTH);
+}
+
+int mapper_monitor_request_connection_range_by_src_device_name(mapper_monitor mon,
+                                                               const char* name,
+                                                               int start_index,
+                                                               int stop_index)
+{
+    return request_connection_range_by_device_name_internal(mon, name,
+                                                            start_index,
+                                                            stop_index,
+                                                            DIRECTION_OUT);
+}
+
+int mapper_monitor_request_connection_range_by_dest_device_name(mapper_monitor mon,
+                                                                const char* name,
+                                                                int start_index,
+                                                                int stop_index)
+{
+	return request_connection_range_by_device_name_internal(mon, name,
+                                                            start_index,
+                                                            stop_index,
+                                                            DIRECTION_IN);
 }
 
 static void on_connection_continue_batch_request(mapper_db_connection con,
@@ -216,7 +414,7 @@ static void on_connection_continue_batch_request(mapper_db_connection con,
     mapper_db_device dev_to_match = data->device;
     if (strcmp(con->src_name, dev_to_match->name) != 0)
         return;
-    if (con->id == (data->total_count - 1)) {
+    if (con->id >= (data->total_count - 1)) {
         // connection reporting is complete
         mapper_db_remove_connection_callback(&data->monitor->db,
                                              on_connection_continue_batch_request,
@@ -225,15 +423,17 @@ static void on_connection_continue_batch_request(mapper_db_connection con,
         return;
     }
     if (con->id > 0 && (con->id % data->batch_size == 0))
-        mapper_monitor_request_connections_by_name_and_index(data->monitor,
-                                                             data->device->name,
-                                                             con->id + 1,
-                                                             con->id + data->batch_size);
+        request_connection_range_by_device_name_internal(data->monitor,
+                                                         data->device->name,
+                                                         con->id + 1,
+                                                         con->id + data->batch_size,
+                                                         data->direction);
 }
 
-int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
-                                                     const char* name,
-                                                     int batch_size)
+static int batch_request_connections_by_device_name_internal(mapper_monitor mon,
+                                                             const char* name,
+                                                             int batch_size,
+                                                             int direction)
 {
     // find the db record of device
     mapper_db_device dev = mapper_db_get_device_by_name(&mon->db, name);
@@ -244,16 +444,23 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
     int connection_count = 0;
     lo_type type;
     const lo_arg *value;
-    if (!mapper_db_device_property_lookup(dev, "n_connections", &type, &value)) {
+
+    if ((direction == DIRECTION_IN || direction == DIRECTION_BOTH) &&
+        !mapper_db_device_property_lookup(dev, "n_connections_in", &type, &value)) {
         if (type == LO_INT32)
-            connection_count = value->i32;
+            connection_count += value->i32;
+    }
+    if ((direction == DIRECTION_OUT || direction == DIRECTION_BOTH) &&
+        !mapper_db_device_property_lookup(dev, "n_connections_out", &type, &value)) {
+        if (type == LO_INT32)
+            connection_count += value->i32;
     }
 
     if (!connection_count)
         return 1;
 
     if (connection_count <= batch_size) {
-        mapper_monitor_request_connections_by_name(mon, name);
+        request_connections_by_device_name_internal(mon, name, direction);
         return 1;
     }
 
@@ -264,10 +471,38 @@ int mapper_monitor_batch_request_connections_by_name(mapper_monitor mon,
     data->index = 0;
     data->total_count = connection_count;
     data->batch_size = batch_size;
+    data->direction = direction;
 
     mapper_db_add_connection_callback(&mon->db, on_connection_continue_batch_request, data);
-    mapper_monitor_request_connections_by_name_and_index(mon, name, 0, batch_size);
+    request_connection_range_by_device_name_internal(mon, name, 0, batch_size, direction);
     return 0;
+}
+
+int mapper_monitor_batch_request_connections_by_device_name(mapper_monitor mon,
+                                                            const char* name,
+                                                            int batch_size)
+{
+    return batch_request_connections_by_device_name_internal(mon, name,
+                                                             batch_size,
+                                                             DIRECTION_BOTH);
+}
+
+int mapper_monitor_batch_request_connections_by_src_device_name(mapper_monitor mon,
+                                                                const char* name,
+                                                                int batch_size)
+{
+    return batch_request_connections_by_device_name_internal(mon, name,
+                                                             batch_size,
+                                                             DIRECTION_OUT);
+}
+
+int mapper_monitor_batch_request_connections_by_dest_device_name(mapper_monitor mon,
+                                                                 const char* name,
+                                                                 int batch_size)
+{
+    return batch_request_connections_by_device_name_internal(mon, name,
+                                                             batch_size,
+                                                             DIRECTION_IN);
 }
 
 void mapper_monitor_link(mapper_monitor mon,
@@ -378,9 +613,9 @@ static void on_device_autorequest(mapper_db_device dev,
         mapper_monitor mon = (mapper_monitor)(user);
 
         // Request signals, links, connections for new devices.
-        mapper_monitor_batch_request_signals_by_name(mon, dev->name, 10);
-        mapper_monitor_request_links_by_name(mon, dev->name);
-        mapper_monitor_batch_request_connections_by_name(mon, dev->name, 10);
+        mapper_monitor_batch_request_signals_by_device_name(mon, dev->name, 10);
+        mapper_monitor_request_links_by_src_device_name(mon, dev->name);
+        mapper_monitor_batch_request_connections_by_src_device_name(mon, dev->name, 10);
     }
 }
 

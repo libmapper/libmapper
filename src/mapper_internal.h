@@ -32,7 +32,7 @@ struct _mapper_signal
 
     /*! An optional function to be called when the signal value
      *  changes. */
-    mapper_signal_handler *handler;
+    mapper_signal_update_handler *handler;
 
     /*! An optional function to be called when the signal instance management
      *  events occur. */
@@ -85,6 +85,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
                              const char *identifier, int port);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
+
+void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
@@ -326,7 +328,8 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
                        void *minimum, void *maximum,
-                       mapper_signal_handler *handler, void *user_data);
+                       mapper_signal_update_handler *handler,
+                       void *user_data);
 
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
@@ -469,7 +472,7 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                               mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
-void mapper_db_remove_device(mapper_db db, const char *name);
+void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,
@@ -714,13 +717,15 @@ void mapper_msg_add_osc_value_table(lo_message m, table t);
 /**** Clock synchronization ****/
 
 /*! Initialize a mapper_clock. */
-void mdev_clock_init(mapper_device dev);
+void mapper_clock_init(mapper_clock clock);
 
 /*! Adjust the internal clock synchonization. */
-void mdev_clock_adjust(mapper_device dev,
-                       double difference,
-                       double confidence,
-                       int is_latency_adjusted);
+void mapper_clock_adjust(mapper_clock clock,
+                         double difference,
+                         float confidence);
+
+/*! Get the current time from a mapper_clock. */
+void mapper_clock_now(mapper_clock clock, mapper_timetag_t *timetag);
 
 /**** Debug macros ****/
 

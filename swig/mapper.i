@@ -8,7 +8,6 @@
     $1 = $input;
  }
 %typemap(in) maybeSigVal %{
-    {
     sigval val;
     if ($input == Py_None)
         $1 = 0;
@@ -26,7 +25,6 @@
             }
         }
         $1 = &val;
-    }
     }
 %}
 %typemap(out) maybeSigVal {
@@ -465,20 +463,16 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    unsigned long long int timetag = 0;
-    if (tt) {
-        timetag = tt->sec;
-        timetag = (timetag << 32) + tt->frac;
-    }
+    double timetag = mapper_timetag_get_double(*tt);
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
+            arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
+            arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -638,12 +632,12 @@ typedef struct _monitor {} monitor;
 typedef struct _db {} db;
 typedef struct _admin {} admin;
 
-%extend device {
-    device(const char *name, int port=9000, admin *DISOWN=0) {
+%extend _device {
+    _device(const char *name, int port=9000, admin *DISOWN=0) {
         device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
-    ~device() {
+    ~_device() {
         mdev_free((mapper_device)$self);
     }
     int poll(int timeout=0) {
@@ -881,6 +875,28 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
+    void update(float f, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        }
+    }
+    void update(int i, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        }
+    }
     void reserve_instances(int num) {
         msig_reserve_instances((mapper_signal)$self, num);
     }
@@ -922,7 +938,7 @@ typedef struct _admin {} admin;
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
     void set_callback(PyObject *PyFunc=0) {
-        mapper_signal_handler *h = 0;
+        mapper_signal_update_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
         if (PyFunc && !msig->props.user_data) {
             h = msig_handler_py;
@@ -1044,12 +1060,12 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend monitor {
-    monitor(admin *DISOWN=0, int enable_autorequest=1) {
+%extend _monitor {
+    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
                                              enable_autorequest);
     }
-    ~monitor() {
+    ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
@@ -1067,14 +1083,35 @@ typedef struct _admin {} admin;
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
     }
-    int request_signals_by_name(const char* name) {
-        return mapper_monitor_request_signals_by_name((mapper_monitor)$self, name);
+    int request_device_info(const char* name) {
+        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
     }
-    int request_links_by_name(const char* name) {
-        return mapper_monitor_request_links_by_name((mapper_monitor)$self, name);
+    int request_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
     }
-    int request_connections_by_name(const char* name) {
-        return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
+    int request_input_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_input_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_output_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_output_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_device_name(const char* name) {
+        return mapper_monitor_request_links_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_src_device_name(const char* name) {
+        return mapper_monitor_request_links_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_links_by_dest_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_src_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_dest_device_name((mapper_monitor)$self, name);
     }
     void link(const char* source_device,
               const char* dest_device,
@@ -1328,11 +1365,11 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend admin {
-    admin(const char *iface=0, const char *ip=0, int port=7570) {
+%extend _admin {
+    _admin(const char *iface=0, const char *ip=0, int port=7570) {
         return (admin *)mapper_admin_new(iface, ip, port);
     }
-    ~admin() {
+    ~_admin() {
         mapper_admin_free((mapper_admin)$self);
     }
 }
