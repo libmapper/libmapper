@@ -1,6 +1,6 @@
 AC_PREREQ(2.61)
 
-AC_INIT([libmapper],[0.2],[sinclair@music.mcgill.ca])
+AC_INIT([libmapper],[m4_esyscmd_s([git describe --always])],[sinclair@music.mcgill.ca],[],[www.libmapper.org])
 
 # libtool version: current:revision:age
 #

@@ -318,6 +318,7 @@ typedef enum {
     AT_INSTANCES,
     AT_IP,
     AT_LENGTH,
+    AT_LIB_VERSION,
     AT_MAX,
     AT_MIN,
     AT_MODE,

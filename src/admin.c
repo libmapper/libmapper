@@ -41,6 +41,14 @@ static double get_current_time()
 #endif
 }
 
+/* Internal functions for sending admin messages. */
+static void mapper_admin_send_device(mapper_admin admin, mapper_device device);
+static void mapper_admin_send_linked(mapper_admin admin, mapper_link link,
+                                     lo_bundle b, int is_outgoing);
+static void mapper_admin_send_connected(mapper_admin admin, mapper_link link,
+                                        mapper_connection c, int index,
+                                        lo_bundle b, int is_outgoing);
+
 /* Internal message handler prototypes. */
 static int handler_who(const char *, const char *, lo_arg **, int,
                        lo_message, void *);
@@ -544,13 +552,7 @@ int mapper_admin_poll(mapper_admin admin)
     if (admin->registered) {
         if (admin->device->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
             admin->device->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
-            mapper_admin_send_osc(
-                  admin, 0, "/device", "s", mapper_admin_name(admin),
-                  admin->port ? AT_PORT : -1, admin->port,
-                  AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-                  AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-                  AT_REV, admin->device->version,
-                  AT_EXTRA, admin->device->extra);
+            mapper_admin_send_device(admin, admin->device);
         }
         // Send out clock sync messages occasionally
         mapper_clock_t *clock = &admin->clock;
@@ -757,6 +759,28 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     lo_message_free(m);
 }
 
+static void mapper_admin_send_device(mapper_admin admin,
+                                     mapper_device device)
+{
+    if (admin->device->flags & FLAGS_SENT_DEVICE_INFO)
+        return;
+
+    mapper_admin_send_osc(
+        admin, 0, "/device", "s", mapper_admin_name(admin),
+        AT_LIB_VERSION, PACKAGE_VERSION,
+        admin->port ? AT_PORT : -1, admin->port,
+        AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
+        AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
+        AT_NUM_LINKS_IN, admin->device ? mdev_num_links_in(admin->device) : 0,
+        AT_NUM_LINKS_OUT, admin->device ? mdev_num_links_out(admin->device) : 0,
+        AT_NUM_CONNECTIONS_IN, admin->device ? mdev_num_connections_in(admin->device) : 0,
+        AT_NUM_CONNECTIONS_OUT, admin->device ? mdev_num_connections_out(admin->device) : 0,
+        AT_REV, admin->device->version,
+        AT_EXTRA, admin->device->extra);
+
+    admin->device->flags |= FLAGS_SENT_DEVICE_INFO;
+}
+
 static void mapper_admin_send_linked(mapper_admin admin,
                                      mapper_link link,
                                      lo_bundle b,
@@ -846,22 +870,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
 {
     mapper_admin admin = (mapper_admin) user_data;
 
-    if (admin->device->flags & FLAGS_SENT_DEVICE_INFO)
-        return 0;
-
-    mapper_admin_send_osc(
-        admin, 0, "/device", "s", mapper_admin_name(admin),
-        admin->port ? AT_PORT : -1, admin->port,
-        AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
-        AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
-        AT_NUM_LINKS_IN, admin->device ? mdev_num_links_in(admin->device) : 0,
-        AT_NUM_LINKS_OUT, admin->device ? mdev_num_links_out(admin->device) : 0,
-        AT_NUM_CONNECTIONS_IN, admin->device ? mdev_num_connections_in(admin->device) : 0,
-        AT_NUM_CONNECTIONS_OUT, admin->device ? mdev_num_connections_out(admin->device) : 0,
-        AT_REV, admin->device->version,
-        AT_EXTRA, admin->device->extra);
-
-    admin->device->flags |= FLAGS_SENT_DEVICE_INFO;
+    mapper_admin_send_device(admin, admin->device);
 
     return 0;
 }
