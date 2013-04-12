@@ -112,18 +112,18 @@
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "clip_max")==0) {
+                    if (strcmp(s, "bound_max")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.clip_max = k;
-                            p.flags |= CONNECTION_CLIP_MAX;
+                            p.props.bound_max = k;
+                            p.flags |= CONNECTION_BOUND_MAX;
                         }
                     }
-                    else if (strcmp(s, "clip_min")==0) {
+                    else if (strcmp(s, "bound_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.clip_min = k;
-                            p.flags |= CONNECTION_CLIP_MIN;
+                            p.props.bound_min = k;
+                            p.flags |= CONNECTION_BOUND_MIN;
                         }
                     }
                     else if (strcmp(s, "range")==0) {
@@ -412,8 +412,8 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
                       "dest_type", con->dest_type,
                       "src_length", con->src_length,
                       "dest_length", con->dest_length,
-                      "clip_max", con->clip_max,
-                      "clip_min", con->clip_min,
+                      "bound_max", con->bound_max,
+                      "bound_min", con->bound_min,
                       "range",
                       (con->range.known & CONNECTION_RANGE_SRC_MIN
                        ? Py_BuildValue("f", con->range.src_min) : Py_None),
@@ -586,16 +586,16 @@ static void link_db_handler_py(mapper_db_link record,
 
 %}
 
-typedef enum _mapper_clipping_type {
-    CT_NONE,    /*!< Value is passed through unchanged. This is the
+typedef enum _mapper_boundary_action {
+    BA_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
-    CT_MUTE,    //!< Value is muted.
-    CT_CLAMP,   //!< Value is limited to the boundary.
-    CT_FOLD,    //!< Value continues in opposite direction.
-    CT_WRAP,    /*!< Value appears as modulus offset at the opposite
+    BA_MUTE,    //!< Value is muted.
+    BA_CLAMP,   //!< Value is limited to the boundary.
+    BA_FOLD,    //!< Value continues in opposite direction.
+    BA_WRAP,    /*!< Value appears as modulus offset at the opposite
                  *   boundary. */
-    N_MAPPER_CLIPPING_TYPES
-} mapper_clipping_type;
+    N_MAPPER_BOUNDARY_ACTIONS
+} mapper_boundary_action;
 
 /*! Describes the connection mode.
  *  @ingroup connectiondb */
