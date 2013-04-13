@@ -502,6 +502,8 @@ void mapper_db_remove_link(mapper_db db,
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump(mapper_db db);
 
+void mapper_db_remove_all_callbacks(mapper_db db);
+
 /**** Links ****/
 
 /*! Add or update an entry in the link database using parsed message
