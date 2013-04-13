@@ -40,7 +40,7 @@ void mapper_clock_adjust(mapper_clock clock,
     if (clock->confidence > 0.9) {
         clock->confidence = 0.9;
     }
-    clock->offset = new_offset;
+    //clock->offset = new_offset;
 }
 
 void mapper_clock_now(mapper_clock clock,

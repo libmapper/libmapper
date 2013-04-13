@@ -8,7 +8,6 @@
     $1 = $input;
  }
 %typemap(in) maybeSigVal %{
-    {
     sigval val;
     if ($input == Py_None)
         $1 = 0;
@@ -26,7 +25,6 @@
             }
         }
         $1 = &val;
-    }
     }
 %}
 %typemap(out) maybeSigVal {
@@ -677,12 +675,12 @@ typedef struct _monitor {} monitor;
 typedef struct _db {} db;
 typedef struct _admin {} admin;
 
-%extend device {
-    device(const char *name, int port=9000, admin *DISOWN=0) {
+%extend _device {
+    _device(const char *name, int port=9000, admin *DISOWN=0) {
         device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
-    ~device() {
+    ~_device() {
         mdev_free((mapper_device)$self);
     }
     int poll(int timeout=0) {
@@ -1017,7 +1015,7 @@ typedef struct _admin {} admin;
         msig_set_instance_management_callback((mapper_signal)$self, h, flags, callbacks);
     }
     void set_callback(PyObject *PyFunc=0) {
-        mapper_signal_handler *h = 0;
+        mapper_signal_update_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
         PyObject **callbacks = (PyObject**)msig->props.user_data;
         if (PyFunc) {
@@ -1156,12 +1154,12 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend monitor {
-    monitor(admin *DISOWN=0, int enable_autorequest=1) {
+%extend _monitor {
+    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
                                              enable_autorequest);
     }
-    ~monitor() {
+    ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
@@ -1179,14 +1177,35 @@ typedef struct _admin {} admin;
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
     }
-    int request_signals_by_name(const char* name) {
-        return mapper_monitor_request_signals_by_name((mapper_monitor)$self, name);
+    int request_device_info(const char* name) {
+        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
     }
-    int request_links_by_name(const char* name) {
-        return mapper_monitor_request_links_by_name((mapper_monitor)$self, name);
+    int request_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
     }
-    int request_connections_by_name(const char* name) {
-        return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
+    int request_input_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_input_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_output_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_output_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_device_name(const char* name) {
+        return mapper_monitor_request_links_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_src_device_name(const char* name) {
+        return mapper_monitor_request_links_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_links_by_dest_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_src_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_dest_device_name((mapper_monitor)$self, name);
     }
     void link(const char* source_device,
               const char* dest_device,
@@ -1440,11 +1459,11 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend admin {
-    admin(const char *iface=0, const char *ip=0, int port=7570) {
+%extend _admin {
+    _admin(const char *iface=0, const char *ip=0, int port=7570) {
         return (admin *)mapper_admin_new(iface, ip, port);
     }
-    ~admin() {
+    ~_admin() {
         mapper_admin_free((mapper_admin)$self);
     }
 }

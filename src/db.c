@@ -584,7 +584,7 @@ static string_table_node_t devdb_nodes[] = {
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 9, 9 };
+  { devdb_nodes, 11, 11 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', 1, LINKDB_OFFSET(dest_name) },
@@ -640,7 +640,7 @@ static string_table_node_t condb_nodes[] = {
 };
 
 static mapper_string_table_t condb_table =
-{ condb_nodes, 7, 7 };
+{ condb_nodes, 8, 8 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -801,8 +801,8 @@ int mapper_db_add_or_update_device_params(mapper_db db,
         if (rc || updated) {
             fptr_list cb = db->device_callbacks;
             while (cb) {
-                device_callback_func *f = cb->f;
-                f(reg, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                mapper_db_device_handler *h = cb->f;
+                h(reg, rc ? MDB_NEW : MDB_MODIFY, cb->context);
                 cb = cb->next;
             }
         }
@@ -830,7 +830,7 @@ int mapper_db_device_property_lookup(mapper_db_device dev,
                                      &devdb_table);
 }
 
-void mapper_db_remove_device(mapper_db db, const char *name)
+void mapper_db_remove_device_by_name(mapper_db db, const char *name)
 {
     mapper_db_device dev = mapper_db_get_device_by_name(db, name);
     if (!dev)
@@ -850,11 +850,13 @@ void mapper_db_remove_device(mapper_db db, const char *name)
 
     fptr_list cb = db->device_callbacks;
     while (cb) {
-        device_callback_func *f = cb->f;
-        f(dev, MDB_REMOVE, cb->context);
+        mapper_db_device_handler *h = cb->f;
+        h(dev, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
+    if (dev->extra)
+        free(dev->extra);
     list_remove_item(dev, (void**)&db->registered_devices);
 }
 
@@ -994,15 +996,15 @@ void mapper_db_dump(mapper_db db)
 }
 
 void mapper_db_add_device_callback(mapper_db db,
-                                   device_callback_func *f, void *user)
+                                   mapper_db_device_handler *h, void *user)
 {
-    add_callback(&db->device_callbacks, f, user);
+    add_callback(&db->device_callbacks, h, user);
 }
 
 void mapper_db_remove_device_callback(mapper_db db,
-                                      device_callback_func *f, void *user)
+                                      mapper_db_device_handler *h, void *user)
 {
-    remove_callback(&db->device_callbacks, f, user);
+    remove_callback(&db->device_callbacks, h, user);
 }
 
 /**** Signals ****/
@@ -1083,8 +1085,8 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
             fptr_list cb = db->signal_callbacks, temp;
             while (cb) {
                 temp = cb->next;
-                signal_callback_func *f = cb->f;
-                f(sig, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                mapper_db_signal_handler *h = cb->f;
+                h(sig, rc ? MDB_NEW : MDB_MODIFY, cb->context);
                 cb = temp;
             }
         }
@@ -1139,15 +1141,15 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
 }
 
 void mapper_db_add_signal_callback(mapper_db db,
-                                   signal_callback_func *f, void *user)
+                                   mapper_db_signal_handler *h, void *user)
 {
-    add_callback(&db->signal_callbacks, f, user);
+    add_callback(&db->signal_callbacks, h, user);
 }
 
 void mapper_db_remove_signal_callback(mapper_db db,
-                                      signal_callback_func *f, void *user)
+                                      mapper_db_signal_handler *h, void *user)
 {
-    remove_callback(&db->signal_callbacks, f, user);
+    remove_callback(&db->signal_callbacks, h, user);
 }
 
 mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db)
@@ -1324,11 +1326,13 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
 
         fptr_list cb = db->signal_callbacks;
         while (cb) {
-            signal_callback_func *f = cb->f;
-            f(sig, MDB_REMOVE, cb->context);
+            mapper_db_signal_handler *h = cb->f;
+            h(sig, MDB_REMOVE, cb->context);
             cb = cb->next;
         }
 
+        if (sig->extra)
+            free(sig->extra);
         list_remove_item(sig, (void**)&db->registered_inputs);
     }
 }
@@ -1342,11 +1346,13 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
         fptr_list cb = db->signal_callbacks;
         while (cb) {
-            signal_callback_func *f = cb->f;
-            f(sig, MDB_REMOVE, cb->context);
+            mapper_db_signal_handler *h = cb->f;
+            h(sig, MDB_REMOVE, cb->context);
             cb = cb->next;
         }
 
+        if (sig->extra)
+            free(sig->extra);
         list_remove_item(sig, (void**)&db->registered_outputs);
     }
 }
@@ -1489,8 +1495,8 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
         if (rc || updated) {
             fptr_list cb = db->connection_callbacks;
             while (cb) {
-                connection_callback_func *f = cb->f;
-                f(con, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                mapper_db_connection_handler *h = cb->f;
+                h(con, rc ? MDB_NEW : MDB_MODIFY, cb->context);
                 cb = cb->next;
             }
         }
@@ -1534,17 +1540,17 @@ mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db)
 }
 
 void mapper_db_add_connection_callback(mapper_db db,
-                                       connection_callback_func *f,
+                                       mapper_db_connection_handler *h,
                                        void *user)
 {
-    add_callback(&db->connection_callbacks, f, user);
+    add_callback(&db->connection_callbacks, h, user);
 }
 
 void mapper_db_remove_connection_callback(mapper_db db,
-                                          connection_callback_func *f,
+                                          mapper_db_connection_handler *h,
                                           void *user)
 {
-    remove_callback(&db->connection_callbacks, f, user);
+    remove_callback(&db->connection_callbacks, h, user);
 }
 
 static int cmp_query_get_connections_by_device_name(void *context_data,
@@ -1922,11 +1928,13 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 
     fptr_list cb = db->connection_callbacks;
     while (cb) {
-        connection_callback_func *f = cb->f;
-        f(con, MDB_REMOVE, cb->context);
+        mapper_db_connection_handler *h = cb->f;
+        h(con, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
+    if (con->extra)
+        free(con->extra);
     list_remove_item(con, (void**)&db->registered_connections);
 }
 
@@ -1972,8 +1980,8 @@ int mapper_db_add_or_update_link_params(mapper_db db,
         if (rc || updated) {
             fptr_list cb = db->link_callbacks;
             while (cb) {
-                link_callback_func *f = cb->f;
-                f(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
+                mapper_db_link_handler *h = cb->f;
+                h(link, rc ? MDB_NEW : MDB_MODIFY, cb->context);
                 cb = cb->next;
             }
         }
@@ -2006,15 +2014,15 @@ int mapper_db_link_property_lookup(mapper_db_link link,
 }
 
 void mapper_db_add_link_callback(mapper_db db,
-                                 link_callback_func *f, void *user)
+                                 mapper_db_link_handler *h, void *user)
 {
-    add_callback(&db->link_callbacks, f, user);
+    add_callback(&db->link_callbacks, h, user);
 }
 
 void mapper_db_remove_link_callback(mapper_db db,
-                                    link_callback_func *f, void *user)
+                                    mapper_db_link_handler *h, void *user)
 {
-    remove_callback(&db->link_callbacks, f, user);
+    remove_callback(&db->link_callbacks, h, user);
 }
 
 mapper_db_link_t **mapper_db_get_all_links(mapper_db db)
@@ -2242,10 +2250,12 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
 
     fptr_list cb = db->link_callbacks;
     while (cb) {
-        link_callback_func *f = cb->f;
-        f(link, MDB_REMOVE, cb->context);
+        mapper_db_link_handler *h = cb->f;
+        h(link, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
 
+    if (link->extra)
+        free(link->extra);
     list_remove_item(link, (void**)&db->registered_links);
 }

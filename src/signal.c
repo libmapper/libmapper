@@ -29,7 +29,8 @@ static void msig_free_instance(mapper_signal sig,
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
                        void *minimum, void *maximum,
-                       mapper_signal_handler *handler, void *user_data)
+                       mapper_signal_update_handler *handler,
+                       void *user_data)
 {
     if (length < 1) return 0;
     if (!name) return 0;
@@ -807,7 +808,7 @@ void *msig_get_instance_data(mapper_signal sig,
 /**** Queries and reverse connections ****/
 
 void msig_set_callback(mapper_signal sig,
-                       mapper_signal_handler *handler,
+                       mapper_signal_update_handler *handler,
                        void *user_data)
 {
     if (!sig)
