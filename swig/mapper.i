@@ -859,25 +859,10 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
-    void update(float f) {
-        mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'f')
-            msig_update_float((mapper_signal)$self, f);
-        else if (sig->props.type == 'i') {
-            msig_update_int((mapper_signal)$self, (int)f);
-        }
-    }
-    void update(int i) {
-        mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'i')
-            msig_update_int((mapper_signal)$self, i);
-        else if (sig->props.type == 'f') {
-            msig_update_float((mapper_signal)$self, (float)i);
-        }
-    }
-    void update(float f, double timetag) {
-        mapper_timetag_t tt;
-        mapper_timetag_set_double(&tt, timetag);
+    void update(float f, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
             msig_update((mapper_signal)$self, &f, 1, tt);
@@ -886,9 +871,10 @@ typedef struct _admin {} admin;
             msig_update((mapper_signal)$self, &i, 1, tt);
         }
     }
-    void update(int i, double timetag) {
-        mapper_timetag_t tt;
-        mapper_timetag_set_double(&tt, timetag);
+    void update(int i, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
             msig_update((mapper_signal)$self, &i, 1, tt);
@@ -900,26 +886,28 @@ typedef struct _admin {} admin;
     void reserve_instances(int num) {
         msig_reserve_instances((mapper_signal)$self, num);
     }
-    void update_instance(int id, float f) {
+    void update_instance(int id, float f, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
-            msig_update_instance((mapper_signal)$self, id, &f, 0,
-                                 MAPPER_NOW);
+            msig_update_instance((mapper_signal)$self, id, &f, 0, tt);
         else if (sig->props.type == 'i') {
             int i = (int)f;
-            msig_update_instance((mapper_signal)$self, id, &i, 0,
-                                 MAPPER_NOW);
+            msig_update_instance((mapper_signal)$self, id, &i, 0, tt);
         }
     }
-    void update_instance(int id, int i) {
+    void update_instance(int id, int i, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
-            msig_update_instance((mapper_signal)$self, id, &i, 0,
-                                 MAPPER_NOW);
+            msig_update_instance((mapper_signal)$self, id, &i, 0, tt);
         else if (sig->props.type == 'f') {
             float f = (float)i;
-            msig_update_instance((mapper_signal)$self, id, &f, 0,
-                                 MAPPER_NOW);
+            msig_update_instance((mapper_signal)$self, id, &f, 0, tt);
         }
     }
     void release_instance(int id) {
