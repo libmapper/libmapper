@@ -823,6 +823,33 @@ int mdev_poll(mapper_device md, int block_ms)
     return admin_count + count;
 }
 
+int mdev_num_fds(mapper_device md)
+{
+    // One for the admin input, and one for the signal input if the
+    // server has started.
+    return 1 + (md->server?1:0);
+}
+
+int mdev_get_fds(mapper_device md, int *fds, int num)
+{
+    if (num > 0)
+        fds[0] = lo_server_get_socket_fd(md->admin->admin_server);
+    if (num > 1 && md->server)
+        fds[1] = lo_server_get_socket_fd(md->server);
+    else
+        return 1;
+    return 2;
+}
+
+void mdev_service_fd(mapper_device md, int fd)
+{
+    if (fd == lo_server_get_socket_fd(md->admin->admin_server))
+        mapper_admin_poll(md->admin);
+    else if (md->server
+             && fd == lo_server_get_socket_fd(md->server))
+        lo_server_recv_noblock(md->server, 0);
+}
+
 void mdev_num_instances_changed(mapper_device md,
                                 mapper_signal sig)
 {

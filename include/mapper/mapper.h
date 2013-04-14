@@ -452,6 +452,33 @@ void mdev_remove_property(mapper_device dev, const char *property);
  *          nothing to do. */
 int mdev_poll(mapper_device dev, int block_ms);
 
+/*! Return the number of file descriptors needed for this device.
+ *  This can be used to allocated an appropriately-sized list for
+ *  called to mdev_get_fds.  Note that the number of descriptors
+ *  needed can change throughout the life of a device, therefore this
+ *  function should be called whenever the list of file descriptors is
+ *  needed.
+ *  \param md The device to count file descriptors for.
+ *  \return The number of file descriptors needed for the indicated
+ *          device. */
+int mdev_num_fds(mapper_device md);
+
+/*! Write the list of file descriptors for this device to the provided
+ *  array.  Up to num file descriptors will be written.  These file
+ *  descriptors can be used as input for the read array of select or
+ *  poll, for example.
+ *  \param md  The device to get file descriptors for.
+ *  \param fds Memory to receive file descriptors.
+ *  \param num The number of file descriptors pointed to by fds.
+ *  \return The number of file descriptors actually written to fds. */
+int mdev_get_fds(mapper_device md, int *fds, int num);
+
+/*! If an external event indicates that a file descriptor for this
+ *  device needs servicing, this function should be called.
+ *  \param md The device that needs servicing.
+ *  \param fd The file descriptor that needs servicing. */
+void mdev_service_fd(mapper_device md, int fd);
+
 /*! Detect whether a device is completely initialized.
  *  \return Non-zero if device is completely initialized, i.e., has an
  *  allocated receiving port and unique network name.  Zero
