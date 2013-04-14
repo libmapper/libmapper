@@ -3,6 +3,16 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <sys/time.h>
+
+/*! Internal function to get the current time. */
+static double get_current_time()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
+}
 
 int main()
 {
@@ -34,7 +44,14 @@ int main()
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
 
-    mapper_expr_evaluate(e, &inh, &outh);
+    int iterations = 1000000;
+    double then = get_current_time();
+    printf("Calculate expression %i times... ", iterations);
+    while (iterations--) {
+        mapper_expr_evaluate(e, &inh, &outh);
+    }
+    double now = get_current_time();
+    printf("%f seconds.\n", now-then);
 
     printf("Evaluate with x=%f: %f (expected: %f)\n",
            inp, outp,

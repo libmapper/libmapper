@@ -168,7 +168,7 @@ void loop()
         }
         printf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
-            count = msig_query_remotes(sendsig[j], MAPPER_TIMETAG_NOW);
+            count = msig_query_remotes(sendsig[j], MAPPER_NOW);
             printf("Sent %i queries for sendsig[%i]\n", count, j);
         }
         mdev_poll(destination, 200);

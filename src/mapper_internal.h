@@ -32,7 +32,7 @@ struct _mapper_signal
 
     /*! An optional function to be called when the signal value
      *  changes. */
-    mapper_signal_handler *handler;
+    mapper_signal_update_handler *handler;
 
     /*! An optional function to be called when the signal instance management
      *  events occur. */
@@ -85,6 +85,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
                              const char *identifier, int port);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
+
+void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
@@ -318,7 +320,8 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
                        void *minimum, void *maximum,
-                       mapper_signal_handler *handler, void *user_data);
+                       mapper_signal_update_handler *handler,
+                       void *user_data);
 
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
@@ -391,7 +394,7 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
                               mapper_signal_history_t *to_value);
 
-int mapper_clipping_perform(mapper_connection connection,
+int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
 /*! Set a connection's properties based on message parameters. */
@@ -409,7 +412,7 @@ void mapper_connection_set_expression(mapper_connection connection,
 void mapper_connection_set_calibrate(mapper_connection connection,
                                      float dest_min, float dest_max);
 
-const char *mapper_get_clipping_type_string(mapper_clipping_type clipping);
+const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
@@ -461,7 +464,7 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                               mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
-void mapper_db_remove_device(mapper_db db, const char *name);
+void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,
@@ -490,6 +493,8 @@ void mapper_db_remove_link(mapper_db db,
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
 void mapper_db_dump(mapper_db db);
+
+void mapper_db_remove_all_callbacks(mapper_db db);
 
 /**** Links ****/
 
@@ -574,12 +579,12 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value);
 
-/*! Helper to return the clipping type from a message parameter.
+/*! Helper to return the boundary action from a message parameter.
  *  \param msg Structure containing parameter info.
- *  \param param Either AT_CLIPMIN or AT_CLIPMAX.
- *  \return The clipping type, or -1 if not found. */
-mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
-                                             mapper_msg_param_t param);
+ *  \param param Either AT_BOUND_MIN or AT_BOUND_MAX.
+ *  \return The boundary action, or -1 if not found. */
+mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
+                                                      mapper_msg_param_t param);
 
 /*! Helper to return the signal direction from a message parameter.
  *  \param msg Structure containing parameter info.
@@ -596,8 +601,12 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg);
  *  \return The muted state (0 or 1), or -1 if not found. */
 int mapper_msg_get_mute(mapper_message_t *msg);
 
-void mapper_msg_add_or_update_extra_params(table t,
-                                                  mapper_message_t *params);
+/*! Store 'extra' parameters specified in a mapper_message to a table.
+ *  \param t      Table to edit.
+ *  \param params Message containing parameters.
+ *  \return The number of parameters added or modified. */
+int mapper_msg_add_or_update_extra_params(table t,
+                                          mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a vararg list of
  *  parameter pairs. */
@@ -687,9 +696,14 @@ int table_add_or_update(table t, const char *key, void *value);
 void table_dump_osc_values(table t);
 #endif
 
-/*! Add a typed OSC argument to a string table. */
-void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          lo_type type, lo_arg *arg);
+/*! Add a typed OSC argument to a string table.
+ *  \param t    Table to update.
+ *  \param key  Key to store.
+ *  \param type OSC type of value to add.
+ *  \param arg  OSC value to add
+ *  \return The number of table values added or modified. */
+int mapper_table_add_or_update_osc_value(table t, const char *key,
+                                         lo_type type, lo_arg *arg);
 
 /*! Add OSC arguments contained in a string table to a lo_message */
 void mapper_msg_add_osc_value_table(lo_message m, table t);
@@ -697,16 +711,15 @@ void mapper_msg_add_osc_value_table(lo_message m, table t);
 /**** Clock synchronization ****/
 
 /*! Initialize a mapper_clock. */
-void mapper_clock_init(mapper_clock_t *clock);
+void mapper_clock_init(mapper_clock clock);
 
 /*! Adjust the internal clock synchonization. */
-void mapper_clock_adjust(mapper_clock_t *clock,
+void mapper_clock_adjust(mapper_clock clock,
                          double difference,
-                         double confidence,
-                         int is_latency_adjusted);
+                         float confidence);
 
 /*! Get the current time from a mapper_clock. */
-void mapper_clock_now(mapper_clock_t clock, mapper_timetag_t *timetag);
+void mapper_clock_now(mapper_clock clock, mapper_timetag_t *timetag);
 
 /**** Debug macros ****/
 

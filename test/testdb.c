@@ -88,7 +88,7 @@ int main()
 
     args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"bypass";
-    args[2] = (lo_arg*)"@clipMin";
+    args[2] = (lo_arg*)"@boundMin";
     args[3] = (lo_arg*)"none";
 
     if (mapper_msg_parse_params(&msg, "/connected",
@@ -107,7 +107,7 @@ int main()
     args[1] = (lo_arg*)"expression";
     args[2] = (lo_arg*)"@expression";
     args[3] = (lo_arg*)"(x-10)*80";
-    args[4] = (lo_arg*)"@clipMin";
+    args[4] = (lo_arg*)"@boundMin";
     args[5] = (lo_arg*)"none";
     args[6] = (lo_arg*)"@range";
     args[7] = (lo_arg*)&zero;

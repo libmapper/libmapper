@@ -25,7 +25,8 @@ static void msig_free_instance(mapper_signal sig,
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
                        void *minimum, void *maximum,
-                       mapper_signal_handler *handler, void *user_data)
+                       mapper_signal_update_handler *handler,
+                       void *user_data)
 {
     if (length < 1) return 0;
     if (!name) return 0;
@@ -113,7 +114,7 @@ void msig_update_int(mapper_signal sig, int value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_NOW);
 }
 
 void msig_update_float(mapper_signal sig, float value)
@@ -141,7 +142,7 @@ void msig_update_float(mapper_signal sig, float value)
     if (!sig->active_instances)
         msig_get_instance_with_id(sig, 0, 1);
     msig_update_internal(sig, sig->active_instances, &value,
-                         1, MAPPER_TIMETAG_NOW);
+                         1, MAPPER_NOW);
 }
 
 void *msig_value(mapper_signal sig,
@@ -261,7 +262,7 @@ stole:
         // TODO: should use current time for timetag?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
-    msig_release_instance_internal(sig, stolen, 1, 1, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, stolen, 1, 1, MAPPER_NOW);
     if (!map) {
         // Claim id map locally
         map = mdev_add_instance_id_map(sig->device, instance_id,
@@ -345,7 +346,7 @@ stole:
         // TODO: should use current time for timetag? Or take it from signal handler?
         sig->handler(sig, &sig->props, stolen->id_map->local, 0, 0, NULL);
     }
-    msig_release_instance_internal(sig, stolen, 1, local, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, stolen, 1, local, MAPPER_NOW);
     if (map) {
         map->reference_count++;
     }
@@ -434,7 +435,7 @@ static void msig_update_internal(mapper_signal sig,
         si->has_value = 0;
     }
 
-    if (memcmp(&tt, &MAPPER_TIMETAG_NOW, sizeof(mapper_timetag_t))==0)
+    if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0)
         mdev_timetag_now(sig->device, &si->timetag);
     else
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
@@ -466,14 +467,15 @@ void msig_release_instance_internal(mapper_signal sig,
     if (!si || !si->is_active)
         return;
 
-    if (sig->props.is_output) {
-        // Send release notification to downstream devices
-        msig_update_internal(sig, si, NULL, 0, timetag);
-    }
-    else if (local && si->id_map->group != sig->device->props.name_hash) {
+    if (!sig->props.is_output && local
+        && si->id_map->group != sig->device->props.name_hash) {
         // Send release request to upstream devices
         mdev_route_release_request(sig->device, sig, si, timetag);
+        return;
     }
+
+    // Send release notification to downstream devices
+    msig_update_internal(sig, si, NULL, 0, timetag);
 
     if (--si->id_map->reference_count <= 0 && !si->id_map->release_time)
         mdev_remove_instance_id_map(sig->device, si->id_map);
@@ -507,7 +509,7 @@ void msig_remove_instance(mapper_signal sig,
     if (!si) return;
 
     // First release instance
-    msig_release_instance_internal(sig, si, 0, 0, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, si, 0, 0, MAPPER_NOW);
 
     // Remove signal instance
     mapper_signal_instance *msi = &sig->active_instances;
@@ -537,7 +539,7 @@ static void msig_free_instance(mapper_signal sig,
 {
     if (!si)
         return;
-    msig_release_instance_internal(sig, si, 0, 0, MAPPER_TIMETAG_NOW);
+    msig_release_instance_internal(sig, si, 0, 0, MAPPER_NOW);
     if (si->value)
         free(si->value);
     free(si);
@@ -681,7 +683,7 @@ void *msig_get_instance_data(mapper_signal sig,
 /**** Queries and reverse connections ****/
 
 void msig_set_callback(mapper_signal sig,
-                       mapper_signal_handler *handler,
+                       mapper_signal_update_handler *handler,
                        void *user_data)
 {
     if (!sig)

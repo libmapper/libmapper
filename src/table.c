@@ -30,6 +30,7 @@ void table_free(table t, int free_values)
         if (free_values && t->store[i].value)
             free(t->store[i].value);
     }
+    free(t->store);
     free(t);
 }
 
@@ -86,7 +87,7 @@ void table_remove_key(table t, const char *key, int free_value)
 {
     void **v = table_find_pp(t, key);
     if (v) {
-        /* Some pointer magic to jump back to the begging of the table node. */
+        /* Some pointer magic to jump back to the beginning of the table node. */
         string_table_node_t *n = 0;
         n = (string_table_node_t*)((char*)v-((char*)&n->value - (char*)n));
 
@@ -138,8 +139,8 @@ int table_size(table t)
 /* Higher-level interface, where table stores arbitrary OSC arguments
  * along with their type. */
 
-void mapper_table_add_or_update_osc_value(table t, const char *key,
-                                          lo_type type, lo_arg *arg)
+int mapper_table_add_or_update_osc_value(table t, const char *key,
+                                         lo_type type, lo_arg *arg)
 {
     mapper_osc_value_t **pval =
         (mapper_osc_value_t**)table_find_pp(t, key);
@@ -152,25 +153,41 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
          * string, otherwise just copy over the old value. */
         if (type == 's' || type == 'S')
         {
-            *pval = realloc(*pval, (strlen(&arg->s)
-                                    + sizeof(mapper_osc_value_t)));
+            if (((*pval)->type == 's' || (*pval)->type == 'S')
+                && strcmp(&arg->s, &(*pval)->value.s)==0)
+                return 0;
+
+            int n = strlen(&arg->s);
+            *pval = realloc(*pval, sizeof(mapper_osc_value_t) + n + 1);
             (*pval)->type = type;
-            strcpy(&(*pval)->value.s, &arg->s);
+
+            // For unknown reasons, strcpy crashes here with -O2, so
+            // we'll use memcpy instead, which does not crash.
+            memcpy(&(*pval)->value.s, &arg->s, n+1);
+            return 1;
         } else {
+            if ((*pval)->type == type
+                && memcmp(&(*pval)->value, arg, sizeof(lo_arg))==0)
+                return 0;
+
             (*pval)->type = type;
             if (arg)
                 (*pval)->value = *arg;
             else
                 (*pval)->value.h = 0;
+            return 1;
         }
     }
     else {
         /* Need to add a new entry. */
         mapper_osc_value_t *val = 0;
         if (type == 's' || type == 'S') {
-            val = malloc(sizeof(mapper_osc_value_t)
-                         + strlen(&arg->s));
-            strcpy(&val->value.s, &arg->s);
+            int n = strlen(&arg->s);
+            val = malloc(sizeof(mapper_osc_value_t) + n + 1);
+
+            // For unknown reasons, strcpy crashes here with -O2, so
+            // we'll use memcpy instead, which does not crash.
+            memcpy(&val->value.s, &arg->s, n+1);
         }
         else {
             val = malloc(sizeof(mapper_osc_value_t));
@@ -182,7 +199,9 @@ void mapper_table_add_or_update_osc_value(table t, const char *key,
         val->type = type;
         table_add(t, key, val);
         table_sort(t);
+        return 1;
     }
+    return 0;
 }
 
 #ifdef DEBUG

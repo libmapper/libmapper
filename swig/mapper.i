@@ -8,7 +8,6 @@
     $1 = $input;
  }
 %typemap(in) maybeSigVal %{
-    {
     sigval val;
     if ($input == Py_None)
         $1 = 0;
@@ -26,7 +25,6 @@
             }
         }
         $1 = &val;
-    }
     }
 %}
 %typemap(out) maybeSigVal {
@@ -114,18 +112,18 @@
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "clip_max")==0) {
+                    if (strcmp(s, "bound_max")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.clip_max = k;
-                            p.flags |= CONNECTION_CLIP_MAX;
+                            p.props.bound_max = k;
+                            p.flags |= CONNECTION_BOUND_MAX;
                         }
                     }
-                    else if (strcmp(s, "clip_min")==0) {
+                    else if (strcmp(s, "bound_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.clip_min = k;
-                            p.flags |= CONNECTION_CLIP_MIN;
+                            p.props.bound_min = k;
+                            p.flags |= CONNECTION_BOUND_MIN;
                         }
                     }
                     else if (strcmp(s, "range")==0) {
@@ -414,8 +412,8 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
                       "dest_type", con->dest_type,
                       "src_length", con->src_length,
                       "dest_length", con->dest_length,
-                      "clip_max", con->clip_max,
-                      "clip_min", con->clip_min,
+                      "bound_max", con->bound_max,
+                      "bound_min", con->bound_min,
                       "range",
                       (con->range.known & CONNECTION_RANGE_SRC_MIN
                        ? Py_BuildValue("f", con->range.src_min) : Py_None),
@@ -465,20 +463,16 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    unsigned long long int timetag = 0;
-    if (tt) {
-        timetag = tt->sec;
-        timetag = (timetag << 32) + tt->frac;
-    }
+    double timetag = mapper_timetag_get_double(*tt);
 
     if (v) {
         if (props->type == 'i')
-            arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, *(int*)v, timetag);
+            arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
         else if (props->type == 'f')
-            arglist = Py_BuildValue("(OifL)", py_msig, instance_id, *(float*)v, timetag);
+            arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(OisL)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -592,16 +586,16 @@ static void link_db_handler_py(mapper_db_link record,
 
 %}
 
-typedef enum _mapper_clipping_type {
-    CT_NONE,    /*!< Value is passed through unchanged. This is the
+typedef enum _mapper_boundary_action {
+    BA_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
-    CT_MUTE,    //!< Value is muted.
-    CT_CLAMP,   //!< Value is limited to the boundary.
-    CT_FOLD,    //!< Value continues in opposite direction.
-    CT_WRAP,    /*!< Value appears as modulus offset at the opposite
+    BA_MUTE,    //!< Value is muted.
+    BA_CLAMP,   //!< Value is limited to the boundary.
+    BA_FOLD,    //!< Value continues in opposite direction.
+    BA_WRAP,    /*!< Value appears as modulus offset at the opposite
                  *   boundary. */
-    N_MAPPER_CLIPPING_TYPES
-} mapper_clipping_type;
+    N_MAPPER_BOUNDARY_ACTIONS
+} mapper_boundary_action;
 
 /*! Describes the connection mode.
  *  @ingroup connectiondb */
@@ -638,12 +632,12 @@ typedef struct _monitor {} monitor;
 typedef struct _db {} db;
 typedef struct _admin {} admin;
 
-%extend device {
-    device(const char *name, int port=9000, admin *DISOWN=0) {
+%extend _device {
+    _device(const char *name, int port=9000, admin *DISOWN=0) {
         device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
-    ~device() {
+    ~_device() {
         mdev_free((mapper_device)$self);
     }
     int poll(int timeout=0) {
@@ -881,6 +875,28 @@ typedef struct _admin {} admin;
             msig_update_float((mapper_signal)$self, (float)i);
         }
     }
+    void update(float f, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        else if (sig->props.type == 'i') {
+            int i = (int)f;
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        }
+    }
+    void update(int i, double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if (sig->props.type == 'i')
+            msig_update((mapper_signal)$self, &i, 1, tt);
+        else if (sig->props.type == 'f') {
+            float f = (float)i;
+            msig_update((mapper_signal)$self, &f, 1, tt);
+        }
+    }
     void reserve_instances(int num) {
         msig_reserve_instances((mapper_signal)$self, num);
     }
@@ -888,26 +904,26 @@ typedef struct _admin {} admin;
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'f')
             msig_update_instance((mapper_signal)$self, id, &f, 0,
-                                 MAPPER_TIMETAG_NOW);
+                                 MAPPER_NOW);
         else if (sig->props.type == 'i') {
             int i = (int)f;
             msig_update_instance((mapper_signal)$self, id, &i, 0,
-                                 MAPPER_TIMETAG_NOW);
+                                 MAPPER_NOW);
         }
     }
     void update_instance(int id, int i) {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.type == 'i')
             msig_update_instance((mapper_signal)$self, id, &i, 0,
-                                 MAPPER_TIMETAG_NOW);
+                                 MAPPER_NOW);
         else if (sig->props.type == 'f') {
             float f = (float)i;
             msig_update_instance((mapper_signal)$self, id, &f, 0,
-                                 MAPPER_TIMETAG_NOW);
+                                 MAPPER_NOW);
         }
     }
     void release_instance(int id) {
-        msig_release_instance((mapper_signal)$self, id, MAPPER_TIMETAG_NOW);
+        msig_release_instance((mapper_signal)$self, id, MAPPER_NOW);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
@@ -922,7 +938,7 @@ typedef struct _admin {} admin;
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
     void set_callback(PyObject *PyFunc=0) {
-        mapper_signal_handler *h = 0;
+        mapper_signal_update_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
         if (PyFunc && !msig->props.user_data) {
             h = msig_handler_py;
@@ -934,7 +950,7 @@ typedef struct _admin {} admin;
         return msig_set_callback((mapper_signal)$self, h, PyFunc);
     }
     int query_remotes() {
-        return msig_query_remotes((mapper_signal)$self, MAPPER_TIMETAG_NOW);
+        return msig_query_remotes((mapper_signal)$self, MAPPER_NOW);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
@@ -1044,12 +1060,12 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend monitor {
-    monitor(admin *DISOWN=0, int enable_autorequest=1) {
+%extend _monitor {
+    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
                                              enable_autorequest);
     }
-    ~monitor() {
+    ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
@@ -1067,14 +1083,35 @@ typedef struct _admin {} admin;
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
     }
-    int request_signals_by_name(const char* name) {
-        return mapper_monitor_request_signals_by_name((mapper_monitor)$self, name);
+    int request_device_info(const char* name) {
+        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
     }
-    int request_links_by_name(const char* name) {
-        return mapper_monitor_request_links_by_name((mapper_monitor)$self, name);
+    int request_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
     }
-    int request_connections_by_name(const char* name) {
-        return mapper_monitor_request_connections_by_name((mapper_monitor)$self, name);
+    int request_input_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_input_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_output_signals_by_device_name(const char* name) {
+        return mapper_monitor_request_output_signals_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_device_name(const char* name) {
+        return mapper_monitor_request_links_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_src_device_name(const char* name) {
+        return mapper_monitor_request_links_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_links_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_links_by_dest_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_src_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_src_device_name((mapper_monitor)$self, name);
+    }
+    int request_connections_by_dest_device_name(const char* name) {
+        return mapper_monitor_request_connections_by_dest_device_name((mapper_monitor)$self, name);
     }
     void link(const char* source_device,
               const char* dest_device,
@@ -1156,6 +1193,9 @@ typedef struct _admin {} admin;
         mapper_db_remove_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
+    mapper_db_device get_device_by_name(const char *device_name) {
+        return mapper_db_get_device_by_name((mapper_db)$self, device_name);
+    }
     mapper_db_device_t **get_all_devices() {
         return mapper_db_get_all_devices((mapper_db)$self);
     }
@@ -1178,6 +1218,18 @@ typedef struct _admin {} admin;
     mapper_db_signal_t **get_outputs_by_device_name(const char *device_name) {
         return mapper_db_get_outputs_by_device_name((mapper_db)$self,
                                                     device_name);
+    }
+    mapper_db_signal get_input_by_device_and_signal_name(const char *device_name,
+                                                         const char *signal_name) {
+        return mapper_db_get_input_by_device_and_signal_names((mapper_db)$self,
+                                                              device_name,
+                                                              signal_name);
+    }
+    mapper_db_signal get_output_by_device_and_signal_name(const char *device_name,
+                                                          const char *signal_name) {
+        return mapper_db_get_output_by_device_and_signal_names((mapper_db)$self,
+                                                               device_name,
+                                                               signal_name);
     }
     mapper_db_signal_t **__match_inputs_by_device_name(
         const char *device_name, const char *input_pattern) {
@@ -1313,11 +1365,11 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend admin {
-    admin(const char *iface=0, const char *ip=0, int port=7570) {
+%extend _admin {
+    _admin(const char *iface=0, const char *ip=0, int port=7570) {
         return (admin *)mapper_admin_new(iface, ip, port);
     }
-    ~admin() {
+    ~_admin() {
         mapper_admin_free((mapper_admin)$self);
     }
 }

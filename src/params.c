@@ -8,8 +8,8 @@
 
 const char* mapper_msg_param_strings[] =
 {
-    "@clipMax",         /* AT_CLIP_MAX */
-    "@clipMin",         /* AT_CLIP_MIN */
+    "@boundMax",        /* AT_BOUND_MAX */
+    "@boundMin",        /* AT_BOUND_MIN */
     "@destLength",      /* AT_DEST_LENGTH */
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
@@ -18,6 +18,7 @@ const char* mapper_msg_param_strings[] =
     "@instances",       /* AT_INSTANCES */
     "@IP",              /* AT_IP */
     "@length",          /* AT_LENGTH */
+    "@libVersion",      /* AT_LIB_VERSION */
     "@max",             /* AT_MAX */
     "@min",             /* AT_MIN */
     "@mode",            /* AT_MODE */
@@ -233,18 +234,19 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
     return 0;
 }
 
-void mapper_msg_add_or_update_extra_params(table t,
-                                           mapper_message_t *params)
+int mapper_msg_add_or_update_extra_params(table t,
+                                          mapper_message_t *params)
 {
-    int i=0;
+    int i=0, updated=0;
     while (params->extra_args[i])
     {
         const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
         lo_arg *arg = *(params->extra_args[i]+1);
         char type = params->extra_types[i];
-        mapper_table_add_or_update_osc_value(t, key, type, arg);
+        updated += mapper_table_add_or_update_osc_value(t, key, type, arg);
         i++;
     }
+    return updated;
 }
 
 /* helper for mapper_msg_prepare_varargs() */
@@ -348,11 +350,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
-        case AT_CLIP_MIN:
-        case AT_CLIP_MAX:
+        case AT_BOUND_MIN:
+        case AT_BOUND_MAX:
             i = va_arg(aq, int);
-            if (i >= 0 && i < N_MAPPER_CLIPPING_TYPES)
-                lo_message_add_string(m, mapper_clipping_type_strings[i]);
+            if (i >= 0 && i < N_MAPPER_BOUNDARY_ACTIONS)
+                lo_message_add_string(m, mapper_boundary_action_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
             break;
@@ -386,6 +388,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_INSTANCES:
             sig = va_arg(aq, mapper_signal);
             lo_message_add_int32(m, sig->props.num_instances);
+            break;
+        case AT_LIB_VERSION:
+            s = va_arg(aq, char*);
+            lo_message_add_string(m, s);
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
@@ -542,10 +548,10 @@ void mapper_connection_prepare_osc_message(lo_message m,
         else
             lo_message_add_char(m, '-');
     }
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MIN]);
-    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_min]);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MAX]);
-    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_max]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MIN]);
+    lo_message_add_string(m, mapper_boundary_action_strings[con->props.bound_min]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MAX]);
+    lo_message_add_string(m, mapper_boundary_action_strings[con->props.bound_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, con->props.muted);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_TYPE]);
@@ -600,25 +606,25 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
     return -1;
 }
 
-mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
-                                             mapper_msg_param_t param)
+mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
+                                                      mapper_msg_param_t param)
 {
-    die_unless(param == AT_CLIP_MIN || param == AT_CLIP_MAX,
-               "bad param in mapper_msg_get_clipping()\n");
+    die_unless(param == AT_BOUND_MIN || param == AT_BOUND_MAX,
+               "bad param in mapper_msg_get_boundary_action()\n");
     lo_arg **a = mapper_msg_get_param(msg, param);
     if (!a || !*a)
         return -1;
 
     if (strcmp(&(*a)->s, "none") == 0)
-        return CT_NONE;
+        return BA_NONE;
     if (strcmp(&(*a)->s, "mute") == 0)
-        return CT_MUTE;
+        return BA_MUTE;
     if (strcmp(&(*a)->s, "clamp") == 0)
-        return CT_CLAMP;
+        return BA_CLAMP;
     if (strcmp(&(*a)->s, "fold") == 0)
-        return CT_FOLD;
+        return BA_FOLD;
     if (strcmp(&(*a)->s, "wrap") == 0)
-        return CT_WRAP;
+        return BA_WRAP;
 
     return -1;
 }

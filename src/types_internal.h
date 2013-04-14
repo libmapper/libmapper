@@ -105,7 +105,7 @@ typedef struct _mapper_clock_t {
     int local_index;
     mapper_sync_timetag_t local[10];
     mapper_sync_timetag_t remote;
-} mapper_clock_t;
+} mapper_clock_t, *mapper_clock;
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
@@ -195,11 +195,11 @@ typedef struct _mapper_link {
 /**** Device ****/
 
 typedef struct _mapper_device {
-    mapper_db_device_t props;       //!< Properties.
+    mapper_db_device_t props;           //!< Properties.
     mapper_admin_allocated_t ordinal;   /*!< A unique ordinal for this
-                                 *   device instance. */
-    int registered;                   /*!< Non-zero if this device has
-                                       *   been registered. */
+                                         *   device instance. */
+    int registered;                     /*!< Non-zero if this device has
+                                         *   been registered. */
 
     /*! Non-zero if this device is the sole owner of this admin, i.e.,
      *  it was created during mdev_new() and should be freed during
@@ -291,8 +291,8 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_CLIP_MAX,
-    AT_CLIP_MIN,
+    AT_BOUND_MAX,
+    AT_BOUND_MIN,
     AT_DEST_LENGTH,
     AT_DEST_TYPE,
     AT_DIRECTION,
@@ -301,6 +301,7 @@ typedef enum {
     AT_INSTANCES,
     AT_IP,
     AT_LENGTH,
+    AT_LIB_VERSION,
     AT_MAX,
     AT_MIN,
     AT_MODE,
@@ -331,9 +332,9 @@ typedef enum {
 /*! Strings that correspond to mapper_msg_param_t. */
 extern const char* mapper_msg_param_strings[];
 
-/*! Strings that correspond to mapper_clipping_type, defined in
+/*! Strings that correspond to mapper_boundary_action, defined in
  *  mapper_db.h. */
-extern const char* mapper_clipping_type_strings[];
+extern const char* mapper_boundary_action_strings[];
 
 /*! Strings that correspond to mapper_mode_type, defined in
  *  mapper_db.h. */
