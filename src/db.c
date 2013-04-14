@@ -2259,3 +2259,24 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         free(link->extra);
     list_remove_item(link, (void**)&db->registered_links);
 }
+
+void mapper_db_remove_all_callbacks(mapper_db db)
+{
+    fptr_list cb;
+    while ((cb = db->device_callbacks)) {
+        db->device_callbacks = db->device_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->signal_callbacks)) {
+        db->signal_callbacks = db->signal_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->link_callbacks)) {
+        db->link_callbacks = db->link_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->connection_callbacks)) {
+        db->connection_callbacks = db->connection_callbacks->next;
+        free(cb);
+    }
+}

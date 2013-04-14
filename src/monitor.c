@@ -53,9 +53,12 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 
 void mapper_monitor_free(mapper_monitor mon)
 {
-    // TODO: free structures pointed to by the database
     if (!mon)
         return;
+
+    // remove callbacks now so they won't be called when removing devices
+    mapper_db_remove_all_callbacks(&mon->db);
+
     while (mon->db.registered_devices)
         mapper_db_remove_device_by_name(&mon->db, mon->db.registered_devices->name);
     if (mon->admin) {
