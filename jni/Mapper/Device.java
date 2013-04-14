@@ -163,6 +163,26 @@ public class Device
         return mdev_num_outputs(_device);
     }
 
+    public int num_links_in()
+    {
+        return mdev_num_links_in(_device);
+    }
+
+    public int num_links_out()
+    {
+        return mdev_num_links_out(_device);
+    }
+
+    public int num_connections_in()
+    {
+        return mdev_num_connections_in(_device);
+    }
+
+    public int num_connections_out()
+    {
+        return mdev_num_connections_out(_device);
+    }
+
     public Signal get_input_by_name(String name)
     {
         long msig = mdev_get_input_by_name(_device, name, null);
@@ -227,6 +247,21 @@ public class Device
         return mdev_ordinal(_device);
     }
 
+    public int id()
+    {
+        return mdev_id(_device);
+    }
+
+    public void start_queue(TimeTag tt)
+    {
+        mdev_start_queue(_device, tt);
+    }
+
+    public void send_queue(TimeTag tt)
+    {
+        mdev_send_queue(_device, tt);
+    }
+
     // Note: this is _not_ guaranteed to run, the user should still
     // call free() explicitly when the device is no longer needed.
     protected void finalize() throws Throwable {
@@ -251,6 +286,10 @@ public class Device
     private native void mdev_remove_output(long _d, long _sig);
     private native int mdev_num_inputs(long _d);
     private native int mdev_num_outputs(long _d);
+    private native int mdev_num_links_in(long _d);
+    private native int mdev_num_links_out(long _d);
+    private native int mdev_num_connections_in(long _d);
+    private native int mdev_num_connections_out(long _d);
     private native long mdev_get_input_by_name(long _d, String name,
                                                Integer index);
     private native long mdev_get_output_by_name(long _d, String name,
@@ -266,6 +305,9 @@ public class Device
     private native String mdev_ip4(long _d);
     private native String mdev_interface(long _d);
     private native int mdev_ordinal(long _d);
+    private native int mdev_id(long _d);
+    private native void mdev_start_queue(long _d, TimeTag tt);
+    private native void mdev_send_queue(long _d, TimeTag tt);
 
     private long _device;
     public boolean valid() {

@@ -10,7 +10,7 @@ JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
 
 JCLASSES = Mapper/Db/Signal.class Mapper/InputListener.class	\
            Mapper/PropertyValue.class Mapper/Device.class		\
-           Mapper/NativeLib.class
+           Mapper/NativeLib.class Mapper/TimeTag.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
                    Mapper/PropertyValue$$PropertyException.class

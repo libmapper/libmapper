@@ -244,6 +244,34 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1outputs
     return mdev_num_outputs(dev);
 }
 
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1links_1in
+  (JNIEnv *env, jobject obj, jlong d)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    return mdev_num_links_in(dev);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1links_1out
+  (JNIEnv *env, jobject obj, jlong d)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    return mdev_num_links_out(dev);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1connections_1in
+  (JNIEnv *env, jobject obj, jlong d)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    return mdev_num_connections_in(dev);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1connections_1out
+  (JNIEnv *env, jobject obj, jlong d)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    return mdev_num_connections_out(dev);
+}
+
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1get_1input_1by_1name
   (JNIEnv *env, jobject obj, jlong d, jstring name, jobject index)
 {
@@ -405,6 +433,51 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1ordinal
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
     return mdev_ordinal(dev);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1id
+  (JNIEnv *env, jobject obj, jlong d)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+    return mdev_id(dev);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1start_1queue
+  (JNIEnv *env, jobject obj, jlong d, jobject objtt)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+
+    jclass cls = (*env)->GetObjectClass(env, objtt);
+    if (cls) {
+        jfieldID secid = (*env)->GetFieldID(env, cls, "sec", "J");
+        jfieldID fracid = (*env)->GetFieldID(env, cls, "frac", "J");
+        if (secid && fracid) {
+            mapper_timetag_t tt;
+            tt.sec = (float)(*env)->GetDoubleField(env, objtt, secid);
+            tt.frac = (int)(*env)->GetDoubleField(env, objtt, fracid);
+
+            mdev_start_queue(dev, tt);
+        }
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1send_1queue
+  (JNIEnv *env, jobject obj, jlong d, jobject objtt)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(d);
+
+    jclass cls = (*env)->GetObjectClass(env, objtt);
+    if (cls) {
+        jfieldID secid = (*env)->GetFieldID(env, cls, "sec", "J");
+        jfieldID fracid = (*env)->GetFieldID(env, cls, "frac", "J");
+        if (secid && fracid) {
+            mapper_timetag_t tt;
+            tt.sec = (float)(*env)->GetDoubleField(env, objtt, secid);
+            tt.frac = (int)(*env)->GetDoubleField(env, objtt, fracid);
+
+            mdev_send_queue(dev, tt);
+        }
+    }
 }
 
 /**** Mapper.Device.Signal ****/
