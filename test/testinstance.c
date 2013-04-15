@@ -68,17 +68,24 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                props->name, (long)instance_id, (*(float*)value));
         received++;
     }
-    else
+    else {
         printf("--> destination %s instance %ld got NULL\n",
                props->name, (long)instance_id);
+        msig_release_instance(sig, instance_id, MAPPER_NOW);
+    }
 }
 
-void overflow_handler(mapper_signal sig, mapper_db_signal props,
-                      int instance_id, msig_instance_event_t event)
+void more_handler(mapper_signal sig, mapper_db_signal props,
+                  int instance_id, msig_instance_event_t event,
+                  mapper_timetag_t *timetag)
 {
-    if (event == IN_OVERFLOW) {
-        printf("OVERFLOW!!\n");
+    if (event & IN_OVERFLOW) {
+        printf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
         msig_reserve_instances(sig, 1);
+    }
+    else if (event & IN_UPSTREAM_RELEASE) {
+        printf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
+        msig_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
 
@@ -90,10 +97,10 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    float mn=0, mx=1;
+    float mn=0;//, mx=1;
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, &mx, insig_handler, 0);
+                             0, &mn, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
     msig_reserve_instances(recvsig, 4);
@@ -270,12 +277,14 @@ int main()
 
     stats[2] = sent;
     stats[3] = received;
-
     sent = received = 0;
 
-    msig_set_instance_allocation_mode(recvsig, IN_UNDEFINED);
-    msig_set_instance_management_callback(recvsig, overflow_handler,
-                                          IN_OVERFLOW, 0);
+    for (i=0; i<10; i++)
+        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
+    sent = received = 0;
+
+    msig_set_instance_management_callback(recvsig, more_handler,
+                                          IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);

@@ -140,13 +140,14 @@ void mapper_router_num_instances_changed(mapper_router r,
 
 void mapper_router_process_signal(mapper_router r,
                                   mapper_signal sig,
-                                  mapper_signal_instance si,
+                                  int instance_index,
                                   void *value,
                                   int count,
                                   mapper_timetag_t tt,
                                   int flags)
 {
-    int in_scope = mapper_router_in_scope(r, si->id_map->group);
+    mapper_id_map map = sig->id_maps[instance_index].map;
+    int in_scope = mapper_router_in_scope(r, map->group);
 
     // find the signal connection
     mapper_router_signal rs = r->signals;
@@ -158,7 +159,8 @@ void mapper_router_process_signal(mapper_router r,
     if (!rs)
         return;
 
-    int id = si->id;
+    // TODO: need to store histories using a different index?
+    int id = sig->id_maps[instance_index].instance->index;
     mapper_connection c;
 
     if (!value) {
@@ -169,7 +171,7 @@ void mapper_router_process_signal(mapper_router r,
             if ((c->props.mode != MO_REVERSE) &&
                 (!c->props.send_as_instance || in_scope))
                 mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          si->id_map : 0, tt, 0);
+                                          map : 0, tt, 0);
 
             c = c->next;
         }
@@ -210,9 +212,6 @@ void mapper_router_process_signal(mapper_router r,
                                           &c->history[id]))
             {
                 if (mapper_boundary_perform(c, &c->history[id])) {
-                    if (c->props.send_as_instance && (flags & FLAGS_IS_NEW_INSTANCE))
-                        mapper_router_send_new_instance(r, c, id,
-                                                        si->id_map, tt);
                     if (count > 1)
                         memcpy(c->blob + mapper_type_size(c->props.dest_type) *
                                c->props.dest_length * i,
@@ -221,7 +220,7 @@ void mapper_router_process_signal(mapper_router r,
                                c->props.dest_length);
                     else
                         mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                                  si->id_map : 0, tt, 0);
+                                                  map : 0, tt, 0);
                 }
             }
             c = c->next;
@@ -235,7 +234,7 @@ void mapper_router_process_signal(mapper_router r,
                 lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
                                            * c->props.dest_length * count, c->blob);
                 mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          si->id_map : 0, tt, blob);
+                                          map : 0, tt, blob);
             }
             c = c->next;
         }
@@ -245,8 +244,8 @@ void mapper_router_process_signal(mapper_router r,
 /*! Build a value update message for a given connection. */
 void mapper_router_send_update(mapper_router r,
                                mapper_connection c,
-                               int index,
-                               mapper_instance_id_map id_map,
+                               int history_index,
+                               mapper_id_map id_map,
                                mapper_timetag_t tt,
                                lo_blob blob)
 {
@@ -263,55 +262,29 @@ void mapper_router_send_update(mapper_router r,
         lo_message_add_int32(m, id_map->remote);
     }
 
-    if (c->history[index].position != -1) {
+    if (c->history[history_index].position != -1) {
         if (blob) {
             lo_message_add_blob(m, blob);
         }
-        else if (c->history[index].type == 'f') {
-            float *v = msig_history_value_pointer(c->history[index]);
-            for (i = 0; i < c->history[index].length; i++)
+        else if (c->history[history_index].type == 'f') {
+            float *v = msig_history_value_pointer(c->history[history_index]);
+            for (i = 0; i < c->history[history_index].length; i++)
                 lo_message_add_float(m, v[i]);
         }
-        else if (c->history[index].type == 'i') {
-            int *v = msig_history_value_pointer(c->history[index]);
-            for (i = 0; i < c->history[index].length; i++)
+        else if (c->history[history_index].type == 'i') {
+            int *v = msig_history_value_pointer(c->history[history_index]);
+            for (i = 0; i < c->history[history_index].length; i++)
                 lo_message_add_int32(m, v[i]);
         }
-        else if (c->history[index].type == 'd') {
-            double *v = msig_history_value_pointer(c->history[index]);
-            for (i = 0; i < c->history[index].length; i++)
+        else if (c->history[history_index].type == 'd') {
+            double *v = msig_history_value_pointer(c->history[history_index]);
+            for (i = 0; i < c->history[history_index].length; i++)
                 lo_message_add_double(m, v[i]);
         }
     }
     else if (id_map) {
-        if (r->props.name_hash == id_map->group
-            && mdev_id(r->device) != r->props.name_hash) {
-            /* If destination owns this instance, send release "request"
-             * instead of command (unless I am also the destination)... */
-            lo_message_add_false(m);
-        }
-        else {
-            // ...otherwise send instance release.
-            lo_message_add_nil(m);
-        }
+        lo_message_add_nil(m);
     }
-
-    mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
-}
-
-void mapper_router_send_new_instance(mapper_router r,
-                                     mapper_connection c,
-                                     int index,
-                                     mapper_instance_id_map id_map,
-                                     mapper_timetag_t tt)
-{
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
-
-    lo_message_add_int32(m, id_map->group);
-    lo_message_add_int32(m, id_map->remote);
-    lo_message_add_true(m);
 
     mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
 }

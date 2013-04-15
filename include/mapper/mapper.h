@@ -39,10 +39,11 @@ struct _mapper_connection;
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
 typedef enum {
-    IN_NEW              = 0x01, //!< New instance has been created.
-    IN_STOLEN           = 0x02, //!< Instance has been stolen by another instance.
-    IN_REQUEST_RELEASE  = 0x04, //!< Instance release has been requested by remote device.
-    IN_OVERFLOW         = 0x08  //!< No local instances left for incoming remote instance.
+    IN_NEW                  = 0x01, //!< New instance has been created.
+    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
+    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
+    IN_OVERFLOW             = 0x08, //!< No local instances left for incoming remote instance.
+    IN_ALL                  = 0xFF
 } msig_instance_event_t;
 
 /*! A signal handler function can be called whenever a signal value
@@ -59,7 +60,8 @@ typedef void mapper_signal_update_handler(mapper_signal msig,
 typedef void mapper_signal_instance_management_handler(mapper_signal msig,
                                                        mapper_db_signal props,
                                                        int instance_id,
-                                                       msig_instance_event_t event);
+                                                       msig_instance_event_t event,
+                                                       mapper_timetag_t *tt);
 
 /*! Update the value of a signal.
  *  The signal will be routed according to external requests.
@@ -119,13 +121,6 @@ int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
  *  \param num          The number of instances to add. */
 void msig_reserve_instances(mapper_signal sig, int num);
 
-/*! Explicitly activate an instance with a given id. This instance will be marked
- *  as "new" allowing it to steal a previous instance depending on the allocation
- *  mode set with msig_set_instance_allocation_mode().
- *  \param sig          The signal to operate on.
- *  \param instance_id  The instance to activate. */
-void msig_start_new_instance(mapper_signal sig, int instance_id);
-
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
@@ -153,6 +148,18 @@ void msig_update_instance(mapper_signal sig, int instance_id,
  *                     bundling multiple signal updates with the same timetag. */
 void msig_release_instance(mapper_signal sig, int instance_id,
                            mapper_timetag_t tt);
+
+/*! Get the local id of the oldest active instance.
+ *  \param sig         The signal to operate on.
+ *  \param instance_id A location to receive the instance id.
+ *  \return            Zero if an instance id has been found, non-zero otherwise. */
+int msig_get_oldest_active_instance(mapper_signal sig, int *instance_id);
+
+/*! Get the local id of the newest active instance.
+ *  \param sig         The signal to operate on.
+ *  \param instance_id A location to receive the instance id.
+ *  \return            Zero if an instance id has been found, non-zero otherwise. */
+int msig_get_newest_active_instance(mapper_signal sig, int *instance_id);
 
 /*! Get a signal_instance's value.
  *  \param sig         The signal to operate on.
@@ -199,12 +206,18 @@ int msig_active_instance_id(mapper_signal sig, int index);
 void msig_set_instance_allocation_mode(mapper_signal sig,
                                        mapper_instance_allocation_type mode);
 
+/*! Get the allocation method to be used when a previously-unseen
+ *  instance ID is received.
+ *  \param sig  The signal to operate on.
+ *  \return     The allocation mode of the provided signal. */
+mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal sig);
+
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.
  *  \param h            A handler function for processing instance managment events.
  *  \param flags        Bitflags for indicating the types of events which should
  *                      trigger the callback. Can be a combination of IN_NEW,
- *                      IN_STOLEN, IN_RELEASE_REQUEST, and IN_OVERFLOW.
+ *                      IN_UPSTREM_RELEASE, IN_DOWNSTREAM_RELEASE, and IN_OVERFLOW.
  *  \param user_data    User context pointer to be passed to handler. */
 void msig_set_instance_management_callback(mapper_signal sig,
                                            mapper_signal_instance_management_handler h,

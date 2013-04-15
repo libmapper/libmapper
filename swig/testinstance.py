@@ -5,9 +5,19 @@ import sys, mapper, random
 def h(sig, id, f, timetag):
     try:
         print '--> destination instance', id, 'got', f
+        if not f:
+            print 'retiring destination instance', id
+            sig.release_instance(id)
     except:
         print '--> exception'
         print sig, id, f
+
+def manage_instances(sig, id, flag, timetag):
+    try:
+        if flag == mapper.IN_OVERFLOW:
+            print '--> OVERFLOW for sig', sig.name, 'instance', id
+    except:
+        print '--> exception'
 
 def print_instance_ids():
     phrase = 'active /outsig: ['
@@ -30,7 +40,8 @@ outsig.reserve_instances(5)
 
 dest = mapper.device("dest")
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
-insig.reserve_instances(5)
+insig.reserve_instances(3)
+insig.set_allocation_mode(mapper.IN_STEAL_OLDEST)
 
 while not src.ready() or not dest.ready():
     src.poll()
