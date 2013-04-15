@@ -62,45 +62,75 @@ mapper_device mdev_new(const char *name_prefix, int port,
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device md)
 {
-    int i;
-    if (md) {
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        while (md->receivers)
-            mdev_remove_receiver(md, md->receivers);
-        for (i = 0; i < md->n_inputs; i++)
-            msig_free(md->inputs[i]);
-        if (md->inputs)
-            free(md->inputs);
+    int i, j;
+    if (!md)
+        return;
+
+    // First release active instances
+    mapper_signal sig;
+    if (md->outputs) {
+        // release all active output instances
+        for (i = 0; i < md->n_outputs; i++) {
+            sig = md->outputs[i];
+            for (j = 0; j < sig->id_map_length; j++) {
+                if (sig->id_maps[j].instance) {
+                    msig_release_instance_internal(sig, j, MAPPER_NOW);
+                }
+            }
+        }
+    }
+    if (md->inputs) {
+        // release all active input instances
+        for (i = 0; i < md->n_inputs; i++) {
+            sig = md->inputs[i];
+            for (j = 0; j < sig->id_map_length; j++) {
+                if (sig->id_maps[j].instance) {
+                    msig_release_instance_internal(sig, j, MAPPER_NOW);
+                }
+            }
+        }
+    }
+
+    // Routers and receivers reference parent signals so release them first
+    while (md->routers)
+        mdev_remove_router(md, md->routers);
+    while (md->receivers)
+        mdev_remove_receiver(md, md->receivers);
+
+    if (md->outputs) {
         for (i = 0; i < md->n_outputs; i++)
             msig_free(md->outputs[i]);
-        if (md->outputs)
-            free(md->outputs);
-        while (md->routers)
-            mdev_remove_router(md, md->routers);
-        while (md->receivers)
-            mdev_remove_receiver(md, md->receivers);
-        mapper_id_map map;
-        while (md->active_id_map) {
-            map = md->active_id_map;
-            md->active_id_map = map->next;
-            free(map);
-        }
-        while (md->reserve_id_map) {
-            map = md->reserve_id_map;
-            md->reserve_id_map = map->next;
-            free(map);
-        }
-        if (md->extra)
-            table_free(md->extra, 1);
-        if (md->server)
-            lo_server_free(md->server);
-        if (md->name_prefix)
-            free(md->name_prefix);
-        if (md->admin && md->own_admin)
-            mapper_admin_free(md->admin);
-        free(md);
+        free(md->outputs);
     }
+    if (md->inputs) {
+        for (i = 0; i < md->n_inputs; i++) {
+            msig_free(md->inputs[i]);
+        }
+        free(md->inputs);
+    }
+
+    // Release device id maps
+    mapper_id_map map;
+    while (md->active_id_map) {
+        map = md->active_id_map;
+        md->active_id_map = map->next;
+        free(map);
+    }
+    while (md->reserve_id_map) {
+        map = md->reserve_id_map;
+        md->reserve_id_map = map->next;
+        free(map);
+    }
+
+    if (md->extra)
+        table_free(md->extra, 1);
+    if (md->server)
+        lo_server_free(md->server);
+    if (md->name_prefix)
+        free(md->name_prefix);
+    if (md->admin && md->own_admin)
+        mapper_admin_free(md->admin);
+    free(md);
 }
 
 #ifdef __GNUC__
