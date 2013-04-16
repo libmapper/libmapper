@@ -390,6 +390,135 @@ Then `main()` will look like,
         mdev_free( my_receiver );
     }
 
+Working with timetags
+=====================
+_libmapper_ uses the `mapper_timetag_t` data structure to store
+[NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps).
+For example, the handler function called when a signal update is received
+contains a `timetag` argument.  This argument indicates the time at
+which the source signal was _sampled_ (in the case of sensor signals)
+or _generated_ (in the case of sequenced or algorithimically-generated
+signals).
+
+When updating output signals, using the functions `msig_update_int()`
+or `msig_update_float()` will automatically label the outgoing signal
+update with the current time. In cases where the update should more
+properly be labeled with another time, this can be accomplished with
+the function `msig_update()`.  This timestamp should only be
+overridden if your program has access to a more accurate measurement
+of the real time associated with the signal update, for example if
+you are writing a driver for an outboard sensor system that provides
+the sampling time.  Otherwise the constant `MAPPER_NOW` can be used
+as the timetag argument to cause libmapper to provide the current time.
+
+_libmapper_ also provides helper functions for getting the current
+device-time, setting the value of a `mapper_timetag_t` from other
+representations, and comparing or copying timetags.  Check the API
+documentation for more information.
+
+Working with signal instances
+=============================
+_libmapper_ also provides support for signals with multiple _instances_,
+for example:
+
+* control parameters for polyphonic synthesizers;
+* touches tracked by a multitouch surface;
+* "blobs" identified by computer vision systems;
+* objects on a tabletop tangible user interface;
+* _temporal_ objects such as gestures or trajectories.
+
+The important qualities of signal instances in _libmapper_ are:
+
+* **instances are interchangeable**: if there are semantics attached
+  to a specific instance it should be represented with separate signals
+  instead.
+* **instances can be ephemeral**: signal instances can be dynamically
+  created and destroyed. _libmapper_ will ensure that linked devices
+  share a common understanding of the relatonships between instances
+  when they are mapped.
+* **map once for all instances**: one mapping connection serves to
+  map all of its instances.
+
+All signals possess one instance by default. If you would like to reserve
+more instances you can use:
+
+    msig_reserve_instances(mapper_signal sig, int num)
+
+After reserving instances you can update a specific instance:
+
+    msig_update_instance(mapper_signal sig,
+    					 int instance_id,
+    					 void *value,
+    					 int count,
+    					 mapper_timetag_t timetag)
+
+All of the arguments except one should be familiar from the
+documentation of `msig_update()` presented earlier.
+The `instance_id` argument does not have to be considered as an array
+index - it can be any integer that is convenient for labelling your
+instance. _libmapper_ will internally create a map from your id label
+to one of the preallocated instance structures.
+
+Receiving instances
+-------------------
+You might have noticed earlier that the handler function called when
+a signal update is received has a argument called `instance_id`. Here
+is the function prototype again:
+
+    void mapper_signal_update_handler(mapper_signal msig,
+                                      mapper_db_signal props,
+                                      int instance_id,
+                                      void *value,
+                                      int count,
+                                      mapper_timetag_t *tt);
+
+Under normal usage, this argument will have a value (0 <= n <= num_instances)
+and can be used as an array index. Remember that you will need to reserve
+instances for your input signal using `msig_reserve_instance()` if you
+want to receive instance updates.
+
+Instance Stealing
+-----------------
+
+For handling cases in which the sender signal has more instances than
+the receiver signal, the _instance allocation mode_ can be set for an
+input signal to set an action to take in case all allocated instances are in
+use and a previously unseen instance id is received. Use the function:
+
+    void msig_set_instance_allocation_mode(mapper_signal sig,
+                                           mapper_instance_allocation_type mode);
+
+The argument `mode` can have one of the following values:
+
+* `IN_UNDEFINED` Default value, in which no stealing of instances will occur;
+* `IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
+  resources to the new instance;
+* `IN_STEAL_NEWEST` Release the newest active instance and reallocate its
+  resources to the new instance;
+
+If you want to use another method for determining which active instance
+to release (e.g. the sound with the lowest volume), you can create an `instance_management_handler` for the signal and write the method yourself:
+
+    void my_handler(mapper_signal msig,
+                    mapper_db_signal props,
+                    int instance_id,
+                    msig_instance_event_t event,
+                    mapper_timetag_t *tt)
+    {
+        // user code chooses which instance to release
+        int id = choose_instance_to_release(msig);
+
+        msig_release_instance(msig, id, *tt);
+    }
+
+For this function to be called when instance stealing is necessary, we
+need to register it for `IN_OVERFLOW` events:
+
+    msig_set_instance_management_callback(msig,
+                                          my_handler,
+                                          IN_OVERFLOW,
+                                          *user_context);
+
 Publishing metadata
 ===================
 
