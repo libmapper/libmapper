@@ -97,6 +97,10 @@ public class Device
         public native void update(float[] value, TimeTag tt);
         public native void update(double[] value, TimeTag tt);
 
+        public native boolean value(int[] value, TimeTag tt);
+        public native boolean value(float[] value, TimeTag tt);
+        public native boolean value(double[] value, TimeTag tt);
+
         public int index()
         {
             checkDevice();

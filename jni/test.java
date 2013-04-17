@@ -67,12 +67,30 @@ class test {
         System.out.println("Device ip4: "+dev.ip4());
 
         int i = 100;
+        double [] ar = new double [] {0};
+        TimeTag tt = new TimeTag(0,0);
+
+        // Signal should report no value before the first update.
+        if (out1.value(ar, tt))
+            System.out.println("Signal has value: " + ar[0]);
+        else
+            System.out.println("Signal has no value.");
 
         // Just to test vector-valued signal and timetag support,
         out1.update(new int []{i}, TimeTag.IMMEDIATE);
 
         while (i >= 0) {
-            System.out.println("Updated value to: " + i);
+            System.out.print("Updated value to: " + i);
+
+            // Note, we are testing an implicit cast form int to float
+            // here because we are passing a double[] into
+            // out1.value().
+            if (out1.value(ar, tt))
+                System.out.print("  Signal has value: " + ar[0]);
+            else
+                System.out.print("  Signal has no value.");
+
+            System.out.print("      \r");
 
             dev.poll(100);
             --i;
