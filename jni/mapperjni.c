@@ -652,22 +652,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1rate
         msig_set_rate(sig, (float)rate);
 }
 
-JNIEXPORT jdouble JNICALL Java_Mapper_Device_00024Signal_msig_1get_1rate
-  (JNIEnv *env, jobject obj, jlong s)
-{
-    mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig)
-        return msig_get_rate(sig);
-    else {
-        jclass newExcCls =
-            (*env)->FindClass(env, "java/lang/NullPointerException");
-        if (newExcCls)
-            (*env)->ThrowNew(env, newExcCls, "Not a valid Signal object.");
-    }
-
-    return 0;
-}
-
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1callback
 (JNIEnv *env, jobject obj, jlong s, jobject listener)
 {
@@ -1218,6 +1202,13 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1maximum
     }
 
     return 0;
+}
+
+JNIEXPORT jdouble JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1rate
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
+    return (jdouble)props->rate;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mapper_1db_1signal_1property_1lookup

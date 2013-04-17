@@ -7,6 +7,7 @@
 
 #include <unistd.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
@@ -39,6 +40,36 @@ int setup_source()
 
     // This signal will be updated at 100 Hz
     msig_set_rate(sendsig, 100);
+
+    // Check by both methods that the property was set
+    mapper_db_signal props = msig_properties(sendsig);
+    printf("Rate for /outsig is set to: %f\n", props->rate);
+
+    const lo_arg *a;
+    lo_type t;
+    if (mapper_db_signal_property_lookup(props, "rate", &t, &a))
+    {
+        printf("Couldn't find `rate' property.\n");
+        mdev_free(source);
+        mdev_free(destination);
+        exit(1);
+    }
+
+    if (t=='f')
+        printf("Rate for /outsig is set to: %f\n", a->f);
+    else {
+        printf("Rate property was unexpected type `%c'\n", t);
+        mdev_free(source);
+        mdev_free(destination);
+        exit(1);
+    }
+
+    if (props->rate != a->f) {
+        printf("Rate properties don't agree.\n");
+        mdev_free(source);
+        mdev_free(destination);
+        exit(1);
+    }
 
     printf("Output signal /outsig registered.\n");
 

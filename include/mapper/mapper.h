@@ -264,12 +264,6 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
  *                  for non-periodic signals. */
 void msig_set_rate(mapper_signal sig, float rate);
 
-/*! Get the rate of a signal.
- *  \param sig      The signal to operate on.
- *  \return         The rate of this signal, or zero for non-periodic
- *                  signals.. */
-float msig_get_rate(mapper_signal sig);
-
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.
  *  \return     A structure containing the signal's properties. */

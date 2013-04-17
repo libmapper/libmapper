@@ -51,10 +51,6 @@ public class Device
             checkDevice();
             msig_set_rate(_signal, rate);
         }
-        public double rate() {
-            checkDevice();
-            return msig_get_rate(_signal);
-        }
         public void set_query_callback(InputListener handler) {
             checkDevice();
             msig_set_query_callback(_signal, handler);
@@ -90,7 +86,6 @@ public class Device
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
         private native void msig_set_rate(long sig, double rate);
-        private native double msig_get_rate(long sig);
         private native void msig_set_query_callback(long sig, InputListener handler);
         private native long msig_properties(long sig);
         private native void msig_set_property(long sig, String property,
