@@ -65,10 +65,15 @@ public class Device
             checkDevice();
             msig_remove_property(_signal, property);
         }
+        public int query_remotes(TimeTag tt)
+        {
+            checkDevice();
+            return msig_query_remotes(_signal, tt);
+        }
         public int query_remotes()
         {
             checkDevice();
-            return msig_query_remotes(_signal);
+            return msig_query_remotes(_signal, null);
         }
 
         private native String msig_full_name(long sig);
@@ -81,7 +86,7 @@ public class Device
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
         private native void msig_remove_property(long sig, String property);
-        private native int msig_query_remotes(long sig);
+        private native int msig_query_remotes(long sig, TimeTag tt);
 
         public native void update(int value);
         public native void update(float value);

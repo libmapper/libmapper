@@ -15,6 +15,68 @@
 JNIEnv *genv=0;
 int bailing=0;
 
+/**** Helpers ****/
+
+static void throwIllegalArgumentTruncate(JNIEnv *env, mapper_signal sig)
+{
+    jclass newExcCls =
+        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (newExcCls) {
+        char msg[1024];
+        snprintf(msg, 1024,
+                 "Signal %s has integer type, floating-"
+                 "point value would truncate.",
+                 msig_properties(sig)->name);
+        (*env)->ThrowNew(env, newExcCls, msg);
+    }
+}
+
+static void throwIllegalArgumentLength(JNIEnv *env, mapper_signal sig, int al)
+{
+    jclass newExcCls =
+        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (newExcCls) {
+        char msg[1024];
+        mapper_db_signal p = msig_properties(sig);
+        snprintf(msg, 1024,
+                 "Signal %s length is %d, but array argument has length %d.",
+                 p->name, p->length, al);
+        (*env)->ThrowNew(env, newExcCls, msg);
+    }
+}
+
+static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
+{
+    // TODO check device here
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID val = (*env)->GetFieldID(env, cls, "_signal", "J");
+        if (val) {
+            jlong s = (*env)->GetLongField(env, obj, val);
+            return (mapper_signal)ptr_jlong(s);
+        }
+    }
+    return 0;
+}
+
+static mapper_timetag_t *get_timetag_from_jobject
+  (JNIEnv *env, jobject obj, mapper_timetag_t *tt)
+{
+    if (!obj) return 0;
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
+        jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
+        if (sec && frac) {
+            tt->sec = (*env)->GetLongField(env, obj, sec);
+            tt->frac = (*env)->GetLongField(env, obj, frac);
+            return tt;
+        }
+    }
+    return 0;
+}
+
+
 /**** Mapper.Device ****/
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1new
@@ -591,10 +653,17 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1callback
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
-  (JNIEnv *env, jobject obj, jlong s)
+  (JNIEnv *env, jobject obj, jlong s, jobject objtt)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
-    return msig_query_remotes(sig, MAPPER_NOW);
+    if (objtt)
+    {
+        mapper_timetag_t tt, *ptt;
+        ptt = get_timetag_from_jobject(env, objtt, &tt);
+        return msig_query_remotes(sig, ptt ? *ptt : MAPPER_NOW);
+    }
+    else
+        return msig_query_remotes(sig, MAPPER_NOW);
 }
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
@@ -656,65 +725,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1remove_1property
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
     msig_remove_property(sig, ckey);
     (*env)->ReleaseStringUTFChars(env, key, ckey);
-}
-
-static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
-{
-    // TODO check device here
-    jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID val = (*env)->GetFieldID(env, cls, "_signal", "J");
-        if (val) {
-            jlong s = (*env)->GetLongField(env, obj, val);
-            return (mapper_signal)ptr_jlong(s);
-        }
-    }
-    return 0;
-}
-
-static mapper_timetag_t *get_timetag_from_jobject
-  (JNIEnv *env, jobject obj, mapper_timetag_t *tt)
-{
-    if (!obj) return 0;
-    jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
-        jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
-        if (sec && frac) {
-            tt->sec = (*env)->GetLongField(env, obj, sec);
-            tt->frac = (*env)->GetLongField(env, obj, frac);
-            return tt;
-        }
-    }
-    return 0;
-}
-
-static void throwIllegalArgumentTruncate(JNIEnv *env, mapper_signal sig)
-{
-    jclass newExcCls =
-        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
-    if (newExcCls) {
-        char msg[1024];
-        snprintf(msg, 1024,
-                 "Signal %s has integer type, floating-"
-                 "point value would truncate.",
-                 msig_properties(sig)->name);
-        (*env)->ThrowNew(env, newExcCls, msg);
-    }
-}
-
-static void throwIllegalArgumentLength(JNIEnv *env, mapper_signal sig, int al)
-{
-    jclass newExcCls =
-        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
-    if (newExcCls) {
-        char msg[1024];
-        mapper_db_signal p = msig_properties(sig);
-        snprintf(msg, 1024,
-                 "Signal %s length is %d, but array argument has length %d.",
-                 p->name, p->length, al);
-        (*env)->ThrowNew(env, newExcCls, msg);
-    }
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__ILMapper_TimeTag_2
