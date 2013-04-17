@@ -533,6 +533,7 @@ static property_table_value_t sigdb_values[] = {
     { 'o', 1, SIGDB_OFFSET(maximum) },
     { 'o', 1, SIGDB_OFFSET(minimum) },
     { 's', 1, SIGDB_OFFSET(name) },
+    { 'f', 0, SIGDB_OFFSET(rate) },
     { 'c', 0, SIGDB_OFFSET(type) },
     { 's', 1, SIGDB_OFFSET(unit) },
     { 'i', 0, SIGDB_OFFSET(user_data) },
@@ -546,13 +547,14 @@ static string_table_node_t sigdb_nodes[] = {
     { "max",         &sigdb_values[3] },
     { "min",         &sigdb_values[4] },
     { "name",        &sigdb_values[5] },
-    { "type",        &sigdb_values[6] },
-    { "unit",        &sigdb_values[7] },
-    { "user_data",   &sigdb_values[8] },
+    { "rate",        &sigdb_values[6] },
+    { "type",        &sigdb_values[7] },
+    { "unit",        &sigdb_values[8] },
+    { "user_data",   &sigdb_values[9] },
 };
 
 static mapper_string_table_t sigdb_table =
-  { sigdb_nodes, 9, 9 };
+  { sigdb_nodes, 10, 10 };
 
 static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
