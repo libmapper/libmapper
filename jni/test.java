@@ -66,11 +66,18 @@ class test {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        int i = 1000;
+        int i = 100;
+
+        // Just to test vector-valued signal and timetag support,
+        out1.update(new int []{i}, TimeTag.IMMEDIATE);
+
         while (i >= 0) {
-            dev.poll(10);
+            System.out.println("Updated value to: " + i);
+
+            dev.poll(100);
             --i;
-            out1.update(new int[] {i});
+
+            out1.update(i);
         }
         dev.free();
     }

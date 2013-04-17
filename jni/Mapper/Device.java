@@ -90,6 +90,13 @@ public class Device
         public native void update(float[] value);
         public native void update(double[] value);
 
+        public native void update(int value, TimeTag tt);
+        public native void update(float value, TimeTag tt);
+        public native void update(double value, TimeTag tt);
+        public native void update(int[] value, TimeTag tt);
+        public native void update(float[] value, TimeTag tt);
+        public native void update(double[] value, TimeTag tt);
+
         public int index()
         {
             checkDevice();
