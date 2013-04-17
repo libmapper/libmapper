@@ -6,6 +6,8 @@
 #include <mapper/mapper.h>
 
 #include "Mapper_Device.h"
+#include "Mapper_Device_Signal.h"
+#include "Mapper_Db_Signal.h"
 
 #define jlong_ptr(a) ((jlong)(uintptr_t)(a))
 #define ptr_jlong(a) ((void *)(uintptr_t)(a))
@@ -588,14 +590,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1callback
                              (*env)->NewGlobalRef(env, listener));
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
   (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
     return msig_query_remotes(sig, MAPPER_NOW);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1properties
+JNIEXPORT jlong JNICALL Java_Mapper_Device_00024Signal_msig_1properties
 (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig = (mapper_signal)ptr_jlong(s);
