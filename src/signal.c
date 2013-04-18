@@ -260,8 +260,12 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         // store pointer to device map in a new signal map
         sig->reserve_instances = si->next;
         msig_init_instance(si);
-
-        return msig_add_id_map(sig, si, map);
+        i = msig_add_id_map(sig, si, map);
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_NEW)) {
+            sig->instance_management_handler(sig, &sig->props, id, IN_NEW, tt);
+        }
+        return i;
     }
 
     if (sig->instance_management_handler &&
@@ -303,7 +307,12 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         }
         sig->reserve_instances = si->next;
         msig_init_instance(si);
-        return msig_add_id_map(sig, si, map);
+        i = msig_add_id_map(sig, si, map);
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_NEW)) {
+            sig->instance_management_handler(sig, &sig->props, id, IN_NEW, tt);
+        }
+        return i;
     }
     return -1;
 }
@@ -344,7 +353,12 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         }
         sig->reserve_instances = si->next;
         msig_init_instance(si);
-        return msig_add_id_map(sig, si, map);
+        i = msig_add_id_map(sig, si, map);
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_NEW)) {
+            sig->instance_management_handler(sig, &sig->props, si->index, IN_NEW, tt);
+        }
+        return i;
     }
 
     if (sig->instance_management_handler &&
@@ -385,7 +399,12 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         }
         sig->reserve_instances = si->next;
         msig_init_instance(si);
-        return msig_add_id_map(sig, si, map);
+        i = msig_add_id_map(sig, si, map);
+        if (sig->instance_management_handler &&
+            (sig->instance_management_flags & IN_NEW)) {
+            sig->instance_management_handler(sig, &sig->props, si->index, IN_NEW, tt);
+        }
+        return i;
     }
     return -1;
 }
