@@ -960,8 +960,11 @@ typedef struct _admin {} admin;
             msig_update_instance((mapper_signal)$self, id, &f, 0, tt);
         }
     }
-    void release_instance(int id) {
-        msig_release_instance((mapper_signal)$self, id, MAPPER_NOW);
+    void release_instance(int id, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
+        msig_release_instance((mapper_signal)$self, id, tt);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
@@ -1031,8 +1034,11 @@ typedef struct _admin {} admin;
         }
         return msig_set_callback((mapper_signal)$self, h, callbacks);
     }
-    int query_remotes() {
-        return msig_query_remotes((mapper_signal)$self, MAPPER_NOW);
+    int query_remotes(double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
+        return msig_query_remotes((mapper_signal)$self, tt);
     }
     void set_minimum(maybeSigVal v) {
         mapper_signal sig = (mapper_signal)$self;
