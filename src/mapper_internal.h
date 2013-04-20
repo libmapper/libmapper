@@ -87,7 +87,7 @@ typedef struct _mapper_signal_id_map {
 /**** Admin ****/
 
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int port);
+                             const char *identifier);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
@@ -170,7 +170,7 @@ void mdev_receive_update(mapper_device md, mapper_signal sig,
 
 void mdev_release_scope(mapper_device md, const char *scope);
 
-void mdev_start_server(mapper_device mdev);
+void mdev_start_server(mapper_device mdev, int port);
 
 void mdev_on_id_and_ordinal(mapper_device md,
                             mapper_admin_allocated_t *resource);

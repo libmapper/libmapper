@@ -47,12 +47,14 @@ mapper_device mdev_new(const char *name_prefix, int port,
         md->own_admin = 1;
     }
 
-    if (!md->admin) {
+    mdev_start_server(md, port);
+
+    if (!md->admin || !md->server) {
         mdev_free(md);
         return NULL;
     }
 
-    mapper_admin_add_device(md->admin, md, name_prefix, port);
+    mapper_admin_add_device(md->admin, md, name_prefix);
 
     md->id_counter = 0;
     md->extra = table_new();
@@ -434,47 +436,43 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (md->admin->name)
         sig->props.device_name = md->admin->name;
 
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        type_string = (char*) realloc(type_string, sig->props.length + 3);
-        type_string[0] = type_string[1] = 'i';
-        memset(type_string + 2, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 2] = 0;
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             type_string + 2,
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "b",
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "N",
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             type_string,
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iib",
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiN",
-                             handler_signal_instance, (void *) (sig));
-        int len = strlen(sig->props.name) + 5;
-        signal_get = (char*) realloc(signal_get, len);
-        snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-        lo_server_add_method(md->server,
-                             signal_get,
-                             "s",
-                             handler_query, (void *) (sig));
-        free(type_string);
-        free(signal_get);
-    }
+    type_string = (char*) realloc(type_string, sig->props.length + 3);
+    type_string[0] = type_string[1] = 'i';
+    memset(type_string + 2, sig->props.type, sig->props.length);
+    type_string[sig->props.length + 2] = 0;
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         type_string + 2,
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "b",
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "N",
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         type_string,
+                         handler_signal_instance, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iib",
+                         handler_signal_instance, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iiN",
+                         handler_signal_instance, (void *) (sig));
+    int len = strlen(sig->props.name) + 5;
+    signal_get = (char*) realloc(signal_get, len);
+    snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+    lo_server_add_method(md->server,
+                         signal_get,
+                         "s",
+                         handler_query, (void *) (sig));
+    free(type_string);
+    free(signal_get);
 
     return sig;
 }
@@ -509,39 +507,36 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
         return;
     char *type = 0, *path = 0;
     int len;
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        len = (int) strlen(sig->props.name) + 5;
-        path = (char*) realloc(path, len);
-        snprintf(path, len, "%s%s", sig->props.name, "/got");
-        type = (char*) realloc(type, sig->props.length + 3);
-        type[0] = type[1] = 'i';
-        memset(type + 2, sig->props.type,
-               sig->props.length);
-        type[sig->props.length + 2] = 0;
-        int len = (int) strlen(sig->props.name) + 5;
-        path = (char*) realloc(path, len);
-        snprintf(path, len, "%s%s", sig->props.name, "/got");
-        lo_server_add_method(md->server,
-                             path,
-                             type + 2,
-                             handler_signal, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             type,
-                             handler_signal_instance, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             "N",
-                             handler_signal, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             "iiN",
-                             handler_signal_instance, (void *)sig);
-        md->n_output_callbacks ++;
-        free(path);
-    }
+
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    type = (char*) realloc(type, sig->props.length + 3);
+    type[0] = type[1] = 'i';
+    memset(type + 2, sig->props.type,
+           sig->props.length);
+    type[sig->props.length + 2] = 0;
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    lo_server_add_method(md->server,
+                         path,
+                         type + 2,
+                         handler_signal, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         type,
+                         handler_signal_instance, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         "N",
+                         handler_signal, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         "iiN",
+                         handler_signal_instance, (void *)sig);
+    md->n_output_callbacks ++;
+    free(path);
 }
 
 void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
@@ -576,15 +571,11 @@ void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal 
     if (!sig->props.is_output)
         return;
 
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiF",
-                             handler_instance_release_request, (void *) (sig));
-        md->n_output_callbacks ++;
-    }
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iiF",
+                         handler_instance_release_request, (void *) (sig));
+    md->n_output_callbacks ++;
 }
 
 void mdev_remove_instance_release_request_callback(mapper_device md, mapper_signal sig)
@@ -616,20 +607,19 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
     }
-    if (md->server) {
-        str1[0] = str1[1] = 'i';
-        memset(str1 + 2, sig->props.type, sig->props.length);
-        str1[sig->props.length + 2] = 0;
-        lo_server_del_method(md->server, sig->props.name, str1);
-        lo_server_del_method(md->server, sig->props.name, str1 + 2);
-        lo_server_del_method(md->server, sig->props.name, "b");
-        lo_server_del_method(md->server, sig->props.name, "N");
-        lo_server_del_method(md->server, sig->props.name, "iib");
-        lo_server_del_method(md->server, sig->props.name, "iiN");
 
-        snprintf(str1, 1024, "%s/get", sig->props.name);
-        lo_server_del_method(md->server, str1, NULL);
-    }
+    str1[0] = str1[1] = 'i';
+    memset(str1 + 2, sig->props.type, sig->props.length);
+    str1[sig->props.length + 2] = 0;
+    lo_server_del_method(md->server, sig->props.name, str1);
+    lo_server_del_method(md->server, sig->props.name, str1 + 2);
+    lo_server_del_method(md->server, sig->props.name, "b");
+    lo_server_del_method(md->server, sig->props.name, "N");
+    lo_server_del_method(md->server, sig->props.name, "iib");
+    lo_server_del_method(md->server, sig->props.name, "iiN");
+
+    snprintf(str1, 1024, "%s/get", sig->props.name);
+    lo_server_del_method(md->server, str1, NULL);
 
     mapper_receiver r = md->receivers;
     msig_full_name(sig, str2, 1024);
@@ -673,7 +663,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
-    if (sig->handler && md->server) {
+    if (sig->handler) {
         snprintf(str1, 1024, "%s/got", sig->props.name);
         lo_server_del_method(md->server, str1, NULL);
     }
@@ -857,16 +847,15 @@ int mdev_poll(mapper_device md, int block_ms)
 
 int mdev_num_fds(mapper_device md)
 {
-    // One for the admin input, and one for the signal input if the
-    // server has started.
-    return 1 + (md->server?1:0);
+    // One for the admin input, and one for the signal input.
+    return 2;
 }
 
 int mdev_get_fds(mapper_device md, int *fds, int num)
 {
     if (num > 0)
         fds[0] = lo_server_get_socket_fd(md->admin->admin_server);
-    if (num > 1 && md->server)
+    if (num > 1)
         fds[1] = lo_server_get_socket_fd(md->server);
     else
         return 1;
@@ -1102,14 +1091,14 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
                num, path, msg);
 }
 
-void mdev_start_server(mapper_device md)
+void mdev_start_server(mapper_device md, int starting_port)
 {
     if (!md->server) {
         int i;
         char port[16], *pport = port, *type = 0, *path = 0;
 
-        if (md->admin->port)
-            sprintf(port, "%d", md->admin->port);
+        if (starting_port)
+            sprintf(port, "%d", starting_port);
         else
             pport = 0;
 

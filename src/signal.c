@@ -853,8 +853,7 @@ int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
         // no handler defined so we cannot process query responses
         return -1;
     }
-    if (!sig->device->server)
-        mdev_start_server(sig->device);
+
     return mdev_route_query(sig->device, sig, tt);
 }
 

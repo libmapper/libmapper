@@ -443,7 +443,7 @@ void mapper_admin_free(mapper_admin admin)
 
 /*! Add an uninitialized device to this admin. */
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier, int port)
+                             const char *identifier)
 {
     /* Initialize data structures */
     if (dev)
@@ -453,7 +453,6 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
         admin->name_hash = 0;
         admin->ordinal.value = 1;
         admin->ordinal.locked = 0;
-        admin->port = port;
         admin->registered = 0;
         admin->device = dev;
         admin->device->flags = 0;
@@ -536,20 +535,20 @@ int mapper_admin_poll(mapper_admin admin)
             lo_send(admin->admin_addr, "/name/registered",
                     "s", mapper_admin_name(admin));
         }
-    }
 
-    /* If we are ready to register the device, add the needed message
-     * handlers. */
-    if (!admin->registered && admin->ordinal.locked)
-    {
-        mapper_admin_add_device_methods(admin);
+        /* If we are ready to register the device, add the needed message
+         * handlers. */
+        if (admin->ordinal.locked)
+        {
+            mapper_admin_add_device_methods(admin);
 
-        admin->registered = 1;
-        trace("</%s.?::%p> registered as <%s>\n",
-              admin->identifier, admin, mapper_admin_name(admin));
-        admin->device->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
+            admin->registered = 1;
+            trace("</%s.?::%p> registered as <%s>\n",
+                  admin->identifier, admin, mapper_admin_name(admin));
+            admin->device->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
+        }
     }
-    if (admin->registered) {
+    else {
         if (admin->device->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
             admin->device->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
             mapper_admin_send_device(admin, admin->device);
@@ -768,7 +767,7 @@ static void mapper_admin_send_device(mapper_admin admin,
     mapper_admin_send_osc(
         admin, 0, "/device", "s", mapper_admin_name(admin),
         AT_LIB_VERSION, PACKAGE_VERSION,
-        admin->port ? AT_PORT : -1, admin->port,
+        AT_PORT, admin->port,
         AT_NUM_INPUTS, admin->device ? mdev_num_inputs(admin->device) : 0,
         AT_NUM_OUTPUTS, admin->device ? mdev_num_outputs(admin->device) : 0,
         AT_NUM_LINKS_IN, admin->device ? mdev_num_links_in(admin->device) : 0,
@@ -795,10 +794,20 @@ static void mapper_admin_send_linked(mapper_admin admin,
     if (is_outgoing) {
         lo_message_add_string(m, mdev_name(link->device));
         lo_message_add_string(m, link->props.dest_name);
+        lo_message_add_string(m, "@srcPort");
+        lo_message_add_int32(m, admin->port);
+        lo_message_add_string(m, "@destPort");
+        const char *s = lo_address_get_port(link->props.dest_addr);
+        lo_message_add_int32(m, strtol(s, NULL, 10));
     }
     else {
         lo_message_add_string(m, link->props.src_name);
         lo_message_add_string(m, mdev_name(link->device));
+        lo_message_add_string(m, "@srcPort");
+        const char *s = lo_address_get_port(link->props.src_addr);
+        lo_message_add_int32(m, strtol(s, NULL, 10));
+        lo_message_add_string(m, "@destPort");
+        lo_message_add_int32(m, admin->port);
     }
 
     // Add link scopes
@@ -1317,8 +1326,8 @@ static int handler_device_link(const char *path, const char *types,
     }
 
     lo_arg *arg_port = (lo_arg*) &admin->port;
-    params.values[AT_PORT] = &arg_port;
-    params.types[AT_PORT] = "i";
+    params.values[AT_DEST_PORT] = &arg_port;
+    params.types[AT_DEST_PORT] = "i";
     mapper_admin_send_osc_with_params(
         admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
 
@@ -1390,8 +1399,8 @@ static int handler_device_linkTo(const char *path, const char *types,
         host = lo_address_get_hostname(a);
     }
 
-    // Retreive the port
-    if (mapper_msg_get_param_if_int(&params, AT_PORT, &port)) {
+    // Retrieve the port
+    if (mapper_msg_get_param_if_int(&params, AT_DEST_PORT, &port)) {
         trace("can't perform /linkTo, port unknown\n");
         return 0;
     }
@@ -1427,7 +1436,7 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_db db = mapper_monitor_get_db(mon);
 
     const char *src_name, *dest_name, *host=0, *scope=0;
-    int port;
+    int port = -1;
 
     if (argc < 2)
         return 0;
@@ -1468,10 +1477,10 @@ static int handler_device_linked(const char *path, const char *types,
     // Find the sender's hostname
     lo_address a = lo_message_get_source(msg);
     host = lo_address_get_hostname(a);
-    const char *temp = lo_address_get_port(a);
-    port = strtol(temp, NULL, 10);
-    if (!port)
-        return 0;
+
+    // Retrieve the src device port if it is defined
+    mapper_msg_get_param_if_int(&params, AT_SRC_PORT, &port);
+
     receiver = mapper_receiver_new(md, host, port, src_name, scope ? 0 : 1);
     if (!receiver) {
         trace("Error: NULL receiver\n");

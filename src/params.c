@@ -11,6 +11,7 @@ const char* mapper_msg_param_strings[] =
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
     "@destLength",      /* AT_DEST_LENGTH */
+    "@destPort",        /* AT_DEST_PORT */
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
@@ -36,6 +37,7 @@ const char* mapper_msg_param_strings[] =
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@srcLength",       /* AT_SRC_LENGTH */
+    "@srcPort",         /* AT_SRC_PORT */
     "@srcType",         /* AT_SRC_TYPE */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
@@ -302,6 +304,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_DEST_LENGTH:
+        case AT_DEST_PORT:
         case AT_ID:
         case AT_LENGTH:
         case AT_NUM_CONNECTIONS_IN:
@@ -313,6 +316,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_PORT:
         case AT_REV:
         case AT_SRC_LENGTH:
+        case AT_SRC_PORT:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
