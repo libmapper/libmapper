@@ -102,58 +102,29 @@ void cleanup_destination()
     }
 }
 
-int setup_router()
+int create_connections()
 {
-    const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->admin->port,
-                               mdev_name(destination), 1);
-    /* router = mapper_router_new(source, "127.0.0.1", 9001, */
-    /*                            mdev_name(destination), 0); */
-    mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, port);
+    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char signame_in[1024];
-    if (!msig_full_name(recvsig, signame_in, 1024)) {
-        printf("Could not get destination signal name.\n");
-        return 1;
+    char src_name[1024], dest_name[1024];
+    mapper_monitor_link(mon, mdev_name(source),
+                        mdev_name(destination), 0, 0);
+
+    msig_full_name(sendsig, src_name, 1024);
+    msig_full_name(recvsig, dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
+    msig_full_name(sendsig1, src_name, 1024);
+    msig_full_name(recvsig1, dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
+    mapper_monitor_free(mon);
+
+    int i = 0;
+    while (i++ < 10) {
+        mdev_poll(source, 0);
+        mdev_poll(destination, 0);
     }
-
-    char signame_out[1024];
-    if (!msig_full_name(sendsig, signame_out, 1024)) {
-        printf("Could not get source signal name.\n");
-        return 1;
-    }
-
-	char signame_in1[1024];
-    if (!msig_full_name(recvsig1, signame_in1, 1024)) {
-        printf("Could not get destination signal name.\n");
-        return 1;
-    }
-
-    char signame_out1[1024];
-    if (!msig_full_name(sendsig1, signame_out1, 1024)) {
-        printf("Could not get source signal name.\n");
-        return 1;
-    }
-
-    printf("Connecting signal %s -> %s\n", signame_out, signame_in);
-    mapper_connection c = mapper_router_add_connection(router, sendsig,
-                                                       recvsig->props.name,
-                                                       'f', 1);
-    printf("Connecting signal %s -> %s\n", signame_out1, signame_in1);
-    mapper_connection c1 = mapper_router_add_connection(router, sendsig1,
-                                                       recvsig1->props.name,
-                                                       'f', 1);
-
-    mapper_connection_range_t range;
-    range.src_min = 0;
-    range.src_max = 1;
-    range.dest_min = -10;
-    range.dest_max = 10;
-    range.known = CONNECTION_RANGE_KNOWN;
-    
-    mapper_connection_set_linear_range(c, &range);
-	mapper_connection_set_linear_range(c1, &range);
 
     return 0;
 }
@@ -184,8 +155,7 @@ void loop()
 		msig_update(sendsig1, &j, 0, now);
 		mdev_send_queue(sendsig->device, now);
 		sent = sent+2;
-        usleep(250 * 1000);
-        mdev_poll(destination, 0);
+        mdev_poll(destination, 250);
     }
 
 }
@@ -207,8 +177,8 @@ int main()
 
     wait_ready();
 
-    if (setup_router()) {
-        printf("Error initializing router.\n");
+    if (create_connections()) {
+        printf("Error creating connections.\n");
         result = 1;
         goto done;
     }
