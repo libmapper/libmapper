@@ -130,7 +130,7 @@ void mapper_receiver_send_update(mapper_receiver r,
                                  int instance_index,
                                  mapper_timetag_t tt)
 {
-    int i;
+    int i, count=0;
     mapper_id_map map = sig->id_maps[instance_index].map;
 
     // find the signal connection
@@ -143,9 +143,18 @@ void mapper_receiver_send_update(mapper_receiver r,
     if (!rc)
         return;
 
+    mapper_connection c = rc->connections;
+    while (c) {
+        if (c->props.mode == MO_REVERSE)
+            count++;
+        c = c->next;
+    }
+    if (!count)
+        return;
+
     lo_bundle b = lo_bundle_new(tt);
 
-    mapper_connection c = rc->connections;
+    c = rc->connections;
     while (c) {
         if (c->props.mode != MO_REVERSE) {
             c = c->next;
