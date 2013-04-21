@@ -246,6 +246,11 @@ void msig_set_callback(mapper_signal sig,
                        mapper_signal_update_handler *handler,
                        void *user_data);
 
+/*! Get the number of connections attatched to a specific signal.
+ *  \param sig      The signal to check.
+ *  \return         The number of attached connections. */
+int msig_num_connections(mapper_signal sig);
+
 /**** Signal properties ****/
 
 /*! Get the full OSC name of a signal, including device name
@@ -550,6 +555,43 @@ lo_server mdev_get_lo_server(mapper_device md);
 
 /*! Get the device's synchronization clock offset. */
 double mdev_get_clock_offset(mapper_device md);
+
+/*! The set of possible actions on a local device link or
+ *  connection. */
+typedef enum {
+    MDEV_LOCAL_ESTABLISHED,
+    MDEV_LOCAL_DESTROYED,
+} mapper_device_local_action_t;
+
+/*! Function to call when a local device link is established or
+ *  destroyed. */
+typedef void mapper_device_link_handler(mapper_device dev,
+                                        mapper_db_link link,
+                                        mapper_device_local_action_t action,
+                                        void *user);
+
+/*! Function to call when a local device connection is established or
+ *  destroyed. */
+typedef void mapper_device_connection_handler(mapper_device dev,
+                                              mapper_db_link link,
+                                              mapper_signal sig,
+                                              mapper_db_connection connection,
+                                              mapper_device_local_action_t action,
+                                              void *user);
+
+/*! Add a function to be called when a local device link is
+ *  established or destroyed, indicated by the action parameter to the
+ *  provided function. */
+void mdev_add_link_callback(mapper_device dev,
+                            mapper_device_link_handler *h, void *user);
+
+/*! Add a function to be called when a local device connection is
+ *  established or destroyed, indicated by the action parameter to the
+ *  provided function. Important: if a link is destroyed, this
+ *  function will not be called for all connections in the link. */
+void mdev_add_connection_callback(mapper_device dev,
+                                  mapper_device_connection_handler *h,
+                                  void *user);
 
 /* @} */
 
