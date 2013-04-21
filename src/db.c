@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <zlib.h>
 
 #include "mapper_internal.h"
 
@@ -564,6 +565,7 @@ static property_table_value_t devdb_values[] = {
     { 'i', 0, DEVDB_OFFSET(n_outputs) },
     { 's', 1, DEVDB_OFFSET(name) },
     { 'i', 0, DEVDB_OFFSET(port) },
+    { 't', 0, DEVDB_OFFSET(synced) },
     { 'i', 0, DEVDB_OFFSET(user_data) },
     { 'i', 0, DEVDB_OFFSET(version) },
 };
@@ -579,12 +581,13 @@ static string_table_node_t devdb_nodes[] = {
     { "n_outputs",          &devdb_values[6] },
     { "name",               &devdb_values[7] },
     { "port",               &devdb_values[8] },
-    { "user_data",          &devdb_values[9] },
-    { "version",            &devdb_values[10] },
+    { "synced",             &devdb_values[9] },
+    { "user_data",          &devdb_values[10] },
+    { "version",            &devdb_values[11] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 11, 11 };
+  { devdb_nodes, 12, 12 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', 1, LINKDB_OFFSET(dest_name) },
@@ -755,7 +758,9 @@ static int update_device_record_params(mapper_db_device reg,
 {
     int updated = 0;
 
-    updated |= update_string_if_different(&reg->name, name);
+    updated += update_string_if_different(&reg->name, name);
+    if (updated)
+        reg->name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     updated += update_string_if_arg(&reg->host, params, AT_IP);
 
@@ -866,6 +871,18 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
     mapper_db_device reg = db->registered_devices;
     while (reg) {
         if (strcmp(reg->name, name)==0)
+            return reg;
+        reg = list_get_next(reg);
+    }
+    return 0;
+}
+
+mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
+                                                   uint32_t name_hash)
+{
+    mapper_db_device reg = db->registered_devices;
+    while (reg) {
+        if (name_hash == reg->name_hash)
             return reg;
         reg = list_get_next(reg);
     }

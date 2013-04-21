@@ -24,12 +24,12 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->props.src_name = strdup(mdev_name(device));
     r->props.dest_addr = lo_address_new(host, str);
     r->props.dest_name = strdup(name);
-    r->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
+    r->props.dest_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     if (default_scope) {
         r->props.num_scopes = 1;
         r->props.scope_names = (char **) malloc(sizeof(char *));
         r->props.scope_names[0] = strdup(mdev_name(device));
-        r->props.scope_hashes = (int *) malloc(sizeof(int));
+        r->props.scope_hashes = (uint32_t *) malloc(sizeof(uint32_t));
         r->props.scope_hashes[0] = mdev_id(device);
     }
     else {
@@ -592,7 +592,8 @@ int mapper_router_add_scope(mapper_router router, const char *scope)
     if (!scope)
         return 1;
     // Check if scope is already stored for this router
-    int i, hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    int i;
+    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     mapper_db_link props = &router->props;
     for (i=0; i<props->num_scopes; i++)
         if (props->scope_hashes[i] == hash)
@@ -601,14 +602,15 @@ int mapper_router_add_scope(mapper_router router, const char *scope)
     i = ++props->num_scopes;
     props->scope_names = realloc(props->scope_names, i * sizeof(char *));
     props->scope_names[i-1] = strdup(scope);
-    props->scope_hashes = realloc(props->scope_hashes, i * sizeof(int));
+    props->scope_hashes = realloc(props->scope_hashes, i * sizeof(uint32_t));
     props->scope_hashes[i-1] = hash;
     return 0;
 }
 
 void mapper_router_remove_scope(mapper_router router, const char *scope)
 {
-    int i, j, hash;
+    int i, j;
+    uint32_t hash;
 
     if (!scope)
         return;
@@ -627,7 +629,7 @@ void mapper_router_remove_scope(mapper_router router, const char *scope)
             props->scope_names = realloc(props->scope_names,
                                          props->num_scopes * sizeof(char *));
             props->scope_hashes = realloc(props->scope_hashes,
-                                          props->num_scopes * sizeof(int));
+                                          props->num_scopes * sizeof(uint32_t));
             return;
         }
     }
@@ -636,11 +638,11 @@ void mapper_router_remove_scope(mapper_router router, const char *scope)
      * but we will let the receiver-side handle it instead. */
 }
 
-int mapper_router_in_scope(mapper_router router, int id)
+int mapper_router_in_scope(mapper_router router, uint32_t name_hash)
 {
     int i;
     for (i=0; i<router->props.num_scopes; i++)
-        if (router->props.scope_hashes[i] == id)
+        if (router->props.scope_hashes[i] == name_hash)
             return 1;
     return 0;
 }

@@ -150,6 +150,7 @@ static struct handler_method_assoc monitor_handlers[] = {
     {"/unlinked",               NULL,       handler_device_unlinked},
     {"/connected",              NULL,       handler_signal_connected},
     {"/disconnected",           "ss",       handler_signal_disconnected},
+    {"/sync",                   "iifiid",   handler_sync},
 };
 const int N_MONITOR_HANDLERS =
     sizeof(monitor_handlers)/sizeof(monitor_handlers[0]);
@@ -575,7 +576,7 @@ int mapper_admin_poll(mapper_admin admin)
                 clock->local[clock->local_index].timetag.frac = clock->now.frac;
                 clock->local_index = (clock->local_index + 1) % 10;
                 clock->message_id = (clock->message_id + 1) % 10;
-                clock->next_ping = clock->now.sec + (rand() % 10);
+                clock->next_ping = clock->now.sec + 5 + (rand() % 5);
             }
             lo_bundle_free_messages(b);
         }
@@ -2451,11 +2452,12 @@ static int handler_sync(const char *path,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    mapper_monitor mon = admin->monitor;
     mapper_clock_t *clock = &admin->clock;
 
     int device_id = argv[0]->i;
     // if I sent this message, ignore it
-    if (device_id == 0 || device_id == mdev_id(md))
+    if (md && (device_id == 0 || device_id == mdev_id(md)))
         return 0;
 
     int message_id = argv[1]->i;
@@ -2473,9 +2475,19 @@ static int handler_sync(const char *path,
     lo_timetag then = lo_message_get_timestamp(msg);
     float confidence = argv[2]->f;
 
+    if (mon) {
+        mapper_db_device reg = mapper_db_get_device_by_name_hash(&mon->db,
+                                                                 device_id);
+        if (reg)
+            mapper_timetag_cpy(&reg->synced, then);
+    }
+
     // if remote timetag is in the future, adjust to remote time
     double diff = mapper_timetag_difference(then, now);
     mapper_clock_adjust(&admin->clock, diff, 1.0);
+
+    if (!md)
+        return 0;
 
     // look at the second part of the message
     device_id = argv[3]->i;

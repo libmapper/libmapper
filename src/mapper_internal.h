@@ -293,7 +293,7 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
                                                          const char* src_name,
                                                          const char* dest_name);
 
-int mapper_router_in_scope(mapper_router router, int group_id);
+int mapper_router_in_scope(mapper_router router, uint32_t group_id);
 
 /*! Find a router by destination address in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_address(mapper_router routers,
@@ -346,7 +346,7 @@ mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
                                                            const char* src_name,
                                                            const char* dest_name);
 
-int mapper_receiver_in_scope(mapper_receiver receiver, int group_id);
+int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t group_id);
 
 /*! Find a receiver by source address in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,

@@ -24,6 +24,7 @@ typedef lo_timetag mapper_timetag_t;
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
     char *name;             //!< Device name.
+    uint32_t name_hash;     //!< CRC-32 hash of device name.
     char *host;             //!< Device network host name.
     int port;               //!< Device network port.
     int n_inputs;           //!< Number of associated input signals.
@@ -34,6 +35,8 @@ typedef struct _mapper_db_device {
     int n_connections_out;  //!< Number of associated outgoing connections.
     int version;            //!< Reported device state version.
     void* user_data;        //!< User modifiable data.
+
+    mapper_timetag_t synced; //!< Timestamp of last sync.
 
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
@@ -245,13 +248,14 @@ typedef struct _mapper_db_signal
  *  @ingroup linkdb */
 typedef struct _mapper_db_link {
     char *src_name;                 //!< Source device name (OSC path).
+    uint32_t src_name_hash;         //!< CRC-32 hash of src device name.
     char *dest_name;                //!< Destination device name (OSC path).
-    int name_hash;                  //!< CRC32 hash of remote name.
+    uint32_t dest_name_hash;        //!< CRC-32 hash of dest device name.
     lo_address src_addr;            //!< Address of the source device.
     lo_address dest_addr;           //!< Address of the destination device.
     int num_scopes;                 //!< The number of instance group scopes.
     char **scope_names;             //!< Array of instance group scopes.
-    int *scope_hashes;              //!< Array of CRC-32 scope hashes
+    uint32_t *scope_hashes;         //!< Array of CRC-32 scope hashes.
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
