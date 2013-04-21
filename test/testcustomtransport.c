@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <lo/lo.h>
 
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
@@ -105,9 +106,17 @@ void on_mdev_connection(mapper_device dev,
         return;
     }
 
-    int port = a_port->i;
+    int port = a_port->i, on = 1;
 
-    send_socket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+    send_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Set socket to be non-blocking so that accept() is successful
+    if (ioctl(send_socket, FIONBIO, (char *)&on) < 0)
+    {
+        perror("ioctl() failed on FIONBIO");
+        close(send_socket);
+        exit(1);
+    }
 
     const char *hostname = lo_address_get_hostname(link->dest_addr);
 
