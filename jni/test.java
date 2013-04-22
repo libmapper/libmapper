@@ -22,7 +22,9 @@ class test {
             new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
-                                    float[] v) {
+                                    int instance_id,
+                                    float[] v,
+                                    TimeTag tt) {
                     System.out.println("in onInput() for "
                                        +props.name()+": "
                                        +Arrays.toString(v));

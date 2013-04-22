@@ -194,17 +194,19 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
                 mid = (*genv)->GetMethodID(genv, cls, "onInput",
                                            "(LMapper/Device$Signal;"
                                            "LMapper/Db/Signal;"
-                                           "[I)V");
+                                           "I[I"
+                                           "LMapper/TimeTag;)V");
             else if (props->type=='f')
                 mid = (*genv)->GetMethodID(genv, cls, "onInput",
                                            "(LMapper/Device$Signal;"
                                            "LMapper/Db/Signal;"
-                                           "[F)V");
+                                           "I[F"
+                                           "LMapper/TimeTag;)V");
 
             if (mid) {
                 (*genv)->CallVoidMethod(genv, ctx->listener, mid,
                                         ctx->signal, ctx->db_signal,
-                                        vobj);
+                                        instance_id, vobj, 0 /*TODO*/);
                 if ((*genv)->ExceptionOccurred(genv))
                     bailing = 1;
             }

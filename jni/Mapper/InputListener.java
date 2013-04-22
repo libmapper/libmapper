@@ -3,9 +3,13 @@ package Mapper;
 
 public class InputListener {
     public void onInput(Mapper.Device.Signal sig,
-                        Mapper.Db.Signal probs,
-                        float[] v) {};
+                        Mapper.Db.Signal props,
+                        int instance_id,
+                        float[] v,
+                        TimeTag tt) {};
     public void onInput(Mapper.Device.Signal sig,
-                        Mapper.Db.Signal probs,
-                        int[] v) {};
+                        Mapper.Db.Signal props,
+                        int instance_id,
+                        int[] v,
+                        TimeTag tt) {};
 }
