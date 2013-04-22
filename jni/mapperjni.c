@@ -1439,3 +1439,21 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1event_1call
         msig_set_instance_management_callback(sig, 0, flags, 0);
     }
 }
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1callback
+  (JNIEnv *env, jobject obj, jobject handler)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    mapper_db_signal props = msig_properties(sig);
+    msig_jni_context ctx = (msig_jni_context)props->user_data;
+    if (ctx->listener)
+        (*env)->DeleteGlobalRef(env, ctx->listener);
+    if (handler) {
+        ctx->listener = (*env)->NewGlobalRef(env, handler);
+        msig_set_callback(sig, java_msig_input_cb, ctx);
+    }
+    else {
+        ctx->listener = 0;
+        msig_set_callback(sig, 0, 0);
+    }
+}

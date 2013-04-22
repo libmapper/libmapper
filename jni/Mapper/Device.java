@@ -86,6 +86,7 @@ public class Device
 
         public native void set_instance_event_callback(InstanceEventListener handler,
                                                        int flags);
+        public native void set_callback(InputListener handler);
 
         public native void update(int value);
         public native void update(float value);
