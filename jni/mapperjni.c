@@ -1457,3 +1457,47 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1callback
         msig_set_callback(sig, 0, 0);
     }
 }
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_start_1new_1instance
+  (JNIEnv *env, jobject obj, jint instance_id)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    msig_start_new_instance(sig, instance_id);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
+  (JNIEnv *env, jobject obj, jint instance_id, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    mapper_timetag_t tt, *ptt=0;
+    ptt = get_timetag_from_jobject(env, obj, &tt);
+    msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
+}
+
+JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return msig_num_active_instances(sig);
+}
+
+JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1reserved_1instances
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return msig_num_reserved_instances(sig);
+}
+
+JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_active_1instance_1id
+  (JNIEnv *env, jobject obj, jint index)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return msig_active_instance_id(sig, index);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1allocation_1mode
+  (JNIEnv *env, jobject obj, jint mode)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return msig_set_instance_allocation_mode(sig, mode);
+}

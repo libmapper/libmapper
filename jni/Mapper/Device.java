@@ -22,6 +22,14 @@ public class Device
     }
 
     public class Signal {
+
+        /*! Describes the voice-stealing mode for instances.
+         *  Arguments to set_instance_allocation_mode(). */
+        public final int IN_UNDEFINED = 1;
+        public final int IN_STEAL_OLDEST = 2;
+        public final int IN_STEAL_NEWEST = 3;
+        public final int N_MAPPER_INSTANCE_ALLOCATION_TYPES = 4;
+
         private Signal(long s, Device d) { _signal = s; _device = d; }
 
         public String name()
@@ -87,6 +95,14 @@ public class Device
         public native void set_instance_event_callback(InstanceEventListener handler,
                                                        int flags);
         public native void set_callback(InputListener handler);
+
+        public native void start_new_instance(int instance_id);
+        public native void release_instance(int instance_id, TimeTag tt);
+
+        public native int num_active_instances();
+        public native int num_reserved_instances();
+        public native int active_instance_id(int index);
+        public native void set_instance_allocation_mode(int mode);
 
         public native void update(int value);
         public native void update(float value);
