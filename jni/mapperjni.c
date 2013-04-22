@@ -1474,6 +1474,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
     msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_match_1instances
+  (JNIEnv *env, jobject obj, jobject from, jobject to, jint instance_id)
+{
+    mapper_signal sigfrom = get_signal_from_jobject(env, from);
+    mapper_signal sigto = get_signal_from_jobject(env, to);
+    msig_match_instances(sigfrom, sigto, instance_id);
+}
+
 JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
   (JNIEnv *env, jobject obj)
 {

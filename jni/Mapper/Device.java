@@ -99,6 +99,8 @@ public class Device
         public native void start_new_instance(int instance_id);
         public native void release_instance(int instance_id, TimeTag tt);
 
+        public native void match_instances(Signal from, Signal to,
+                                           int instance_id);
         public native int num_active_instances();
         public native int num_reserved_instances();
         public native int active_instance_id(int index);
