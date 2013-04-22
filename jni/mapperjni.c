@@ -19,7 +19,8 @@ typedef struct {
     jobject listener;
     jobject signal;
     jobject db_signal;
-} *msig_jni_context;
+    jobject instanceHandler;
+} msig_jni_context_t, *msig_jni_context;
 
 /**** Helpers ****/
 
@@ -135,6 +136,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
             (*env)->DeleteGlobalRef(env, ctx->signal);
         if (ctx->db_signal)
             (*env)->DeleteGlobalRef(env, ctx->db_signal);
+        if (ctx->instanceHandler)
+            (*env)->DeleteGlobalRef(env, ctx->instanceHandler);
         free(ctx);
         props->user_data = 0;
     }
@@ -219,6 +222,38 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
 
     if (vobj)
         (*genv)->DeleteLocalRef(genv, vobj);
+}
+
+static void msig_instance_management_cb(mapper_signal sig,
+                                        mapper_db_signal props,
+                                        int instance_id,
+                                        msig_instance_event_t event)
+{
+    if (bailing)
+        return;
+
+    msig_jni_context ctx = (msig_jni_context)props->user_data;
+    if (ctx->instanceHandler && ctx->signal && ctx->db_signal) {
+        jclass cls = (*genv)->GetObjectClass(genv, ctx->instanceHandler);
+        if (cls) {
+            jmethodID mid=0;
+            mid = (*genv)->GetMethodID(genv, cls, "onEvent",
+                                       "(LMapper/Device$Signal;"
+                                       "IILMapper/Db/Signal;II)V");
+
+            if (mid) {
+                (*genv)->CallVoidMethod(genv, ctx->instanceHandler, mid,
+                                        ctx->signal, ctx->db_signal,
+                                        instance_id, event);
+                if ((*genv)->ExceptionOccurred(genv))
+                    bailing = 1;
+            }
+            else {
+                printf("Did not successfully look up onEvent method.\n");
+                exit(1);
+            }
+        }
+    }
 }
 
 static jobject create_signal_object(JNIEnv *env, jobject devobj,
@@ -315,7 +350,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     }
 
     msig_jni_context ctx =
-        (msig_jni_context)malloc(sizeof(msig_jni_context));
+        (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
     if (!ctx) {
         throwOutOfMemory(env);
         return 0;
@@ -1383,4 +1418,24 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mapper_1db_1signal_1property_1lo
   done:
     (*env)->ReleaseStringUTFChars(env, property, cprop);
     return o;
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1event_1callback
+  (JNIEnv *env, jobject obj, jobject handler, jint flags)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    mapper_db_signal props = msig_properties(sig);
+    msig_jni_context ctx = (msig_jni_context)props->user_data;
+    if (ctx->instanceHandler)
+        (*env)->DeleteGlobalRef(env, ctx->instanceHandler);
+    if (handler) {
+        ctx->instanceHandler = (*env)->NewGlobalRef(env, handler);
+        msig_set_instance_management_callback(sig,
+                                              msig_instance_management_cb,
+                                              flags, ctx);
+    }
+    else {
+        ctx->instanceHandler = 0;
+        msig_set_instance_management_callback(sig, 0, flags, 0);
+    }
 }

@@ -84,6 +84,9 @@ public class Device
         private native void msig_remove_property(long sig, String property);
         private native int msig_query_remotes(long sig, TimeTag tt);
 
+        public native void set_instance_event_callback(InstanceEventListener handler,
+                                                       int flags);
+
         public native void update(int value);
         public native void update(float value);
         public native void update(double value);
