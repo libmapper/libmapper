@@ -20,8 +20,12 @@ class test {
 
         Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
             new InputListener() {
-                public void onInput(float[] v) {
-                    System.out.println("in onInput(): "+Arrays.toString(v));
+                public void onInput(Mapper.Device.Signal sig,
+                                    Mapper.Db.Signal props,
+                                    float[] v) {
+                    System.out.println("in onInput() for "
+                                       +props.name()+": "
+                                       +Arrays.toString(v));
                 }});
 
         System.out.println("Input signal name: "+inp1.name());

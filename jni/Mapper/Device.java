@@ -55,10 +55,6 @@ public class Device
             checkDevice();
             msig_set_query_callback(_signal, handler);
         }
-        public Mapper.Db.Signal properties() {
-            checkDevice();
-            return new Mapper.Db.Signal(msig_properties(_signal), this);
-        }
         public void set_property(String property, PropertyValue p)
         {
             checkDevice();
@@ -87,7 +83,7 @@ public class Device
         private native void msig_set_maximum(long sig, Double maximum);
         private native void msig_set_rate(long sig, double rate);
         private native void msig_set_query_callback(long sig, InputListener handler);
-        private native long msig_properties(long sig);
+        public native Mapper.Db.Signal properties();
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
         private native void msig_remove_property(long sig, String property);
@@ -145,24 +141,6 @@ public class Device
         private Device _device;
         private Integer _index;
     };
-
-    public Signal add_input(String name, int length, char type,
-                            String unit, Double minimum,
-                            Double maximum, InputListener handler)
-    {
-        long msig = mdev_add_input(_device, name, length, type, unit,
-                                   minimum, maximum, handler);
-        return msig==0 ? null : new Signal(msig, this);
-    }
-
-    public Signal add_output(String name, int length, char type,
-                             String unit, Double minimum,
-                             Double maximum)
-    {
-        long msig = mdev_add_output(_device, name, length, type, unit,
-                                    minimum, maximum);
-        return msig==0 ? null : new Signal(msig, this);
-    }
 
     public void remove_input(Signal sig)
     {
@@ -296,13 +274,6 @@ public class Device
     private native long mdev_new(String name, int port);
     private native void mdev_free(long _d);
     private native int mdev_poll(long _d, int timeout);
-    private native long mdev_add_input(long _d, String name, int length,
-                                       char type, String unit,
-                                       Double minimum, Double maximum,
-                                       InputListener handler);
-    private native long mdev_add_output(long _d, String name, int length,
-                                        char type, String unit,
-                                        Double minimum, Double maximum);
     private native void mdev_remove_input(long _d, long _sig);
     private native void mdev_remove_output(long _d, long _sig);
     private native int mdev_num_inputs(long _d);
@@ -329,6 +300,15 @@ public class Device
     private native int mdev_id(long _d);
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);
+
+    public native Signal add_input(String name, int length,
+                                   char type, String unit,
+                                   Double minimum, Double maximum,
+                                   InputListener handler);
+
+    public native Signal add_output(String name, int length,
+                                    char type, String unit,
+                                    Double minimum, Double maximum);
 
     private long _device;
     public boolean valid() {
