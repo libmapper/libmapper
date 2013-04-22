@@ -51,10 +51,6 @@ public class Device
             checkDevice();
             msig_set_rate(_signal, rate);
         }
-        public void set_query_callback(InputListener handler) {
-            checkDevice();
-            msig_set_query_callback(_signal, handler);
-        }
         public void set_property(String property, PropertyValue p)
         {
             checkDevice();
@@ -82,7 +78,6 @@ public class Device
         private native void msig_set_minimum(long sig, Double minimum);
         private native void msig_set_maximum(long sig, Double maximum);
         private native void msig_set_rate(long sig, double rate);
-        private native void msig_set_query_callback(long sig, InputListener handler);
         public native Mapper.Db.Signal properties();
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
