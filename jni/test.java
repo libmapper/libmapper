@@ -77,7 +77,7 @@ class test {
             System.out.println("Signal has no value.");
 
         // Just to test vector-valued signal and timetag support,
-        out1.update(new int []{i}, TimeTag.IMMEDIATE);
+        out1.update(new int []{i}, TimeTag.NOW);
 
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
