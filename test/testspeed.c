@@ -183,7 +183,7 @@ void ctrlc(int sig)
 void switch_modes()
 {
     int i;
-    // possible modes: bypass/expression/calibrate, clipmodes, instances, instance-stealing
+    // possible modes: bypass/expression/calibrate, boundary actions, instances, instance-stealing
     printf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
     times[mode*numTrials+trial] = get_current_time() - times[mode*numTrials+trial];

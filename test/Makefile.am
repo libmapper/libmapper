@@ -7,11 +7,10 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testdb testexpression testinstance \
-				  testlinear testmany testmonitor testparams testparser \
-				  testprops testqueue testquery testrate testrecv \
-				  testreverse testsend testspeed testsync testvector \
-				  testselect
+noinst_PROGRAMS = test testadmin testcustomtransport testdb testexpression \
+                  testinstance testlinear testmany testmonitor testparams \
+                  testparser testprops testqueue testquery testrate testrecv \
+                  testreverse testselect testsend testspeed testsync testvector
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -20,6 +19,10 @@ test_LDADD = $(TEST_LDADD)
 testadmin_CFLAGS = $(TEST_CFLAGS)
 testadmin_SOURCES = testadmin.c
 testadmin_LDADD = $(TEST_LDADD)
+
+testcustomtransport_CFLAGS = $(TEST_CFLAGS)
+testcustomtransport_SOURCES = testcustomtransport.c
+testcustomtransport_LDADD = $(TEST_LDADD)
 
 testdb_CFLAGS = $(TEST_CFLAGS)
 testdb_SOURCES = testdb.c
@@ -77,6 +80,10 @@ testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c
 testreverse_LDADD = $(TEST_LDADD)
 
+testselect_CFLAGS = $(TEST_CFLAGS)
+testselect_SOURCES = testselect.c
+testselect_LDADD = $(TEST_LDADD)
+
 testsend_CFLAGS = $(TEST_CFLAGS)
 testsend_SOURCES = testsend.c
 testsend_LDADD = $(TEST_LDADD)
@@ -92,7 +99,3 @@ testsync_LDADD = $(TEST_LDADD)
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
-
-testselect_CFLAGS = $(TEST_CFLAGS)
-testselect_SOURCES = testselect.c
-testselect_LDADD = $(TEST_LDADD)
