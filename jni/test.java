@@ -18,7 +18,7 @@ class test {
                     }
             });
 
-        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'i', "Hz", 2.0, null,
             new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
@@ -32,7 +32,7 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
 
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
@@ -84,6 +84,11 @@ class test {
 
         // Just to test vector-valued signal and timetag support,
         out1.update(new int []{i}, TimeTag.NOW);
+
+        // Test instances
+        out1.start_new_instance(10);
+        out1.update_instance(10, -8);
+        out1.release_instance(10);
 
         while (i >= 0) {
             System.out.print("Updated value to: " + i);

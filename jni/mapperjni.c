@@ -1089,6 +1089,168 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3D
         (env, obj, value, NULL);
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IILMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jint value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    if (props->type == 'i')
+        msig_update_instance(sig, id, &value, 1, ptt ? *ptt : MAPPER_NOW);
+    else if (props->type == 'f') {
+        float v = (float)value;
+        msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IFLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jfloat value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    if (props->type == 'i')
+        throwIllegalArgumentTruncate(env, sig);
+    else if (props->type == 'f') {
+        msig_update_instance(sig, id, &value, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IDLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jdouble value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    if (props->length != 1) {
+        throwIllegalArgumentLength(env, sig, 1);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    if (props->type == 'i')
+        throwIllegalArgumentTruncate(env, sig);
+    else if (props->type == 'f') {
+        float v = (float)value;
+        msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3ILMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jintArray value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    jint *array = (*env)->GetIntArrayElements(env, value, 0);
+    if (array) {
+        if (props->type == 'i') {
+            msig_update(sig, array, 0, MAPPER_NOW);
+        }
+        else if (props->type == 'f') {
+            float *arraycopy = malloc(sizeof(float)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (float)array[i];
+            msig_update_instance(sig, id, arraycopy, 0,
+                                 ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
+        (*env)->ReleaseIntArrayElements(env, value, array, JNI_ABORT);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3FLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jfloatArray value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+    if (props->type != 'f') {
+        throwIllegalArgumentTruncate(env, sig);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    jfloat *array = (*env)->GetFloatArrayElements(env, value, 0);
+    if (array) {
+        msig_update_instance(sig, id, array, 0, ptt ? *ptt : MAPPER_NOW);
+        (*env)->ReleaseFloatArrayElements(env, value, array, JNI_ABORT);
+    }
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3DLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jdoubleArray value, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
+    mapper_db_signal props = msig_properties(sig);
+    int length = (*env)->GetArrayLength(env, value);
+    if (length != props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return;
+    }
+    if (props->type != 'f') {
+        throwIllegalArgumentTruncate(env, sig);
+        return;
+    }
+
+    mapper_timetag_t tt, *ptt;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+
+    jdouble *array = (*env)->GetDoubleArrayElements(env, value, 0);
+    if (array) {
+        float *arraycopy = malloc(sizeof(float)*length);
+        int i;
+        for (i=0; i<length; i++)
+            arraycopy[i] = (float)array[i];
+        (*env)->ReleaseDoubleArrayElements(env, value, array, JNI_ABORT);
+        msig_update_instance(sig, id, arraycopy, 0,
+                             ptt ? *ptt : MAPPER_NOW);
+        free(arraycopy);
+    }
+}
+
 JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_value___3ILMapper_TimeTag_2
   (JNIEnv *env, jobject obj, jintArray ar, jobject objtt)
 {

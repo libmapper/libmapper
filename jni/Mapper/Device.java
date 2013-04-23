@@ -122,6 +122,32 @@ public class Device
         public native void update(float[] value, TimeTag tt);
         public native void update(double[] value, TimeTag tt);
 
+        public void update_instance(int instance_id, int value)
+            { update_instance(instance_id, value, null); }
+        public void update_instance(int instance_id, float value)
+            { update_instance(instance_id, value, null); }
+        public void update_instance(int instance_id, double value)
+            { update_instance(instance_id, value, null); }
+        public void update_instance(int instance_id, int[] value)
+            { update_instance(instance_id, value, null); }
+        public void update_instance(int instance_id, float[] value)
+            { update_instance(instance_id, value, null); }
+        public void update_instance(int instance_id, double[] value)
+            { update_instance(instance_id, value, null); }
+
+        public native void update_instance(int instance_id,
+                                           int value, TimeTag tt);
+        public native void update_instance(int instance_id,
+                                           float value, TimeTag tt);
+        public native void update_instance(int instance_id,
+                                           double value, TimeTag tt);
+        public native void update_instance(int instance_id,
+                                           int[] value, TimeTag tt);
+        public native void update_instance(int instance_id,
+                                           float[] value, TimeTag tt);
+        public native void update_instance(int instance_id,
+                                           double[] value, TimeTag tt);
+
         public native boolean value(int[] value, TimeTag tt);
         public native boolean value(float[] value, TimeTag tt);
         public native boolean value(double[] value, TimeTag tt);
