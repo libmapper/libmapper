@@ -187,7 +187,7 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
         vobj = (jobject) varr;
     }
 
-    if (!vobj) {
+    if (!vobj && v) {
         char msg[1024];
         snprintf(msg, 1024,
                  "Unknown signal type for %s in callback handler (%c,%d).",
