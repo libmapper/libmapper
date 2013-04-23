@@ -18,7 +18,7 @@ class test {
                     }
             });
 
-        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'i', "Hz", 2.0, null,
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
             new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
