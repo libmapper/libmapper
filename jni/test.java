@@ -87,6 +87,18 @@ class test {
         out1.update(new int []{i}, TimeTag.NOW);
 
         // Test instances
+        out1.set_instance_callback(new InstanceEventListener() {
+                public void onEvent(Mapper.Device.Signal sig,
+                                    Mapper.Db.Signal props,
+                                    int instance_id,
+                                    int event)
+                    {
+                        System.out.println("Instance "
+                                           + instance_id
+                                           + " event " + event);
+                    }
+            }, InstanceEventListener.IN_ALL);
+
         out1.start_new_instance(10);
         out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
