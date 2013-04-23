@@ -87,7 +87,7 @@ class test {
         out1.update(new int []{i}, TimeTag.NOW);
 
         // Test instances
-        out1.set_instance_callback(new InstanceEventListener() {
+        out1.set_instance_event_callback(new InstanceEventListener() {
                 public void onEvent(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
@@ -120,14 +120,23 @@ class test {
         out2.instance_value(20, new double[]{0});
         out2.release_instance(20);
 
-        System.out.println(inp1.name() + " instance 10 data is "
-                           + (Double)inp1.instance_data(10));
-        inp1.set_instance_data(10, new Double(15.0));
-        System.out.println(inp1.name() + " instance 10 data is "
-                           + (Double)inp1.instance_data(10));
-        inp1.set_instance_data(10, null);
-        System.out.println(inp1.name() + " instance 10 data is "
-                           + (Double)inp1.instance_data(10));
+        System.out.println(inp1.name() + " instance 10 cb is "
+                           + inp1.get_instance_callback(10));
+        inp1.set_instance_callback(10, new InputListener() {
+                public void onInput(Mapper.Device.Signal sig,
+                                    Mapper.Db.Signal props,
+                                    int instance_id,
+                                    float[] v,
+                                    TimeTag tt) {
+                    System.out.println("in onInput() for "
+                                       +props.name()+" instance 10: "
+                                       +Arrays.toString(v));
+                }});
+        System.out.println(inp1.name() + " instance 10 cb is "
+                           + inp1.get_instance_callback(10));
+        inp1.set_instance_callback(10, null);
+        System.out.println(inp1.name() + " instance 10 cb is "
+                           + inp1.get_instance_callback(10));
 
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
