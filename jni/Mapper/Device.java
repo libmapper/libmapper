@@ -152,6 +152,13 @@ public class Device
         public native boolean value(float[] value, TimeTag tt);
         public native boolean value(double[] value, TimeTag tt);
 
+        public boolean value(int[] value)
+            { return value(value, null); }
+        public boolean value(float[] value)
+            { return value(value, null); }
+        public boolean value(double[] value)
+            { return value(value, null); }
+
         public int index()
         {
             checkDevice();
