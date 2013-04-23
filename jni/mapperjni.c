@@ -52,6 +52,17 @@ static void throwIllegalArgumentLength(JNIEnv *env, mapper_signal sig, int al)
     }
 }
 
+static void throwIllegalArgumentSignal(JNIEnv *env)
+{
+    jclass newExcCls =
+        (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (newExcCls) {
+        (*env)->ThrowNew(env, newExcCls,
+                         "Signal object is not associated with "
+                         "a mapper_signal.");
+    }
+}
+
 static void throwOutOfMemory(JNIEnv *env)
 {
     jclass newExcCls =
@@ -87,6 +98,7 @@ static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
             return (mapper_signal)ptr_jlong(s);
         }
     }
+    throwIllegalArgumentSignal(env);
     return 0;
 }
 
@@ -828,6 +840,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_properties
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
     mapper_db_signal props = msig_properties(sig);
     msig_jni_context ctx = (msig_jni_context)props->user_data;
     return ctx->db_signal;
@@ -1749,6 +1762,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1callback
   (JNIEnv *env, jobject obj, jobject handler, jint flags)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
     mapper_db_signal props = msig_properties(sig);
     msig_jni_context ctx = (msig_jni_context)props->user_data;
 
@@ -1770,6 +1785,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1callback
   (JNIEnv *env, jobject obj, jobject handler)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+
     mapper_db_signal props = msig_properties(sig);
     msig_jni_context ctx = (msig_jni_context)props->user_data;
     if (ctx->listener)
@@ -1788,6 +1805,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_start_1new_1instance
   (JNIEnv *env, jobject obj, jint instance_id)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
     msig_start_new_instance(sig, instance_id);
 }
 
@@ -1795,6 +1813,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
   (JNIEnv *env, jobject obj, jint instance_id, jobject objtt)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
     mapper_timetag_t tt, *ptt=0;
     ptt = get_timetag_from_jobject(env, objtt, &tt);
     msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
@@ -1805,6 +1824,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_match_1instances
 {
     mapper_signal sigfrom = get_signal_from_jobject(env, from);
     mapper_signal sigto = get_signal_from_jobject(env, to);
+    if (!sigto || !sigfrom) return;
+
     msig_match_instances(sigfrom, sigto, instance_id);
 }
 
@@ -1812,6 +1833,7 @@ JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
     return msig_num_active_instances(sig);
 }
 
@@ -1819,6 +1841,7 @@ JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1reserved_1instances
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
     return msig_num_reserved_instances(sig);
 }
 
@@ -1826,6 +1849,7 @@ JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_active_1instance_1id
   (JNIEnv *env, jobject obj, jint index)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
     return msig_active_instance_id(sig, index);
 }
 
@@ -1833,5 +1857,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1allocation_
   (JNIEnv *env, jobject obj, jint mode)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
     return msig_set_instance_allocation_mode(sig, mode);
 }
