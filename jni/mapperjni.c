@@ -1390,7 +1390,170 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_value___3DLMapper_Time
             if (!value) {
                 (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
                 return JNI_FALSE;
-            }            
+            }
+            for (i=0; i < props->length; i++)
+                array[i] = (jdouble)value[i];
+        } break;
+        }
+
+        (*env)->ReleaseDoubleArrayElements(env, ar, array, 0);
+    }
+
+    if (objtt) {
+        jclass cls = (*env)->GetObjectClass(env, objtt);
+        if (cls) {
+            jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
+            jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
+            if (sec && frac) {
+                (*env)->SetLongField(env, objtt, sec, tt.sec);
+                (*env)->SetLongField(env, objtt, frac, tt.frac);
+            }
+        }
+    }
+
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_instance_1value__I_3ILMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jintArray ar, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return JNI_FALSE;
+    mapper_db_signal props = msig_properties(sig);
+    mapper_timetag_t tt;
+
+    int length = (*env)->GetArrayLength(env, ar);
+    if (length < props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return JNI_FALSE;
+    }
+    if (props->type != 'i') {
+        throwIllegalArgumentTruncate(env, sig);
+        return JNI_FALSE;
+    }
+
+    int *value = msig_instance_value(sig, id, &tt);
+    if (!value)
+        return JNI_FALSE;
+
+    jint *array = (*env)->GetIntArrayElements(env, ar, 0);
+    if (array) {
+        int i;
+        for (i=0; i < props->length; i++)
+            array[i] = (jint)value[i];
+        (*env)->ReleaseIntArrayElements(env, ar, array, 0);
+    }
+
+    if (objtt) {
+        jclass cls = (*env)->GetObjectClass(env, objtt);
+        if (cls) {
+            jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
+            jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
+            if (sec && frac) {
+                (*env)->SetLongField(env, objtt, sec, tt.sec);
+                (*env)->SetLongField(env, objtt, frac, tt.frac);
+            }
+        }
+    }
+
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_instance_1value__I_3FLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jfloatArray ar, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return JNI_FALSE;
+    mapper_db_signal props = msig_properties(sig);
+    mapper_timetag_t tt;
+
+    int length = (*env)->GetArrayLength(env, ar);
+    if (length < props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return JNI_FALSE;
+    }
+
+    jfloat *array = (*env)->GetFloatArrayElements(env, ar, 0);
+    if (array)
+    {
+        int i;
+        switch (props->type)
+        {
+        case 'i': {
+            int *value = msig_instance_value(sig, id, &tt);
+            if (!value) {
+                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                return JNI_FALSE;
+            }
+            for (i=0; i < props->length; i++)
+                array[i] = (jfloat)value[i];
+        } break;
+
+        case 'f': {
+            float *value = msig_instance_value(sig, id, &tt);
+            if (!value) {
+                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                return JNI_FALSE;
+            }
+            for (i=0; i < props->length; i++)
+                array[i] = (jfloat)value[i];
+        } break;
+        }
+
+        (*env)->ReleaseFloatArrayElements(env, ar, array, 0);
+    }
+
+    if (objtt) {
+        jclass cls = (*env)->GetObjectClass(env, objtt);
+        if (cls) {
+            jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
+            jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
+            if (sec && frac) {
+                (*env)->SetLongField(env, objtt, sec, tt.sec);
+                (*env)->SetLongField(env, objtt, frac, tt.frac);
+            }
+        }
+    }
+
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_instance_1value__I_3DLMapper_TimeTag_2
+  (JNIEnv *env, jobject obj, jint id, jdoubleArray ar, jobject objtt)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return JNI_FALSE;
+    mapper_db_signal props = msig_properties(sig);
+    mapper_timetag_t tt;
+
+    int length = (*env)->GetArrayLength(env, ar);
+    if (length < props->length) {
+        throwIllegalArgumentLength(env, sig, length);
+        return JNI_FALSE;
+    }
+
+    jdouble *array = (*env)->GetDoubleArrayElements(env, ar, 0);
+    if (array)
+    {
+        int i;
+        switch (props->type)
+        {
+        case 'i': {
+            int *value = msig_instance_value(sig, id, &tt);
+            if (!value) {
+                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                return JNI_FALSE;
+            }
+            for (i=0; i < props->length; i++)
+                array[i] = (jdouble)value[i];
+        } break;
+
+        case 'f': {
+            float *value = msig_instance_value(sig, id, &tt);
+            if (!value) {
+                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                return JNI_FALSE;
+            }
             for (i=0; i < props->length; i++)
                 array[i] = (jdouble)value[i];
         } break;

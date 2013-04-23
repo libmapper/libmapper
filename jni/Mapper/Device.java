@@ -159,6 +159,20 @@ public class Device
         public boolean value(double[] value)
             { return value(value, null); }
 
+        public native boolean instance_value(int instance_id,
+                                             int[] value, TimeTag tt);
+        public native boolean instance_value(int instance_id,
+                                             float[] value, TimeTag tt);
+        public native boolean instance_value(int instance_id,
+                                             double[] value, TimeTag tt);
+
+        public boolean instance_value(int instance_id, int[] value)
+            { return instance_value(instance_id, value, null); }
+        public boolean instance_value(int instance_id, float[] value)
+            { return instance_value(instance_id, value, null); }
+        public boolean instance_value(int instance_id, double[] value)
+            { return instance_value(instance_id, value, null); }
+
         public int index()
         {
             checkDevice();

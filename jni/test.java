@@ -32,7 +32,8 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.add_output("outsig1", 1, 'f', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
+        Signal out2 = dev.add_output("outsig2", 1, 'f', "Hz", 0.0, 1.0);
 
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
@@ -88,7 +89,18 @@ class test {
         // Test instances
         out1.start_new_instance(10);
         out1.update_instance(10, -8);
+        out1.update_instance(10, new int[]{-8});
+        out1.instance_value(10, new int[]{0});
         out1.release_instance(10);
+
+        out2.start_new_instance(20);
+        out2.update_instance(20, 14.2f);
+        out2.update_instance(20, new float[]{21.9f});
+        out2.instance_value(20, new float[]{0});
+        out2.update_instance(20, 12.3);
+        out2.update_instance(20, new double[]{48.12});
+        out2.instance_value(20, new double[]{0});
+        out2.release_instance(20);
 
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
