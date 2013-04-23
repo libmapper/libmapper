@@ -412,7 +412,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
     }
 
     msig_jni_context ctx =
-        (msig_jni_context)malloc(sizeof(msig_jni_context));
+        (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
     if (!ctx) {
         throwOutOfMemory(env);
         return 0;
