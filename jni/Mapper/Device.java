@@ -25,10 +25,10 @@ public class Device
 
         /*! Describes the voice-stealing mode for instances.
          *  Arguments to set_instance_allocation_mode(). */
-        public final int IN_UNDEFINED = 1;
-        public final int IN_STEAL_OLDEST = 2;
-        public final int IN_STEAL_NEWEST = 3;
-        public final int N_MAPPER_INSTANCE_ALLOCATION_TYPES = 4;
+        public static final int IN_UNDEFINED = 1;
+        public static final int IN_STEAL_OLDEST = 2;
+        public static final int IN_STEAL_NEWEST = 3;
+        public static final int N_MAPPER_INSTANCE_ALLOCATION_TYPES = 4;
 
         private Signal(long s, Device d) { _signal = s; _device = d; }
 
