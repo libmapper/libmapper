@@ -239,7 +239,7 @@ static void msig_instance_management_cb(mapper_signal sig,
             jmethodID mid=0;
             mid = (*genv)->GetMethodID(genv, cls, "onEvent",
                                        "(LMapper/Device$Signal;"
-                                       "IILMapper/Db/Signal;II)V");
+                                       "LMapper/Db/Signal;II)V");
 
             if (mid) {
                 (*genv)->CallVoidMethod(genv, ctx->instanceHandler, mid,
