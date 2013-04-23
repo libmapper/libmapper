@@ -157,10 +157,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1free
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
 
-    /* Free all references to registered listener objects. */
-    int i, n = mdev_num_inputs(dev);
-    for (i=0; i<n; i++) {
-        mapper_signal sig = mdev_get_input_by_index(dev, i);
+    /* Free all references to Java objects. */
+    int i, n = mdev_num_inputs(dev), m = mdev_num_outputs(dev);
+    for (i=0; i<n+m; i++) {
+        mapper_signal sig;
+        if (i<n)
+            sig = mdev_get_input_by_index(dev, i);
+        else
+            sig = mdev_get_output_by_index(dev, i-n);
         mapper_db_signal props = msig_properties(sig);
         msig_jni_context ctx = (msig_jni_context)props->user_data;
         if (ctx->listener)
