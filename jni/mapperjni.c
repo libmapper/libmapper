@@ -200,6 +200,23 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
         return;
     }
 
+    jobject objtt = 0;
+    if (tt) {
+        jclass cls = (*genv)->FindClass(genv, "Mapper/TimeTag");
+        if (cls) {
+            jmethodID cons = (*genv)->GetMethodID(genv, cls,
+                                                  "<init>", "(JJ)V");
+            if (cons) {
+                objtt = (*genv)->NewObject(genv, cls, cons,
+                                           tt->sec, tt->frac);
+            }
+            else {
+                printf("Error looking up TimeTag constructor.\n");
+                exit(1);
+            }
+        }
+    }
+
     msig_jni_context ctx = (msig_jni_context)props->user_data;
     if (ctx->listener && ctx->signal && ctx->db_signal) {
         jclass cls = (*genv)->GetObjectClass(genv, ctx->listener);
@@ -221,7 +238,7 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
             if (mid) {
                 (*genv)->CallVoidMethod(genv, ctx->listener, mid,
                                         ctx->signal, ctx->db_signal,
-                                        instance_id, vobj, 0 /*TODO*/);
+                                        instance_id, vobj, objtt);
                 if ((*genv)->ExceptionOccurred(genv))
                     bailing = 1;
             }
@@ -234,6 +251,8 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
 
     if (vobj)
         (*genv)->DeleteLocalRef(genv, vobj);
+    if (objtt)
+        (*genv)->DeleteLocalRef(genv, objtt);
 }
 
 static void msig_instance_management_cb(mapper_signal sig,
