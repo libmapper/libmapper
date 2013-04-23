@@ -107,6 +107,7 @@ public class Device
         public native int num_reserved_instances();
         public native int active_instance_id(int index);
         public native void set_instance_allocation_mode(int mode);
+        public native int instance_allocation_mode();
 
         public native void update(int value);
         public native void update(float value);

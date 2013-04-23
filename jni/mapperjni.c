@@ -1886,5 +1886,13 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1allocation_
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     if (!sig) return;
-    return msig_set_instance_allocation_mode(sig, mode);
+    msig_set_instance_allocation_mode(sig, mode);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_instance_1allocation_1mode
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
+    return msig_get_instance_allocation_mode(sig);
 }

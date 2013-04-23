@@ -99,6 +99,12 @@ class test {
                     }
             }, InstanceEventListener.IN_ALL);
 
+        System.out.println(inp1.name() + " allocation mode: "
+                           + inp1.instance_allocation_mode());
+        inp1.set_instance_allocation_mode(Device.Signal.IN_STEAL_NEWEST);
+        System.out.println(inp1.name() + " allocation mode: "
+                           + inp1.instance_allocation_mode());
+
         out1.reserve_instances(3);
         out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
