@@ -1470,7 +1470,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     mapper_timetag_t tt, *ptt=0;
-    ptt = get_timetag_from_jobject(env, obj, &tt);
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
     msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
 }
 
