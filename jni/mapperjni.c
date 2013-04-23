@@ -174,13 +174,13 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
         return;
 
     jobject vobj = 0;
-    if (props->type == 'f') {
+    if (props->type == 'f' && v) {
         jfloatArray varr = (*genv)->NewFloatArray(genv, props->length);
         if (varr)
             (*genv)->SetFloatArrayRegion(genv, varr, 0, props->length, v);
         vobj = (jobject) varr;
     }
-    else if (props->type == 'i') {
+    else if (props->type == 'i' && v) {
         jintArray varr = (*genv)->NewIntArray(genv, props->length);
         if (varr)
             (*genv)->SetIntArrayRegion(genv, varr, 0, props->length, v);
