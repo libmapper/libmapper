@@ -1829,6 +1829,27 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1callback
     }
 }
 
+
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1data
+  (JNIEnv *env, jobject obj, jint instance_id, jobject data)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+    jobject prev = (jobject)msig_get_instance_data(sig, instance_id);
+    if (prev)
+        (*env)->DeleteGlobalRef(env, prev);
+    msig_set_instance_data(sig, instance_id,
+                           data ? (*env)->NewGlobalRef(env, data) : 0);
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_instance_1data
+  (JNIEnv *env, jobject obj, jint instance_id)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
+    return (jobject)msig_get_instance_data(sig, instance_id);
+}
+
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_reserve_1instances
   (JNIEnv *env, jobject obj, jint num)
 {

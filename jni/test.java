@@ -120,6 +120,15 @@ class test {
         out2.instance_value(20, new double[]{0});
         out2.release_instance(20);
 
+        System.out.println(inp1.name() + " instance 10 data is "
+                           + (Double)inp1.instance_data(10));
+        inp1.set_instance_data(10, new Double(15.0));
+        System.out.println(inp1.name() + " instance 10 data is "
+                           + (Double)inp1.instance_data(10));
+        inp1.set_instance_data(10, null);
+        System.out.println(inp1.name() + " instance 10 data is "
+                           + (Double)inp1.instance_data(10));
+
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
 

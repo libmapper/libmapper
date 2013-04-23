@@ -96,6 +96,10 @@ public class Device
                                                  int flags);
         public native void set_callback(InputListener handler);
 
+        public native void set_instance_data(int instance_id,
+                                             Object data);
+        public native Object instance_data(int instance_id);
+
         public native void reserve_instances(int num);
         public native void release_instance(int instance_id, TimeTag tt);
         public void release_instance(int instance_id)
