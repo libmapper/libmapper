@@ -119,6 +119,27 @@ static mapper_timetag_t *get_timetag_from_jobject
     return 0;
 }
 
+static jobject get_jobject_from_timetag
+  (JNIEnv *env, mapper_timetag_t *tt)
+{
+    jobject objtt = 0;
+    if (tt) {
+        jclass cls = (*genv)->FindClass(genv, "Mapper/TimeTag");
+        if (cls) {
+            jmethodID cons = (*genv)->GetMethodID(genv, cls,
+                                                  "<init>", "(JJ)V");
+            if (cons) {
+                objtt = (*genv)->NewObject(genv, cls, cons,
+                                           tt->sec, tt->frac);
+            }
+            else {
+                printf("Error looking up TimeTag constructor.\n");
+                exit(1);
+            }
+        }
+    }
+    return objtt;
+}
 
 /**** Mapper.Device ****/
 
@@ -200,22 +221,7 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
         return;
     }
 
-    jobject objtt = 0;
-    if (tt) {
-        jclass cls = (*genv)->FindClass(genv, "Mapper/TimeTag");
-        if (cls) {
-            jmethodID cons = (*genv)->GetMethodID(genv, cls,
-                                                  "<init>", "(JJ)V");
-            if (cons) {
-                objtt = (*genv)->NewObject(genv, cls, cons,
-                                           tt->sec, tt->frac);
-            }
-            else {
-                printf("Error looking up TimeTag constructor.\n");
-                exit(1);
-            }
-        }
-    }
+    jobject objtt = get_jobject_from_timetag(genv, tt);
 
     msig_jni_context ctx = (msig_jni_context)props->user_data;
     if (ctx->listener && ctx->signal && ctx->db_signal) {
@@ -258,10 +264,13 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
 static void msig_instance_management_cb(mapper_signal sig,
                                         mapper_db_signal props,
                                         int instance_id,
-                                        msig_instance_event_t event)
+                                        msig_instance_event_t event,
+                                        mapper_timetag_t *tt)
 {
     if (bailing)
         return;
+
+    jobject objtt = get_jobject_from_timetag(genv, tt);
 
     msig_jni_context ctx = (msig_jni_context)props->user_data;
     if (ctx->instanceHandler && ctx->signal && ctx->db_signal) {
@@ -270,12 +279,13 @@ static void msig_instance_management_cb(mapper_signal sig,
             jmethodID mid=0;
             mid = (*genv)->GetMethodID(genv, cls, "onEvent",
                                        "(LMapper/Device$Signal;"
-                                       "LMapper/Db/Signal;II)V");
+                                       "LMapper/Db/Signal;II"
+                                       "LMapper/TimeTag;)V");
 
             if (mid) {
                 (*genv)->CallVoidMethod(genv, ctx->instanceHandler, mid,
                                         ctx->signal, ctx->db_signal,
-                                        instance_id, event);
+                                        instance_id, event, objtt);
                 if ((*genv)->ExceptionOccurred(genv))
                     bailing = 1;
             }
@@ -285,6 +295,9 @@ static void msig_instance_management_cb(mapper_signal sig,
             }
         }
     }
+
+    if (objtt)
+        (*genv)->DeleteLocalRef(genv, objtt);
 }
 
 static jobject create_signal_object(JNIEnv *env, jobject devobj,
@@ -1810,14 +1823,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1callback
         ctx->listener = 0;
         msig_set_callback(sig, 0, 0);
     }
-}
-
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_start_1new_1instance
-  (JNIEnv *env, jobject obj, jint instance_id)
-{
-    mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig) return;
-    msig_start_new_instance(sig, instance_id);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance

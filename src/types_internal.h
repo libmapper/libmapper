@@ -31,7 +31,7 @@ typedef struct _mapper_expr *mapper_expr;
 
 struct _mapper_admin_allocated_t;
 struct _mapper_device;
-struct _mapper_instance_map;
+struct _mapper_id_map;
 
 /**** String tables ****/
 
@@ -144,10 +144,6 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-/*! Bit flags for indicating routing configuration. */
-#define FLAGS_SEND_IMMEDIATELY  0x01
-#define FLAGS_IS_NEW_INSTANCE   0x02
-
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
@@ -205,60 +201,19 @@ typedef struct _mapper_link {
 
 /**** Device ****/
 
-typedef struct _mapper_device {
-    /*! Prefix for the name of this device.  It gets a unique ordinal
-     *  appended to it to differentiate from other devices of the same
-     *  name. */
-    char *name_prefix;
-
-    /*! Non-zero if this device is the sole owner of this admin, i.e.,
-     *  it was created during mdev_new() and should be freed during
-     *  mdev_free(). */
-    int own_admin;
-
-    mapper_admin admin;
-    struct _mapper_signal **inputs;
-    struct _mapper_signal **outputs;
-    int n_inputs;
-    int n_outputs;
-    int n_alloc_inputs;
-    int n_alloc_outputs;
-    int n_output_callbacks;
-    int n_links_in;
-    int n_links_out;
-    int version;
-    int flags;    /*!< Bitflags indicating if information has already been
-                   *   sent in a given polling step. */
-    mapper_router routers;
-    mapper_receiver receivers;
-
-    /*!< The list of active instance id mappings. */
-    struct _mapper_instance_id_map *active_id_map;
-
-    /*!< The list of reserve instance id mappings. */
-    struct _mapper_instance_id_map *reserve_id_map;
-
-    uint32_t id_counter;
-
-    /*! Server used to handle incoming messages.  NULL until at least
-     *  one input has been registered and the incoming port has been
-     *  allocated. */
-    lo_server server;
-
-    /*! Extra properties associated with this device. */
-    struct _mapper_string_table *extra;
-} *mapper_device;
-
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
-typedef struct _mapper_instance_id_map {
+typedef struct _mapper_id_map {
     int local;                              //!< Local instance id to map.
     uint32_t group;                         //!< Link group id.
     uint32_t remote;                        //!< Remote instance id to map.
-    int reference_count;
-    uint32_t release_time;
-    struct _mapper_instance_id_map *next;   //!< The next id map in the list.
-} *mapper_instance_id_map;
+    int refcount_local;
+    int refcount_remote;
+    struct _mapper_id_map *next;   //!< The next id map in the list.
+} *mapper_id_map;
+
+struct _mapper_device;
+typedef struct _mapper_device *mapper_device;
 
 /*! Bit flags indicating if information has already been
  *  sent in a given polling step. */
@@ -308,9 +263,10 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_CLIP_MAX,
-    AT_CLIP_MIN,
+    AT_BOUND_MAX,
+    AT_BOUND_MIN,
     AT_DEST_LENGTH,
+    AT_DEST_PORT,
     AT_DEST_TYPE,
     AT_DIRECTION,
     AT_EXPRESSION,
@@ -336,6 +292,7 @@ typedef enum {
     AT_SCOPE,
     AT_SEND_AS_INSTANCE,
     AT_SRC_LENGTH,
+    AT_SRC_PORT,
     AT_SRC_TYPE,
     AT_TYPE,
     AT_UNITS,
@@ -349,9 +306,9 @@ typedef enum {
 /*! Strings that correspond to mapper_msg_param_t. */
 extern const char* mapper_msg_param_strings[];
 
-/*! Strings that correspond to mapper_clipping_type, defined in
+/*! Strings that correspond to mapper_boundary_action, defined in
  *  mapper_db.h. */
-extern const char* mapper_clipping_type_strings[];
+extern const char* mapper_boundary_action_strings[];
 
 /*! Strings that correspond to mapper_mode_type, defined in
  *  mapper_db.h. */

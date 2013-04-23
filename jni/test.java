@@ -99,13 +99,11 @@ class test {
                     }
             }, InstanceEventListener.IN_ALL);
 
-        out1.start_new_instance(10);
         out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
         out1.instance_value(10, new int[]{0});
         out1.release_instance(10);
 
-        out2.start_new_instance(20);
         out2.update_instance(20, 14.2f);
         out2.update_instance(20, new float[]{21.9f});
         out2.instance_value(20, new float[]{0});

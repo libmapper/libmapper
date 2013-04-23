@@ -53,9 +53,12 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
 
 void mapper_monitor_free(mapper_monitor mon)
 {
-    // TODO: free structures pointed to by the database
     if (!mon)
         return;
+
+    // remove callbacks now so they won't be called when removing devices
+    mapper_db_remove_all_callbacks(&mon->db);
+
     while (mon->db.registered_devices)
         mapper_db_remove_device_by_name(&mon->db, mon->db.registered_devices->name);
     if (mon->admin) {
@@ -554,10 +557,10 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
     if (props) {
         mapper_admin_send_osc( mon->admin, 0, "/connection/modify", "ss",
                                props->src_name, props->dest_name,
-                               (props_flags & CONNECTION_CLIP_MIN)
-                               ? AT_CLIP_MIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIP_MAX)
-                               ? AT_CLIP_MAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_BOUND_MIN)
+                               ? AT_BOUND_MIN : -1, props->bound_min,
+                               (props_flags & CONNECTION_BOUND_MAX)
+                               ? AT_BOUND_MAX : -1, props->bound_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)
@@ -578,10 +581,10 @@ void mapper_monitor_connect(mapper_monitor mon,
     if (props) {
         mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
                                source_signal, dest_signal,
-                               (props_flags & CONNECTION_CLIP_MIN)
-                               ? AT_CLIP_MIN : -1, props->clip_min,
-                               (props_flags & CONNECTION_CLIP_MAX)
-                               ? AT_CLIP_MAX : -1, props->clip_max,
+                               (props_flags & CONNECTION_BOUND_MIN)
+                               ? AT_BOUND_MIN : -1, props->bound_min,
+                               (props_flags & CONNECTION_BOUND_MAX)
+                               ? AT_BOUND_MAX : -1, props->bound_max,
                                (props_flags & CONNECTION_RANGE_KNOWN)
                                ? AT_RANGE : -1, &props->range,
                                (props_flags & CONNECTION_EXPRESSION)
