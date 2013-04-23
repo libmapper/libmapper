@@ -1745,12 +1745,13 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mapper_1db_1signal_1property_1lo
     return o;
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1event_1callback
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1callback
   (JNIEnv *env, jobject obj, jobject handler, jint flags)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     mapper_db_signal props = msig_properties(sig);
     msig_jni_context ctx = (msig_jni_context)props->user_data;
+
     if (ctx->instanceHandler)
         (*env)->DeleteGlobalRef(env, ctx->instanceHandler);
     if (handler) {
