@@ -143,6 +143,11 @@ class test {
         System.out.println("Number of connections from "
                            + out1.name() + ": " + out1.num_connections());
 
+        System.out.println(inp1.name() + " oldest instance is "
+                           + inp1.oldest_active_instance());
+        System.out.println(inp1.name() + " newest instance is "
+                           + inp1.newest_active_instance());
+
         dev.free();
     }
 }

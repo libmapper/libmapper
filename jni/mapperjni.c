@@ -1847,6 +1847,48 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
     msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
 }
 
+JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_oldest_1active_1instance
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
+    int i, r = msig_get_oldest_active_instance(sig, &i);
+    jobject iobj = 0;
+    if (r == 0) {
+        jclass cls = (*genv)->FindClass(genv, "java/lang/Integer");
+        if (cls) {
+            jmethodID cons = (*genv)->GetMethodID(genv, cls,
+                                                  "<init>", "(I)V");
+            if (cons) {
+                iobj = (*genv)->NewObject(genv, cls, cons, i);
+                return iobj;
+            }
+        }
+    }
+    return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_newest_1active_1instance
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
+    int i, r = msig_get_newest_active_instance(sig, &i);
+    jobject iobj = 0;
+    if (r == 0) {
+        jclass cls = (*genv)->FindClass(genv, "java/lang/Integer");
+        if (cls) {
+            jmethodID cons = (*genv)->GetMethodID(genv, cls,
+                                                  "<init>", "(I)V");
+            if (cons) {
+                iobj = (*genv)->NewObject(genv, cls, cons, i);
+                return iobj;
+            }
+        }
+    }
+    return 0;
+}
+
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_match_1instances
   (JNIEnv *env, jobject obj, jobject from, jobject to, jint instance_id)
 {

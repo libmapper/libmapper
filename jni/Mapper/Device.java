@@ -101,6 +101,9 @@ public class Device
         public void release_instance(int instance_id)
             { release_instance(instance_id, null); }
 
+        public native Integer oldest_active_instance();
+        public native Integer newest_active_instance();
+
         public native void match_instances(Signal from, Signal to,
                                            int instance_id);
         public native int num_active_instances();
