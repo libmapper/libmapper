@@ -109,6 +109,8 @@ public class Device
         public native void set_instance_allocation_mode(int mode);
         public native int instance_allocation_mode();
 
+        public native int num_connections();
+
         public native void update(int value);
         public native void update(float value);
         public native void update(double value);

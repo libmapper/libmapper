@@ -138,6 +138,11 @@ class test {
 
             out1.update(i);
         }
+
+        System.out.println();
+        System.out.println("Number of connections from "
+                           + out1.name() + ": " + out1.num_connections());
+
         dev.free();
     }
 }

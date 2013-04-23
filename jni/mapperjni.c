@@ -1896,3 +1896,11 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_instance_1allocation_1mode
     if (!sig) return 0;
     return msig_get_instance_allocation_mode(sig);
 }
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_num_1connections
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return 0;
+    return msig_num_connections(sig);
+}
