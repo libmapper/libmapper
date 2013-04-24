@@ -350,6 +350,8 @@ static PyObject *device_to_py(mapper_db_device_t *dev)
                 v = Py_BuildValue("f", value->f);
             else if (type=='d')
                 v = Py_BuildValue("d", value->d);
+            else if (type=='t')
+                v = Py_BuildValue("d", mapper_timetag_get_double(value->t));
             if (v) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
