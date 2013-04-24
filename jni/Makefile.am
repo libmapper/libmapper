@@ -39,5 +39,10 @@ test.class: test.java $(JCLASSES)
 
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
+	if mkdir -v TestInstances/code; then \
+	  cd TestInstances/code/; \
+	  ln -v -s ../../.libs/*.so .; \
+	  ln -v -s ../../$@; \
+	fi # For processing test sketch
 
 EXTRA_DIST = $(JJAVA) test.java $(JHEADERS)
