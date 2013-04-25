@@ -124,13 +124,13 @@ static jobject get_jobject_from_timetag
 {
     jobject objtt = 0;
     if (tt) {
-        jclass cls = (*genv)->FindClass(genv, "Mapper/TimeTag");
+        jclass cls = (*env)->FindClass(env, "Mapper/TimeTag");
         if (cls) {
-            jmethodID cons = (*genv)->GetMethodID(genv, cls,
-                                                  "<init>", "(JJ)V");
+            jmethodID cons = (*env)->GetMethodID(env, cls,
+                                                 "<init>", "(JJ)V");
             if (cons) {
-                objtt = (*genv)->NewObject(genv, cls, cons,
-                                           tt->sec, tt->frac);
+                objtt = (*env)->NewObject(env, cls, cons,
+                                          tt->sec, tt->frac);
             }
             else {
                 printf("Error looking up TimeTag constructor.\n");
@@ -1876,12 +1876,12 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_oldest_1active_1instanc
     int i, r = msig_get_oldest_active_instance(sig, &i);
     jobject iobj = 0;
     if (r == 0) {
-        jclass cls = (*genv)->FindClass(genv, "java/lang/Integer");
+        jclass cls = (*env)->FindClass(env, "java/lang/Integer");
         if (cls) {
-            jmethodID cons = (*genv)->GetMethodID(genv, cls,
+            jmethodID cons = (*env)->GetMethodID(env, cls,
                                                   "<init>", "(I)V");
             if (cons) {
-                iobj = (*genv)->NewObject(genv, cls, cons, i);
+                iobj = (*env)->NewObject(env, cls, cons, i);
                 return iobj;
             }
         }
@@ -1897,12 +1897,12 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_newest_1active_1instanc
     int i, r = msig_get_newest_active_instance(sig, &i);
     jobject iobj = 0;
     if (r == 0) {
-        jclass cls = (*genv)->FindClass(genv, "java/lang/Integer");
+        jclass cls = (*env)->FindClass(env, "java/lang/Integer");
         if (cls) {
-            jmethodID cons = (*genv)->GetMethodID(genv, cls,
-                                                  "<init>", "(I)V");
+            jmethodID cons = (*env)->GetMethodID(env, cls,
+                                                 "<init>", "(I)V");
             if (cons) {
-                iobj = (*genv)->NewObject(genv, cls, cons, i);
+                iobj = (*env)->NewObject(env, cls, cons, i);
                 return iobj;
             }
         }
