@@ -50,6 +50,11 @@ void setup()
                             Math.random()*(height-bs*2)+bs,
                             Math.random()*256);
   }
+
+  while (!dev.ready())
+    dev.poll(100);
+
+  frame.setTitle(dev.name());
 }
 
 void stop()
