@@ -75,10 +75,12 @@ typedef void mapper_signal_instance_management_handler(mapper_signal msig,
  *                  or 1.  For periodic signals, this may indicate that a
  *                  block of values should be accepted, where the last
  *                  value is the current value.
- *  \param timetag  The time at which the value update was aquired. If NULL,
- *                  libmapper will tag the value update with the current
- *                  time. See mdev_start_queue() for more information on
- *                  bundling multiple signal updates with the same timetag. */
+ *  \param timetag  The time at which the value update was aquired. If
+ *                  the value is MAPPER_NOW, libmapper will tag the
+ *                  value update with the current time. See
+ *                  mdev_start_queue() for more information on
+ *                  bundling multiple signal updates with the same
+ *                  timetag. */
 void msig_update(mapper_signal sig, void *value,
                  int count, mapper_timetag_t tt);
 
