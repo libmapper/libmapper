@@ -1927,7 +1927,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_match_1instances
     msig_match_instances(sigfrom, sigto, instance_id);
 }
 
-JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
@@ -1935,7 +1935,7 @@ JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1active_1instances
     return msig_num_active_instances(sig);
 }
 
-JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1reserved_1instances
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_num_1reserved_1instances
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
@@ -1943,7 +1943,7 @@ JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_num_1reserved_1instances
     return msig_num_reserved_instances(sig);
 }
 
-JNIEXPORT int JNICALL Java_Mapper_Device_00024Signal_active_1instance_1id
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_active_1instance_1id
   (JNIEnv *env, jobject obj, jint index)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
