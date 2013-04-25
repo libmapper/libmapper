@@ -40,6 +40,20 @@ void setup()
   sig_y_out = dev.add_output("y", 1, 'i', "pixels",
                              (double)0.0, (double)width);
 
+  Mapper.InstanceEventListener evin = new Mapper.InstanceEventListener() {
+    public void onEvent(Mapper.Device.Signal sig,
+                 Mapper.Db.Signal props,
+                 int instance_id,
+                 int event,
+                 TimeTag tt) {
+      sig_x_in.set_instance_callback(instance_id, circles[instance_id-1].lx);
+      sig_y_in.set_instance_callback(instance_id, circles[instance_id-1].ly);
+    };
+  };
+
+  sig_x_in.set_instance_event_callback(evin,
+    Mapper.InstanceEventListener.IN_ALL);
+
   sig_x_in.reserve_instances(circles.length);
   sig_y_in.reserve_instances(circles.length);
   sig_x_out.reserve_instances(circles.length);
@@ -105,6 +119,7 @@ class Circle
   float bdify = 0.0;
   float hue;
   int id = 0;
+  Mapper.InputListener lx, ly;
 
   Circle(double _bx, double _by, double _hue) {
     bx = (float)_bx;
@@ -113,7 +128,7 @@ class Circle
     id = ++count;
 
     /* Add listeners for our instance */
-    Mapper.InputListener lx = new Mapper.InputListener() {
+    lx = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
                        Mapper.Db.Signal props,
                        int instance_id, int[] v, TimeTag tt) {
@@ -121,16 +136,13 @@ class Circle
               bx = v[0];
           }};
 
-    Mapper.InputListener ly = new Mapper.InputListener() {
+    ly = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
                        Mapper.Db.Signal props,
                        int instance_id, int[] v, TimeTag tt) {
             if (v!=null)
               by = v[0];
           }};
-
-    sig_x_in.set_instance_callback(id, lx);
-    sig_y_in.set_instance_callback(id, ly);
 }
 
   boolean testMouse() {
