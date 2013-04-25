@@ -26,6 +26,7 @@ void setup()
   colorMode(HSB, 256, 256, 256);
   ellipseMode(CENTER);
   textAlign(CENTER, CENTER);
+  frameRate(10);
 
   /* Note: null for the InputListener, since we are specifying
    * this later per-instance. */
