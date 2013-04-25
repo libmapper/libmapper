@@ -1838,6 +1838,13 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1callback
     jobject prev = (jobject)msig_get_instance_data(sig, instance_id);
     if (prev)
         (*env)->DeleteGlobalRef(env, prev);
+
+    // Note that msig_set_instance_data() can trigger the instance
+    // event callback, so we need to use the global to pass the
+    // environment to the handler.
+    genv = env;
+    bailing = 0;
+
     msig_set_instance_data(sig, instance_id,
                            data ? (*env)->NewGlobalRef(env, data) : 0);
 }
