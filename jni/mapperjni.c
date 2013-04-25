@@ -228,8 +228,13 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
     jobject objtt = get_jobject_from_timetag(genv, tt);
 
     msig_jni_context ctx = (msig_jni_context)props->user_data;
-    if (ctx->listener && ctx->signal && ctx->db_signal) {
-        jclass cls = (*genv)->GetObjectClass(genv, ctx->listener);
+    jobject input_cb = ctx->listener;
+
+    if (instance_id != 0)
+        input_cb = (jobject)msig_get_instance_data(sig, instance_id);
+
+    if (input_cb && ctx->signal && ctx->db_signal) {
+        jclass cls = (*genv)->GetObjectClass(genv, input_cb);
         if (cls) {
             jmethodID mid=0;
             if (props->type=='i')
@@ -246,7 +251,7 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
                                            "LMapper/TimeTag;)V");
 
             if (mid) {
-                (*genv)->CallVoidMethod(genv, ctx->listener, mid,
+                (*genv)->CallVoidMethod(genv, input_cb, mid,
                                         ctx->signal, ctx->db_signal,
                                         instance_id, vobj, objtt);
                 if ((*genv)->ExceptionOccurred(genv))
