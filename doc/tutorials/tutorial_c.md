@@ -36,7 +36,7 @@ interfaces for mapping design and will also not be covered here.
 
 Functions and types from each module are prefixed with
 `mapper_<module>_`, in order to avoid namespace clashing.  However,
-since this is a bit verbose, it is shortened to `mdev_` and `msig` for
+since this is a bit verbose, it is shortened to `mdev_` and `msig_` for
 device and signal functions respectively.
 
 Devices
