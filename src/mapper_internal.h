@@ -183,6 +183,8 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
 
 /***** Device *****/
 
+void mdev_registered(mapper_device md);
+
 void mdev_add_signal_methods(mapper_device md, mapper_signal sig);
 
 void mdev_remove_signal_methods(mapper_device md, mapper_signal sig);

@@ -503,7 +503,7 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon)
  */
 int mapper_admin_poll(mapper_admin admin)
 {
-    int count = 0, status, i = 0;
+    int count = 0, status;
 
     if (admin->device)
         admin->device->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
@@ -524,15 +524,7 @@ int mapper_admin_poll(mapper_admin admin)
             mapper_admin_name_probe(admin);
         }
         else if (status == 2) {
-            /* If the allocation routine has succeeded, add device name to signals */
-            for (i = 0; i < admin->device->n_inputs; i++) {
-                admin->device->inputs[i]->props.device_name = mapper_admin_name(admin);
-            }
-            for (i = 0; i < admin->device->n_outputs; i++) {
-                admin->device->outputs[i]->props.device_name = mapper_admin_name(admin);
-            }
-
-            /* ... and send registered msg. */
+            /* Send registered msg. */
             lo_send(admin->admin_addr, "/name/registered",
                     "s", mapper_admin_name(admin));
         }
@@ -541,6 +533,7 @@ int mapper_admin_poll(mapper_admin admin)
          * handlers. */
         if (admin->ordinal.locked)
         {
+            mdev_registered(admin->device);
             mapper_admin_add_device_methods(admin);
 
             admin->registered = 1;

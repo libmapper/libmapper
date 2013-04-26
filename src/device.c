@@ -135,6 +135,29 @@ void mdev_free(mapper_device md)
     free(md);
 }
 
+void mdev_registered(mapper_device md)
+{
+    int i, j;
+    /* Add device name to signals. Also add device name hash to
+     * locally-activated signal instances. */
+    for (i = 0; i < md->n_inputs; i++) {
+        md->inputs[i]->props.device_name = mdev_name(md);
+        for (j = 0; j < md->inputs[i]->id_map_length; j++) {
+            if (md->inputs[i]->id_maps[j].map &&
+                md->inputs[i]->id_maps[j].map->group == 0)
+                md->inputs[i]->id_maps[j].map->group = md->admin->name_hash;
+        }
+    }
+    for (i = 0; i < md->n_outputs; i++) {
+        md->outputs[i]->props.device_name = mdev_name(md);
+        for (j = 0; j < md->outputs[i]->id_map_length; j++) {
+            if (md->outputs[i]->id_maps[j].map &&
+                md->outputs[i]->id_maps[j].map->group == 0)
+                md->outputs[i]->id_maps[j].map->group = md->admin->name_hash;
+        }
+    }
+}
+
 #ifdef __GNUC__
 // when gcc inlines this with O2 or O3, it causes a crash. bug?
 __attribute__ ((noinline))
