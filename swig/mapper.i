@@ -487,13 +487,13 @@ static void msig_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_signal_instance_management
+/* Wrapper for callback back to python when a mapper_signal_instance_event
  * handler is called. */
-static void msig_instance_management_handler_py(struct _mapper_signal *msig,
-                                                mapper_db_signal props,
-                                                int instance_id,
-                                                msig_instance_event_t event,
-                                                mapper_timetag_t *tt)
+static void msig_instance_event_handler_py(struct _mapper_signal *msig,
+                                           mapper_db_signal props,
+                                           int instance_id,
+                                           msig_instance_event_t event,
+                                           mapper_timetag_t *tt)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
@@ -510,7 +510,7 @@ static void msig_instance_management_handler_py(struct _mapper_signal *msig,
 
     arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, event, timetag);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (msig_instance_management_handler_py).\n");
+        printf("[mapper] Could not build arglist (msig_instance_event_handler_py).\n");
         return;
     }
     PyObject **callbacks = (PyObject**)props->user_data;
@@ -980,12 +980,12 @@ typedef struct _admin {} admin;
     void set_allocation_mode(mapper_instance_allocation_type mode) {
         msig_set_instance_allocation_mode((mapper_signal)$self, mode);
     }
-    void set_instance_management_callback(PyObject *PyFunc=0, int flags=0) {
-        mapper_signal_instance_management_handler *h = 0;
+    void set_instance_event_callback(PyObject *PyFunc=0, int flags=0) {
+        mapper_signal_instance_event_handler *h = 0;
         mapper_signal msig = (mapper_signal)$self;
         PyObject **callbacks = (PyObject**)msig->props.user_data;
         if (PyFunc) {
-            h = msig_instance_management_handler_py;
+            h = msig_instance_event_handler_py;
             if (callbacks) {
                 callbacks[1] = PyFunc;
             }
@@ -1005,7 +1005,7 @@ typedef struct _admin {} admin;
                 callbacks = 0;
             }
         }
-        msig_set_instance_management_callback((mapper_signal)$self, h, flags, callbacks);
+        msig_set_instance_event_callback((mapper_signal)$self, h, flags, callbacks);
     }
     void set_callback(PyObject *PyFunc=0) {
         mapper_signal_update_handler *h = 0;

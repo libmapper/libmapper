@@ -261,17 +261,17 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW)) {
-            sig->instance_management_handler(sig, &sig->props, id, IN_NEW, tt);
+        if (sig->instance_event_handler &&
+            (sig->instance_event_flags & IN_NEW)) {
+            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
         }
         return i;
     }
 
-    if (sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_OVERFLOW)) {
-        // call instance management handler
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
+    if (sig->instance_event_handler &&
+        (sig->instance_event_flags & IN_OVERFLOW)) {
+        // call instance event handler
+        sig->instance_event_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
@@ -308,9 +308,9 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW)) {
-            sig->instance_management_handler(sig, &sig->props, id, IN_NEW, tt);
+        if (sig->instance_event_handler &&
+            (sig->instance_event_flags & IN_NEW)) {
+            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
         }
         return i;
     }
@@ -354,17 +354,17 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW)) {
-            sig->instance_management_handler(sig, &sig->props, si->index, IN_NEW, tt);
+        if (sig->instance_event_handler &&
+            (sig->instance_event_flags & IN_NEW)) {
+            sig->instance_event_handler(sig, &sig->props, si->index, IN_NEW, tt);
         }
         return i;
     }
 
-    if (sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_OVERFLOW)) {
-        // call instance management handler
-        sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
+    if (sig->instance_event_handler &&
+        (sig->instance_event_flags & IN_OVERFLOW)) {
+        // call instance event handler
+        sig->instance_event_handler(sig, &sig->props, -1, IN_OVERFLOW, tt);
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
@@ -400,9 +400,9 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW)) {
-            sig->instance_management_handler(sig, &sig->props, si->index, IN_NEW, tt);
+        if (sig->instance_event_handler &&
+            (sig->instance_event_flags & IN_NEW)) {
+            sig->instance_event_handler(sig, &sig->props, si->index, IN_NEW, tt);
         }
         return i;
     }
@@ -767,38 +767,38 @@ mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal 
     return 0;
 }
 
-void msig_set_instance_management_callback(mapper_signal sig,
-                                           mapper_signal_instance_management_handler h,
-                                           int flags,
-                                           void *user_data)
+void msig_set_instance_event_callback(mapper_signal sig,
+                                      mapper_signal_instance_event_handler h,
+                                      int flags,
+                                      void *user_data)
 {
     if (!sig)
         return;
 
     if (!h || !flags) {
-        sig->instance_management_handler = 0;
-        sig->instance_management_flags = 0;
+        sig->instance_event_handler = 0;
+        sig->instance_event_flags = 0;
         return;
     }
 
-    sig->instance_management_handler = h;
+    sig->instance_event_handler = h;
     sig->props.user_data = user_data;
 
     if (flags & IN_DOWNSTREAM_RELEASE) {
-        if (!(sig->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
+        if (!(sig->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
             // Add liblo method for processing instance release requests
-            sig->instance_management_flags = flags;
+            sig->instance_event_flags = flags;
             mdev_add_instance_release_request_callback(sig->device, sig);
         }
     }
     else {
-        if (sig->instance_management_flags & IN_DOWNSTREAM_RELEASE) {
+        if (sig->instance_event_flags & IN_DOWNSTREAM_RELEASE) {
             // Remove liblo method for processing instance release requests
-            sig->instance_management_flags = flags;
+            sig->instance_event_flags = flags;
             mdev_remove_instance_release_request_callback(sig->device, sig);
         }
     }
-    sig->instance_management_flags = flags;
+    sig->instance_event_flags = flags;
 }
 
 void msig_set_instance_data(mapper_signal sig,

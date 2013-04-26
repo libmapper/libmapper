@@ -270,11 +270,11 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
         (*genv)->DeleteLocalRef(genv, objtt);
 }
 
-static void msig_instance_management_cb(mapper_signal sig,
-                                        mapper_db_signal props,
-                                        int instance_id,
-                                        msig_instance_event_t event,
-                                        mapper_timetag_t *tt)
+static void msig_instance_event_cb(mapper_signal sig,
+                                   mapper_db_signal props,
+                                   int instance_id,
+                                   msig_instance_event_t event,
+                                   mapper_timetag_t *tt)
 {
     if (bailing)
         return;
@@ -1804,13 +1804,13 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1event_1call
         (*env)->DeleteGlobalRef(env, ctx->instanceHandler);
     if (handler) {
         ctx->instanceHandler = (*env)->NewGlobalRef(env, handler);
-        msig_set_instance_management_callback(sig,
-                                              msig_instance_management_cb,
-                                              flags, ctx);
+        msig_set_instance_event_callback(sig,
+                                         msig_instance_event_cb,
+                                         flags, ctx);
     }
     else {
         ctx->instanceHandler = 0;
-        msig_set_instance_management_callback(sig, 0, flags, 0);
+        msig_set_instance_event_callback(sig, 0, flags, 0);
     }
 }
 

@@ -283,8 +283,8 @@ int main()
         msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
     sent = received = 0;
 
-    msig_set_instance_management_callback(recvsig, more_handler,
-                                          IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
+    msig_set_instance_event_callback(recvsig, more_handler,
+                                     IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
     printf("\n**********************************************\n");
     printf("*********** CALLBACK > ADD INSTANCE **********\n");
     loop(100);

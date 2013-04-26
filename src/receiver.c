@@ -420,7 +420,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                         if (rs->signal->handler)
                             rs->signal->handler(rs->signal, &rs->signal->props,
                                                 id_map->map->local, 0, 0, 0);
-                        // TODO: call instance management handler with IN_DISCONNECTED
+                        // TODO: call instance event handler with IN_DISCONNECTED
                         continue;
                     }
                 }
@@ -559,7 +559,7 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
                     rs->signal->handler(rs->signal, &rs->signal->props,
                                         map->local, 0, 0, 0);
                 }
-                // TODO: call instance management handler if defined
+                // TODO: call instance event handler if defined
                 //msig_release_instance_internal(rs->signal, i, 0, MAPPER_NOW);
                 continue;
             }

@@ -57,11 +57,11 @@ typedef void mapper_signal_update_handler(mapper_signal msig,
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
-typedef void mapper_signal_instance_management_handler(mapper_signal msig,
-                                                       mapper_db_signal props,
-                                                       int instance_id,
-                                                       msig_instance_event_t event,
-                                                       mapper_timetag_t *tt);
+typedef void mapper_signal_instance_event_handler(mapper_signal msig,
+                                                  mapper_db_signal props,
+                                                  int instance_id,
+                                                  msig_instance_event_t event,
+                                                  mapper_timetag_t *tt);
 
 /*! Update the value of a signal.
  *  The signal will be routed according to external requests.
@@ -221,9 +221,9 @@ mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal 
  *                      trigger the callback. Can be a combination of IN_NEW,
  *                      IN_UPSTREAM_RELEASE, IN_DOWNSTREAM_RELEASE, and IN_OVERFLOW.
  *  \param user_data    User context pointer to be passed to handler. */
-void msig_set_instance_management_callback(mapper_signal sig,
-                                           mapper_signal_instance_management_handler h,
-                                           int flags, void *user_data);
+void msig_set_instance_event_callback(mapper_signal sig,
+                                      mapper_signal_instance_event_handler h,
+                                      int flags, void *user_data);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.

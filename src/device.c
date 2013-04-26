@@ -282,10 +282,10 @@ static int handler_signal_instance(const char *path, const char *types,
     if (types[2] == LO_NIL) {
         sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
         map->refcount_remote--;
-        if (sig->instance_management_handler
-            && (sig->instance_management_flags & IN_UPSTREAM_RELEASE)) {
-            sig->instance_management_handler(sig, &sig->props, map->local,
-                                             IN_UPSTREAM_RELEASE, &tt);
+        if (sig->instance_event_handler
+            && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+            sig->instance_event_handler(sig, &sig->props, map->local,
+                                        IN_UPSTREAM_RELEASE, &tt);
         }
         else if (sig->handler) {
             sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
@@ -327,8 +327,8 @@ static int handler_instance_release_request(const char *path, const char *types,
     if (!md)
         return 0;
 
-    if (!sig->instance_management_handler ||
-        !(sig->instance_management_flags & IN_DOWNSTREAM_RELEASE))
+    if (!sig->instance_event_handler ||
+        !(sig->instance_event_flags & IN_DOWNSTREAM_RELEASE))
         return 0;
 
     lo_timetag tt = lo_message_get_timestamp(msg);
@@ -337,9 +337,9 @@ static int handler_instance_release_request(const char *path, const char *types,
     if (index < 0)
         return 0;
 
-    if (sig->instance_management_handler) {
-        sig->instance_management_handler(sig, &sig->props, sig->id_maps[index].map->local,
-                                         IN_DOWNSTREAM_RELEASE, &tt);
+    if (sig->instance_event_handler) {
+        sig->instance_event_handler(sig, &sig->props, sig->id_maps[index].map->local,
+                                    IN_DOWNSTREAM_RELEASE, &tt);
     }
 
     return 0;
@@ -667,8 +667,8 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         snprintf(str1, 1024, "%s/got", sig->props.name);
         lo_server_del_method(md->server, str1, NULL);
     }
-    if (sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
+    if (sig->instance_event_handler &&
+        (sig->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
 
@@ -1178,8 +1178,8 @@ void mdev_start_server(mapper_device md, int starting_port)
                                      handler_signal_instance, (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
             }
-            if (md->outputs[i]->instance_management_handler &&
-                (md->outputs[i]->instance_management_flags & IN_DOWNSTREAM_RELEASE)) {
+            if (md->outputs[i]->instance_event_handler &&
+                (md->outputs[i]->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
                 lo_server_add_method(md->server,
                                      md->outputs[i]->props.name,
                                      "iiF",

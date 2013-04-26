@@ -38,10 +38,10 @@ struct _mapper_signal
 
     /*! An optional function to be called when the signal instance management
      *  events occur. */
-    mapper_signal_instance_management_handler *instance_management_handler;
+    mapper_signal_instance_event_handler *instance_event_handler;
 
-    /*! Flags for deciding when to call the instance management handler. */
-    int instance_management_flags;
+    /*! Flags for deciding when to call the instance event handler. */
+    int instance_event_flags;
 };
 
 /**** Devices ****/
