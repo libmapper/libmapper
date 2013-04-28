@@ -1,0 +1,72 @@
+Mac Book Pro Processor: 2.2 GHz Intel Core i7, Memory: 4 GB 1333 MHz DDR3, OSX 10.7.4
+  20120901
+    debug enabled, branch master
+      best trial: 100000 messages processed in 2.272467 seconds
+    debug disabled, branch master
+      best trial: 100000 messages processed in 2.266428 seconds
+      best trial: 100000 messages processed in 2.264463 seconds
+    debug enabled, branch instances
+      msig_update_instance
+        best trial: 100000 messages in 2.518687 seconds
+        best trial: 100000 messages in 2.514839 seconds
+        best trial: 100000 messages in 2.537608 seconds
+      msig_update
+        best trial: 100000 messages in 2.358548 seconds
+        best trial: 100000 messages in 2.387972 seconds
+        best trial: 100000 messages in 2.491243 seconds
+    debug disabled, branch instances
+      msig_update_instance
+        best trial: 100000 messages in 2.487252 seconds
+        best trial: 100000 messages in 2.510718 seconds
+      msig_update
+        best trial: 100000 messages in 2.347747 seconds
+        best trial: 100000 messages in 2.355204 seconds
+  20120908
+    debug disabled, branch instances
+      msig_update_instance
+        best trial: 100000 messages in 2.289347 seconds
+        best trial: 100000 messages in 2.470370 seconds
+        best trial: 100000 messages in 2.321279 seconds
+        best trial: 100000 messages in 2.411698 seconds
+      msig_update
+        best trial: 100000 messages in 2.212077 seconds
+        best trial: 100000 messages in 2.311361 seconds
+        best trial: 100000 messages in 2.252731 seconds
+        best trial: 100000 messages in 2.176074 seconds
+    debug disabled, branch master
+        best trial: 100000 messages processed in 2.275975 seconds
+        best trial: 100000 messages processed in 2.591912 seconds
+  20120911
+    branch reserve-stack
+      msig_update_instance
+        best trial: 100000 messages in 2.296756 seconds
+        best trial: 100000 messages in 2.321285 seconds
+      msig_update
+        best trial: 100000 messages in 2.254267 seconds
+        best trial: 100000 messages in 2.263255 seconds
+      msig_update (all other instances released)
+        best trial: 100000 messages in 2.209709 seconds
+        best trial: 100000 messages in 2.237359 seconds
+    branch id_map-refcount
+      msig_update_instance
+        best trial: 100000 messages in 2.234120 seconds
+        best trial: 100000 messages in 2.268620 seconds
+        best trial: 100000 messages in 2.287506 seconds
+        best trial: 100000 messages in 2.277549 seconds
+      msig_update
+        best trial: 100000 messages in 2.168036 seconds
+        best trial: 100000 messages in 2.145210 seconds
+        best trial: 100000 messages in 2.174459 seconds
+        best trial: 100000 messages in 2.214697 seconds
+    branch instances3:
+      msig_update_instance
+        best trial: 100000 messages in 2.368650 seconds
+        best trial: 100000 messages in 2.235514 seconds
+        best trial: 100000 messages in 2.261996 seconds
+      msig_update
+        best trial: 100000 messages in 2.244762 seconds
+        best trial: 100000 messages in 2.177155 seconds
+        best trial: 100000 messages in 2.194841 seconds
+    branch master
+      best trial: 100000 messages processed in 2.223340 seconds
+      best trial: 100000 messages processed in 2.234057 seconds
