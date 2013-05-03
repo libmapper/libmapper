@@ -77,14 +77,14 @@ struct _mapper_device {
     mapper_device_link_handler *link_cb;
     void *link_cb_userdata;
 
-    /*!< Function to call for custom connection handling. */
+    /*! Function to call for custom connection handling. */
     mapper_device_connection_handler *connection_cb;
     void *connection_cb_userdata;
 
-    /*!< The list of active instance id mappings. */
+    /*! The list of active instance id mappings. */
     struct _mapper_id_map *active_id_map;
 
-    /*!< The list of reserve instance id mappings. */
+    /*! The list of reserve instance id mappings. */
     struct _mapper_id_map *reserve_id_map;
 
     uint32_t id_counter;
@@ -130,9 +130,16 @@ typedef struct _mapper_signal_instance
 #define IN_RELEASED_LOCALLY  0x01
 #define IN_RELEASED_REMOTELY 0x02
 
-typedef struct _mapper_signal_id_map {
-    struct _mapper_id_map *map;                 /*! Pointer to id_map in use */
-    struct _mapper_signal_instance *instance;   /*! Pointer to signal instance. */
+typedef struct _mapper_signal_id_map
+{
+    /*! Pointer to id_map in use */
+    struct _mapper_id_map *map;
+
+    /*! Pointer to signal instance. */
+    struct _mapper_signal_instance *instance;
+
+    /*! Status of the id_map. Can be either 0 or a combination of
+     *  IN_RELEASED_LOCALLY and IN_RELEASED_REMOTELY. */
     int status;
 } mapper_signal_id_map_t;
 

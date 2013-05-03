@@ -109,8 +109,7 @@ typedef struct _mapper_clock_t {
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
-    char *identifier;                 /*!< The identifier (prefix) for
-                                       *   this device. */
+    char *identifier;                 /*!< The identifier (prefix) for this device. */
     char *name;                       /*!< The full name for this
                                        *   device, or zero. */
     mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
