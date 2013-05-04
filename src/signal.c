@@ -560,7 +560,7 @@ static void msig_update_internal(mapper_signal sig,
      * and size. */
 
     if (value) {
-        if (count==0) count=1;
+        if (count<=0) count=1;
         size_t n = msig_vector_bytes(sig);
         memcpy(si->value, value + n*(count-1), n);
         si->has_value = 1;
