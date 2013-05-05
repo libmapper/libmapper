@@ -8,9 +8,10 @@
 
 const char* mapper_msg_param_strings[] =
 {
-    "@clipMax",         /* AT_CLIP_MAX */
-    "@clipMin",         /* AT_CLIP_MIN */
+    "@boundMax",        /* AT_BOUND_MAX */
+    "@boundMin",        /* AT_BOUND_MIN */
     "@destLength",      /* AT_DEST_LENGTH */
+    "@destPort",        /* AT_DEST_PORT */
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
@@ -36,6 +37,7 @@ const char* mapper_msg_param_strings[] =
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@srcLength",       /* AT_SRC_LENGTH */
+    "@srcPort",         /* AT_SRC_PORT */
     "@srcType",         /* AT_SRC_TYPE */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
@@ -302,6 +304,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_DEST_LENGTH:
+        case AT_DEST_PORT:
         case AT_ID:
         case AT_LENGTH:
         case AT_NUM_CONNECTIONS_IN:
@@ -313,6 +316,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_PORT:
         case AT_REV:
         case AT_SRC_LENGTH:
+        case AT_SRC_PORT:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
@@ -350,11 +354,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
-        case AT_CLIP_MIN:
-        case AT_CLIP_MAX:
+        case AT_BOUND_MIN:
+        case AT_BOUND_MAX:
             i = va_arg(aq, int);
-            if (i >= 0 && i < N_MAPPER_CLIPPING_TYPES)
-                lo_message_add_string(m, mapper_clipping_type_strings[i]);
+            if (i >= 0 && i < N_MAPPER_BOUNDARY_ACTIONS)
+                lo_message_add_string(m, mapper_boundary_action_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
             break;
@@ -548,10 +552,10 @@ void mapper_connection_prepare_osc_message(lo_message m,
         else
             lo_message_add_char(m, '-');
     }
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MIN]);
-    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_min]);
-    lo_message_add_string(m, mapper_msg_param_strings[AT_CLIP_MAX]);
-    lo_message_add_string(m, mapper_clipping_type_strings[con->props.clip_max]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MIN]);
+    lo_message_add_string(m, mapper_boundary_action_strings[con->props.bound_min]);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MAX]);
+    lo_message_add_string(m, mapper_boundary_action_strings[con->props.bound_max]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_MUTE]);
     lo_message_add_int32(m, con->props.muted);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_TYPE]);
@@ -606,25 +610,25 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
     return -1;
 }
 
-mapper_clipping_type mapper_msg_get_clipping(mapper_message_t *msg,
-                                             mapper_msg_param_t param)
+mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
+                                                      mapper_msg_param_t param)
 {
-    die_unless(param == AT_CLIP_MIN || param == AT_CLIP_MAX,
-               "bad param in mapper_msg_get_clipping()\n");
+    die_unless(param == AT_BOUND_MIN || param == AT_BOUND_MAX,
+               "bad param in mapper_msg_get_boundary_action()\n");
     lo_arg **a = mapper_msg_get_param(msg, param);
     if (!a || !*a)
         return -1;
 
     if (strcmp(&(*a)->s, "none") == 0)
-        return CT_NONE;
+        return BA_NONE;
     if (strcmp(&(*a)->s, "mute") == 0)
-        return CT_MUTE;
+        return BA_MUTE;
     if (strcmp(&(*a)->s, "clamp") == 0)
-        return CT_CLAMP;
+        return BA_CLAMP;
     if (strcmp(&(*a)->s, "fold") == 0)
-        return CT_FOLD;
+        return BA_FOLD;
     if (strcmp(&(*a)->s, "wrap") == 0)
-        return CT_WRAP;
+        return BA_WRAP;
 
     return -1;
 }

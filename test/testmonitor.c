@@ -90,9 +90,9 @@ void loop()
         mapper_monitor_poll(mon, 0);
         usleep(polltime_ms * 1000);
 
-        if (!update)
+        if (update++ < 0)
             continue;
-        update = 0;
+        update = -10;
 
         // clear screen & cursor to home
         printf("\e[2J\e[0;0H");

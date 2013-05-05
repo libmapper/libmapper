@@ -1,16 +1,14 @@
 Getting started
 ===============
 
-To start using the _libmapper_ with MaxMSP you will need to download the
-`[mapper]` external object from our [downloads page](../downloads.html).
+To start using the _libmapper_ with MaxMSP you will need to:
+
+* Install _libmapper_ for your platform (Linux, OSX, Windows)
+* Download the `[mapper]` external object from our [downloads page](../downloads.html).
 Alternatively, you can build the object from
-[source](http://github.com/malloch/mapper-max-pd) instead. You will also
-want to download a [graphical user interface](../downloads.html#GUIs)
-for creating and editing mapping connections.
-
-*** also need to install liblo, maybe libmapper. Will we be building
-installers to do this?
-
+[source](http://github.com/malloch/mapper-max-pd) instead.
+* Download a [graphical user interface](../downloads.html#GUIs) for
+  creating and editing mapping connections.
 
 Devices
 =======
@@ -40,7 +38,7 @@ particular interface by using the `@interface` property.
 
 An example of creating a device:
 
-    [mapper @alias my_device]
+![Creating a device.](./images/maxmsp1.png)
 
 Once the object has initialized, it will output its metadata from the right
 outlet:
@@ -78,14 +76,7 @@ Additional signal properties can also (optionally) be added:
 
 examples:
 
-    (add input /my_input @type f)
-     |
-    [mapper @alias my_device]
-
-    (add output my_output @type i @length 3 @min 0 @max 1)
-     |
-    [mapper @alias my_device]
-
+![Adding signals to a device](./images/maxmsp2.png)
 
 The only _required_ parameters here are the signal name,
 and data type.  If no `length` property is provided, the signal is
@@ -101,28 +92,22 @@ automatically.  For example, if `minimum` and `maximum` are provided,
 it will be possible to create linear-scaled connections very quickly.
 If `unit` is provided, the mapper will be able to similarly figure out
 a linear scaling based on unit conversion. (Centimeters to inches for
-example.)^[Currently automatic unit-based scaling is not a supported
+example.) Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of
 this future development by simply providing unit information whenever
-it is available.  It is also helpful documentation for users.]
+it is available.  It is also helpful documentation for users.
 
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    (add output /outA @type i)
-     |
+![Adding a simple integer output signal](./images/maxmsp3.png)
 
 An example of a `float` signal where some more information is provided:
 
-    (add output /sensor1 @type f @units V @min 0.0 @max 5.0)
-     |
+![Adding a floating-point output signal with some optional properties](./images/maxmsp4.png)
 
 So far we know how to create a device and to specify an output signal
-for it.  To recap, let's review the patch so far:
-
-    (add output /sensor1 @type f @units V @min 0.0 @max 5.0)
-     |
-    [mapper @alias test_sender]
+for it.
 
 
 Updating signals
@@ -141,14 +126,11 @@ starting with the signal name:
     (<signal_name> <value>)
      |
 
-So in the "sensor 1 voltage" example, assuming in "do stuff" we have
-some code which reads sensor 1's value into a float variable, the patch
-becomes:
+So in the "sensor 1 voltage" example, assuming that we have some code
+which reads sensor 1's value into a float variable in `[p read_sensor]`,
+the patch becomes:
 
-     |
-    [prepend /sensor1]
-     |
-    [mapper]
+![Updating a signal](./images/maxmsp5.png)
 
 This is about all that is needed to expose sensor 1's voltage to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
@@ -198,11 +180,7 @@ message, updates for this signal will be routed to the left output
 of the `[mapper]` object. Let's try making two devices in the same patch
 for testing.
 
-    [float]                      [mapper @alias receiver]    
-     |                            |
-    (/sendsig $1)                [route /recvsig]
-     |                            |
-    [mapper @alias sender]       [float]
+![Sending and receiving signal updates](./images/maxmsp6.png)
 
 If you use your mapping GUI to create a link between the two devices
 _sender_ and _receiver_ and a connection between your two signals
@@ -232,7 +210,7 @@ automatically using `learn` mode. You can either send the message
 instantiate your `[mapper]` object with the learn property set as an
 argument:
 
-    [mapper @alias my_device @learn 1]
+![Enabling learn mode on a device](./images/maxmsp7.png)
 
 the object will watch its inlet for messages formatted as `/<name> value(s)`
 and add any unknown signals automatically. Signals added this way will not
@@ -271,7 +249,7 @@ correctly-formatted JSON with the following structure:
 To load your device definition, simply instantiate your `[mapper]` object with
 the file name as a property:
 
-    [mapper @definition my_definition.json]
+![Loading a device definition file](./images/maxmsp8.png)
 
 Publishing metadata
 ===================
@@ -301,18 +279,14 @@ arguments
 For example, to store a `float` indicating the X position of a device
 `dev`, you could instantiate your object like this:
 
-    [mapper @alias my_device @x 12.5]
+![Adding extra properties to a device](./images/maxmsp9.png)
 
 To specify a string property of a signal:
 
-    (add output /pressure @type f @sensingMethod resistive)
-     |
+![Adding extra properties to a signal](./images/maxmsp10.png)
 
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.  Reserved words for signals are: 
+`device_name` `direction` `length` `max` `min` `name` `type` `unit`
 
-    device_name, direction, length, max, min, name, type, unit
-
-for devices, they are:
-
-    host, port, name
+for devices, they are: `host` `port` `name`

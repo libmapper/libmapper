@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <zlib.h>
 
 #include "mapper_internal.h"
 
@@ -533,6 +534,7 @@ static property_table_value_t sigdb_values[] = {
     { 'o', 1, SIGDB_OFFSET(maximum) },
     { 'o', 1, SIGDB_OFFSET(minimum) },
     { 's', 1, SIGDB_OFFSET(name) },
+    { 'f', 0, SIGDB_OFFSET(rate) },
     { 'c', 0, SIGDB_OFFSET(type) },
     { 's', 1, SIGDB_OFFSET(unit) },
     { 'i', 0, SIGDB_OFFSET(user_data) },
@@ -546,13 +548,14 @@ static string_table_node_t sigdb_nodes[] = {
     { "max",         &sigdb_values[3] },
     { "min",         &sigdb_values[4] },
     { "name",        &sigdb_values[5] },
-    { "type",        &sigdb_values[6] },
-    { "unit",        &sigdb_values[7] },
-    { "user_data",   &sigdb_values[8] },
+    { "rate",        &sigdb_values[6] },
+    { "type",        &sigdb_values[7] },
+    { "unit",        &sigdb_values[8] },
+    { "user_data",   &sigdb_values[9] },
 };
 
 static mapper_string_table_t sigdb_table =
-  { sigdb_nodes, 9, 9 };
+  { sigdb_nodes, 10, 10 };
 
 static property_table_value_t devdb_values[] = {
     { 's', 1, DEVDB_OFFSET(host) },
@@ -564,6 +567,7 @@ static property_table_value_t devdb_values[] = {
     { 'i', 0, DEVDB_OFFSET(n_outputs) },
     { 's', 1, DEVDB_OFFSET(name) },
     { 'i', 0, DEVDB_OFFSET(port) },
+    { 't', 0, DEVDB_OFFSET(synced) },
     { 'i', 0, DEVDB_OFFSET(user_data) },
     { 'i', 0, DEVDB_OFFSET(version) },
 };
@@ -579,12 +583,13 @@ static string_table_node_t devdb_nodes[] = {
     { "n_outputs",          &devdb_values[6] },
     { "name",               &devdb_values[7] },
     { "port",               &devdb_values[8] },
-    { "user_data",          &devdb_values[9] },
-    { "version",            &devdb_values[10] },
+    { "synced",             &devdb_values[9] },
+    { "user_data",          &devdb_values[10] },
+    { "version",            &devdb_values[11] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 11, 11 };
+  { devdb_nodes, 12, 12 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', 1, LINKDB_OFFSET(dest_name) },
@@ -601,8 +606,8 @@ static mapper_string_table_t linkdb_table =
 { linkdb_nodes, 2, 2 };
 
 static property_table_value_t condb_values[] = {
-    //{ 's', 1, CONDB_OFFSET(clip_min) },
-    //{ 's', 1, CONDB_OFFSET(clip_max) },
+    //{ 's', 1, CONDB_OFFSET(bound_min) },
+    //{ 's', 1, CONDB_OFFSET(bound_max) },
     { 'i', 0, CONDB_OFFSET(dest_length) },
     { 's', 1, CONDB_OFFSET(dest_name) },
     { 'c', 0, CONDB_OFFSET(dest_type) },
@@ -625,8 +630,8 @@ static string_table_node_t condb_nodes[] = {
     { "src_length",  &condb_values[5] },
     { "src_name",    &condb_values[6] },
     { "src_type",    &condb_values[7] },
-    /*{ "clip_min",    &condb_values[0] },
-    { "clip_max",    &condb_values[1] },
+    /*{ "bound_min",    &condb_values[0] },
+    { "bound_max",    &condb_values[1] },
     { "dest_length", &condb_values[2] },
     { "dest_name",   &condb_values[3] },
     { "dest_type",   &condb_values[4] },
@@ -755,7 +760,9 @@ static int update_device_record_params(mapper_db_device reg,
 {
     int updated = 0;
 
-    updated |= update_string_if_different(&reg->name, name);
+    updated += update_string_if_different(&reg->name, name);
+    if (updated)
+        reg->name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     updated += update_string_if_arg(&reg->host, params, AT_IP);
 
@@ -872,6 +879,18 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
     return 0;
 }
 
+mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
+                                                   uint32_t name_hash)
+{
+    mapper_db_device reg = db->registered_devices;
+    while (reg) {
+        if (name_hash == reg->name_hash)
+            return reg;
+        reg = list_get_next(reg);
+    }
+    return 0;
+}
+
 mapper_db_device *mapper_db_get_all_devices(mapper_db db)
 {
     if (!db->registered_devices)
@@ -973,13 +992,13 @@ void mapper_db_dump(mapper_db db)
         strcat(r, ")");
         trace("  src_name=%s, dest_name=%s,\n"
               "      src_type=%d, dest_type=%d,\n"
-              "      clip_upper=%s, clip_lower=%s,\n"
+              "      bound_max=%s, bound_min=%s,\n"
               "      range=%s,\n"
               "      expression=%s, mode=%s, muted=%d\n",
               con->src_name, con->dest_name, con->src_type,
               con->dest_type,
-              mapper_get_clipping_type_string(con->clip_max),
-              mapper_get_clipping_type_string(con->clip_min),
+              mapper_get_boundary_action_string(con->bound_max),
+              mapper_get_boundary_action_string(con->bound_min),
               r, con->expression,
               mapper_get_mode_type_string(con->mode),
               con->muted);
@@ -1374,16 +1393,16 @@ static int update_connection_record_params(mapper_db_connection con,
     /* char src_type; */
     /* char dest_type; */
 
-    mapper_clipping_type clip;
-    clip = mapper_msg_get_clipping(params, AT_CLIP_MAX);
-    if (clip != -1 && clip != con->clip_max) {
-        con->clip_max = clip;
+    mapper_boundary_action bound;
+    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MAX);
+    if (bound != -1 && bound != con->bound_max) {
+        con->bound_max = bound;
         updated++;
     }
 
-    clip = mapper_msg_get_clipping(params, AT_CLIP_MIN);
-    if (clip != -1 && clip != con->clip_min) {
-        con->clip_min = clip;
+    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MIN);
+    if (bound != -1 && bound != con->bound_min) {
+        con->bound_min = bound;
         updated++;
     }
 
@@ -2258,4 +2277,25 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
     if (link->extra)
         free(link->extra);
     list_remove_item(link, (void**)&db->registered_links);
+}
+
+void mapper_db_remove_all_callbacks(mapper_db db)
+{
+    fptr_list cb;
+    while ((cb = db->device_callbacks)) {
+        db->device_callbacks = db->device_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->signal_callbacks)) {
+        db->signal_callbacks = db->signal_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->link_callbacks)) {
+        db->link_callbacks = db->link_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->connection_callbacks)) {
+        db->connection_callbacks = db->connection_callbacks->next;
+        free(cb);
+    }
 }

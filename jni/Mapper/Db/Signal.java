@@ -19,6 +19,7 @@ public class Signal
         _unit = msig_db_signal_get_unit(_sigprops);
         _minimum = msig_db_signal_get_minimum(_sigprops);
         _maximum = msig_db_signal_get_maximum(_sigprops);
+        _rate = msig_db_signal_get_rate(_sigprops);
     }
 
     private String _name;
@@ -64,6 +65,10 @@ public class Signal
     Double _maximum;
     public Double maximum() { return _maximum; }
     private native Double msig_db_signal_get_maximum(long p);
+
+    double _rate;
+    public double rate() { return _rate; }
+    private native double msig_db_signal_get_rate(long p);
 
     public PropertyValue property_lookup(String property) {
         return mapper_db_signal_property_lookup(_sigprops, property);

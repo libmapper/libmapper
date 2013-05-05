@@ -5,7 +5,9 @@ CLEANFILES=doxygen-build.stamp
 
 DOX=libmapper.doxyfile
 
-EXTRA_DIST=tutorial.md
+EXTRA_DIST=expression_syntax.md how_to_compile_and_run.md windows.md	\
+           tutorials/tutorial_c.md tutorials/tutorial_introduction.md	\
+           tutorials/tutorial_maxmsp.md tutorials/tutorial_python.md
 
 INSTIMAGES=html/doxygen.png
 

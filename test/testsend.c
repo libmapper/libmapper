@@ -13,6 +13,10 @@ int test_controller()
         goto error;
     printf("Mapper device created.\n");
 
+    while (!mdev_ready(md)) {
+        mdev_poll(md, 100);
+    }
+
     float mn=0, mx=1;
     mapper_signal sig = 
         mdev_add_output(md, "/testsig", 1, 'f', 0, &mn, &mx);
