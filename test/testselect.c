@@ -129,7 +129,7 @@ void select_on_both_devices()
     int mfd = -1;
 
     nfds1 = mdev_get_fds(source, fds1, nfds1);
-    nfds2 = mdev_get_fds(source, fds2, nfds2);
+    nfds2 = mdev_get_fds(destination, fds2, nfds2);
 
     FD_ZERO(&fdr);
     for (i = 0; i < nfds1; i++) {

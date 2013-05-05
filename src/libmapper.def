@@ -98,7 +98,7 @@ EXPORTS
     msig_remove_property                                      @97
     msig_reserve_instances                                    @98
     msig_set_instance_allocation_mode                         @99
-    msig_set_instance_management_callback                     @100
+    msig_set_instance_event_callback                          @100
     msig_set_maximum                                          @101
     msig_set_minimum                                          @102
     msig_set_property                                         @103

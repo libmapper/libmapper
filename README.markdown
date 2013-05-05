@@ -196,7 +196,11 @@ Getting libmapper
 -----------------
 
 The latest version of libmapper source code and binaries can be
-downloaded from the IDMIL website at:
+downloaded from the libmapper website at:
+
+<http://libmapper.org>
+
+or from the libmapper page on the IDMIL website,
 
 <http://idmil.org/software/libmapper>
 

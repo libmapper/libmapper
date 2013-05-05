@@ -46,7 +46,9 @@ mapper_device mdev_new(const char *name_prefix, int port,
         md->own_admin = 1;
     }
 
-    if (!md->admin) {
+    mdev_start_server(md, port);
+
+    if (!md->admin || !md->server) {
         mdev_free(md);
         return NULL;
     }
@@ -56,15 +58,15 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->props.name_hash = 0;
     md->ordinal.value = 1;
     md->ordinal.locked = 0;
-    md->props.port = port;
     md->registered = 0;
     md->routers = 0;
     md->active_id_map = 0;
     md->reserve_id_map = 0;
     md->id_counter = 0;
     md->props.extra = table_new();
+    md->flags = 0;
 
-    mapper_admin_add_device(md->admin, md, name_prefix, port);
+    mapper_admin_add_device(md->admin, md);
 
     return md;
 }
@@ -72,7 +74,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
 //! Free resources used by a mapper device.
 void mdev_free(mapper_device md)
 {
-    int i;
+    int i, j;
     if (!md)
         return;
 
@@ -81,19 +83,51 @@ void mdev_free(mapper_device md)
         mapper_admin_send_osc(md->admin, 0, "/logout", "s", mdev_name(md));
     }
 
+    // First release active instances
+    mapper_signal sig;
+    if (md->outputs) {
+        // release all active output instances
+        for (i = 0; i < md->props.n_outputs; i++) {
+            sig = md->outputs[i];
+            for (j = 0; j < sig->id_map_length; j++) {
+                if (sig->id_maps[j].instance) {
+                    msig_release_instance_internal(sig, j, MAPPER_NOW);
+                }
+            }
+        }
+    }
+    if (md->inputs) {
+        // release all active input instances
+        for (i = 0; i < md->props.n_inputs; i++) {
+            sig = md->inputs[i];
+            for (j = 0; j < sig->id_map_length; j++) {
+                if (sig->id_maps[j].instance) {
+                    msig_release_instance_internal(sig, j, MAPPER_NOW);
+                }
+            }
+        }
+    }
+
+    // Routers and receivers reference parent signals so release them first
     while (md->routers)
         mdev_remove_router(md, md->routers);
     while (md->receivers)
         mdev_remove_receiver(md, md->receivers);
-    for (i = 0; i < md->props.n_inputs; i++)
-        msig_free(md->inputs[i]);
-    if (md->inputs)
-        free(md->inputs);
-    for (i = 0; i < md->props.n_outputs; i++)
-        msig_free(md->outputs[i]);
-    if (md->outputs)
+
+    if (md->outputs) {
+        for (i = 0; i < md->props.n_outputs; i++)
+            msig_free(md->outputs[i]);
         free(md->outputs);
-    mapper_instance_id_map map;
+    }
+    if (md->inputs) {
+        for (i = 0; i < md->props.n_inputs; i++) {
+            msig_free(md->inputs[i]);
+        }
+        free(md->inputs);
+    }
+
+    // Release device id maps
+    mapper_id_map map;
     while (md->active_id_map) {
         map = md->active_id_map;
         md->active_id_map = map->next;
@@ -104,6 +138,7 @@ void mdev_free(mapper_device md)
         md->reserve_id_map = map->next;
         free(map);
     }
+
     if (md->props.extra)
         table_free(md->props.extra, 1);
     if (md->server)
@@ -117,6 +152,30 @@ void mdev_free(mapper_device md)
     if (md->admin && md->own_admin)
         mapper_admin_free(md->admin);
     free(md);
+}
+
+void mdev_registered(mapper_device md)
+{
+    int i, j;
+    md->registered = 1;
+    /* Add device name to signals. Also add device name hash to
+     * locally-activated signal instances. */
+    for (i = 0; i < md->props.n_inputs; i++) {
+        md->inputs[i]->props.device_name = mdev_name(md);
+        for (j = 0; j < md->inputs[i]->id_map_length; j++) {
+            if (md->inputs[i]->id_maps[j].map &&
+                md->inputs[i]->id_maps[j].map->group == 0)
+                md->inputs[i]->id_maps[j].map->group = md->props.name_hash;
+        }
+    }
+    for (i = 0; i < md->props.n_outputs; i++) {
+        md->outputs[i]->props.device_name = mdev_name(md);
+        for (j = 0; j < md->outputs[i]->id_map_length; j++) {
+            if (md->outputs[i]->id_maps[j].map &&
+                md->outputs[i]->id_maps[j].map->group == 0)
+                md->outputs[i]->id_maps[j].map->group = md->props.name_hash;
+        }
+    }
 }
 
 #ifdef __GNUC__
@@ -157,11 +216,15 @@ static int handler_signal(const char *path, const char *types,
     if (!sig)
         return 0;
 
-    mapper_signal_instance si = sig->active_instances;
-    if (!si)
-        si = msig_get_instance_with_id(sig, 0, 1);
-    if (!si)
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
+    int index = 0;
+    if (!sig->id_maps[0].instance)
+        index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
+    if (index < 0)
         return 0;
+
+    mapper_signal_instance si = sig->id_maps[index].instance;
 
     if (types[0] == LO_BLOB) {
         dataptr = lo_blob_dataptr((lo_blob)argv[0]);
@@ -171,8 +234,6 @@ static int handler_signal(const char *path, const char *types,
     else
         dataptr = argv[0];
 
-    lo_timetag tt = lo_message_get_timestamp(msg);
-
     if (types[0] == LO_NIL) {
         si->has_value = 0;
     }
@@ -181,17 +242,18 @@ static int handler_signal(const char *path, const char *types,
          * to by argv are layed out sequentially in memory.  It's not
          * clear if liblo's semantics guarantee it, but known to be true
          * on all platforms. */
-        // TODO: should copy last value from sample vector
+        // TODO: should copy last value from sample vector (or add history)
         memcpy(si->value, dataptr, msig_vector_bytes(sig));
         si->has_value = 1;
     }
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
     if (sig->handler)
-        sig->handler(sig, &sig->props, si->id_map->local, dataptr, count, &tt);
+        sig->handler(sig, &sig->props, sig->id_maps[index].map->local,
+                     dataptr, count, &tt);
     si = si->next;
     if (!sig->props.is_output)
-        mdev_receive_update(md, sig, si, tt);
+        mdev_receive_update(md, sig, index, tt);
 
     return 0;
 }
@@ -214,84 +276,87 @@ static int handler_signal_instance(const char *path, const char *types,
 
     int group_id = argv[0]->i32;
     int instance_id = argv[1]->i32;
-    int is_new = (types[2] == LO_TRUE);
 
-    mapper_signal_instance si = 0;
-    mapper_instance_id_map map = mdev_find_instance_id_map_by_remote(md, group_id,
-                                                                     instance_id);
+    int index = msig_find_instance_with_remote_ids(sig, group_id, instance_id,
+                                                   IN_RELEASED_LOCALLY);
 
-    // If map not found but I own the instance, stop here.
-    if (!map && group_id == md->props.name_hash)
-        return 0;
+    lo_timetag tt = lo_message_get_timestamp(msg);
 
-    // Map may be waiting for release
-    if (map && map->reference_count <= 0)
-        return 0;
-
-    // Don't activate instance just to release it again
-    if (types[2] == LO_NIL || types[2] == LO_FALSE) {
-        if (!map || !msig_find_instance_with_id_map(sig, map))
+    mapper_id_map map;
+    if (index < 0) {    // no instance found with this map
+        // Don't activate instance just to release it again
+        if (types[2] == LO_NIL || types[2] == LO_FALSE)
             return 0;
-    }
 
-    si = msig_get_instance_with_id_map(sig, map, is_new, 0);
-    if (!si) {
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_OVERFLOW)) {
-            sig->instance_management_handler(sig, &sig->props, -1, IN_OVERFLOW);
-            // try again
-            si = msig_get_instance_with_id_map(sig, map, is_new, 0);
+        // otherwise try to init reserved/stolen instance with device map
+        index = msig_get_instance_with_remote_ids(sig, group_id, instance_id, 0, &tt);
+        if (index < 0) {
+            trace("no instances available for group=%ld, id=%ld\n",
+                  (long)group_id, (long)instance_id);
+            return 0;
         }
     }
-    if (!si) {
-        trace("no instances available for group=%ld, id=%ld\n",
-              (long)group_id, (long)instance_id);
-        return 0;
-    }
-    else if (!map) {
-        // Need to add id map to device and link to new signal instance
-        si->id_map = mdev_add_instance_id_map(md, si->id, group_id, instance_id);
+    else {
+        if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
+            // map was already released locally, we are only interested in release messages
+            if (types[2] == LO_NIL || types[2] == LO_FALSE) {
+                // we can clear signal's reference to map
+                map = sig->id_maps[index].map;
+                sig->id_maps[index].map = 0;
+                map->refcount_remote--;
+                if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
+                    mdev_remove_instance_id_map(md, map);
+                }
+            }
+            return 0;
+        }
+        else if (!sig->id_maps[index].instance) {
+            trace("error: missing instance!\n");
+            return 0;
+        }
     }
 
-    if (types[2] == LO_TRUE) {
-        if (sig->instance_management_handler &&
-            (sig->instance_management_flags & IN_NEW))
-            sig->instance_management_handler(sig, &sig->props, si->id_map->local,
-                                             IN_NEW);
-        return 0;
-    }
+    mapper_signal_instance si = sig->id_maps[index].instance;
+    map = sig->id_maps[index].map;
 
-    if (types[2] == LO_BLOB) {
-        dataptr = lo_blob_dataptr((lo_blob)argv[2]);
-        count = lo_blob_datasize((lo_blob)argv[2]) /
-            mapper_type_size(sig->props.type);
-    }
-    else if (types[2] != LO_NIL) {
-        /* This is cheating a bit since we know that the arguments pointed
-         * to by argv are layed out sequentially in memory.  It's not
-         * clear if liblo's semantics guarantee it, but known to be true
-         * on all platforms. */
-        memcpy(si->value, argv[2], msig_vector_bytes(sig));
-        si->has_value = 1;
-        dataptr = si->value;
-    }
-    lo_timetag tt = lo_message_get_timestamp(msg);
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
-    if (sig->handler) {
-        sig->handler(sig, &sig->props, si->id_map->local,
-                     dataptr, count, &si->timetag);
+    if (types[2] == LO_NIL) {
+        sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
+        map->refcount_remote--;
+        if (sig->instance_event_handler
+            && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+            sig->instance_event_handler(sig, &sig->props, map->local,
+                                        IN_UPSTREAM_RELEASE, &tt);
+        }
+        else if (sig->handler) {
+            sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
+        }
+    }
+    else {
+        if (types[2] == LO_BLOB) {
+            dataptr = lo_blob_dataptr((lo_blob)argv[2]);
+            count = lo_blob_datasize((lo_blob)argv[2]) /
+                mapper_type_size(sig->props.type);
+        }
+        else {
+            /* This is cheating a bit since we know that the arguments pointed
+             * to by argv are layed out sequentially in memory.  It's not
+             * clear if liblo's semantics guarantee it, but known to be true
+             * on all platforms. */
+            // TODO: should copy last value from sample vector (or add history)
+            memcpy(si->value, argv[2], msig_vector_bytes(sig));
+            si->has_value = 1;
+            dataptr = si->value;
+        }
+
+        if (sig->handler) {
+            sig->handler(sig, &sig->props, map->local, dataptr, count, &tt);
+        }
     }
     if (!sig->props.is_output)
-        mdev_receive_update(md, sig, si, tt);
-    if (types[2] == LO_NIL) {
-        /* Set remote release time to 2 seconds in the future,
-         * since we want to filter out any stray packets. */
-        mdev_timetag_now(md, &md->admin->clock.now);
-        si->id_map->release_time = md->admin->clock.now.sec + 2;
-        msig_release_instance_internal(sig, si, 0, 0, si->timetag);
-    }
+        mdev_receive_update(md, sig, index, tt);
     return 0;
 }
 
@@ -305,22 +370,20 @@ static int handler_instance_release_request(const char *path, const char *types,
     if (!md)
         return 0;
 
-    if (!sig->instance_management_handler ||
-        !(sig->instance_management_flags & IN_REQUEST_RELEASE))
+    if (!sig->instance_event_handler ||
+        !(sig->instance_event_flags & IN_DOWNSTREAM_RELEASE))
         return 0;
 
-    mapper_instance_id_map map =
-        mdev_find_instance_id_map_by_remote(md, argv[0]->i32, argv[1]->i32);
-    if (!map)
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
+    int index = msig_find_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
+    if (index < 0)
         return 0;
 
-    mapper_signal_instance si = msig_get_instance_with_id_map(sig, map, 0, 0);
-    if (!si)
-        return 0;
-
-    if (sig->instance_management_handler)
-        sig->instance_management_handler(sig, &sig->props, si->id_map->local,
-                                         IN_REQUEST_RELEASE);
+    if (sig->instance_event_handler) {
+        sig->instance_event_handler(sig, &sig->props, sig->id_maps[index].map->local,
+                                    IN_DOWNSTREAM_RELEASE, &tt);
+    }
 
     return 0;
 }
@@ -342,50 +405,48 @@ static int handler_query(const char *path, const char *types,
     else if (types[0] != 's' && types[0] != 'S')
         return 0;
 
-    int i;
+    int i, j, sent = 0;
     lo_message m = lo_message_new();
     if (!m)
         return 0;
     lo_timetag tt = lo_message_get_timestamp(msg);
     lo_bundle b = lo_bundle_new(tt);
 
-    mapper_signal_instance si = sig->active_instances;
-    if (!si) {
-        // If there are no active instances, send null response
-        lo_message_add_nil(m);
-        lo_bundle_add_message(b, &argv[0]->s, m);
-        lo_send_bundle(lo_message_get_source(msg), b);
-        lo_bundle_free_messages(b);
-        return 0;
-    }
-
-    while (si) {
+    mapper_signal_instance si;
+    for (i = 0; i < sig->id_map_length; i++) {
+        if (!(si = sig->id_maps[i].instance))
+            continue;
         if (sig->props.num_instances > 1) {
-            lo_message_add_int32(m, (long)si->id_map->group);
-            lo_message_add_int32(m, (long)si->id_map->local);
+            lo_message_add_int32(m, (long)sig->id_maps[i].map->group);
+            lo_message_add_int32(m, (long)sig->id_maps[i].map->local);
         }
         if (si->has_value) {
             if (sig->props.type == 'f') {
                 float *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_float(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_float(m, v[j]);
             }
             else if (sig->props.type == 'i') {
                 int *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_int32(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_int32(m, v[j]);
             }
             else if (sig->props.type == 'd') {
                 double *v = si->value;
-                for (i = 0; i < sig->props.length; i++)
-                    lo_message_add_double(m, v[i]);
+                for (j = 0; j < sig->props.length; j++)
+                    lo_message_add_double(m, v[j]);
             }
         }
         else {
             lo_message_add_nil(m);
         }
         lo_bundle_add_message(b, &argv[0]->s, m);
-        si = si->next;
+        sent++;
+    }
+    if (!sent) {
+        // If there are no active instances, send null response
+        lo_message_add_nil(m);
+        lo_bundle_add_message(b, &argv[0]->s, m);
     }
     lo_send_bundle(lo_message_get_source(msg), b);
     lo_bundle_free_messages(b);
@@ -416,51 +477,43 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     md->inputs[md->props.n_inputs - 1] = sig;
     sig->device = md;
 
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        type_string = (char*) realloc(type_string, sig->props.length + 3);
-        type_string[0] = type_string[1] = 'i';
-        memset(type_string + 2, sig->props.type, sig->props.length);
-        type_string[sig->props.length + 2] = 0;
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             type_string + 2,
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "b",
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "N",
-                             handler_signal, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             type_string,
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iib",
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiT",
-                             handler_signal_instance, (void *) (sig));
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiN",
-                             handler_signal_instance, (void *) (sig));
-        int len = strlen(sig->props.name) + 5;
-        signal_get = (char*) realloc(signal_get, len);
-        snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-        lo_server_add_method(md->server,
-                             signal_get,
-                             "s",
-                             handler_query, (void *) (sig));
-        free(type_string);
-        free(signal_get);
-    }
+    type_string = (char*) realloc(type_string, sig->props.length + 3);
+    type_string[0] = type_string[1] = 'i';
+    memset(type_string + 2, sig->props.type, sig->props.length);
+    type_string[sig->props.length + 2] = 0;
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         type_string + 2,
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "b",
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "N",
+                         handler_signal, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         type_string,
+                         handler_signal_instance, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iib",
+                         handler_signal_instance, (void *) (sig));
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iiN",
+                         handler_signal_instance, (void *) (sig));
+    int len = strlen(sig->props.name) + 5;
+    signal_get = (char*) realloc(signal_get, len);
+    snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+    lo_server_add_method(md->server,
+                         signal_get,
+                         "s",
+                         handler_query, (void *) (sig));
+    free(type_string);
+    free(signal_get);
 
     return sig;
 }
@@ -493,39 +546,36 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
         return;
     char *type = 0, *path = 0;
     int len;
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        len = (int) strlen(sig->props.name) + 5;
-        path = (char*) realloc(path, len);
-        snprintf(path, len, "%s%s", sig->props.name, "/got");
-        type = (char*) realloc(type, sig->props.length + 3);
-        type[0] = type[1] = 'i';
-        memset(type + 2, sig->props.type,
-               sig->props.length);
-        type[sig->props.length + 2] = 0;
-        int len = (int) strlen(sig->props.name) + 5;
-        path = (char*) realloc(path, len);
-        snprintf(path, len, "%s%s", sig->props.name, "/got");
-        lo_server_add_method(md->server,
-                             path,
-                             type + 2,
-                             handler_signal, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             type,
-                             handler_signal_instance, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             "N",
-                             handler_signal, (void *)sig);
-        lo_server_add_method(md->server,
-                             path,
-                             "iiN",
-                             handler_signal_instance, (void *)sig);
-        md->n_output_callbacks ++;
-        free(path);
-    }
+
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    type = (char*) realloc(type, sig->props.length + 3);
+    type[0] = type[1] = 'i';
+    memset(type + 2, sig->props.type,
+           sig->props.length);
+    type[sig->props.length + 2] = 0;
+    len = (int) strlen(sig->props.name) + 5;
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    lo_server_add_method(md->server,
+                         path,
+                         type + 2,
+                         handler_signal, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         type,
+                         handler_signal_instance, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         "N",
+                         handler_signal, (void *)sig);
+    lo_server_add_method(md->server,
+                         path,
+                         "iiN",
+                         handler_signal_instance, (void *)sig);
+    md->n_output_callbacks ++;
+    free(path);
 }
 
 void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
@@ -560,15 +610,11 @@ void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal 
     if (!sig->props.is_output)
         return;
 
-    if (!md->server)
-        mdev_start_server(md);
-    else {
-        lo_server_add_method(md->server,
-                             sig->props.name,
-                             "iiF",
-                             handler_instance_release_request, (void *) (sig));
-        md->n_output_callbacks ++;
-    }
+    lo_server_add_method(md->server,
+                         sig->props.name,
+                         "iiF",
+                         handler_instance_release_request, (void *) (sig));
+    md->n_output_callbacks ++;
 }
 
 void mdev_remove_instance_release_request_callback(mapper_device md, mapper_signal sig)
@@ -600,30 +646,28 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->props.n_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
     }
-    if (md->server) {
-        str1[0] = str1[1] = 'i';
-        memset(str1 + 2, sig->props.type, sig->props.length);
-        str1[sig->props.length + 2] = 0;
-        lo_server_del_method(md->server, sig->props.name, str1);
-        lo_server_del_method(md->server, sig->props.name, str1 + 2);
-        lo_server_del_method(md->server, sig->props.name, "b");
-        lo_server_del_method(md->server, sig->props.name, "N");
-        lo_server_del_method(md->server, sig->props.name, "iib");
-        lo_server_del_method(md->server, sig->props.name, "iiT");
-        lo_server_del_method(md->server, sig->props.name, "iiN");
 
-        snprintf(str1, 1024, "%s/get", sig->props.name);
-        lo_server_del_method(md->server, str1, NULL);
-    }
+    str1[0] = str1[1] = 'i';
+    memset(str1 + 2, sig->props.type, sig->props.length);
+    str1[sig->props.length + 2] = 0;
+    lo_server_del_method(md->server, sig->props.name, str1);
+    lo_server_del_method(md->server, sig->props.name, str1 + 2);
+    lo_server_del_method(md->server, sig->props.name, "b");
+    lo_server_del_method(md->server, sig->props.name, "N");
+    lo_server_del_method(md->server, sig->props.name, "iib");
+    lo_server_del_method(md->server, sig->props.name, "iiN");
+
+    snprintf(str1, 1024, "%s/get", sig->props.name);
+    lo_server_del_method(md->server, str1, NULL);
 
     mapper_receiver r = md->receivers;
     msig_full_name(sig, str2, 1024);
     while (r) {
-        mapper_link_signal ls = r->signals;
-        while (ls) {
-            if (ls->signal == sig) {
+        mapper_receiver_signal rs = r->signals;
+        while (rs) {
+            if (rs->signal == sig) {
                 // need to disconnect?
-                mapper_connection c = ls->connections;
+                mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str1, 1024, "%s%s", r->props.src_name, c->props.src_name);
                     mapper_admin_send_osc(md->admin, 0, "/disconnect", "ss",
@@ -634,7 +678,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                 }
                 break;
             }
-            ls = ls->next;
+            rs = rs->next;
         }
         r = r->next;
     }
@@ -658,23 +702,23 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     for (n=i; n<(md->props.n_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
-    if (sig->handler && md->server) {
+    if (sig->handler) {
         snprintf(str1, 1024, "%s/got", sig->props.name);
         lo_server_del_method(md->server, str1, NULL);
     }
-    if (sig->instance_management_handler &&
-        (sig->instance_management_flags & IN_REQUEST_RELEASE)) {
+    if (sig->instance_event_handler &&
+        (sig->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
 
     mapper_router r = md->routers;
     msig_full_name(sig, str1, 1024);
     while (r) {
-        mapper_link_signal ls = r->signals;
-        while (ls) {
-            if (ls->signal == sig) {
+        mapper_router_signal rs = r->signals;
+        while (rs) {
+            if (rs->signal == sig) {
                 // need to disconnect?
-                mapper_connection c = ls->connections;
+                mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str2, 1024, "%s%s", r->props.dest_name, c->props.dest_name);
                     mapper_admin_send_osc(md->admin, 0, "/disconnected", "ss",
@@ -685,7 +729,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
                 }
                 break;
             }
-            ls = ls->next;
+            rs = rs->next;
         }
         r = r->next;
     }
@@ -842,16 +886,15 @@ int mdev_poll(mapper_device md, int block_ms)
 
 int mdev_num_fds(mapper_device md)
 {
-    // One for the admin input, and one for the signal input if the
-    // server has started.
-    return 1 + (md->server?1:0);
+    // One for the admin input, and one for the signal input.
+    return 2;
 }
 
 int mdev_get_fds(mapper_device md, int *fds, int num)
 {
     if (num > 0)
         fds[0] = lo_server_get_socket_fd(md->admin->admin_server);
-    if (num > 1 && md->server)
+    if (num > 1)
         fds[1] = lo_server_get_socket_fd(md->server);
     else
         return 1;
@@ -882,34 +925,30 @@ void mdev_num_instances_changed(mapper_device md,
 
 void mdev_route_signal(mapper_device md,
                        mapper_signal sig,
-                       mapper_signal_instance si,
+                       int instance_index,
                        void *value,
                        int count,
                        mapper_timetag_t timetag)
 {
     int flags = 0;
-    if (!si->is_active && si->has_value) {
-        flags = FLAGS_IS_NEW_INSTANCE;
-        si->is_active = 1;
-    }
     // pass update to each router in turn
     mapper_router r = md->routers;
     while (r) {
-        mapper_router_process_signal(r, sig, si, value, count,
-                                     timetag, flags);
+        mapper_router_process_signal(r, sig, instance_index, value,
+                                     count, timetag, flags);
         r = r->next;
     }
 }
 
 void mdev_receive_update(mapper_device md,
                          mapper_signal sig,
-                         mapper_signal_instance si,
+                         int instance_index,
                          mapper_timetag_t tt)
 {
     // pass update to each receiver in turn
     mapper_receiver r = md->receivers;
     while (r) {
-        mapper_receiver_send_update(r, sig, si, tt);
+        mapper_receiver_send_update(r, sig, instance_index, tt);
         r = r->next;
     }
 
@@ -952,16 +991,18 @@ int mdev_route_query(mapper_device md, mapper_signal sig,
     return count;
 }
 
-void mdev_route_release_request(mapper_device md,
-                                mapper_signal sig,
-                                mapper_signal_instance si,
-                                mapper_timetag_t tt)
+void mdev_route_released(mapper_device md, mapper_signal sig,
+                         int instance_index, mapper_timetag_t tt)
 {
-    // pass update to each receiver in turn
-    mapper_receiver r = md->receivers;
-    while (r) {
-        mapper_receiver_send_release_request(r, sig, si, tt);
-        r = r->next;
+    if (sig->props.is_output)
+        mdev_route_signal(md, sig, instance_index, 0, 0, tt);
+    else {
+        // pass update to each receiver in turn
+        mapper_receiver r = md->receivers;
+        while (r) {
+            mapper_receiver_send_released(r, sig, instance_index, tt);
+            r = r->next;
+        }
     }
 }
 
@@ -980,11 +1021,11 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         if (*r == rt) {
             *r = rt->next;
             mapper_router_free(rt);
+            md->props.n_links_out--;
             break;
         }
         r = &(*r)->next;
     }
-    md->props.n_links_out--;
 }
 
 void mdev_add_receiver(mapper_device md, mapper_receiver rc)
@@ -1003,42 +1044,42 @@ void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
         if (*r == rc) {
             *r = rc->next;
             mapper_receiver_free(rc);
+            md->props.n_links_in--;
             break;
         }
         r = &(*r)->next;
     }
-    md->props.n_links_in--;
 }
 
 void mdev_reserve_instance_id_map(mapper_device dev)
 {
-    mapper_instance_id_map map;
-    map = (mapper_instance_id_map)calloc(1, sizeof(struct _mapper_instance_id_map));
+    mapper_id_map map;
+    map = (mapper_id_map)calloc(1, sizeof(struct _mapper_id_map));
     map->next = dev->reserve_id_map;
     dev->reserve_id_map = map;
 }
 
-mapper_instance_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
-                                                int group_id, int remote_id)
+mapper_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
+                                       int group_id, int remote_id)
 {
     if (!dev->reserve_id_map)
         mdev_reserve_instance_id_map(dev);
 
-    mapper_instance_id_map map = dev->reserve_id_map;
+    mapper_id_map map = dev->reserve_id_map;
     map->local = local_id;
     map->group = group_id;
     map->remote = remote_id;
-    map->reference_count = 1;
-    map->release_time = 0;
+    map->refcount_local = 0;
+    map->refcount_remote = 0;
     dev->reserve_id_map = map->next;
     map->next = dev->active_id_map;
     dev->active_id_map = map;
     return map;
 }
 
-void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
+void mdev_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 {
-    mapper_instance_id_map *id_map = &dev->active_id_map;
+    mapper_id_map *id_map = &dev->active_id_map;
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
@@ -1050,57 +1091,26 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_instance_id_map map)
     }
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
-                                                          int local_id)
+mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
+                                                 int local_id)
 {
-    mdev_timetag_now(dev, &dev->admin->clock.now);
-
-    mapper_instance_id_map *map = &dev->active_id_map;
-    while (*map) {
-        if ((*map)->reference_count <= 0) {
-            // Map has been released and is waiting for timeout
-            if (!(*map)->release_time ||
-                ((*map)->release_time < dev->admin->clock.now.sec)) {
-                // Clear expired maps as we go
-                mapper_instance_id_map temp = *map;
-                *map = (*map)->next;
-                temp->next = dev->reserve_id_map;
-                dev->reserve_id_map = temp;
-            }
-            else
-                map = &(*map)->next;
-            // We should never return an expired map locally
-            continue;
-        }
-        if ((*map)->local == local_id)
-            return (*map);
-        map = &(*map)->next;
+    mapper_id_map map = dev->active_id_map;
+    while (map) {
+        if (map->local == local_id)
+            return map;
+        map = map->next;
     }
     return 0;
 }
 
-mapper_instance_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
-                                                           int group_id, int remote_id)
+mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
+                                                  int group_id, int remote_id)
 {
-    mdev_timetag_now(dev, &dev->admin->clock.now);
-
-    mapper_instance_id_map *map = &dev->active_id_map;
-    while (*map) {
-        if ((*map)->reference_count <= 0) {
-            // Map has been released and is waiting for timeout
-            if (!(*map)->release_time ||
-                ((*map)->release_time < dev->admin->clock.now.sec)) {
-                // Clear expired maps as we go
-                mapper_instance_id_map temp = *map;
-                *map = (*map)->next;
-                temp->next = dev->reserve_id_map;
-                dev->reserve_id_map = temp;
-                continue;
-            }
-        }
-        if (((*map)->group == group_id) && ((*map)->remote == remote_id))
-            return (*map);
-        map = &(*map)->next;
+    mapper_id_map map = dev->active_id_map;
+    while (map) {
+        if (map->group == group_id && map->remote == remote_id)
+            return map;
+        map = map->next;
     }
     return 0;
 }
@@ -1120,14 +1130,14 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
                num, path, msg);
 }
 
-void mdev_start_server(mapper_device md)
+void mdev_start_server(mapper_device md, int starting_port)
 {
     if (!md->server) {
         int i;
         char port[16], *pport = port, *type = 0, *path = 0;
 
-        if (md->props.port)
-            sprintf(port, "%d", md->props.port);
+        if (starting_port)
+            sprintf(port, "%d", starting_port);
         else
             pport = 0;
 
@@ -1169,10 +1179,6 @@ void mdev_start_server(mapper_device md)
                                  handler_signal_instance, (void *) (md->inputs[i]));
             lo_server_add_method(md->server,
                                  md->inputs[i]->props.name,
-                                 "iiT",
-                                 handler_signal_instance, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
                                  "iiN",
                                  handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
@@ -1211,8 +1217,8 @@ void mdev_start_server(mapper_device md)
                                      handler_signal_instance, (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
             }
-            if (md->outputs[i]->instance_management_handler &&
-                (md->outputs[i]->instance_management_flags & IN_REQUEST_RELEASE)) {
+            if (md->outputs[i]->instance_event_handler &&
+                (md->outputs[i]->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
                 lo_server_add_method(md->server,
                                      md->outputs[i]->props.name,
                                      "iiF",
@@ -1307,4 +1313,19 @@ lo_server mdev_get_lo_server(mapper_device md)
 void mdev_timetag_now(mapper_device dev, mapper_timetag_t *timetag)
 {
     mapper_clock_now(&dev->admin->clock, timetag);
+}
+
+void mdev_add_link_callback(mapper_device dev,
+                            mapper_device_link_handler *h, void *user)
+{
+    dev->link_cb = h;
+    dev->link_cb_userdata = user;
+}
+
+void mdev_add_connection_callback(mapper_device dev,
+                                  mapper_device_connection_handler *h,
+                                  void *user)
+{
+    dev->connection_cb = h;
+    dev->connection_cb_userdata = user;
 }

@@ -119,6 +119,10 @@ do
       if ! [ -e README ]; then
           ln -sv README.markdown README || cp README.markdown README
       fi
+      # Copy NEWS.markdown for NEWS to make automake happy
+      if ! [ -e NEWS ]; then
+          ln -sv NEWS.markdown NEWS || cp NEWS.markdown NEWS
+      fi
       echo "Running automake --gnu $am_opt ..."
       automake --add-missing --gnu $am_opt
       echo "Running autoconf ..."

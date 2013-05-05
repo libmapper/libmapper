@@ -8,9 +8,11 @@ libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 
 JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
 
+JFLAGS = -source 1.5 -target 1.5
 JCLASSES = Mapper/Db/Signal.class Mapper/InputListener.class	\
            Mapper/PropertyValue.class Mapper/Device.class		\
-           Mapper/NativeLib.class
+           Mapper/NativeLib.class Mapper/TimeTag.class			\
+           Mapper/InstanceEventListener.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
                    Mapper/PropertyValue$$PropertyException.class
@@ -30,12 +32,17 @@ Mapper_Db_%.h: Mapper/Db/%.class
 	if [ -f $@ ]; then touch $@; fi
 
 Mapper/%.class: Mapper/%.java
-	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
-	$(JAVAC) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
+	if mkdir -v TestInstances/code; then \
+	  cd TestInstances/code/; \
+	  ln -v -s ../../.libs/*.so .; \
+	  ln -v -s ../../$@; \
+	fi # For processing test sketch
 
 EXTRA_DIST = $(JJAVA) test.java $(JHEADERS)

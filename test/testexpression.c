@@ -106,14 +106,14 @@ int setup_connection()
     msig_full_name(recvsig, dest_name, 1024);
     mapper_db_connection_t props;
     props.mode = MO_EXPRESSION;
-    props.expression = strdup("y=x*10");
+    props.expression = "y=x*10";
     mapper_monitor_connect(mon, src_name, dest_name, &props,
                            CONNECTION_MODE | CONNECTION_EXPRESSION);
 
     mapper_monitor_free(mon);
 
-    int i=5;
-    while (i-- > 0) {
+    int i = 0;
+    while (i++ < 10) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
     }
@@ -140,8 +140,7 @@ void loop()
                sendsig->props.name, (i * 1.0f));
         msig_update_float(sendsig, (i * 1.0f));
         sent++;
-        usleep(250 * 1000);
-        mdev_poll(destination, 0);
+        mdev_poll(destination, 250);
     }
 }
 
