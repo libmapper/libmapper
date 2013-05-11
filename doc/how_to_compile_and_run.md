@@ -57,7 +57,7 @@ package on other Linux distributions.
 
 ### Configuring
 
-If you have extract libmapper from a release tarball, run,
+If you have extracted libmapper from a release tarball, run,
 
     ./configure
     
