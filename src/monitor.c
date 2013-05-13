@@ -196,7 +196,7 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
         free(data);
         return;
     }
-    if (sig->id < 0 && (sig->id % data->batch_size != 0))
+    if (sig->id > 0 && (sig->id % data->batch_size == 0))
         request_signal_range_by_device_name_internal(data->monitor,
                                                      data->device->name,
                                                      sig->id + 1,
