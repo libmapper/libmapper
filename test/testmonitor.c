@@ -30,6 +30,30 @@ void dbpause()
     // sleep(1);
 }
 
+void printlink(mapper_db_link link)
+{
+    printf("  %s -> %s", link->src_name, link->dest_name);
+    
+    int i=0;
+    const char *key;
+    lo_type type;
+    const lo_arg *val;
+    while(!mapper_db_link_property_index(
+              link, i++, &key, &type, &val))
+    {
+        die_unless(val!=0, "returned zero value\n");
+        
+        // already printed these
+        if (strcmp(key, "src_name")==0
+            || strcmp(key, "dest_name")==0)
+            continue;
+        
+        printf(", %s=", key);
+        lo_arg_pp(type, (lo_arg*)val);
+    }
+    printf("\n");
+}
+
 void printsignal(mapper_db_signal sig)
 {
     printf("  %s name=%s%s",
@@ -146,8 +170,7 @@ void loop()
         printf("Registered links:\n");
         mapper_db_link *plink = mapper_db_get_all_links(db);
         while (plink) {
-            printf("  %s -> %s\n",
-                   (*plink)->src_name, (*plink)->dest_name);
+            printlink(*plink);
             plink = mapper_db_link_next(plink);
         }
 
