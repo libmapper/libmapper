@@ -64,18 +64,18 @@
         memset(&p, 0, sizeof(mapper_db_link_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
-            int i = PyList_GET_SIZE(keys);
+            int i = PyList_GET_SIZE(keys), k;
             for (i=i-1; i>=0; --i) {
                 PyObject *o = PyList_GetItem(keys, i);
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "scope")==0) {
+                    if (strcmp(s, "scope_names")==0) {
                         if (PyString_Check(v)) {
                             p.props.num_scopes = 1;
                             p.flags |= LINK_NUM_SCOPES;
                             char *scope = PyString_AsString(v);
-                            p.props.scope_names  = &scope;
+                            p.props.scope_names = &scope;
                             p.flags |= LINK_SCOPE_NAMES;
                         }
                     }
@@ -86,6 +86,29 @@
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
                             p.props.dest_name = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "num_scopes")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.num_scopes = k;
+                    }
+                    else if (strcmp(s, "src_host")==0) {
+                        if (PyString_Check(v))
+                            p.props.src_host = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "src_port")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.src_port = k;
+                    }
+                    else if (strcmp(s, "dest_host")==0) {
+                        if (PyString_Check(v))
+                            p.props.dest_host = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "dest_port")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.dest_port = k;
                     }
                 }
             }
@@ -406,38 +429,92 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
 static PyObject *connection_to_py(mapper_db_connection_t *con)
 {
     if (!con) return Py_None;
-    PyObject *o;
-    o = Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
-                      "src_name", con->src_name,
-                      "dest_name", con->dest_name,
-                      "src_type", con->src_type,
-                      "dest_type", con->dest_type,
-                      "src_length", con->src_length,
-                      "dest_length", con->dest_length,
-                      "bound_max", con->bound_max,
-                      "bound_min", con->bound_min,
-                      "range",
-                      (con->range.known & CONNECTION_RANGE_SRC_MIN
-                       ? Py_BuildValue("f", con->range.src_min) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_SRC_MAX
-                       ? Py_BuildValue("f", con->range.src_max) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_DEST_MIN
-                       ? Py_BuildValue("f", con->range.dest_min) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_DEST_MAX
-                       ? Py_BuildValue("f", con->range.dest_max) : Py_None),
-                      "expression", con->expression,
-                      "mode", con->mode,
-                      "muted", con->muted);
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        const lo_arg *value;
+        while (!mapper_db_connection_property_index(con, i, &property,
+                                                    &type, &value))
+        {
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+        // add ranges
+        PyObject *v = Py_BuildValue("{OOOO}",
+                          (con->range.known & CONNECTION_RANGE_SRC_MIN
+                           ? Py_BuildValue("f", con->range.src_min) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_SRC_MAX
+                           ? Py_BuildValue("f", con->range.src_max) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_DEST_MIN
+                           ? Py_BuildValue("f", con->range.dest_min) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_DEST_MAX
+                           ? Py_BuildValue("f", con->range.dest_max) : Py_None));
+        PyDict_SetItemString(o, "range", v);
+        Py_DECREF(v);
+    }
     return o;
 }
 
 static PyObject *link_to_py(mapper_db_link_t *link)
 {
     if (!link) return Py_None;
-    PyObject *o =
-        Py_BuildValue("{s:s,s:s}",
-                      "src_name", link->src_name, 
-                      "dest_name", link->dest_name);
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        const lo_arg *value;
+        while (!mapper_db_link_property_index(link, i, &property,
+                                              &type, &value))
+        {
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+        // add link scopes
+        PyObject *v = PyList_New(link->num_scopes);
+        for (i=0; i<link->num_scopes; i++)
+            PyList_SetItem(v, i, Py_BuildValue("s", link->scope_names[i]));
+        PyDict_SetItemString(o, "scope_names", v);
+        Py_DECREF(v);
+    }
     return o;
 }
 
@@ -474,7 +551,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
             arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, Py_None, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
