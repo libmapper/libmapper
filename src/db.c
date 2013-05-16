@@ -605,47 +605,39 @@ static string_table_node_t linkdb_nodes[] = {
 static mapper_string_table_t linkdb_table =
 { linkdb_nodes, 2, 2 };
 
+// ranges are handled separately
 static property_table_value_t condb_values[] = {
-    //{ 's', 1, CONDB_OFFSET(bound_min) },
-    //{ 's', 1, CONDB_OFFSET(bound_max) },
+    { 'i', 0, CONDB_OFFSET(bound_min) },
+    { 'i', 0, CONDB_OFFSET(bound_max) },
     { 'i', 0, CONDB_OFFSET(dest_length) },
     { 's', 1, CONDB_OFFSET(dest_name) },
     { 'c', 0, CONDB_OFFSET(dest_type) },
     { 's', 1, CONDB_OFFSET(expression) },
-    //{ 's', 1, CONDB_OFFSET(mode) },
+    { 'i', 0, CONDB_OFFSET(mode) },
     { 'i', 0, CONDB_OFFSET(muted) },
-    //{ 's', 1, CONDB_OFFSET(range) },
     { 'i', 0, CONDB_OFFSET(src_length) },
     { 's', 1, CONDB_OFFSET(src_name) },
     { 'c', 0, CONDB_OFFSET(src_type) },
 };
 
 /* This table must remain in alphabetical order. */
+// ranges are handled separately
 static string_table_node_t condb_nodes[] = {
-    { "dest_length", &condb_values[0] },
-    { "dest_name",   &condb_values[1] },
-    { "dest_type",   &condb_values[2] },
-    { "expression",  &condb_values[3] },
-    { "muted",       &condb_values[4] },
-    { "src_length",  &condb_values[5] },
-    { "src_name",    &condb_values[6] },
-    { "src_type",    &condb_values[7] },
-    /*{ "bound_min",    &condb_values[0] },
-    { "bound_max",    &condb_values[1] },
+    { "bound_min",   &condb_values[0] },
+    { "bound_max",   &condb_values[1] },
     { "dest_length", &condb_values[2] },
     { "dest_name",   &condb_values[3] },
     { "dest_type",   &condb_values[4] },
     { "expression",  &condb_values[5] },
-    { "mode",        &condb_values[7] },
-    { "muted",       &condb_values[6] },
-    { "range",       &condb_values[8] },
-    { "src_length",  &condb_values[9] },
-    { "src_name",    &condb_values[10] },
-    { "src_type",    &condb_values[11] },*/
+    { "mode",        &condb_values[6] },
+    { "muted",       &condb_values[7] },
+    { "src_length",  &condb_values[8] },
+    { "src_name",    &condb_values[9] },
+    { "src_type",    &condb_values[10] },
 };
 
 static mapper_string_table_t condb_table =
-{ condb_nodes, 8, 8 };
+{ condb_nodes, 11, 11 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -661,7 +653,7 @@ int mapper_db_property_index(void *thestruct, char o_type,
 
     int i=0, j=0;
 
-    /* Unfortunately due to "optional" properties likes
+    /* Unfortunately due to "optional" properties like
      * minimum/maximum, unit, etc, we cannot use an O(1) lookup here--
      * the index changes according to availability of properties.
      * Thus, we have to search through properties linearly,
@@ -1388,10 +1380,8 @@ static int update_connection_record_params(mapper_db_connection con,
     int updated = 0;
     updated += update_string_if_different(&con->src_name, src_name);
     updated += update_string_if_different(&con->dest_name, dest_name);
-
-    // TODO: Unhandled fields --
-    /* char src_type; */
-    /* char dest_type; */
+    updated += update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
+    updated += update_char_if_arg(&con->dest_type, params, AT_DEST_TYPE);
 
     mapper_boundary_action bound;
     bound = mapper_msg_get_boundary_action(params, AT_BOUND_MAX);
