@@ -994,7 +994,7 @@ typedef struct _admin {} admin;
                 callbacks[0] = 0;
                 callbacks[1] = PyFunc;
             }
-            Py_XINCREF(PyFunc);
+            Py_INCREF(PyFunc);
         }
         else if (callbacks) {
             Py_XDECREF(callbacks[1]);
@@ -1020,9 +1020,8 @@ typedef struct _admin {} admin;
                 callbacks = malloc(2 * sizeof(PyObject*));
                 callbacks[0] = PyFunc;
                 callbacks[1] = 0;
-                Py_XINCREF(callbacks);
             }
-            Py_XINCREF(PyFunc);
+            Py_INCREF(PyFunc);
         }
         else if (callbacks) {
             Py_XDECREF(callbacks[0]);
@@ -1030,7 +1029,7 @@ typedef struct _admin {} admin;
                 callbacks[0] = 0;
             }
             else {
-                Py_XDECREF(callbacks);
+                free(callbacks);
                 callbacks = 0;
             }
         }
