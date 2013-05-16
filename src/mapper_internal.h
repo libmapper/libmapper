@@ -615,13 +615,20 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
  *  Note that it's possible the returned type string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
  *  function to ensure it only processes the a priori expected number
- *  of parameters.  (e.g., "@range" has 4 parameters.)
+ *  of parameters. The number of parameter elements can be retrieved
+ *  using the function mapper_msg_get_length().
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
- *  \return       String containing type of each parameter argument.
- */
+ *  \return       String containing type of each parameter argument. */
 const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param);
+
+/*! Look up the vector length of a message parameter by symbolic identifier.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \return       Integer containing the length of the parameter vector. */
+int mapper_msg_get_length(mapper_message_t *msg,
+                          mapper_msg_param_t param);
 
 /*! Helper to get a direct parameter value only if it's a string.
  *  \param msg    Structure containing parameter info.
