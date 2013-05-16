@@ -315,7 +315,7 @@ mapper_router mapper_router_find_by_dest_name(mapper_router routers,
 
 int mapper_router_add_scope(mapper_router router, const char *scope);
 
-void mapper_router_remove_scope(mapper_router router, const char *scope);
+int mapper_router_remove_scope(mapper_router router, const char *scope);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -369,7 +369,7 @@ mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
 
 int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
 
-void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
+int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 
@@ -590,6 +590,14 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         const char *src_name,
                                         const char *dest_name,
                                         mapper_message_t *params);
+
+/*! Add a scope identifier to a given link record. */
+int mapper_db_link_add_scope(mapper_db_link link,
+                             const char *scope);
+
+/*! Remove a scope identifier from a given link record. */
+int mapper_db_link_remove_scope(mapper_db_link link,
+                                const char *scope);
 
 /**** Messages ****/
 

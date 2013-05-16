@@ -593,50 +593,12 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
 
 int mapper_router_add_scope(mapper_router router, const char *scope)
 {
-    if (!scope)
-        return 1;
-    // Check if scope is already stored for this router
-    int i;
-    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    mapper_db_link props = &router->props;
-    for (i=0; i<props->num_scopes; i++)
-        if (props->scope_hashes[i] == hash)
-            return 1;
-    // not found - add a new scope
-    i = ++props->num_scopes;
-    props->scope_names = realloc(props->scope_names, i * sizeof(char *));
-    props->scope_names[i-1] = strdup(scope);
-    props->scope_hashes = realloc(props->scope_hashes, i * sizeof(uint32_t));
-    props->scope_hashes[i-1] = hash;
-    return 0;
+    return mapper_db_link_add_scope(&router->props, scope);
 }
 
-void mapper_router_remove_scope(mapper_router router, const char *scope)
+int mapper_router_remove_scope(mapper_router router, const char *scope)
 {
-    int i, j;
-    uint32_t hash;
-
-    if (!scope)
-        return;
-
-    hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-
-    mapper_db_link props = &router->props;
-    for (i=0; i<props->num_scopes; i++) {
-        if (props->scope_hashes[i] == hash) {
-            free(props->scope_names[i]);
-            for (j=i+1; j<props->num_scopes; j++) {
-                props->scope_names[j-1] = props->scope_names[j];
-                props->scope_hashes[j-1] = props->scope_hashes[j];
-            }
-            props->num_scopes--;
-            props->scope_names = realloc(props->scope_names,
-                                         props->num_scopes * sizeof(char *));
-            props->scope_hashes = realloc(props->scope_hashes,
-                                          props->num_scopes * sizeof(uint32_t));
-            return;
-        }
-    }
+    return mapper_db_link_remove_scope(&router->props, scope);
 
     /* Here we could release mapped signal instances with this scope,
      * but we will let the receiver-side handle it instead. */

@@ -591,19 +591,31 @@ static string_table_node_t devdb_nodes[] = {
 static mapper_string_table_t devdb_table =
   { devdb_nodes, 12, 12 };
 
+// scope names and hashes are handled separately
 static property_table_value_t linkdb_values[] = {
+    { 's', 1, LINKDB_OFFSET(dest_host) },
     { 's', 1, LINKDB_OFFSET(dest_name) },
+    { 'i', 0, LINKDB_OFFSET(dest_port) },
+    { 'i', 0, LINKDB_OFFSET(num_scopes) },
+    { 's', 1, LINKDB_OFFSET(src_host) },
     { 's', 1, LINKDB_OFFSET(src_name) },
+    { 'i', 0, LINKDB_OFFSET(src_port) },
 };
 
 /* This table must remain in alphabetical order. */
+// scope names and hashes are handled separately
 static string_table_node_t linkdb_nodes[] = {
-    { "dest_name",  &linkdb_values[0] },
-    { "src_name", &linkdb_values[1] },
+    { "dest_host",    &linkdb_values[0] },
+    { "dest_name",    &linkdb_values[1] },
+    { "dest_port",    &linkdb_values[2] },
+    { "num_scopes",   &linkdb_values[3] },
+    { "src_host",     &linkdb_values[4] },
+    { "src_name",     &linkdb_values[5] },
+    { "src_port",     &linkdb_values[6] },
 };
 
 static mapper_string_table_t linkdb_table =
-{ linkdb_nodes, 2, 2 };
+{ linkdb_nodes, 7, 7 };
 
 // ranges are handled separately
 static property_table_value_t condb_values[] = {
@@ -1949,6 +1961,55 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 
 /**** Link records ****/
 
+int mapper_db_link_add_scope(mapper_db_link link,
+                             const char *scope)
+{
+    int i;
+    if (!link || !scope)
+        return 1;
+
+    // Check if scope is already stored for this link
+    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    for (i=0; i<link->num_scopes; i++)
+        if (link->scope_hashes[i] == hash)
+            return 1;
+
+    // not found - add a new scope
+    i = ++link->num_scopes;
+    link->scope_names = realloc(link->scope_names, i * sizeof(char *));
+    link->scope_names[i-1] = strdup(scope);
+    link->scope_hashes = realloc(link->scope_hashes, i * sizeof(uint32_t));
+    link->scope_hashes[i-1] = hash;
+    return 0;
+}
+
+int mapper_db_link_remove_scope(mapper_db_link link,
+                                const char *scope)
+{
+    int i, j;
+    if (!link || !scope)
+        return 1;
+
+    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    
+    for (i=0; i<link->num_scopes; i++) {
+        if (link->scope_hashes[i] == hash) {
+            free(link->scope_names[i]);
+            for (j=i+1; j<link->num_scopes; j++) {
+                link->scope_names[j-1] = link->scope_names[j];
+                link->scope_hashes[j-1] = link->scope_hashes[j];
+            }
+            link->num_scopes--;
+            link->scope_names = realloc(link->scope_names,
+                                        link->num_scopes * sizeof(char *));
+            link->scope_hashes = realloc(link->scope_hashes,
+                                         link->num_scopes * sizeof(uint32_t));
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /*! Update information about a given link record based on message
  *  parameters. */
 static int update_link_record_params(mapper_db_link link,
@@ -1956,9 +2017,37 @@ static int update_link_record_params(mapper_db_link link,
                                      const char *dest_name,
                                      mapper_message_t *params)
 {
-    int updated = 0;
+    int i, j, num_scopes = 0, updated = 0;
     updated += update_string_if_different(&link->src_name, src_name);
     updated += update_string_if_different(&link->dest_name, dest_name);
+    updated += update_int_if_arg(&link->src_port, params, AT_SRC_PORT);
+    updated += update_int_if_arg(&link->dest_port, params, AT_DEST_PORT);
+
+    lo_arg **a_scopes = mapper_msg_get_param(params, AT_SCOPE);
+    num_scopes = mapper_msg_get_length(params, AT_SCOPE);
+
+    // First remove old scopes that are missing
+    for (i=0; i<link->num_scopes; i++) {
+        int found = 0;
+        for (j=0; j<num_scopes; j++) {
+            if (strcmp(link->scope_names[i], &a_scopes[j]->s) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            mapper_db_link_remove_scope(link, link->scope_names[i]);
+            updated++;
+        }
+    }
+    // ...then add any new scopes
+    for (i=0; i<num_scopes; i++)
+        updated += (1 - mapper_db_link_add_scope(link, &a_scopes[i]->s));
+
+    if (num_scopes != link->num_scopes) {
+        link->num_scopes = num_scopes;
+        updated++;
+    }
 
     updated += mapper_msg_add_or_update_extra_params(link->extra, params);
     return updated;
