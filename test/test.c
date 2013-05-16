@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
+#include <stdlib.h>
 
 #include <unistd.h>
 #include <signal.h>
