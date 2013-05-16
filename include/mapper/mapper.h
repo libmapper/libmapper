@@ -1419,11 +1419,17 @@ void mapper_monitor_disconnect(mapper_monitor mon,
  @{ libmapper primarily uses NTP timetags for communication and
     synchronization. */
 
-/*! Initialize a timetag to the current apping network time.
- *  \param dev      The device whose time we are asking for.
- *  \param timetag  A previously allocated timetag to initialize. */
-void mdev_timetag_now(mapper_device dev,
-                      mapper_timetag_t *tt);
+/*! Initialize a timetag to the current mapping network time.
+ *  \param dev  The device whose time we are asking for.
+ *  \param tt   A previously allocated timetag to initialize. */
+void mdev_now(mapper_device dev,
+              mapper_timetag_t *tt);
+
+/*! Initialize a timetag to the current mapping network time.
+ *  \param dev  The device whose time we are asking for.
+ *  \param tt   A previously allocated timetag to initialize. */
+void mapper_monitor_now(mapper_monitor mon,
+                        mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param a    The minuend.

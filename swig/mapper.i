@@ -872,6 +872,11 @@ typedef struct _admin {} admin;
     void remove_property(const char *key) {
         mdev_remove_property((mapper_device)$self, key);
     }
+    double now() {
+        mapper_timetag_t tt;
+        mdev_now((mapper_device)$self, &tt);
+        return mapper_timetag_get_double(tt);
+    }
     %pythoncode {
         port = property(get_port)
         name = property(get_name)
@@ -1241,6 +1246,11 @@ typedef struct _admin {} admin;
     void disconnect(const char* source_signal, 
                     const char* dest_signal) {
         mapper_monitor_disconnect((mapper_monitor)$self, source_signal, dest_signal);
+    }
+    double now() {
+        mapper_timetag_t tt;
+        mapper_monitor_now((mapper_monitor)$self, &tt);
+        return mapper_timetag_get_double(tt);
     }
     %pythoncode {
         db = property(get_db)

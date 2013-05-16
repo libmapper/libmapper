@@ -629,3 +629,8 @@ void mapper_monitor_autorequest(mapper_monitor mon, int enable)
     else
         mapper_db_remove_device_callback(&mon->db, on_device_autorequest, mon);
 }
+
+void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
+{
+    mapper_clock_now(&mon->admin->clock, tt);
+}
