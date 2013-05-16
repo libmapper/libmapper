@@ -20,9 +20,11 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
 {
     char str[16];
     mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
-    sprintf(str, "%d", port);
     r->props.src_name = strdup(mdev_name(device));
-    r->props.dest_addr = lo_address_new(host, str);
+    r->props.dest_host = strdup(host);
+    r->props.dest_port = port;
+    sprintf(str, "%d", port);
+    r->remote_addr = lo_address_new(host, str);
     r->props.dest_name = strdup(name);
     r->props.dest_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     if (default_scope) {
@@ -40,7 +42,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
-    if (!r->props.dest_addr) {
+    if (!r->remote_addr) {
         mapper_router_free(r);
         return 0;
     }
@@ -54,10 +56,12 @@ void mapper_router_free(mapper_router r)
     if (r) {
         if (r->props.src_name)
             free(r->props.src_name);
+        if (r->props.dest_host)
+            free(r->props.dest_host);
         if (r->props.dest_name)
             free(r->props.dest_name);
-        if (r->props.dest_addr)
-            lo_address_free(r->props.dest_addr);
+        if (r->remote_addr)
+            lo_address_free(r->remote_addr);
         while (r->signals && r->signals->connections) {
             // router_signal is freed with last child connection
             mapper_router_remove_connection(r, r->signals->connections);
@@ -253,7 +257,7 @@ void mapper_router_send_update(mapper_router r,
                                lo_blob blob)
 {
     int i;
-    if (!r->props.dest_addr)
+    if (!r->remote_addr)
         return;
 
     lo_message m = lo_message_new();
@@ -348,7 +352,7 @@ void mapper_router_send_or_bundle_message(mapper_router r,
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, m);
-        lo_send_bundle_from(r->props.dest_addr, r->device->server, b);
+        lo_send_bundle_from(r->remote_addr, r->device->server, b);
         lo_bundle_free_messages(b);
     }
 }
@@ -400,7 +404,7 @@ void mapper_router_send_queue(mapper_router r,
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count(q->bundle))
 #endif
-            lo_send_bundle_from(r->props.dest_addr,
+            lo_send_bundle_from(r->remote_addr,
                                 r->device->server, q->bundle);
         lo_bundle_free_messages(q->bundle);
         mapper_router_release_queue(r, q);
@@ -647,18 +651,14 @@ int mapper_router_in_scope(mapper_router router, uint32_t name_hash)
     return 0;
 }
 
-mapper_router mapper_router_find_by_dest_address(mapper_router router,
-                                                 lo_address dest_addr)
+mapper_router mapper_router_find_by_dest_address(mapper_router r,
+                                                 const char *host,
+                                                 int port)
 {
-    const char *host_to_match = lo_address_get_hostname(dest_addr);
-    const char *port_to_match = lo_address_get_port(dest_addr);
-
-    while (router) {
-        const char *host = lo_address_get_hostname(router->props.dest_addr);
-        const char *port = lo_address_get_port(router->props.dest_addr);
-        if ((strcmp(host, host_to_match)==0) && (strcmp(port, port_to_match)==0))
-            return router;
-        router = router->next;
+    while (r) {
+        if (r->props.dest_port == port && (strcmp(r->props.dest_host, host)==0))
+            return r;
+        r = r->next;
     }
     return 0;
 }

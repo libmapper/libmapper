@@ -15,8 +15,10 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
 {
     char str[16];
     mapper_receiver r = (mapper_receiver) calloc(1, sizeof(struct _mapper_link));
+    r->props.src_host = strdup(host);
+    r->props.src_port = port;
     sprintf(str, "%d", port);
-    r->props.src_addr = lo_address_new(host, str);
+    r->remote_addr = lo_address_new(host, str);
     r->props.src_name = strdup(name);
     r->props.src_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     r->props.dest_name = strdup(mdev_name(device));
@@ -35,7 +37,7 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
-    if (!r->props.src_addr) {
+    if (!r->remote_addr) {
         mapper_receiver_free(r);
         return 0;
     }
@@ -49,8 +51,10 @@ void mapper_receiver_free(mapper_receiver r)
     if (r) {
         if (r->props.src_name)
             free(r->props.src_name);
-        if (r->props.src_addr)
-            lo_address_free(r->props.src_addr);
+        if (r->props.src_host)
+            free(r->props.src_host);
+        if (r->remote_addr)
+            lo_address_free(r->remote_addr);
         if (r->props.dest_name)
             free(r->props.dest_name);
         while (r->signals && r->signals->connections) {
@@ -217,7 +221,7 @@ void mapper_receiver_send_update(mapper_receiver r,
         }
         c = c->next;
     }
-    lo_send_bundle(r->props.src_addr, b);
+    lo_send_bundle(r->remote_addr, b);
     lo_bundle_free_messages(b);
 }
 
@@ -255,7 +259,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
     }
 
     if (lo_bundle_count(b))
-        lo_send_bundle_from(r->props.src_addr, r->device->server, b);
+        lo_send_bundle_from(r->remote_addr, r->device->server, b);
 
     lo_bundle_free_messages(b);
 }
@@ -585,15 +589,11 @@ int mapper_receiver_in_scope(mapper_receiver r, uint32_t name_hash)
 }
 
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver r,
-                                                    lo_address src_addr)
+                                                    const char *host,
+                                                    int port)
 {
-    const char *host_to_match = lo_address_get_hostname(src_addr);
-    const char *port_to_match = lo_address_get_port(src_addr);
-
     while (r) {
-        const char *host = lo_address_get_hostname(r->props.src_addr);
-        const char *port = lo_address_get_port(r->props.src_addr);
-        if ((strcmp(host, host_to_match)==0) && (strcmp(port, port_to_match)==0))
+        if (r->props.src_port == port && (strcmp(r->props.src_host, host)==0))
             return r;
         r = r->next;
     }

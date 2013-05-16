@@ -251,8 +251,10 @@ typedef struct _mapper_db_link {
     uint32_t src_name_hash;         //!< CRC-32 hash of src device name.
     char *dest_name;                //!< Destination device name (OSC path).
     uint32_t dest_name_hash;        //!< CRC-32 hash of dest device name.
-    lo_address src_addr;            //!< Address of the source device.
-    lo_address dest_addr;           //!< Address of the destination device.
+    char *src_host;                 //!< IP Address of the source device.
+    int src_port;                   //!< Network port of source device.
+    char *dest_host;                //!< IP Address of the destination device.
+    int dest_port;                  //!< Network port of destination device.
     int num_scopes;                 //!< The number of instance group scopes.
     char **scope_names;             //!< Array of instance group scopes.
     uint32_t *scope_hashes;         //!< Array of CRC-32 scope hashes.
