@@ -740,6 +740,14 @@ typedef enum {
     IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
+/*! Possible monitor auto-request settings. */
+typedef enum {
+    AUTOREQ_SIGNALS     = 0x01,
+    AUTOREQ_LINKS       = 0x02,
+    AUTOREQ_CONNECTIONS = 0x04,
+    AUTOREQ_ALL         = 0xFF
+} mapper_monitor_autoreq_mode_t;
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -1232,9 +1240,9 @@ typedef struct _admin {} admin;
 }
 
 %extend _monitor {
-    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
+    _monitor(admin *DISOWN=0, mapper_monitor_autoreq_mode_t autorequest=0xFF) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
-                                             enable_autorequest);
+                                             autorequest);
     }
     ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
@@ -1248,8 +1256,8 @@ typedef struct _admin {} admin;
     db *get_db() {
         return (db *)mapper_monitor_get_db((mapper_monitor)$self);
     }
-    void autorequest(const int enable) {
-        mapper_monitor_autorequest((mapper_monitor)$self, enable);
+    void autorequest(mapper_monitor_autoreq_mode_t autorequest) {
+        mapper_monitor_autorequest((mapper_monitor)$self, autorequest);
     }
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);

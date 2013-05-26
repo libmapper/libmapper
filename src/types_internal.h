@@ -256,6 +256,11 @@ typedef struct _mapper_monitor {
      *  mapper_monitor_free(). */
     int own_admin;
 
+    /*! Flags indicating whether information on signals, links,
+     *  and connections should be automatically requested when a
+     *  new device is seen.*/
+    int autorequest;
+
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
 
