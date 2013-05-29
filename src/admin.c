@@ -723,15 +723,13 @@ static void mapper_admin_send_linked(mapper_admin admin,
         lo_message_add_string(m, "@srcPort");
         lo_message_add_int32(m, link->device->props.port);
         lo_message_add_string(m, "@destPort");
-        const char *s = lo_address_get_port(link->props.dest_addr);
-        lo_message_add_int32(m, strtol(s, NULL, 10));
+        lo_message_add_int32(m, link->props.dest_port);
     }
     else {
         lo_message_add_string(m, link->props.src_name);
         lo_message_add_string(m, mdev_name(link->device));
         lo_message_add_string(m, "@srcPort");
-        const char *s = lo_address_get_port(link->props.src_addr);
-        lo_message_add_int32(m, strtol(s, NULL, 10));
+        lo_message_add_int32(m, link->props.src_port);
         lo_message_add_string(m, "@destPort");
         lo_message_add_int32(m, link->device->props.port);
     }

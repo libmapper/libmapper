@@ -289,7 +289,8 @@ int mapper_router_in_scope(mapper_router router, uint32_t group_id);
 
 /*! Find a router by destination address in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_address(mapper_router routers,
-                                                 lo_address dest_addr);
+                                                 const char *host,
+                                                 int port);
 
 /*! Find a router by destination device name in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
@@ -297,7 +298,7 @@ mapper_router mapper_router_find_by_dest_name(mapper_router routers,
 
 int mapper_router_add_scope(mapper_router router, const char *scope);
 
-void mapper_router_remove_scope(mapper_router router, const char *scope);
+int mapper_router_remove_scope(mapper_router router, const char *scope);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -342,7 +343,8 @@ int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t group_id);
 
 /*! Find a receiver by source address in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
-                                                    lo_address src_addr);
+                                                    const char *host,
+                                                    int port);
 
 /*! Find a receiver by source device name in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
@@ -350,7 +352,7 @@ mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
 
 int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
 
-void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
+int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 
@@ -572,6 +574,14 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         const char *dest_name,
                                         mapper_message_t *params);
 
+/*! Add a scope identifier to a given link record. */
+int mapper_db_link_add_scope(mapper_db_link link,
+                             const char *scope);
+
+/*! Remove a scope identifier from a given link record. */
+int mapper_db_link_remove_scope(mapper_db_link link,
+                                const char *scope);
+
 /**** Messages ****/
 
 /*! Parse a message based on an OSC path and parameters.
@@ -596,13 +606,20 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
  *  Note that it's possible the returned type string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
  *  function to ensure it only processes the a priori expected number
- *  of parameters.  (e.g., "@range" has 4 parameters.)
+ *  of parameters. The number of parameter elements can be retrieved
+ *  using the function mapper_msg_get_length().
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
- *  \return       String containing type of each parameter argument.
- */
+ *  \return       String containing type of each parameter argument. */
 const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param);
+
+/*! Look up the vector length of a message parameter by symbolic identifier.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \return       Integer containing the length of the parameter vector. */
+int mapper_msg_get_length(mapper_message_t *msg,
+                          mapper_msg_param_t param);
 
 /*! Helper to get a direct parameter value only if it's a string.
  *  \param msg    Structure containing parameter info.

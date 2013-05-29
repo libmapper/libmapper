@@ -81,8 +81,22 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             if (argv[i]->s == '@' && extra_count < N_EXTRA_PARAMS) {
                 /* Unknown "extra" parameter, record the key index. */
                 msg->extra_args[extra_count] = &argv[i];
-                i++; // To value
-                msg->extra_types[extra_count] = types[i];
+                msg->extra_types[extra_count] = types[i+1];
+                msg->extra_lengths[extra_count] = 0;
+                while (++i < argc) {
+                    if ((types[i] == 's' || types[i] == 'S')
+                        && (&argv[i]->s)[0] == '@') {
+                        /* arrived at next parameter index. */
+                        i--;
+                        break;
+                    }
+                    msg->extra_lengths[extra_count]++;
+                }
+                if (!msg->extra_lengths[extra_count]) {
+                    trace("message %s, key %s has no values.\n",
+                          path, &(*msg->extra_args[extra_count])->s);
+                    return 1;
+                }
                 extra_count++;
                 continue;
             }
@@ -112,6 +126,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                      * considered "unknown" during get_range(), and
                      * therefore not modified if already known by some
                      * other means. */
+                    // TODO: should use OSC "false" type instead?
                 }
                 else if (types[i] != 'i' && types[i] != 'f') {
                     /* range parameter bad type */
@@ -123,14 +138,24 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                     return 1;
                 }
             }
+            msg->lengths[j] = 4;
         }
         else {
-            i++;
-            msg->types[j] = &types[i];
-            msg->values[j] = &argv[i];
-            if (i >= argc) {
-                trace("message %s, not enough parameters for %s\n",
-                      path, &argv[i-1]->s);
+            msg->types[j] = &types[i+1];
+            msg->values[j] = &argv[i+1];
+            msg->lengths[j] = 0;
+            while (++i < argc) {
+                if ((types[i] == 's' || types[i] == 'S')
+                    && (&argv[i]->s)[0] == '@') {
+                    /* Arrived at next param index. */
+                    i--;
+                    break;
+                }
+                msg->lengths[j]++;
+            }
+            if (!msg->lengths[j]) {
+                trace("message %s, key %s has no values.\n",
+                      path, mapper_msg_param_strings[j]);
                 return 1;
             }
         }
@@ -152,6 +177,14 @@ const char* mapper_msg_get_type(mapper_message_t *msg,
     die_unless(param >= 0 && param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->types[param];
+}
+
+int mapper_msg_get_length(mapper_message_t *msg,
+                          mapper_msg_param_t param)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+    return msg->lengths[param];
 }
 
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,

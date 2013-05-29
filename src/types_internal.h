@@ -177,6 +177,7 @@ typedef struct _mapper_queue {
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_link {
+    lo_address remote_addr;         //!< Network address of remote endpoint
     mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */
@@ -243,6 +244,11 @@ typedef struct _mapper_monitor {
      *  it was created during mapper_monitor_new() and should be freed during
      *  mapper_monitor_free(). */
     int own_admin;
+
+    /*! Flags indicating whether information on signals, links,
+     *  and connections should be automatically requested when a
+     *  new device is seen.*/
+    int autorequest;
 
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
@@ -314,8 +320,10 @@ typedef struct _mapper_message
     const char *path;               //!< OSC address.
     lo_arg **values[N_AT_PARAMS];   //!< Array of parameter values.
     const char *types[N_AT_PARAMS]; //!< Array of types for each value.
+    int lengths[N_AT_PARAMS];       //!< Array of lengths for each value.
     lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
     char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
+    char extra_lengths[N_EXTRA_PARAMS];  //!< Lengths of extra parameters.
 } mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__

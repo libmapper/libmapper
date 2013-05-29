@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
+#include <stdlib.h>
 
 #include <unistd.h>
 #include <signal.h>
@@ -178,9 +179,11 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char ** argv)
 {
     int result = 0;
+    if (argc > 1)
+        automate = atoi(argv[1]);
 
     signal(SIGINT, ctrlc);
 
