@@ -962,6 +962,16 @@ typedef struct _admin {} admin;
         mdev_now((mapper_device)$self, &tt);
         return mapper_timetag_get_double(tt);
     }
+    void start_queue(double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mdev_start_queue((mapper_device)$self, tt);
+    }
+    void send_queue(double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mdev_send_queue((mapper_device)$self, tt);
+    }
     %pythoncode {
         port = property(get_port)
         name = property(get_name)
@@ -1123,7 +1133,7 @@ typedef struct _admin {} admin;
                 callbacks = 0;
             }
         }
-        return msig_set_callback((mapper_signal)$self, h, callbacks);
+        msig_set_callback((mapper_signal)$self, h, callbacks);
     }
     int query_remotes(double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
