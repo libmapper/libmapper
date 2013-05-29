@@ -141,7 +141,7 @@ void mdev_registered(mapper_device md)
     /* Add device name to signals. Also add device name hash to
      * locally-activated signal instances. */
     for (i = 0; i < md->n_inputs; i++) {
-        md->inputs[i]->props.device_name = mdev_name(md);
+        md->inputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->inputs[i]->id_map_length; j++) {
             if (md->inputs[i]->id_maps[j].map &&
                 md->inputs[i]->id_maps[j].map->group == 0)
@@ -149,7 +149,7 @@ void mdev_registered(mapper_device md)
         }
     }
     for (i = 0; i < md->n_outputs; i++) {
-        md->outputs[i]->props.device_name = mdev_name(md);
+        md->outputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->outputs[i]->id_map_length; j++) {
             if (md->outputs[i]->id_maps[j].map &&
                 md->outputs[i]->id_maps[j].map->group == 0)

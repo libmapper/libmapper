@@ -866,8 +866,12 @@ void mapper_db_remove_device_by_name(mapper_db db, const char *name)
         cb = cb->next;
     }
 
+    if (dev->name)
+        free(dev->name);
+    if (dev->host)
+        free(dev->host);
     if (dev->extra)
-        free(dev->extra);
+        table_free(dev->extra, 1);
     list_remove_item(dev, (void**)&db->registered_devices);
 }
 
@@ -1354,8 +1358,14 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
             cb = cb->next;
         }
 
+        if (sig->name)
+            free(sig->name);
+        if (sig->device_name)
+            free(sig->device_name);
+        if (sig->unit)
+            free(sig->unit);
         if (sig->extra)
-            free(sig->extra);
+            table_free(sig->extra, 1);
         list_remove_item(sig, (void**)&db->registered_inputs);
     }
 }
@@ -1374,8 +1384,14 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
             cb = cb->next;
         }
 
+        if (sig->name)
+            free(sig->name);
+        if (sig->device_name)
+            free(sig->device_name);
+        if (sig->unit)
+            free(sig->unit);
         if (sig->extra)
-            free(sig->extra);
+            table_free(sig->extra, 1);
         list_remove_item(sig, (void**)&db->registered_outputs);
     }
 }
@@ -1954,8 +1970,14 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
         cb = cb->next;
     }
 
+    if (con->src_name)
+        free(con->src_name);
+    if (con->dest_name)
+        free(con->dest_name);
+    if (con->expression)
+        free(con->expression);
     if (con->extra)
-        free(con->extra);
+        table_free(con->extra, 1);
     list_remove_item(con, (void**)&db->registered_connections);
 }
 
@@ -2343,6 +2365,7 @@ void mapper_db_remove_links_by_query(mapper_db db, mapper_db_link_t **s)
 
 void mapper_db_remove_link(mapper_db db, mapper_db_link link)
 {
+    int i;
     if (!link)
         return;
 
@@ -2353,8 +2376,18 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         cb = cb->next;
     }
 
+    if (link->src_name)
+        free(link->src_name);
+    if (link->dest_name)
+        free(link->dest_name);
+    if (link->num_scopes && link->scope_names) {
+        for (i=0; i<link->num_scopes; i++)
+            free(link->scope_names[i]);
+        free(link->scope_names);
+        free(link->scope_hashes);
+    }
     if (link->extra)
-        free(link->extra);
+        table_free(link->extra, 1);
     list_remove_item(link, (void**)&db->registered_links);
 }
 
