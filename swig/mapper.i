@@ -597,6 +597,46 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
+/* Wrapper for callback back to python when a device link handler is called. */
+static void device_link_handler_py(mapper_device dev,
+                                   mapper_db_link link,
+                                   mapper_device_local_action_t action,
+                                   void *user)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist = Py_BuildValue("OOi", device_to_py(dev->props), link_to_py(link), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_link_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a device connection handler is called. */
+static void device_connection_handler_py(mapper_device dev,
+                                         mapper_db_link link,
+                                         mapper_signal signal,
+                                         mapper_db_connection connection,
+                                         mapper_device_local_action_t action,
+                                         void *user)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(dev->props), link_to_py(link),
+                                      signal_to_py(&signal->props), connection_to_py(connection),
+                                      action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_connection_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
 typedef struct {
     mapper_signal_value_t v;
     char t;
@@ -755,6 +795,11 @@ typedef enum {
     MDB_NEW,
     MDB_REMOVE,
 } mapper_db_action_t;
+
+typedef enum {
+    MDEV_LOCAL_ESTABLISHED,
+    MDEV_LOCAL_DESTROYED
+} mapper_device_local_action_t;
 
 typedef struct _device {} device;
 typedef struct _signal {} signal;
@@ -961,6 +1006,15 @@ typedef struct _admin {} admin;
         mapper_timetag_t tt;
         mdev_now((mapper_device)$self, &tt);
         return mapper_timetag_get_double(tt);
+    }
+    void add_link_callback(PyObject *PyFunc=0) {
+        Py_XINCREF(PyFunc);
+        mdev_add_link_callback((mapper_device)$self, device_link_handler_py, PyFunc);
+    }
+    void add_connection_callback(PyObject *PyFunc=0) {
+        Py_XINCREF(PyFunc);
+        mdev_add_connection_callback((mapper_device)$self, device_connection_handler_py,
+                                     PyFunc);
     }
     %pythoncode {
         port = property(get_port)
