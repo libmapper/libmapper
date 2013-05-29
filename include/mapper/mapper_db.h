@@ -225,15 +225,15 @@ typedef struct _mapper_db_signal
     int history_size;
 
     /*! The name of this signal, an OSC path.  Must start with '/'. */
-    const char *name;
+    char *name;
 
     /*! The name of the device owning this signal. An OSC path. 
      *  Must start with '/'. */
-    const char *device_name;
+    char *device_name;
 
     /*! The unit of this signal, or NULL for N/A. */
-    const char *unit;
-    
+    char *unit;
+
     /*! The minimum of this signal, or NULL for no minimum. */
     mapper_signal_value_t *minimum;
 

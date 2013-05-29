@@ -758,6 +758,8 @@ int main()
 
     /*********/
 
+    while (db->registered_devices)
+        mapper_db_remove_device_by_name(db, db->registered_devices->name);
     printf("\nTest PASSED.\n");
     return 0;
 }
