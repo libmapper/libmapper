@@ -324,6 +324,7 @@ int mapper_router_send_query(mapper_router r,
         count++;
         c = c->next;
     }
+    free(response_string);
     return count;
 }
 

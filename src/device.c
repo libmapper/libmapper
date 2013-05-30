@@ -536,12 +536,8 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
     snprintf(path, len, "%s%s", sig->props.name, "/got");
     type = (char*) realloc(type, sig->props.length + 3);
     type[0] = type[1] = 'i';
-    memset(type + 2, sig->props.type,
-           sig->props.length);
+    memset(type + 2, sig->props.type, sig->props.length);
     type[sig->props.length + 2] = 0;
-    len = (int) strlen(sig->props.name) + 5;
-    path = (char*) realloc(path, len);
-    snprintf(path, len, "%s%s", sig->props.name, "/got");
     lo_server_add_method(md->server,
                          path,
                          type + 2,
@@ -560,6 +556,7 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
                          handler_signal_instance, (void *)sig);
     md->n_output_callbacks ++;
     free(path);
+    free(type);
 }
 
 void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
