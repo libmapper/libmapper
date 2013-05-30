@@ -399,7 +399,7 @@ void mapper_connection_set_linear_range(mapper_connection c,
         else if (r->known == CONNECTION_RANGE_KNOWN
                  && r->src_min == r->dest_min
                  && r->src_max == r->dest_max)
-            e = strdup("y=x");
+            snprintf(expr, 256, "y=x");
 
         else if (r->known == CONNECTION_RANGE_KNOWN) {
             float scale = ((r->dest_min - r->dest_max)
