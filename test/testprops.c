@@ -213,7 +213,10 @@ int main()
         goto cleanup;
     }
 
-    printf("name: "); lo_arg_pp(type, (lo_arg*)val); printf("\n");
+    /* Using lo_arg_pp() here results in memory access errors when
+     * profiling with Valgrind, since it assumes that lo_args of type
+     * "string" use memory allocated in multiples of 4 bytes. */
+    printf("name: %s\n", (char*)val);
 
     if (type != 's') {
         printf("9: property `name' is type '%c', expected 's'.\n", type);
