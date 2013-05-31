@@ -406,10 +406,13 @@ static int update_signal_value_if_arg(mapper_message_t *params,
             update = 1;
         }
     }
-    if (update && (!*pv || memcmp(&v, pv, sizeof(mapper_signal_value_t))==0)) {
-        *pv = realloc(*pv, sizeof(mapper_signal_value_t));
-        **pv = v;
-        return 1;
+    if (update) {
+        if (!*pv)
+            *pv = realloc(*pv, sizeof(mapper_signal_value_t));
+        if (memcmp(&v, pv, sizeof(mapper_signal_value_t))!=0) {
+            **pv = v;
+            return 1;
+        }
     }
     return 0;
 }
@@ -1364,6 +1367,10 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
             free(sig->device_name);
         if (sig->unit)
             free(sig->unit);
+        if (sig->minimum)
+            free(sig->minimum);
+        if (sig->maximum)
+            free(sig->maximum);
         if (sig->extra)
             table_free(sig->extra, 1);
         list_remove_item(sig, (void**)&db->registered_inputs);
@@ -1390,6 +1397,10 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
             free(sig->device_name);
         if (sig->unit)
             free(sig->unit);
+        if (sig->minimum)
+            free(sig->minimum);
+        if (sig->maximum)
+            free(sig->maximum);
         if (sig->extra)
             table_free(sig->extra, 1);
         list_remove_item(sig, (void**)&db->registered_outputs);
