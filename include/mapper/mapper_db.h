@@ -23,8 +23,13 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *name;             //!< Device name.
-    uint32_t name_hash;     //!< CRC-32 hash of device name.
+    char *identifier;       /*!< The identifier (prefix) for
+                             *   this device. */
+    char *name;             /*!< The full name for this
+                             *   device, or zero. */
+    int ordinal;
+    uint32_t name_hash;     /*!< CRC-32 hash of full device name
+                             *   in the form <name>.<ordinal> */
     char *host;             //!< Device network host name.
     int port;               //!< Device network port.
     int n_inputs;           //!< Number of associated input signals.
@@ -35,6 +40,7 @@ typedef struct _mapper_db_device {
     int n_connections_out;  //!< Number of associated outgoing connections.
     int version;            //!< Reported device state version.
     void* user_data;        //!< User modifiable data.
+    mapper_timetag_t timetag;
 
     mapper_timetag_t synced; //!< Timestamp of last sync.
 
@@ -219,14 +225,14 @@ typedef struct _mapper_db_signal
     int history_size;
 
     /*! The name of this signal, an OSC path.  Must start with '/'. */
-    const char *name;
+    char *name;
 
-    /*! The device name of which this signal is a member. An OSC path.
+    /*! The name of the device owning this signal. An OSC path. 
      *  Must start with '/'. */
-    const char *device_name;
+    char *device_name;
 
     /*! The unit of this signal, or NULL for N/A. */
-    const char *unit;
+    char *unit;
 
     /*! The minimum of this signal, or NULL for no minimum. */
     mapper_signal_value_t *minimum;

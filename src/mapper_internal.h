@@ -47,10 +47,11 @@ struct _mapper_signal
 /**** Devices ****/
 
 struct _mapper_device {
-    /*! Prefix for the name of this device.  It gets a unique ordinal
-     *  appended to it to differentiate from other devices of the same
-     *  name. */
-    char *name_prefix;
+    mapper_db_device_t props;           //!< Properties.
+    mapper_admin_allocated_t ordinal;   /*!< A unique ordinal for this
+                                         *   device instance. */
+    int registered;                     /*!< Non-zero if this device has
+                                         *   been registered. */
 
     /*! Non-zero if this device is the sole owner of this admin, i.e.,
      *  it was created during mdev_new() and should be freed during
@@ -60,13 +61,9 @@ struct _mapper_device {
     mapper_admin admin;
     struct _mapper_signal **inputs;
     struct _mapper_signal **outputs;
-    int n_inputs;
-    int n_outputs;
     int n_alloc_inputs;
     int n_alloc_outputs;
     int n_output_callbacks;
-    int n_links_in;
-    int n_links_out;
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
@@ -89,13 +86,8 @@ struct _mapper_device {
 
     uint32_t id_counter;
 
-    /*! Server used to handle incoming messages.  NULL until at least
-     *  one input has been registered and the incoming port has been
-     *  allocated. */
+    /*! Server used to handle incoming messages. */
     lo_server server;
-
-    /*! Extra properties associated with this device. */
-    struct _mapper_string_table *extra;
 };
 
 /**** Instances ****/
@@ -147,8 +139,7 @@ typedef struct _mapper_signal_id_map
 
 /**** Admin ****/
 
-void mapper_admin_add_device(mapper_admin admin, mapper_device dev,
-                             const char *identifier);
+void mapper_admin_add_device(mapper_admin admin, mapper_device dev);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
@@ -156,15 +147,7 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
-void mapper_admin_name_probe(mapper_admin admin);
-
-/* A macro allow tracing bad usage of this function. */
-#define mapper_admin_name(admin)                        \
-    _real_mapper_admin_name(admin, __FILE__, __LINE__)
-
-/* The real function, don't call directly. */
-const char *_real_mapper_admin_name(mapper_admin admin,
-                                    const char *file, unsigned int line);
+void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Macro for calling message-sending function. */
 #define mapper_admin_send_osc(...)                  \

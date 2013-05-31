@@ -371,10 +371,15 @@ static int replace_expression_string(mapper_connection c,
         mapper_expr_free(c->expr);
 
     c->expr = expr;
-    int len = strlen(expr_str)+1;
+    int len = strlen(expr_str);
     if (!c->props.expression || len > strlen(c->props.expression))
-        c->props.expression = realloc(c->props.expression, len);
-    strncpy(c->props.expression, expr_str, len);
+        c->props.expression = realloc(c->props.expression, len+1);
+
+    /* Using strncpy() here causes memory profiling errors due to possible
+     * overlapping memory (e.g. expr_str == c->props.expression). */
+    memcpy(c->props.expression, expr_str, len);
+    c->props.expression[len] = '\0';
+
     return 0;
 }
 
@@ -399,7 +404,7 @@ void mapper_connection_set_linear_range(mapper_connection c,
         else if (r->known == CONNECTION_RANGE_KNOWN
                  && r->src_min == r->dest_min
                  && r->src_max == r->dest_max)
-            e = strdup("y=x");
+            snprintf(expr, 256, "y=x");
 
         else if (r->known == CONNECTION_RANGE_KNOWN) {
             float scale = ((r->dest_min - r->dest_max)
@@ -630,12 +635,6 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.range.dest_max = range[3];
     }
 
-    // TO DO: test if range has actually changed
-    if (c->props.range.known == CONNECTION_RANGE_KNOWN
-        && c->props.mode == MO_LINEAR) {
-        mapper_connection_set_linear_range(c, &c->props.range);
-    }
-
     /* Muting. */
     int muting;
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
@@ -728,6 +727,51 @@ void mapper_connection_set_from_message(mapper_connection c,
         trace("unknown result from mapper_msg_get_mode()\n");
         break;
     }
+}
+
+mapper_connection mapper_connection_find_by_names(mapper_device md,
+                                                  const char* src_name,
+                                                  const char* dest_name)
+{
+    mapper_router router = md->routers;
+    int i = 0;
+    int n = strlen(dest_name);
+    const char *slash = strchr(dest_name+1, '/');
+    if (slash)
+        n = n - strlen(slash);
+
+    src_name = strchr(src_name+1, '/');
+
+    while (i < md->props.n_outputs) {
+        // Check if device outputs includes src_name
+        if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
+            while (router != NULL) {
+                // find associated router
+                if (strncmp(router->props.dest_name, dest_name, n) == 0) {
+                    // find associated connection
+                    mapper_router_signal rs = router->signals;
+                    while (rs && rs->signal != md->outputs[i])
+                        rs = rs->next;
+                    if (!rs)
+                        return NULL;
+                    mapper_connection c = rs->connections;
+                    while (c && strcmp(c->props.dest_name,
+                                       (dest_name + n)) != 0)
+                        c = c->next;
+                    if (!c)
+                        return NULL;
+                    else
+                        return c;
+                }
+                else {
+                    router = router->next;
+                }
+            }
+            return NULL;
+        }
+        i++;
+    }
+    return NULL;
 }
 
 void reallocate_connection_histories(mapper_connection c,

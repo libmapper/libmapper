@@ -4,6 +4,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #include <unistd.h>
 
@@ -93,14 +94,14 @@ void cleanup_destination()
     }
 }
 
-int setup_router()
+int setup_connection()
 {
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
-    
+
     char src_name[1024], dest_name[1024];
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
-    
+
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
     mapper_db_connection_t props;
@@ -161,8 +162,8 @@ int main()
 
     wait_ready();
 
-    if (setup_router()) {
-        printf("Error initializing router.\n");
+    if (setup_connection()) {
+        printf("Error setting connection.\n");
         result = 1;
         goto done;
     }

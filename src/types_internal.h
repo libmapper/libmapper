@@ -109,16 +109,8 @@ typedef struct _mapper_clock_t {
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
-    char *identifier;                 /*!< The identifier (prefix) for this device. */
-    char *name;                       /*!< The full name for this
-                                       *   device, or zero. */
-    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
-                                       *   device instance. */
-    uint32_t name_hash;               /*!< CRC-32 hash of full device name
-                                       *   in the form <name>.<ordinal> */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    int port;                         /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
@@ -127,8 +119,6 @@ typedef struct _mapper_admin {
                                        *   interface for receiving
                                        *   messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */
-    int registered;                   /*!< Non-zero if this device has
-                                       *   been registered. */
     struct _mapper_device *device;    /*!< Device that this admin is
                                        *   in charge of. */
     struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
@@ -199,8 +189,6 @@ typedef struct _mapper_link {
     struct _mapper_link *next;      //!< Next link in the list.
 } *mapper_link, *mapper_router, *mapper_receiver;
 
-/**** Device ****/
-
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
 typedef struct _mapper_id_map {
@@ -212,6 +200,7 @@ typedef struct _mapper_id_map {
     struct _mapper_id_map *next;   //!< The next id map in the list.
 } *mapper_id_map;
 
+/**** Device ****/
 struct _mapper_device;
 typedef struct _mapper_device *mapper_device;
 

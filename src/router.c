@@ -272,6 +272,7 @@ void mapper_router_send_update(mapper_router r,
     if (c->history[history_index].position != -1) {
         if (blob) {
             lo_message_add_blob(m, blob);
+            lo_blob_free(blob);
         }
         else if (c->history[history_index].type == 'f') {
             float *v = msig_history_value_pointer(c->history[history_index]);
@@ -324,6 +325,7 @@ int mapper_router_send_query(mapper_router r,
         count++;
         c = c->next;
     }
+    free(response_string);
     return count;
 }
 
