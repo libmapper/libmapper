@@ -36,13 +36,13 @@ int test_admin()
     printf("Found interface %s has IP %s\n", my_admin->interface_name,
            inet_ntoa(my_admin->interface_ip));
 
-    while (!my_admin->registered) {
+    while (!my_device->registered) {
         usleep(10000);
         mapper_admin_poll(my_admin);
     }
 
-    printf("Using port %d.\n", my_admin->port);
-    printf("Allocated ordinal %d.\n", my_admin->ordinal.value);
+    printf("Using port %d.\n", my_device->props.port);
+    printf("Allocated ordinal %d.\n", my_device->ordinal.value);
 
     printf("Delaying for 5 seconds..\n");
     wait = 500;
