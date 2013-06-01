@@ -64,18 +64,18 @@
         memset(&p, 0, sizeof(mapper_db_link_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
-            int i = PyList_GET_SIZE(keys);
+            int i = PyList_GET_SIZE(keys), k;
             for (i=i-1; i>=0; --i) {
                 PyObject *o = PyList_GetItem(keys, i);
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "scope")==0) {
+                    if (strcmp(s, "scope_names")==0) {
                         if (PyString_Check(v)) {
                             p.props.num_scopes = 1;
                             p.flags |= LINK_NUM_SCOPES;
                             char *scope = PyString_AsString(v);
-                            p.props.scope_names  = &scope;
+                            p.props.scope_names = &scope;
                             p.flags |= LINK_SCOPE_NAMES;
                         }
                     }
@@ -86,6 +86,29 @@
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
                             p.props.dest_name = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "num_scopes")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.num_scopes = k;
+                    }
+                    else if (strcmp(s, "src_host")==0) {
+                        if (PyString_Check(v))
+                            p.props.src_host = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "src_port")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.src_port = k;
+                    }
+                    else if (strcmp(s, "dest_host")==0) {
+                        if (PyString_Check(v))
+                            p.props.dest_host = PyString_AsString(v);
+                    }
+                    else if (strcmp(s, "dest_port")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p.props.dest_port = k;
                     }
                 }
             }
@@ -406,38 +429,92 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
 static PyObject *connection_to_py(mapper_db_connection_t *con)
 {
     if (!con) return Py_None;
-    PyObject *o;
-    o = Py_BuildValue("{s:s,s:s,s:c,s:c,s:i,s:i,s:i,s:i,s:(OOOO),s:s,s:i,s:i}",
-                      "src_name", con->src_name,
-                      "dest_name", con->dest_name,
-                      "src_type", con->src_type,
-                      "dest_type", con->dest_type,
-                      "src_length", con->src_length,
-                      "dest_length", con->dest_length,
-                      "bound_max", con->bound_max,
-                      "bound_min", con->bound_min,
-                      "range",
-                      (con->range.known & CONNECTION_RANGE_SRC_MIN
-                       ? Py_BuildValue("f", con->range.src_min) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_SRC_MAX
-                       ? Py_BuildValue("f", con->range.src_max) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_DEST_MIN
-                       ? Py_BuildValue("f", con->range.dest_min) : Py_None),
-                      (con->range.known & CONNECTION_RANGE_DEST_MAX
-                       ? Py_BuildValue("f", con->range.dest_max) : Py_None),
-                      "expression", con->expression,
-                      "mode", con->mode,
-                      "muted", con->muted);
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        const lo_arg *value;
+        while (!mapper_db_connection_property_index(con, i, &property,
+                                                    &type, &value))
+        {
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+        // add ranges
+        PyObject *v = Py_BuildValue("{OOOO}",
+                          (con->range.known & CONNECTION_RANGE_SRC_MIN
+                           ? Py_BuildValue("f", con->range.src_min) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_SRC_MAX
+                           ? Py_BuildValue("f", con->range.src_max) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_DEST_MIN
+                           ? Py_BuildValue("f", con->range.dest_min) : Py_None),
+                          (con->range.known & CONNECTION_RANGE_DEST_MAX
+                           ? Py_BuildValue("f", con->range.dest_max) : Py_None));
+        PyDict_SetItemString(o, "range", v);
+        Py_DECREF(v);
+    }
     return o;
 }
 
 static PyObject *link_to_py(mapper_db_link_t *link)
 {
     if (!link) return Py_None;
-    PyObject *o =
-        Py_BuildValue("{s:s,s:s}",
-                      "src_name", link->src_name, 
-                      "dest_name", link->dest_name);
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    else {
+        int i=0;
+        const char *property;
+        lo_type type;
+        const lo_arg *value;
+        while (!mapper_db_link_property_index(link, i, &property,
+                                              &type, &value))
+        {
+            PyObject *v = 0;
+            if (type=='s' || type=='S')
+                v = PyString_FromString(&value->s);
+            else if (type=='c')
+                v = Py_BuildValue("c", value->c);
+            else if (type=='i')
+                v = Py_BuildValue("i", value->i32);
+            else if (type=='h')
+                v = Py_BuildValue("l", value->i64);
+            else if (type=='f')
+                v = Py_BuildValue("f", value->f);
+            else if (type=='d')
+                v = Py_BuildValue("d", value->d);
+            if (v) {
+                PyDict_SetItemString(o, property, v);
+                Py_DECREF(v);
+            }
+            i++;
+        }
+        // add link scopes
+        PyObject *v = PyList_New(link->num_scopes);
+        for (i=0; i<link->num_scopes; i++)
+            PyList_SetItem(v, i, Py_BuildValue("s", link->scope_names[i]));
+        PyDict_SetItemString(o, "scope_names", v);
+        Py_DECREF(v);
+    }
     return o;
 }
 
@@ -474,7 +551,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
             arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
     }
     else {
-        arglist = Py_BuildValue("(Oisd)", py_msig, instance_id, 0, timetag);
+        arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, Py_None, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -515,6 +592,46 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
     }
     PyObject **callbacks = (PyObject**)props->user_data;
     result = PyEval_CallObject(callbacks[1], arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a device link handler is called. */
+static void device_link_handler_py(mapper_device dev,
+                                   mapper_db_link link,
+                                   mapper_device_local_action_t action,
+                                   void *user)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist = Py_BuildValue("OOi", device_to_py(&dev->props), link_to_py(link), action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_link_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a device connection handler is called. */
+static void device_connection_handler_py(mapper_device dev,
+                                         mapper_db_link link,
+                                         mapper_signal signal,
+                                         mapper_db_connection connection,
+                                         mapper_device_local_action_t action,
+                                         void *user)
+{
+    PyEval_RestoreThread(_save);
+    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(&dev->props), link_to_py(link),
+                                      signal_to_py(&signal->props), connection_to_py(connection),
+                                      action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_connection_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -663,6 +780,14 @@ typedef enum {
     IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
+/*! Possible monitor auto-request settings. */
+typedef enum {
+    AUTOREQ_SIGNALS     = 0x01,
+    AUTOREQ_LINKS       = 0x02,
+    AUTOREQ_CONNECTIONS = 0x04,
+    AUTOREQ_ALL         = 0xFF
+} mapper_monitor_autoreq_mode_t;
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -670,6 +795,11 @@ typedef enum {
     MDB_NEW,
     MDB_REMOVE,
 } mapper_db_action_t;
+
+typedef enum {
+    MDEV_LOCAL_ESTABLISHED,
+    MDEV_LOCAL_DESTROYED
+} mapper_device_local_action_t;
 
 typedef struct _device {} device;
 typedef struct _signal {} signal;
@@ -872,6 +1002,41 @@ typedef struct _admin {} admin;
     void remove_property(const char *key) {
         mdev_remove_property((mapper_device)$self, key);
     }
+    double now() {
+        mapper_timetag_t tt;
+        mdev_now((mapper_device)$self, &tt);
+        return mapper_timetag_get_double(tt);
+    }
+    void start_queue(double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mdev_start_queue((mapper_device)$self, tt);
+    }
+    void send_queue(double timetag) {
+        mapper_timetag_t tt;
+        mapper_timetag_set_double(&tt, timetag);
+        mdev_send_queue((mapper_device)$self, tt);
+    }
+    void set_link_callback(PyObject *PyFunc=0) {
+        void *h = 0;
+        if (PyFunc) {
+            h = device_link_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        else
+            Py_XDECREF(((mapper_device)$self)->link_cb_userdata);
+        mdev_set_link_callback((mapper_device)$self, h, PyFunc);
+    }
+    void set_connection_callback(PyObject *PyFunc=0) {
+        void *h = 0;
+        if (PyFunc) {
+            Py_XINCREF(PyFunc);
+            h = device_connection_handler_py;
+        }
+        else
+            Py_XDECREF(((mapper_device)$self)->connection_cb_userdata);
+        mdev_set_connection_callback((mapper_device)$self, h, PyFunc);
+    }
     %pythoncode {
         port = property(get_port)
         name = property(get_name)
@@ -994,7 +1159,7 @@ typedef struct _admin {} admin;
                 callbacks[0] = 0;
                 callbacks[1] = PyFunc;
             }
-            Py_XINCREF(PyFunc);
+            Py_INCREF(PyFunc);
         }
         else if (callbacks) {
             Py_XDECREF(callbacks[1]);
@@ -1020,9 +1185,8 @@ typedef struct _admin {} admin;
                 callbacks = malloc(2 * sizeof(PyObject*));
                 callbacks[0] = PyFunc;
                 callbacks[1] = 0;
-                Py_XINCREF(callbacks);
             }
-            Py_XINCREF(PyFunc);
+            Py_INCREF(PyFunc);
         }
         else if (callbacks) {
             Py_XDECREF(callbacks[0]);
@@ -1030,11 +1194,11 @@ typedef struct _admin {} admin;
                 callbacks[0] = 0;
             }
             else {
-                Py_XDECREF(callbacks);
+                free(callbacks);
                 callbacks = 0;
             }
         }
-        return msig_set_callback((mapper_signal)$self, h, callbacks);
+        msig_set_callback((mapper_signal)$self, h, callbacks);
     }
     int query_remotes(double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1151,9 +1315,9 @@ typedef struct _admin {} admin;
 }
 
 %extend _monitor {
-    _monitor(admin *DISOWN=0, int enable_autorequest=1) {
+    _monitor(admin *DISOWN=0, mapper_monitor_autoreq_mode_t autorequest=0xFF) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
-                                             enable_autorequest);
+                                             autorequest);
     }
     ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
@@ -1167,8 +1331,8 @@ typedef struct _admin {} admin;
     db *get_db() {
         return (db *)mapper_monitor_get_db((mapper_monitor)$self);
     }
-    void autorequest(const int enable) {
-        mapper_monitor_autorequest((mapper_monitor)$self, enable);
+    void autorequest(mapper_monitor_autoreq_mode_t autorequest) {
+        mapper_monitor_autorequest((mapper_monitor)$self, autorequest);
     }
     int request_devices() {
         return mapper_monitor_request_devices((mapper_monitor)$self);
@@ -1242,6 +1406,11 @@ typedef struct _admin {} admin;
     void disconnect(const char* source_signal, 
                     const char* dest_signal) {
         mapper_monitor_disconnect((mapper_monitor)$self, source_signal, dest_signal);
+    }
+    double now() {
+        mapper_timetag_t tt;
+        mapper_monitor_now((mapper_monitor)$self, &tt);
+        return mapper_timetag_get_double(tt);
     }
     %pythoncode {
         db = property(get_db)

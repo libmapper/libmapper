@@ -23,8 +23,13 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *name;             //!< Device name.
-    uint32_t name_hash;     //!< CRC-32 hash of device name.
+    char *identifier;       /*!< The identifier (prefix) for
+                             *   this device. */
+    char *name;             /*!< The full name for this
+                             *   device, or zero. */
+    int ordinal;
+    uint32_t name_hash;     /*!< CRC-32 hash of full device name
+                             *   in the form <name>.<ordinal> */
     char *host;             //!< Device network host name.
     int port;               //!< Device network port.
     int n_inputs;           //!< Number of associated input signals.
@@ -35,6 +40,7 @@ typedef struct _mapper_db_device {
     int n_connections_out;  //!< Number of associated outgoing connections.
     int version;            //!< Reported device state version.
     void* user_data;        //!< User modifiable data.
+    mapper_timetag_t timetag;
 
     mapper_timetag_t synced; //!< Timestamp of last sync.
 
@@ -219,14 +225,14 @@ typedef struct _mapper_db_signal
     int history_size;
 
     /*! The name of this signal, an OSC path.  Must start with '/'. */
-    const char *name;
+    char *name;
 
-    /*! The device name of which this signal is a member. An OSC path.
+    /*! The name of the device owning this signal. An OSC path. 
      *  Must start with '/'. */
-    const char *device_name;
+    char *device_name;
 
     /*! The unit of this signal, or NULL for N/A. */
-    const char *unit;
+    char *unit;
 
     /*! The minimum of this signal, or NULL for no minimum. */
     mapper_signal_value_t *minimum;
@@ -251,8 +257,10 @@ typedef struct _mapper_db_link {
     uint32_t src_name_hash;         //!< CRC-32 hash of src device name.
     char *dest_name;                //!< Destination device name (OSC path).
     uint32_t dest_name_hash;        //!< CRC-32 hash of dest device name.
-    lo_address src_addr;            //!< Address of the source device.
-    lo_address dest_addr;           //!< Address of the destination device.
+    char *src_host;                 //!< IP Address of the source device.
+    int src_port;                   //!< Network port of source device.
+    char *dest_host;                //!< IP Address of the destination device.
+    int dest_port;                  //!< Network port of destination device.
     int num_scopes;                 //!< The number of instance group scopes.
     char **scope_names;             //!< Array of instance group scopes.
     uint32_t *scope_hashes;         //!< Array of CRC-32 scope hashes.

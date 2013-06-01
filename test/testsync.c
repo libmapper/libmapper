@@ -62,7 +62,7 @@ void loop()
             last_update = system_time.sec;
             if (ready) {
                 for (i=0; i<5; i++) {
-                    mdev_timetag_now(devices[i], &device_times[i]);
+                    mdev_now(devices[i], &device_times[i]);
                 }
                 // calculate standard deviation
                 double mean = 0;

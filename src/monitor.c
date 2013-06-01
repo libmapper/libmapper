@@ -26,7 +26,8 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
+mapper_monitor mapper_monitor_new(mapper_admin admin,
+                                  mapper_monitor_autoreq_mode_t flags)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
@@ -46,8 +47,8 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int enable_autorequest)
     }
 
     mapper_admin_add_monitor(mon->admin, mon);
-    if (enable_autorequest)
-        mapper_monitor_autorequest(mon, 1);
+    if (flags)
+        mapper_monitor_autorequest(mon, flags);
     return mon;
 }
 
@@ -196,7 +197,7 @@ static void on_signal_continue_batch_request(mapper_db_signal sig,
         free(data);
         return;
     }
-    if (sig->id < 0 && (sig->id % data->batch_size != 0))
+    if (sig->id > 0 && (sig->id % data->batch_size == 0))
         request_signal_range_by_device_name_internal(data->monitor,
                                                      data->device->name,
                                                      sig->id + 1,
@@ -616,16 +617,26 @@ static void on_device_autorequest(mapper_db_device dev,
         mapper_monitor mon = (mapper_monitor)(user);
 
         // Request signals, links, connections for new devices.
-        mapper_monitor_batch_request_signals_by_device_name(mon, dev->name, 10);
-        mapper_monitor_request_links_by_src_device_name(mon, dev->name);
-        mapper_monitor_batch_request_connections_by_src_device_name(mon, dev->name, 10);
+        if ((mon->autorequest & AUTOREQ_SIGNALS))
+            mapper_monitor_batch_request_signals_by_device_name(mon, dev->name, 10);
+        if (mon->autorequest & AUTOREQ_LINKS)
+            mapper_monitor_request_links_by_src_device_name(mon, dev->name);
+        if (mon->autorequest & AUTOREQ_CONNECTIONS)
+            mapper_monitor_batch_request_connections_by_src_device_name(mon, dev->name, 10);
     }
 }
 
-void mapper_monitor_autorequest(mapper_monitor mon, int enable)
+void mapper_monitor_autorequest(mapper_monitor mon,
+                                mapper_monitor_autoreq_mode_t flags)
 {
-    if (enable)
+    if (flags)
         mapper_db_add_device_callback(&mon->db, on_device_autorequest, mon);
     else
         mapper_db_remove_device_callback(&mon->db, on_device_autorequest, mon);
+    mon->autorequest = flags;
+}
+
+void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
+{
+    mapper_clock_now(&mon->admin->clock, tt);
 }

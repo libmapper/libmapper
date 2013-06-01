@@ -55,13 +55,14 @@ void mapper_clock_now(mapper_clock clock,
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)
 {
     return (double)a.sec - (double)b.sec +
-    ((double)a.frac - (double)b.frac) * multiplier;
+        ((double)a.frac - (double)b.frac) * multiplier;
 }
 
 void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
 {
     if (!b)
         return;
+
     b += (double)a->frac * multiplier;
     a->sec += floor(b);
     b -= floor(b);

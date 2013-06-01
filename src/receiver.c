@@ -15,8 +15,10 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
 {
     char str[16];
     mapper_receiver r = (mapper_receiver) calloc(1, sizeof(struct _mapper_link));
+    r->props.src_host = strdup(host);
+    r->props.src_port = port;
     sprintf(str, "%d", port);
-    r->props.src_addr = lo_address_new(host, str);
+    r->remote_addr = lo_address_new(host, str);
     r->props.src_name = strdup(name);
     r->props.src_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     r->props.dest_name = strdup(mdev_name(device));
@@ -35,7 +37,7 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
-    if (!r->props.src_addr) {
+    if (!r->remote_addr) {
         mapper_receiver_free(r);
         return 0;
     }
@@ -49,8 +51,10 @@ void mapper_receiver_free(mapper_receiver r)
     if (r) {
         if (r->props.src_name)
             free(r->props.src_name);
-        if (r->props.src_addr)
-            lo_address_free(r->props.src_addr);
+        if (r->props.src_host)
+            free(r->props.src_host);
+        if (r->remote_addr)
+            lo_address_free(r->remote_addr);
         if (r->props.dest_name)
             free(r->props.dest_name);
         while (r->signals && r->signals->connections) {
@@ -217,7 +221,7 @@ void mapper_receiver_send_update(mapper_receiver r,
         }
         c = c->next;
     }
-    lo_send_bundle(r->props.src_addr, b);
+    lo_send_bundle(r->remote_addr, b);
     lo_bundle_free_messages(b);
 }
 
@@ -255,7 +259,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
     }
 
     if (lo_bundle_count(b))
-        lo_send_bundle_from(r->props.src_addr, r->device->server, b);
+        lo_send_bundle_from(r->remote_addr, r->device->server, b);
 
     lo_bundle_free_messages(b);
 }
@@ -491,60 +495,24 @@ mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
 
 int mapper_receiver_add_scope(mapper_receiver r, const char *scope)
 {
-    if (!scope)
-        return 1;
-    // Check if scope is already stored for this receiver
-    int i;
-    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    mapper_db_link props = &r->props;
-    for (i=0; i<props->num_scopes; i++)
-        if (props->scope_hashes[i] == hash)
-            return 1;
-    // not found - add a new scope
-    i = ++props->num_scopes;
-    props->scope_names = realloc(props->scope_names, i * sizeof(char *));
-    props->scope_names[i-1] = strdup(scope);
-    props->scope_hashes = realloc(props->scope_hashes, i * sizeof(uint32_t));
-    props->scope_hashes[i-1] = hash;
-    return 0;
+    return mapper_db_link_add_scope(&r->props, scope);
 }
 
-void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
+int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
 {
-    int i, j;
-    uint32_t hash;
     mapper_device md = receiver->device;
-
-    if (!scope)
-        return;
-
-    hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-
-    mapper_db_link props = &receiver->props;
-    for (i=0; i<props->num_scopes; i++) {
-        if (props->scope_hashes[i] == hash) {
-            free(props->scope_names[i]);
-            for (j=i+1; j<props->num_scopes; j++) {
-                props->scope_names[j-1] = props->scope_names[j];
-                props->scope_hashes[j-1] = props->scope_hashes[j];
-            }
-            props->num_scopes--;
-            props->scope_names = realloc(props->scope_names,
-                                         props->num_scopes * sizeof(char *));
-            props->scope_hashes = realloc(props->scope_hashes,
-                                          props->num_scopes * sizeof(uint32_t));
-            return;
-        }
-    }
+    if (mapper_db_link_remove_scope(&receiver->props, scope))
+        return 1;
 
     /* If there are other incoming links with this scope, do not continue. */
     /* TODO: really we should proceed but with caution: we can release input
      * instances as long as the signals are not mapped from another link with
      * this scope. */
     mapper_receiver rc = md->receivers;
+    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     while (rc) {
         if (rc != receiver && mapper_receiver_in_scope(rc, hash))
-            return;
+            return 0;
         rc = rc->next;
     }
 
@@ -573,6 +541,8 @@ void mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
      * Likewise, we will not remove instance maps referring to the remote device
      * since local instances may be using them. The maps will be removed
      * automatically once all referring instances have been released. */
+
+    return 0;
 }
 
 int mapper_receiver_in_scope(mapper_receiver r, uint32_t name_hash)
@@ -585,15 +555,11 @@ int mapper_receiver_in_scope(mapper_receiver r, uint32_t name_hash)
 }
 
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver r,
-                                                    lo_address src_addr)
+                                                    const char *host,
+                                                    int port)
 {
-    const char *host_to_match = lo_address_get_hostname(src_addr);
-    const char *port_to_match = lo_address_get_port(src_addr);
-
     while (r) {
-        const char *host = lo_address_get_hostname(r->props.src_addr);
-        const char *port = lo_address_get_port(r->props.src_addr);
-        if ((strcmp(host, host_to_match)==0) && (strcmp(port, port_to_match)==0))
+        if (r->props.src_port == port && (strcmp(r->props.src_host, host)==0))
             return r;
         r = r->next;
     }

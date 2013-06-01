@@ -109,16 +109,8 @@ typedef struct _mapper_clock_t {
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
-    char *identifier;                 /*!< The identifier (prefix) for this device. */
-    char *name;                       /*!< The full name for this
-                                       *   device, or zero. */
-    mapper_admin_allocated_t ordinal; /*!< A unique ordinal for this
-                                       *   device instance. */
-    uint32_t name_hash;               /*!< CRC-32 hash of full device name
-                                       *   in the form <name>.<ordinal> */
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    int port;                         /*!< This device's UDP port number. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin
@@ -127,8 +119,6 @@ typedef struct _mapper_admin {
                                        *   interface for receiving
                                        *   messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */
-    int registered;                   /*!< Non-zero if this device has
-                                       *   been registered. */
     struct _mapper_device *device;    /*!< Device that this admin is
                                        *   in charge of. */
     struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
@@ -187,6 +177,7 @@ typedef struct _mapper_queue {
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_link {
+    lo_address remote_addr;         //!< Network address of remote endpoint
     mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */
@@ -197,8 +188,6 @@ typedef struct _mapper_link {
                                      *   waiting to be sent. */
     struct _mapper_link *next;      //!< Next link in the list.
 } *mapper_link, *mapper_router, *mapper_receiver;
-
-/**** Device ****/
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
@@ -211,6 +200,7 @@ typedef struct _mapper_id_map {
     struct _mapper_id_map *next;   //!< The next id map in the list.
 } *mapper_id_map;
 
+/**** Device ****/
 struct _mapper_device;
 typedef struct _mapper_device *mapper_device;
 
@@ -254,6 +244,11 @@ typedef struct _mapper_monitor {
      *  it was created during mapper_monitor_new() and should be freed during
      *  mapper_monitor_free(). */
     int own_admin;
+
+    /*! Flags indicating whether information on signals, links,
+     *  and connections should be automatically requested when a
+     *  new device is seen.*/
+    int autorequest;
 
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
@@ -325,8 +320,10 @@ typedef struct _mapper_message
     const char *path;               //!< OSC address.
     lo_arg **values[N_AT_PARAMS];   //!< Array of parameter values.
     const char *types[N_AT_PARAMS]; //!< Array of types for each value.
+    int lengths[N_AT_PARAMS];       //!< Array of lengths for each value.
     lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
     char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
+    char extra_lengths[N_EXTRA_PARAMS];  //!< Lengths of extra parameters.
 } mapper_message_t;
 
 #endif // __MAPPER_TYPES_H__

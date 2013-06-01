@@ -49,9 +49,8 @@ void on_mdev_link(mapper_device dev,
            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
            mdev_name(dev), link->src_name, link->dest_name);
 
-    printf("destination host is %s, port is %s\n",
-           lo_address_get_hostname(link->dest_addr),
-           lo_address_get_port(link->dest_addr));
+    printf("destination host is %s, port is %i\n",
+           link->dest_host, link->dest_port);
 }
 
 void on_mdev_connection(mapper_device dev,
@@ -68,9 +67,8 @@ void on_mdev_connection(mapper_device dev,
            link->src_name, connection->src_name,
            link->dest_name, connection->dest_name);
 
-    printf("destination host is %s, port is %s\n",
-           lo_address_get_hostname(link->dest_addr),
-           lo_address_get_port(link->dest_addr));
+    printf("destination host is %s, port is %i\n",
+           link->dest_host, link->dest_port);
 
     if (send_socket != -1) {
         printf("send socket already in use, not doing anything.\n");
@@ -118,14 +116,14 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *hostname = lo_address_get_hostname(link->dest_addr);
+    const char *host = link->dest_host;
 
-    printf("Connecting with TCP to `%s' on port %d.\n", hostname, port);
+    printf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
     struct sockaddr_in addr;
     memset((char *) &addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(hostname);
+    addr.sin_addr.s_addr = inet_addr(host);
     addr.sin_port = htons(port);
 
     if (connect(send_socket, (struct sockaddr*)&addr, sizeof(addr)))
@@ -152,8 +150,8 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mdev_add_link_callback(source, on_mdev_link, 0);
-    mdev_add_connection_callback(source, on_mdev_connection, 0);
+    mdev_set_link_callback(source, on_mdev_link, 0);
+    mdev_set_connection_callback(source, on_mdev_connection, 0);
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 

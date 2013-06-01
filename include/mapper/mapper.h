@@ -583,17 +583,17 @@ typedef void mapper_device_connection_handler(mapper_device dev,
                                               mapper_device_local_action_t action,
                                               void *user);
 
-/*! Add a function to be called when a local device link is
+/*! Set a function to be called when a local device link is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. */
-void mdev_add_link_callback(mapper_device dev,
+void mdev_set_link_callback(mapper_device dev,
                             mapper_device_link_handler *h, void *user);
 
-/*! Add a function to be called when a local device connection is
+/*! Set a function to be called when a local device connection is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. Important: if a link is destroyed, this
  *  function will not be called for all connections in the link. */
-void mdev_add_connection_callback(mapper_device dev,
+void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user);
 
@@ -1237,16 +1237,23 @@ int mapper_db_link_property_lookup(mapper_db_link link,
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
+typedef enum {
+    AUTOREQ_SIGNALS     = 0x01,
+    AUTOREQ_LINKS       = 0x02,
+    AUTOREQ_CONNECTIONS = 0x04,
+    AUTOREQ_ALL         = 0xFF
+} mapper_monitor_autoreq_mode_t;
+
 /*! Create a network monitor.
  *  \param admin    A previously allocated admin to use.  If 0, an
  *                  admin will be allocated for use with this monitor.
- *  \param enable_autorequest Sets whether the monitor should
- *                            automatically request information on signals,
- *                            links, and connections when it encounters a
- *                            previously-enseen device.
+ *  \param flags    Sets whether the monitor should automatically
+ *                  request information about signals, links, and
+ *                  connections when it encounters a previously-unseen
+ *                  device.
  *  \return The new monitor. */
 mapper_monitor mapper_monitor_new(mapper_admin admin,
-                                  int enable_autorequest);
+                                  mapper_monitor_autoreq_mode_t flags);
 
 /*! Free a network monitor. */
 void mapper_monitor_free(mapper_monitor mon);
@@ -1353,10 +1360,11 @@ int mapper_monitor_batch_request_connections_by_src_device_name(
 int mapper_monitor_batch_request_connections_by_dest_device_name(
     mapper_monitor mon, const char* name, int batch_size);
 
-/*! When auto-request is enabled (enable=1), the monitor automatically
- *  makes requests for information on signals, links, and connections
- *  when it encounters a previously-unseen device. */
-void mapper_monitor_autorequest(mapper_monitor mon, int enable);
+/*! Sets whether the monitor should automatically make requests for
+ *  information on signals, links, and connections when it encounters
+ *  a previously-unseen device.*/
+void mapper_monitor_autorequest(mapper_monitor mon,
+                                mapper_monitor_autoreq_mode_t flags);
 
 /*! Interface to add a link between two devices.
  *  \param mon            The monitor to use for sending the message.
@@ -1427,11 +1435,17 @@ void mapper_monitor_disconnect(mapper_monitor mon,
  @{ libmapper primarily uses NTP timetags for communication and
     synchronization. */
 
-/*! Initialize a timetag to the current apping network time.
- *  \param dev      The device whose time we are asking for.
- *  \param timetag  A previously allocated timetag to initialize. */
-void mdev_timetag_now(mapper_device dev,
-                      mapper_timetag_t *tt);
+/*! Initialize a timetag to the current mapping network time.
+ *  \param dev  The device whose time we are asking for.
+ *  \param tt   A previously allocated timetag to initialize. */
+void mdev_now(mapper_device dev,
+              mapper_timetag_t *tt);
+
+/*! Initialize a timetag to the current mapping network time.
+ *  \param dev  The device whose time we are asking for.
+ *  \param tt   A previously allocated timetag to initialize. */
+void mapper_monitor_now(mapper_monitor mon,
+                        mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param a    The minuend.
