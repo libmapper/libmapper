@@ -604,7 +604,7 @@ static void device_link_handler_py(mapper_device dev,
                                    void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOi", device_to_py(dev->props), link_to_py(link), action);
+    PyObject *arglist = Py_BuildValue("OOi", device_to_py(&dev->props), link_to_py(link), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_link_handler_py).\n");
         return;
@@ -624,7 +624,7 @@ static void device_connection_handler_py(mapper_device dev,
                                          void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(dev->props), link_to_py(link),
+    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(&dev->props), link_to_py(link),
                                       signal_to_py(&signal->props), connection_to_py(connection),
                                       action);
     if (!arglist) {
@@ -1016,14 +1016,26 @@ typedef struct _admin {} admin;
         mapper_timetag_t tt;
         mapper_timetag_set_double(&tt, timetag);
         mdev_send_queue((mapper_device)$self, tt);
-    void add_link_callback(PyObject *PyFunc=0) {
-        Py_XINCREF(PyFunc);
-        mdev_add_link_callback((mapper_device)$self, device_link_handler_py, PyFunc);
     }
-    void add_connection_callback(PyObject *PyFunc=0) {
-        Py_XINCREF(PyFunc);
-        mdev_add_connection_callback((mapper_device)$self, device_connection_handler_py,
-                                     PyFunc);
+    void set_link_callback(PyObject *PyFunc=0) {
+        void *h = 0;
+        if (PyFunc) {
+            h = device_link_handler_py;
+            Py_XINCREF(PyFunc);
+        }
+        else
+            Py_XDECREF(((mapper_device)$self)->link_cb_userdata);
+        mdev_set_link_callback((mapper_device)$self, h, PyFunc);
+    }
+    void set_connection_callback(PyObject *PyFunc=0) {
+        void *h = 0;
+        if (PyFunc) {
+            Py_XINCREF(PyFunc);
+            h = device_connection_handler_py;
+        }
+        else
+            Py_XDECREF(((mapper_device)$self)->connection_cb_userdata);
+        mdev_set_connection_callback((mapper_device)$self, h, PyFunc);
     }
     %pythoncode {
         port = property(get_port)
