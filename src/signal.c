@@ -193,7 +193,7 @@ void msig_update_double(mapper_signal sig, double value)
 #endif
 
     mapper_timetag_t *tt = &sig->device->admin->clock.now;
-    mdev_timetag_now(sig->device, tt);
+    mdev_now(sig->device, tt);
 
     int index = 0;
     if (!sig->id_maps[0].instance)

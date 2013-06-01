@@ -269,6 +269,27 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
     return 0;
 }
 
+int mapper_msg_get_param_if_double(mapper_message_t *msg,
+                                   mapper_msg_param_t param,
+                                   double *value)
+{
+    die_unless(param >= 0 && param < N_AT_PARAMS,
+               "error, unknown parameter\n");
+    die_unless(value!=0, "bad pointer");
+
+    lo_arg **a = mapper_msg_get_param(msg, param);
+    if (!a || !(*a)) return 1;
+
+    const char *t = mapper_msg_get_type(msg, param);
+    if (!t) return 1;
+
+    if (t[0] != 'd')
+        return 1;
+
+    *value = (*a)->d;
+    return 0;
+}
+
 int mapper_msg_add_or_update_extra_params(table t,
                                           mapper_message_t *params)
 {
@@ -485,6 +506,9 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
         break;
     case 'f':
         lo_message_add_float(m, a->f);
+        break;
+    case 'd':
+        lo_message_add_double(m, a->d);
         break;
     case 's':
         lo_message_add_string(m, &a->s);
