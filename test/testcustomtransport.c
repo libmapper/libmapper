@@ -150,8 +150,8 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mdev_add_link_callback(source, on_mdev_link, 0);
-    mdev_add_connection_callback(source, on_mdev_connection, 0);
+    mdev_set_link_callback(source, on_mdev_link, 0);
+    mdev_set_connection_callback(source, on_mdev_connection, 0);
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 

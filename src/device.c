@@ -1312,14 +1312,14 @@ void mdev_now(mapper_device dev, mapper_timetag_t *timetag)
     mapper_clock_now(&dev->admin->clock, timetag);
 }
 
-void mdev_add_link_callback(mapper_device dev,
+void mdev_set_link_callback(mapper_device dev,
                             mapper_device_link_handler *h, void *user)
 {
     dev->link_cb = h;
     dev->link_cb_userdata = user;
 }
 
-void mdev_add_connection_callback(mapper_device dev,
+void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user)
 {

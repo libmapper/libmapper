@@ -575,17 +575,17 @@ typedef void mapper_device_connection_handler(mapper_device dev,
                                               mapper_device_local_action_t action,
                                               void *user);
 
-/*! Add a function to be called when a local device link is
+/*! Set a function to be called when a local device link is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. */
-void mdev_add_link_callback(mapper_device dev,
+void mdev_set_link_callback(mapper_device dev,
                             mapper_device_link_handler *h, void *user);
 
-/*! Add a function to be called when a local device connection is
+/*! Set a function to be called when a local device connection is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. Important: if a link is destroyed, this
  *  function will not be called for all connections in the link. */
-void mdev_add_connection_callback(mapper_device dev,
+void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user);
 
