@@ -1540,7 +1540,7 @@ typedef struct _admin {} admin;
             (mapper_db)$self, src_device, src_signal,
             dest_device, dest_signal);
     }
-    mapper_db_connection connection_by_signal_full_names(
+    mapper_db_connection get_connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
         return mapper_db_get_connection_by_signal_full_names(
             (mapper_db)$self, src_name, dest_name);
@@ -1569,8 +1569,8 @@ typedef struct _admin {} admin;
         return mapper_db_get_links_by_dest_device_name((mapper_db)$self,
                                                        dest_device_name);
     }
-    mapper_db_link link_by_src_dest_names(const char *src_device_name,
-                                          const char *dest_device_name) {
+    mapper_db_link get_link_by_src_dest_names(const char *src_device_name,
+                                              const char *dest_device_name) {
         return mapper_db_get_link_by_src_dest_names((mapper_db)$self,
                                                     src_device_name,
                                                     dest_device_name);
