@@ -691,7 +691,8 @@ void *msig_instance_value(mapper_signal sig,
                           int instance_id,
                           mapper_timetag_t *timetag)
 {
-    int index = msig_find_instance_with_local_id(sig, instance_id, 0);
+    int index = msig_find_instance_with_local_id(sig, instance_id,
+                                                 IN_RELEASED_REMOTELY);
     if (index < 0)
         return 0;
     return msig_instance_value_internal(sig, index, timetag);
@@ -703,7 +704,8 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
         return;
 
     // Find "from" instance
-    int index = msig_find_instance_with_local_id(from, instance_id, 0);
+    int index = msig_find_instance_with_local_id(from, instance_id,
+                                                 IN_RELEASED_REMOTELY);
     if (index < 0)
         return;
 
@@ -816,7 +818,8 @@ void msig_set_instance_data(mapper_signal sig,
 void *msig_get_instance_data(mapper_signal sig,
                              int instance_id)
 {
-    int index = msig_find_instance_with_local_id(sig, instance_id, 0);
+    int index = msig_find_instance_with_local_id(sig, instance_id,
+                                                 IN_RELEASED_REMOTELY);
     if (index >= 0)
         return sig->id_maps[index].instance->user_data;
     return 0;
