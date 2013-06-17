@@ -928,6 +928,63 @@ mapper_db_signal msig_properties(mapper_signal sig)
 void msig_set_property(mapper_signal sig, const char *property,
                        lo_type type, lo_arg *value)
 {
+    if (strcmp(property, "name") == 0 ||
+        strcmp(property, "type") == 0 ||
+        strcmp(property, "length") == 0)
+        return;
+
+    if (strcmp(property, "min") == 0 ||
+        strcmp(property, "minimum") == 0) {
+        if (type == 'i') {
+            if (sig->props.type == 'i')
+                msig_set_minimum(sig, value);
+            else if (sig->props.type == 'f') {
+                float f = (float)value->i32;
+                msig_set_minimum(sig, &f);
+            }
+        }
+        else if (type == 'f') {
+            if (sig->props.type == 'i') {
+                int i = (int)value->f;
+                msig_set_minimum(sig, &i);
+            }
+            else if (sig->props.type == 'f')
+                msig_set_minimum(sig, value);
+        }
+        return;
+    }
+    else if (strcmp(property, "max") == 0 ||
+             strcmp(property, "maximum") == 0) {
+        if (type == 'i') {
+            if (sig->props.type == 'i')
+                msig_set_maximum(sig, value);
+            else if (sig->props.type == 'f') {
+                float f = (float)value->i32;
+                msig_set_maximum(sig, &f);
+            }
+        }
+        else if (type == 'f') {
+            if (sig->props.type == 'i') {
+                int i = (int)value->f;
+                msig_set_maximum(sig, &i);
+            }
+            else if (sig->props.type == 'f')
+                msig_set_maximum(sig, value);
+        }
+        return;
+    }
+    else if ((strcmp(property, "unit") == 0 ||
+             strcmp(property, "units") == 0) &&
+             (type == 's' || type == 'S')) {
+        if (!sig->props.unit || strcmp(sig->props.unit, &value->s)) {
+            char *str = (char*)realloc((void *)sig->props.unit,
+                                             strlen(&value->s)+1);
+            strcpy(str, &value->s);
+            sig->props.unit = str;
+        }
+        return;
+    }
+
     mapper_table_add_or_update_osc_value(sig->props.extra,
                                          property, type, value);
 }
