@@ -715,6 +715,7 @@ static void mapper_admin_send_linked(mapper_admin admin,
     lo_message m = lo_message_new();
     if (!m) {
         trace("couldn't allocate lo_message\n");
+        return;
     }
 
     if (is_outgoing) {
@@ -763,6 +764,7 @@ static void mapper_admin_send_connected(mapper_admin admin,
     lo_message m = lo_message_new();
     if (!m) {
         trace("couldn't allocate lo_message\n");
+        return;
     }
 
     char src_name[1024], dest_name[1024];
@@ -2054,6 +2056,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     {
         trace("<%s> no router found for '%s' in /connection/modify\n",
               mdev_name(md), &argv[1]->s);
+        return 0;
     }
 
     mapper_connection c =
