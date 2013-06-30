@@ -119,7 +119,7 @@ typedef struct _mapper_signal_instance
 
     /*! The timetag associated with the current value. */
     mapper_timetag_t timetag;
-} *mapper_signal_instance;
+} mapper_signal_instance_t, *mapper_signal_instance;
 
 /*! Bit flags for indicating signal instance status. */
 #define IN_RELEASED_LOCALLY  0x01

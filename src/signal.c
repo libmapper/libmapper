@@ -420,9 +420,14 @@ int compare_ids(const void *l, const void *r)
 
 static mapper_signal_instance find_instance_by_id(mapper_signal sig, int id)
 {
-    mapper_signal_instance si;
-    si->id = id;
-    return bsearch(&si, sig->instances, sig->props.num_instances,
+    if (!sig->props.num_instances)
+        return 0;
+
+    mapper_signal_instance_t si;
+    mapper_signal_instance siptr = &si;
+    si.id = id;
+
+    return bsearch(&siptr, sig->instances, sig->props.num_instances,
                    sizeof(mapper_signal_instance), compare_ids);
 }
 
@@ -436,11 +441,9 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
     mapper_signal_instance si;
 
     // check if instance with this id already exists! If so return it.
-    if (id) {
-        si = find_instance_by_id(sig, *id);
-        if (si)
-            return 1;
-    }
+    if (id && find_instance_by_id(sig, *id))
+        return 1;
+
     // reallocate array of instances
     sig->instances = realloc(sig->instances,
                              sizeof(mapper_signal_instance)
