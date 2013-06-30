@@ -420,7 +420,9 @@ int compare_ids(const void *l, const void *r)
 
 static mapper_signal_instance find_instance_by_id(mapper_signal sig, int id)
 {
-    return bsearch(&id, &sig->instances, sig->props.num_instances,
+    mapper_signal_instance si;
+    si->id = id;
+    return bsearch(&si, sig->instances, sig->props.num_instances,
                    sizeof(mapper_signal_instance), compare_ids);
 }
 

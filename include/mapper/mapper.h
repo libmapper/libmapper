@@ -118,6 +118,13 @@ int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
 
 /**** Instances ****/
 
+/*! Add a new instance to the reserve list, specifying id and user context pointer.
+ *  \param sig          The signal to which the instances will be added.
+ *  \param id           Pointer to id for this instance, or 0 for automatically-
+ *                      generated instance id.
+ *  \param user_data    Optional user context pointer for this instance. */
+void msig_reserve_instance(mapper_signal sig, int *id, void *user_data);
+
 /*! Add new instances to the reserve list.
  *  \param sig          The signal to which the instances will be added.
  *  \param num          The number of instances to add. */
