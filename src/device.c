@@ -251,7 +251,6 @@ static int handler_signal(const char *path, const char *types,
     if (sig->handler)
         sig->handler(sig, &sig->props, sig->id_maps[index].map->local,
                      dataptr, count, &tt);
-    si = si->next;
     if (!sig->props.is_output)
         mdev_receive_update(md, sig, index, tt);
 
@@ -927,12 +926,11 @@ void mdev_route_signal(mapper_device md,
                        int count,
                        mapper_timetag_t timetag)
 {
-    int flags = 0;
     // pass update to each router in turn
     mapper_router r = md->routers;
     while (r) {
-        mapper_router_process_signal(r, sig, instance_index, value,
-                                     count, timetag, flags);
+        mapper_router_process_signal(r, sig, instance_index,
+                                     value, count, timetag);
         r = r->next;
     }
 }

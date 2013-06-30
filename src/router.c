@@ -150,8 +150,7 @@ void mapper_router_process_signal(mapper_router r,
                                   int instance_index,
                                   void *value,
                                   int count,
-                                  mapper_timetag_t tt,
-                                  int flags)
+                                  mapper_timetag_t tt)
 {
     mapper_id_map map = sig->id_maps[instance_index].map;
     int in_scope = mapper_router_in_scope(r, map->group);

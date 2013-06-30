@@ -26,8 +26,8 @@ struct _mapper_signal
     struct _mapper_signal_id_map *id_maps;
     int id_map_length;
 
-    /*! The first reserve instance of this signal. */
-    struct _mapper_signal_instance *reserve_instances;
+    /*! Array of pointers to the signal instances. */
+    struct _mapper_signal_instance **instances;
 
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
@@ -96,8 +96,14 @@ struct _mapper_device {
  *  metadata. */
 typedef struct _mapper_signal_instance
 {
-    /*! Unique instance ID */
+    /*! User-assignable instance id. */
+    int id;
+
+    /*! Index for accessing associated value history */
     int index;
+
+    /*! Status of this instance. */
+    int is_active;
 
     /*! User data of this instance. */
     void *user_data;
@@ -113,9 +119,6 @@ typedef struct _mapper_signal_instance
 
     /*! The timetag associated with the current value. */
     mapper_timetag_t timetag;
-
-    /*! Pointer to the next instance. */
-    struct _mapper_signal_instance *next;
 } *mapper_signal_instance;
 
 /*! Bit flags for indicating signal instance status. */
@@ -257,8 +260,7 @@ void mapper_router_process_signal(mapper_router r,
                                   int instance_index,
                                   void *value,
                                   int count,
-                                  mapper_timetag_t timetag,
-                                  int flags);
+                                  mapper_timetag_t timetag);
 
 void mapper_router_send_update(mapper_router r,
                                mapper_connection c,
