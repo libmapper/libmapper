@@ -791,8 +791,11 @@ mapper_signal *mdev_get_outputs(mapper_device md)
 mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
                                      int *index)
 {
-    int i;
-    int slash = name[0]=='/' ? 1 : 0;
+    int i, slash;
+    if (!name)
+        return 0;
+
+    slash = name[0]=='/' ? 1 : 0;
     for (i=0; i<md->props.n_inputs; i++)
     {
         if (strcmp(md->inputs[i]->props.name + 1,
@@ -809,8 +812,11 @@ mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
 mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
                                       int *index)
 {
-    int i;
-    int slash = name[0]=='/' ? 1 : 0;
+    int i, slash;
+    if (!name)
+        return 0;
+
+    slash = name[0]=='/' ? 1 : 0;
     for (i=0; i<md->props.n_outputs; i++)
     {
         if (strcmp(md->outputs[i]->props.name + 1,
