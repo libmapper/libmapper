@@ -635,6 +635,11 @@ void mapper_connection_set_from_message(mapper_connection c,
         c->props.range.dest_max = range[3];
     }
 
+    if (c->props.range.known == CONNECTION_RANGE_KNOWN &&
+        c->props.mode == MO_LINEAR) {
+        mapper_connection_set_linear_range(c, &c->props.range);
+    }
+
     /* Muting. */
     int muting;
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
@@ -682,13 +687,7 @@ void mapper_connection_set_from_message(mapper_connection c,
             if (c->props.mode == MO_UNDEFINED) {
                 if (range_known == CONNECTION_RANGE_KNOWN) {
                     /* We have enough information for a linear connection. */
-                    mapper_connection_range_t r;
-                    r.src_min = range[0];
-                    r.src_max = range[1];
-                    r.dest_min = range[2];
-                    r.dest_max = range[3];
-                    r.known = range_known;
-                    mapper_connection_set_linear_range(c, &r);
+                    mapper_connection_set_linear_range(c, &c->props.range);
                 } else
                     /* No range, default to direct connection. */
                     mapper_connection_set_direct(c);
@@ -699,13 +698,7 @@ void mapper_connection_set_from_message(mapper_connection c,
         break;
     case MO_LINEAR:
         if (range_known == CONNECTION_RANGE_KNOWN) {
-            mapper_connection_range_t r;
-            r.src_min = range[0];
-            r.src_max = range[1];
-            r.dest_min = range[2];
-            r.dest_max = range[3];
-            r.known = range_known;
-            mapper_connection_set_linear_range(c, &r);
+            mapper_connection_set_linear_range(c, &c->props.range);
         }
         break;
     case MO_CALIBRATE:
