@@ -69,7 +69,9 @@ void msig_free(mapper_signal sig)
     for (i = 0; i < sig->props.num_instances; i++) {
         if(sig->instances[i]->value)
             free(sig->instances[i]->value);
+        free(sig->instances[i]);
     }
+    free(sig->instances);
     if (sig->props.minimum)
         free(sig->props.minimum);
     if (sig->props.maximum)
@@ -718,7 +720,6 @@ void msig_remove_instance(mapper_signal sig,
     if (si->value)
         free(si->value);
     i++;
-    int index_removed = si->index;
     for (; i < sig->props.num_instances; i++) {
         sig->instances[i-1] = sig->instances[i];
     }
