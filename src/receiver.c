@@ -191,7 +191,6 @@ void mapper_receiver_send_update(mapper_receiver r,
             lo_bundle_add_message(b, c->props.query_name, m);
         }
         else {
-            // TODO: need to make one->many instance mapping a connection property
             int sent = 0;
             for (i = 0; i < sig->id_map_length; i++) {
                 mapper_signal_instance si = sig->id_maps[i].instance;
