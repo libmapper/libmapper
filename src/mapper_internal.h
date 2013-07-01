@@ -189,7 +189,8 @@ void mdev_remove_instance_release_request_callback(mapper_device md,
                                                    mapper_signal sig);
 
 void mdev_num_instances_changed(mapper_device md,
-                                mapper_signal sig);
+                                mapper_signal sig,
+                                int size);
 
 void mdev_route_signal(mapper_device md,
                        mapper_signal sig,
@@ -237,8 +238,6 @@ mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
 
 const char *mdev_name(mapper_device md);
 
-void mdev_num_instances_changed(mapper_device md, mapper_signal sig);
-
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
@@ -251,7 +250,8 @@ void mapper_router_set_from_message(mapper_router router,
                                     mapper_message_t *msg);
 
 void mapper_router_num_instances_changed(mapper_router r,
-                                         mapper_signal sig);
+                                         mapper_signal sig,
+                                         int size);
 
 /*! For a given connection instance, construct a mapped signal and
  *  send it on to the destination. */

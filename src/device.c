@@ -913,14 +913,15 @@ void mdev_service_fd(mapper_device md, int fd)
 }
 
 void mdev_num_instances_changed(mapper_device md,
-                                mapper_signal sig)
+                                mapper_signal sig,
+                                int size)
 {
     if (!md)
         return;
 
     mapper_router r = md->routers;
     while (r) {
-        mapper_router_num_instances_changed(r, sig);
+        mapper_router_num_instances_changed(r, sig, size);
         r = r->next;
     }
 }

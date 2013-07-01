@@ -435,14 +435,14 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
                                           void *user_data)
 {
     if (!sig || sig->props.num_instances >= MAX_INSTANCES)
-        return 1;
+        return -1;
 
-    int i, index = -1;
+    int i, lowest, found;
     mapper_signal_instance si;
 
     // check if instance with this id already exists! If so return it.
     if (id && find_instance_by_id(sig, *id))
-        return 1;
+        return -1;
 
     // reallocate array of instances
     sig->instances = realloc(sig->instances,
@@ -458,20 +458,32 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
         si->id = *id;
     else {
         // find lowest unused positive id
-        int index_found = 0;
-        while (!index_found) {
-            index++;
-            index_found = 1;
+        lowest = -1, found = 0;
+        while (!found) {
+            lowest++;
+            found = 1;
             for (i = 0; i < sig->props.num_instances; i++) {
-                if (sig->instances[i]->id == index) {
-                    index_found = 0;
+                if (sig->instances[i]->id == lowest) {
+                    found = 0;
                     break;
                 }
             }
         }
-        si->id = index;
+        si->id = lowest;
     }
-    si->index = sig->props.num_instances;
+    // find lowest unused positive index
+    lowest = -1, found = 0;
+    while (!found) {
+        lowest++;
+        found = 1;
+        for (i = 0; i < sig->props.num_instances; i++) {
+            if (sig->instances[i]->index == lowest) {
+                found = 0;
+                break;
+            }
+        }
+    }
+    si->index = lowest;
 
     msig_init_instance(si);
     if (user_data)
@@ -481,23 +493,33 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
     qsort(sig->instances, sig->props.num_instances,
           sizeof(mapper_signal_instance), compare_ids);
 
-    return 0;
+    // return largest index
+    int highest = -1;
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (sig->instances[i]->index > highest)
+            highest = sig->instances[i]->index;
+    }
+
+    return highest;
 }
 
 void msig_reserve_instance(mapper_signal sig, int *id, void *user_data)
 {
-    msig_reserve_instance_internal(sig, id, user_data);
-    mdev_num_instances_changed(sig->device, sig);
+    int highest = msig_reserve_instance_internal(sig, id, user_data);
+    if (highest != -1)
+        mdev_num_instances_changed(sig->device, sig, highest);
 }
 
 void msig_reserve_instances(mapper_signal sig, int num)
 {
-    int i;
+    int i, highest;
     for (i = 0; i < num; i++) {
-        if (msig_reserve_instance_internal(sig, 0, 0))
+        int result = msig_reserve_instance_internal(sig, 0, 0);
+        if (result == -1)
             break;
+        highest = result;
     }
-    mdev_num_instances_changed(sig->device, sig);
+    mdev_num_instances_changed(sig->device, sig, highest);
 }
 
 void msig_update_instance(mapper_signal sig, int instance_id,
@@ -698,16 +720,13 @@ void msig_remove_instance(mapper_signal sig,
     i++;
     int index_removed = si->index;
     for (; i < sig->props.num_instances; i++) {
-        if (sig->instances[i]->index > index_removed)
-            sig->instances[i]->index--;
-        memcpy(sig->instances[i-1], sig->instances[i],
-               sizeof(struct _mapper_signal_instance));
+        sig->instances[i-1] = sig->instances[i];
     }
     --sig->props.num_instances;
     sig->instances = realloc(sig->instances,
-                             sizeof(struct _mapper_signal_instance) * sig->props.num_instances);
+                             sizeof(mapper_signal_instance) * sig->props.num_instances);
 
-    // TODO: need to realloc value history array also!
+    // TODO: could also realloc signal value histories
 }
 
 static void *msig_instance_value_internal(mapper_signal sig,
