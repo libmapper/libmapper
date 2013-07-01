@@ -409,6 +409,8 @@ int mapper_receiver_remove_connection(mapper_receiver r,
             rtemp = rtemp->next;
         }
 
+        mapper_timetag_t *tt = &r->device->admin->clock.now;
+        mdev_now(r->device, tt);
         if (count < r->props.num_scopes) {
             // can release instances with untouched scopes
             for (i = 0; i < rs->signal->id_map_length; i++) {
@@ -421,10 +423,15 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                         continue;
                     }
                     if (id_map->map->group == r->props.scope_hashes[j]) {
-                        if (rs->signal->handler)
+                        if (rs->signal->instance_event_handler &&
+                            (rs->signal->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+                            rs->signal->instance_event_handler(rs->signal, &rs->signal->props,
+                                                               id_map->map->local, IN_UPSTREAM_RELEASE,
+                                                               tt);
+                        }
+                        else if (rs->signal->handler)
                             rs->signal->handler(rs->signal, &rs->signal->props,
-                                                id_map->map->local, 0, 0, 0);
-                        // TODO: call instance event handler with IN_DISCONNECTED
+                                                id_map->map->local, 0, 0, tt);
                         continue;
                     }
                 }
@@ -517,18 +524,24 @@ int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
     }
 
     /* Release input instances owned by remote device. */
+    mapper_timetag_t *tt = &md->admin->clock.now;
+    mdev_now(md, tt);
     mapper_receiver_signal rs = receiver->signals;
     while (rs) {
         int i;
         for (i = 0; i < rs->signal->id_map_length; i++) {
             mapper_id_map map = rs->signal->id_maps[i].map;
             if (map->group == hash) {
-                if (rs->signal->handler) {
-                    rs->signal->handler(rs->signal, &rs->signal->props,
-                                        map->local, 0, 0, 0);
+                if (rs->signal->instance_event_handler &&
+                    (rs->signal->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+                    rs->signal->instance_event_handler(rs->signal, &rs->signal->props,
+                                                       map->local, IN_UPSTREAM_RELEASE,
+                                                       tt);
                 }
-                // TODO: call instance event handler if defined
-                //msig_release_instance_internal(rs->signal, i, 0, MAPPER_NOW);
+                else if (rs->signal->handler) {
+                    rs->signal->handler(rs->signal, &rs->signal->props,
+                                        map->local, 0, 0, tt);
+                }
                 continue;
             }
         }
