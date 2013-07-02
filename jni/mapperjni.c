@@ -1880,6 +1880,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
     msig_release_instance(sig, instance_id, ptt ? *ptt : MAPPER_NOW);
 }
 
+JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_remove_1instance
+(JNIEnv *env, jobject obj, jint instance_id)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig) return;
+    msig_remove_instance(sig, instance_id);
+}
+
 JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_oldest_1active_1instance
   (JNIEnv *env, jobject obj)
 {
