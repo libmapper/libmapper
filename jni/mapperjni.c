@@ -1867,7 +1867,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_reserve_1instances
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     if (!sig) return;
-    msig_reserve_instances(sig, num);
+    msig_reserve_instances(sig, num, 0, 0);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance

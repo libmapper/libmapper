@@ -52,7 +52,7 @@ int setup_source()
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 9);
+    msig_reserve_instances(sendsig, 9, 0, 0);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -110,7 +110,7 @@ int setup_destination()
                              0, 0, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
-    msig_reserve_instances(recvsig, 9);
+    msig_reserve_instances(recvsig, 9, 0, 0);
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));

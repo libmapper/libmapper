@@ -45,7 +45,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_maximum(sig, maximum);
 
     // Reserve one instance to start
-    msig_reserve_instances(sig, 1);
+    msig_reserve_instances(sig, 1, 0, 0);
 
     // Reserve one instance id map
     sig->id_map_length = 1;
@@ -505,23 +505,19 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
     return highest;
 }
 
-void msig_reserve_instance(mapper_signal sig, int *id, void *user_data)
+int msig_reserve_instances(mapper_signal sig, int num, int *ids, void **user_data)
 {
-    int highest = msig_reserve_instance_internal(sig, id, user_data);
-    if (highest != -1)
-        mdev_num_instances_changed(sig->device, sig, highest);
-}
-
-void msig_reserve_instances(mapper_signal sig, int num)
-{
-    int i, highest;
+    int i, count = 0, highest;
     for (i = 0; i < num; i++) {
-        int result = msig_reserve_instance_internal(sig, 0, 0);
+        int result = msig_reserve_instance_internal(sig, ids ? &ids[i] : 0,
+                                                    user_data ? user_data[i] : 0);
         if (result == -1)
-            break;
+            continue;
         highest = result;
+        count++;
     }
     mdev_num_instances_changed(sig->device, sig, highest);
+    return count;
 }
 
 void msig_update_instance(mapper_signal sig, int instance_id,
