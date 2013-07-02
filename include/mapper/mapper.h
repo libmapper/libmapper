@@ -157,6 +157,11 @@ void msig_update_instance(mapper_signal sig, int instance_id,
 void msig_release_instance(mapper_signal sig, int instance_id,
                            mapper_timetag_t tt);
 
+/*! Remove a specific instance of a signal and free its memory.
+ *  \param sig         The signal to operate on.
+ *  \param instance_id The instance to suspend. */
+void msig_remove_instance(mapper_signal sig, int instance_id);
+
 /*! Get the local id of the oldest active instance.
  *  \param sig         The signal to operate on.
  *  \param instance_id A location to receive the instance id.

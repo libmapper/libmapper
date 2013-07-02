@@ -689,32 +689,28 @@ void msig_release_instance_internal(mapper_signal sig,
     smap->instance = 0;
 }
 
-void msig_remove_instance(mapper_signal sig,
-                          mapper_signal_instance si)
+void msig_remove_instance(mapper_signal sig, int id)
 {
-    if (!si) return;
+    if (!sig) return;
 
-    // Remove signal instance
     int i;
-    if (si->is_active) {
-        for (i = 0; i < sig->id_map_length; i++) {
-            if (sig->id_maps[i].instance == si) {
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (sig->instances[i]->id == id) {
+            if (sig->instances[i]->is_active) {
                 // First release instance
                 mapper_timetag_t tt = sig->device->admin->clock.now;
                 mdev_now(sig->device, &tt);
                 msig_release_instance_internal(sig, i, tt);
-                break;
             }
+            break;
         }
     }
-    for (i = 0; i < sig->props.num_instances; i++) {
-        if (sig->instances[i] != si)
-            break;
-    }
+
     if (i == sig->props.num_instances)
         return;
-    if (si->value)
-        free(si->value);
+
+    if (sig->instances[i]->value)
+        free(sig->instances[i]->value);
     i++;
     for (; i < sig->props.num_instances; i++) {
         sig->instances[i-1] = sig->instances[i];
