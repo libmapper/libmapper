@@ -1240,6 +1240,9 @@ typedef struct _admin {} admin;
             mapper_timetag_set_double(&tt, timetag);
         msig_release_instance((mapper_signal)$self, id, tt);
     }
+    void remove_instance(int id) {
+        msig_remove_instance((mapper_signal)$self, id);
+    }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
     }
