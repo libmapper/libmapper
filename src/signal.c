@@ -905,21 +905,18 @@ void msig_set_instance_data(mapper_signal sig,
                             int instance_id,
                             void *user_data)
 {
-    mapper_timetag_t tt = sig->device->admin->clock.now;
-    mdev_now(sig->device, &tt);
-
-    int index = msig_get_instance_with_local_id(sig, instance_id, 0, &tt);
-    if (index >= 0)
-        sig->id_maps[index].instance->user_data = user_data;
+    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    if (si)
+        si->user_data = user_data;
 }
 
 void *msig_get_instance_data(mapper_signal sig,
                              int instance_id)
 {
-    int index = msig_find_instance_with_local_id(sig, instance_id,
-                                                 IN_RELEASED_REMOTELY);
-    if (index >= 0)
-        return sig->id_maps[index].instance->user_data;
+    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    if (si)
+        return si->user_data;
+
     return 0;
 }
 
