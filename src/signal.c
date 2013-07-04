@@ -30,17 +30,20 @@ static int compare_ids(const void *l, const void *r)
     else return 1;
 }
 
-static mapper_signal_instance find_instance_by_id(mapper_signal sig, int id)
+static mapper_signal_instance find_instance_by_id(mapper_signal sig, int instance_id)
 {
     if (!sig->props.num_instances)
         return 0;
 
     mapper_signal_instance_t si;
-    mapper_signal_instance siptr = &si;
-    si.id = id;
+    mapper_signal_instance sip = &si;
+    si.id = instance_id;
 
-    return bsearch(&siptr, sig->instances, sig->props.num_instances,
-                   sizeof(mapper_signal_instance), compare_ids);
+    mapper_signal_instance *sipp = bsearch(&sip, sig->instances, sig->props.num_instances,
+                                           sizeof(mapper_signal_instance), compare_ids);
+    if (sipp && *sipp)
+        return *sipp;
+    return 0;
 }
 
 mapper_signal msig_new(const char *name, int length, char type,
