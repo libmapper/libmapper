@@ -226,7 +226,7 @@ void mdev_on_id_and_ordinal(mapper_device md,
                             mapper_admin_allocated_t *resource);
 
 mapper_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
-                                       int group_id, int remote_id);
+                                       int origin, int public_id);
 
 void mdev_remove_instance_id_map(mapper_device device, mapper_id_map map);
 
@@ -234,7 +234,7 @@ mapper_id_map mdev_find_instance_id_map_by_local(mapper_device device,
                                                  int local_id);
 
 mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
-                                                  int group_id, int remote_id);
+                                                  int origin, int public_id);
 
 const char *mdev_name(mapper_device md);
 
@@ -287,7 +287,7 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
                                                          const char* src_name,
                                                          const char* dest_name);
 
-int mapper_router_in_scope(mapper_router router, uint32_t group_id);
+int mapper_router_in_scope(mapper_router router, uint32_t origin);
 
 /*! Find a router by destination address in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_address(mapper_router routers,
@@ -341,7 +341,7 @@ mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
                                                            const char* src_name,
                                                            const char* dest_name);
 
-int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t group_id);
+int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t origin);
 
 /*! Find a receiver by source address in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
@@ -405,14 +405,14 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
 int msig_find_instance_with_local_id(mapper_signal sig, int id, int flags);
 
 /*! Find an active instance with the given instance ID.
- *  \param sig   The signal owning the desired instance.
- *  \param group The remote group.
- *  \param id    The remote id.
- *  \param flags Bitflags indicating if search should include released instances.
- *  \return      The index of the retrieved signal instance, or -1 if no active
- *               instances match the specified instance ID map. */
-int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
-                                       int id, int flags);
+ *  \param sig       The signal owning the desired instance.
+ *  \param origin    Unique hash identifying the device that activated this instance.
+ *  \param public_id The public id of this instance.
+ *  \param flags     Bitflags indicating if search should include released instances.
+ *  \return          The index of the retrieved signal instance, or -1 if no active
+ *                   instances match the specified instance ID map. */
+int msig_find_instance_with_remote_ids(mapper_signal sig, int origin,
+                                       int public_id, int flags);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
@@ -429,16 +429,16 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
- *  \param sig   The signal owning the desired instance.
- *  \param group The remote group.
- *  \param id    The remote id.
- *  \param flags Bitflags indicating if search should include released instances.
- *  \param tt    Timetag associated with this action.
- *  \return      The index of the retrieved signal instance, or NULL if no free
- *               instances were available and allocation of a new instance
- *               was unsuccessful according to the selected allocation
- *               strategy. */
-int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
+ *  \param sig       The signal owning the desired instance.
+ *  \param origin    Unique hash identifying the device that activated this instance.
+ *  \param public_id The public id of this instance.
+ *  \param flags     Bitflags indicating if search should include released instances.
+ *  \param tt        Timetag associated with this action.
+ *  \return          The index of the retrieved signal instance, or NULL if no free
+ *                   instances were available and allocation of a new instance
+ *                   was unsuccessful according to the selected allocation
+ *                   strategy. */
+int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_id,
                                       int flags, mapper_timetag_t *tt);
 
 /*! Release a specific signal instance. */

@@ -154,7 +154,7 @@ void mapper_router_process_signal(mapper_router r,
                                   mapper_timetag_t tt)
 {
     mapper_id_map map = sig->id_maps[instance_index].map;
-    int in_scope = mapper_router_in_scope(r, map->group);
+    int in_scope = mapper_router_in_scope(r, map->origin);
 
     // find the signal connection
     mapper_router_signal rs = r->signals;
@@ -264,8 +264,8 @@ void mapper_router_send_update(mapper_router r,
         return;
 
     if (id_map) {
-        lo_message_add_int32(m, id_map->group);
-        lo_message_add_int32(m, id_map->remote);
+        lo_message_add_int32(m, id_map->origin);
+        lo_message_add_int32(m, id_map->public);
     }
 
     if (c->history[history_index].position != -1) {

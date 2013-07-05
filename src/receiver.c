@@ -182,8 +182,8 @@ void mapper_receiver_send_update(mapper_receiver r,
             lo_message m = lo_message_new();
             if (!m)
                 return;
-            lo_message_add_int32(m, map->group);
-            lo_message_add_int32(m, map->remote);
+            lo_message_add_int32(m, map->origin);
+            lo_message_add_int32(m, map->public);
             if (si->has_value)
                 message_add_coerced_signal_value(m, sig, si, c->props.src_type);
             else
@@ -199,8 +199,8 @@ void mapper_receiver_send_update(mapper_receiver r,
                 lo_message m = lo_message_new();
                 if (!m)
                     return;
-                lo_message_add_int32(m, map->group);
-                lo_message_add_int32(m, map->remote);
+                lo_message_add_int32(m, map->origin);
+                lo_message_add_int32(m, map->public);
                 if (si->has_value)
                     message_add_coerced_signal_value(m, sig, si,
                                                      c->props.src_type);
@@ -232,7 +232,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
 
     mapper_id_map map = sig->id_maps[instance_index].map;
 
-    if (!mapper_receiver_in_scope(r, map->group))
+    if (!mapper_receiver_in_scope(r, map->origin))
         return;
 
     while (rs) {
@@ -250,8 +250,8 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
         lo_message m = lo_message_new();
         if (!m)
             return;
-        lo_message_add_int32(m, map->group);
-        lo_message_add_int32(m, map->remote);
+        lo_message_add_int32(m, map->origin);
+        lo_message_add_int32(m, map->public);
         lo_message_add_false(m);
         lo_bundle_add_message(b, c->props.src_name, m);
         c = c->next;
@@ -421,7 +421,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
                         // scope is used by another link
                         continue;
                     }
-                    if (id_map->map->group == r->props.scope_hashes[j]) {
+                    if (id_map->map->origin == r->props.scope_hashes[j]) {
                         if (rs->signal->instance_event_handler &&
                             (rs->signal->instance_event_flags & IN_UPSTREAM_RELEASE)) {
                             rs->signal->instance_event_handler(rs->signal, &rs->signal->props,
@@ -530,7 +530,7 @@ int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope)
         int i;
         for (i = 0; i < rs->signal->id_map_length; i++) {
             mapper_id_map map = rs->signal->id_maps[i].map;
-            if (map->group == hash) {
+            if (map->origin == hash) {
                 if (rs->signal->instance_event_handler &&
                     (rs->signal->instance_event_flags & IN_UPSTREAM_RELEASE)) {
                     rs->signal->instance_event_handler(rs->signal, &rs->signal->props,

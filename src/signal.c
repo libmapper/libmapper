@@ -225,14 +225,14 @@ int msig_find_instance_with_local_id(mapper_signal sig,
     return -1;
 }
 
-int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
-                                       int id, int flags)
+int msig_find_instance_with_remote_ids(mapper_signal sig, int origin,
+                                       int public_id, int flags)
 {
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
         if (!sig->id_maps[i].map)
             continue;
-        if (sig->id_maps[i].map->group == group && sig->id_maps[i].map->remote == id) {
+        if (sig->id_maps[i].map->origin == origin && sig->id_maps[i].map->public == public_id) {
             if (sig->id_maps[i].status & ~flags)
                 return -1;
             else
@@ -346,7 +346,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
     return -1;
 }
 
-int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
+int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_id,
                                       int flags, mapper_timetag_t *tt)
 {
     if (!sig)
@@ -357,8 +357,8 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
     mapper_signal_instance si;
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
-        if (maps[i].instance && maps[i].map->group == group
-            && maps[i].map->remote == id) {
+        if (maps[i].instance && maps[i].map->origin == origin
+            && maps[i].map->public == public_id) {
             if (maps[i].status & ~flags)
                 return -1;
             else {
@@ -368,7 +368,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
     }
 
     // check if the device already has a map for this remote
-    mapper_id_map map = mdev_find_instance_id_map_by_remote(sig->device, group, id);
+    mapper_id_map map = mdev_find_instance_id_map_by_remote(sig->device, origin, public_id);
     if (!map) {
         /* Here we still risk creating conflicting maps if two signals are updated asynchronously.
          * This is easy to avoid by not allowing a local id to be used with multiple active remote
@@ -378,7 +378,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         // TODO: add object groups for explictly sharing id maps
 
         if ((si = get_reserved_instance(sig))) {
-            map = mdev_add_instance_id_map(sig->device, si->id, group, id);
+            map = mdev_add_instance_id_map(sig->device, si->id, origin, public_id);
             map->refcount_remote = 1;
 
             si->is_active = 1;
@@ -442,7 +442,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
     // try again
     if (!map) {
         if ((si = get_reserved_instance(sig))) {
-            map = mdev_add_instance_id_map(sig->device, si->id, group, id);
+            map = mdev_add_instance_id_map(sig->device, si->id, origin, public_id);
             map->refcount_remote = 1;
 
             si->is_active = 1;
@@ -809,8 +809,8 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
     mdev_now(from->device, &tt);
 
     // Get "to" instance with same map
-    msig_get_instance_with_remote_ids(to, from->id_maps[index].map->group,
-                                      from->id_maps[index].map->remote, 0,
+    msig_get_instance_with_remote_ids(to, from->id_maps[index].map->origin,
+                                      from->id_maps[index].map->public, 0,
                                       &tt);
 }
 
