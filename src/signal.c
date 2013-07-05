@@ -253,7 +253,7 @@ static mapper_signal_instance get_reserved_instance(mapper_signal sig)
     return 0;
 }
 
-int msig_get_instance_with_local_id(mapper_signal sig, int id,
+int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
                                     int flags, mapper_timetag_t *tt)
 {
     if (!sig)
@@ -264,7 +264,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     mapper_signal_instance si;
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
-        if (maps[i].instance && maps[i].map->local == id) {
+        if (maps[i].instance && maps[i].map->local == instance_id) {
             if (maps[i].status & ~flags)
                 return -1;
             else {
@@ -274,13 +274,13 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     }
 
     // check if device has record of id map
-    mapper_id_map map = mdev_find_instance_id_map_by_local(sig->device, id);
+    mapper_id_map map = mdev_find_instance_id_map_by_local(sig->device, instance_id);
 
     // no instance with that id exists - need to try to activate instance and create new id map
-    if ((si = get_reserved_instance(sig))) {
+    if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
             map->refcount_local = 1;
         }
@@ -293,7 +293,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         i = msig_add_id_map(sig, si, map);
         if (sig->instance_event_handler &&
             (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
+            sig->instance_event_handler(sig, &sig->props, instance_id, IN_NEW, tt);
         }
         return i;
     }
@@ -325,10 +325,10 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         return -1;
 
     // try again
-    if ((si = get_reserved_instance(sig))) {
+    if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
             map->refcount_local = 1;
         }
@@ -339,7 +339,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         i = msig_add_id_map(sig, si, map);
         if (sig->instance_event_handler &&
             (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
+            sig->instance_event_handler(sig, &sig->props, instance_id, IN_NEW, tt);
         }
         return i;
     }
@@ -390,20 +390,15 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
             }
             return i;
         }
-        else
-            goto release;
     }
     else {
         si = find_instance_by_id(sig, map->local);
         if (!si) {
             // TODO: Once signal groups are explicit, allow re-mapping to another instance if possible.
-            trace("Signal %s has no instance %i available.", sig->props.name, map->local);
+            trace("Signal %s has no instance %i available.\n", sig->props.name, map->local);
             return -1;
         }
-        if (si) {
-            if (si->is_active) {
-                goto release;
-            }
+        else if (!si->is_active) {
             si->is_active = 1;
             msig_init_instance(si);
             i = msig_add_id_map(sig, si, map);
@@ -417,7 +412,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         }
     }
 
-release:
+    // try releasing instance in use
     if (sig->instance_event_handler &&
         (sig->instance_event_flags & IN_OVERFLOW)) {
         // call instance event handler
@@ -540,8 +535,7 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
     si->index = lowest;
 
     msig_init_instance(si);
-    if (user_data)
-        si->user_data = user_data;
+    si->user_data = user_data;
 
     sig->props.num_instances ++;
     qsort(sig->instances, sig->props.num_instances,
@@ -742,13 +736,13 @@ void msig_release_instance_internal(mapper_signal sig,
     smap->instance = 0;
 }
 
-void msig_remove_instance(mapper_signal sig, int id)
+void msig_remove_instance(mapper_signal sig, int instance_id)
 {
     if (!sig) return;
 
     int i;
     for (i = 0; i < sig->props.num_instances; i++) {
-        if (sig->instances[i]->id == id) {
+        if (sig->instances[i]->id == instance_id) {
             if (sig->instances[i]->is_active) {
                 // First release instance
                 mapper_timetag_t tt = sig->device->admin->clock.now;
@@ -885,6 +879,7 @@ void msig_set_instance_event_callback(mapper_signal sig,
     }
 
     sig->instance_event_handler = h;
+    // TODO: use separate user_data for instance event callback?
     sig->props.user_data = user_data;
 
     if (flags & IN_DOWNSTREAM_RELEASE) {
