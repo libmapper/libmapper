@@ -124,6 +124,14 @@ void *msig_value(mapper_signal sig, mapper_timetag_t *timetag);
  *  \return The number of queries sent, or -1 for error. */
 int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
 
+/*! Add a signal to a predefined multi-signal group created using mdev_add_multisig.
+ *  Signals in the same group will have instance ids automatically coordinated.
+ *  By default all signals are in the same (default) group.
+ *  \param sig      The signal to add.
+ *  \param mms      A multi-signal group to associate with this signal, or 0
+ *                  to reset to the default group. */
+void msig_set_group(mapper_signal sig, mapper_multisig mms);
+
 /**** Instances ****/
 
 /*! Add new instances to the reserve list. Note that if instance ids are specified,
@@ -438,6 +446,12 @@ int mdev_num_inputs(mapper_device dev);
 
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
+
+//! Define a multi-signal group
+mapper_multisig mdev_add_multisig(mapper_device dev);
+
+//! Remove a previously-defined multi-signal group.
+void mdev_remove_multisig(mapper_device dev, mapper_multisig mms);
 
 //! Return the number of incoming links.
 int mdev_num_links_in(mapper_device dev);

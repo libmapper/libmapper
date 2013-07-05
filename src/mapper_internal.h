@@ -23,6 +23,7 @@ struct _mapper_signal
     struct _mapper_device *device;
 
     /*! ID maps and active instances. */
+    int group_map_index;
     struct _mapper_signal_id_map *id_maps;
     int id_map_length;
 
@@ -81,11 +82,15 @@ struct _mapper_device {
     mapper_device_connection_handler *connection_cb;
     void *connection_cb_userdata;
 
-    /*! The list of active instance id mappings. */
-    struct _mapper_id_map *active_id_map;
+    /*! Number of declared multi-signal objects. */
+    int num_multisigs;
+
+    /*! Array of lists of active instance id mappings, one for each
+     *  multi-signal group. */
+    struct _mapper_id_map **active_id_maps;
 
     /*! The list of reserve instance id mappings. */
-    struct _mapper_id_map *reserve_id_map;
+    struct _mapper_id_map *reserve_id_maps;
 
     uint32_t id_counter;
     int link_timeout_sec;   /* Number of seconds after which unresponsive
@@ -242,15 +247,19 @@ void mdev_start_server(mapper_device mdev, int port);
 void mdev_on_id_and_ordinal(mapper_device md,
                             mapper_admin_allocated_t *resource);
 
-mapper_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
-                                       int origin, int public_id);
+mapper_id_map mdev_add_instance_id_map(mapper_device device, int group_index,
+                                       int local_id, int origin,
+                                       int public_id);
 
-void mdev_remove_instance_id_map(mapper_device device, mapper_id_map map);
+void mdev_remove_instance_id_map(mapper_device device, int group_index,
+                                 mapper_id_map map);
 
 mapper_id_map mdev_find_instance_id_map_by_local(mapper_device device,
+                                                 int group_index,
                                                  int local_id);
 
 mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
+                                                  int group_index,
                                                   int origin, int public_id);
 
 const char *mdev_name(mapper_device md);

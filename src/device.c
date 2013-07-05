@@ -65,8 +65,9 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->ordinal.locked = 0;
     md->registered = 0;
     md->routers = 0;
-    md->active_id_map = 0;
-    md->reserve_id_map = 0;
+    md->num_multisigs = 1;
+    md->active_id_maps = (mapper_id_map *) calloc(1, sizeof(mapper_id_map *));
+    md->reserve_id_maps = 0;
     md->id_counter = 0;
     md->props.extra = table_new();
     md->flags = 0;
@@ -137,14 +138,16 @@ void mdev_free(mapper_device md)
 
     // Release device id maps
     mapper_id_map map;
-    while (md->active_id_map) {
-        map = md->active_id_map;
-        md->active_id_map = map->next;
-        free(map);
+    for (i = 0; i < md->num_multisigs; i++) {
+        while (md->active_id_maps[i]) {
+            map = md->active_id_maps[i];
+            md->active_id_maps[i] = map->next;
+            free(map);
+        }
     }
-    while (md->reserve_id_map) {
-        map = md->reserve_id_map;
-        md->reserve_id_map = map->next;
+    while (md->reserve_id_maps) {
+        map = md->reserve_id_maps;
+        md->reserve_id_maps = map->next;
         free(map);
     }
 
@@ -300,7 +303,7 @@ static int handler_signal(const char *path, const char *types,
                     sig->id_maps[index].map = 0;
                     map->refcount_remote--;
                     if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
-                        mdev_remove_instance_id_map(md, map);
+                        mdev_remove_instance_id_map(md, sig->group_map_index, map);
                     }
                 }
                 return 0;
@@ -652,6 +655,28 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
     snprintf(path, len, "%s%s", sig->props.name, "/got");
     lo_server_del_method(md->server, path, NULL);
     md->n_output_callbacks --;
+}
+
+mapper_multisig mdev_add_multisig(mapper_device md)
+{
+    ++md->num_multisigs;
+    md->active_id_maps = realloc(md->active_id_maps, md->num_multisigs * sizeof(mapper_id_map *));
+    md->active_id_maps[md->num_multisigs-1] = 0;
+
+    return md->num_multisigs-1;
+}
+
+void mdev_remove_multisig(mapper_device md, mapper_multisig mms)
+{
+    if (mms >= md->num_multisigs)
+        return;
+
+    int i = (int)mms + 1;
+    for (; i < md->num_multisigs; i++) {
+        md->active_id_maps[i-1] = md->active_id_maps[i];
+    }
+    --md->num_multisigs;
+    md->active_id_maps = realloc(md->active_id_maps, md->num_multisigs * sizeof(mapper_id_map *));
 }
 
 void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal sig)
@@ -1126,40 +1151,45 @@ void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
     }
 }
 
-void mdev_reserve_instance_id_map(mapper_device dev)
+static void reserve_instance_id_map(mapper_device dev)
 {
     mapper_id_map map;
     map = (mapper_id_map)calloc(1, sizeof(struct _mapper_id_map));
-    map->next = dev->reserve_id_map;
-    dev->reserve_id_map = map;
+    map->next = dev->reserve_id_maps;
+    dev->reserve_id_maps = map;
 }
 
-mapper_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
-                                       int origin, int public_id)
+mapper_id_map mdev_add_instance_id_map(mapper_device dev,
+                                       int group_index,
+                                       int local_id,
+                                       int origin_id,
+                                       int public_id)
 {
-    if (!dev->reserve_id_map)
-        mdev_reserve_instance_id_map(dev);
+    if (!dev->reserve_id_maps)
+        reserve_instance_id_map(dev);
 
-    mapper_id_map map = dev->reserve_id_map;
-    map->local = local_id;
-    map->origin = origin;
+    mapper_id_map map = dev->reserve_id_maps;
+    map->local =  local_id;
+    map->origin = origin_id;
     map->public = public_id;
     map->refcount_local = 0;
     map->refcount_remote = 0;
-    dev->reserve_id_map = map->next;
-    map->next = dev->active_id_map;
-    dev->active_id_map = map;
+    dev->reserve_id_maps = map->next;
+    map->next = dev->active_id_maps[group_index];
+    dev->active_id_maps[group_index] = map;
     return map;
 }
 
-void mdev_remove_instance_id_map(mapper_device dev, mapper_id_map map)
+void mdev_remove_instance_id_map(mapper_device dev,
+                                 int group_index,
+                                 mapper_id_map map)
 {
-    mapper_id_map *id_map = &dev->active_id_map;
+    mapper_id_map *id_map = &dev->active_id_maps[group_index];
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
-            map->next = dev->reserve_id_map;
-            dev->reserve_id_map = map;
+            map->next = dev->reserve_id_maps;
+            dev->reserve_id_maps = map;
             break;
         }
         id_map = &(*id_map)->next;
@@ -1167,9 +1197,10 @@ void mdev_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 }
 
 mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
+                                                 int group_index,
                                                  int local_id)
 {
-    mapper_id_map map = dev->active_id_map;
+    mapper_id_map map = dev->active_id_maps[group_index];
     while (map) {
         if (map->local == local_id)
             return map;
@@ -1179,11 +1210,13 @@ mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
 }
 
 mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
-                                                  int origin, int public_id)
+                                                  int group_index,
+                                                  int origin_id,
+                                                  int public_id)
 {
-    mapper_id_map map = dev->active_id_map;
+    mapper_id_map map = dev->active_id_maps[group_index];
     while (map) {
-        if (map->origin == origin && map->public == public_id)
+        if (map->origin == origin_id && map->public == public_id)
             return map;
         map = map->next;
     }
