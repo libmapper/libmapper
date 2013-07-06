@@ -125,6 +125,8 @@ typedef struct _mapper_admin {
                                        *   in charge of. */
     mapper_clock_t clock;             /*!< Clock for providing global
                                        *   time syncronization. */
+    lo_bundle bundle;                 /*!< Bundle pointer for sending
+                                       *   messages on the admin bus. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */

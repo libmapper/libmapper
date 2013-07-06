@@ -418,6 +418,11 @@ void mapper_admin_free(mapper_admin admin)
     if (!admin)
         return;
 
+    if (admin->bundle) {
+        lo_send_bundle(admin->admin_addr, admin->bundle);
+        lo_bundle_free_messages(admin->bundle);
+    }
+
     if (admin->interface_name)
         free(admin->interface_name);
 
@@ -467,7 +472,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
     if (mon) {
         admin->monitor = mon;
         mapper_admin_add_monitor_methods(admin);
-        mapper_admin_send_osc(admin, 0, "/who", "");
+        mapper_admin_send(admin, "/who", "");
     }
 }
 
@@ -486,6 +491,12 @@ int mapper_admin_poll(mapper_admin admin)
 {
     int count = 0, status;
     mapper_device md = admin->device;
+
+    if (admin->bundle) {
+        lo_send_bundle(admin->admin_addr, admin->bundle);
+        lo_bundle_free_messages(admin->bundle);
+        admin->bundle = 0;
+    }
 
     if (md)
         md->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
@@ -576,7 +587,7 @@ void mapper_admin_probe_device_name(mapper_admin admin, mapper_device device)
     /* Calculate a hash from the name and store it in id.value */
     device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
-    /* For the same reason, we can't use mapper_admin_send_osc()
+    /* For the same reason, we can't use mapper_admin_send()
      * here. */
     lo_send(admin->admin_addr, "/name/probe", "si",
             name, admin->random_id);
@@ -617,9 +628,27 @@ static int check_collisions(mapper_admin admin,
     return 0;
 }
 
-void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
-                                 const char *path,
-                                 const char *types, ...)
+static int mapper_admin_check_bundle(mapper_admin admin)
+{
+    if (admin->bundle && lo_bundle_count(admin->bundle) >= 20) {
+        lo_send_bundle(admin->admin_addr, admin->bundle);
+        lo_bundle_free_messages(admin->bundle);
+        admin->bundle = 0;
+    }
+    if (!admin->bundle) {
+        mapper_clock_now(&admin->clock, &admin->clock.now);
+        admin->bundle = lo_bundle_new(admin->clock.now);
+        if (!admin->bundle) {
+            trace("couldn't allocate lo_bundle\n");
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void _real_mapper_admin_send(mapper_admin admin,
+                             const char *path,
+                             const char *types, ...)
 {
     char t[]=" ";
 
@@ -649,20 +678,17 @@ void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
 
     va_end(aq);
 
-    if (b)
-        lo_bundle_add_message(b, path, m);
-    else {
-        lo_send_message(admin->admin_addr, path, m);
-        lo_message_free(m);
+    if (!mapper_admin_check_bundle(admin)) {
+        lo_bundle_add_message(admin->bundle, path, m);
     }
 }
 
-void _real_mapper_admin_send_osc_with_params(const char *file, int line,
-                                             mapper_admin admin,
-                                             mapper_message_t *params,
-                                             mapper_string_table_t *extra,
-                                             const char *path,
-                                             const char *types, ...)
+void _real_mapper_admin_send_with_params(const char *file, int line,
+                                         mapper_admin admin,
+                                         mapper_message_t *params,
+                                         mapper_string_table_t *extra,
+                                         const char *path,
+                                         const char *types, ...)
 {
     lo_message m = lo_message_new();
     if (!m) {
@@ -678,8 +704,9 @@ void _real_mapper_admin_send_osc_with_params(const char *file, int line,
     if (extra)
         mapper_msg_add_osc_value_table(m, extra);
 
-    lo_send_message(admin->admin_addr, path, m);
-    lo_message_free(m);
+    if (!mapper_admin_check_bundle(admin)) {
+        lo_bundle_add_message(admin->bundle, path, m);
+    }
 }
 
 static void mapper_admin_send_device(mapper_admin admin,
@@ -690,8 +717,8 @@ static void mapper_admin_send_device(mapper_admin admin,
     if (device->flags & FLAGS_SENT_DEVICE_INFO)
         return;
 
-    mapper_admin_send_osc(
-        admin, 0, "/device", "s", mdev_name(device),
+    mapper_admin_send(
+        admin, "/device", "s", mdev_name(device),
         AT_LIB_VERSION, PACKAGE_VERSION,
         AT_PORT, device->props.port,
         AT_NUM_INPUTS, mdev_num_inputs(device),
@@ -909,7 +936,7 @@ static int handler_id_n_signals_input_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->props.n_inputs - 1, count = 0;
+    int i = 0, j = md->props.n_inputs - 1;
 
     if (!md->props.n_inputs)
         return 0;
@@ -939,20 +966,11 @@ static int handler_id_n_signals_input_get(const char *path,
             j = md->props.n_inputs - 1;
     }
 
-    mapper_clock_now(&admin->clock, &admin->clock.now);
-    lo_bundle b = lo_bundle_new(admin->clock.now);
     for (; i <= j; i++) {
-        if (count++ >= 20) {
-            // split into multiple bundles
-            lo_send_bundle(admin->admin_addr, b);
-            lo_bundle_free_messages(b);
-            b = lo_bundle_new(admin->clock.now);
-            count = 0;
-        }
         mapper_signal sig = md->inputs[i];
         msig_full_name(sig, sig_name, 1024);
-        mapper_admin_send_osc(
-            admin, b, "/signal", "s", sig_name,
+        mapper_admin_send(
+            admin, "/signal", "s", sig_name,
             AT_ID, i,
             AT_DIRECTION, "input",
             AT_TYPE, sig->props.type,
@@ -964,8 +982,6 @@ static int handler_id_n_signals_input_get(const char *path,
             sig->props.rate ? AT_RATE : -1, sig,
             AT_EXTRA, sig->props.extra);
     }
-    lo_send_bundle(admin->admin_addr, b);
-    lo_bundle_free_messages(b);
 
     md->flags |= FLAGS_SENT_DEVICE_INPUTS;
 
@@ -983,7 +999,7 @@ static int handler_id_n_signals_output_get(const char *path,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char sig_name[1024];
-    int i = 0, j = md->props.n_outputs - 1, count = 0;
+    int i = 0, j = md->props.n_outputs - 1;
 
     if (!md->props.n_outputs)
         return 0;
@@ -1013,20 +1029,11 @@ static int handler_id_n_signals_output_get(const char *path,
             j = md->props.n_outputs - 1;
     }
 
-    mapper_clock_now(&admin->clock, &admin->clock.now);
-    lo_bundle b = lo_bundle_new(admin->clock.now);
     for (; i <= j; i++) {
-        if (count++ >= 20) {
-            // split into multiple bundles
-            lo_send_bundle(admin->admin_addr, b);
-            lo_bundle_free_messages(b);
-            b = lo_bundle_new(admin->clock.now);
-            count = 0;
-        }
         mapper_signal sig = md->outputs[i];
         msig_full_name(sig, sig_name, 1024);
-        mapper_admin_send_osc(
-            admin, b, "/signal", "s", sig_name,
+        mapper_admin_send(
+            admin, "/signal", "s", sig_name,
             AT_ID, i,
             AT_DIRECTION, "output",
             AT_TYPE, sig->props.type,
@@ -1038,8 +1045,6 @@ static int handler_id_n_signals_output_get(const char *path,
             sig->props.rate ? AT_RATE : -1, sig,
             AT_EXTRA, sig->props.extra);
     }
-    lo_send_bundle(admin->admin_addr, b);
-    lo_bundle_free_messages(b);
 
     md->flags |= FLAGS_SENT_DEVICE_OUTPUTS;
 
@@ -1206,7 +1211,7 @@ static int handler_device_name_probe(const char *path, const char *types,
                 }
             }
             /* Name may not yet be registered, so we can't use
-             * mapper_admin_send_osc() here. */
+             * mapper_admin_send() here. */
             lo_send(admin->admin_addr, "/name/registered",
                     "sii", name, temp_id,
                     (md->ordinal.value+i+1));
@@ -1258,7 +1263,7 @@ static int handler_device_link(const char *path, const char *types,
     lo_arg *arg_port = (lo_arg*) &md->props.port;
     params.values[AT_DEST_PORT] = &arg_port;
     params.types[AT_DEST_PORT] = "i";
-    mapper_admin_send_osc_with_params(
+    mapper_admin_send_with_params(
         admin, &params, 0, "/linkTo", "ss", src_name, dest_name);
 
     return 0;
@@ -1560,7 +1565,7 @@ static int handler_device_unlink(const char *path, const char *types,
                         md->link_cb_userdata);
 
         mdev_remove_router(md, router);
-        mapper_admin_send_osc_with_params(
+        mapper_admin_send_with_params(
             admin, &params, 0, "/unlinked", "ss", mdev_name(md), dest_name);
     }
     else {
@@ -1658,19 +1663,19 @@ static int handler_device_unlinked(const char *path, const char *types,
     return 0;
 }
 
-/* Helper function to check if the OSC prefix matches.  Like strcmp(),
+/* Helper function to check if the prefix matches.  Like strcmp(),
  * returns 0 if they match (up to the second '/'), non-0 otherwise.
  * Also optionally returns a pointer to the remainder of str1 after
  * the prefix. */
-static int osc_prefix_cmp(const char *str1, const char *str2,
-                          const char **rest)
+static int prefix_cmp(const char *str1, const char *str2,
+                      const char **rest)
 {
     if (str1[0]!='/') {
-        trace("OSC string '%s' does not start with '/'.\n", str1);
+        trace("String '%s' does not start with '/'.\n", str1);
         return -1;
     }
     if (str2[0]!='/') {
-        trace("OSC string '%s' does not start with '/'.\n", str2);
+        trace("String '%s' does not start with '/'.\n", str2);
         return -1;
     }
 
@@ -1710,7 +1715,7 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
 
     dest_name = &argv[1]->s;
-    if (osc_prefix_cmp(dest_name, mdev_name(md),
+    if (prefix_cmp(dest_name, mdev_name(md),
                        &dest_signal_name))
         return 0;
 
@@ -1769,7 +1774,7 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
 
-    mapper_admin_send_osc_with_params(
+    mapper_admin_send_with_params(
         admin, &params, input->props.extra,
         "/connectTo", "ss", src_name, dest_name);
 
@@ -1796,8 +1801,8 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    if (osc_prefix_cmp(src_name, mdev_name(md),
-                       &src_signal_name))
+    if (prefix_cmp(src_name, mdev_name(md),
+                   &src_signal_name))
         return 0;
 
     dest_name = &argv[1]->s;
@@ -1945,8 +1950,8 @@ static int handler_signal_connected(const char *path, const char *types,
                                                   dest_name, &params);
     }
 
-    if (!md || osc_prefix_cmp(dest_name, mdev_name(md),
-                              &dest_signal_name))
+    if (!md || prefix_cmp(dest_name, mdev_name(md),
+                          &dest_signal_name))
         return 0;
 
     trace("<%s> got /connected %s %s + %d arguments\n",
@@ -2030,8 +2035,8 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    if (osc_prefix_cmp(src_name, mdev_name(md),
-                       &src_signal_name))
+    if (prefix_cmp(src_name, mdev_name(md),
+                   &src_signal_name))
         return 0;
 
     dest_name = &argv[1]->s;
@@ -2099,7 +2104,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
 
     src_name = &argv[0]->s;
-    if (osc_prefix_cmp(src_name, mdev_name(md), &src_signal_name) != 0)
+    if (prefix_cmp(src_name, mdev_name(md), &src_signal_name) != 0)
         return 0;
 
     dest_name = &argv[1]->s;
@@ -2146,8 +2151,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_admin_send_osc(admin, 0, "/disconnected", "ss",
-                          src_name, dest_name);
+    mapper_admin_send(admin, "/disconnected", "ss",
+                      src_name, dest_name);
 
     return 0;
 }
@@ -2185,8 +2190,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
                                                           dest_name));
     }
 
-    if (!md || osc_prefix_cmp(dest_name, mdev_name(md),
-                              &dest_signal_name))
+    if (!md || prefix_cmp(dest_name, mdev_name(md),
+                          &dest_signal_name))
         return 0;
 
     src_signal_name = strchr(src_name+1, '/');

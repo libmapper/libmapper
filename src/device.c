@@ -80,7 +80,7 @@ void mdev_free(mapper_device md)
 
     if (md->registered) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_send_osc(md->admin, 0, "/logout", "s", mdev_name(md));
+        mapper_admin_send(md->admin, "/logout", "s", mdev_name(md));
     }
 
     // First release active instances
@@ -667,8 +667,8 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                 mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str1, 1024, "%s%s", r->props.src_name, c->props.src_name);
-                    mapper_admin_send_osc(md->admin, 0, "/disconnect", "ss",
-                                          str1, str2);
+                    mapper_admin_send(md->admin, "/disconnect", "ss",
+                                      str1, str2);
                     mapper_connection temp = c->next;
                     mapper_receiver_remove_connection(r, c);
                     c = temp;
@@ -718,8 +718,8 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
                 mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str2, 1024, "%s%s", r->props.dest_name, c->props.dest_name);
-                    mapper_admin_send_osc(md->admin, 0, "/disconnected", "ss",
-                                          str1, str2);
+                    mapper_admin_send(md->admin, "/disconnected", "ss",
+                                      str1, str2);
                     mapper_connection temp = c->next;
                     mapper_router_remove_connection(r, c);
                     c = temp;
