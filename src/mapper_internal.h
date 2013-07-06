@@ -155,6 +155,7 @@ void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Message-sending function, not to be called directly. */
 void _real_mapper_admin_send(mapper_admin admin,
+                             int msg_index,
                              const char *path,
                              const char *types, ...);
 
@@ -163,6 +164,7 @@ void _real_mapper_admin_send_with_params(const char *file, int line,
                                          mapper_admin admin,
                                          mapper_message_t *params,
                                          mapper_string_table_t *extra,
+                                         int msg_index,
                                          const char *path,
                                          const char *types, ...);
 

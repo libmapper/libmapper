@@ -59,6 +59,37 @@ typedef struct _mapper_string_table {
 
 /**** Admin bus ****/
 
+/*! Some useful strings for sending admin messages. */
+/*! Symbolic representation of recognized @-parameters. */
+typedef enum {
+    ADM_DEVICE,
+    ADM_SIGNAL,
+    ADM_WHO,
+    ADM_GET_MY_SIGNALS,
+    ADM_GET_MY_SIGNALS_IN,
+    ADM_GET_MY_SIGNALS_OUT,
+    ADM_GET_MY_DEVICE,
+    ADM_GET_MY_LINKS,
+    ADM_GET_MY_LINKS_IN,
+    ADM_GET_MY_LINKS_OUT,
+    ADM_LINK,
+    ADM_LINK_TO,
+    ADM_LINKED,
+    ADM_UNLINK,
+    ADM_UNLINKED,
+    ADM_GET_MY_CONNECTIONS,
+    ADM_GET_MY_CONNECTIONS_IN,
+    ADM_GET_MY_CONNECTIONS_OUT,
+    ADM_CONNECT,
+    ADM_CONNECT_TO,
+    ADM_CONNECTED,
+    ADM_CONNECTION_MODIFY,
+    ADM_DISCONNECT,
+    ADM_DISCONNECTED,
+    ADM_LOGOUT,
+    ADM_SYNC
+} admin_msg_t;
+
 /*! Function to call when an allocated resource is locked. */
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
                                            struct _mapper_admin_allocated_t
