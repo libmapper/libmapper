@@ -43,32 +43,32 @@ static double get_current_time()
 
 const char* admin_msg_strings[] =
 {
-    "/device",                  /* ADM_DEVICE */
-    "/signal",                  /* ADM_SIGNAL */
-    "/who",                     /* ADM_WHO */
-    "%s/signals/get",           /* ADM_GET_MY_SIGNALS */
-    "%s/signals/input/get",     /* ADM_GET_MY_SIGNALS_IN */
-    "%s/signals/output/get",    /* ADM_GET_MY_SIGNALS_OUT */
-    "%s/info/get",              /* ADM_GET_MY_DEVICE */
-    "%s/links/get",             /* ADM_GET_MY_LINKS */
-    "%s/links/in/get",          /* ADM_GET_MY_LINKS_IN */
-    "%s/links/out/get",         /* ADM_GET_MY_LINKS_OUT */
-    "/link",                    /* ADM_LINK */
-    "/linkTo",                  /* ADM_LINK_TO */
-    "/linked",                  /* ADM_LINKED */
-    "/unlink",                  /* ADM_UNLINK */
-    "/unlinked",                /* ADM_UNLINKED */
-    "%s/connections/get",       /* ADM_GET_MY_CONNECTIONS */
-    "%s/connections/in/get",    /* ADM_GET_MY_CONNECTIONS_IN */
-    "%s/connections/out/get",   /* ADM_GET_MY_CONNECTIONS_OUT */
     "/connect",                 /* ADM_CONNECT */
     "/connectTo",               /* ADM_CONNECT_TO */
     "/connected",               /* ADM_CONNECTED */
     "/connection/modify",       /* ADM_CONNECTION_MODIFY */
+    "/device",                  /* ADM_DEVICE */
     "/disconnect",              /* ADM_DISCONNECT */
     "/disconnected",            /* ADM_DISCONNECTED */
+    "%s/connections/get",       /* ADM_GET_MY_CONNECTIONS */
+    "%s/connections/in/get",    /* ADM_GET_MY_CONNECTIONS_IN */
+    "%s/connections/out/get",   /* ADM_GET_MY_CONNECTIONS_OUT */
+    "%s/info/get",              /* ADM_GET_MY_DEVICE */
+    "%s/links/get",             /* ADM_GET_MY_LINKS */
+    "%s/links/in/get",          /* ADM_GET_MY_LINKS_IN */
+    "%s/links/out/get",         /* ADM_GET_MY_LINKS_OUT */
+    "%s/signals/get",           /* ADM_GET_MY_SIGNALS */
+    "%s/signals/input/get",     /* ADM_GET_MY_SIGNALS_IN */
+    "%s/signals/output/get",    /* ADM_GET_MY_SIGNALS_OUT */
+    "/link",                    /* ADM_LINK */
+    "/linkTo",                  /* ADM_LINK_TO */
+    "/linked",                  /* ADM_LINKED */
     "/logout",                  /* ADM_LOGOUT */
+    "/signal",                  /* ADM_SIGNAL */
     "/sync",                    /* ADM_SYNC */
+    "/unlink",                  /* ADM_UNLINK */
+    "/unlinked",                /* ADM_UNLINKED */
+    "/who",                     /* ADM_WHO */
 };
 
 /* Internal functions for sending admin messages. */
