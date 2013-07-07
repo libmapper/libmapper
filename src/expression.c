@@ -651,8 +651,11 @@ static int add_typecast(mapper_token_t *stack, int top)
 
     if (stack[top].toktype == TOK_OP)
         arity = op_table[stack[top].op].arity;
-    else if (stack[top].toktype == TOK_FUNC)
+    else if (stack[top].toktype == TOK_FUNC) {
         arity = function_table[stack[top].func].arity;
+        if (stack[top].func == FUNC_UNIFORM)
+            can_precompute = 0;
+    }
     else
         return top;
 
