@@ -647,7 +647,6 @@ static int add_typecast(mapper_token_t *stack, int top)
 {
     int i, arity, can_precompute = 1;
     char type = stack[top].datatype;
-    if (top < 1) return top;
 
     if (stack[top].toktype == TOK_OP)
         arity = op_table[stack[top].op].arity;
@@ -666,7 +665,10 @@ static int add_typecast(mapper_token_t *stack, int top)
         // last arg of op or func is at top-1
         type = compare_token_datatype(stack[top-1], type);
         while (--i >= 0) {
-            if (stack[i].toktype != TOK_CONST)
+            if (stack[i].toktype == TOK_FUNC &&
+                function_table[stack[i].func].arity)
+                can_precompute = 0;
+            else if (stack[i].toktype != TOK_CONST)
                 can_precompute = 0;
             // walk down stack distance of arity, checking datatypes
             if (depth[1] == 0) {
@@ -809,6 +811,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else
                     tok.datatype = 'f';
                 PUSH_TO_OPERATOR(tok);
+                if (!function_table[tok.func].arity) {
+                    POP_OPERATOR_TO_OUTPUT();
+                }
                 break;
             case TOK_OPEN_PAREN:
                 PUSH_TO_OPERATOR(tok);
