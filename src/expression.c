@@ -292,7 +292,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
 {
     tok->datatype = 'i';
     tok->casttype = 0;
-    int n, i = index;
+    int n, i;
     char c = str[index];
     int integer_found = 0;
 
@@ -303,6 +303,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
 
   again:
 
+    i = index;
     if (isdigit(c)) {
         do {
             c = str[++index];
