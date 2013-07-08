@@ -31,7 +31,6 @@ static double mind(double x, double y)
     else return x;
 }
 
-
 static int maxi(int x, int y)
 {
     if (y > x) return y;
@@ -58,6 +57,16 @@ static float pif()
 static double pid()
 {
     return M_PI;
+}
+
+static float ef()
+{
+    return M_E;
+}
+
+static double ed()
+{
+    return M_E;
 }
 
 static float midiToHzf(float x)
@@ -148,6 +157,7 @@ static struct {
     { "ceil",     1,    0,          ceilf,      ceil        },
     { "cos",      1,    0,          cosf,       cos         },
     { "cosh",     1,    0,          coshf,      cosh        },
+    { "e",        0,    0,          ef,         ed          },
     { "exp",      1,    0,          expf,       exp         },
     { "exp2",     1,    0,          exp2f,      exp2        },
     { "floor",    1,    0,          floorf,     floor       },
