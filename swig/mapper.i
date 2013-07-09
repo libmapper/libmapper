@@ -1723,8 +1723,6 @@ typedef struct _admin {} admin;
             get_links_by_src_device_name, link_next)
         links_by_dest_device_name = make_iterator(
             get_links_by_dest_device_name, link_next)
-        link_by_src_dest_names = make_iterator(
-            get_link_by_src_dest_names, link_next)
     }
 }
 
