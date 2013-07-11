@@ -762,8 +762,8 @@ int mapper_db_property_lookup(void *thestruct, char o_type,
 /*! Update information about a given device record based on message
  *  parameters. */
 static int update_device_record_params(mapper_db_device reg,
-                                        const char *name,
-                                        mapper_message_t *params)
+                                       const char *name,
+                                       mapper_message_t *params)
 {
     int updated = 0;
 
