@@ -609,7 +609,8 @@ int mapper_router_in_scope(mapper_router router, uint32_t name_hash)
 {
     int i;
     for (i=0; i<router->props.num_scopes; i++)
-        if (router->props.scope_hashes[i] == name_hash)
+        if (router->props.scope_hashes[i] == name_hash ||
+            router->props.scope_hashes[i] == 0)
             return 1;
     return 0;
 }

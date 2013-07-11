@@ -44,8 +44,8 @@ int main(int argc, char ** argv)
     }
 
     printf("Waiting for 20 seconds...\n");
-    for (i = 20; i > 0; i--)
-        mdev_poll(mdev, 1000);
+    for (i = 2000; i > 0; i--)
+        mdev_poll(mdev, 10);
 
     mdev_free(mdev);
     return 0;
