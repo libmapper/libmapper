@@ -762,8 +762,8 @@ int mapper_db_property_lookup(void *thestruct, char o_type,
 /*! Update information about a given device record based on message
  *  parameters. */
 static int update_device_record_params(mapper_db_device reg,
-                                        const char *name,
-                                        mapper_message_t *params)
+                                       const char *name,
+                                       mapper_message_t *params)
 {
     int updated = 0;
 
@@ -2002,7 +2002,11 @@ int mapper_db_link_add_scope(mapper_db_link link,
         return 1;
 
     // Check if scope is already stored for this link
-    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
+    uint32_t hash;
+    if (strcmp(scope, "all")==0)
+        hash = 0;
+    else
+        hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     for (i=0; i<link->num_scopes; i++)
         if (link->scope_hashes[i] == hash)
             return 1;
@@ -2023,8 +2027,11 @@ int mapper_db_link_remove_scope(mapper_db_link link,
     if (!link || !scope)
         return 1;
 
-    uint32_t hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    
+    uint32_t hash;
+    if (strcmp(scope, "all")==0)
+        hash = 0;
+    else
+        hash = crc32(0L, (const Bytef *)scope, strlen(scope));
     for (i=0; i<link->num_scopes; i++) {
         if (link->scope_hashes[i] == hash) {
             free(link->scope_names[i]);

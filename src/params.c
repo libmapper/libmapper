@@ -348,6 +348,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_OUTPUTS:
         case AT_PORT:
         case AT_REV:
+        case AT_SEND_AS_INSTANCE:
         case AT_SRC_LENGTH:
         case AT_SRC_PORT:
             i = va_arg(aq, int);
