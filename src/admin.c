@@ -446,7 +446,9 @@ static void mapper_admin_send_bundle(mapper_admin admin)
     if (!admin->bundle)
         return;
 
-    lo_send_bundle(admin->admin_addr, admin->bundle);
+    lo_send_bundle_from(admin->admin_addr, admin->device ?
+                        admin->device->server : admin->admin_server,
+                        admin->bundle);
     lo_bundle_free_messages(admin->bundle);
     admin->bundle = 0;
 }
