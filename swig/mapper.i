@@ -7,56 +7,33 @@
     }
     $1 = $input;
  }
-%typemap(in) (int argc, int *argv) {
-  int i;
-  if (!PyList_Check($input)) {
-    PyErr_SetString(PyExc_ValueError, "Expecting a list");
-    return NULL;
-  }
-  $1 = PyList_Size($input);
-  $2 = (int *) malloc($1*sizeof(int));
-  for (i = 0; i < $1; i++) {
-    PyObject *s = PyList_GetItem($input,i);
-    if (PyInt_Check(s))
-        $2[i] = PyInt_AsLong(s);
-    else if (PyFloat_Check(s))
-        $2[i] = (long)PyFloat_AsDouble(s);
-    else {
-        free($2);
-        PyErr_SetString(PyExc_ValueError, "List items must be int or float.");
-        return NULL;
-    }
-  }
-}
-%typemap(typecheck) (int argc, int *argv) {
-   $1 = PyList_Check($input) ? 1 : 0;
-}
-%typemap(freearg) (int argc, int *argv) {
-   if ($2) free($2);
-}
 %typemap(in) (int argc, float *argv) {
-  int i;
-  if (!PyList_Check($input)) {
-    PyErr_SetString(PyExc_ValueError, "Expecting a list");
-    return NULL;
-  }
-  $1 = PyList_Size($input);
-  $2 = (float *) malloc($1*sizeof(float));
-  for (i = 0; i < $1; i++) {
-    PyObject *s = PyList_GetItem($input,i);
-    if (!PyFloat_Check(s)) {
-        free($2);
-        PyErr_SetString(PyExc_ValueError, "List items must be integers");
+    int i;
+    if (!PyList_Check($input)) {
+        PyErr_SetString(PyExc_ValueError, "Expecting a list");
         return NULL;
     }
-    $2[i] = (float)PyFloat_AsDouble(s);
-  }
+    $1 = PyList_Size($input);
+    $2 = (int *) malloc($1*sizeof(float));
+    for (i = 0; i < $1; i++) {
+        PyObject *s = PyList_GetItem($input,i);
+        if (PyInt_Check(s))
+            $2[i] = (float)PyInt_AsLong(s);
+        else if (PyFloat_Check(s))
+            $2[i] = (float)PyFloat_AsDouble(s);
+        else {
+            free($2);
+            PyErr_SetString(PyExc_ValueError,
+                            "List items must be int or float.");
+            return NULL;
+        }
+    }
 }
-%typemap(typecheck) (int argc, int *argv) {
-   $1 = PyList_Check($input) ? 1 : 0;
+%typemap(typecheck) (int argc, float *argv) {
+    $1 = PyList_Check($input) ? 1 : 0;
 }
-%typemap(freearg) (int argc, int *argv) {
-   if ($2) free($2);
+%typemap(freearg) (int argc, float *argv) {
+    if ($2) free($2);
 }
 %typemap(in) maybeSigVal %{
     sigval val;
@@ -1152,19 +1129,6 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
-    void update(int argc, int *argv, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if ((argc % sig->props.length) != 0) {
-            printf("Signal update requires multiples of %i values.\n",
-                   sig->props.length);
-            return;
-        }
-        int count = argc / sig->props.length;
-        msig_update((mapper_signal)$self, argv, count, tt);
-    }
     void update(int argc, float *argv, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
@@ -1176,7 +1140,15 @@ typedef struct _admin {} admin;
             return;
         }
         int count = argc / sig->props.length;
-        msig_update((mapper_signal)$self, argv, count, tt);
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, argv, count, tt);
+        else if (sig->props.type == 'i') {
+            int vint[argc];
+            int i;
+            for (i = 0; i < argc; i++)
+                vint[i] = (int)argv[i];
+            msig_update((mapper_signal)$self, vint, count, tt);
+        }
     }
     void update(float f, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;

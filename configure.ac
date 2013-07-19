@@ -226,7 +226,7 @@ PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([liblo],
   AS_HELP_STRING([--without-liblo],[compile without liblo, disable OSC]))
 AS_IF([test x$with_liblo != xno],[
-  PKG_CHECK_MODULES([liblo], [liblo >= 0.26])])
+  PKG_CHECK_MODULES([liblo], [liblo >= 0.27])])
 AS_IF([test "x$liblo_LIBS" = x],
   [with_liblo=no])
 AS_IF([test x$with_liblo != xno],[
