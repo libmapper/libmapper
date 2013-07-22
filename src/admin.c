@@ -832,13 +832,15 @@ static int handler_device(const char *path, const char *types,
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    if (params.types[AT_IP]==0 && params.values[AT_IP]==0) {
+    if (params.types[AT_IP]==0 || params.values[AT_IP]==0) {
         // Find the sender's hostname
         lo_address a = lo_message_get_source(msg);
-        const char *host = lo_address_get_hostname(a);
-        if (host) {
-            params.types[AT_IP] = types;  // 's'
-            params.values[AT_IP] = (lo_arg**)&host;
+        if (a) {
+            const char *host = lo_address_get_hostname(a);
+            if (host) {
+                params.types[AT_IP] = types;  // 's'
+                params.values[AT_IP] = (lo_arg**)&host;
+            }
         }
     }
 
