@@ -833,12 +833,13 @@ static int handler_device(const char *path, const char *types,
                             argc-1, &argv[1]);
 
     if (params.types[AT_IP]==0 && params.values[AT_IP]==0) {
-        params.types[AT_IP] = types;  // 's'
-
         // Find the sender's hostname
         lo_address a = lo_message_get_source(msg);
         const char *host = lo_address_get_hostname(a);
-        params.values[AT_IP] = (lo_arg**)&host;
+        if (host) {
+            params.types[AT_IP] = types;  // 's'
+            params.values[AT_IP] = (lo_arg**)&host;
+        }
     }
 
     mapper_db_add_or_update_device_params(db, name, &params);
@@ -1327,6 +1328,10 @@ static int handler_device_linkTo(const char *path, const char *types,
         // Find the sender's hostname
         lo_address a = lo_message_get_source(msg);
         host = lo_address_get_hostname(a);
+        if (!host) {
+            trace("can't perform /linkTo, host unknown\n");
+            return 0;
+        }
     }
 
     // Retrieve the port
@@ -1416,6 +1421,10 @@ static int handler_device_linked(const char *path, const char *types,
     // Find the sender's hostname
     lo_address a = lo_message_get_source(msg);
     host = lo_address_get_hostname(a);
+    if (!host) {
+        trace("can't add receiver on /linked, host unknown\n");
+        return 0;
+    }
 
     // Retrieve the src device port if it is defined
     mapper_msg_get_param_if_int(&params, AT_SRC_PORT, &port);
