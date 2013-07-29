@@ -129,6 +129,8 @@ if test x$jni_enabled = xyes; then
    JDKPATH=
    if test -d /usr/lib/jvm/java-7-openjdk-i386; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-i386
+   elif test -d /usr/lib/jvm/java-7-openjdk-amd64; then
+      JDKPATH=/usr/lib/jvm/java-7-openjdk-amd64
    elif test -d /usr/lib/jvm/java-7-openjdk-x86_64; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-x86_64
    elif test -d /usr/lib/jvm/java-6-openjdk; then

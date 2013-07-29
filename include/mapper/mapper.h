@@ -1442,7 +1442,7 @@ void mapper_monitor_now(mapper_monitor mon,
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param a    The minuend.
  *  \param b    The subtrahend.
- *  \return     The difference a-b in seconds between the two timetags. */
+ *  \return     The difference a-b in seconds. */
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
 
 /*! Add seconds to a given timetag.
@@ -1453,10 +1453,10 @@ void mapper_timetag_add_seconds(mapper_timetag_t *tt, double addend);
 /*! Return value of mapper_timetag as a double-precision floating point value. */
 double mapper_timetag_get_double(mapper_timetag_t tt);
 
-/*! Set value of a mapper_timetag from a double-precision floating point value. */
+/*! Set value of a mapper_timetag from an integer value. */
 void mapper_timetag_set_int(mapper_timetag_t *tt, int value);
 
-/*! Set value of a mapper_timetag from a double-precision floating point value. */
+/*! Set value of a mapper_timetag from a floating point value. */
 void mapper_timetag_set_float(mapper_timetag_t *tt, float value);
 
 /*! Set value of a mapper_timetag from a double-precision floating point value. */
