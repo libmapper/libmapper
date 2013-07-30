@@ -480,7 +480,6 @@ void mapper_admin_free(mapper_admin admin)
     // send out any cached messages
     mapper_admin_send_bundle(admin);
 
-
     if (admin->interface_name)
         free(admin->interface_name);
 

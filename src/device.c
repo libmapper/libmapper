@@ -141,8 +141,6 @@ void mdev_free(mapper_device md)
 
     if (md->props.extra)
         table_free(md->props.extra, 1);
-    if (md->server)
-        lo_server_free(md->server);
     if (md->props.identifier)
         free(md->props.identifier);
     if (md->props.name)
@@ -151,6 +149,8 @@ void mdev_free(mapper_device md)
         free(md->props.host);
     if (md->admin && md->own_admin)
         mapper_admin_free(md->admin);
+    if (md->server)
+        lo_server_free(md->server);
     free(md);
 }
 
