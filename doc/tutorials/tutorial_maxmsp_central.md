@@ -1,6 +1,8 @@
 Getting started
 ===============
 
+Note: this tutorial will introduce the original bindings for MaxMSP (before July 2013). You can access the tutorial for the revised multi-object bindings [here](./maxmsp_multiobj.html).
+
 To start using the _libmapper_ with MaxMSP you will need to:
 
 * Install _libmapper_ for your platform (Linux, OSX, Windows)
@@ -38,7 +40,7 @@ particular interface by using the `@interface` property.
 
 An example of creating a device:
 
-![Creating a device.](./images/maxmsp1.png)
+![Creating a device.](./images/maxmsp_central1.png)
 
 Once the object has initialized, it will output its metadata from the right
 outlet:
@@ -76,7 +78,7 @@ Additional signal properties can also (optionally) be added:
 
 examples:
 
-![Adding signals to a device](./images/maxmsp2.png)
+![Adding signals to a device](./images/maxmsp_central2.png)
 
 The only _required_ parameters here are the signal name,
 and data type.  If no `length` property is provided, the signal is
@@ -100,11 +102,11 @@ it is available.  It is also helpful documentation for users.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-![Adding a simple integer output signal](./images/maxmsp3.png)
+![Adding a simple integer output signal](./images/maxmsp_central3.png)
 
 An example of a `float` signal where some more information is provided:
 
-![Adding a floating-point output signal with some optional properties](./images/maxmsp4.png)
+![Adding a floating-point output signal with some optional properties](./images/maxmsp_central4.png)
 
 So far we know how to create a device and to specify an output signal
 for it.
@@ -130,7 +132,7 @@ So in the "sensor 1 voltage" example, assuming that we have some code
 which reads sensor 1's value into a float variable in `[p read_sensor]`,
 the patch becomes:
 
-![Updating a signal](./images/maxmsp5.png)
+![Updating a signal](./images/maxmsp_central5.png)
 
 This is about all that is needed to expose sensor 1's voltage to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
@@ -180,7 +182,7 @@ message, updates for this signal will be routed to the left output
 of the `[mapper]` object. Let's try making two devices in the same patch
 for testing.
 
-![Sending and receiving signal updates](./images/maxmsp6.png)
+![Sending and receiving signal updates](./images/maxmsp_central6.png)
 
 If you use your mapping GUI to create a link between the two devices
 _sender_ and _receiver_ and a connection between your two signals
@@ -210,7 +212,7 @@ automatically using `learn` mode. You can either send the message
 instantiate your `[mapper]` object with the learn property set as an
 argument:
 
-![Enabling learn mode on a device](./images/maxmsp7.png)
+![Enabling learn mode on a device](./images/maxmsp_central7.png)
 
 the object will watch its inlet for messages formatted as `/<name> value(s)`
 and add any unknown signals automatically. Signals added this way will not
@@ -249,7 +251,7 @@ correctly-formatted JSON with the following structure:
 To load your device definition, simply instantiate your `[mapper]` object with
 the file name as a property:
 
-![Loading a device definition file](./images/maxmsp8.png)
+![Loading a device definition file](./images/maxmsp_central8.png)
 
 Publishing metadata
 ===================
@@ -279,11 +281,11 @@ arguments
 For example, to store a `float` indicating the X position of a device
 `dev`, you could instantiate your object like this:
 
-![Adding extra properties to a device](./images/maxmsp9.png)
+![Adding extra properties to a device](./images/maxmsp_central9.png)
 
 To specify a string property of a signal:
 
-![Adding extra properties to a signal](./images/maxmsp10.png)
+![Adding extra properties to a signal](./images/maxmsp_central10.png)
 
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are: 

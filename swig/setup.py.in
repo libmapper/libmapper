@@ -24,8 +24,11 @@ mapper_module = Extension('_mapper',
 
 setup (name = 'mapper',
        version = '@PACKAGE_VERSION@',
-       author      = "IDMIL",
-       description = """Simple swig mapper""",
+       author      = "libmapper.org",
+       author_email = "dot_mapper@googlegroups.com",
+       url = "http://libmapper.org",
+       description = """A library for mapping controllers and synthesizers.""",
+       license = "GNU LGPL version 2.1 or later",
        ext_modules = [mapper_module],
        py_modules = ["mapper"],
        )

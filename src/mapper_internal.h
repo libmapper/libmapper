@@ -153,26 +153,28 @@ int mapper_admin_poll(mapper_admin admin);
 void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Macro for calling message-sending function. */
-#define mapper_admin_send_osc(...)                  \
-    _real_mapper_admin_send_osc(__VA_ARGS__, N_AT_PARAMS)
+#define mapper_admin_send(...)                  \
+    _real_mapper_admin_send(__VA_ARGS__, N_AT_PARAMS)
 
 /*! Message-sending function, not to be called directly. */
-void _real_mapper_admin_send_osc(mapper_admin admin, lo_bundle b,
-                                 const char *path,
-                                 const char *types, ...);
+void _real_mapper_admin_send(mapper_admin admin,
+                             int msg_index,
+                             const char *path,
+                             const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
-void _real_mapper_admin_send_osc_with_params(const char *file, int line,
-                                             mapper_admin admin,
-                                             mapper_message_t *params,
-                                             mapper_string_table_t *extra,
-                                             const char *path,
-                                             const char *types, ...);
+void _real_mapper_admin_send_with_params(const char *file, int line,
+                                         mapper_admin admin,
+                                         mapper_message_t *params,
+                                         mapper_string_table_t *extra,
+                                         int msg_index,
+                                         const char *path,
+                                         const char *types, ...);
 
-#define mapper_admin_send_osc_with_params(...)                          \
-    _real_mapper_admin_send_osc_with_params(__FILE__, __LINE__,         \
-                                            __VA_ARGS__,                \
-                                            LO_MARKER_A, LO_MARKER_B)
+#define mapper_admin_send_with_params(...)                          \
+    _real_mapper_admin_send_with_params(__FILE__, __LINE__,         \
+                                        __VA_ARGS__,                \
+                                        LO_MARKER_A, LO_MARKER_B)
 
 /***** Device *****/
 
