@@ -26,6 +26,7 @@ monitor.link('%s' %src.name, '%s' %dest.name)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
+monitor.poll()
 
 for i in range(100):
     print 'updating destination to', i, '-->'

@@ -26,6 +26,7 @@ monitor.connect('%s%s' %(src.name, outsig1.name),
 monitor.connect('%s%s' %(src.name, outsig2.name),
                 '%s%s' %(dest.name, insig2.name),
                 {'mode': mapper.MO_LINEAR})
+monitor.poll()
 
 for i in range(10):
     now = src.now()
