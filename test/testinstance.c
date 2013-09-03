@@ -18,8 +18,6 @@ mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-int sendinst[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int nextid = 1;
 
 int sent = 0;
 int received = 0;
@@ -186,42 +184,18 @@ void loop(int iterations)
         // here we should create, update and destroy some instances
         switch (rand() % 5) {
             case 0:
-                // try to create a new instance
-                for (j = 0; j < 10; j++) {
-                    if (!sendinst[j]) {
-                        sendinst[j] = nextid++;
-                        printf("--> Created new sender instance: %d\n",
-                               sendinst[j]);
-                        break;
-                    }
-                }
-                break;
-            case 1:
                 // try to destroy an instance
                 j = rand() % 10;
-                if (sendinst[j]) {
-                    printf("--> Retiring sender instance %ld\n",
-                           (long)sendinst[j]);
-                    msig_release_instance(sendsig,
-                                          sendinst[j],
-                                          MAPPER_NOW);
-                    sendinst[j] = 0;
-                    break;
-                }
+                printf("--> Retiring sender instance %i\n", j);
+                msig_release_instance(sendsig, j, MAPPER_NOW);
                 break;
             default:
                 j = rand() % 10;
-                if (sendinst[j]) {
-                    // try to update an instance
-                    value = (rand() % 10) * 1.0f;
-                    msig_update_instance(sendsig,
-                                         sendinst[j],
-                                         &value, 0,
-                                         MAPPER_NOW);
-                    printf("--> sender instance %d updated to %f\n",
-                           sendinst[j], value);
-                    sent++;
-                }
+                // try to update an instance
+                value = (rand() % 10) * 1.0f;
+                msig_update_instance(sendsig, j, &value, 0, MAPPER_NOW);
+                printf("--> sender instance %d updated to %f\n", j, value);
+                sent++;
                 break;
         }
 
@@ -273,12 +247,12 @@ int main()
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
+        msig_release_instance(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
     printf("\n**********************************************\n");
-    printf("*************** IN_STEAL_OLDEST **************\n");
+    printf("************ STEAL OLDEST INSTANCE ***********\n");
     loop(100);
 
     stats[2] = sent;
@@ -286,13 +260,13 @@ int main()
     sent = received = 0;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, sendinst[i], MAPPER_NOW);
+        msig_release_instance(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
     msig_set_instance_event_callback(recvsig, more_handler,
                                      IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
     printf("\n**********************************************\n");
-    printf("*********** CALLBACK > ADD INSTANCE **********\n");
+    printf("*********** CALLBACK -> ADD INSTANCE *********\n");
     loop(100);
 
     stats[4] = sent;
