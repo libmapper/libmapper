@@ -14,7 +14,7 @@
         return NULL;
     }
     $1 = PyList_Size($input);
-    $2 = (int *) malloc($1*sizeof(float));
+    $2 = (float *) malloc($1*sizeof(float));
     for (i = 0; i < $1; i++) {
         PyObject *s = PyList_GetItem($input,i);
         if (PyInt_Check(s))
