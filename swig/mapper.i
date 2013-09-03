@@ -35,6 +35,34 @@
 %typemap(freearg) (int argc, float *argv) {
     if ($2) free($2);
 }
+%typemap(in) (int num, int *argv) {
+    int i;
+    if (!PyList_Check($input)) {
+        PyErr_SetString(PyExc_ValueError, "Expecting a list");
+        return NULL;
+    }
+    $1 = PyList_Size($input);
+    $2 = (int *) malloc($1*sizeof(int));
+    for (i = 0; i < $1; i++) {
+        PyObject *s = PyList_GetItem($input,i);
+        if (PyInt_Check(s))
+            $2[i] = (int)PyInt_AsLong(s);
+        else if (PyFloat_Check(s))
+            $2[i] = (int)PyFloat_AsDouble(s);
+        else {
+            free($2);
+            PyErr_SetString(PyExc_ValueError,
+                            "List items must be int or float.");
+            return NULL;
+        }
+    }
+}
+%typemap(typecheck) (int num, int *argv) {
+    $1 = PyList_Check($input) ? 1 : 0;
+}
+%typemap(freearg) (int num, int *argv) {
+    if ($2) free($2);
+}
 %typemap(in) maybeSigVal %{
     sigval val;
     if ($input == Py_None)
@@ -1177,9 +1205,7 @@ typedef struct _admin {} admin;
     void reserve_instances(int num) {
         msig_reserve_instances((mapper_signal)$self, num, 0, 0);
     }
-    void reserve_instances(int num, int argc, int *argv) {
-        if (argc < num)
-            return;
+    void reserve_instances(int num, int *argv) {
         msig_reserve_instances((mapper_signal)$self, num, argv, 0);
     }
     void update_instance(int id, float f, double timetag=0) {
