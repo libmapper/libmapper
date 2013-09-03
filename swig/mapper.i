@@ -1175,7 +1175,12 @@ typedef struct _admin {} admin;
         }
     }
     void reserve_instances(int num) {
-        msig_reserve_instances((mapper_signal)$self, num);
+        msig_reserve_instances((mapper_signal)$self, num, 0, 0);
+    }
+    void reserve_instances(int num, int argc, int *argv) {
+        if (argc < num)
+            return;
+        msig_reserve_instances((mapper_signal)$self, num, argv, 0);
     }
     void update_instance(int id, float f, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1206,6 +1211,9 @@ typedef struct _admin {} admin;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         msig_release_instance((mapper_signal)$self, id, tt);
+    }
+    void remove_instance(int id) {
+        msig_remove_instance((mapper_signal)$self, id);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);

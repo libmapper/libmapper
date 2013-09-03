@@ -38,7 +38,7 @@ int setup_source()
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 9);
+    msig_reserve_instances(sendsig, 9, 0, 0);
 
     printf("Output signal registered.\n");
     printf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -81,7 +81,7 @@ void more_handler(mapper_signal sig, mapper_db_signal props,
 {
     if (event & IN_OVERFLOW) {
         printf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
-        msig_reserve_instances(sig, 1);
+        msig_reserve_instances(sig, 1, 0, 0);
     }
     else if (event & IN_UPSTREAM_RELEASE) {
         printf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
@@ -103,7 +103,13 @@ int setup_destination()
                              0, &mn, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
-    msig_reserve_instances(recvsig, 4);
+
+    // remove the default instance "0"
+    msig_remove_instance(recvsig, 0);
+    int i;
+    for (i=100; i<104; i++) {
+        msig_reserve_instances(recvsig, 1, &i, 0);
+    }
 
     printf("Input signal registered.\n");
     printf("Number of inputs: %d\n", mdev_num_inputs(destination));

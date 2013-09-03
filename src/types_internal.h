@@ -226,8 +226,8 @@ typedef struct _mapper_link {
  *  remote and local instances. */
 typedef struct _mapper_id_map {
     int local;                              //!< Local instance id to map.
-    uint32_t group;                         //!< Link group id.
-    uint32_t remote;                        //!< Remote instance id to map.
+    uint32_t origin;                        //!< Hash for originating device.
+    uint32_t public;                        //!< Public instance id to map.
     int refcount_local;
     int refcount_remote;
     struct _mapper_id_map *next;   //!< The next id map in the list.

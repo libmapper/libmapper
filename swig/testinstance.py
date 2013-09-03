@@ -40,7 +40,8 @@ outsig.reserve_instances(5)
 
 dest = mapper.device("dest")
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
-insig.reserve_instances(3)
+insig.remove_instance(0)
+insig.reserve_instances(3, [100, 200, 300])
 insig.set_allocation_mode(mapper.IN_STEAL_OLDEST)
 
 while not src.ready() or not dest.ready():
