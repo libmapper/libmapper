@@ -59,6 +59,37 @@ typedef struct _mapper_string_table {
 
 /**** Admin bus ****/
 
+/*! Some useful strings for sending admin messages. */
+/*! Symbolic representation of recognized @-parameters. */
+typedef enum {
+    ADM_CONNECT,
+    ADM_CONNECT_TO,
+    ADM_CONNECTED,
+    ADM_CONNECTION_MODIFY,
+    ADM_DEVICE,
+    ADM_DISCONNECT,
+    ADM_DISCONNECTED,
+    ADM_GET_MY_CONNECTIONS,
+    ADM_GET_MY_CONNECTIONS_IN,
+    ADM_GET_MY_CONNECTIONS_OUT,
+    ADM_GET_MY_DEVICE,
+    ADM_GET_MY_LINKS,
+    ADM_GET_MY_LINKS_IN,
+    ADM_GET_MY_LINKS_OUT,
+    ADM_GET_MY_SIGNALS,
+    ADM_GET_MY_SIGNALS_IN,
+    ADM_GET_MY_SIGNALS_OUT,
+    ADM_LINK,
+    ADM_LINK_TO,
+    ADM_LINKED,
+    ADM_LOGOUT,
+    ADM_SIGNAL,
+    ADM_SYNC,
+    ADM_UNLINK,
+    ADM_UNLINKED,
+    ADM_WHO
+} admin_msg_t;
+
 /*! Function to call when an allocated resource is locked. */
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
                                            struct _mapper_admin_allocated_t
@@ -125,6 +156,8 @@ typedef struct _mapper_admin {
                                        *   in charge of. */
     mapper_clock_t clock;             /*!< Clock for providing global
                                        *   time syncronization. */
+    lo_bundle bundle;                 /*!< Bundle pointer for sending
+                                       *   messages on the admin bus. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -193,8 +226,8 @@ typedef struct _mapper_link {
  *  remote and local instances. */
 typedef struct _mapper_id_map {
     int local;                              //!< Local instance id to map.
-    uint32_t group;                         //!< Link group id.
-    uint32_t remote;                        //!< Remote instance id to map.
+    uint32_t origin;                        //!< Hash for originating device.
+    uint32_t public;                        //!< Public instance id to map.
     int refcount_local;
     int refcount_remote;
     struct _mapper_id_map *next;   //!< The next id map in the list.

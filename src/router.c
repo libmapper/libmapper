@@ -91,7 +91,8 @@ void mapper_router_set_from_message(mapper_router router,
 }
 
 void mapper_router_num_instances_changed(mapper_router r,
-                                         mapper_signal sig)
+                                         mapper_signal sig,
+                                         int size)
 {
     // check if we have a reference to this signal
     mapper_router_signal rs = r->signals;
@@ -106,14 +107,14 @@ void mapper_router_num_instances_changed(mapper_router r,
         return;
     }
 
-    if (sig->props.num_instances <= rs->num_instances)
+    if (size <= rs->num_instances)
         return;
 
     // Need to allocate more instances
     rs->history = realloc(rs->history, sizeof(struct _mapper_signal_history)
-                          * sig->props.num_instances);
+                          * size);
     int i;
-    for (i=rs->num_instances; i<sig->props.num_instances; i++) {
+    for (i=rs->num_instances; i<size; i++) {
         rs->history[i].type = sig->props.type;
         rs->history[i].length = sig->props.length;
         rs->history[i].size = sig->props.history_size;
@@ -128,8 +129,8 @@ void mapper_router_num_instances_changed(mapper_router r,
     mapper_connection c = rs->connections;
     while (c) {
         c->history = realloc(c->history, sizeof(struct _mapper_signal_history)
-                             * sig->props.num_instances);
-        for (i=rs->num_instances; i<sig->props.num_instances; i++) {
+                             * size);
+        for (i=rs->num_instances; i<size; i++) {
             c->history[i].type = c->props.dest_type;
             c->history[i].length = c->props.dest_length;
             c->history[i].size = c->props.dest_history_size;
@@ -142,7 +143,7 @@ void mapper_router_num_instances_changed(mapper_router r,
         c = c->next;
     }
 
-    rs->num_instances = sig->props.num_instances;
+    rs->num_instances = size;
 }
 
 void mapper_router_process_signal(mapper_router r,
@@ -150,11 +151,10 @@ void mapper_router_process_signal(mapper_router r,
                                   int instance_index,
                                   void *value,
                                   int count,
-                                  mapper_timetag_t tt,
-                                  int flags)
+                                  mapper_timetag_t tt)
 {
     mapper_id_map map = sig->id_maps[instance_index].map;
-    int in_scope = mapper_router_in_scope(r, map->group);
+    int in_scope = mapper_router_in_scope(r, map->origin);
 
     // find the signal connection
     mapper_router_signal rs = r->signals;
@@ -166,7 +166,6 @@ void mapper_router_process_signal(mapper_router r,
     if (!rs)
         return;
 
-    // TODO: need to store histories using a different index?
     int id = sig->id_maps[instance_index].instance->index;
     mapper_connection c;
 
@@ -265,8 +264,8 @@ void mapper_router_send_update(mapper_router r,
         return;
 
     if (id_map) {
-        lo_message_add_int32(m, id_map->group);
-        lo_message_add_int32(m, id_map->remote);
+        lo_message_add_int32(m, id_map->origin);
+        lo_message_add_int32(m, id_map->public);
     }
 
     if (c->history[history_index].position != -1) {
@@ -610,7 +609,8 @@ int mapper_router_in_scope(mapper_router router, uint32_t name_hash)
 {
     int i;
     for (i=0; i<router->props.num_scopes; i++)
-        if (router->props.scope_hashes[i] == name_hash)
+        if (router->props.scope_hashes[i] == name_hash ||
+            router->props.scope_hashes[i] == 0)
             return 1;
     return 0;
 }

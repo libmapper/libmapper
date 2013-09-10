@@ -8,7 +8,7 @@ $(builddir)/%_wrap.c %.py: %.i
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.c
 	env CFLAGS="" python setup.py build_ext
-	-@cp -v build/lib.*/$@ .
+	cp -v `./copywhich.sh $@` .
 
 clean-local:
 	-@rm -vf mapper.py mapper_wrap.c

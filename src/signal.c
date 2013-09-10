@@ -23,8 +23,28 @@ static int msig_get_oldest_active_instance_internal(mapper_signal sig);
 
 static int msig_get_newest_active_instance_internal(mapper_signal sig);
 
-static void msig_free_instance(mapper_signal sig,
-                               mapper_signal_instance si);
+static int compare_ids(const void *l, const void *r)
+{
+    if ((*(mapper_signal_instance *)l)->id <  (*(mapper_signal_instance *)r)->id) return -1;
+    if ((*(mapper_signal_instance *)l)->id == (*(mapper_signal_instance *)r)->id) return 0;
+    else return 1;
+}
+
+static mapper_signal_instance find_instance_by_id(mapper_signal sig, int instance_id)
+{
+    if (!sig->props.num_instances)
+        return 0;
+
+    mapper_signal_instance_t si;
+    mapper_signal_instance sip = &si;
+    si.id = instance_id;
+
+    mapper_signal_instance *sipp = bsearch(&sip, sig->instances, sig->props.num_instances,
+                                           sizeof(mapper_signal_instance), compare_ids);
+    if (sipp && *sipp)
+        return *sipp;
+    return 0;
+}
 
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
@@ -48,7 +68,7 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_maximum(sig, maximum);
 
     // Reserve one instance to start
-    msig_reserve_instances(sig, 1);
+    msig_reserve_instances(sig, 1, 0, 0);
 
     // Reserve one instance id map
     sig->id_map_length = 1;
@@ -69,12 +89,12 @@ void msig_free(mapper_signal sig)
         }
     }
     free(sig->id_maps);
-    mapper_signal_instance si;
-    while (sig->reserve_instances) {
-        si = sig->reserve_instances;
-        sig->reserve_instances = si->next;
-        msig_free_instance(sig, si);
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if(sig->instances[i]->value)
+            free(sig->instances[i]->value);
+        free(sig->instances[i]);
     }
+    free(sig->instances);
     if (sig->props.minimum)
         free(sig->props.minimum);
     if (sig->props.maximum)
@@ -236,14 +256,14 @@ int msig_find_instance_with_local_id(mapper_signal sig,
     return -1;
 }
 
-int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
-                                       int id, int flags)
+int msig_find_instance_with_remote_ids(mapper_signal sig, int origin,
+                                       int public_id, int flags)
 {
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
         if (!sig->id_maps[i].map)
             continue;
-        if (sig->id_maps[i].map->group == group && sig->id_maps[i].map->remote == id) {
+        if (sig->id_maps[i].map->origin == origin && sig->id_maps[i].map->public == public_id) {
             if (sig->id_maps[i].status & ~flags)
                 return -1;
             else
@@ -253,7 +273,18 @@ int msig_find_instance_with_remote_ids(mapper_signal sig, int group,
     return -1;
 }
 
-int msig_get_instance_with_local_id(mapper_signal sig, int id,
+static mapper_signal_instance get_reserved_instance(mapper_signal sig)
+{
+    int i;
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (!sig->instances[i]->is_active) {
+            return sig->instances[i];
+        }
+    }
+    return 0;
+}
+
+int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
                                     int flags, mapper_timetag_t *tt)
 {
     if (!sig)
@@ -264,7 +295,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     mapper_signal_instance si;
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
-        if (maps[i].instance && maps[i].map->local == id) {
+        if (maps[i].instance && maps[i].map->local == instance_id) {
             if (maps[i].status & ~flags)
                 return -1;
             else {
@@ -274,13 +305,13 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
     }
 
     // check if device has record of id map
-    mapper_id_map map = mdev_find_instance_id_map_by_local(sig->device, id);
+    mapper_id_map map = mdev_find_instance_id_map_by_local(sig->device, instance_id);
 
     // no instance with that id exists - need to try to activate instance and create new id map
-    if ((si = sig->reserve_instances)) {
+    if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
             map->refcount_local = 1;
         }
@@ -289,12 +320,11 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         }
 
         // store pointer to device map in a new signal map
-        sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
         if (sig->instance_event_handler &&
             (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
+            sig->instance_event_handler(sig, &sig->props, instance_id, IN_NEW, tt);
         }
         return i;
     }
@@ -326,42 +356,40 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
         return -1;
 
     // try again
-    if ((si = sig->reserve_instances)) {
+    if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
             map->refcount_local = 1;
         }
         else {
             map->refcount_local++;
         }
-        sig->reserve_instances = si->next;
         msig_init_instance(si);
         i = msig_add_id_map(sig, si, map);
         if (sig->instance_event_handler &&
             (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, id, IN_NEW, tt);
+            sig->instance_event_handler(sig, &sig->props, instance_id, IN_NEW, tt);
         }
         return i;
     }
     return -1;
 }
 
-int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
+int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_id,
                                       int flags, mapper_timetag_t *tt)
 {
-    // If the map pointer is null, we need to create a new map if necessary
     if (!sig)
         return 0;
-    
+
     mapper_signal_id_map_t *maps = sig->id_maps;
-    
+
     mapper_signal_instance si;
     int i;
     for (i = 0; i < sig->id_map_length; i++) {
-        if (maps[i].instance && maps[i].map->group == group
-            && maps[i].map->remote == id) {
+        if (maps[i].instance && maps[i].map->origin == origin
+            && maps[i].map->public == public_id) {
             if (maps[i].status & ~flags)
                 return -1;
             else {
@@ -370,28 +398,52 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         }
     }
 
-    mapper_id_map map = mdev_find_instance_id_map_by_remote(sig->device, group, id);
+    // check if the device already has a map for this remote
+    mapper_id_map map = mdev_find_instance_id_map_by_remote(sig->device, origin, public_id);
+    if (!map) {
+        /* Here we still risk creating conflicting maps if two signals are updated asynchronously.
+         * This is easy to avoid by not allowing a local id to be used with multiple active remote
+         * maps, however users may wish to create devices with multiple object classes which do not
+         * require mutual instance id synchronization - e.g. instance 1 of object class A is not
+         * related to instance 1 of object B. */
+        // TODO: add object groups for explictly sharing id maps
 
-    // no ID-mapped instance exists - need to try to activate instance and create new ID map
-    if ((si = sig->reserve_instances)) {
-        if (!map) {
-            // add id map to device
-            map = mdev_add_instance_id_map(sig->device, si->index, group, id);
+        if ((si = get_reserved_instance(sig))) {
+            map = mdev_add_instance_id_map(sig->device, si->id, origin, public_id);
             map->refcount_remote = 1;
+
+            si->is_active = 1;
+            msig_init_instance(si);
+            i = msig_add_id_map(sig, si, map);
+            if (sig->instance_event_handler &&
+                (sig->instance_event_flags & IN_NEW)) {
+                sig->instance_event_handler(sig, &sig->props, si->id, IN_NEW, tt);
+            }
+            return i;
         }
-        else {
+    }
+    else {
+        si = find_instance_by_id(sig, map->local);
+        if (!si) {
+            // TODO: Once signal groups are explicit, allow re-mapping to another instance if possible.
+            trace("Signal %s has no instance %i available.\n", sig->props.name, map->local);
+            return -1;
+        }
+        else if (!si->is_active) {
+            si->is_active = 1;
+            msig_init_instance(si);
+            i = msig_add_id_map(sig, si, map);
             map->refcount_remote++;
+
+            if (sig->instance_event_handler &&
+                (sig->instance_event_flags & IN_NEW)) {
+                sig->instance_event_handler(sig, &sig->props, si->id, IN_NEW, tt);
+            }
+            return i;
         }
-        sig->reserve_instances = si->next;
-        msig_init_instance(si);
-        i = msig_add_id_map(sig, si, map);
-        if (sig->instance_event_handler &&
-            (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, si->index, IN_NEW, tt);
-        }
-        return i;
     }
 
+    // try releasing instance in use
     if (sig->instance_event_handler &&
         (sig->instance_event_flags & IN_OVERFLOW)) {
         // call instance event handler
@@ -419,79 +471,131 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int group, int id,
         return -1;
 
     // try again
-    if ((si = sig->reserve_instances)) {
-        if (!map) {
-            // add id map to device
-            map = mdev_add_instance_id_map(sig->device, si->index, group, id);
+    if (!map) {
+        if ((si = get_reserved_instance(sig))) {
+            map = mdev_add_instance_id_map(sig->device, si->id, origin, public_id);
             map->refcount_remote = 1;
+
+            si->is_active = 1;
+            msig_init_instance(si);
+            i = msig_add_id_map(sig, si, map);
+            if (sig->instance_event_handler &&
+                (sig->instance_event_flags & IN_NEW)) {
+                sig->instance_event_handler(sig, &sig->props, si->id, IN_NEW, tt);
+            }
+            return i;
         }
-        else {
+    }
+    else {
+        si = find_instance_by_id(sig, map->local);
+        if (!si) {
+            trace("Signal %s has no instance %i available.", sig->props.name, map->local);
+            return -1;
+        }
+        if (si) {
+            if (si->is_active) {
+                return -1;
+            }
+            si->is_active = 1;
+            msig_init_instance(si);
+            i = msig_add_id_map(sig, si, map);
             map->refcount_remote++;
+
+            if (sig->instance_event_handler &&
+                (sig->instance_event_flags & IN_NEW)) {
+                sig->instance_event_handler(sig, &sig->props, si->id, IN_NEW, tt);
+            }
+            return i;
         }
-        sig->reserve_instances = si->next;
-        msig_init_instance(si);
-        i = msig_add_id_map(sig, si, map);
-        if (sig->instance_event_handler &&
-            (sig->instance_event_flags & IN_NEW)) {
-            sig->instance_event_handler(sig, &sig->props, si->index, IN_NEW, tt);
-        }
-        return i;
     }
     return -1;
 }
 
-void msig_reserve_instances(mapper_signal sig, int num)
+static int msig_reserve_instance_internal(mapper_signal sig, int *id,
+                                          void *user_data)
 {
-    if (!sig || num <= 0)
-        return;
-    int available = MAX_INSTANCES - sig->props.num_instances;
-    if (num > available)
-        num = available;
-    int i, j, index = -1;
-    for (i = 0; i < num; i++) {
-        mapper_signal_instance si = (mapper_signal_instance) calloc(1,
-                                    sizeof(struct _mapper_signal_instance));
-        si->value = calloc(1, msig_vector_bytes(sig));
-        si->has_value = 0;
-        if (index >= sig->props.num_instances) {
-            si->index = index++;
-        }
-        else {
-            // find lowest unused index in active and reserve lists
-            mapper_signal_instance temp;
-            int index_found = 0;
-            while (!index_found) {
-                index++;
-                index_found = 1;
-                for (j = 0; j < sig->id_map_length; j++) {
-                    if (!sig->id_maps[j].instance)
-                        continue;
-                    if (sig->id_maps[j].instance->index == index) {
-                        index_found = 0;
-                        break;
-                    }
-                }
-                if (index_found) {
-                    temp = sig->reserve_instances;
-                    while (temp) {
-                        if (temp->index == index) {
-                            index_found = 0;
-                            break;
-                        }
-                        temp = temp->next;
-                    }
+    if (!sig || sig->props.num_instances >= MAX_INSTANCES)
+        return -1;
+
+    int i, lowest, found;
+    mapper_signal_instance si;
+
+    // check if instance with this id already exists! If so, stop here.
+    if (id && find_instance_by_id(sig, *id))
+        return -1;
+
+    // reallocate array of instances
+    sig->instances = realloc(sig->instances,
+                             sizeof(mapper_signal_instance)
+                             * (sig->props.num_instances+1));
+    sig->instances[sig->props.num_instances] =
+        (mapper_signal_instance) calloc(1, sizeof(struct _mapper_signal_instance));
+    si = sig->instances[sig->props.num_instances];
+    si->value = calloc(1, msig_vector_bytes(sig));
+    si->has_value = 0;
+
+    if (id)
+        si->id = *id;
+    else {
+        // find lowest unused positive id
+        lowest = -1, found = 0;
+        while (!found) {
+            lowest++;
+            found = 1;
+            for (i = 0; i < sig->props.num_instances; i++) {
+                if (sig->instances[i]->id == lowest) {
+                    found = 0;
+                    break;
                 }
             }
-            si->index = index++;
         }
-        msig_init_instance(si);
-        si->user_data = 0;
-
-        si->next = sig->reserve_instances;
-        sig->reserve_instances = si;
+        si->id = lowest;
     }
-    sig->props.num_instances += num;
-    mdev_num_instances_changed(sig->device, sig);
+    // find lowest unused positive index
+    lowest = -1, found = 0;
+    while (!found) {
+        lowest++;
+        found = 1;
+        for (i = 0; i < sig->props.num_instances; i++) {
+            if (sig->instances[i]->index == lowest) {
+                found = 0;
+                break;
+            }
+        }
+    }
+    si->index = lowest;
+
+    msig_init_instance(si);
+    si->user_data = user_data;
+
+    sig->props.num_instances ++;
+    qsort(sig->instances, sig->props.num_instances,
+          sizeof(mapper_signal_instance), compare_ids);
+
+    // return largest index
+    int highest = -1;
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (sig->instances[i]->index > highest)
+            highest = sig->instances[i]->index;
+    }
+
+    return highest;
+}
+
+int msig_reserve_instances(mapper_signal sig, int num, int *ids, void **user_data)
+{
+    int i, count = 0, highest = -1;
+    for (i = 0; i < num; i++) {
+        int result = msig_reserve_instance_internal(sig, ids ? &ids[i] : 0,
+                                                    user_data ? user_data[i] : 0);
+        if (result == -1)
+            continue;
+        highest = result;
+        count++;
+    }
+    if (highest != -1)
+        mdev_num_instances_changed(sig->device, sig, highest);
+    return count;
 }
 
 void msig_update_instance(mapper_signal sig, int instance_id,
@@ -659,50 +763,41 @@ void msig_release_instance_internal(mapper_signal sig,
     }
 
     // Put instance back in reserve list
-    smap->instance->next = sig->reserve_instances;
-    sig->reserve_instances = smap->instance;
+    smap->instance->is_active = 0;
     smap->instance = 0;
 }
 
-void msig_remove_instance(mapper_signal sig,
-                          mapper_signal_instance si)
+void msig_remove_instance(mapper_signal sig, int instance_id)
 {
-    if (!si) return;
+    if (!sig) return;
 
-    // Remove signal instance
     int i;
-    for (i = 0; i < sig->id_map_length; i++) {
-        if (sig->id_maps[i].instance == si) {
-            // First release instance
-            mapper_timetag_t tt = sig->device->admin->clock.now;
-            mdev_now(sig->device, &tt);
-            msig_release_instance_internal(sig, i, tt);
-            msig_free_instance(sig, si);
-            sig->id_maps[i].instance = 0;
-            --sig->props.num_instances;
-            return;
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (sig->instances[i]->id == instance_id) {
+            if (sig->instances[i]->is_active) {
+                // First release instance
+                mapper_timetag_t tt = sig->device->admin->clock.now;
+                mdev_now(sig->device, &tt);
+                msig_release_instance_internal(sig, i, tt);
+            }
+            break;
         }
     }
-    mapper_signal_instance *msi = &sig->reserve_instances;
-    while (*msi) {
-        if (*msi == si) {
-            *msi = si->next;
-            --sig->props.num_instances;
-            msig_free_instance(sig, si);
-            return;
-        }
-        msi = &(*msi)->next;
-    }
-}
 
-static void msig_free_instance(mapper_signal sig,
-                               mapper_signal_instance si)
-{
-    if (!si)
+    if (i == sig->props.num_instances)
         return;
-    if (si->value)
-        free(si->value);
-    free(si);
+
+    if (sig->instances[i]->value)
+        free(sig->instances[i]->value);
+    i++;
+    for (; i < sig->props.num_instances; i++) {
+        sig->instances[i-1] = sig->instances[i];
+    }
+    --sig->props.num_instances;
+    sig->instances = realloc(sig->instances,
+                             sizeof(mapper_signal_instance) * sig->props.num_instances);
+
+    // TODO: could also realloc signal value histories
 }
 
 static void *msig_instance_value_internal(mapper_signal sig,
@@ -722,7 +817,8 @@ void *msig_instance_value(mapper_signal sig,
                           int instance_id,
                           mapper_timetag_t *timetag)
 {
-    int index = msig_find_instance_with_local_id(sig, instance_id, 0);
+    int index = msig_find_instance_with_local_id(sig, instance_id,
+                                                 IN_RELEASED_REMOTELY);
     if (index < 0)
         return 0;
     return msig_instance_value_internal(sig, index, timetag);
@@ -730,11 +826,13 @@ void *msig_instance_value(mapper_signal sig,
 
 void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
 {
+    // TODO: remove this function
     if (from == to)
         return;
 
     // Find "from" instance
-    int index = msig_find_instance_with_local_id(from, instance_id, 0);
+    int index = msig_find_instance_with_local_id(from, instance_id,
+                                                 IN_RELEASED_REMOTELY);
     if (index < 0)
         return;
 
@@ -742,8 +840,8 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
     mdev_now(from->device, &tt);
 
     // Get "to" instance with same map
-    msig_get_instance_with_remote_ids(to, from->id_maps[index].map->group,
-                                      from->id_maps[index].map->remote, 0,
+    msig_get_instance_with_remote_ids(to, from->id_maps[index].map->origin,
+                                      from->id_maps[index].map->public, 0,
                                       &tt);
 }
 
@@ -763,13 +861,12 @@ int msig_num_reserved_instances(mapper_signal sig)
 {
     if (!sig)
         return -1;
-    mapper_signal_instance si = sig->reserve_instances;
-    int i = 0;
-    while (si) {
-        i++;
-        si = si->next;
+    int i, j = 0;
+    for (i = 0; i < sig->props.num_instances; i++) {
+        if (!sig->instances[i]->is_active)
+            j++;
     }
-    return i;
+    return j;
 }
 
 int msig_active_instance_id(mapper_signal sig, int index)
@@ -813,6 +910,7 @@ void msig_set_instance_event_callback(mapper_signal sig,
     }
 
     sig->instance_event_handler = h;
+    // TODO: use separate user_data for instance event callback?
     sig->props.user_data = user_data;
 
     if (flags & IN_DOWNSTREAM_RELEASE) {
@@ -836,20 +934,18 @@ void msig_set_instance_data(mapper_signal sig,
                             int instance_id,
                             void *user_data)
 {
-    mapper_timetag_t tt = sig->device->admin->clock.now;
-    mdev_now(sig->device, &tt);
-
-    int index = msig_get_instance_with_local_id(sig, instance_id, 0, &tt);
-    if (index >= 0)
-        sig->id_maps[index].instance->user_data = user_data;
+    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    if (si)
+        si->user_data = user_data;
 }
 
 void *msig_get_instance_data(mapper_signal sig,
                              int instance_id)
 {
-    int index = msig_find_instance_with_local_id(sig, instance_id, 0);
-    if (index >= 0)
-        return sig->id_maps[index].instance->user_data;
+    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    if (si)
+        return si->user_data;
+
     return 0;
 }
 
@@ -960,6 +1056,63 @@ mapper_db_signal msig_properties(mapper_signal sig)
 void msig_set_property(mapper_signal sig, const char *property,
                        lo_type type, lo_arg *value)
 {
+    if (strcmp(property, "name") == 0 ||
+        strcmp(property, "type") == 0 ||
+        strcmp(property, "length") == 0)
+        return;
+
+    if (strcmp(property, "min") == 0 ||
+        strcmp(property, "minimum") == 0) {
+        if (type == 'i') {
+            if (sig->props.type == 'i')
+                msig_set_minimum(sig, value);
+            else if (sig->props.type == 'f') {
+                float f = (float)value->i32;
+                msig_set_minimum(sig, &f);
+            }
+        }
+        else if (type == 'f') {
+            if (sig->props.type == 'i') {
+                int i = (int)value->f;
+                msig_set_minimum(sig, &i);
+            }
+            else if (sig->props.type == 'f')
+                msig_set_minimum(sig, value);
+        }
+        return;
+    }
+    else if (strcmp(property, "max") == 0 ||
+             strcmp(property, "maximum") == 0) {
+        if (type == 'i') {
+            if (sig->props.type == 'i')
+                msig_set_maximum(sig, value);
+            else if (sig->props.type == 'f') {
+                float f = (float)value->i32;
+                msig_set_maximum(sig, &f);
+            }
+        }
+        else if (type == 'f') {
+            if (sig->props.type == 'i') {
+                int i = (int)value->f;
+                msig_set_maximum(sig, &i);
+            }
+            else if (sig->props.type == 'f')
+                msig_set_maximum(sig, value);
+        }
+        return;
+    }
+    else if ((strcmp(property, "unit") == 0 ||
+             strcmp(property, "units") == 0) &&
+             (type == 's' || type == 'S')) {
+        if (!sig->props.unit || strcmp(sig->props.unit, &value->s)) {
+            char *str = (char*)realloc((void *)sig->props.unit,
+                                             strlen(&value->s)+1);
+            strcpy(str, &value->s);
+            sig->props.unit = str;
+        }
+        return;
+    }
+
     mapper_table_add_or_update_osc_value(sig->props.extra,
                                          property, type, value);
 }

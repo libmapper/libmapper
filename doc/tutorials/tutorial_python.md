@@ -8,8 +8,6 @@ compile the Python bindings.  On Mac OS X, we provide a precompiled
 Framework bundle for 32- and 64-bit Intel platforms, so using it with
 XCode should be a matter of including it in your project.
 
-// TODO: macports/fink/homebrew/etc
-
 Once you have libmapper installed, it can be imported into your program:
 
     import mapper
@@ -61,7 +59,7 @@ interface to use.
 
 An example of creating a device:
 
-    dev = mapper.device( "mydevice" )
+    dev = mapper.device( "my_device" )
 
 Polling the device
 ------------------
@@ -93,7 +91,7 @@ check for any immediate actions and then return without waiting:
 
 An example of calling it with non-blocking behaviour:
 
-    dev.poll( 0 );
+    dev.poll( 0 )
 
 If your polling is in the middle of a processing function or in
 response to a GUI event for example, non-blocking behaviour is
@@ -151,7 +149,7 @@ for input signals there is an additional argument:
 examples:
 
     sig_in = dev.add_input( "/my_input", 1, 'f', "m/s", -10, 10, h )
-    
+
     sig_out = dev.add_output( "/my_output", 4, 'i', None, 0, 1000 )
 
 The only _required_ parameters here are the signal "length", its name,
@@ -181,11 +179,11 @@ in the `handler` parameter.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    outA = dev.add_output( "/outA", 1, 'i', None, None, None );
+    outA = dev.add_output( "/outA", 1, 'i', None, None, None )
 
 or omitting some arguments:
 
-    outA = dev.add_output( "/outA", 1, 'i' );
+    outA = dev.add_output( "/outA", 1, 'i' )
 
 An example of a `float` signal where some more information is provided:
 
@@ -296,12 +294,12 @@ about controlling one parameter: the frequency of the sine.
 
 We need to create a handler function for libmapper to update the pyo synth:
 
-    def frequency_handler(sig, id, f, timetag):
+    def frequency_handler(sig, id, val, timetag):
         try:
-            a.setFreq( f )
+            sine.setFreq( val )
         except:
             print 'exception'
-            print sig, f
+            print sig, val
 
 Then our program will look like this:
 
@@ -310,21 +308,22 @@ Then our program will look like this:
 
     # Some pyo stuff
     synth = Server().boot().start()
-    a = Sine( freq=200, mul=0.5 )
-    out = a()
+    sine = Sine( freq=200, mul=0.5 ).out()
 
-    def freq_handler (sig, id, f, timetag):
+    def freq_handler( sig, id, val, timetag ):
         try:
-            a.setFreq( f )
+            sine.setFreq( val )
         except:
             print 'exception'
-            print sig, f
+            print sig, val
 
-    dev = mapper.device( "pyo_example" )
-    dev.add_input( "freq", 1, 'f', "Hz", 20, 2000, freq_handler )
+    dev = mapper.device( 'pyo_example' )
+    dev.add_input( '/freq', 1, 'f', 'Hz', 20, 2000, freq_handler )
 
-    while 1:
+    while True:
         dev.poll( 100 )
+
+	synth.stop()
 
 Alternately, we can simplify our code by using a `lambda function`
 instead of a separate handler:
@@ -334,14 +333,134 @@ instead of a separate handler:
 
     # Some pyo stuff
     synth = Server().boot().start()
-    sine = Sine( freq=200, mul=0.5 )
-    out = sine.out()
+    sine = Sine( freq=200, mul=0.5 ).out()
 
-    dev = mapper.device( "pyo_example" )
-    dev.add_input( "freq", 1, 'f', "Hz", 20, 2000, lambda s, i, f, t: sine.setFreq(f) )
+    dev = mapper.device( 'pyo_example' )
+    dev.add_input( '/freq', 1, 'f', "Hz", 20, 2000, lambda s, i, f, t: sine.setFreq(f) )
 
-    while 1:
+    while True:
         dev.poll( 100 )
+
+	synth.stop()
+
+
+Working with timetags
+=====================
+_libmapper_ uses the `mapper_timetag_t` data structure internally to store
+[NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps),
+but this value is represented using the `double` type in the python bindings.
+For example, the handler function called when a signal update is received
+contains a `timetag` argument.  This argument indicates the time at
+which the source signal was _sampled_ (in the case of sensor signals)
+or _generated_ (in the case of sequenced or algorithimically-generated
+signals).
+
+The `update` function for output signals is overloaded; calling the function
+without a timetag argument will automatically label the outgoing signal
+update with the current time. In cases where the update should more
+properly be labeled with another time, this can be accomplished by simply
+adding the timetag as a second argument.  This timestamp should only be
+overridden if your program has access to a more accurate measurement
+of the real time associated with the signal update, for example if
+you are writing a driver for an outboard sensor system that provides
+the sampling time.
+
+_libmapper_ also provides helper functions for getting the current
+device-time:
+
+    now = <device>.now()
+
+Working with signal instances
+=============================
+_libmapper_ also provides support for signals with multiple _instances_,
+for example:
+
+* control parameters for polyphonic synthesizers;
+* touches tracked by a multitouch surface;
+* "blobs" identified by computer vision systems;
+* objects on a tabletop tangible user interface;
+* _temporal_ objects such as gestures or trajectories.
+
+The important qualities of signal instances in _libmapper_ are:
+
+* **instances are interchangeable**: if there are semantics attached
+  to a specific instance it should be represented with separate signals
+  instead.
+* **instances can be ephemeral**: signal instances can be dynamically
+  created and destroyed. _libmapper_ will ensure that linked devices
+  share a common understanding of the relatonships between instances
+  when they are mapped.
+* **map once for all instances**: one mapping connection serves to
+  map all of its instances.
+
+All signals possess one instance by default. If you would like to reserve
+more instances you can use:
+
+    <sig>.reserve_instances( int num )
+
+After reserving instances you can update a specific instance:
+
+    <sig>.update_instance( int instance_id,
+                           <value> )
+
+or
+
+    <sig>.update_instance( int instance_id,
+                           <value>,
+                           double timetag )
+
+All of the arguments except one should be familiar from the
+documentation of `msig_update()` presented earlier.
+The `instance_id` argument does not have to be considered as an array
+index - it can be any integer that is convenient for labelling your
+instance. _libmapper_ will internally create a map from your id label
+to one of the preallocated instance structures.
+
+Receiving instances
+-------------------
+You might have noticed earlier that the handler function called when
+a signal update is received has a argument called `id`. Here
+is the function prototype again:
+
+	def frequency_handler( signal, id, value, timetag ):
+
+Under normal usage, the `id` argument will have a value (0 <= n <= num_instances)
+and can be used as an array index. Remember that you will need to reserve
+instances for your input signal using `<sig>.reserve_instances()` if you
+want to receive instance updates.
+
+Instance Stealing
+-----------------
+
+For handling cases in which the sender signal has more instances than
+the receiver signal, the _instance allocation mode_ can be set for an
+input signal to set an action to take in case all allocated instances are in
+use and a previously unseen instance id is received. Use the function:
+
+    <sig>.set_instance_allocation_mode( mapper_instance_allocation_type mode );
+
+The argument `mode` can have one of the following values:
+
+* `mapper.IN_UNDEFINED` Default value, in which no stealing of instances will occur;
+* `mapper.IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
+  resources to the new instance;
+* `mapper.IN_STEAL_NEWEST` Release the newest active instance and reallocate its
+  resources to the new instance;
+
+If you want to use another method for determining which active instance
+to release (e.g. the sound with the lowest volume), you can create an `instance_event_handler` for the signal and write the method yourself:
+
+	def my_handler( sig, id, event, timetag ):
+        # user code chooses which instance to release
+        id = choose_instance_to_release( msig )
+
+        sig.release_instance( id, timetag )
+
+For this function to be called when instance stealing is necessary, we
+need to register it for `mapper.IN_OVERFLOW` events:
+
+    <sig>.set_instance_event_callback( my_handler,
+                                       mapper.IN_OVERFLOW )
 
 
 Publishing metadata
@@ -367,13 +486,13 @@ any OSC-compatible type.  (So, numbers and strings, etc.)
 The property interface is through the functions,
 
     set_property( key, value )
-                  
+
 where the value can any OSC-compatible type. This function can be called
 for devices or signals.
 
 For example, to store a `float` indicating the X position of a device
 `dev`, you can call it like this:
-    
+
     dev.set_property( "x", 12.5 )
 
 To specify a string property of a signal:
@@ -396,7 +515,7 @@ Therefore this can provide a unified string-based method for accessing
 any signal property:
 
     props = sig.get_properties()
-    sensingMethod = props['sensingMethod']
+    sensingMethod = props[ 'sensingMethod' ]
 
 Primarily this is an interface meant for network monitors, but may
 come in useful for an application implementing a device.

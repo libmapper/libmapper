@@ -129,6 +129,8 @@ if test x$jni_enabled = xyes; then
    JDKPATH=
    if test -d /usr/lib/jvm/java-7-openjdk-i386; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-i386
+   elif test -d /usr/lib/jvm/java-7-openjdk-amd64; then
+      JDKPATH=/usr/lib/jvm/java-7-openjdk-amd64
    elif test -d /usr/lib/jvm/java-7-openjdk-x86_64; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-x86_64
    elif test -d /usr/lib/jvm/java-6-openjdk; then
@@ -226,7 +228,7 @@ PKG_PROG_PKG_CONFIG
 AC_ARG_WITH([liblo],
   AS_HELP_STRING([--without-liblo],[compile without liblo, disable OSC]))
 AS_IF([test x$with_liblo != xno],[
-  PKG_CHECK_MODULES([liblo], [liblo >= 0.26])])
+  PKG_CHECK_MODULES([liblo], [liblo >= 0.27])])
 AS_IF([test "x$liblo_LIBS" = x],
   [with_liblo=no])
 AS_IF([test x$with_liblo != xno],[

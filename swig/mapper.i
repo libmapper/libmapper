@@ -7,6 +7,62 @@
     }
     $1 = $input;
  }
+%typemap(in) (int argc, float *argv) {
+    int i;
+    if (!PyList_Check($input)) {
+        PyErr_SetString(PyExc_ValueError, "Expecting a list");
+        return NULL;
+    }
+    $1 = PyList_Size($input);
+    $2 = (float *) malloc($1*sizeof(float));
+    for (i = 0; i < $1; i++) {
+        PyObject *s = PyList_GetItem($input,i);
+        if (PyInt_Check(s))
+            $2[i] = (float)PyInt_AsLong(s);
+        else if (PyFloat_Check(s))
+            $2[i] = (float)PyFloat_AsDouble(s);
+        else {
+            free($2);
+            PyErr_SetString(PyExc_ValueError,
+                            "List items must be int or float.");
+            return NULL;
+        }
+    }
+}
+%typemap(typecheck) (int argc, float *argv) {
+    $1 = PyList_Check($input) ? 1 : 0;
+}
+%typemap(freearg) (int argc, float *argv) {
+    if ($2) free($2);
+}
+%typemap(in) (int num, int *argv) {
+    int i;
+    if (!PyList_Check($input)) {
+        PyErr_SetString(PyExc_ValueError, "Expecting a list");
+        return NULL;
+    }
+    $1 = PyList_Size($input);
+    $2 = (int *) malloc($1*sizeof(int));
+    for (i = 0; i < $1; i++) {
+        PyObject *s = PyList_GetItem($input,i);
+        if (PyInt_Check(s))
+            $2[i] = (int)PyInt_AsLong(s);
+        else if (PyFloat_Check(s))
+            $2[i] = (int)PyFloat_AsDouble(s);
+        else {
+            free($2);
+            PyErr_SetString(PyExc_ValueError,
+                            "List items must be int or float.");
+            return NULL;
+        }
+    }
+}
+%typemap(typecheck) (int num, int *argv) {
+    $1 = PyList_Check($input) ? 1 : 0;
+}
+%typemap(freearg) (int num, int *argv) {
+    if ($2) free($2);
+}
 %typemap(in) maybeSigVal %{
     sigval val;
     if ($input == Py_None)
@@ -537,7 +593,9 @@ static void msig_handler_py(struct _mapper_signal *msig,
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
+    PyObject *valuelist=0;
     PyObject *result=0;
+    int i;
 
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
@@ -545,10 +603,32 @@ static void msig_handler_py(struct _mapper_signal *msig,
     double timetag = mapper_timetag_get_double(*tt);
 
     if (v) {
-        if (props->type == 'i')
-            arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
-        else if (props->type == 'f')
-            arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
+        if (props->type == 'i') {
+            int *vint = (int *)v;
+            if (props->length > 1 || count > 1) {
+                valuelist = PyList_New(props->length * count);
+                for (i=0; i<props->length * count; i++) {
+                    PyObject *o = Py_BuildValue("i", vint[i]);
+                    PyList_SET_ITEM(valuelist, i, o);
+                }
+                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, valuelist, timetag);
+            }
+            else
+                arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
+        }
+        else if (props->type == 'f') {
+            if (props->length > 1 || count > 1) {
+                float *vfloat = (float *)v;
+                valuelist = PyList_New(props->length * count);
+                for (i=0; i<props->length * count; i++) {
+                    PyObject *o = Py_BuildValue("f", vfloat[i]);
+                    PyList_SET_ITEM(valuelist, i, o);
+                }
+                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, valuelist, timetag);
+            }
+            else
+                arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
+        }
     }
     else {
         arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, Py_None, timetag);
@@ -560,6 +640,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject **callbacks = (PyObject**)props->user_data;
     result = PyEval_CallObject(callbacks[0], arglist);
     Py_DECREF(arglist);
+    Py_XDECREF(valuelist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
 }
@@ -1076,6 +1157,27 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
+    void update(int argc, float *argv, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
+        mapper_signal sig = (mapper_signal)$self;
+        if ((argc % sig->props.length) != 0) {
+            printf("Signal update requires multiples of %i values.\n",
+                   sig->props.length);
+            return;
+        }
+        int count = argc / sig->props.length;
+        if (sig->props.type == 'f')
+            msig_update((mapper_signal)$self, argv, count, tt);
+        else if (sig->props.type == 'i') {
+            int vint[argc];
+            int i;
+            for (i = 0; i < argc; i++)
+                vint[i] = (int)argv[i];
+            msig_update((mapper_signal)$self, vint, count, tt);
+        }
+    }
     void update(float f, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
@@ -1101,7 +1203,10 @@ typedef struct _admin {} admin;
         }
     }
     void reserve_instances(int num) {
-        msig_reserve_instances((mapper_signal)$self, num);
+        msig_reserve_instances((mapper_signal)$self, num, 0, 0);
+    }
+    void reserve_instances(int num, int *argv) {
+        msig_reserve_instances((mapper_signal)$self, num, argv, 0);
     }
     void update_instance(int id, float f, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1132,6 +1237,9 @@ typedef struct _admin {} admin;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         msig_release_instance((mapper_signal)$self, id, tt);
+    }
+    void remove_instance(int id) {
+        msig_remove_instance((mapper_signal)$self, id);
     }
     int active_instance_id(int index) {
         return msig_active_instance_id((mapper_signal)$self, index);
@@ -1540,7 +1648,7 @@ typedef struct _admin {} admin;
             (mapper_db)$self, src_device, src_signal,
             dest_device, dest_signal);
     }
-    mapper_db_connection connection_by_signal_full_names(
+    mapper_db_connection get_connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
         return mapper_db_get_connection_by_signal_full_names(
             (mapper_db)$self, src_name, dest_name);
@@ -1569,8 +1677,8 @@ typedef struct _admin {} admin;
         return mapper_db_get_links_by_dest_device_name((mapper_db)$self,
                                                        dest_device_name);
     }
-    mapper_db_link link_by_src_dest_names(const char *src_device_name,
-                                          const char *dest_device_name) {
+    mapper_db_link get_link_by_src_dest_names(const char *src_device_name,
+                                              const char *dest_device_name) {
         return mapper_db_get_link_by_src_dest_names((mapper_db)$self,
                                                     src_device_name,
                                                     dest_device_name);

@@ -95,9 +95,9 @@ for i in range(1000):
         for i in mon.db.links_by_src_device_name('/testsend.1'):
             print i
         print 'link for /testsend.1, /testrecv.1:'
-        print mon.db.link_by_src_dest_names("/testsend.1", "/testrecv.1")
+        print mon.db.get_link_by_src_dest_names("/testsend.1", "/testrecv.1")
         print 'not found link:'
-        print mon.db.link_by_src_dest_names("", "")
+        print mon.db.get_link_by_src_dest_names("", "")
 
     if i==500:
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",

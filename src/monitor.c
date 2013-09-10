@@ -104,7 +104,7 @@ static int request_signals_by_device_name_internal(mapper_monitor mon,
         snprintf(cmd, 1024, "%s/signals/output/get", name);
     else
         snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -139,7 +139,7 @@ static int request_signal_range_by_device_name_internal(mapper_monitor mon,
         snprintf(cmd, 1024, "%s/signals/output/get", name);
     else
         snprintf(cmd, 1024, "%s/signals/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
+	mapper_admin_send(mon->admin, -1, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -278,7 +278,7 @@ int mapper_monitor_batch_request_output_signals_by_device_name(mapper_monitor mo
 
 int mapper_monitor_request_devices(mapper_monitor mon)
 {
-    mapper_admin_send_osc(mon->admin, 0, "/who", "");
+    mapper_admin_send(mon->admin, ADM_WHO, 0, "");
     return 0;
 }
 
@@ -287,7 +287,7 @@ int mapper_monitor_request_device_info(mapper_monitor mon,
 {
     char cmd[1024];
 	snprintf(cmd, 1024, "%s/info/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -296,7 +296,7 @@ int mapper_monitor_request_links_by_device_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -305,7 +305,7 @@ int mapper_monitor_request_links_by_src_device_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/out/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -314,7 +314,7 @@ int mapper_monitor_request_links_by_dest_device_name(mapper_monitor mon,
 {
 	char cmd[1024];
 	snprintf(cmd, 1024, "%s/links/in/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -329,7 +329,7 @@ static int request_connections_by_device_name_internal(mapper_monitor mon,
         snprintf(cmd, 1024, "%s/connections/out/get", name);
     else
         snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "");
+	mapper_admin_send(mon->admin, -1, cmd, "");
     return 0;
 }
 
@@ -367,7 +367,7 @@ static int request_connection_range_by_device_name_internal(mapper_monitor mon,
         snprintf(cmd, 1024, "%s/connections/out/get", name);
     else
         snprintf(cmd, 1024, "%s/connections/get", name);
-	mapper_admin_send_osc(mon->admin, 0, cmd, "ii", start_index, stop_index);
+	mapper_admin_send(mon->admin, -1, cmd, "ii", start_index, stop_index);
     return 0;
 }
 
@@ -539,16 +539,16 @@ void mapper_monitor_link(mapper_monitor mon,
         free(m);
     }
     else
-        mapper_admin_send_osc( mon->admin, 0, "/link", "ss",
-                               source_device, dest_device );
+        mapper_admin_send( mon->admin, ADM_LINK, 0, "ss",
+                           source_device, dest_device );
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
                            const char* source_device,
                            const char* dest_device)
 {
-    mapper_admin_send_osc( mon->admin, 0, "/unlink", "ss",
-                           source_device, dest_device );
+    mapper_admin_send( mon->admin, ADM_UNLINK, 0, "ss",
+                       source_device, dest_device );
 }
 
 void mapper_monitor_connection_modify(mapper_monitor mon,
@@ -556,20 +556,20 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       unsigned int props_flags)
 {
     if (props) {
-        mapper_admin_send_osc( mon->admin, 0, "/connection/modify", "ss",
-                               props->src_name, props->dest_name,
-                               (props_flags & CONNECTION_BOUND_MIN)
-                               ? AT_BOUND_MIN : -1, props->bound_min,
-                               (props_flags & CONNECTION_BOUND_MAX)
-                               ? AT_BOUND_MAX : -1, props->bound_max,
-                               (props_flags & CONNECTION_RANGE_KNOWN)
-                               ? AT_RANGE : -1, &props->range,
-                               (props_flags & CONNECTION_EXPRESSION)
-                               ? AT_EXPRESSION : -1, props->expression,
-                               (props_flags & CONNECTION_MODE)
-                               ? AT_MODE : -1, props->mode,
-                               (props_flags & CONNECTION_MUTED)
-                               ? AT_MUTE : -1, props->muted );
+        mapper_admin_send( mon->admin, ADM_CONNECTION_MODIFY, 0, "ss",
+                           props->src_name, props->dest_name,
+                           (props_flags & CONNECTION_BOUND_MIN)
+                           ? AT_BOUND_MIN : -1, props->bound_min,
+                           (props_flags & CONNECTION_BOUND_MAX)
+                           ? AT_BOUND_MAX : -1, props->bound_max,
+                           (props_flags & CONNECTION_RANGE_KNOWN)
+                           ? AT_RANGE : -1, &props->range,
+                           (props_flags & CONNECTION_EXPRESSION)
+                           ? AT_EXPRESSION : -1, props->expression,
+                           (props_flags & CONNECTION_MODE)
+                           ? AT_MODE : -1, props->mode,
+                           (props_flags & CONNECTION_MUTED)
+                           ? AT_MUTE : -1, props->muted );
     }
 }
 
@@ -580,32 +580,35 @@ void mapper_monitor_connect(mapper_monitor mon,
                             unsigned int props_flags)
 {
     if (props) {
-        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
-                               source_signal, dest_signal,
-                               (props_flags & CONNECTION_BOUND_MIN)
-                               ? AT_BOUND_MIN : -1, props->bound_min,
-                               (props_flags & CONNECTION_BOUND_MAX)
-                               ? AT_BOUND_MAX : -1, props->bound_max,
-                               (props_flags & CONNECTION_RANGE_KNOWN)
-                               ? AT_RANGE : -1, &props->range,
-                               (props_flags & CONNECTION_EXPRESSION)
-                               ? AT_EXPRESSION : -1, props->expression,
-                               (props_flags & CONNECTION_MODE)
-                               ? AT_MODE : -1, props->mode,
-                               (props_flags & CONNECTION_MUTED)
-                               ? AT_MUTE : -1, props->muted );
+        mapper_admin_send( mon->admin, ADM_CONNECT, 0, "ss",
+                           source_signal, dest_signal,
+                           (props_flags & CONNECTION_BOUND_MIN)
+                           ? AT_BOUND_MIN : -1, props->bound_min,
+                           (props_flags & CONNECTION_BOUND_MAX)
+                           ? AT_BOUND_MAX : -1, props->bound_max,
+                           (props_flags & CONNECTION_RANGE_KNOWN)
+                           ? AT_RANGE : -1, &props->range,
+                           (props_flags & CONNECTION_EXPRESSION)
+                           ? AT_EXPRESSION : -1, props->expression,
+                           (props_flags & CONNECTION_MODE)
+                           ? AT_MODE : -1, props->mode,
+                           (props_flags & CONNECTION_MUTED)
+                           ? AT_MUTE : -1, props->muted,
+                           (props_flags & CONNECTION_SEND_AS_INSTANCE)
+                           ? AT_SEND_AS_INSTANCE : -1,
+                           props->send_as_instance );
     }
     else
-        mapper_admin_send_osc( mon->admin, 0, "/connect", "ss",
-                               source_signal, dest_signal );
+        mapper_admin_send( mon->admin, ADM_CONNECT, 0, "ss",
+                           source_signal, dest_signal );
 }
 
 void mapper_monitor_disconnect(mapper_monitor mon,
                                const char* source_signal,
                                const char* dest_signal)
 {
-    mapper_admin_send_osc( mon->admin, 0, "/disconnect", "ss",
-                           source_signal, dest_signal );
+    mapper_admin_send( mon->admin, ADM_DISCONNECT, 0, "ss",
+                       source_signal, dest_signal );
 }
 
 static void on_device_autorequest(mapper_db_device dev,
