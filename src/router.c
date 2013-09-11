@@ -471,6 +471,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
+    c->props.range.src_min = malloc(sig->props.length * sizeof(double));
+    c->props.range.src_max = malloc(sig->props.length * sizeof(double));
     c->props.extra = table_new();
 
     int len = strlen(dest_name) + 5;
@@ -515,6 +517,10 @@ static void mapper_router_free_connection(mapper_router r,
             free(c->props.expression);
         if (c->props.query_name)
             free(c->props.query_name);
+        if (c->props.range.src_min)
+            free(c->props.range.src_min);
+        if (c->props.range.src_max)
+            free(c->props.range.src_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);

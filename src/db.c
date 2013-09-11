@@ -956,6 +956,8 @@ void mapper_db_device_done(mapper_db_device_t **d)
 
 void mapper_db_dump(mapper_db db)
 {
+    int i;
+
     mapper_db_device reg = db->registered_devices;
     trace("Registered devices:\n");
     while (reg) {
@@ -984,12 +986,34 @@ void mapper_db_dump(mapper_db db)
     trace("Registered connections:\n");
     while (con) {
         char r[1024] = "(";
-        if (con->range.known & CONNECTION_RANGE_SRC_MIN)
-            sprintf(r+strlen(r), "%f, ", con->range.src_min);
+        if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
+            if (con->src_length > 1)
+                sprintf(r+strlen(r), "[");
+            for (i=0; i<con->src_length; i++) {
+                sprintf(r+strlen(r), "%f", con->range.src_min[i]);
+                if (i < con->src_length-1)
+                    sprintf(r+strlen(r), ", ");
+            }
+            if (con->src_length > 1)
+                sprintf(r+strlen(r), "], ");
+            else
+                sprintf(r+strlen(r), ", ");
+        }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_SRC_MAX)
-            sprintf(r+strlen(r), "%f, ", con->range.src_max);
+        if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
+            if (con->src_length > 1)
+                sprintf(r+strlen(r), "[");
+            for (i=0; i<con->src_length; i++) {
+                sprintf(r+strlen(r), "%f", con->range.src_max[i]);
+                if (i < con->src_length-1)
+                    sprintf(r+strlen(r), ", ");
+            }
+            if (con->src_length > 1)
+                sprintf(r+strlen(r), "], ");
+            else
+                sprintf(r+strlen(r), ", ");
+        }
         else
             strcat(r, "-, ");
         if (con->range.known & CONNECTION_RANGE_DEST_MIN)
@@ -1435,62 +1459,124 @@ static int update_connection_record_params(mapper_db_connection con,
         updated++;
     }
 
-    lo_arg **a_range = mapper_msg_get_param(params, AT_RANGE);
-    const char *t_range = mapper_msg_get_type(params, AT_RANGE);
+    lo_arg **args = mapper_msg_get_param(params, AT_RANGE);
+    const char *types = mapper_msg_get_type(params, AT_RANGE);
+    if (args && types) {
+        con->range.known = CONNECTION_RANGE_SRC_MAX |
+        CONNECTION_RANGE_SRC_MIN |
+        CONNECTION_RANGE_DEST_MAX |
+        CONNECTION_RANGE_DEST_MIN;
+        if (types[0] == 'f')
+            con->range.src_min[0] = (double)args[0]->f;
+        else if (types[0] == 'i')
+            con->range.src_min[0] = (double)args[0]->i;
+        else if (types[0] == 'd')
+            con->range.src_min[0] = args[0]->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
 
-    if (a_range && (*a_range)) {
-        if (t_range[0] == 'f') {
-            if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
-                || con->range.src_min != a_range[0]->f)
-                updated++;
-            con->range.src_min = a_range[0]->f;
-            con->range.known |= CONNECTION_RANGE_SRC_MIN;
-        } else if (t_range[0] == 'i') {
-            if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
-                || con->range.src_min != (float)a_range[0]->i)
-                updated++;
-            con->range.src_min = (float)a_range[0]->i;
-            con->range.known |= CONNECTION_RANGE_SRC_MIN;
-        }
-        if (t_range[1] == 'f') {
-            if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
-                || con->range.src_max != a_range[1]->f)
-                updated++;
-            con->range.src_max = a_range[1]->f;
+        if (types[1] == 'f')
+            con->range.src_max[0] = (double)args[1]->f;
+        else if (types[1] == 'i')
+            con->range.src_max[0] = (double)args[1]->i;
+        else if (types[1] == 'd')
+            con->range.src_max[0] = args[1]->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+
+        if (types[2] == 'f')
+            con->range.dest_min = (double)args[2]->f;
+        else if (types[2] == 'i')
+            con->range.dest_min = (double)args[2]->i;
+        else if (types[2] == 'd')
+            con->range.dest_min = args[2]->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
+
+        if (types[3] == 'f')
+            con->range.dest_max = (double)args[3]->f;
+        else if (types[3] == 'i')
+            con->range.dest_max = (double)args[3]->i;
+        else if (types[3] == 'd')
+            con->range.dest_max = args[3]->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
+    }
+
+    /* @srcMax */
+    args = mapper_msg_get_param(params, AT_SRC_MAX);
+    types = mapper_msg_get_type(params, AT_SRC_MAX);
+    int length = mapper_msg_get_length(params, AT_SRC_MAX);
+    if (args && types) {
+        if (length == con->src_length) {
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
-        } else if (t_range[1] == 'i') {
-            if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
-                || con->range.src_max != a_range[1]->i)
-                updated++;
-            con->range.src_max = (float)a_range[1]->i;
-            con->range.known |= CONNECTION_RANGE_SRC_MAX;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    con->range.src_max[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    con->range.src_max[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    con->range.src_max[i] = args[i]->d;
+                else
+                    con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+            }
         }
-        if (t_range[2] == 'f') {
-            if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
-                || con->range.dest_min != a_range[2]->f)
-                updated++;
-            con->range.dest_min = a_range[2]->f;
-            con->range.known |= CONNECTION_RANGE_DEST_MIN;
-        } else if (t_range[2] == 'i') {
-            if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
-                || con->range.dest_min != a_range[2]->i)
-                updated++;
-            con->range.dest_min = (float)a_range[2]->i;
-            con->range.known |= CONNECTION_RANGE_DEST_MIN;
+        else
+            con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+    }
+
+    /* @srcMin */
+    args = mapper_msg_get_param(params, AT_SRC_MIN);
+    types = mapper_msg_get_type(params, AT_SRC_MIN);
+    length = mapper_msg_get_length(params, AT_SRC_MIN);
+    if (args && types) {
+        if (length == con->src_length) {
+            con->range.known |= CONNECTION_RANGE_SRC_MIN;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    con->range.src_min[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    con->range.src_min[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    con->range.src_min[i] = args[i]->d;
+                else
+                    con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
+            }
         }
-        if (t_range[3] == 'f') {
-            if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
-                || con->range.dest_max != a_range[3]->f)
-                updated++;
-            con->range.dest_max = a_range[3]->f;
-            con->range.known |= CONNECTION_RANGE_DEST_MAX;
-        } else if (t_range[3] == 'i') {
-            if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
-                || con->range.dest_max != a_range[3]->i)
-                updated++;
-            con->range.dest_max = (float)a_range[3]->i;
-            con->range.known |= CONNECTION_RANGE_DEST_MAX;
-        }
+        else
+            con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
+    }
+
+    /* @destMax */
+    args = mapper_msg_get_param(params, AT_DEST_MAX);
+    types = mapper_msg_get_type(params, AT_DEST_MAX);
+    if (args && types) {
+        con->range.known |= CONNECTION_RANGE_DEST_MAX;
+        if (types[0] == 'f')
+            con->range.dest_max = (double)(*args)->f;
+        else if (types[0] == 'i')
+            con->range.dest_max = (double)(*args)->i;
+        else if (types[0] == 'd')
+            con->range.dest_max = (*args)->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
+    }
+
+    /* @destMin */
+    args = mapper_msg_get_param(params, AT_DEST_MIN);
+    types = mapper_msg_get_type(params, AT_DEST_MIN);
+    if (args && types) {
+        con->range.known |= CONNECTION_RANGE_DEST_MIN;
+        if (types[0] == 'f')
+            con->range.dest_min = (double)(*args)->f;
+        else if (types[0] == 'i')
+            con->range.dest_min = (double)(*args)->i;
+        else if (types[0] == 'd')
+            con->range.dest_min = (*args)->d;
+        else
+            con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
@@ -1528,10 +1614,15 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                                         dest_name);
 
     if (!con) {
-        con = (mapper_db_connection)
-            list_new_item(sizeof(mapper_db_connection_t));
-        con->extra = table_new();
-        rc = 1;
+        int src_length = 0;
+        if (update_int_if_arg(&src_length, params, AT_SRC_LENGTH)) {
+            con = (mapper_db_connection)
+                list_new_item(sizeof(mapper_db_connection_t));
+            con->range.src_min = malloc(src_length * sizeof(double));
+            con->range.src_max = malloc(src_length * sizeof(double));
+            con->extra = table_new();
+            rc = 1;
+        }
     }
 
     if (con) {

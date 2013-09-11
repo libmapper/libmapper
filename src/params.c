@@ -11,6 +11,8 @@ const char* mapper_msg_param_strings[] =
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
     "@destLength",      /* AT_DEST_LENGTH */
+    "@destMax",         /* AT_DEST_MAX */
+    "@destMin",         /* AT_DEST_MIN */
     "@destPort",        /* AT_DEST_PORT */
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
@@ -37,6 +39,8 @@ const char* mapper_msg_param_strings[] =
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@srcLength",       /* AT_SRC_LENGTH */
+    "@srcMax",          /* AT_SRC_MAX */
+    "@srcMin",          /* AT_SRC_MIN */
     "@srcPort",         /* AT_SRC_PORT */
     "@srcType",         /* AT_SRC_TYPE */
     "@type",            /* AT_TYPE */
@@ -334,6 +338,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
+    mapper_connection con;
     mapper_connection_range_t *range = 0;
 
     while (pa != N_AT_PARAMS)
@@ -420,21 +425,53 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_RANGE:
             range = va_arg(aq, mapper_connection_range_t*);
             if (range->known & CONNECTION_RANGE_SRC_MIN)
-                lo_message_add_float(m, range->src_min);
+                lo_message_add_double(m, range->src_min[0]);
             else
                 lo_message_add_string(m, "-");
             if (range->known & CONNECTION_RANGE_SRC_MAX)
-                lo_message_add_float(m, range->src_max);
+                lo_message_add_double(m, range->src_max[0]);
             else
                 lo_message_add_string(m, "-");
             if (range->known & CONNECTION_RANGE_DEST_MIN)
-                lo_message_add_float(m, range->dest_min);
+                lo_message_add_double(m, range->dest_min);
             else
                 lo_message_add_string(m, "-");
             if (range->known & CONNECTION_RANGE_DEST_MAX)
-                lo_message_add_float(m, range->dest_max);
+                lo_message_add_double(m, range->dest_max);
             else
                 lo_message_add_string(m, "-");
+            break;
+        case AT_SRC_MIN:
+            con = va_arg(aq, mapper_connection);
+            if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
+                for (i=0; i<con->props.src_length; i++)
+                    lo_message_add_double(m, con->props.range.src_min[i]);
+            }
+            else
+                lo_message_add_nil(m);
+            break;
+        case AT_SRC_MAX:
+            con = va_arg(aq, mapper_connection);
+            if (con->props.range.known & CONNECTION_RANGE_SRC_MAX) {
+                for (i=0; i<con->props.src_length; i++)
+                    lo_message_add_double(m, con->props.range.src_max[i]);
+            }
+            else
+                lo_message_add_nil(m);
+            break;
+        case AT_DEST_MIN:
+            con = va_arg(aq, mapper_connection);
+            if (con->props.range.known & CONNECTION_RANGE_DEST_MIN)
+                lo_message_add_double(m, con->props.range.dest_min);
+            else
+                lo_message_add_nil(m);
+            break;
+        case AT_DEST_MAX:
+            con = va_arg(aq, mapper_connection);
+            if (con->props.range.known & CONNECTION_RANGE_DEST_MAX)
+                lo_message_add_double(m, con->props.range.dest_max);
+            else
+                lo_message_add_nil(m);
             break;
         case AT_MUTE:
             i = va_arg(aq, int);
@@ -580,6 +617,8 @@ void mapper_link_prepare_osc_message(lo_message m,
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
+    int i;
+
     if (con->props.mode) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[con->props.mode]);
@@ -588,15 +627,15 @@ void mapper_connection_prepare_osc_message(lo_message m,
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
         lo_message_add_string(m, con->props.expression);
     }
-    if (con->props.range.known & CONNECTION_RANGE_KNOWN) {
+    /*if (con->props.range.known & CONNECTION_RANGE_KNOWN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_RANGE]);
         if (con->props.range.known & CONNECTION_RANGE_SRC_MIN)
-            lo_message_add_float(m, con->props.range.src_min);
+            lo_message_add_float(m, con->props.range.src_min[0]);
         else
             lo_message_add_char(m, '-');
 
         if (con->props.range.known & CONNECTION_RANGE_SRC_MAX)
-            lo_message_add_float(m, con->props.range.src_max);
+            lo_message_add_float(m, con->props.range.src_max[0]);
         else
             lo_message_add_char(m, '-');
 
@@ -609,7 +648,32 @@ void mapper_connection_prepare_osc_message(lo_message m,
             lo_message_add_float(m, con->props.range.dest_max);
         else
             lo_message_add_char(m, '-');
+    }*/
+
+    if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MIN]);
+        for (i=0; i<con->props.src_length; i++) {
+            lo_message_add_double(m, con->props.range.src_min[i]);
+        }
     }
+
+    if (con->props.range.known & CONNECTION_RANGE_SRC_MAX) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MAX]);
+        for (i=0; i<con->props.src_length; i++) {
+            lo_message_add_double(m, con->props.range.src_max[i]);
+        }
+    }
+    
+    if (con->props.range.known & CONNECTION_RANGE_DEST_MIN) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MIN]);
+        lo_message_add_double(m, con->props.range.dest_min);
+    }
+
+    if (con->props.range.known & CONNECTION_RANGE_DEST_MAX) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MAX]);
+        lo_message_add_double(m, con->props.range.dest_max);
+    }
+
     lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MIN]);
     lo_message_add_string(m, mapper_boundary_action_strings[con->props.bound_min]);
     lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MAX]);

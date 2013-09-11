@@ -99,6 +99,59 @@ static double uniformd(double x)
     return rand() / (RAND_MAX + 1.0) * x;
 }
 
+static double lind(double x, double xmin, double xmax, double ymin, double ymax)
+{
+    if (xmin == xmax)
+        return ymin;
+
+    double scale = ((ymin - ymax) / (xmin - xmax));
+    double offset = ((ymax * xmin - ymin * xmax) / (xmin - xmax));
+
+    return x * scale + offset;
+}
+
+static float linf(float x, double xmin, double xmax, double ymin, double ymax)
+{
+    return (float)lind((double)x, xmin, xmax, ymin, ymax);
+}
+
+static int lini(int x, double xmin, double xmax, double ymin, double ymax)
+{
+    return (int)lind((double)x, xmin, xmax, ymin, ymax);
+}
+
+static double destmax(mapper_connection_range_t *range, int index)
+{
+    if (range && range->known & CONNECTION_RANGE_DEST_MAX)
+        return range->dest_max;
+    else
+        return 0;
+}
+
+static double destmin(mapper_connection_range_t *range, int index)
+{
+    if (range && range->known & CONNECTION_RANGE_DEST_MIN)
+        return range->dest_min;
+    else
+        return 0;
+}
+
+static double srcmax(mapper_connection_range_t *range, int index)
+{
+    if (range && range->known & CONNECTION_RANGE_SRC_MAX)
+        return range->src_max[index];
+    else
+        return 0;
+}
+
+static double srcmin(mapper_connection_range_t *range, int index)
+{
+    if (range && range->known & CONNECTION_RANGE_SRC_MIN)
+        return range->src_min[index];
+    else
+        return 0;
+}
+
 typedef enum {
     FUNC_UNKNOWN=-1,
     FUNC_ABS=0,
@@ -118,6 +171,7 @@ typedef enum {
     FUNC_FLOOR,
     FUNC_HYPOT,
     FUNC_HZTOMIDI,
+    FUNC_LINEAR,
     FUNC_LOG,
     FUNC_LOG10,
     FUNC_LOG2,
@@ -157,12 +211,15 @@ static struct {
     { "ceil",     1,    0,          ceilf,      ceil        },
     { "cos",      1,    0,          cosf,       cos         },
     { "cosh",     1,    0,          coshf,      cosh        },
+    { "destmax",  -1,   0,          0,          destmax     },
+    { "destmin",  -1,   0,          0,          destmin     },
     { "e",        0,    0,          ef,         ed          },
     { "exp",      1,    0,          expf,       exp         },
     { "exp2",     1,    0,          exp2f,      exp2        },
     { "floor",    1,    0,          floorf,     floor       },
     { "hypot",    2,    0,          hypotf,     hypot       },
     { "hzToMidi", 1,    0,          hzToMidif,  hzToMidid   },
+    { "linear",   5,    lini,       linf,       lind        },
     { "log",      1,    0,          logf,       log         },
     { "log10",    1,    0,          log10f,     log10       },
     { "log2",     1,    0,          log2f,      log2        },
@@ -176,6 +233,8 @@ static struct {
     { "sin",      1,    0,          sinf,       sin         },
     { "sinh",     1,    0,          sinhf,      sinh        },
     { "sqrt",     1,    0,          sqrtf,      sqrt        },
+    { "srcmax",   -1,   0,          0,          srcmax      },
+    { "srcmin",   -1,   0,          0,          srcmin      },
     { "tan",      1,    0,          tanf,       tan         },
     { "tanh",     1,    0,          tanhf,      tanh        },
     { "trunc",    1,    0,          truncf,     trunc       },
@@ -239,12 +298,16 @@ static struct {
 typedef int func_int32_arity0();
 typedef int func_int32_arity1(int);
 typedef int func_int32_arity2(int,int);
+typedef int func_int32_arity5(int,double,double,double,double);
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
+typedef float func_float_arity5(float,double,double,double,double);
 typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
+typedef double func_double_arity5(double,double,double,double,double);
+typedef double func_double_range_lookup(mapper_connection_range_t*,int);
 
 typedef struct _token {
     enum {
@@ -724,7 +787,7 @@ static int add_typecast(mapper_token_t *stack, int top)
     h.position = -1;
     h.length = 1;
     h.size = 1;
-    if (!mapper_expr_evaluate(&e, 0, &h))
+    if (!mapper_expr_evaluate(&e, 0, 0, &h))
         return top;
 
     switch (stack[top].datatype) {
@@ -969,6 +1032,7 @@ static void trace_eval(const char *s,...) {}
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_connection_range_t *range,
                          mapper_signal_history_t *from,
                          mapper_signal_history_t *to)
 {
@@ -1273,6 +1337,11 @@ int mapper_expr_evaluate(mapper_expr expr,
                 }
                 else if (tok->datatype == 'd') {
                     switch (function_table[tok->func].arity) {
+                        case -1:
+                            trace_eval("%s(%f) = ", function_table[tok->func].name, i);
+                            stack[i][top].d = ((func_double_range_lookup*)function_table[tok->func].func_double)(range, i);
+                            trace_eval("%f\n", stack[i][top].d);
+                            break;
                         case 0:
                             stack[i][top].d = ((func_double_arity0*)function_table[tok->func].func_double)();
                             trace_eval("%s = %f\n", function_table[tok->func].name,

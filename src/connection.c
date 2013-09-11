@@ -64,7 +64,6 @@ int mapper_connection_perform(mapper_connection connection,
      * element-wise operations on each item in the vector. */
 
     int changed = 0, i;
-    double d = 0;
 
     if (connection->props.muted)
         return 0;
@@ -139,7 +138,9 @@ int mapper_connection_perform(mapper_connection connection,
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(connection->expr, from, to));
+        return (mapper_expr_evaluate(connection->expr,
+                                     &connection->props.range,
+                                     from, to));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -147,54 +148,102 @@ int mapper_connection_perform(mapper_connection connection,
         /* TODO: Switch to vector min and max */
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
-        if (connection->props.src_type == 'f') {
-            float *v = msig_history_value_pointer(*from);
-            for (i = 0; i < to->length; i++)
-                d = (double)v[i];
-        }
-        else if (connection->props.src_type == 'i') {
-            int *v = msig_history_value_pointer(*from);
-            for (i = 0; i < to->length; i++)
-                d = (double)v[i];
-        }
-        else if (connection->props.src_type == 'd') {
-            double *v = msig_history_value_pointer(*from);
-            for (i = 0; i < to->length; i++)
-                d = v[i];
-        }
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
-        if (!connection->calibrating) {
-            connection->props.range.src_min = d;
-            connection->props.range.src_max = d;
-            connection->props.range.known |=
-                CONNECTION_RANGE_SRC_MIN | CONNECTION_RANGE_SRC_MAX;
-            connection->calibrating = 1;
-            changed = 1;
-        } else {
-            if (d < connection->props.range.src_min) {
-                connection->props.range.src_min = d;
-                connection->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+        if (connection->props.src_type == 'f') {
+            float *v = msig_history_value_pointer(*from);
+            if (!connection->calibrating) {
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i] = (double)v[i];
+                    connection->props.range.src_max[i] = (double)v[i];
+                }
+                connection->props.range.known |= CONNECTION_RANGE_SRC_MIN |
+                                                 CONNECTION_RANGE_SRC_MAX;
+                connection->calibrating = 1;
                 changed = 1;
             }
-            if (d > connection->props.range.src_max) {
-                connection->props.range.src_max = d;
-                connection->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+            else {
+                for (i = 0; i < from->length; i++) {
+                    if (v[i] < connection->props.range.src_min[i]) {
+                        connection->props.range.src_min[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                        changed = 1;
+                    }
+                    if (v[i] > connection->props.range.src_max[i]) {
+                        connection->props.range.src_max[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                        changed = 1;
+                    }
+                }
+            }
+        }
+        else if (connection->props.src_type == 'i') {
+            int *v = msig_history_value_pointer(*from);
+            if (!connection->calibrating) {
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i] = (double)v[i];
+                    connection->props.range.src_max[i] = (double)v[i];
+                }
+                connection->props.range.known |= CONNECTION_RANGE_SRC_MIN |
+                                                 CONNECTION_RANGE_SRC_MAX;
+                connection->calibrating = 1;
                 changed = 1;
+            }
+            else {
+                for (i = 0; i < from->length; i++) {
+                    if (v[i] < connection->props.range.src_min[i]) {
+                        connection->props.range.src_min[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                        changed = 1;
+                    }
+                    if (v[i] > connection->props.range.src_max[i]) {
+                        connection->props.range.src_max[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                        changed = 1;
+                    }
+                }
+            }
+        }
+        else if (connection->props.src_type == 'd') {
+            double *v = msig_history_value_pointer(*from);
+            if (!connection->calibrating) {
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i] = v[i];
+                    connection->props.range.src_max[i] = v[i];
+                }
+                connection->props.range.known |= CONNECTION_RANGE_SRC_MIN |
+                                                 CONNECTION_RANGE_SRC_MAX;
+                connection->calibrating = 1;
+                changed = 1;
+            }
+            else {
+                for (i = 0; i < from->length; i++) {
+                    if (v[i] < connection->props.range.src_min[i]) {
+                        connection->props.range.src_min[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                        changed = 1;
+                    }
+                    if (v[i] > connection->props.range.src_max[i]) {
+                        connection->props.range.src_max[i] = v[i];
+                        connection->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                        changed = 1;
+                    }
+                }
             }
         }
 
         if (changed) {
-            mapper_connection_set_linear_range(connection,
-                                               &connection->props.range);
+            mapper_connection_set_mode_linear(connection);
 
             /* Stay in calibrate mode. */
             connection->props.mode = MO_CALIBRATE;
         }
 
         if (connection->expr)
-            return (mapper_expr_evaluate(connection->expr, from, to));
+            return (mapper_expr_evaluate(connection->expr,
+                                         &connection->props.range,
+                                         from, to));
         else
             return 0;
     }
@@ -428,36 +477,42 @@ static int replace_expression_string(mapper_connection c,
     return 0;
 }
 
-void mapper_connection_set_direct(mapper_connection c)
+void mapper_connection_set_mode_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
     reallocate_connection_histories(c, 1, 1);
 }
 
-void mapper_connection_set_linear_range(mapper_connection c,
-                                        mapper_connection_range_t *r)
+void mapper_connection_set_mode_linear(mapper_connection c)
 {
     char expr[256] = "";
     const char *e = expr;
+    mapper_connection_range_t r = c->props.range;
 
-    if (r->known
+    if (r.known
         & (CONNECTION_RANGE_SRC_MIN | CONNECTION_RANGE_SRC_MAX))
     {
-        if (r->src_min == r->src_max)
-            snprintf(expr, 256, "y=%g", r->src_min);
+        if (c->props.src_length > 1) {
+            if (r.known == CONNECTION_RANGE_KNOWN)
+                snprintf(expr, 256, "y=linear(x, xmin, xmax, ymin, ymax)");
+            else
+                e = 0;
+        }
+        else if (r.src_min[0] == r.src_max[0])
+                snprintf(expr, 256, "y=%g", r.dest_min);
 
-        else if (r->known == CONNECTION_RANGE_KNOWN
-                 && r->src_min == r->dest_min
-                 && r->src_max == r->dest_max)
+        else if (r.known == CONNECTION_RANGE_KNOWN
+                 && r.src_min[0] == r.dest_min
+                 && r.src_max[0] == r.dest_max)
             snprintf(expr, 256, "y=x");
 
-        else if (r->known == CONNECTION_RANGE_KNOWN) {
-            float scale = ((r->dest_min - r->dest_max)
-                           / (r->src_min - r->src_max));
+        else if (r.known == CONNECTION_RANGE_KNOWN) {
+            float scale = ((r.dest_min - r.dest_max)
+                           / (r.src_min[0] - r.src_max[0]));
             float offset =
-                ((r->dest_max * r->src_min
-                  - r->dest_min * r->src_max)
-                 / (r->src_min - r->src_max));
+                ((r.dest_max * r.src_min[0]
+                  - r.dest_min * r.src_max[0])
+                 / (r.src_min[0] - r.src_max[0]));
 
             snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
         }
@@ -466,10 +521,6 @@ void mapper_connection_set_linear_range(mapper_connection c,
     }
     else
         e = 0;
-
-    if (&c->props.range != r)
-        memcpy(&c->props.range, r,
-               sizeof(mapper_connection_range_t));
 
     // If everything is successful, replace the connection's expression.
     if (e) {
@@ -482,8 +533,8 @@ void mapper_connection_set_linear_range(mapper_connection c,
     }
 }
 
-void mapper_connection_set_expression(mapper_connection c,
-                                      const char *expr)
+void mapper_connection_set_mode_expression(mapper_connection c,
+                                           const char *expr)
 {
     int input_history_size, output_history_size;
     if (replace_expression_string(c, expr, &input_history_size,
@@ -495,13 +546,12 @@ void mapper_connection_set_expression(mapper_connection c,
                                     output_history_size);
 }
 
-void mapper_connection_set_reverse(mapper_connection c)
+void mapper_connection_set_mode_reverse(mapper_connection c)
 {
     c->props.mode = MO_REVERSE;
 }
 
-void mapper_connection_set_calibrate(mapper_connection c,
-                                     float dest_min, float dest_max)
+void mapper_connection_set_mode_calibrate(mapper_connection c)
 {
     c->props.mode = MO_CALIBRATE;
 
@@ -509,12 +559,12 @@ void mapper_connection_set_calibrate(mapper_connection c,
         free(c->props.expression);
 
     char expr[256];
-    snprintf(expr, 256, "y=%g", dest_min);
+    if (c->props.src_length == 1)
+        snprintf(expr, 256, "y=%g", c->props.range.dest_min);
+    else
+        snprintf(expr, 256, "y=ymin");
     c->props.expression = strdup(expr);
 
-    c->props.range.dest_min = dest_min;
-    c->props.range.dest_max = dest_max;
-    c->props.range.known |= CONNECTION_RANGE_DEST_MIN | CONNECTION_RANGE_DEST_MAX;
     c->calibrating = 0;
 }
 
@@ -522,132 +572,221 @@ void mapper_connection_set_calibrate(mapper_connection c,
  * based on message parameters and known connection and signal
  * properties; return flags to indicate which parts of the range were
  * found. */
-static int get_range(mapper_connection connection,
-                     mapper_message_t *msg, double range[4])
+static void set_range(mapper_connection c,
+                      mapper_message_t *msg)
 {
-    lo_arg **a_range    = mapper_msg_get_param(msg, AT_RANGE);
-    const char* t_range = mapper_msg_get_type(msg, AT_RANGE);
-    lo_arg **a_min      = mapper_msg_get_param(msg, AT_MIN);
-    const char* t_min   = mapper_msg_get_type(msg, AT_MIN);
-    lo_arg **a_max      = mapper_msg_get_param(msg, AT_MAX);
-    const char* t_max   = mapper_msg_get_type(msg, AT_MAX);
+    lo_arg **args = NULL;
+    const char *types = NULL;
+    int i, length = 0;
 
-    int range_known = 0;
+    if (!c)
+        return;
 
     /* The logic here is to first try to use information from the
-     * message, starting with @range, then @min and @max.  Next
-     * priority is already-known properties of the connection.
+     * message, starting with @range, @srcMax, @srcMin, @destMax, @destMin,
+     * and then @min and @max.
+     * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
     /* @range */
 
-    if (a_range && t_range) {
-        int i, known[] = { CONNECTION_RANGE_SRC_MIN, CONNECTION_RANGE_SRC_MAX,
-                           CONNECTION_RANGE_DEST_MIN, CONNECTION_RANGE_DEST_MAX };
-        for (i=0; i<4; i++) {
-            if (t_range[i] == 'f') {
-                range_known |= known[i];
-                range[i] = a_range[i]->f;
-            } else if (t_range[i] == 'i') {
-                range_known |= known[i];
-                range[i] = (float)a_range[i]->i;
+    args = mapper_msg_get_param(msg, AT_RANGE);
+    types = mapper_msg_get_type(msg, AT_RANGE);
+    if (args && types) {
+        c->props.range.known = CONNECTION_RANGE_SRC_MAX |
+                               CONNECTION_RANGE_SRC_MIN |
+                               CONNECTION_RANGE_DEST_MAX |
+                               CONNECTION_RANGE_DEST_MIN;
+        if (types[0] == 'f')
+            c->props.range.src_min[0] = (double)args[0]->f;
+        else if (types[0] == 'i')
+            c->props.range.src_min[0] = (double)args[0]->i;
+        else if (types[0] == 'd')
+            c->props.range.src_min[0] = args[0]->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_SRC_MIN;
+
+        if (types[1] == 'f')
+            c->props.range.src_max[0] = (double)args[1]->f;
+        else if (types[1] == 'i')
+            c->props.range.src_max[0] = (double)args[1]->i;
+        else if (types[1] == 'd')
+            c->props.range.src_max[0] = args[1]->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
+
+        if (types[2] == 'f')
+            c->props.range.dest_min = (double)args[2]->f;
+        else if (types[2] == 'i')
+            c->props.range.dest_min = (double)args[2]->i;
+        else if (types[2] == 'd')
+            c->props.range.dest_min = args[2]->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
+
+        if (types[3] == 'f')
+            c->props.range.dest_max = (double)args[3]->f;
+        else if (types[3] == 'i')
+            c->props.range.dest_max = (double)args[3]->i;
+        else if (types[3] == 'd')
+            c->props.range.dest_max = args[3]->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
+    }
+
+    /* @srcMax */
+    args = mapper_msg_get_param(msg, AT_SRC_MAX);
+    types = mapper_msg_get_type(msg, AT_SRC_MAX);
+    length = mapper_msg_get_length(msg, AT_SRC_MAX);
+    if (args && types) {
+        if (length == c->props.src_length) {
+            c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    c->props.range.src_max[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    c->props.range.src_max[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    c->props.range.src_max[i] = args[i]->d;
+                else
+                    c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
             }
         }
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
+    }
+
+    /* @srcMin */
+    args = mapper_msg_get_param(msg, AT_SRC_MIN);
+    types = mapper_msg_get_type(msg, AT_SRC_MIN);
+    length = mapper_msg_get_length(msg, AT_SRC_MIN);
+    if (args && types) {
+        if (length == c->props.src_length) {
+            c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    c->props.range.src_min[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    c->props.range.src_min[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    c->props.range.src_min[i] = args[i]->d;
+                else
+                    c->props.range.known &= ~CONNECTION_RANGE_SRC_MIN;
+            }
+        }
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_SRC_MIN;
+    }
+
+    /* @destMax */
+    args = mapper_msg_get_param(msg, AT_DEST_MAX);
+    types = mapper_msg_get_type(msg, AT_DEST_MAX);
+    if (args && types) {
+        c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
+        if (types[0] == 'f')
+            c->props.range.dest_max = (double)(*args)->f;
+        else if (types[0] == 'i')
+            c->props.range.dest_max = (double)(*args)->i;
+        else if (types[0] == 'd')
+            c->props.range.dest_max = (*args)->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
+    }
+
+    /* @destMin */
+    args = mapper_msg_get_param(msg, AT_DEST_MIN);
+    types = mapper_msg_get_type(msg, AT_DEST_MIN);
+    if (args && types) {
+        c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
+        if (types[0] == 'f')
+            c->props.range.dest_min = (double)(*args)->f;
+        else if (types[0] == 'i')
+            c->props.range.dest_min = (double)(*args)->i;
+        else if (types[0] == 'd')
+            c->props.range.dest_min = (*args)->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
     /* @min, @max */
-
-    if (!(range_known & CONNECTION_RANGE_DEST_MIN)
-        && a_min && t_min)
+    args = mapper_msg_get_param(msg, AT_MIN);
+    types = mapper_msg_get_type(msg, AT_MIN);
+    if (!(c->props.range.known & CONNECTION_RANGE_DEST_MIN)
+        && args && types)
     {
-        if (t_min[0]=='f') {
-            range_known |= CONNECTION_RANGE_DEST_MIN;
-            range[2] = (*a_min)->f;
-        } else if (t_min[0]=='i') {
-            range_known |= CONNECTION_RANGE_DEST_MIN;
-            range[2] = (float)(*a_min)->i;
-        }
+        c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
+        if (types[0] == 'f')
+            c->props.range.dest_min = (double)(*args)->f;
+        else if (types[0] == 'i')
+            c->props.range.dest_min = (double)(*args)->i;
+        else if (types[0] == 'd')
+            c->props.range.dest_min = (*args)->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
-    if (!(range_known & CONNECTION_RANGE_DEST_MAX)
-        && a_max && t_max)
+    args = mapper_msg_get_param(msg, AT_MAX);
+    types = mapper_msg_get_type(msg, AT_MAX);
+    if (!(c->props.range.known & CONNECTION_RANGE_DEST_MAX)
+        && args && types)
     {
-        if (t_max[0]=='f') {
-            range_known |= CONNECTION_RANGE_DEST_MAX;
-            range[3] = (*a_max)->f;
-        } else if (t_max[0]=='i') {
-            range_known |= CONNECTION_RANGE_DEST_MAX;
-            range[3] = (float)(*a_max)->i;
-        }
-    }
-
-    /* connection */
-
-    if (connection) {
-        if (!(range_known & CONNECTION_RANGE_SRC_MIN)
-            && (connection->props.range.known & CONNECTION_RANGE_SRC_MIN))
-        {
-            range_known |= CONNECTION_RANGE_SRC_MIN;
-            range[0] = connection->props.range.src_min;
-        }
-
-        if (!(range_known & CONNECTION_RANGE_SRC_MAX)
-            && (connection->props.range.known & CONNECTION_RANGE_SRC_MAX))
-        {
-            range_known |= CONNECTION_RANGE_SRC_MAX;
-            range[1] = connection->props.range.src_max;
-        }
-
-        if (!(range_known & CONNECTION_RANGE_DEST_MIN)
-            && (connection->props.range.known & CONNECTION_RANGE_DEST_MIN))
-        {
-            range_known |= CONNECTION_RANGE_DEST_MIN;
-            range[2] = connection->props.range.dest_min;
-        }
-
-        if (!(range_known & CONNECTION_RANGE_DEST_MAX)
-            && (connection->props.range.known & CONNECTION_RANGE_DEST_MAX))
-        {
-            range_known |= CONNECTION_RANGE_DEST_MAX;
-            range[3] = connection->props.range.dest_max;
-        }
+        c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
+        if (types[0] == 'f')
+            c->props.range.dest_max = (double)(*args)->f;
+        else if (types[0]=='i')
+            c->props.range.dest_max = (double)(*args)->i;
+        else if (types[0] == 'd')
+            c->props.range.dest_max = (*args)->d;
+        else
+            c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
     }
 
     /* Signal */
-    mapper_signal sig = connection->parent->signal;
-    if (sig) {
-        if (!(range_known & CONNECTION_RANGE_SRC_MIN)
-            && sig->props.minimum)
-        {
-            if (sig->props.type == 'f') {
-                range_known |= CONNECTION_RANGE_SRC_MIN;
-                range[0] = sig->props.minimum->f;
-            } else if (sig->props.type == 'i') {
-                range_known |= CONNECTION_RANGE_SRC_MIN;
-                range[0] = sig->props.minimum->i32;
-            } else if (sig->props.type == 'd') {
-                range_known |= CONNECTION_RANGE_SRC_MIN;
-                range[0] = sig->props.minimum->d;
-            }
+    mapper_signal sig = c->parent->signal;
+    if (!sig)
+        return;
+
+    if (!(c->props.range.known & CONNECTION_RANGE_SRC_MIN)
+        && sig->props.minimum)
+    {
+        c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+        double v;
+        if (sig->props.type == 'f') {
+            v = (double)sig->props.minimum->f;
+        } else if (sig->props.type == 'i') {
+            v = (double)sig->props.minimum->i32;
+        } else if (sig->props.type == 'd') {
+            v = sig->props.minimum->d;
+        } else {
+            c->props.range.known &= ~ CONNECTION_RANGE_SRC_MIN;
         }
 
-        if (!(range_known & CONNECTION_RANGE_SRC_MAX)
-            && sig->props.maximum)
-        {
-            if (sig->props.type == 'f') {
-                range_known |= CONNECTION_RANGE_SRC_MAX;
-                range[1] = sig->props.maximum->f;
-            } else if (sig->props.type == 'i') {
-                range_known |= CONNECTION_RANGE_SRC_MAX;
-                range[1] = sig->props.maximum->i32;
-            } else if (sig->props.type == 'd') {
-                range_known |= CONNECTION_RANGE_SRC_MAX;
-                range[1] = sig->props.maximum->d;
-            }
-        }
+        if ((c->props.range.known & CONNECTION_RANGE_SRC_MIN))
+            for (i=0; i<c->props.src_length; i++)
+                c->props.range.src_min[i] = v;
     }
 
-    return range_known;
+    if (!(c->props.range.known & CONNECTION_RANGE_SRC_MAX)
+        && sig->props.maximum)
+    {
+        c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+        double v;
+        if (sig->props.type == 'f') {
+            v = (double)sig->props.maximum->f;
+        } else if (sig->props.type == 'i') {
+            v = (double)sig->props.maximum->i32;
+        } else if (sig->props.type == 'd') {
+            v = sig->props.maximum->d;
+        } else {
+            c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
+        }
+
+        if ((c->props.range.known & CONNECTION_RANGE_SRC_MAX))
+            for (i=0; i<c->props.src_length; i++)
+                c->props.range.src_max[i] = v;
+    }
 }
 
 void mapper_connection_set_from_message(mapper_connection c,
@@ -663,32 +802,10 @@ void mapper_connection_set_from_message(mapper_connection c,
 
     /* Range information. */
 
-    double range[4];
-    int range_known = get_range(c, msg, range);
-
-    if (range_known & CONNECTION_RANGE_SRC_MIN) {
-        c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
-        c->props.range.src_min = range[0];
-    }
-
-    if (range_known & CONNECTION_RANGE_SRC_MAX) {
-        c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
-        c->props.range.src_max = range[1];
-    }
-
-    if (range_known & CONNECTION_RANGE_DEST_MIN) {
-        c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
-        c->props.range.dest_min = range[2];
-    }
-
-    if (range_known & CONNECTION_RANGE_DEST_MAX) {
-        c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
-        c->props.range.dest_max = range[3];
-    }
-
+    set_range(c, msg);
     if (c->props.range.known == CONNECTION_RANGE_KNOWN &&
         c->props.mode == MO_LINEAR) {
-        mapper_connection_set_linear_range(c, &c->props.range);
+        mapper_connection_set_mode_linear(c);
     }
 
     /* Muting. */
@@ -736,36 +853,36 @@ void mapper_connection_set_from_message(mapper_connection c,
         /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
             if (c->props.mode == MO_UNDEFINED) {
-                if (range_known == CONNECTION_RANGE_KNOWN) {
+                if (c->props.range.known == CONNECTION_RANGE_KNOWN) {
                     /* We have enough information for a linear connection. */
-                    mapper_connection_set_linear_range(c, &c->props.range);
+                    mapper_connection_set_mode_linear(c);
                 } else
                     /* No range, default to direct connection. */
-                    mapper_connection_set_direct(c);
+                    mapper_connection_set_mode_direct(c);
             }
         break;
     case MO_BYPASS:
-        mapper_connection_set_direct(c);
+        mapper_connection_set_mode_direct(c);
         break;
     case MO_LINEAR:
-        if (range_known == CONNECTION_RANGE_KNOWN) {
-            mapper_connection_set_linear_range(c, &c->props.range);
+        if (c->props.range.known == CONNECTION_RANGE_KNOWN) {
+            mapper_connection_set_mode_linear(c);
         }
         break;
     case MO_CALIBRATE:
-        if (range_known & (CONNECTION_RANGE_DEST_MIN
-                           | CONNECTION_RANGE_DEST_MAX))
-            mapper_connection_set_calibrate(c, range[2], range[3]);
+        if (c->props.range.known & (CONNECTION_RANGE_DEST_MIN
+                                    | CONNECTION_RANGE_DEST_MAX))
+            mapper_connection_set_mode_calibrate(c);
         break;
     case MO_EXPRESSION:
         {
             if (!c->props.expression)
                 c->props.expression = strdup("y=x");
-            mapper_connection_set_expression(c, c->props.expression);
+            mapper_connection_set_mode_expression(c, c->props.expression);
         }
         break;
     case MO_REVERSE:
-        mapper_connection_set_reverse(c);
+        mapper_connection_set_mode_reverse(c);
         break;
     default:
         trace("unknown result from mapper_msg_get_mode()\n");

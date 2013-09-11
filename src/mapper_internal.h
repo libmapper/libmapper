@@ -467,16 +467,14 @@ int mapper_boundary_perform(mapper_connection connection,
 void mapper_connection_set_from_message(mapper_connection connection,
                                         mapper_message_t *msg);
 
-void mapper_connection_set_direct(mapper_connection connection);
+void mapper_connection_set_mode_direct(mapper_connection connection);
 
-void mapper_connection_set_linear_range(mapper_connection connection,
-                                        mapper_connection_range_t *range);
+void mapper_connection_set_mode_linear(mapper_connection connection);
 
-void mapper_connection_set_expression(mapper_connection connection,
-                                      const char *expr);
+void mapper_connection_set_mode_expression(mapper_connection connection,
+                                           const char *expr);
 
-void mapper_connection_set_calibrate(mapper_connection connection,
-                                     float dest_min, float dest_max);
+void mapper_connection_set_mode_calibrate(mapper_connection connection);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
@@ -723,6 +721,7 @@ void printexpr(const char*, mapper_expr);
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
+                         mapper_connection_range_t *range,
                          mapper_signal_history_t *input_history,
                          mapper_signal_history_t *output_history);
 

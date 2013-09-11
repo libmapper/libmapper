@@ -79,15 +79,18 @@ typedef struct _mapper_db_device {
 #define CONNECTION_ALL              0x0FFF
 
 /*! A structure to keep range information, with a bitfield indicating
- *  which parts of the range are known.
+ *  which parts of the range are known. The extrema of source signals with
+ *  length>1 may be vectors of different values (e.g. after "calibration"),
+ *  but destination extrema always match the declared range and are
+ *  represented as scalars.
  *  @ingroup connectiondb */
 typedef struct _mapper_connection_range {
-    double src_min;              //!< Source minimum.
-    double src_max;              //!< Source maximum.
-    double dest_min;             //!< Destination minimum.
-    double dest_max;             //!< Destination maximum.
-    int known;                  /*!< Bitfield identifying which range
-                                 *   extremities are known. */
+    double *src_min;    //!< Array of source minima.
+    double *src_max;    //!< Array of source maxima.
+    double dest_min;    //!< Destination minimum.
+    double dest_max;    //!< Destination maximum.
+    int known;          /*!< Bitfield identifying which range
+                         *   extremities are known. */
 } mapper_connection_range_t;
 
 /*! Describes what happens when the range boundaries are

@@ -118,14 +118,14 @@ int setup_router()
     mapper_connection c = mapper_router_add_connection(router, sendsig,
                                                        recvsig->props.name,
                                                        'f', 1);
-    mapper_connection_range_t range;
-    range.src_min = 0;
-    range.src_max = 1;
-    range.dest_min = -10;
-    range.dest_max = 10;
-    range.known = CONNECTION_RANGE_KNOWN;
+    mapper_connection_range_t *range = &c->props.range;
+    range->src_min = 0;
+    range->src_max = 1;
+    range->dest_min = -10;
+    range->dest_max = 10;
+    range->known = CONNECTION_RANGE_KNOWN;
     
-    mapper_connection_set_linear_range(c, &range);
+    mapper_connection_set_mode_linear(c);
 
     return 0;
 }
