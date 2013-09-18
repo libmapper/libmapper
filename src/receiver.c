@@ -309,8 +309,10 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
-    c->props.range.src_min = malloc(sig->props.length * sizeof(double));
-    c->props.range.src_max = malloc(sig->props.length * sizeof(double));
+    c->props.range.src_min = malloc(src_length * sizeof(double));
+    c->props.range.src_max = malloc(src_length * sizeof(double));
+    c->props.range.dest_min = malloc(sig->props.length * sizeof(double));
+    c->props.range.dest_max = malloc(sig->props.length * sizeof(double));
     c->props.extra = table_new();
 
     int len = strlen(src_name) + 5;

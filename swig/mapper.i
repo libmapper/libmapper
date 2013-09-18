@@ -1202,7 +1202,7 @@ typedef struct _admin {} admin;
             msig_update((mapper_signal)$self, &f, 1, tt);
         }
     }
-    void reserve_instances(int num) {
+    void reserve_instances(int num=1) {
         msig_reserve_instances((mapper_signal)$self, num, 0, 0);
     }
     void reserve_instances(int num, int *argv) {

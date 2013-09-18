@@ -119,10 +119,11 @@ int setup_router()
                                                        recvsig->props.name,
                                                        'f', 1);
     mapper_connection_range_t *range = &c->props.range;
-    range->src_min = 0;
-    range->src_max = 1;
-    range->dest_min = -10;
-    range->dest_max = 10;
+    double src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
+    range->src_min = &src_min;
+    range->src_max = &src_max;
+    range->dest_min = &dest_min;
+    range->dest_max = &dest_max;
     range->known = CONNECTION_RANGE_KNOWN;
     
     mapper_connection_set_mode_linear(c);

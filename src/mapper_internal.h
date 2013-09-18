@@ -163,8 +163,7 @@ void _real_mapper_admin_send(mapper_admin admin,
                              const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
-void _real_mapper_admin_send_with_params(const char *file, int line,
-                                         mapper_admin admin,
+void _real_mapper_admin_send_with_params(mapper_admin admin,
                                          mapper_message_t *params,
                                          mapper_string_table_t *extra,
                                          int msg_index,
@@ -172,9 +171,7 @@ void _real_mapper_admin_send_with_params(const char *file, int line,
                                          const char *types, ...);
 
 #define mapper_admin_send_with_params(...)                          \
-    _real_mapper_admin_send_with_params(__FILE__, __LINE__,         \
-                                        __VA_ARGS__,                \
-                                        LO_MARKER_A, LO_MARKER_B)
+    _real_mapper_admin_send_with_params(__VA_ARGS__, N_AT_PARAMS)
 
 /***** Device *****/
 

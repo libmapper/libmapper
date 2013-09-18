@@ -1016,12 +1016,34 @@ void mapper_db_dump(mapper_db db)
         }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_DEST_MIN)
-            sprintf(r+strlen(r), "%f, ", con->range.dest_min);
+        if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
+            if (con->dest_length > 1)
+                sprintf(r+strlen(r), "[");
+            for (i=0; i<con->dest_length; i++) {
+                sprintf(r+strlen(r), "%f", con->range.dest_min[i]);
+                if (i < con->dest_length-1)
+                    sprintf(r+strlen(r), ", ");
+            }
+            if (con->dest_length > 1)
+                sprintf(r+strlen(r), "], ");
+            else
+                sprintf(r+strlen(r), ", ");
+        }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_DEST_MAX)
-            sprintf(r+strlen(r), "%f", con->range.dest_max);
+        if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
+            if (con->dest_length > 1)
+                sprintf(r+strlen(r), "[");
+            for (i=0; i<con->dest_length; i++) {
+                sprintf(r+strlen(r), "%f", con->range.dest_max[i]);
+                if (i < con->dest_length-1)
+                    sprintf(r+strlen(r), ", ");
+            }
+            if (con->dest_length > 1)
+                sprintf(r+strlen(r), "], ");
+            else
+                sprintf(r+strlen(r), ", ");
+        }
         else
             strcat(r, "-");
         strcat(r, ")");
@@ -1485,20 +1507,20 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
 
         if (types[2] == 'f')
-            con->range.dest_min = (double)args[2]->f;
+            con->range.dest_min[0] = (double)args[2]->f;
         else if (types[2] == 'i')
-            con->range.dest_min = (double)args[2]->i;
+            con->range.dest_min[0] = (double)args[2]->i;
         else if (types[2] == 'd')
-            con->range.dest_min = args[2]->d;
+            con->range.dest_min[0] = args[2]->d;
         else
             con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
 
         if (types[3] == 'f')
-            con->range.dest_max = (double)args[3]->f;
+            con->range.dest_max[0] = (double)args[3]->f;
         else if (types[3] == 'i')
-            con->range.dest_max = (double)args[3]->i;
+            con->range.dest_max[0] = (double)args[3]->i;
         else if (types[3] == 'd')
-            con->range.dest_max = args[3]->d;
+            con->range.dest_max[0] = args[3]->d;
         else
             con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
     }
@@ -1518,8 +1540,10 @@ static int update_connection_record_params(mapper_db_connection con,
                     con->range.src_max[i] = (double)args[i]->i;
                 else if (types[i] == 'd')
                     con->range.src_max[i] = args[i]->d;
-                else
+                else {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+                    break;
+                }
             }
         }
         else
@@ -1541,8 +1565,10 @@ static int update_connection_record_params(mapper_db_connection con,
                     con->range.src_min[i] = (double)args[i]->i;
                 else if (types[i] == 'd')
                     con->range.src_min[i] = args[i]->d;
-                else
+                else {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
+                    break;
+                }
             }
         }
         else
@@ -1552,14 +1578,24 @@ static int update_connection_record_params(mapper_db_connection con,
     /* @destMax */
     args = mapper_msg_get_param(params, AT_DEST_MAX);
     types = mapper_msg_get_type(params, AT_DEST_MAX);
+    length = mapper_msg_get_length(params, AT_DEST_MAX);
     if (args && types) {
-        con->range.known |= CONNECTION_RANGE_DEST_MAX;
-        if (types[0] == 'f')
-            con->range.dest_max = (double)(*args)->f;
-        else if (types[0] == 'i')
-            con->range.dest_max = (double)(*args)->i;
-        else if (types[0] == 'd')
-            con->range.dest_max = (*args)->d;
+        if (length == con->dest_length) {
+            con->range.known |= CONNECTION_RANGE_DEST_MAX;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    con->range.dest_max[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    con->range.dest_max[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    con->range.dest_max[i] = args[i]->d;
+                else {
+                    con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
+                    break;
+                }
+            }
+        }
         else
             con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
     }
@@ -1567,14 +1603,24 @@ static int update_connection_record_params(mapper_db_connection con,
     /* @destMin */
     args = mapper_msg_get_param(params, AT_DEST_MIN);
     types = mapper_msg_get_type(params, AT_DEST_MIN);
+    length = mapper_msg_get_length(params, AT_DEST_MIN);
     if (args && types) {
-        con->range.known |= CONNECTION_RANGE_DEST_MIN;
-        if (types[0] == 'f')
-            con->range.dest_min = (double)(*args)->f;
-        else if (types[0] == 'i')
-            con->range.dest_min = (double)(*args)->i;
-        else if (types[0] == 'd')
-            con->range.dest_min = (*args)->d;
+        if (length == con->dest_length) {
+            con->range.known |= CONNECTION_RANGE_DEST_MIN;
+            int i;
+            for (i=0; i<length; i++) {
+                if (types[i] == 'f')
+                    con->range.dest_min[i] = (double)args[i]->f;
+                else if (types[i] == 'i')
+                    con->range.dest_min[i] = (double)args[i]->i;
+                else if (types[i] == 'd')
+                    con->range.dest_min[i] = args[i]->d;
+                else {
+                    con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
+                    break;
+                }
+            }
+        }
         else
             con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
     }

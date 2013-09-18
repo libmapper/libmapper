@@ -99,58 +99,50 @@ static double uniformd(double x)
     return rand() / (RAND_MAX + 1.0) * x;
 }
 
-static double lind(double x, double xmin, double xmax, double ymin, double ymax)
+static float linearf(float x, float srcmin, float srcmax,
+                      float destmin, float destmax)
 {
-    if (xmin == xmax)
-        return ymin;
+    if (srcmin == srcmax)
+        return destmin;
+    
+    float scale = ((destmin - destmax) / (srcmin - srcmax));
+    float offset = ((destmax * srcmin - destmin * srcmax) / (srcmin - srcmax));
+    
+    return x * scale + offset;
+}
 
-    double scale = ((ymin - ymax) / (xmin - xmax));
-    double offset = ((ymax * xmin - ymin * xmax) / (xmin - xmax));
+static double lineard(double x, double srcmin, double srcmax,
+                      double destmin, double destmax)
+{
+    if (srcmin == srcmax)
+        return destmin;
+
+    double scale = ((destmin - destmax) / (srcmin - srcmax));
+    double offset = ((destmax * srcmin - destmin * srcmax) / (srcmin - srcmax));
 
     return x * scale + offset;
 }
 
-static float linf(float x, double xmin, double xmax, double ymin, double ymax)
-{
-    return (float)lind((double)x, xmin, xmax, ymin, ymax);
-}
+typedef enum {
+    VAR_UNKNOWN=-1,
+    VAR_X=0,
+    VAR_SRCMIN,
+    VAR_SRCMAX,
+    VAR_Y,
+    VAR_DESTMIN,
+    VAR_DESTMAX,
+    N_VARS
+} expr_var_t;
 
-static int lini(int x, double xmin, double xmax, double ymin, double ymax)
+const char *var_strings[] =
 {
-    return (int)lind((double)x, xmin, xmax, ymin, ymax);
-}
-
-static double destmax(mapper_connection_range_t *range, int index)
-{
-    if (range && range->known & CONNECTION_RANGE_DEST_MAX)
-        return range->dest_max;
-    else
-        return 0;
-}
-
-static double destmin(mapper_connection_range_t *range, int index)
-{
-    if (range && range->known & CONNECTION_RANGE_DEST_MIN)
-        return range->dest_min;
-    else
-        return 0;
-}
-
-static double srcmax(mapper_connection_range_t *range, int index)
-{
-    if (range && range->known & CONNECTION_RANGE_SRC_MAX)
-        return range->src_max[index];
-    else
-        return 0;
-}
-
-static double srcmin(mapper_connection_range_t *range, int index)
-{
-    if (range && range->known & CONNECTION_RANGE_SRC_MIN)
-        return range->src_min[index];
-    else
-        return 0;
-}
+    "x",
+    "srcmin",
+    "srcmax",
+    "y",
+    "destmin",
+    "destmax",
+};
 
 typedef enum {
     FUNC_UNKNOWN=-1,
@@ -166,6 +158,7 @@ typedef enum {
     FUNC_CEIL,
     FUNC_COS,
     FUNC_COSH,
+    FUNC_E,
     FUNC_EXP,
     FUNC_EXP2,
     FUNC_FLOOR,
@@ -211,15 +204,13 @@ static struct {
     { "ceil",     1,    0,          ceilf,      ceil        },
     { "cos",      1,    0,          cosf,       cos         },
     { "cosh",     1,    0,          coshf,      cosh        },
-    { "destmax",  -1,   0,          0,          destmax     },
-    { "destmin",  -1,   0,          0,          destmin     },
     { "e",        0,    0,          ef,         ed          },
     { "exp",      1,    0,          expf,       exp         },
     { "exp2",     1,    0,          exp2f,      exp2        },
     { "floor",    1,    0,          floorf,     floor       },
     { "hypot",    2,    0,          hypotf,     hypot       },
     { "hzToMidi", 1,    0,          hzToMidif,  hzToMidid   },
-    { "linear",   5,    lini,       linf,       lind        },
+    { "linear",   5,    0,          linearf,    lineard     },
     { "log",      1,    0,          logf,       log         },
     { "log10",    1,    0,          log10f,     log10       },
     { "log2",     1,    0,          log2f,      log2        },
@@ -233,8 +224,6 @@ static struct {
     { "sin",      1,    0,          sinf,       sin         },
     { "sinh",     1,    0,          sinhf,      sinh        },
     { "sqrt",     1,    0,          sqrtf,      sqrt        },
-    { "srcmax",   -1,   0,          0,          srcmax      },
-    { "srcmin",   -1,   0,          0,          srcmin      },
     { "tan",      1,    0,          tanf,       tan         },
     { "tanh",     1,    0,          tanhf,      tanh        },
     { "trunc",    1,    0,          truncf,     trunc       },
@@ -298,16 +287,15 @@ static struct {
 typedef int func_int32_arity0();
 typedef int func_int32_arity1(int);
 typedef int func_int32_arity2(int,int);
-typedef int func_int32_arity5(int,double,double,double,double);
+typedef int func_int32_arity5(int,int,int,int,int);
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
-typedef float func_float_arity5(float,double,double,double,double);
+typedef float func_float_arity5(float,float,float,float,float);
 typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
 typedef double func_double_arity5(double,double,double,double,double);
-typedef double func_double_range_lookup(mapper_connection_range_t*,int);
 
 typedef struct _token {
     enum {
@@ -331,7 +319,7 @@ typedef struct _token {
         float f;
         int i;
         double d;
-        char var;
+        expr_var_t var;
         expr_op_t op;
         expr_func_t func;
     };
@@ -349,6 +337,16 @@ static expr_func_t function_lookup(const char *s, int len)
             return i;
     }
     return FUNC_UNKNOWN;
+}
+
+static expr_var_t variable_lookup(const char *s, int len)
+{
+    int i;
+    for (i=0; i<N_VARS; i++) {
+        if (strncmp(s, var_strings[i], len)==0)
+            return i;
+    }
+    return VAR_UNKNOWN;
 }
 
 static int expr_lex(const char *str, int index, mapper_token_t *tok)
@@ -538,11 +536,6 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
     case ')':
         tok->toktype = TOK_CLOSE_PAREN;
         return ++index;
-    case 'x':
-    case 'y':
-        tok->toktype = TOK_VAR;
-        tok->var = c;
-        return ++index;
     case '[':
         tok->toktype = TOK_OPEN_SQUARE;
         return ++index;
@@ -578,8 +571,16 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         }
         while (c && (isalpha(c) || isdigit(c)))
             c = str[++index];
-        tok->toktype = TOK_FUNC;
-        tok->func = function_lookup(str+i, index-i);
+        if ((tok->var = variable_lookup(str+i, index-i)) != VAR_UNKNOWN) {
+            tok->toktype = TOK_VAR;
+        }
+        else if ((tok->func = function_lookup(str+i, index-i)) != FUNC_UNKNOWN) {
+            tok->toktype = TOK_FUNC;
+        }
+        else {
+            printf("Unknown variable or function name `%s'.\n",str+i);
+            break;
+        }
         return index;
     }
 
@@ -639,8 +640,8 @@ void printtoken(mapper_token_t tok)
                                   tok.datatype);          break;
     case TOK_OPEN_PAREN:   printf("(");                   break;
     case TOK_CLOSE_PAREN:  printf(")");                   break;
-    case TOK_VAR:          printf("VAR(%c%c){%d}[%d]",
-                                  tok.var, tok.datatype,
+    case TOK_VAR:          printf("VAR(%s%c){%d}[%d]",
+                                  var_strings[tok.var], tok.datatype,
                                   tok.history_index,
                                   tok.vector_index);      break;
     case TOK_FUNC:         printf("FUNC(%s)%c",
@@ -874,7 +875,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
             case TOK_VAR:
                 // set datatype
-                tok.datatype = tok.var == 'x' ? input_type : output_type;
+                tok.datatype = tok.var < VAR_Y ? input_type : output_type;
                 tok.history_index = 0;
                 tok.vector_index = 0;
                 PUSH_TO_OUTPUT(tok);
@@ -947,7 +948,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
             case TOK_OPEN_CURLY:
                 if (outstack[outstack_index].toktype != TOK_VAR)
-                    {FAIL("Misplaced brackets.");}
+                    {FAIL("Misplaced brace.");}
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype == TOK_NEGATE) {
                     // if negative sign found, get next token
@@ -957,17 +958,19 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                     {FAIL("Non-integer history index.");}
                 outstack[outstack_index].history_index *= tok.i;
-                if (outstack[outstack_index].var == 'x') {
+                if (outstack[outstack_index].var == VAR_X) {
                     if (outstack[outstack_index].history_index > 0)
                         {FAIL("Input history index cannot be > 0.");}
                 }
-                else if (outstack[outstack_index].history_index > -1)
+                else if (outstack[outstack_index].var == VAR_Y) {
+                    if (outstack[outstack_index].history_index > -1)
                     {FAIL("Output history index cannot be > -1.");}
+                }
 
-                if (outstack[outstack_index].var == 'x'
+                if (outstack[outstack_index].var == VAR_X
                     && outstack[outstack_index].history_index < oldest_input)
                     oldest_input = outstack[outstack_index].history_index;
-                else if (outstack[outstack_index].var == 'y'
+                else if (outstack[outstack_index].var == VAR_Y
                          && outstack[outstack_index].history_index < oldest_output)
                     oldest_output = outstack[outstack_index].history_index;
                 GET_NEXT_TOKEN(tok);
@@ -1062,7 +1065,7 @@ int mapper_expr_evaluate(mapper_expr expr,
             {
                 int idx;
                 switch (tok->var) {
-                case 'x':
+                case VAR_X:
                     ++top;
                     idx = ((tok->history_index + from->position
                             + from->size) % from->size);
@@ -1082,7 +1085,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                             stack[i][top].i32 = v[i];
                     }
                     break;
-                case 'y':
+                case VAR_Y:
                     ++top;
                     idx = ((tok->history_index + to->position + 1
                             + to->size) % to->size);
@@ -1100,6 +1103,86 @@ int mapper_expr_evaluate(mapper_expr expr,
                         int *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < to->length; i++)
                             stack[i][top].i32 = v[i];
+                    }
+                    break;
+                case VAR_SRCMIN:
+                    if (!(range->known & CONNECTION_RANGE_SRC_MIN))
+                        goto error;
+                    ++top;
+                    if (tok->datatype == 'd') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].d = range->src_min[i];
+                        }
+                    }
+                    else if (tok->datatype == 'f') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].f = (float)range->src_min[i];
+                        }
+                    }
+                    else if (tok->datatype == 'i') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].i32 = (int)range->src_min[i];
+                        }
+                    }
+                    break;
+                case VAR_SRCMAX:
+                    if (!(range->known & CONNECTION_RANGE_SRC_MAX))
+                        goto error;
+                    ++top;
+                    if (tok->datatype == 'd') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].d = range->src_max[i];
+                        }
+                    }
+                    else if (tok->datatype == 'f') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].f = (float)range->src_max[i];
+                        }
+                    }
+                    else if (tok->datatype == 'i') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].i32 = (int)range->src_max[i];
+                        }
+                    }
+                    break;
+                case VAR_DESTMIN:
+                    if (!(range->known & CONNECTION_RANGE_DEST_MIN))
+                        goto error;
+                    ++top;
+                    if (tok->datatype == 'd') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].d = range->dest_min[i];
+                        }
+                    }
+                    else if (tok->datatype == 'f') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].f = (float)range->dest_min[i];
+                        }
+                    }
+                    else if (tok->datatype == 'i') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].i32 = (int)range->dest_min[i];
+                        }
+                    }
+                    break;
+                case VAR_DESTMAX:
+                    if (!(range->known & CONNECTION_RANGE_DEST_MAX))
+                        goto error;
+                    ++top;
+                    if (tok->datatype == 'd') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].d = range->dest_max[i];
+                        }
+                    }
+                    else if (tok->datatype == 'f') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].f = (float)range->dest_max[i];
+                        }
+                    }
+                    else if (tok->datatype == 'i') {
+                        for (i = 0; i < to->length; i++) {
+                            stack[i][top].i32 = (int)range->dest_max[i];
+                        }
                     }
                     break;
                 default: goto error;
@@ -1332,16 +1415,18 @@ int mapper_expr_evaluate(mapper_expr expr,
                             stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f);
                             trace_eval("%f\n", stack[i][top].f);
                             break;
+                        case 5:
+                            trace_eval("%s(%f,%f,%f,%f,%f) = ", function_table[tok->func].name,
+                                       stack[i][top].f, stack[i][top+1].f, stack[i][top+2].f,
+                                       stack[i][top+3].f, stack[i][top+4].f);
+                            stack[i][top].f = ((func_float_arity5*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f, stack[i][top+2].f, stack[i][top+3].f, stack[i][top+4].f);
+                            trace_eval("%f\n", stack[i][top].f);
+                            break;
                         default: goto error;
                     }
                 }
                 else if (tok->datatype == 'd') {
                     switch (function_table[tok->func].arity) {
-                        case -1:
-                            trace_eval("%s(%f) = ", function_table[tok->func].name, i);
-                            stack[i][top].d = ((func_double_range_lookup*)function_table[tok->func].func_double)(range, i);
-                            trace_eval("%f\n", stack[i][top].d);
-                            break;
                         case 0:
                             stack[i][top].d = ((func_double_arity0*)function_table[tok->func].func_double)();
                             trace_eval("%s = %f\n", function_table[tok->func].name,
@@ -1356,6 +1441,13 @@ int mapper_expr_evaluate(mapper_expr expr,
                             trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
                                        stack[i][top].d, stack[i][top+1].d);
                             stack[i][top].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
+                            trace_eval("%f\n", stack[i][top].d);
+                            break;
+                        case 5:
+                            trace_eval("%s(%f,%f,%f,%f,%f) = ", function_table[tok->func].name,
+                                       stack[i][top].d, stack[i][top+1].d, stack[i][top+2].d,
+                                       stack[i][top+3].d, stack[i][top+4].d);
+                            stack[i][top].d = ((func_double_arity5*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d, stack[i][top+2].d, stack[i][top+3].d, stack[i][top+4].d);
                             trace_eval("%f\n", stack[i][top].d);
                             break;
                         default: goto error;

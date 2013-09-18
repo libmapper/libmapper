@@ -726,14 +726,15 @@ void _real_mapper_admin_send(mapper_admin admin,
         mapper_admin_send_bundle(admin);
 }
 
-void _real_mapper_admin_send_with_params(const char *file, int line,
-                                         mapper_admin admin,
+void _real_mapper_admin_send_with_params(mapper_admin admin,
                                          mapper_message_t *params,
                                          mapper_string_table_t *extra,
                                          int msg_index,
                                          const char *path,
                                          const char *types, ...)
 {
+    char t[]=" ";
+
     lo_message m = lo_message_new();
     if (!m) {
         trace("couldn't allocate lo_message\n");
@@ -742,7 +743,23 @@ void _real_mapper_admin_send_with_params(const char *file, int line,
 
     va_list aq;
     va_start(aq, types);
-    lo_message_add_varargs_internal(m, types, aq, file, line);
+
+    while (types && *types) {
+        t[0] = types[0];
+        switch (t[0]) {
+            case 'i': lo_message_add(m, t, va_arg(aq, int)); break;
+            case 's': lo_message_add(m, t, va_arg(aq, char*)); break;
+            case 'f': lo_message_add(m, t, va_arg(aq, double)); break;
+            default:
+                die_unless(0, "message %s, unknown type '%c'\n",
+                           path, t[0]);
+        }
+        types++;
+    }
+
+    mapper_msg_prepare_varargs(m, aq);
+
+    va_end(aq);
 
     mapper_msg_prepare_params(m, params);
     if (extra)
@@ -1798,25 +1815,15 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_LENGTH] = &arg_length;
     params.types[AT_LENGTH] = "i";
 
-    lo_arg *arg_min = (lo_arg*) input->props.minimum;
-    if (!params.values[AT_MIN] && input->props.minimum) {
-        params.values[AT_MIN] = &arg_min;
-        params.types[AT_MIN] = &input->props.type;
-    }
-
-    lo_arg *arg_max = (lo_arg*) input->props.maximum;
-    if (!params.values[AT_MAX] && input->props.maximum) {
-        params.values[AT_MAX] = &arg_max;
-        params.types[AT_MAX] = &input->props.type;
-    }
-
     lo_arg *arg_num_instances = (lo_arg*) &input->props.num_instances;
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
 
     mapper_admin_send_with_params(
         admin, &params, input->props.extra,
-        ADM_CONNECT_TO, 0, "ss", src_name, dest_name);
+        ADM_CONNECT_TO, 0, "ss", src_name, dest_name,
+        (!params.values[AT_MIN] && input->props.minimum) ? AT_MIN : -1, input,
+        (!params.values[AT_MAX] && input->props.maximum) ? AT_MAX : -1, input);
 
     return 0;
 }

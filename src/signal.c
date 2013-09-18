@@ -1005,16 +1005,26 @@ int msig_full_name(mapper_signal sig, char *name, int len)
 
 void msig_set_minimum(mapper_signal sig, void *minimum)
 {
+    int i;
     if (minimum) {
         if (!sig->props.minimum)
             sig->props.minimum = (mapper_signal_value_t *)
-            malloc(sizeof(mapper_signal_value_t));
-        if (sig->props.type == 'f')
-            sig->props.minimum->f = *(float*)minimum;
-        else if (sig->props.type == 'i')
-            sig->props.minimum->i32 = *(int*)minimum;
-        else if (sig->props.type == 'd')
-            sig->props.minimum->d = *(double*)minimum;
+                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+        if (sig->props.type == 'f') {
+            float *val = (float *)minimum;
+            for (i=0; i<sig->props.length; i++)
+                sig->props.minimum[i].f = val[i];
+        }
+        else if (sig->props.type == 'i') {
+            int *val = (int *)minimum;
+            for (i=0; i<sig->props.length; i++)
+                sig->props.minimum[i].i32 = val[i];
+        }
+        else if (sig->props.type == 'd') {
+            double *val = (double *)minimum;
+            for (i=0; i<sig->props.length; i++)
+                sig->props.minimum[i].d = val[i];
+        }
     }
     else {
         if (sig->props.minimum)
@@ -1025,16 +1035,26 @@ void msig_set_minimum(mapper_signal sig, void *minimum)
 
 void msig_set_maximum(mapper_signal sig, void *maximum)
 {
+    int i;
     if (maximum) {
         if (!sig->props.maximum)
             sig->props.maximum = (mapper_signal_value_t *)
-            malloc(sizeof(mapper_signal_value_t));
-        if (sig->props.type == 'f')
-            sig->props.maximum->f = *(float*)maximum;
-        else if (sig->props.type == 'i')
-            sig->props.maximum->i32 = *(int*)maximum;
-        else if (sig->props.type == 'd')
-            sig->props.maximum->d = *(double*)maximum;
+                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+        if (sig->props.type == 'f') {
+            float *val = (float *)maximum;
+            for (i=0; i<sig->props.length; i++)
+                sig->props.maximum[i].f = val[i];
+        }
+        else if (sig->props.type == 'i') {
+            int *val = (int *)maximum;
+            for (i=0; i<sig->props.length; i++)
+                sig->props.maximum[i].i32 = val[i];
+        }
+        else if (sig->props.type == 'd') {
+            double *val = (double *)maximum;
+            for (i=0; i<sig->props.length; i++)
+            sig->props.maximum[i].d = val[i];
+        }
     }
     else {
         if (sig->props.maximum)
@@ -1063,42 +1083,16 @@ void msig_set_property(mapper_signal sig, const char *property,
 
     if (strcmp(property, "min") == 0 ||
         strcmp(property, "minimum") == 0) {
-        if (type == 'i') {
-            if (sig->props.type == 'i')
-                msig_set_minimum(sig, value);
-            else if (sig->props.type == 'f') {
-                float f = (float)value->i32;
-                msig_set_minimum(sig, &f);
-            }
-        }
-        else if (type == 'f') {
-            if (sig->props.type == 'i') {
-                int i = (int)value->f;
-                msig_set_minimum(sig, &i);
-            }
-            else if (sig->props.type == 'f')
-                msig_set_minimum(sig, value);
-        }
+        if (type == sig->props.type)
+            msig_set_minimum(sig, value);
+        // TODO: if types differ need to cast entire vector
         return;
     }
     else if (strcmp(property, "max") == 0 ||
              strcmp(property, "maximum") == 0) {
-        if (type == 'i') {
-            if (sig->props.type == 'i')
-                msig_set_maximum(sig, value);
-            else if (sig->props.type == 'f') {
-                float f = (float)value->i32;
-                msig_set_maximum(sig, &f);
-            }
-        }
-        else if (type == 'f') {
-            if (sig->props.type == 'i') {
-                int i = (int)value->f;
-                msig_set_maximum(sig, &i);
-            }
-            else if (sig->props.type == 'f')
-                msig_set_maximum(sig, value);
-        }
+        if (type == sig->props.type)
+            msig_set_maximum(sig, value);
+        // TODO: if types differ need to cast entire vector
         return;
     }
     else if ((strcmp(property, "unit") == 0 ||
