@@ -113,6 +113,7 @@ typedef enum {
     FUNC_CEIL,
     FUNC_COS,
     FUNC_COSH,
+    FUNC_E,
     FUNC_EXP,
     FUNC_EXP2,
     FUNC_FLOOR,
