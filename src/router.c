@@ -523,6 +523,10 @@ static void mapper_router_free_connection(mapper_router r,
             free(c->props.range.src_min);
         if (c->props.range.src_max)
             free(c->props.range.src_max);
+        if (c->props.range.dest_min)
+            free(c->props.range.dest_min);
+        if (c->props.range.dest_max)
+            free(c->props.range.dest_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);

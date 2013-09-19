@@ -346,6 +346,10 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
             free(c->props.range.src_min);
         if (c->props.range.src_max)
             free(c->props.range.src_max);
+        if (c->props.range.dest_min)
+            free(c->props.range.dest_min);
+        if (c->props.range.dest_max)
+            free(c->props.range.dest_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);
