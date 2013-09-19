@@ -132,7 +132,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                      * other means. */
                     // TODO: should use OSC "false" type instead?
                 }
-                else if (types[i] != 'i' && types[i] != 'f') {
+                else if (types[i] != 'i' && types[i] != 'f' && types[i] != 'd') {
                     /* range parameter bad type */
 #ifdef DEBUG
                     trace("message %s, @range parameter ", path);
