@@ -339,7 +339,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
     mapper_connection con;
-    mapper_connection_range_t *range = 0;
 
     while (pa != N_AT_PARAMS)
     {
@@ -423,25 +422,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, mapper_boundary_action_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
-            break;
-        case AT_RANGE:
-            range = va_arg(aq, mapper_connection_range_t*);
-            if (range->known & CONNECTION_RANGE_SRC_MIN)
-                lo_message_add_double(m, range->src_min[0]);
-            else
-                lo_message_add_string(m, "-");
-            if (range->known & CONNECTION_RANGE_SRC_MAX)
-                lo_message_add_double(m, range->src_max[0]);
-            else
-                lo_message_add_string(m, "-");
-            if (range->known & CONNECTION_RANGE_DEST_MIN)
-                lo_message_add_double(m, range->dest_min[0]);
-            else
-                lo_message_add_string(m, "-");
-            if (range->known & CONNECTION_RANGE_DEST_MAX)
-                lo_message_add_double(m, range->dest_max[0]);
-            else
-                lo_message_add_string(m, "-");
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_connection);

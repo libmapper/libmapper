@@ -562,8 +562,14 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                            ? AT_BOUND_MIN : -1, props->bound_min,
                            (props_flags & CONNECTION_BOUND_MAX)
                            ? AT_BOUND_MAX : -1, props->bound_max,
-                           (props_flags & CONNECTION_RANGE_KNOWN)
-                           ? AT_RANGE : -1, &props->range,
+                           (props_flags & CONNECTION_RANGE_SRC_MIN)
+                           ? AT_SRC_MIN : -1, props,
+                           (props_flags & CONNECTION_RANGE_SRC_MAX)
+                           ? AT_SRC_MAX : -1, props,
+                           (props_flags & CONNECTION_RANGE_DEST_MIN)
+                           ? AT_DEST_MIN : -1, props,
+                           (props_flags & CONNECTION_RANGE_DEST_MAX)
+                           ? AT_DEST_MAX : -1, props,
                            (props_flags & CONNECTION_EXPRESSION)
                            ? AT_EXPRESSION : -1, props->expression,
                            (props_flags & CONNECTION_MODE)
@@ -586,8 +592,14 @@ void mapper_monitor_connect(mapper_monitor mon,
                            ? AT_BOUND_MIN : -1, props->bound_min,
                            (props_flags & CONNECTION_BOUND_MAX)
                            ? AT_BOUND_MAX : -1, props->bound_max,
-                           (props_flags & CONNECTION_RANGE_KNOWN)
-                           ? AT_RANGE : -1, &props->range,
+                           (props_flags & CONNECTION_RANGE_SRC_MIN)
+                           ? AT_SRC_MIN : -1, props,
+                           (props_flags & CONNECTION_RANGE_SRC_MAX)
+                           ? AT_SRC_MAX : -1, props,
+                           (props_flags & CONNECTION_RANGE_DEST_MIN)
+                           ? AT_DEST_MIN : -1, props,
+                           (props_flags & CONNECTION_RANGE_DEST_MAX)
+                           ? AT_DEST_MAX : -1, props,
                            (props_flags & CONNECTION_EXPRESSION)
                            ? AT_EXPRESSION : -1, props->expression,
                            (props_flags & CONNECTION_MODE)
