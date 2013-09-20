@@ -1109,19 +1109,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (!(range->known & CONNECTION_RANGE_SRC_MIN))
                         goto error;
                     ++top;
-                    if (tok->datatype == 'd') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->src_min[i];
+                    if (from->type == 'd') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].d = range->src_min[i].d;
                         }
                     }
-                    else if (tok->datatype == 'f') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = (float)range->src_min[i];
+                    else if (from->type == 'f') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].f = (float)range->src_min[i].f;
                         }
                     }
-                    else if (tok->datatype == 'i') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = (int)range->src_min[i];
+                    else if (from->type == 'i') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].i32 = (int)range->src_min[i].i32;
                         }
                     }
                     break;
@@ -1129,19 +1129,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (!(range->known & CONNECTION_RANGE_SRC_MAX))
                         goto error;
                     ++top;
-                    if (tok->datatype == 'd') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->src_max[i];
+                    if (from->type == 'd') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].d = range->src_max[i].d;
                         }
                     }
-                    else if (tok->datatype == 'f') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = (float)range->src_max[i];
+                    else if (from->type == 'f') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].f = range->src_max[i].f;
                         }
                     }
-                    else if (tok->datatype == 'i') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = (int)range->src_max[i];
+                    else if (from->type == 'i') {
+                        for (i = 0; i < from->length; i++) {
+                            stack[i][top].i32 = range->src_max[i].i32;
                         }
                     }
                     break;
@@ -1149,19 +1149,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (!(range->known & CONNECTION_RANGE_DEST_MIN))
                         goto error;
                     ++top;
-                    if (tok->datatype == 'd') {
+                    if (to->type == 'd') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->dest_min[i];
+                            stack[i][top].d = range->dest_min[i].d;
                         }
                     }
-                    else if (tok->datatype == 'f') {
+                    else if (to->type == 'f') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = (float)range->dest_min[i];
+                            stack[i][top].f = range->dest_min[i].f;
                         }
                     }
-                    else if (tok->datatype == 'i') {
+                    else if (to->type == 'i') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = (int)range->dest_min[i];
+                            stack[i][top].i32 = range->dest_min[i].i32;
                         }
                     }
                     break;
@@ -1169,19 +1169,19 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (!(range->known & CONNECTION_RANGE_DEST_MAX))
                         goto error;
                     ++top;
-                    if (tok->datatype == 'd') {
+                    if (to->type == 'd') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->dest_max[i];
+                            stack[i][top].d = range->dest_max[i].d;
                         }
                     }
-                    else if (tok->datatype == 'f') {
+                    else if (to->type == 'f') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = (float)range->dest_max[i];
+                            stack[i][top].f = range->dest_max[i].f;
                         }
                     }
-                    else if (tok->datatype == 'i') {
+                    else if (to->type == 'i') {
                         for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = (int)range->dest_max[i];
+                            stack[i][top].i32 = range->dest_max[i].i32;
                         }
                     }
                     break;

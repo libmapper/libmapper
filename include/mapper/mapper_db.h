@@ -78,14 +78,25 @@ typedef struct _mapper_db_device {
 #define CONNECTION_SEND_AS_INSTANCE 0x0200
 #define CONNECTION_ALL              0x0FFF
 
+/*! A signal value may be one of several different types, so we use a
+ *  union to represent this.  The appropriate selection from this
+ *  union is determined by the mapper_signal::type variable.
+ *  @ingroup signaldb */
+
+typedef union _mapper_signal_value {
+    float f;
+    double d;
+    int i32;
+} mapper_signal_value_t, mval;
+
 /*! A structure to keep range information, with a bitfield indicating
  *  which parts of the range are known.
  *  @ingroup connectiondb */
 typedef struct _mapper_connection_range {
-    double *src_min;    //!< Array of source minima.
-    double *src_max;    //!< Array of source maxima.
-    double *dest_min;    //!< Destination minimum.
-    double *dest_max;    //!< Destination maximum.
+    mval *src_min;    //!< Array of source minima.
+    mval *src_max;    //!< Array of source maxima.
+    mval *dest_min;    //!< Destination minimum.
+    mval *dest_max;    //!< Destination maximum.
     int known;          /*!< Bitfield identifying which range
                          *   extremities are known. */
 } mapper_connection_range_t;
@@ -159,17 +170,6 @@ typedef struct _mapper_db_connection {
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
 } mapper_db_connection_t, *mapper_db_connection;
-
-/*! A signal value may be one of several different types, so we use a
- *  union to represent this.  The appropriate selection from this
- *  union is determined by the mapper_signal::type variable.
- *  @ingroup signaldb */
-
-typedef union _mapper_signal_value {
-    float f;
-    double d;
-    int i32;
-} mapper_signal_value_t, mval;
 
 /*! A structure that stores the current and historical values and timetags
  *  of a signal. The size of the history arrays is determined by the needs

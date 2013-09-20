@@ -954,6 +954,24 @@ void mapper_db_device_done(mapper_db_device_t **d)
         lh->query_context->query_free(lh);
 }
 
+// Helper for printing mvals
+static void mval_sprintf(char *str, mval value, const char type)
+{
+    switch (type) {
+        case 'f':
+            sprintf(str, "%f", value.f);
+            break;
+        case 'i':
+            sprintf(str, "%i", value.i32);
+            break;
+        case 'd':
+            sprintf(str, "%f", value.d);
+            break;
+        default:
+            break;
+    }
+}
+
 void mapper_db_dump(mapper_db db)
 {
     int i;
@@ -990,7 +1008,7 @@ void mapper_db_dump(mapper_db db)
             if (con->src_length > 1)
                 sprintf(r+strlen(r), "[");
             for (i=0; i<con->src_length; i++) {
-                sprintf(r+strlen(r), "%f", con->range.src_min[i]);
+                mval_sprintf(r+strlen(r), con->range.src_min[i], con->src_type);
                 if (i < con->src_length-1)
                     sprintf(r+strlen(r), ", ");
             }
@@ -1005,7 +1023,7 @@ void mapper_db_dump(mapper_db db)
             if (con->src_length > 1)
                 sprintf(r+strlen(r), "[");
             for (i=0; i<con->src_length; i++) {
-                sprintf(r+strlen(r), "%f", con->range.src_max[i]);
+                mval_sprintf(r+strlen(r), con->range.src_max[i], con->src_type);
                 if (i < con->src_length-1)
                     sprintf(r+strlen(r), ", ");
             }
@@ -1020,7 +1038,7 @@ void mapper_db_dump(mapper_db db)
             if (con->dest_length > 1)
                 sprintf(r+strlen(r), "[");
             for (i=0; i<con->dest_length; i++) {
-                sprintf(r+strlen(r), "%f", con->range.dest_min[i]);
+                mval_sprintf(r+strlen(r), con->range.dest_min[i], con->dest_type);
                 if (i < con->dest_length-1)
                     sprintf(r+strlen(r), ", ");
             }
@@ -1035,7 +1053,7 @@ void mapper_db_dump(mapper_db db)
             if (con->dest_length > 1)
                 sprintf(r+strlen(r), "[");
             for (i=0; i<con->dest_length; i++) {
-                sprintf(r+strlen(r), "%f", con->range.dest_max[i]);
+                mval_sprintf(r+strlen(r), con->range.dest_max[i], con->dest_type);
                 if (i < con->dest_length-1)
                     sprintf(r+strlen(r), ", ");
             }
@@ -1455,6 +1473,32 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /**** Connection records ****/
 
+// Helper for setting mval from different lo_arg types
+static int mval_set_from_lo_arg(mval *dest, const char dest_type,
+                                lo_arg *src, const char src_type)
+{
+    if (dest_type == 'f') {
+        if (src_type == 'f')        dest->f = src->f;
+        else if (src_type == 'i')   dest->f = (float)src->i;
+        else if (src_type == 'd')   dest->f = (float)src->d;
+        else                        return 1;
+    }
+    else if (dest_type == 'i') {
+        if (src_type == 'f')        dest->i32 = (int)src->f;
+        else if (src_type == 'i')   dest->i32 = src->i;
+        else if (src_type == 'd')   dest->i32 = (int)src->d;
+        else                        return 1;
+    }
+    else if (dest_type == 'd') {
+        if (src_type == 'f')        dest->d = (double)src->f;
+        else if (src_type == 'i')   dest->d = (double)src->i;
+        else if (src_type == 'd')   dest->d = src->d;
+        else                        return 1;
+    }
+    return 0;
+}
+
+
 /*! Update information about a given connection record based on
  *  message parameters. */
 static int update_connection_record_params(mapper_db_connection con,
@@ -1462,7 +1506,10 @@ static int update_connection_record_params(mapper_db_connection con,
                                            const char *dest_name,
                                            mapper_message_t *params)
 {
+    lo_arg **args;
+    const char *types;
     int updated = 0;
+
     updated += update_string_if_different(&con->src_name, src_name);
     updated += update_string_if_different(&con->dest_name, dest_name);
     updated += update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
@@ -1481,50 +1528,6 @@ static int update_connection_record_params(mapper_db_connection con,
         updated++;
     }
 
-    lo_arg **args = mapper_msg_get_param(params, AT_RANGE);
-    const char *types = mapper_msg_get_type(params, AT_RANGE);
-    if (args && types) {
-        con->range.known = CONNECTION_RANGE_SRC_MAX |
-        CONNECTION_RANGE_SRC_MIN |
-        CONNECTION_RANGE_DEST_MAX |
-        CONNECTION_RANGE_DEST_MIN;
-        if (types[0] == 'f')
-            con->range.src_min[0] = (double)args[0]->f;
-        else if (types[0] == 'i')
-            con->range.src_min[0] = (double)args[0]->i;
-        else if (types[0] == 'd')
-            con->range.src_min[0] = args[0]->d;
-        else
-            con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
-
-        if (types[1] == 'f')
-            con->range.src_max[0] = (double)args[1]->f;
-        else if (types[1] == 'i')
-            con->range.src_max[0] = (double)args[1]->i;
-        else if (types[1] == 'd')
-            con->range.src_max[0] = args[1]->d;
-        else
-            con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
-
-        if (types[2] == 'f')
-            con->range.dest_min[0] = (double)args[2]->f;
-        else if (types[2] == 'i')
-            con->range.dest_min[0] = (double)args[2]->i;
-        else if (types[2] == 'd')
-            con->range.dest_min[0] = args[2]->d;
-        else
-            con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
-
-        if (types[3] == 'f')
-            con->range.dest_max[0] = (double)args[3]->f;
-        else if (types[3] == 'i')
-            con->range.dest_max[0] = (double)args[3]->i;
-        else if (types[3] == 'd')
-            con->range.dest_max[0] = args[3]->d;
-        else
-            con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
-    }
-
     /* @srcMax */
     args = mapper_msg_get_param(params, AT_SRC_MAX);
     types = mapper_msg_get_type(params, AT_SRC_MAX);
@@ -1534,13 +1537,8 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (types[i] == 'f')
-                    con->range.src_max[i] = (double)args[i]->f;
-                else if (types[i] == 'i')
-                    con->range.src_max[i] = (double)args[i]->i;
-                else if (types[i] == 'd')
-                    con->range.src_max[i] = args[i]->d;
-                else {
+                if (mval_set_from_lo_arg(&con->range.src_max[i], con->src_type,
+                                         args[i], types[i])) {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
@@ -1559,13 +1557,8 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (types[i] == 'f')
-                    con->range.src_min[i] = (double)args[i]->f;
-                else if (types[i] == 'i')
-                    con->range.src_min[i] = (double)args[i]->i;
-                else if (types[i] == 'd')
-                    con->range.src_min[i] = args[i]->d;
-                else {
+                if (mval_set_from_lo_arg(&con->range.src_min[i], con->src_type,
+                                         args[i], types[i])) {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
@@ -1584,13 +1577,8 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (types[i] == 'f')
-                    con->range.dest_max[i] = (double)args[i]->f;
-                else if (types[i] == 'i')
-                    con->range.dest_max[i] = (double)args[i]->i;
-                else if (types[i] == 'd')
-                    con->range.dest_max[i] = args[i]->d;
-                else {
+                if (mval_set_from_lo_arg(&con->range.dest_max[i], con->dest_type,
+                                         args[i], types[i])) {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
@@ -1609,13 +1597,8 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (types[i] == 'f')
-                    con->range.dest_min[i] = (double)args[i]->f;
-                else if (types[i] == 'i')
-                    con->range.dest_min[i] = (double)args[i]->i;
-                else if (types[i] == 'd')
-                    con->range.dest_min[i] = args[i]->d;
-                else {
+                if (mval_set_from_lo_arg(&con->range.dest_min[i], con->dest_type,
+                                         args[i], types[i])) {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }

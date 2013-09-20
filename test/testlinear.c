@@ -89,7 +89,11 @@ void cleanup_destination()
 
 int setup_connection()
 {
-    double src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
+    mval src_min, src_max, dest_min, dest_max;
+    src_min.f = 0.;
+    src_max.f = 1.;
+    dest_min.f = -10.;
+    dest_max.f = 10.;
 
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
@@ -111,6 +115,8 @@ int setup_connection()
     props.range = range;
     props.src_length = 1;
     props.dest_length = 1;
+    props.src_type = 'f';
+    props.dest_type = 'f';
     props.mode = MO_LINEAR;
 
     mapper_monitor_connect(mon, src_name, dest_name, &props,
