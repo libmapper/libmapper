@@ -44,7 +44,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testquery-send", 0, 0);
+    source = mdev_new("testreverse-send", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -76,7 +76,7 @@ void cleanup_source()
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testquery-recv", 0, 0);
+    destination = mdev_new("testreverse-recv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -121,23 +121,27 @@ void loop()
     int i = 0;
 
     if (automate) {
-        char source_name[1024], destination_name[1024];
+        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
+        char src_name[1024], dest_name[1024];
+        mapper_monitor_link(mon, mdev_name(source),
+                            mdev_name(destination), 0, 0);
 
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
+        msig_full_name(sendsig, src_name, 1024);
+        msig_full_name(recvsig, dest_name, 1024);
+        mapper_db_connection_t props;
+        props.mode = MO_REVERSE;
+        mapper_monitor_connect(mon, src_name, dest_name, &props,
+                               CONNECTION_MODE);
 
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+        // wait until connection has been established
+        while (!destination->receivers ||
+               !destination->receivers->n_connections) {
+            mdev_poll(source, 1);
+            mdev_poll(destination, 1);
+        }
 
-        msig_full_name(sendsig, source_name, 1024);
-        msig_full_name(recvsig, destination_name, 1024);
-
-        lo_send(a, "/connect", "ssss", source_name, destination_name,
-                "@mode", "reverse");
-
-        lo_address_free(a);
+        mapper_monitor_free(mon);
     }
 
     while (i >= 0 && !done) {

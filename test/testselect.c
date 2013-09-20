@@ -27,7 +27,7 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", 0, 0);
+    source = mdev_new("testselect-send", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -72,7 +72,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", 0, 0);
+    destination = mdev_new("testselect-recv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -100,7 +100,38 @@ void cleanup_destination()
     }
 }
 
+int setup_connection()
+{
+    int count = 0;
 
+    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    if (!mon)
+        goto error;
+
+    char src_name[1024], dest_name[1024];
+    mapper_monitor_link(mon, mdev_name(source),
+                        mdev_name(destination), 0, 0);
+
+    msig_full_name(sendsig, src_name, 1024);
+    msig_full_name(recvsig, dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
+    // wait until connection has been established
+    while (!source->routers || !source->routers->n_connections) {
+        if (count++ > 50)
+            goto error;
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+    }
+    printf("Connection established.\n");
+
+    mapper_monitor_free(mon);
+
+    return 0;
+
+  error:
+    return 1;
+}
 
 void wait_local_devices()
 {
@@ -169,20 +200,6 @@ void loop()
     printf("-------------------- GO ! --------------------\n");
     int i = 0;
 
-    if (automate) {
-        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
-
-        char src_name[1024], dest_name[1024];
-        mapper_monitor_link(mon, mdev_name(source),
-                            mdev_name(destination), 0, 0);
-
-        msig_full_name(sendsig, src_name, 1024);
-        msig_full_name(recvsig, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-        mapper_monitor_free(mon);
-    }
-
     while (i >= 0 && !done) {
         select_on_both_devices();
 
@@ -191,6 +208,9 @@ void loop()
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
 
         i++;
+        sent++;
+        if (automate && sent >= 20)
+            break;
     }
 }
 
@@ -212,17 +232,27 @@ int main()
     }
 
     if (setup_source()) {
-        printf("Done initializing source.\n");
+        printf("Error initializing source.\n");
         result = 1;
         goto done;
     }
 
     wait_local_devices();
 
+    if (automate && setup_connection()) {
+        printf("Error initializing connection.\n");
+        result = 1;
+        goto done;
+    }
+
     loop();
+
+    result = (sent != received);
 
   done:
     cleanup_destination();
     cleanup_source();
+    printf("Sent %i messages; received %i messages.\nTest %s.\n",
+           sent, received, result ? "FAILED" : "PASSED");
     return result;
 }

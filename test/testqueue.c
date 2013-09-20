@@ -118,13 +118,13 @@ int create_connections()
     msig_full_name(recvsig1, dest_name, 1024);
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-    mapper_monitor_free(mon);
-
-    int i = 0;
-    while (i++ < 10) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    // wait until connection has been established
+    while (!source->routers || !source->routers->n_connections) {
+        mdev_poll(source, 1);
+        mdev_poll(destination, 1);
     }
+
+    mapper_monitor_free(mon);
 
     return 0;
 }
