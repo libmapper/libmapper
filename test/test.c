@@ -168,6 +168,12 @@ void loop()
         msig_full_name(recvsig_2, dest_name, 1024);
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
+        // wait until connection has been established
+        while (!source->routers || !source->routers->n_connections) {
+            mdev_poll(source, 1);
+            mdev_poll(destination, 1);
+        }
+
         mapper_monitor_free(mon);
     }
 

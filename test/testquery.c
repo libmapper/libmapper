@@ -142,24 +142,25 @@ void loop()
     int i = 10, j = 0, count;
 
     if (automate) {
-        char source_name[1024], destination_name[1024];
+        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-        printf("%s\n", mdev_name(source));
-        printf("%s\n", mdev_name(destination));
-
-        lo_address a = lo_address_new_from_url("osc.udp://224.0.1.3:7570");
-        lo_address_set_ttl(a, 1);
-
-        lo_send(a, "/link", "ss", mdev_name(source), mdev_name(destination));
+        char src_name[1024], dest_name[1024];
+        mapper_monitor_link(mon, mdev_name(source),
+                            mdev_name(destination), 0, 0);
 
         for (int i = 0; i < 4; i++) {
-            msig_full_name(sendsig[i], source_name, 1024);
-            msig_full_name(recvsig[i], destination_name, 1024);
-
-            lo_send(a, "/connect", "ss", source_name, destination_name);
+            msig_full_name(sendsig[i], src_name, 1024);
+            msig_full_name(recvsig[i], dest_name, 1024);
+            mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
         }
 
-        lo_address_free(a);
+        // wait until connection has been established
+        while (!source->routers || !source->routers->n_connections) {
+            mdev_poll(source, 1);
+            mdev_poll(destination, 1);
+        }
+
+        mapper_monitor_free(mon);
     }
 
     while (i >= 0 && !done) {
