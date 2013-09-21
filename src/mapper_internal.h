@@ -710,7 +710,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
                                         char output_type,
-                                        int vector_size,
+                                        int input_vector_size,
+                                        int output_vector_size,
                                         int *input_history_size,
                                         int *output_history_size);
 

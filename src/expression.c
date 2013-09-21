@@ -528,7 +528,8 @@ struct _mapper_expr
 {
     mapper_token start;
     int length;
-    int vector_size;
+    int input_vector_size;
+    int output_vector_size;
     int input_history_size;
     int output_history_size;
 };
@@ -784,7 +785,8 @@ static int add_typecast(mapper_token_t *stack, int top)
 mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
                                         char output_type,
-                                        int vector_size,
+                                        int input_vector_size,
+                                        int output_vector_size,
                                         int *input_history_size,
                                         int *output_history_size)
 {
@@ -947,7 +949,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     expr->length = outstack_index + 1;
     expr->start = malloc(sizeof(struct _token)*expr->length);
     memcpy(expr->start, &outstack, sizeof(struct _token)*expr->length);
-    expr->vector_size = vector_size;
+    expr->input_vector_size = input_vector_size;
+    expr->output_vector_size = output_vector_size;
     expr->input_history_size = *input_history_size = -oldest_input+1;
     expr->output_history_size = *output_history_size = -oldest_output+1;
     return expr;
