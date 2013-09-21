@@ -1116,12 +1116,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                     }
                     else if (from->type == 'f') {
                         for (i = 0; i < from->length; i++) {
-                            stack[i][top].f = (float)range->src_min[i].f;
+                            stack[i][top].f = range->src_min[i].f;
                         }
                     }
                     else if (from->type == 'i') {
                         for (i = 0; i < from->length; i++) {
-                            stack[i][top].i32 = (int)range->src_min[i].i32;
+                            stack[i][top].i32 = range->src_min[i].i32;
                         }
                     }
                     break;
