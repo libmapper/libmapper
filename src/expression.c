@@ -880,6 +880,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Non-integer vector index.");}
                 else if (tok.i != 0)
                     {FAIL("Vector indexing disabled for now.");}
+                if (outstack[outstack_index].var == 'x') {
+                    if (tok.i >= input_vector_size)
+                        {FAIL("Index exceeds vector length");}
+                }
+                else if (tok.i >= output_vector_size)
+                    {FAIL("Index exceeds vector length");}
                 outstack[outstack_index].vector_index = tok.i;
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype != TOK_CLOSE_SQUARE)
