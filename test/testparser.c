@@ -16,10 +16,11 @@ static double get_current_time()
 
 int main()
 {
-    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
+//    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
     //const char str[] = "y=x?1:2";
+    const char str[] = "y=12.3 * [x[1], 23] + 100";
     int input_history_size, output_history_size;
-    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 1, 1,
+    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 3, 2,
                                                 &input_history_size,
                                                 &output_history_size);
     printf("Parsing %s\n", str);
@@ -29,25 +30,25 @@ int main()
 #endif
     printf("\n");
 
-    float inp = 3.0, outp;
+    float inp[] = {1.0, 2.0, 3.0}, outp[] = {-1., -1.};
 
     // create signal_history structures
     mapper_signal_history_t inh, outh;
     inh.type = 'f';
     inh.size = 1;
-    inh.length = 1;
+    inh.length = 3;
     inh.value = &inp;
     inh.timetag = calloc(1, sizeof(mapper_timetag_t));
     inh.position = 0;
 
     outh.type = 'f';
     outh.size = 1;
-    outh.length = 1;
+    outh.length = 2;
     outh.value = &outp;
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
 
-    int iterations = 1000000;
+    int iterations = 1;//000000;
     int results = 0;
     double then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
@@ -58,9 +59,9 @@ int main()
     printf("%f seconds.\n", now-then);
 
     if (results) {
-        printf("Evaluate with x=%f: %f (expected: %f)\n",
-               inp, outp,
-               26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp)*3*4+cosf(2.0f));
+        printf("Evaluate with x={%f,%f,%f}: [%f, %f] (expected: %f)\n",
+               inp[0], inp[1], inp[2], outp[0], outp[1],
+               26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp[0])*3*4+cosf(2.0f));
     }
     else
         printf("NO results.\n");
