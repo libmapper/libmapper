@@ -64,6 +64,7 @@ int mapper_connection_perform(mapper_connection connection,
      * element-wise operations on each item in the vector. */
 
     int changed = 0, i;
+    int vector_length = from->length < to->length ? from->length : to->length;
     double d = 0;
 
     if (connection->props.muted)
@@ -86,20 +87,29 @@ int mapper_connection_perform(mapper_connection connection,
         if (connection->props.src_type == connection->props.dest_type) {
             memcpy(msig_history_value_pointer(*to),
                    msig_history_value_pointer(*from),
-                   mapper_type_size(to->type) * to->length);
+                   mapper_type_size(to->type) * vector_length);
+            memset(msig_history_value_pointer(*to) +
+                   mapper_type_size(to->type) * vector_length, 0,
+                   (to->length - vector_length) * mapper_type_size(to->type));
         }
         else if (connection->props.src_type == 'f') {
             float *vfrom = msig_history_value_pointer(*from);
             if (connection->props.dest_type == 'i') {
                 int *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (int)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
             else if (connection->props.dest_type == 'd') {
                 double *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (double)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
         }
@@ -107,14 +117,20 @@ int mapper_connection_perform(mapper_connection connection,
             int *vfrom = msig_history_value_pointer(*from);
             if (connection->props.dest_type == 'f') {
                 float *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (float)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
             else if (connection->props.dest_type == 'd') {
                 double *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (double)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
         }
@@ -122,14 +138,20 @@ int mapper_connection_perform(mapper_connection connection,
             double *vfrom = msig_history_value_pointer(*from);
             if (connection->props.dest_type == 'i') {
                 int *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (int)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
             else if (connection->props.dest_type == 'f') {
                 float *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < to->length; i++) {
+                for (i = 0; i < vector_length; i++) {
                     vto[i] = (float)vfrom[i];
+                }
+                for (; i < to->length; i++) {
+                    vto[i] = 0;
                 }
             }
         }
@@ -737,7 +759,8 @@ void mapper_connection_set_from_message(mapper_connection c,
         /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
             if (c->props.mode == MO_UNDEFINED) {
-                if (range_known == CONNECTION_RANGE_KNOWN) {
+                if (range_known == CONNECTION_RANGE_KNOWN &&
+                    c->props.src_length == c->props.dest_length) {
                     /* We have enough information for a linear connection. */
                     mapper_connection_set_linear_range(c, &c->props.range);
                 } else

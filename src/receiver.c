@@ -269,18 +269,6 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
                                                  char src_type,
                                                  int src_length)
 {
-    /* Currently, fail if lengths don't match.  TODO: In the future,
-     * we'll have to examine the expression to see if its input and
-     * output lengths are compatible. */
-    if (sig->props.length != src_length) {
-        char n[1024];
-        msig_full_name(sig, n, 1024);
-        trace("rejecting connection %s -> %s%s because lengths "
-              "don't match (not yet supported)\n",
-              n, r->props.src_name, src_name);
-        return 0;
-    }
-
     // find signal in signal connection list
     mapper_receiver_signal rs = r->signals;
     while (rs && rs->signal != sig)
@@ -305,7 +293,7 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     c->props.dest_type = sig->props.type;
     c->props.dest_length = sig->props.length;
     c->props.mode = MO_UNDEFINED;
-    c->props.expression = strdup("y=x");
+    c->props.expression = 0;
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;

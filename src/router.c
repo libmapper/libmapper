@@ -418,18 +418,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                                                char dest_type,
                                                int dest_length)
 {
-    /* Currently, fail if lengths don't match.  TODO: In the future,
-     * we'll have to examine the expression to see if its input and
-     * output lengths are compatible. */
-    if (sig->props.length != dest_length) {
-        char n[1024];
-        msig_full_name(sig, n, 1024);
-        trace("rejecting connection %s -> %s%s because lengths "
-              "don't match (not yet supported)\n",
-              n, r->props.dest_name, dest_name);
-        return 0;
-    }
-
     // find signal in router_signal list
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
@@ -466,7 +454,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.dest_type = dest_type;
     c->props.dest_length = dest_length;
     c->props.mode = MO_UNDEFINED;
-    c->props.expression = strdup("y=x");
+    c->props.expression = 0;
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
