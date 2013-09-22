@@ -1052,8 +1052,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     }
 
     // If stack top type doesn't match output type, add cast
-    if (outstack[outstack_index].datatype != output_type)
-        outstack[outstack_index].casttype = output_type;
+    if (outstack[outstack_index].datatype != output_type) {
+        promote_token_datatype(&outstack[outstack_index], output_type);
+        outstack_index = check_types_and_lengths(outstack, outstack_index);
+    }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->length = outstack_index + 1;
