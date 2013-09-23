@@ -571,6 +571,7 @@ void mapper_expr_free(mapper_expr expr)
 
 void printtoken(mapper_token_t tok)
 {
+    int locked = tok.vector_length_locked;
     switch (tok.toktype) {
     case TOK_CONST:
         switch (tok.datatype) {
@@ -580,22 +581,26 @@ void printtoken(mapper_token_t tok)
                                   tok.vector_length);     break;
             case 'i':      printf("%di%d", tok.i,
                                   tok.vector_length);     break;
-        }                                                 break;
-    case TOK_OP:           printf("%s%c%d",
+        }
+        if (locked)        printf("'");                   break;
+    case TOK_OP:           printf("%s%c%d%s",
                                   op_table[tok.op].name,
                                   tok.datatype,
-                                  tok.vector_length);     break;
+                                  tok.vector_length,
+                                  locked ? "'" : "");     break;
     case TOK_OPEN_PAREN:   printf("(");                   break;
     case TOK_CLOSE_PAREN:  printf(")");                   break;
-    case TOK_VAR:          printf("VAR(%c%c%d){%d}[%d]",
+    case TOK_VAR:          printf("VAR(%c%c%d%s){%d}[%d]",
                                   tok.var, tok.datatype,
                                   tok.vector_length,
+                                  locked ? "'" : "",
                                   tok.history_index,
                                   tok.vector_index);      break;
-    case TOK_FUNC:         printf("FUNC(%s)%c%d",
+    case TOK_FUNC:         printf("FUNC(%s)%c%d%s",
                                   function_table[tok.func].name,
                                   tok.datatype,
-                                  tok.vector_length);     break;
+                                  tok.vector_length,
+                                  locked ? "'" : "");     break;
     case TOK_COMMA:        printf(",");                   break;
     case TOK_QUESTION:     printf("?");                   break;
     case TOK_COLON:        printf(":");                   break;
@@ -674,7 +679,8 @@ static void promote_token_datatype(mapper_token_t *tok, char type)
     }
 }
 
-static int check_types_and_lengths(mapper_token_t *stack, int top)
+static int check_types_and_lengths(mapper_token_t *stack, int top,
+                                   int vectorizing)
 {
     int i, arity, can_precompute = 1;
     char type = stack[top].datatype;
@@ -740,6 +746,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             // also promote vector lengths
             if (!stack[i].vector_length_locked)
                 stack[i].vector_length = vector_length;
+            if (vectorizing)
+                stack[i].vector_length_locked = 1;
             i++;
         }
         stack[top].datatype = type;
@@ -789,8 +797,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 {                                                                   \
     if (++outstack_index >= STACK_SIZE)                             \
         {FAIL("Stack size exceeded.");}                             \
-    if (vectorizing)                                                \
-        x.vector_length_locked = 1;                                 \
     memcpy(outstack + outstack_index, &x, sizeof(mapper_token_t));  \
 }
 #define PUSH_TO_OPERATOR(x)                                         \
@@ -807,7 +813,9 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
         opstack[opstack_index].op = OP_CONDITIONAL_IF;              \
     }                                                               \
     PUSH_TO_OUTPUT(opstack[opstack_index]);                         \
-    outstack_index = check_types_and_lengths(outstack, outstack_index); \
+    outstack_index = check_types_and_lengths(outstack,              \
+                                             outstack_index,        \
+                                             vectorizing);          \
     if (outstack_index < 0)                                         \
          {FAIL("Malformed expression.");}                           \
     POP_OPERATOR();                                                 \
@@ -901,6 +909,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     opstack[opstack_index].vector_index++;
                     opstack[opstack_index].vector_length +=
                         outstack[outstack_index].vector_length;
+                    outstack[outstack_index].vector_length_locked = 1;
                 }
                 break;
             case TOK_COLON:
@@ -984,6 +993,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 opstack[opstack_index].vector_index++;
                 opstack[opstack_index].vector_length +=
                     outstack[outstack_index].vector_length;
+                outstack[outstack_index].vector_length_locked = 1;
                 vectorizing = 0;
                 POP_OPERATOR_TO_OUTPUT();
                 break;
@@ -1059,7 +1069,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // If stack top type doesn't match output type, add cast
     if (outstack[outstack_index].datatype != output_type) {
         promote_token_datatype(&outstack[outstack_index], output_type);
-        outstack_index = check_types_and_lengths(outstack, outstack_index);
+        outstack_index = check_types_and_lengths(outstack, outstack_index, 0);
     }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
@@ -1093,6 +1103,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *to)
 {
     mapper_signal_value_t stack[expr->vector_size][expr->length];
+    int dims[expr->length];
 
     int i, j, k, top = -1, count = 0;
     mapper_token_t *tok = expr->start;
@@ -1101,6 +1112,7 @@ int mapper_expr_evaluate(mapper_expr expr,
         switch (tok->toktype) {
         case TOK_CONST:
             ++top;
+            dims[top] = tok->vector_length;
             if (tok->datatype == 'f') {
                 for (i = 0; i < tok->vector_length; i++)
                     stack[i][top].f = tok->f;
@@ -1120,6 +1132,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                 switch (tok->var) {
                 case 'x':
                     ++top;
+                    dims[top] = tok->vector_length;
                     idx = ((tok->history_index + from->position
                             + from->size) % from->size);
                     if (from->type == 'd') {
@@ -1140,6 +1153,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                     break;
                 case 'y':
                     ++top;
+                    dims[top] = tok->vector_length;
                     idx = ((tok->history_index + to->position + 1
                             + to->size) % to->size);
                     if (to->type == 'd') {
@@ -1163,7 +1177,8 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_OP:
-            top -= op_table[tok->op].arity-1 ;
+            top -= op_table[tok->op].arity-1;
+            dims[top] = tok->vector_length;
             // promote types as necessary
             for (i = 0; i < tok->vector_length; i++) {
                 if (tok->datatype == 'f') {
@@ -1369,6 +1384,7 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         case TOK_FUNC:
             top -= function_table[tok->func].arity-1;
+            dims[top] = tok->vector_length;
             for (i = 0; i < tok->vector_length; i++) {
                 if (tok->datatype == 'f') {
                     switch (function_table[tok->func].arity) {
@@ -1436,32 +1452,42 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_VECTORIZE:
-            trace_eval("building %i-element vector\n", tok->vector_length);
             // don't need to copy vector elements from first token
             top -= tok->vector_index-1;
-            mapper_token_t *temp = tok - tok->vector_index;
-            k = temp->vector_length;
+            k = dims[top];
             if (tok->datatype == 'f') {
                 for (i = 1; i < tok->vector_index; i++) {
-                    temp++;
-                    for (j = 0; j < temp->vector_length; j++)
+                    for (j = 0; j < dims[top+1]; j++)
                         stack[k++][top].f = stack[j][top+i].f;
                 }
             }
             else if (tok->datatype == 'i') {
                 for (i = 0; i < tok->vector_index; i++) {
-                    temp++;
-                    for (j = 0; j < temp->vector_length; j++)
-                        stack[k++][top].i32 = stack[j+temp->vector_index][top+i].i32;
+                    for (j = 0; j < dims[top+i]; j++)
+                        stack[k++][top].i32 = stack[j][top+i].i32;
                 }
             }
             else if (tok->datatype == 'd') {
                 for (i = 0; i < tok->vector_index; i++) {
-                    for (j = 0; j < temp->vector_length; j++)
-                        temp++;
-                        stack[k++][top].d = stack[j+temp->vector_index][top+i].d;
+                    for (j = 0; j < dims[top+i]; j++)
+                        stack[k++][top].d = stack[j][top+i].d;
                 }
             }
+            dims[top] = tok->vector_length;
+#if TRACING
+            printf("built %i-element vector: [", tok->vector_length);
+            for (i = 0; i < tok->vector_length; i++) {
+                if (tok->datatype == 'f')
+                    printf("%f", stack[i][top].f);
+                else if (tok->datatype == 'i')
+                    printf("%i", stack[i][top].i32);
+                else if (tok->datatype == 'd')
+                    printf("%f", stack[i][top].d);
+                if (i < tok->vector_length - 1)
+                    printf(", ");
+            }
+            printf("]\n");
+#endif
             break;
         default: goto error;
         }
