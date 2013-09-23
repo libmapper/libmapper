@@ -783,8 +783,26 @@ void mapper_connection_set_from_message(mapper_connection c,
         break;
     case MO_EXPRESSION:
         {
-            if (!c->props.expression)
-                c->props.expression = strdup("y=x");
+            if (!c->props.expression) {
+                if (c->props.src_length == c->props.dest_length)
+                    c->props.expression = strdup("y=x");
+                else {
+                    char expr[256] = "";
+                    if (c->props.src_length > c->props.dest_length) {
+                        snprintf(expr, 256, "y=x[0:%i]", c->props.dest_length-1);
+                    }
+                    else {
+                        int diff = c->props.dest_length - c->props.src_length;
+                        snprintf(expr, 256, "y=[x,");
+                        while (diff--) {
+                            int len = strlen(expr);
+                            snprintf(expr+len, 256-len, "0,");
+                        }
+                        expr[strlen(expr)-1] = ']';
+                    }
+                    c->props.expression = strdup(expr);
+                }
+            }
             mapper_connection_set_expression(c, c->props.expression);
         }
         break;
