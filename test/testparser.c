@@ -18,9 +18,9 @@ int main()
 {
 //    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
     //const char str[] = "y=x?1:2";
-    const char str[] = "y=12.3 * [x[1], 23] + 100";
+    const char str[] = "y=2.0 * [0,x] + 100";
     int input_history_size, output_history_size;
-    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 3, 2,
+    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 3, 4,
                                                 &input_history_size,
                                                 &output_history_size);
     printf("Parsing %s\n", str);
@@ -30,7 +30,7 @@ int main()
 #endif
     printf("\n");
 
-    float inp[] = {1.0, 2.0, 3.0}, outp[] = {-1., -1.};
+    float inp[] = {1.0, 2.0, 3.0}, outp[] = {-1., -1., -1., -1.};
 
     // create signal_history structures
     mapper_signal_history_t inh, outh;
@@ -43,7 +43,7 @@ int main()
 
     outh.type = 'f';
     outh.size = 1;
-    outh.length = 2;
+    outh.length = 4;
     outh.value = &outp;
     outh.timetag = calloc(1, sizeof(mapper_timetag_t));
     outh.position = -1;
@@ -59,8 +59,8 @@ int main()
     printf("%f seconds.\n", now-then);
 
     if (results) {
-        printf("Evaluate with x={%f,%f,%f}: [%f, %f] (expected: %f)\n",
-               inp[0], inp[1], inp[2], outp[0], outp[1],
+        printf("Evaluate with x={%f,%f,%f}: [%f, %f, %f, %f] (expected: %f)\n",
+               inp[0], inp[1], inp[2], outp[0], outp[1], outp[2], outp[3],
                26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp[0])*3*4+cosf(2.0f));
     }
     else

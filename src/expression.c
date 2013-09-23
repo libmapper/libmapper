@@ -297,6 +297,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
     tok->datatype = 'i';
     tok->casttype = 0;
     tok->vector_length = 1;
+    tok->vector_index = 0;
     tok->vector_length_locked = 0;
     int n, i;
     char c = str[index];
@@ -594,13 +595,14 @@ void printtoken(mapper_token_t tok)
     case TOK_FUNC:         printf("FUNC(%s)%c%d",
                                   function_table[tok.func].name,
                                   tok.datatype,
-                                  tok.vector_length);    break;
+                                  tok.vector_length);     break;
     case TOK_COMMA:        printf(",");                   break;
     case TOK_QUESTION:     printf("?");                   break;
     case TOK_COLON:        printf(":");                   break;
-    case TOK_VECTORIZE:    printf("VECT%c(%d)",
+    case TOK_VECTORIZE:    printf("VECT%c%d(%d)",
                                   tok.datatype,
-                                  tok.vector_length);     break;
+                                  tok.vector_length,
+                                  tok.vector_index);      break;
     case TOK_END:          printf("END");                 break;
     default:               printf("(unknown token)");     break;
     }
@@ -674,7 +676,7 @@ static void promote_token_datatype(mapper_token_t *tok, char type)
 
 static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
-    int i, arity, can_precompute = 1, vectorizing = 0;
+    int i, arity, can_precompute = 1;
     char type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
 
@@ -686,9 +688,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             can_precompute = 0;
     }
     else if (stack[top].toktype == TOK_VECTORIZE) {
-        arity = stack[top].vector_length;
+        arity = stack[top].vector_index;
         vector_length = 1;
-        vectorizing = 1;
         can_precompute = 0;
     }
     else
@@ -725,15 +726,12 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             else if (stack[i].toktype == TOK_FUNC)
                 depth[1] += function_table[stack[i].func].arity;
             else if (stack[i].toktype == TOK_VECTORIZE) {
-                depth[1] += stack[i].vector_length;
-                depth[2] = stack[i].vector_length;
+                depth[1] += stack[i].vector_index;
+                depth[2] = stack[i].vector_index;
             }
         }
 
         if (depth[0])
-            return -1;
-
-        if (vectorizing && vector_length > 1)
             return -1;
 
         while (i <= top) {
@@ -900,7 +898,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index < 0)
                     {FAIL("Unmatched parentheses, brackets or misplaced comma.");}
                 if (opstack[opstack_index].toktype == TOK_VECTORIZE) {
-                    opstack[opstack_index].vector_length++;
+                    opstack[opstack_index].vector_index++;
+                    opstack[opstack_index].vector_length +=
+                        outstack[outstack_index].vector_length;
                 }
                 break;
             case TOK_COLON:
@@ -931,7 +931,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     if (vectorizing)
                         {FAIL("Nested (multidimensional) vectors not allowed");}
                     tok.toktype = TOK_VECTORIZE;
-                    tok.vector_length = 1;
+                    tok.vector_length = 0;
+                    // use vector index for tracking arity of tok
+                    tok.vector_index = 0;
                     PUSH_TO_OPERATOR(tok);
                     vectorizing = 1;
                 }
@@ -979,6 +981,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index < 0)
                     {FAIL("Unmatched brackets or misplaced comma.");}
                 opstack[opstack_index].vector_length_locked = 1;
+                opstack[opstack_index].vector_index++;
+                opstack[opstack_index].vector_length +=
+                    outstack[outstack_index].vector_length;
                 vectorizing = 0;
                 POP_OPERATOR_TO_OUTPUT();
                 break;
@@ -1089,7 +1094,7 @@ int mapper_expr_evaluate(mapper_expr expr,
 {
     mapper_signal_value_t stack[expr->vector_size][expr->length];
 
-    int i = 0, top = -1, count = 0;
+    int i, j, k, top = -1, count = 0;
     mapper_token_t *tok = expr->start;
 
     while (count < expr->length && tok->toktype != TOK_END) {
@@ -1119,36 +1124,18 @@ int mapper_expr_evaluate(mapper_expr expr,
                             + from->size) % from->size);
                     if (from->type == 'd') {
                         double *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].d = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].d = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].d = v[i+tok->vector_index];
                     }
                     else if (from->type == 'f') {
                         float *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].f = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].f = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].f = v[i+tok->vector_index];
                     }
                     else if (from->type == 'i') {
                         int *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].i32 = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].i32 = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].i32 = v[i+tok->vector_index];
                     }
                     break;
                 case 'y':
@@ -1157,36 +1144,18 @@ int mapper_expr_evaluate(mapper_expr expr,
                             + to->size) % to->size);
                     if (to->type == 'd') {
                         double *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].d = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].d = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].d = v[i+tok->vector_index];
                     }
                     else if (to->type == 'f') {
                         float *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].f = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].f = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].f = v[i+tok->vector_index];
                     }
                     else if (to->type == 'i') {
                         int *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        if (tok->vector_index > 0) {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].i32 = v[i+tok->vector_index];
-                        }
-                        else {
-                            for (i = 0; i < tok->vector_length; i++)
-                                stack[i][top].i32 = v[i];
-                        }
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[i][top].i32 = v[i+tok->vector_index];
                     }
                     break;
                 default: goto error;
@@ -1467,19 +1436,31 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_VECTORIZE:
-            top -= tok->vector_length-1;
-            // don't need to change first vector element
+            trace_eval("building %i-element vector\n", tok->vector_length);
+            // don't need to copy vector elements from first token
+            top -= tok->vector_index-1;
+            mapper_token_t *temp = tok - tok->vector_index;
+            k = temp->vector_length;
             if (tok->datatype == 'f') {
-                for (i = 1; i < tok->vector_length; i++)
-                    stack[i][top].f = stack[0][top+i].f;
+                for (i = 1; i < tok->vector_index; i++) {
+                    temp++;
+                    for (j = 0; j < temp->vector_length; j++)
+                        stack[k++][top].f = stack[j][top+i].f;
+                }
             }
             else if (tok->datatype == 'i') {
-                for (i = 1; i < tok->vector_length; i++)
-                    stack[i][top].i32 = stack[0][top+i].i32;
+                for (i = 0; i < tok->vector_index; i++) {
+                    temp++;
+                    for (j = 0; j < temp->vector_length; j++)
+                        stack[k++][top].i32 = stack[j+temp->vector_index][top+i].i32;
+                }
             }
             else if (tok->datatype == 'd') {
-                for (i = 1; i < tok->vector_length; i++)
-                    stack[i][top].d = stack[0][top+i].d;
+                for (i = 0; i < tok->vector_index; i++) {
+                    for (j = 0; j < temp->vector_length; j++)
+                        temp++;
+                        stack[k++][top].d = stack[j+temp->vector_index][top+i].d;
+                }
             }
             break;
         default: goto error;
