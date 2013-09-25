@@ -487,14 +487,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
     if (r.known
         & (CONNECTION_RANGE_SRC_MIN | CONNECTION_RANGE_SRC_MAX))
     {
-        if (c->props.src_length > 1) {
-            if (r.known == CONNECTION_RANGE_KNOWN)
-                snprintf(expr, 256,
-                         "y=linear(x, srcmin, srcmax, destmin, destmax)");
-            else
-                e = 0;
-        }
-        else if (memcmp(r.src_min, r.src_max, sizeof(mval))==0) {
+        if (memcmp(r.src_min, r.src_max, sizeof(mval))==0) {
             if (c->props.src_type == 'f')
                 snprintf(expr, 256, "y=%g", r.dest_min[0].f);
             else if (c->props.src_type == 'i')

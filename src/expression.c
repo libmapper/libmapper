@@ -99,49 +99,17 @@ static double uniformd(double x)
     return rand() / (RAND_MAX + 1.0) * x;
 }
 
-static float linearf(float x, float srcmin, float srcmax,
-                      float destmin, float destmax)
-{
-    if (srcmin == srcmax)
-        return destmin;
-    
-    float scale = ((destmin - destmax) / (srcmin - srcmax));
-    float offset = ((destmax * srcmin - destmin * srcmax) / (srcmin - srcmax));
-    
-    return x * scale + offset;
-}
-
-static double lineard(double x, double srcmin, double srcmax,
-                      double destmin, double destmax)
-{
-    if (srcmin == srcmax)
-        return destmin;
-
-    double scale = ((destmin - destmax) / (srcmin - srcmax));
-    double offset = ((destmax * srcmin - destmin * srcmax) / (srcmin - srcmax));
-
-    return x * scale + offset;
-}
-
 typedef enum {
     VAR_UNKNOWN=-1,
     VAR_X=0,
-    VAR_SRCMIN,
-    VAR_SRCMAX,
     VAR_Y,
-    VAR_DESTMIN,
-    VAR_DESTMAX,
     N_VARS
 } expr_var_t;
 
 const char *var_strings[] =
 {
     "x",
-    "srcmin",
-    "srcmax",
     "y",
-    "destmin",
-    "destmax",
 };
 
 typedef enum {
@@ -164,7 +132,6 @@ typedef enum {
     FUNC_FLOOR,
     FUNC_HYPOT,
     FUNC_HZTOMIDI,
-    FUNC_LINEAR,
     FUNC_LOG,
     FUNC_LOG10,
     FUNC_LOG2,
@@ -210,7 +177,6 @@ static struct {
     { "floor",    1,    0,          floorf,     floor       },
     { "hypot",    2,    0,          hypotf,     hypot       },
     { "hzToMidi", 1,    0,          hzToMidif,  hzToMidid   },
-    { "linear",   5,    0,          linearf,    lineard     },
     { "log",      1,    0,          logf,       log         },
     { "log10",    1,    0,          log10f,     log10       },
     { "log2",     1,    0,          log2f,      log2        },
@@ -287,15 +253,12 @@ static struct {
 typedef int func_int32_arity0();
 typedef int func_int32_arity1(int);
 typedef int func_int32_arity2(int,int);
-typedef int func_int32_arity5(int,int,int,int,int);
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
-typedef float func_float_arity5(float,float,float,float,float);
 typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
-typedef double func_double_arity5(double,double,double,double,double);
 
 typedef struct _token {
     enum {
@@ -1114,86 +1077,6 @@ int mapper_expr_evaluate(mapper_expr expr,
                             stack[i][top].i32 = v[i];
                     }
                     break;
-                case VAR_SRCMIN:
-                    if (!(range->known & CONNECTION_RANGE_SRC_MIN))
-                        goto error;
-                    ++top;
-                    if (from->type == 'd') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].d = range->src_min[i].d;
-                        }
-                    }
-                    else if (from->type == 'f') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].f = range->src_min[i].f;
-                        }
-                    }
-                    else if (from->type == 'i') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].i32 = range->src_min[i].i32;
-                        }
-                    }
-                    break;
-                case VAR_SRCMAX:
-                    if (!(range->known & CONNECTION_RANGE_SRC_MAX))
-                        goto error;
-                    ++top;
-                    if (from->type == 'd') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].d = range->src_max[i].d;
-                        }
-                    }
-                    else if (from->type == 'f') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].f = range->src_max[i].f;
-                        }
-                    }
-                    else if (from->type == 'i') {
-                        for (i = 0; i < from->length; i++) {
-                            stack[i][top].i32 = range->src_max[i].i32;
-                        }
-                    }
-                    break;
-                case VAR_DESTMIN:
-                    if (!(range->known & CONNECTION_RANGE_DEST_MIN))
-                        goto error;
-                    ++top;
-                    if (to->type == 'd') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->dest_min[i].d;
-                        }
-                    }
-                    else if (to->type == 'f') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = range->dest_min[i].f;
-                        }
-                    }
-                    else if (to->type == 'i') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = range->dest_min[i].i32;
-                        }
-                    }
-                    break;
-                case VAR_DESTMAX:
-                    if (!(range->known & CONNECTION_RANGE_DEST_MAX))
-                        goto error;
-                    ++top;
-                    if (to->type == 'd') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].d = range->dest_max[i].d;
-                        }
-                    }
-                    else if (to->type == 'f') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].f = range->dest_max[i].f;
-                        }
-                    }
-                    else if (to->type == 'i') {
-                        for (i = 0; i < to->length; i++) {
-                            stack[i][top].i32 = range->dest_max[i].i32;
-                        }
-                    }
-                    break;
                 default: goto error;
                 }
             }
@@ -1424,13 +1307,6 @@ int mapper_expr_evaluate(mapper_expr expr,
                             stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f);
                             trace_eval("%f\n", stack[i][top].f);
                             break;
-                        case 5:
-                            trace_eval("%s(%f,%f,%f,%f,%f) = ", function_table[tok->func].name,
-                                       stack[i][top].f, stack[i][top+1].f, stack[i][top+2].f,
-                                       stack[i][top+3].f, stack[i][top+4].f);
-                            stack[i][top].f = ((func_float_arity5*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f, stack[i][top+2].f, stack[i][top+3].f, stack[i][top+4].f);
-                            trace_eval("%f\n", stack[i][top].f);
-                            break;
                         default: goto error;
                     }
                 }
@@ -1450,13 +1326,6 @@ int mapper_expr_evaluate(mapper_expr expr,
                             trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
                                        stack[i][top].d, stack[i][top+1].d);
                             stack[i][top].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
-                            trace_eval("%f\n", stack[i][top].d);
-                            break;
-                        case 5:
-                            trace_eval("%s(%f,%f,%f,%f,%f) = ", function_table[tok->func].name,
-                                       stack[i][top].d, stack[i][top+1].d, stack[i][top+2].d,
-                                       stack[i][top+3].d, stack[i][top+4].d);
-                            stack[i][top].d = ((func_double_arity5*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d, stack[i][top+2].d, stack[i][top+3].d, stack[i][top+4].d);
                             trace_eval("%f\n", stack[i][top].d);
                             break;
                         default: goto error;
