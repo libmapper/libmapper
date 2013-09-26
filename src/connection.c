@@ -219,9 +219,7 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            return (mapper_expr_evaluate(connection->expr,
-                                         &connection->props.range,
-                                         from, to));
+            return (mapper_expr_evaluate(connection->expr, from, to));
         else
             return 0;
     }
