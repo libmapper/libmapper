@@ -180,12 +180,37 @@
 
 %typemap(in) mapper_db_connection_with_flags_t* %{
     mapper_db_connection_with_flags_t p;
+    p.props.src_length = 0;
+    p.props.dest_length = 0;
+    p.props.src_type = 0;
+    p.props.dest_type = 0;
     $1 = 0;
     if (PyDict_Check($input)) {
         memset(&p, 0, sizeof(mapper_db_connection_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
+            // first try to retrieve src_type, dest_type if provided
             int i = PyList_GET_SIZE(keys), k;
+            for (i=i-1; i>=0; --i) {
+                PyObject *o = PyList_GetItem(keys, i);
+                if (PyString_Check(o)) {
+                    PyObject *v = PyDict_GetItem($input, o);
+                    char *s = PyString_AsString(o);
+                    if (strcmp(s, "src_type")==0) {
+                        if (PyString_Check(v))
+                            p.props.src_type = PyString_AsString(v)[0];
+                        if (p.props.dest_type)
+                            continue;
+                    }
+                    else if (strcmp(s, "dest_type")==0) {
+                        if (PyString_Check(v))
+                            p.props.dest_type = PyString_AsString(v)[0];
+                        if (p.props.src_type)
+                            continue;
+                    }
+                }
+            }
+            i = PyList_GET_SIZE(keys);
             for (i=i-1; i>=0; --i) {
                 PyObject *o = PyList_GetItem(keys, i);
                 if (PyString_Check(o)) {
@@ -245,24 +270,47 @@
                         if (PyString_Check(v))
                             p.props.dest_name = PyString_AsString(v);
                     }
-                    else if (strcmp(s, "src_type")==0) {
-                        if (PyString_Check(v))
-                            p.props.src_type = PyString_AsString(v)[0];
+                    else if (strcmp(s, "src_min")==0) {
+                        alloc_and_copy_maybe_vector(v, &p.props.src_type,
+                                                    &p.props.range.src_min,
+                                                    &p.props.src_length);
+                        if (p.props.range.src_min) {
+                            p.props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                            p.flags |= CONNECTION_SRC_LENGTH;
+                            p.flags |= CONNECTION_SRC_TYPE;
+                        }
                     }
-                    else if (strcmp(s, "dest_type")==0) {
-                        if (PyString_Check(v))
-                            p.props.dest_type = PyString_AsString(v)[0];
+                    else if (strcmp(s, "src_max")==0) {
+                        alloc_and_copy_maybe_vector(v, &p.props.src_type,
+                                                    &p.props.range.src_max,
+                                                    &p.props.src_length);
+                        if (p.props.range.src_max) {
+                            p.props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                            p.flags |= CONNECTION_SRC_LENGTH;
+                            p.flags |= CONNECTION_SRC_TYPE;
+                        }
                     }
-                    else if (strcmp(s, "src_length")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode))
-                            p.props.src_length = k;
+                    else if (strcmp(s, "dest_min")==0) {
+                        alloc_and_copy_maybe_vector(v, &p.props.dest_type,
+                                                    &p.props.range.dest_min,
+                                                    &p.props.dest_length);
+                        if (p.props.range.dest_min) {
+                            p.props.range.known |= CONNECTION_RANGE_DEST_MIN;
+                            p.flags |= CONNECTION_DEST_LENGTH;
+                            p.flags |= CONNECTION_DEST_TYPE;
+                        }
                     }
-                    else if (strcmp(s, "dest_length")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode))
-                            p.props.dest_length = k;
+                    else if (strcmp(s, "dest_max")==0) {
+                        alloc_and_copy_maybe_vector(v, &p.props.dest_type,
+                                                    &p.props.range.dest_max,
+                                                    &p.props.dest_length);
+                        if (p.props.range.dest_max) {
+                            p.props.range.known |= CONNECTION_RANGE_DEST_MAX;
+                            p.flags |= CONNECTION_DEST_LENGTH;
+                            p.flags |= CONNECTION_DEST_TYPE;
+                        }
                     }
+                    p.flags |= p.props.range.known;
                 }
             }
             Py_DECREF(keys);
@@ -274,6 +322,19 @@
                             "argument $argnum must be 'dict'");
     }
  %}
+
+%typemap(freearg) mapper_db_connection_with_flags_t* {
+    if ($1) {
+        if ($1->props.range.known & CONNECTION_RANGE_SRC_MIN)
+            free($1->props.range.src_min);
+        if ($1->props.range.known & CONNECTION_RANGE_SRC_MAX)
+            free($1->props.range.src_max);
+        if ($1->props.range.known | CONNECTION_RANGE_DEST_MIN)
+            free($1->props.range.dest_min);
+        if ($1->props.range.known | CONNECTION_RANGE_DEST_MAX)
+            free($1->props.range.dest_max);
+    }
+}
 
 %typemap(out) mapper_db_device_t ** {
     if ($1) {
@@ -367,6 +428,77 @@ typedef struct _db {} db;
 typedef struct _admin {} admin;
 
 PyThreadState *_save;
+
+static int copy_item_to_mval(PyObject *from, mval *to, char type)
+{
+    if (PyInt_Check(from)) {
+        if (type == 'i')
+            to->i32 = PyInt_AsLong(from);
+        else if (type == 'f')
+            to->f = (float)PyInt_AsLong(from);
+        else if (type == 'd')
+            to->d = (double)PyInt_AsLong(from);
+    }
+    else if (PyFloat_Check(from)) {
+        if (type == 'i')
+            to->i32 = (int)PyFloat_AsDouble(from);
+        else if (type == 'f')
+            to->f = PyFloat_AsDouble(from);
+        else if (type == 'd')
+            to->d = (double)PyFloat_AsDouble(from);
+    }
+    else
+        return 1;
+
+    return 0;
+}
+
+static void alloc_and_copy_maybe_vector(PyObject *v, char *type,
+                                        mval **value, int *length)
+{
+    if (*type != 'i' && *type != 'f' && *type != 'd')
+        *type = 'f';
+    if (*value)
+        free(*value);
+    if (PySequence_Check(v)) {
+        int i, len = PySequence_Size(v);
+        if (*length && len != *length) {
+            *value = 0;
+            PyErr_SetString(PyExc_ValueError,
+                            "Vector lengths don't match.");
+            return;
+        }
+        *value = (mval *) malloc(len*sizeof(mval));
+        for (i = 0; i < len; i++) {
+            PyObject *r = PySequence_GetItem(v, i);
+            if (copy_item_to_mval(r, &(*value)[i], *type)) {
+                free(*value);
+                *value = 0;
+                PyErr_SetString(PyExc_ValueError,
+                                "List items must be int or float.");
+                return;
+            }
+        }
+        *length = len;
+    }
+    else {
+        if (*length && *length != 1) {
+            *value = 0;
+            PyErr_SetString(PyExc_ValueError,
+                            "Vector lengths don't match.");
+            return;
+        }
+        *value = (mval *) malloc(sizeof(mval));
+        if (copy_item_to_mval(v, &(*value)[0], *type)) {
+            free(*value);
+            *value = 0;
+            PyErr_SetString(PyExc_ValueError,
+                            "List items must be int or float.");
+            return;
+        }
+        *length = 1;
+    }
+}
 
 static PyObject *device_to_py(mapper_db_device_t *dev)
 {
