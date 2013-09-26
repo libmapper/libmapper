@@ -342,7 +342,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
-    mapper_connection con;
+    mapper_db_connection_t *con;
 
     while (pa != N_AT_PARAMS)
     {
@@ -428,44 +428,36 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, "unknown");
             break;
         case AT_SRC_MIN:
-            con = va_arg(aq, mapper_connection);
-            if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
-                mval_add_to_message(m, con->props.src_type,
-                                    con->props.range.src_min,
-                                    con->props.src_length);
+            con = va_arg(aq, mapper_db_connection_t*);
+            if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
+                mval_add_to_message(m, con->src_type,
+                                    con->range.src_min,
+                                    con->src_length);
             }
-            else
-                lo_message_add_nil(m);
             break;
         case AT_SRC_MAX:
-            con = va_arg(aq, mapper_connection);
-            if (con->props.range.known & CONNECTION_RANGE_SRC_MAX) {
-                mval_add_to_message(m, con->props.src_type,
-                                    con->props.range.src_max,
-                                    con->props.src_length);
+            con = va_arg(aq, mapper_db_connection_t*);
+            if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
+                mval_add_to_message(m, con->src_type,
+                                    con->range.src_max,
+                                    con->src_length);
             }
-            else
-                lo_message_add_nil(m);
             break;
         case AT_DEST_MIN:
-            con = va_arg(aq, mapper_connection);
-            if (con->props.range.known & CONNECTION_RANGE_DEST_MIN) {
-                mval_add_to_message(m, con->props.dest_type,
-                                    con->props.range.dest_min,
-                                    con->props.dest_length);
+            con = va_arg(aq, mapper_db_connection_t*);
+            if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
+                mval_add_to_message(m, con->dest_type,
+                                    con->range.dest_min,
+                                    con->dest_length);
             }
-            else
-                lo_message_add_nil(m);
             break;
         case AT_DEST_MAX:
-            con = va_arg(aq, mapper_connection);
-            if (con->props.range.known & CONNECTION_RANGE_DEST_MAX) {
-                mval_add_to_message(m, con->props.dest_type,
-                                    con->props.range.dest_max,
-                                    con->props.dest_length);
+            con = va_arg(aq, mapper_db_connection_t*);
+            if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
+                mval_add_to_message(m, con->dest_type,
+                                    con->range.dest_max,
+                                    con->dest_length);
             }
-            else
-                lo_message_add_nil(m);
             break;
         case AT_MUTE:
             i = va_arg(aq, int);
