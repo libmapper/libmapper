@@ -508,8 +508,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
     const char *e = expr;
     mapper_connection_range_t r = c->props.range;
 
-    if (r.known
-        & (CONNECTION_RANGE_SRC_MIN | CONNECTION_RANGE_SRC_MAX))
+    if (r.known == CONNECTION_RANGE_KNOWN)
     {
         if (memcmp(r.src_min, r.src_max, sizeof(mval))==0) {
             if (c->props.src_type == 'f')
@@ -519,29 +518,21 @@ void mapper_connection_set_mode_linear(mapper_connection c)
             else if (c->props.src_type == 'd')
                 snprintf(expr, 256, "y=%g", r.dest_min[0].d);
         }
-
-        else if (r.known == CONNECTION_RANGE_KNOWN
-                 && mval_get_double(r.src_min[0], c->props.src_type)
-                    == mval_get_double(r.dest_min[0], c->props.dest_type)
-                 && mval_get_double(r.src_max[0], c->props.src_type)
-                    == mval_get_double(r.dest_max[0], c->props.dest_type))
-            snprintf(expr, 256, "y=x");
-
-        else if (r.known == CONNECTION_RANGE_KNOWN) {
+        else {
             double src_min = mval_get_double(r.src_min[0], c->props.src_type),
                    src_max = mval_get_double(r.src_max[0], c->props.src_type),
                    dest_min = mval_get_double(r.dest_min[0], c->props.dest_type),
                    dest_max = mval_get_double(r.dest_max[0], c->props.dest_type);
 
-            double scale = ((dest_min - dest_max) / (src_min - src_max));
-
-            double offset = ((dest_max * src_min - dest_min * src_max)
-                             / (src_min - src_max));
-
-            snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
+            if ((src_min == dest_min) && (src_max == dest_max))
+                snprintf(expr, 256, "y=x");
+            else {
+                double scale = ((dest_min - dest_max) / (src_min - src_max));
+                double offset = ((dest_max * src_min - dest_min * src_max)
+                                 / (src_min - src_max));
+                snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
+            }
         }
-        else
-            e = 0;
     }
     else
         e = 0;
