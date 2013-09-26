@@ -1534,6 +1534,8 @@ static int update_connection_record_params(mapper_db_connection con,
     int length = mapper_msg_get_length(params, AT_SRC_MAX);
     if (args && types) {
         if (length == con->src_length) {
+            if (!con->range.src_max)
+                con->range.src_max = (mval*) malloc(length * sizeof(mval));
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
@@ -1554,6 +1556,8 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_SRC_MIN);
     if (args && types) {
         if (length == con->src_length) {
+            if (!con->range.src_min)
+                con->range.src_min = (mval*) malloc(length * sizeof(mval));
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
@@ -1574,6 +1578,8 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_DEST_MAX);
     if (args && types) {
         if (length == con->dest_length) {
+            if (!con->range.dest_max)
+                con->range.dest_max = (mval*) malloc(length * sizeof(mval));
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
@@ -1594,6 +1600,8 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_DEST_MIN);
     if (args && types) {
         if (length == con->dest_length) {
+            if (!con->range.dest_min)
+                con->range.dest_min = (mval*) malloc(length * sizeof(mval));
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
@@ -1647,8 +1655,8 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
         if (update_int_if_arg(&src_length, params, AT_SRC_LENGTH)) {
             con = (mapper_db_connection)
                 list_new_item(sizeof(mapper_db_connection_t));
-            con->range.src_min = malloc(src_length * sizeof(double));
-            con->range.src_max = malloc(src_length * sizeof(double));
+            con->range.src_min = 0;
+            con->range.src_max = 0;
             con->extra = table_new();
             rc = 1;
         }

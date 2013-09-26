@@ -471,10 +471,12 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
-    c->props.range.src_min = malloc(sig->props.length * sizeof(double));
-    c->props.range.src_max = malloc(sig->props.length * sizeof(double));
-    c->props.range.dest_min = malloc(dest_length * sizeof(double));
-    c->props.range.dest_max = malloc(dest_length * sizeof(double));
+
+    c->props.range.src_min = 0;
+    c->props.range.src_max = 0;
+    c->props.range.dest_min = 0;
+    c->props.range.dest_max = 0;
+
     c->props.extra = table_new();
 
     int len = strlen(dest_name) + 5;

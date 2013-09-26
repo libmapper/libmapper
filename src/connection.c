@@ -146,6 +146,15 @@ int mapper_connection_perform(mapper_connection connection,
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
 
+        if (!connection->props.range.src_min) {
+            connection->props.range.src_min =
+                (mval*) malloc(connection->props.src_length * sizeof(mval));
+        }
+        if (!connection->props.range.src_max) {
+            connection->props.range.src_max =
+                (mval*) malloc(connection->props.src_length * sizeof(mval));
+        }
+
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (!connection->calibrating) {
@@ -623,6 +632,8 @@ static void set_range(mapper_connection c,
     length = mapper_msg_get_length(msg, AT_SRC_MAX);
     if (args && types) {
         if (length == c->props.src_length) {
+            if (!c->props.range.src_max)
+                c->props.range.src_max = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.src_max[i],
@@ -643,6 +654,8 @@ static void set_range(mapper_connection c,
     length = mapper_msg_get_length(msg, AT_SRC_MIN);
     if (args && types) {
         if (length == c->props.src_length) {
+            if (!c->props.range.src_min)
+                c->props.range.src_min = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.src_min[i],
@@ -663,6 +676,8 @@ static void set_range(mapper_connection c,
     length = mapper_msg_get_length(msg, AT_DEST_MAX);
     if (args && types) {
         if (length == c->props.dest_length) {
+            if (!c->props.range.dest_max)
+                c->props.range.dest_max = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.dest_max[i],
@@ -683,6 +698,8 @@ static void set_range(mapper_connection c,
     length = mapper_msg_get_length(msg, AT_DEST_MIN);
     if (args && types) {
         if (length == c->props.dest_length) {
+            if (!c->props.range.dest_min)
+                c->props.range.dest_min = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.dest_min[i],
@@ -705,6 +722,8 @@ static void set_range(mapper_connection c,
         && args && types)
     {
         if (length == c->props.dest_length) {
+            if (!c->props.range.dest_min)
+                c->props.range.dest_min = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.dest_min[i],
@@ -726,6 +745,8 @@ static void set_range(mapper_connection c,
         && args && types)
     {
         if (length == c->props.dest_length) {
+            if (!c->props.range.dest_max)
+                c->props.range.dest_max = (mval*) malloc(length * sizeof(mval));
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (mval_set_from_lo_arg(&c->props.range.dest_max[i],
@@ -750,17 +771,17 @@ static void set_range(mapper_connection c,
     if (!sig || !sig->props.is_output)
         return;
 
-    if (!(c->props.range.known & CONNECTION_RANGE_SRC_MIN)
-        && sig->props.minimum)
+    if (!c->props.range.src_min && sig->props.minimum)
     {
+        c->props.range.src_min = (mval*) malloc(sig->props.length * sizeof(mval));
         memcpy(c->props.range.src_min, sig->props.minimum,
                sig->props.length * sizeof(mval));
         c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
     }
 
-    if (!(c->props.range.known & CONNECTION_RANGE_SRC_MAX)
-        && sig->props.maximum)
+    if (!c->props.range.src_max && sig->props.maximum)
     {
+        c->props.range.src_max = (mval*) malloc(sig->props.length * sizeof(mval));
         memcpy(c->props.range.src_max, sig->props.maximum,
                sig->props.length * sizeof(mval));
         c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
