@@ -33,7 +33,6 @@ const char* mapper_msg_param_strings[] =
     "@numLinksOut",     /* AT_NUM_LINKS_OUT */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
     "@port",            /* AT_PORT */
-    "@range",           /* AT_RANGE */
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
@@ -109,59 +108,22 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 continue;
         }
 
-        /* special case: range has 4 float or int parameters */
-        if (j==AT_RANGE) {
-            int k;
-            msg->types[j] = &types[i+1];
-            msg->values[j] = &argv[i+1];
-            for (k=0; k<4; k++) {
-                i++;
-                if (i >= argc) {
-                    trace("message %s, not enough parameters "
-                          "for @range.\n", path);
-                    return 1;
-                }
-                if (((types[i] == 's' || types[i] == 'S')
-                     && strcmp("-", &argv[i]->s)==0)
-                    || (types[i] == 'c' && argv[i]->c == '-'))
-                {
-                    /* The '-' character means "don't change this
-                     * value", and here we ignore it.  It will be
-                     * considered "unknown" during get_range(), and
-                     * therefore not modified if already known by some
-                     * other means. */
-                    // TODO: should use OSC "false" type instead?
-                }
-                else if (types[i] != 'i' && types[i] != 'f' && types[i] != 'd') {
-                    /* range parameter bad type */
-#ifdef DEBUG
-                    trace("message %s, @range parameter ", path);
-                    lo_arg_pp(types[i], argv[i]);
-                    trace("not float or int\n");
-#endif
-                    return 1;
-                }
+        msg->types[j] = &types[i+1];
+        msg->values[j] = &argv[i+1];
+        msg->lengths[j] = 0;
+        while (++i < argc) {
+            if ((types[i] == 's' || types[i] == 'S')
+                && (&argv[i]->s)[0] == '@') {
+                /* Arrived at next param index. */
+                i--;
+                break;
             }
-            msg->lengths[j] = 4;
+            msg->lengths[j]++;
         }
-        else {
-            msg->types[j] = &types[i+1];
-            msg->values[j] = &argv[i+1];
-            msg->lengths[j] = 0;
-            while (++i < argc) {
-                if ((types[i] == 's' || types[i] == 'S')
-                    && (&argv[i]->s)[0] == '@') {
-                    /* Arrived at next param index. */
-                    i--;
-                    break;
-                }
-                msg->lengths[j]++;
-            }
-            if (!msg->lengths[j]) {
-                trace("message %s, key %s has no values.\n",
-                      path, mapper_msg_param_strings[j]);
-                return 1;
-            }
+        if (!msg->lengths[j]) {
+            trace("message %s, key %s has no values.\n",
+                  path, mapper_msg_param_strings[j]);
+            return 1;
         }
     }
     return 0;
@@ -575,15 +537,9 @@ void mapper_msg_prepare_params(lo_message m,
             continue;
 
         lo_message_add_string(m, mapper_msg_param_strings[pa]);
-        if (pa == AT_RANGE) {
-            msg_add_lo_arg(m, msg->types[pa][0], msg->values[pa][0]);
-            msg_add_lo_arg(m, msg->types[pa][1], msg->values[pa][1]);
-            msg_add_lo_arg(m, msg->types[pa][2], msg->values[pa][2]);
-            msg_add_lo_arg(m, msg->types[pa][3], msg->values[pa][3]);
-        }
-        else {
-            msg_add_lo_arg(m, *msg->types[pa], a);
-        }
+
+        // TODO: use arg length to add message
+        msg_add_lo_arg(m, *msg->types[pa], a);
     }
     pa = 0;
     while (msg->extra_args[pa])
@@ -611,28 +567,6 @@ void mapper_connection_prepare_osc_message(lo_message m,
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
         lo_message_add_string(m, con->props.expression);
     }
-    /*if (con->props.range.known & CONNECTION_RANGE_KNOWN) {
-        lo_message_add_string(m, mapper_msg_param_strings[AT_RANGE]);
-        if (con->props.range.known & CONNECTION_RANGE_SRC_MIN)
-            lo_message_add_float(m, con->props.range.src_min[0]);
-        else
-            lo_message_add_char(m, '-');
-
-        if (con->props.range.known & CONNECTION_RANGE_SRC_MAX)
-            lo_message_add_float(m, con->props.range.src_max[0]);
-        else
-            lo_message_add_char(m, '-');
-
-        if (con->props.range.known & CONNECTION_RANGE_DEST_MIN)
-            lo_message_add_float(m, con->props.range.dest_min);
-        else
-            lo_message_add_char(m, '-');
-
-        if (con->props.range.known & CONNECTION_RANGE_DEST_MAX)
-            lo_message_add_float(m, con->props.range.dest_max);
-        else
-            lo_message_add_char(m, '-');
-    }*/
 
     if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MIN]);

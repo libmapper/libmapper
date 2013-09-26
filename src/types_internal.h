@@ -315,7 +315,6 @@ typedef enum {
     AT_NUM_LINKS_OUT,
     AT_NUM_OUTPUTS,
     AT_PORT,
-    AT_RANGE,
     AT_RATE,
     AT_REV,
     AT_SCOPE,

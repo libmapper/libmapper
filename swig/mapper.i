@@ -205,36 +205,6 @@
                             p.flags |= CONNECTION_BOUND_MIN;
                         }
                     }
-                    else if (strcmp(s, "range")==0) {
-                        if (PySequence_Check(v)) {
-                            int len = PySequence_Size(v), j, n;
-                            float *f;
-                            for (j=0; j<len && j<4; j++) {
-                                PyObject *r = PySequence_GetItem(v, j);
-                                switch (j) {
-                                case 0: f = &p.props.range.src_min;
-                                    k = CONNECTION_RANGE_SRC_MIN; break;
-                                case 1: f = &p.props.range.src_max;
-                                    k = CONNECTION_RANGE_SRC_MAX; break;
-                                case 2: f = &p.props.range.dest_min;
-                                    k = CONNECTION_RANGE_DEST_MIN; break;
-                                case 3: f = &p.props.range.dest_max;
-                                    k = CONNECTION_RANGE_DEST_MAX; break;
-                                }
-                                int ecode = SWIG_AsVal_float(r, f);
-                                if (SWIG_IsOK(ecode))
-                                    p.props.range.known |= k;
-                                else {
-                                    ecode = SWIG_AsVal_int(r, &n);
-                                    if (SWIG_IsOK(ecode)) {
-                                        *f = (float)n;
-                                        p.props.range.known |= k;
-                                    }
-                                }
-                            }
-                            p.flags |= p.props.range.known;
-                        }
-                    }
                     else if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
                             p.props.expression = PyString_AsString(v);
