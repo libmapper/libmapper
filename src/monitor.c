@@ -562,20 +562,31 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                            ? AT_BOUND_MIN : -1, props->bound_min,
                            (props_flags & CONNECTION_BOUND_MAX)
                            ? AT_BOUND_MAX : -1, props->bound_max,
-                           (props_flags & CONNECTION_RANGE_SRC_MIN)
+                           ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
+                            (props_flags & CONNECTION_SRC_TYPE) &&
+                            (props_flags & CONNECTION_SRC_LENGTH))
                            ? AT_SRC_MIN : -1, props,
-                           (props_flags & CONNECTION_RANGE_SRC_MAX)
+                           ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
+                            (props_flags & CONNECTION_SRC_TYPE) &&
+                            (props_flags & CONNECTION_SRC_LENGTH))
                            ? AT_SRC_MAX : -1, props,
-                           (props_flags & CONNECTION_RANGE_DEST_MIN)
+                           ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
+                            (props_flags & CONNECTION_DEST_TYPE) &&
+                            (props_flags & CONNECTION_DEST_LENGTH))
                            ? AT_DEST_MIN : -1, props,
-                           (props_flags & CONNECTION_RANGE_DEST_MAX)
+                           ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
+                            (props_flags & CONNECTION_DEST_TYPE) &&
+                            (props_flags & CONNECTION_DEST_LENGTH))
                            ? AT_DEST_MAX : -1, props,
                            (props_flags & CONNECTION_EXPRESSION)
                            ? AT_EXPRESSION : -1, props->expression,
                            (props_flags & CONNECTION_MODE)
                            ? AT_MODE : -1, props->mode,
                            (props_flags & CONNECTION_MUTED)
-                           ? AT_MUTE : -1, props->muted );
+                           ? AT_MUTE : -1, props->muted,
+                           (props_flags & CONNECTION_SEND_AS_INSTANCE)
+                           ? AT_SEND_AS_INSTANCE : -1,
+                           props->send_as_instance);
     }
 }
 
@@ -592,13 +603,21 @@ void mapper_monitor_connect(mapper_monitor mon,
                            ? AT_BOUND_MIN : -1, props->bound_min,
                            (props_flags & CONNECTION_BOUND_MAX)
                            ? AT_BOUND_MAX : -1, props->bound_max,
-                           (props_flags & CONNECTION_RANGE_SRC_MIN)
+                           ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
+                            (props_flags & CONNECTION_SRC_TYPE) &&
+                            (props_flags & CONNECTION_SRC_LENGTH))
                            ? AT_SRC_MIN : -1, props,
-                           (props_flags & CONNECTION_RANGE_SRC_MAX)
+                           ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
+                            (props_flags & CONNECTION_SRC_TYPE) &&
+                            (props_flags & CONNECTION_SRC_LENGTH))
                            ? AT_SRC_MAX : -1, props,
-                           (props_flags & CONNECTION_RANGE_DEST_MIN)
+                           ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
+                            (props_flags & CONNECTION_DEST_TYPE) &&
+                            (props_flags & CONNECTION_DEST_LENGTH))
                            ? AT_DEST_MIN : -1, props,
-                           (props_flags & CONNECTION_RANGE_DEST_MAX)
+                           ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
+                            (props_flags & CONNECTION_DEST_TYPE) &&
+                            (props_flags & CONNECTION_DEST_LENGTH))
                            ? AT_DEST_MAX : -1, props,
                            (props_flags & CONNECTION_EXPRESSION)
                            ? AT_EXPRESSION : -1, props->expression,

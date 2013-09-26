@@ -76,7 +76,11 @@ typedef struct _mapper_db_device {
 #define CONNECTION_MODE             0x0080
 #define CONNECTION_MUTED            0x0100
 #define CONNECTION_SEND_AS_INSTANCE 0x0200
-#define CONNECTION_ALL              0x0FFF
+#define CONNECTION_SRC_TYPE         0x0400
+#define CONNECTION_DEST_TYPE        0x0800
+#define CONNECTION_SRC_LENGTH       0x1000
+#define CONNECTION_DEST_LENGTH      0x2000
+#define CONNECTION_ALL              0xFFFF
 
 /*! A signal value may be one of several different types, so we use a
  *  union to represent this.  The appropriate selection from this
