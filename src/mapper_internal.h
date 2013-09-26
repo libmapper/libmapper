@@ -150,6 +150,8 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
+void mapper_admin_send_bundle(mapper_admin admin);
+
 void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Macro for calling message-sending function. */
