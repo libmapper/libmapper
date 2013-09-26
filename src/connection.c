@@ -158,14 +158,27 @@ int mapper_connection_perform(mapper_connection connection,
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
         if (!connection->calibrating) {
-            memcpy(connection->props.range.src_min,
-                   msig_history_value_pointer(*from),
-                   from->size * mapper_type_size(from->type));
-            memcpy(connection->props.range.src_max,
-                   msig_history_value_pointer(*from),
-                   from->size * mapper_type_size(from->type));
-            connection->props.range.known |= CONNECTION_RANGE_SRC_MIN |
-                                             CONNECTION_RANGE_SRC_MAX;
+            if (connection->props.src_type == 'f') {
+                float *v = msig_history_value_pointer(*from);
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i].f = v[i];
+                    connection->props.range.src_max[i].f = v[i];
+                }
+            }
+            else if (connection->props.src_type == 'i') {
+                int *v = msig_history_value_pointer(*from);
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i].i32 = v[i];
+                    connection->props.range.src_max[i].i32 = v[i];
+                }
+            }
+            else if (connection->props.src_type == 'd') {
+                double *v = msig_history_value_pointer(*from);
+                for (i = 0; i < from->length; i++) {
+                    connection->props.range.src_min[i].d = v[i];
+                    connection->props.range.src_max[i].d = v[i];
+                }
+            }
             connection->calibrating = 1;
             changed = 1;
         }
