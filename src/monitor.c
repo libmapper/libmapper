@@ -541,6 +541,9 @@ void mapper_monitor_link(mapper_monitor mon,
     else
         mapper_admin_send( mon->admin, ADM_LINK, 0, "ss",
                            source_device, dest_device );
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
@@ -587,6 +590,9 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                            (props_flags & CONNECTION_SEND_AS_INSTANCE)
                            ? AT_SEND_AS_INSTANCE : -1,
                            props->send_as_instance);
+        /* We cannot depend on string arguments sticking around for liblo to
+         * serialize later: trigger immediate dispatch. */
+        mapper_admin_send_bundle(mon->admin);
     }
 }
 
@@ -632,6 +638,9 @@ void mapper_monitor_connect(mapper_monitor mon,
     else
         mapper_admin_send( mon->admin, ADM_CONNECT, 0, "ss",
                            source_signal, dest_signal );
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
 }
 
 void mapper_monitor_disconnect(mapper_monitor mon,
