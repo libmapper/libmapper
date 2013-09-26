@@ -103,11 +103,12 @@ for i in range(1000):
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",
                     {'mode': mapper.MO_EXPRESSION,
                      'expression': 'y=x',
+                     'src_min': [1,2,3,4],
                      'bound_min': mapper.BA_WRAP,
                      'bound_max': mapper.BA_CLAMP})
     if i==750:
         mon.modify({'src_name':"/testsend.1/outsig_3",
                     'dest_name':"/testrecv.1/insig_3",
-                    'range':[None,None,3,4],
+                    'dest_max':[10,11,12,13],
                     'muted':True,
                     'mode': mapper.MO_LINEAR})
