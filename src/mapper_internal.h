@@ -719,7 +719,6 @@ void printexpr(const char*, mapper_expr);
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
-                         mapper_connection_range_t *range,
                          mapper_signal_history_t *input_history,
                          mapper_signal_history_t *output_history);
 

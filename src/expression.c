@@ -752,7 +752,7 @@ static int add_typecast(mapper_token_t *stack, int top)
     h.position = -1;
     h.length = 1;
     h.size = 1;
-    if (!mapper_expr_evaluate(&e, 0, 0, &h))
+    if (!mapper_expr_evaluate(&e, 0, &h))
         return top;
 
     switch (stack[top].datatype) {
@@ -1007,7 +1007,6 @@ static void trace_eval(const char *s,...) {}
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
-                         mapper_connection_range_t *range,
                          mapper_signal_history_t *from,
                          mapper_signal_history_t *to)
 {

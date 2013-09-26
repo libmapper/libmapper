@@ -138,9 +138,7 @@ int mapper_connection_perform(mapper_connection connection,
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(connection->expr,
-                                     &connection->props.range,
-                                     from, to));
+        return (mapper_expr_evaluate(connection->expr, from, to));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)

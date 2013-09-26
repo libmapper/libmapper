@@ -52,7 +52,7 @@ int main()
     double then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
     while (iterations--) {
-        results += mapper_expr_evaluate(e, 0, &inh, &outh);
+        results += mapper_expr_evaluate(e, &inh, &outh);
     }
     double now = get_current_time();
     printf("%f seconds.\n", now-then);
