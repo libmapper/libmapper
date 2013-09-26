@@ -573,10 +573,10 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                            ? AT_MODE : -1, props->mode,
                            (props_flags & CONNECTION_MUTED)
                            ? AT_MUTE : -1, props->muted );
+        /* We cannot depend on string arguments sticking around for liblo to
+         * serialize later: trigger immediate dispatch. */
+        mapper_admin_send_bundle(mon->admin);
     }
-    /* We cannot depend on string arguments sticking around for liblo to
-     * serialize later: trigger immediate dispatch. */
-    mapper_admin_send_bundle(mon->admin);
 }
 
 void mapper_monitor_connect(mapper_monitor mon,
