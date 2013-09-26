@@ -266,13 +266,22 @@ int mapper_boundary_perform(mapper_connection connection,
     int i, muted = 0;
     double v[connection->props.dest_length];
 
-    mval *dest_min_vector, *dest_max_vector;
-    double dest_min, dest_max, total_range, difference, modulo_difference;
+    double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
     if (connection->props.bound_min == BA_NONE
         && connection->props.bound_max == BA_NONE)
     {
+        return 1;
+    }
+    if (!(connection->props.range.known & CONNECTION_RANGE_DEST_MIN)
+        && (connection->props.bound_min != BA_NONE ||
+            connection->props.bound_max == BA_WRAP)) {
+        return 1;
+    }
+    if (!(connection->props.range.known & CONNECTION_RANGE_DEST_MAX)
+        && (connection->props.bound_max != BA_NONE ||
+            connection->props.bound_min == BA_WRAP)) {
         return 1;
     }
 
@@ -296,147 +305,144 @@ int mapper_boundary_perform(mapper_connection connection,
         return 0;
     }
 
-    if (connection->props.range.known) {
-        if (connection->props.range.dest_min <= connection->props.range.dest_max) {
+    for (i = 0; i < history->length; i++) {
+        dest_min = mval_get_double(connection->props.range.dest_min[i],
+                                   connection->props.src_type);
+        dest_max = mval_get_double(connection->props.range.dest_max[i],
+                                   connection->props.dest_type);
+        if (dest_min < dest_max) {
             bound_min = connection->props.bound_min;
             bound_max = connection->props.bound_max;
-            dest_min_vector = connection->props.range.dest_min;
-            dest_max_vector = connection->props.range.dest_max;
         }
         else {
             bound_min = connection->props.bound_max;
             bound_max = connection->props.bound_min;
-            dest_min_vector = connection->props.range.dest_max;
-            dest_max_vector = connection->props.range.dest_min;
+            swap = dest_max;
+            dest_max = dest_min;
+            dest_min = swap;
         }
-        for (i = 0; i < history->length; i++) {
-            dest_min = mval_get_double(dest_min_vector[i],
-                                       connection->props.src_type);
-            dest_max = mval_get_double(dest_max_vector[i],
-                                       connection->props.dest_type);
-            total_range = fabs(dest_max - dest_min);
-            if (v[i] < dest_min) {
-                switch (bound_min) {
-                    case BA_MUTE:
-                        // need to prevent value from being sent at all
-                        muted = 1;
-                        break;
-                    case BA_CLAMP:
-                        // clamp value to range minimum
-                        v[i] = dest_min;
-                        break;
-                    case BA_FOLD:
-                        // fold value around range minimum
-                        difference = fabsf(v[i] - dest_min);
-                        v[i] = dest_min + difference;
-                        if (v[i] > dest_max) {
-                            // value now exceeds range maximum!
-                            switch (bound_max) {
-                                case BA_MUTE:
-                                    // need to prevent value from being sent at all
-                                    muted = 1;
-                                    break;
-                                case BA_CLAMP:
-                                    // clamp value to range minimum
-                                    v[i] = dest_max;
-                                    break;
-                                case BA_FOLD:
-                                    // both boundary actions are set to fold!
-                                    difference = fabsf(v[i] - dest_max);
-                                    modulo_difference = difference
-                                        - ((int)(difference / total_range)
-                                           * total_range);
-                                    if ((int)(difference / total_range) % 2 == 0) {
-                                        v[i] = dest_max - modulo_difference;
-                                    }
-                                    else
-                                        v[i] = dest_min + modulo_difference;
-                                    break;
-                                case BA_WRAP:
-                                    // wrap value back from range minimum
-                                    difference = fabsf(v[i] - dest_max);
-                                    modulo_difference = difference
-                                        - ((int)(difference / total_range)
-                                           * total_range);
-                                    v[i] = dest_min + modulo_difference;
-                                    break;
-                                default:
-                                    break;
-                            }
-                        }
-                        break;
-                    case BA_WRAP:
-                        // wrap value back from range maximum
-                        difference = fabsf(v[i] - dest_min);
-                        modulo_difference = difference
-                            - (int)(difference / total_range) * total_range;
-                        v[i] = dest_max - modulo_difference;
-                        break;
-                    default:
-                        // leave the value unchanged
-                        break;
-                }
-            }
-            else if (v[i] > dest_max) {
-                switch (bound_max) {
-                    case BA_MUTE:
-                        // need to prevent value from being sent at all
-                        muted = 1;
-                        break;
-                    case BA_CLAMP:
-                        // clamp value to range maximum
-                        v[i] = dest_max;
-                        break;
-                    case BA_FOLD:
-                        // fold value around range maximum
-                        difference = fabsf(v[i] - dest_max);
-                        v[i] = dest_max - difference;
-                        if (v[i] < dest_min) {
-                            // value now exceeds range minimum!
-                            switch (bound_min) {
-                                case BA_MUTE:
-                                    // need to prevent value from being sent at all
-                                    muted = 1;
-                                    break;
-                                case BA_CLAMP:
-                                    // clamp value to range minimum
-                                    v[i] = dest_min;
-                                    break;
-                                case BA_FOLD:
-                                    // both boundary actions are set to fold!
-                                    difference = fabsf(v[i] - dest_min);
-                                    modulo_difference = difference
-                                        - ((int)(difference / total_range)
-                                           * total_range);
-                                    if ((int)(difference / total_range) % 2 == 0) {
-                                        v[i] = dest_max + modulo_difference;
-                                    }
-                                    else
-                                        v[i] = dest_min - modulo_difference;
-                                    break;
-                                case BA_WRAP:
-                                    // wrap value back from range maximum
-                                    difference = fabsf(v[i] - dest_min);
-                                    modulo_difference = difference
-                                        - ((int)(difference / total_range)
-                                           * total_range);
+        total_range = fabs(dest_max - dest_min);
+        if (v[i] < dest_min) {
+            switch (bound_min) {
+                case BA_MUTE:
+                    // need to prevent value from being sent at all
+                    muted = 1;
+                    break;
+                case BA_CLAMP:
+                    // clamp value to range minimum
+                    v[i] = dest_min;
+                    break;
+                case BA_FOLD:
+                    // fold value around range minimum
+                    difference = fabsf(v[i] - dest_min);
+                    v[i] = dest_min + difference;
+                    if (v[i] > dest_max) {
+                        // value now exceeds range maximum!
+                        switch (bound_max) {
+                            case BA_MUTE:
+                                // need to prevent value from being sent at all
+                                muted = 1;
+                                break;
+                            case BA_CLAMP:
+                                // clamp value to range minimum
+                                v[i] = dest_max;
+                                break;
+                            case BA_FOLD:
+                                // both boundary actions are set to fold!
+                                difference = fabsf(v[i] - dest_max);
+                                modulo_difference = difference
+                                    - ((int)(difference / total_range)
+                                       * total_range);
+                                if ((int)(difference / total_range) % 2 == 0) {
                                     v[i] = dest_max - modulo_difference;
-                                    break;
-                                default:
-                                    break;
-                            }
+                                }
+                                else
+                                    v[i] = dest_min + modulo_difference;
+                                break;
+                            case BA_WRAP:
+                                // wrap value back from range minimum
+                                difference = fabsf(v[i] - dest_max);
+                                modulo_difference = difference
+                                    - ((int)(difference / total_range)
+                                       * total_range);
+                                v[i] = dest_min + modulo_difference;
+                                break;
+                            default:
+                                break;
                         }
-                        break;
-                    case BA_WRAP:
-                        // wrap value back from range minimum
-                        difference = fabsf(v[i] - dest_max);
-                        modulo_difference = difference
-                            - (int)(difference / total_range) * total_range;
-                        v[i] = dest_min + modulo_difference;
-                        break;
-                    default:
-                        break;
-                }
+                    }
+                    break;
+                case BA_WRAP:
+                    // wrap value back from range maximum
+                    difference = fabsf(v[i] - dest_min);
+                    modulo_difference = difference
+                        - (int)(difference / total_range) * total_range;
+                    v[i] = dest_max - modulo_difference;
+                    break;
+                default:
+                    // leave the value unchanged
+                    break;
+            }
+        }
+        else if (v[i] > dest_max) {
+            switch (bound_max) {
+                case BA_MUTE:
+                    // need to prevent value from being sent at all
+                    muted = 1;
+                    break;
+                case BA_CLAMP:
+                    // clamp value to range maximum
+                    v[i] = dest_max;
+                    break;
+                case BA_FOLD:
+                    // fold value around range maximum
+                    difference = fabsf(v[i] - dest_max);
+                    v[i] = dest_max - difference;
+                    if (v[i] < dest_min) {
+                        // value now exceeds range minimum!
+                        switch (bound_min) {
+                            case BA_MUTE:
+                                // need to prevent value from being sent at all
+                                muted = 1;
+                                break;
+                            case BA_CLAMP:
+                                // clamp value to range minimum
+                                v[i] = dest_min;
+                                break;
+                            case BA_FOLD:
+                                // both boundary actions are set to fold!
+                                difference = fabsf(v[i] - dest_min);
+                                modulo_difference = difference
+                                    - ((int)(difference / total_range)
+                                       * total_range);
+                                if ((int)(difference / total_range) % 2 == 0) {
+                                    v[i] = dest_max + modulo_difference;
+                                }
+                                else
+                                    v[i] = dest_min - modulo_difference;
+                                break;
+                            case BA_WRAP:
+                                // wrap value back from range maximum
+                                difference = fabsf(v[i] - dest_min);
+                                modulo_difference = difference
+                                    - ((int)(difference / total_range)
+                                       * total_range);
+                                v[i] = dest_max - modulo_difference;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case BA_WRAP:
+                    // wrap value back from range minimum
+                    difference = fabsf(v[i] - dest_max);
+                    modulo_difference = difference
+                        - (int)(difference / total_range) * total_range;
+                    v[i] = dest_min + modulo_difference;
+                    break;
+                default:
+                    break;
             }
         }
     }
