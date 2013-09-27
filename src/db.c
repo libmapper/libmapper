@@ -1066,12 +1066,13 @@ void mapper_db_dump(mapper_db db)
             strcat(r, "-");
         strcat(r, ")");
         trace("  src_name=%s, dest_name=%s,\n"
-              "      src_type=%d, dest_type=%d,\n"
+              "      src_type=%c, dest_type=%c,\n"
+              "      src_length=%d, dest_length=%d,\n"
               "      bound_max=%s, bound_min=%s,\n"
               "      range=%s,\n"
               "      expression=%s, mode=%s, muted=%d\n",
               con->src_name, con->dest_name, con->src_type,
-              con->dest_type,
+              con->dest_type, con->src_length, con->dest_length,
               mapper_get_boundary_action_string(con->bound_max),
               mapper_get_boundary_action_string(con->bound_min),
               r, con->expression,
@@ -1649,15 +1650,12 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                                         dest_name);
 
     if (!con) {
-        int src_length = 0;
-        if (update_int_if_arg(&src_length, params, AT_SRC_LENGTH)) {
-            con = (mapper_db_connection)
-                list_new_item(sizeof(mapper_db_connection_t));
-            con->range.src_min = 0;
-            con->range.src_max = 0;
-            con->extra = table_new();
-            rc = 1;
-        }
+        con = (mapper_db_connection)
+            list_new_item(sizeof(mapper_db_connection_t));
+        con->range.src_min = 0;
+        con->range.src_max = 0;
+        con->extra = table_new();
+        rc = 1;
     }
 
     if (con) {
