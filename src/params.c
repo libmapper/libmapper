@@ -123,6 +123,8 @@ int mapper_msg_parse_params(mapper_message_t *msg,
         if (!msg->lengths[j]) {
             trace("message %s, key %s has no values.\n",
                   path, mapper_msg_param_strings[j]);
+            msg->types[j] = 0;
+            msg->values[j] = 0;
             return 1;
         }
     }
