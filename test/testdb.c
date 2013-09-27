@@ -33,7 +33,8 @@ int main()
     lo_arg *args[20];
     mapper_message_t msg;
     int port=1234;
-    int zero=0, one=1;
+    int one=1, two=2;
+    float zerof=0.;
     mapper_db_t db_t, *db = &db_t;
     memset(db, 0, sizeof(db_t));
 
@@ -108,15 +109,20 @@ int main()
     args[2] = (lo_arg*)"@expression";
     args[3] = (lo_arg*)"(x-10)*80";
     args[4] = (lo_arg*)"@boundMin";
-    args[5] = (lo_arg*)"none";
-    args[6] = (lo_arg*)"@range";
-    args[7] = (lo_arg*)&zero;
-    args[8] = (lo_arg*)&one;
-    args[9] = (lo_arg*)&zero;
-    args[10] = (lo_arg*)&one;
+    args[5] = (lo_arg*)"clamp";
+    args[6] = (lo_arg*)"@srcLength";
+    args[7] = (lo_arg*)&two;
+    args[8] = (lo_arg*)"@srcType";
+    args[9] = (lo_arg*)"f";
+    args[10] = (lo_arg*)"@srcMin";
+    args[11] = (lo_arg*)&zerof;
+    args[12] = (lo_arg*)&one;
+    args[13] = (lo_arg*)"@srcMax";
+    args[14] = (lo_arg*)&one;
+    args[15] = (lo_arg*)&two;
 
     if (mapper_msg_parse_params(&msg, "/connected",
-                                "sssssssiiii", 11, args))
+                                "sssssssisssfisii", 16, args))
     {
         printf("5: Error, parsing failed.\n");
         return 1;
