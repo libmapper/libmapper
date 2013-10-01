@@ -9,21 +9,44 @@
 
 void printsignal(mapper_db_signal sig)
 {
+    int i;
     printf("  name=%s%s, type=%c, length=%d",
            sig->device_name, sig->name, sig->type, sig->length);
     if (sig->unit)
         printf(", unit=%s", sig->unit);
     if (sig->minimum) {
-        if (sig->type == 'i')
-            printf(", minimum=%d", sig->minimum->i32);
-        else if (sig->type == 'f')
-            printf(", minimum=%g", sig->minimum->f);
+        if (sig->type == 'i') {
+            int *vals = (int*)sig->minimum;
+            for (i = 0; i < sig->length; i++)
+                printf(", minimum=%d", vals[i]);
+        }
+        else if (sig->type == 'f') {
+            float *vals = (float*)sig->minimum;
+            for (i = 0; i < sig->length; i++)
+                printf(", minimum=%g", vals[i]);
+        }
+        else if (sig->type == 'd') {
+            double *vals = (double*)sig->minimum;
+            for (i = 0; i < sig->length; i++)
+                printf(", minimum=%g", vals[i]);
+        }
     }
     if (sig->maximum) {
-        if (sig->type == 'i')
-            printf(", maximum=%d", sig->maximum->i32);
-        else if (sig->type == 'f')
-            printf(", maximum=%g", sig->maximum->f);
+        if (sig->type == 'i') {
+            int *vals = (int*)sig->maximum;
+            for (i = 0; i < sig->length; i++)
+                printf(", maximum=%d", vals[i]);
+        }
+        else if (sig->type == 'f') {
+            float *vals = (float*)sig->maximum;
+            for (i = 0; i < sig->length; i++)
+                printf(", maximum=%g", vals[i]);
+        }
+        else if (sig->type == 'd') {
+            double *vals = (double*)sig->maximum;
+            for (i = 0; i < sig->length; i++)
+                printf(", minimum=%g", vals[i]);
+        }
     }
     printf("\n");
 }

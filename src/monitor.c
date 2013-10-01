@@ -217,15 +217,21 @@ static int batch_request_signals_by_device_name_internal(mapper_monitor mon,
     }
 
     int signal_count = 0;
-    lo_type type;
-    const lo_arg *value;
-    if (!mapper_db_device_property_lookup(dev, "n_inputs", &type, &value)) {
-        if (type == LO_INT32)
-            signal_count = value->i32;
+    char type;
+    const void *value;
+    int length;
+
+    if (!mapper_db_device_property_lookup(dev, "n_inputs", &type, &value, &length)) {
+        if (length && type == LO_INT32) {
+            int *vals = (int*)value;
+            signal_count = vals[0];
+        }
     }
-    if (!mapper_db_device_property_lookup(dev, "n_outputs", &type, &value))
-        if (type == LO_INT32)
-            signal_count = signal_count > value->i32 ? signal_count : value->i32;
+    if (!mapper_db_device_property_lookup(dev, "n_outputs", &type, &value, &length))
+        if (length && type == LO_INT32) {
+            int *vals = (int*)value;
+            signal_count = signal_count > vals[0] ? signal_count : vals[0];
+        }
 
     if (!signal_count)
         return 1;
@@ -446,18 +452,23 @@ static int batch_request_connections_by_device_name_internal(mapper_monitor mon,
     }
 
     int connection_count = 0;
-    lo_type type;
-    const lo_arg *value;
+    char type;
+    const void *value;
+    int length;
 
     if ((direction == DIRECTION_IN || direction == DIRECTION_BOTH) &&
-        !mapper_db_device_property_lookup(dev, "n_connections_in", &type, &value)) {
-        if (type == LO_INT32)
-            connection_count += value->i32;
+        !mapper_db_device_property_lookup(dev, "n_connections_in", &type, &value, &length)) {
+        if (length && type == LO_INT32) {
+            int *vals = (int*)value;
+            connection_count += vals[0];
+        }
     }
     if ((direction == DIRECTION_OUT || direction == DIRECTION_BOTH) &&
-        !mapper_db_device_property_lookup(dev, "n_connections_out", &type, &value)) {
-        if (type == LO_INT32)
-            connection_count += value->i32;
+        !mapper_db_device_property_lookup(dev, "n_connections_out", &type, &value, &length)) {
+        if (length && type == LO_INT32) {
+            int *vals = (int*)value;
+            connection_count += vals[0];
+        }
     }
 
     if (!connection_count)

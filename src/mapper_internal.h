@@ -775,17 +775,30 @@ int table_add_or_update(table t, const char *key, void *value);
 void table_dump_osc_values(table t);
 #endif
 
-/*! Add a typed OSC argument to a string table.
- *  \param t    Table to update.
- *  \param key  Key to store.
- *  \param type OSC type of value to add.
- *  \param arg  OSC value to add
+/*! Add a typed OSC argument from a mapper_msg to a string table.
+ *  \param t        Table to update.
+ *  \param key      Key to store.
+ *  \param type     OSC type of value to add.
+ *  \param arg      Array of OSC values to add
+ *  \param length   Number of OSC argument in array
  *  \return The number of table values added or modified. */
-int mapper_table_add_or_update_osc_value(table t, const char *key,
-                                         lo_type type, lo_arg *arg);
+int mapper_table_add_or_update_msg_value(table t, const char *key,
+                                         lo_type type, lo_arg **args,
+                                         int length);
 
-/*! Add OSC arguments contained in a string table to a lo_message */
-void mapper_msg_add_osc_value_table(lo_message m, table t);
+/*! Add a typed argument to a string table.
+ *  \param t        Table to update.
+ *  \param key      Key to store.
+ *  \param type     OSC type of value to add.
+ *  \param arg      Value(s) to add
+ *  \param length   Number of OSC argument in array
+ *  \return The number of table values added or modified. */
+int mapper_table_add_or_update_typed_value(table t, const char *key,
+                                           char type, void *args,
+                                           int length);
+
+/*! Add arguments contained in a string table to a lo_message */
+void mapper_msg_add_value_table(lo_message m, table t);
 
 /**** Clock synchronization ****/
 
@@ -830,11 +843,15 @@ static void die_unless(...) {};
 /*! Helper to find size of signal value types. */
 inline static int mapper_type_size(char type)
 {
-    mapper_signal_value_t v;
     switch (type) {
-    case 'i': return sizeof(v.i32);
-    case 'f': return sizeof(v.f);
-    case 'd': return sizeof(v.d);
+    case 'i': return sizeof(int);
+    case 'f': return sizeof(float);
+    case 'd': return sizeof(double);
+    case 's':
+    case 'S': return sizeof(char*);
+    case 'h': return sizeof(int64_t);
+    case 't': return sizeof(mapper_timetag_t);
+    case 'c': return sizeof(char);
     default:
         die_unless(0, "getting size of unknown type %c\n", type);
         return 0;

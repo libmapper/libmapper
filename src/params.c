@@ -267,7 +267,9 @@ int mapper_msg_add_or_update_extra_params(table t,
         const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
         lo_arg *arg = *(params->extra_args[i]+1);
         char type = params->extra_types[i];
-        updated += mapper_table_add_or_update_osc_value(t, key, type, arg);
+        int length = params->extra_lengths[i];
+        updated += mapper_table_add_or_update_msg_value(t, key, type,
+                                                        &arg, length);
         i++;
     }
     return updated;
@@ -294,6 +296,72 @@ static void mval_add_to_message(lo_message m, char type,
         default:
             // Unknown signal type
             assert(0);
+            break;
+    }
+}
+
+void add_typed_value(lo_message m, lo_type type, int length, void **value)
+{
+    int i;
+    switch (type) {
+        case 's':
+        case 'S':
+        {
+            // value is an array of string pointers
+            char **vals = (char **)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_string(m, vals[i]);
+            break;
+        }
+        case 'f':
+        {
+            // value is an array of floats
+            float *vals = (float*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_float(m, vals[i]);
+            break;
+        }
+        case 'd':
+        {
+            // value is an array of doubles
+            double *vals = (double*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_double(m, vals[i]);
+            break;
+        }
+        case 'i':
+        {
+            // value is an array of int32
+            int *vals = (int*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_int32(m, vals[i]);
+            break;
+        }
+        case 'h':
+        {
+            // value is an array of int64
+            int64_t *vals = (int64_t*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_int64(m, vals[i]);
+            break;
+        }
+        case 't':
+        {
+            // value is an array of NTP timetags
+            mapper_timetag_t *vals = (mapper_timetag_t*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_timetag(m, vals[i]);
+            break;
+        }
+        case 'c':
+        {
+            // value is an array of chars
+            char *vals = (char*)value;
+            for (i = 0; i < length; i++)
+                lo_message_add_char(m, vals[i]);
+            break;
+        }
+        default:
             break;
     }
 }
@@ -443,38 +511,16 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             tab = va_arg(aq, table);
             i = 0;
             {
-                mapper_osc_value_t *val;
-                val = table_value_at_index_p(tab, i++);
-                while(val)
+                mapper_prop_value_t *prop;
+                prop = table_value_at_index_p(tab, i++);
+                while(prop)
                 {
                     const char *k = table_key_at_index(tab, i-1);
                     char key[256] = "@";
-                    char type[] = "s ";
                     strncpy(&key[1], k, 254);
-                    type[1] = val->type;
-
-                    /* Apparently calling lo_message_add simply with
-                     * val->value causes errors, so... */
-                    switch (val->type) {
-                    case 's':
-                    case 'S':
-                        lo_message_add(m, type, key, &val->value.s); break;
-                    case 'f':
-                        lo_message_add(m, type, key, val->value.f); break;
-                    case 'd':
-                        lo_message_add(m, type, key, val->value.d); break;
-                    case 'i':
-                        lo_message_add(m, type, key, val->value.i); break;
-                    case 'h':
-                        lo_message_add(m, type, key, val->value.h); break;
-                    case 't':
-                        lo_message_add(m, type, key, val->value.t); break;
-                    case 'c':
-                        lo_message_add(m, type, key, val->value.c); break;
-                    default:
-                        lo_message_add(m, type, key, 0); break;
-                    }
-                    val = table_value_at_index_p(tab, i++);
+                    lo_message_add_string(m, key);
+                    add_typed_value(m, prop->type, prop->length, prop->value);
+                    prop = table_value_at_index_p(tab, i++);
                 }
             }
             break;
@@ -510,7 +556,7 @@ static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
     }
 }
 
-void mapper_msg_add_osc_value_table(lo_message m, table t)
+void mapper_msg_add_value_table(lo_message m, table t)
 {
     string_table_node_t *n = t->store;
     int i;
@@ -518,8 +564,8 @@ void mapper_msg_add_osc_value_table(lo_message m, table t)
         char keyname[256];
         snprintf(keyname, 256, "@%s", n->key);
         lo_message_add_string(m, keyname);
-        mapper_osc_value_t *v = n->value;
-        msg_add_lo_arg(m, v->type, &v->value);
+        mapper_prop_value_t *v = n->value;
+        add_typed_value(m, v->type, v->length, v->value);
         n++;
     }
 }
@@ -527,6 +573,7 @@ void mapper_msg_add_osc_value_table(lo_message m, table t)
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *msg)
 {
+    int i;
     mapper_msg_param_t pa = (mapper_msg_param_t) 0;
 
     for (pa = (mapper_msg_param_t) 0; pa < N_AT_PARAMS; pa = (mapper_msg_param_t) (pa + 1))
@@ -540,14 +587,17 @@ void mapper_msg_prepare_params(lo_message m,
 
         lo_message_add_string(m, mapper_msg_param_strings[pa]);
 
-        // TODO: use arg length to add message
-        msg_add_lo_arg(m, *msg->types[pa], a);
+        for (i = 0; i < msg->lengths[pa]; i++) {
+            msg_add_lo_arg(m, *msg->types[pa], a+i);
+        }
     }
     pa = 0;
     while (msg->extra_args[pa])
     {
         msg_add_lo_arg(m, 's', (lo_arg*) (&msg->extra_args[pa][0]->s));
-        msg_add_lo_arg(m, msg->extra_types[pa], *(msg->extra_args[pa]+1));
+        for (i = 0; i < msg->extra_lengths[pa]; i++) {
+            msg_add_lo_arg(m, msg->extra_types[pa], *(msg->extra_args[pa]+i+1));
+        }
         pa++;
     }
 }
@@ -555,7 +605,7 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_link_prepare_osc_message(lo_message m,
                                      mapper_link link)
 {
-    mapper_msg_add_osc_value_table(m, link->props.extra);
+    mapper_msg_add_value_table(m, link->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,
@@ -615,7 +665,7 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_string(m, mapper_msg_param_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, con->props.send_as_instance);
 
-    mapper_msg_add_osc_value_table(m, con->props.extra);
+    mapper_msg_add_value_table(m, con->props.extra);
 }
 
 mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)

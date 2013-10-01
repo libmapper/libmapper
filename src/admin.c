@@ -763,7 +763,7 @@ void _real_mapper_admin_send_with_params(mapper_admin admin,
 
     mapper_msg_prepare_params(m, params);
     if (extra)
-        mapper_msg_add_osc_value_table(m, extra);
+        mapper_msg_add_value_table(m, extra);
 
     if (!mapper_admin_check_bundle(admin)) {
         lo_bundle_add_message(admin->bundle, msg_index == -1 ?

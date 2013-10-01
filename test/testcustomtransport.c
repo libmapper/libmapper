@@ -75,36 +75,37 @@ void on_mdev_connection(mapper_device dev,
         return;
     }
 
-    const lo_arg *a_transport;
-    lo_type t;
-    if (mapper_db_connection_property_lookup(connection,
-                                             "transport",
-                                             &t, &a_transport)
-        || t != 's')
+    const char **a_transport;
+    char t;
+    int length;
+    if (mapper_db_connection_property_lookup(connection, "transport", &t,
+                                             (const void **)&a_transport,
+                                             &length)
+        || t != 's' || length != 1)
     {
         printf("Couldn't find `transport' property.\n");
         return;
     }
 
-    if (strncmp(&a_transport->s, "tcp", 3) != 0) {
+    
+    if (strncmp(a_transport[0], "tcp", 3) != 0) {
         printf("Unknown transport property `%s', "
-               "was expecting `tcp'.\n", &a_transport->s);
+               "was expecting `tcp'.\n", a_transport[0]);
         return;
     }
 
     // Find the TCP port in the connection properties
-    const lo_arg *a_port;
-    if (mapper_db_connection_property_lookup(connection,
-                                             "tcpPort",
-                                             &t, &a_port)
-        || t != 'i')
+    const int *a_port;
+    if (mapper_db_connection_property_lookup(connection, "tcpPort", &t,
+                                             (const void **)&a_port, &length)
+        || t != 'i' || length != 1)
     {
         printf("Couldn't make TCP connection, "
                "tcpPort property not found.\n");
         return;
     }
 
-    int port = a_port->i, on = 1;
+    int port = a_port[0], on = 1;
 
     send_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -157,7 +158,8 @@ int setup_source()
 
     // Add custom meta-data specifying that this signal supports a
     // special TCP transport.
-    msig_set_property(sendsig, "transport", 's', (lo_arg*)"tcp");
+    char *str = "tcp";
+    msig_set_property(sendsig, "transport", 's', &str, 1);
 
     printf("Output signal /outsig registered.\n");
 
@@ -207,11 +209,12 @@ int setup_destination()
 
     // Add custom meta-data specifying a special transport for this
     // signal.
-    msig_set_property(recvsig, "transport", 's', (lo_arg*)"tcp");
+    char *str = "tcp";
+    msig_set_property(recvsig, "transport", 's', &str, 1);
 
     // Add custom meta-data specifying a port to use for this signal's
     // custom transport.
-    msig_set_property(recvsig, "tcpPort", 'i', (lo_arg*)&tcp_port);
+    msig_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
 
     printf("Input signal /insig registered.\n");
 

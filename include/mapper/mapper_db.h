@@ -240,10 +240,10 @@ typedef struct _mapper_db_signal
     char *unit;
 
     /*! The minimum of this signal, or NULL for no minimum. */
-    mapper_signal_value_t *minimum;
+    void *minimum;
 
     /*! The maximum of this signal, or NULL for no maximum. */
-    mapper_signal_value_t *maximum;
+    void *maximum;
 
     /*! The rate of this signal, or 0 for non-periodic signals. */
     float rate;

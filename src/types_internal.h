@@ -39,15 +39,17 @@ struct _mapper_id_map;
  *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
  *  type is a string, the allocated size may be longer than
  *  sizeof(mapper_osc_arg_t). */
-typedef struct _mapper_osc_value {
-    lo_type type;
-    lo_arg value;
-} mapper_osc_value_t;
+typedef struct _mapper_prop_value {
+    char type;
+    int length;
+    void *value;
+} mapper_prop_value_t;
 
 /*! Used to hold string look-up table nodes. */
 typedef struct {
     const char *key;
     void *value;
+    int is_prop;
 } string_table_node_t;
 
 /*! Used to hold string look-up tables. */
