@@ -925,6 +925,7 @@ static int handler_device(const char *path, const char *types,
             if (host) {
                 params.types[AT_IP] = types;  // 's'
                 params.values[AT_IP] = (lo_arg**)&host;
+                params.lengths[AT_IP] = 1;
             }
         }
     }
@@ -1324,6 +1325,7 @@ static int handler_device_link(const char *path, const char *types,
     lo_arg *arg_port = (lo_arg*) &md->props.port;
     params.values[AT_DEST_PORT] = &arg_port;
     params.types[AT_DEST_PORT] = "i";
+    params.lengths[AT_DEST_PORT] = 1;
     mapper_admin_send_with_params(
         admin, &params, 0, ADM_LINK_TO, 0, "ss", src_name, dest_name);
 
@@ -1810,14 +1812,17 @@ static int handler_signal_connect(const char *path, const char *types,
     lo_arg *arg_type = (lo_arg*) &input->props.type;
     params.values[AT_TYPE] = &arg_type;
     params.types[AT_TYPE] = "c";
+    params.lengths[AT_TYPE] = 1;
 
     lo_arg *arg_length = (lo_arg*) &input->props.length;
     params.values[AT_LENGTH] = &arg_length;
     params.types[AT_LENGTH] = "i";
+    params.lengths[AT_LENGTH] = 1;
 
     lo_arg *arg_num_instances = (lo_arg*) &input->props.num_instances;
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
+    params.lengths[AT_INSTANCES] = 1;
 
     mapper_admin_send_with_params(
         admin, &params, input->props.extra,
