@@ -734,7 +734,7 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                         *property = table_key_at_index(proptable, i);
                     *type = prop->type == 'o' ? o_type : prop->type;
                     *value = *pp;
-                    *length = prop->length;
+                    *length = prop->length > 0 ?: prop->length * -1;
                     return 0;
                 }
                 j++;
@@ -746,7 +746,7 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                     *property = table_key_at_index(proptable, i);
                 *type = prop->type == 'o' ? o_type : prop->type;
                 *value = (lo_arg*)((char*)thestruct + prop->offset);
-                *length = prop->length;
+                *length = prop->length > 0 ?: prop->length * -1;
                 return 0;
             }
             j++;
@@ -789,6 +789,7 @@ static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
     prop = table_find_p(proptable, property);
     if (prop) {
         *type = prop->type == 'o' ? o_type : prop->type;
+        *length = prop->length > 0 ?: prop->length * -1;
         if (prop->indirect) {
             void **pp = (void**)((char*)thestruct + prop->offset);
             if (*pp)
@@ -997,28 +998,8 @@ void mapper_db_device_done(mapper_db_device_t **d)
         lh->query_context->query_free(lh);
 }
 
-// Helper for printing mvals
-static void mval_sprintf(char *str, mval value, const char type)
-{
-    switch (type) {
-        case 'f':
-            sprintf(str, "%f", value.f);
-            break;
-        case 'i':
-            sprintf(str, "%i", value.i32);
-            break;
-        case 'd':
-            sprintf(str, "%f", value.d);
-            break;
-        default:
-            break;
-    }
-}
-
 void mapper_db_dump(mapper_db db)
 {
-    int i;
-
     mapper_db_device reg = db->registered_devices;
     trace("Registered devices:\n");
     while (reg) {
@@ -1048,62 +1029,25 @@ void mapper_db_dump(mapper_db db)
     while (con) {
         char r[1024] = "(";
         if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
-            if (con->src_length > 1)
-                sprintf(r+strlen(r), "[");
-            for (i=0; i<con->src_length; i++) {
-                mval_sprintf(r+strlen(r), con->range.src_min[i], con->src_type);
-                if (i < con->src_length-1)
-                    sprintf(r+strlen(r), ", ");
-            }
-            if (con->src_length > 1)
-                sprintf(r+strlen(r), "], ");
-            else
-                sprintf(r+strlen(r), ", ");
+            mapper_prop_pp(con->src_type, con->src_length, con->range.src_min);
+            sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
         if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
-            if (con->src_length > 1)
-                sprintf(r+strlen(r), "[");
-            for (i=0; i<con->src_length; i++) {
-                mval_sprintf(r+strlen(r), con->range.src_max[i], con->src_type);
-                if (i < con->src_length-1)
-                    sprintf(r+strlen(r), ", ");
-            }
-            if (con->src_length > 1)
-                sprintf(r+strlen(r), "], ");
-            else
-                sprintf(r+strlen(r), ", ");
+            mapper_prop_pp(con->src_type, con->src_length, con->range.src_max);
+            sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
         if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
-            if (con->dest_length > 1)
-                sprintf(r+strlen(r), "[");
-            for (i=0; i<con->dest_length; i++) {
-                mval_sprintf(r+strlen(r), con->range.dest_min[i], con->dest_type);
-                if (i < con->dest_length-1)
-                    sprintf(r+strlen(r), ", ");
-            }
-            if (con->dest_length > 1)
-                sprintf(r+strlen(r), "], ");
-            else
-                sprintf(r+strlen(r), ", ");
+            mapper_prop_pp(con->dest_type, con->dest_length, con->range.dest_min);
+            sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
         if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
-            if (con->dest_length > 1)
-                sprintf(r+strlen(r), "[");
-            for (i=0; i<con->dest_length; i++) {
-                mval_sprintf(r+strlen(r), con->range.dest_max[i], con->dest_type);
-                if (i < con->dest_length-1)
-                    sprintf(r+strlen(r), ", ");
-            }
-            if (con->dest_length > 1)
-                sprintf(r+strlen(r), "], ");
-            else
-                sprintf(r+strlen(r), ", ");
+            mapper_prop_pp(con->dest_type, con->dest_length, con->range.dest_max);
         }
         else
             strcat(r, "-");

@@ -300,22 +300,27 @@ static void mval_add_to_message(lo_message m, char type,
     }
 }
 
-void add_typed_value(lo_message m, lo_type type, int length, void **value)
+void msg_add_typed_value(lo_message m, lo_type type, int length, void *value)
 {
     int i;
+    if (length < 1)
+        return;
+
     switch (type) {
         case 's':
         case 'S':
         {
-            // value is an array of string pointers
-            char **vals = (char **)value;
-            for (i = 0; i < length; i++)
-                lo_message_add_string(m, vals[i]);
+            if (length == 1)
+                lo_message_add_string(m, (char*)value);
+            else {
+                char **vals = (char**)value;
+                for (i = 0; i < length; i++)
+                    lo_message_add_string(m, vals[i]);
+            }
             break;
         }
         case 'f':
         {
-            // value is an array of floats
             float *vals = (float*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_float(m, vals[i]);
@@ -323,7 +328,6 @@ void add_typed_value(lo_message m, lo_type type, int length, void **value)
         }
         case 'd':
         {
-            // value is an array of doubles
             double *vals = (double*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_double(m, vals[i]);
@@ -331,7 +335,6 @@ void add_typed_value(lo_message m, lo_type type, int length, void **value)
         }
         case 'i':
         {
-            // value is an array of int32
             int *vals = (int*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_int32(m, vals[i]);
@@ -339,7 +342,6 @@ void add_typed_value(lo_message m, lo_type type, int length, void **value)
         }
         case 'h':
         {
-            // value is an array of int64
             int64_t *vals = (int64_t*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_int64(m, vals[i]);
@@ -347,7 +349,6 @@ void add_typed_value(lo_message m, lo_type type, int length, void **value)
         }
         case 't':
         {
-            // value is an array of NTP timetags
             mapper_timetag_t *vals = (mapper_timetag_t*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_timetag(m, vals[i]);
@@ -355,7 +356,6 @@ void add_typed_value(lo_message m, lo_type type, int length, void **value)
         }
         case 'c':
         {
-            // value is an array of chars
             char *vals = (char*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_char(m, vals[i]);
@@ -519,7 +519,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                     char key[256] = "@";
                     strncpy(&key[1], k, 254);
                     lo_message_add_string(m, key);
-                    add_typed_value(m, prop->type, prop->length, prop->value);
+                    msg_add_typed_value(m, prop->type, prop->length, prop->value);
                     prop = table_value_at_index_p(tab, i++);
                 }
             }
@@ -565,7 +565,7 @@ void mapper_msg_add_value_table(lo_message m, table t)
         snprintf(keyname, 256, "@%s", n->key);
         lo_message_add_string(m, keyname);
         mapper_prop_value_t *v = n->value;
-        add_typed_value(m, v->type, v->length, v->value);
+        msg_add_typed_value(m, v->type, v->length, v->value);
         n++;
     }
 }

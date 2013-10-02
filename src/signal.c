@@ -1075,10 +1075,9 @@ void msig_set_property(mapper_signal sig, const char *property,
             }
             return;
         }
-        char **vals = (char**)value;
-        if (!sig->props.unit || strcmp(sig->props.unit, vals[0])) {
-            sig->props.unit = realloc(sig->props.unit, strlen(vals[0])+1);
-            strcpy(sig->props.unit, vals[0]);
+        if (!sig->props.unit || strcmp(sig->props.unit, (char*)value)) {
+            sig->props.unit = realloc(sig->props.unit, strlen((char*)value)+1);
+            strcpy(sig->props.unit, (char*)value);
         }
         return;
     }

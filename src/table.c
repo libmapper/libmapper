@@ -166,23 +166,26 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
      * we'll use memcpy instead, which does not crash. */
 
     int i;
+    if (length < 1)
+        return;
+
     /* If destination is a string, reallocate and copy the new
      * string, otherwise just copy over the old value. */
     if (type == 's' || type == 'S')
     {
+        char **from = (char**)args;
         if (length == 1) {
             char **to = (char**)&(*prop)->value;
-            int n = strlen((char*)args);
-            *to = realloc(*to, n+1);
-            memcpy(to, (char*)args, n+1);
+            int n = strlen(*from);
+            *to = malloc(n+1);
+            memcpy(*to, *from, n+1);
         }
-        else if (length > 1) {
+        else {
             char ***to = (char***)&(*prop)->value;
-            char **from = (char**)args;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
-                *to[i] = realloc(*to[i], n+1);
-                memcpy(to[i], from[i], n+1);
+                (*to)[i] = malloc(n+1);
+                memcpy((*to)[i], from[i], n+1);
             }
         }
     } else {
@@ -253,14 +256,16 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
                    "table cannot be null.\n");
         
         mapper_prop_value_t *prop = node->value;
-        if (prop->length == 1) {
-            char *vals = prop->value;
-            free(vals);
-        }
-        else if (prop->length > 1) {
-            char **vals = prop->value;
-            for (i = 0; i < prop->length; i++) {
-                free(vals[i]);
+        if (prop->type == 's' || prop->type == 'S') {
+            if (prop->length == 1) {
+                char *vals = prop->value;
+                free(vals);
+            }
+            else if (prop->length > 1) {
+                char **vals = prop->value;
+                for (i = 0; i < prop->length; i++) {
+                    free(vals[i]);
+                }
             }
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
@@ -299,16 +304,16 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t **prop,
     {
         if (length == 1) {
             char **to = (char**)&(*prop)->value;
-            int n = strlen((char*)args[0]);
-            *to = realloc(*to, n+1);
-            memcpy(to, (char*)args[0], n+1);
+            int n = strlen((char*)&args[0]->s);
+            *to = malloc(n+1);
+            memcpy(*to, (char*)&args[0]->s, n+1);
         }
         else if (length > 1) {
             char ***to = (char***)&(*prop)->value;
             char **from = (char**)args;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
-                *to[i] = realloc(*to[i], n+1);
+                to[i] = malloc(n+1);
                 memcpy(to[i], from[i], n+1);
             }
         }
@@ -375,14 +380,16 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
                    "table cannot be null.\n");
 
         mapper_prop_value_t *prop = node->value;
-        if (prop->length == 1) {
-            char *vals = prop->value;
-            free(vals);
-        }
-        else if (prop->length > 1) {
-            char **vals = prop->value;
-            for (i = 0; i < prop->length; i++) {
-                free(vals[i]);
+        if (prop->type == 's' || prop->type == 'S') {
+            if (prop->length == 1) {
+                char *vals = prop->value;
+                free(vals);
+            }
+            else if (prop->length > 1) {
+                char **vals = prop->value;
+                for (i = 0; i < prop->length; i++) {
+                    free(vals[i]);
+                }
             }
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
