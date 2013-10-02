@@ -158,7 +158,7 @@ int table_size(table t)
     return t->len;
 }
 
-static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
+static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
                                               int length, char type,
                                               void *args)
 {
@@ -175,13 +175,13 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
     {
         char **from = (char**)args;
         if (length == 1) {
-            char **to = (char**)&(*prop)->value;
+            char **to = (char**)&prop->value;
             int n = strlen(*from);
             *to = malloc(n+1);
             memcpy(*to, *from, n+1);
         }
         else {
-            char ***to = (char***)&(*prop)->value;
+            char ***to = (char***)&prop->value;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
                 (*to)[i] = malloc(n+1);
@@ -193,14 +193,14 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
             case 'f':
             {
                 float *from = (float*)args;
-                float *to = (float*)(*prop)->value;
+                float *to = (float*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
             case 'i': {
                 int32_t *from = (int32_t*)args;
-                int32_t *to = (int32_t*)(*prop)->value;
+                int32_t *to = (int32_t*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
@@ -208,7 +208,7 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
             case 'd':
             {
                 double *from = (double*)args;
-                double *to = (double*)(*prop)->value;
+                double *to = (double*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
@@ -216,7 +216,7 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
             case 'h':
             {
                 int64_t *from = (int64_t*)args;
-                int64_t *to = (int64_t*)(*prop)->value;
+                int64_t *to = (int64_t*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
@@ -224,7 +224,7 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
             case 't':
             {
                 mapper_timetag_t *from = (mapper_timetag_t*)args;
-                mapper_timetag_t *to = (mapper_timetag_t*)(*prop)->value;
+                mapper_timetag_t *to = (mapper_timetag_t*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
@@ -232,7 +232,7 @@ static void mapper_table_update_value_elements(mapper_prop_value_t **prop,
             case 'c':
             {
                 char *from = (char*)args;
-                char *to = (char*)(*prop)->value;
+                char *to = (char*)prop->value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
@@ -270,7 +270,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
 
-        mapper_table_update_value_elements(&prop, length, type, args);
+        mapper_table_update_value_elements(prop, length, type, args);
         prop->length = length;
         prop->type = type;
     }
@@ -279,7 +279,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
         mapper_prop_value_t *prop = malloc(sizeof(mapper_prop_value_t));
         prop->value = malloc(mapper_type_size(type) * length);
         prop->length = 0;
-        mapper_table_update_value_elements(&prop, length, type, args);
+        mapper_table_update_value_elements(prop, length, type, args);
         prop->length = length;
         prop->type = type;
         
@@ -290,7 +290,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
     return 0;
 }
 
-static void mapper_table_update_value_elements_osc(mapper_prop_value_t **prop,
+static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
                                                    int length, char type,
                                                    lo_arg **args)
 {
@@ -303,13 +303,13 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t **prop,
     if (type == 's' || type == 'S')
     {
         if (length == 1) {
-            char **to = (char**)&(*prop)->value;
+            char **to = (char**)&prop->value;
             int n = strlen((char*)&args[0]->s);
             *to = malloc(n+1);
             memcpy(*to, (char*)&args[0]->s, n+1);
         }
         else if (length > 1) {
-            char ***to = (char***)&(*prop)->value;
+            char ***to = (char***)&prop->value;
             char **from = (char**)args;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
@@ -321,42 +321,42 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t **prop,
         switch (type) {
             case 'f':
             {
-                float *vals = (float*)(*prop)->value;
+                float *vals = (float*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->f;
                 break;
             }
             case 'i':
             {
-                int32_t *vals = (int32_t*)(*prop)->value;
+                int32_t *vals = (int32_t*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->i32;
                 break;
             }
             case 'd':
             {
-                double *vals = (double*)(*prop)->value;
+                double *vals = (double*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->d;
                 break;
             }
             case 'h':
             {
-                int64_t *vals = (int64_t*)(*prop)->value;
+                int64_t *vals = (int64_t*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->h;
                 break;
             }
             case 't':
             {
-                mapper_timetag_t *vals = (mapper_timetag_t*)(*prop)->value;
+                mapper_timetag_t *vals = (mapper_timetag_t*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->t;
                 break;
             }
             case 'c':
             {
-                char *vals = (char*)(*prop)->value;
+                char *vals = (char*)prop->value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->c;
                 break;
@@ -394,7 +394,7 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
 
-        mapper_table_update_value_elements_osc(&prop, length, type, args);
+        mapper_table_update_value_elements_osc(prop, length, type, args);
         prop->length = length;
         prop->type = type;
     }
@@ -403,7 +403,7 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
         mapper_prop_value_t *prop = malloc(sizeof(mapper_prop_value_t));
         prop->value = malloc(mapper_type_size(type) * length);
         prop->length = 0;
-        mapper_table_update_value_elements_osc(&prop, length, type, args);
+        mapper_table_update_value_elements_osc(prop, length, type, args);
         prop->length = length;
         prop->type = type;
 
