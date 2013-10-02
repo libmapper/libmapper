@@ -648,7 +648,7 @@ static string_table_node_t linkdb_nodes[] = {
     { "dest_name",    &linkdb_values[1] },
     { "dest_port",    &linkdb_values[2] },
     { "num_scopes",   &linkdb_values[3] },
-    { "scopes",       &linkdb_values[4] },
+    { "scope_names",  &linkdb_values[4] },
     { "scope_hashes", &linkdb_values[5]},
     { "src_host",     &linkdb_values[6] },
     { "src_name",     &linkdb_values[7] },
