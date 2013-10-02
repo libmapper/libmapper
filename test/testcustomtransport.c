@@ -75,7 +75,7 @@ void on_mdev_connection(mapper_device dev,
         return;
     }
 
-    const char **a_transport;
+    const char *a_transport;
     char t;
     int length;
     if (mapper_db_connection_property_lookup(connection, "transport", &t,
@@ -88,9 +88,9 @@ void on_mdev_connection(mapper_device dev,
     }
 
     
-    if (strncmp(a_transport[0], "tcp", 3) != 0) {
+    if (strncmp(a_transport, "tcp", 3) != 0) {
         printf("Unknown transport property `%s', "
-               "was expecting `tcp'.\n", a_transport[0]);
+               "was expecting `tcp'.\n", a_transport);
         return;
     }
 
@@ -105,7 +105,7 @@ void on_mdev_connection(mapper_device dev,
         return;
     }
 
-    int port = a_port[0], on = 1;
+    int port = *a_port, on = 1;
 
     send_socket = socket(AF_INET, SOCK_STREAM, 0);
 

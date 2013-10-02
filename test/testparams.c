@@ -31,7 +31,7 @@ int main()
     args[11] = (lo_arg*)"@srcLength";
     args[12] = (lo_arg*)&src_length;
 
-    int rc = mapper_msg_parse_params(&msg, "/test", "sssffffsi", 13, args);
+    int rc = mapper_msg_parse_params(&msg, "/test", "sssffffsiscsi", 13, args);
     if (rc) {
         printf("1: Error parsing.\n");
         return 1;
@@ -84,7 +84,7 @@ int main()
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@IP";
 
-    rc = mapper_msg_parse_params(&msg, "/test", "sss", 3, args);
+    rc = mapper_msg_parse_params(&msg, "/test", "sis", 3, args);
     if (!rc) {
         printf("2: Error, unexpected parsing success.\n");
         return 1;
