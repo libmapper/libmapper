@@ -49,7 +49,7 @@ void printdevice(mapper_db_device dev)
             continue;
 
         printf(", %s=", key);
-        lo_arg_pp(type, (lo_arg*)val);
+        mapper_prop_pp(type, length, val);
     }
     printf("\n");
 }
@@ -77,7 +77,7 @@ void printsignal(mapper_db_signal sig)
             continue;
 
         printf(", %s=", key);
-        lo_arg_pp(type, (lo_arg*)val);
+        mapper_prop_pp(type, length, val);
     }
     printf("\n");
 }
@@ -102,7 +102,7 @@ void printlink(mapper_db_link link)
             continue;
 
         printf(", %s=", key);
-        lo_arg_pp(type, (lo_arg*)val);
+        mapper_prop_pp(type, length, val);
     }
     printf("\n");
 }
@@ -127,7 +127,7 @@ void printconnection(mapper_db_connection con)
             continue;
 
         printf(", %s=", key);
-        lo_arg_pp(type, (lo_arg*)val);
+        mapper_prop_pp(type, length, val);
     }
     printf("\n");
 }

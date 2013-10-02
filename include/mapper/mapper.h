@@ -766,6 +766,12 @@ int mapper_db_device_property_lookup(mapper_db_device dev,
                                      const char *property, char *type,
                                      const void **value, int *length);
 
+/*! Helper for printing typed mapper_prop values.
+ *  \param type     The value type.
+ *  \param length   The vector length of the value.
+ *  \param value    A pointer to the property value to print. */
+void mapper_prop_pp(char type, int length, const void *value);
+
 /* @} */
 
 /***** Signals *****/

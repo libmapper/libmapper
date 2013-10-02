@@ -745,3 +745,77 @@ int mapper_msg_get_mute(mapper_message_t *msg)
     else
         return -1;
 }
+
+void mapper_prop_pp(char type, int length, const void *value)
+{
+    int i;
+    if (!value || length < 1)
+        return;
+
+    if (length > 1)
+        printf("[");
+
+    switch (type) {
+        case 's':
+        case 'S':
+        {
+            if (length == 1)
+                printf("'%s'", (char*)value);
+            else {
+                char **ps = (char**)value;
+                for (i = 0; i < length; i++)
+                    printf("'%s', ", ps[i]);
+            }
+            break;
+        }
+        case 'f':
+        {
+            float *pf = (float*)value;
+            for (i = 0; i < length; i++)
+                printf("%f, ", pf[i]);
+            break;
+        }
+        case 'i':
+        {
+            int *pi = (int*)value;
+            for (i = 0; i < length; i++)
+                printf("%d, ", pi[i]);
+            break;
+        }
+        case 'd':
+        {
+            double *pd = (double*)value;
+            for (i = 0; i < length; i++)
+                printf("%f, ", pd[i]);
+            break;
+        }
+        case 'h':
+        {
+            int64_t *pi = (int64_t*)value;
+            for (i = 0; i < length; i++)
+                printf("%lli, ", pi[i]);
+            break;
+        }
+        case 't':
+        {
+            mapper_timetag_t *pt = (mapper_timetag_t*)value;
+            for (i = 0; i < length; i++)
+                printf("%f, ", mapper_timetag_get_double(pt[i]));
+            break;
+        }
+        case 'c':
+        {
+            char *pi = (char*)value;
+            for (i = 0; i < length; i++)
+                printf("%c, ", pi[i]);
+            break;
+        }
+        default:
+            break;
+    }
+
+    if (length > 1)
+        printf("\b\b]");
+    else
+        printf("\b\b");
+}

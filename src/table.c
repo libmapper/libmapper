@@ -418,71 +418,11 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
 void table_dump_prop_values(table t)
 {
     string_table_node_t *n = t->store;
-    int i, j;
+    int i;
     for (i=0; i<t->len; i++) {
         printf("%s: ", n->key);
         mapper_prop_value_t *prop = n->value;
-        switch (prop->type) {
-            case 's':
-            case 'S':
-            {
-                char **vals = (char**)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%s ", vals[j]);
-                }
-                break;
-            }
-            case 'f':
-            {
-                float *vals = (float*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%f ", vals[j]);
-                }
-                break;
-            }
-            case 'i':
-            {
-                int32_t *vals = (int32_t*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%d ", vals[j]);
-                }
-                break;
-            }
-            case 'd':
-            {
-                double *vals = (double*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%f ", vals[j]);
-                }
-                break;
-            }
-            case 'h':
-            {
-                int64_t *vals = (int64_t*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%lli ", vals[j]);
-                }
-                break;
-            }
-            case 'c':
-            {
-                char *vals = (char*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%c ", vals[j]);
-                }
-                break;
-            }
-            case 't':
-            {
-                mapper_timetag_t *vals = (mapper_timetag_t*)prop->value;
-                for (j = 0; j < prop->length; j++) {
-                    printf("%f ", mapper_timetag_get_double(vals[j]));
-                }
-                break;
-            }
-            default:
-                break;
-        }
+        mapper_prop_pp(prop->type, prop->length, prop->value);
         printf("\n");
         n++;
     }
