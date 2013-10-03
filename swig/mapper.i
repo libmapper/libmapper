@@ -7,7 +7,7 @@
     }
     $1 = $input;
  }
-%typemap(in) (int argc, float *argv) {
+%typemap(in) (int num_float, float *argv) {
     int i;
     if (!PyList_Check($input)) {
         PyErr_SetString(PyExc_ValueError, "Expecting a list");
@@ -29,13 +29,13 @@
         }
     }
 }
-%typemap(typecheck) (int argc, float *argv) {
+%typemap(typecheck) (int num_float, float *argv) {
     $1 = PyList_Check($input) ? 1 : 0;
 }
-%typemap(freearg) (int argc, float *argv) {
+%typemap(freearg) (int num_float, float *argv) {
     if ($2) free($2);
 }
-%typemap(in) (int num, int *argv) {
+%typemap(in) (int num_int, int *argv) {
     int i;
     if (!PyList_Check($input)) {
         PyErr_SetString(PyExc_ValueError, "Expecting a list");
@@ -57,46 +57,53 @@
         }
     }
 }
-%typemap(typecheck) (int num, int *argv) {
+%typemap(typecheck) (int num_int, int *argv) {
     $1 = PyList_Check($input) ? 1 : 0;
 }
-%typemap(freearg) (int num, int *argv) {
+%typemap(freearg) (int num_int, int *argv) {
     if ($2) free($2);
 }
-%typemap(in) maybeSigVal %{
-    sigval val;
+%typemap(in) maybePropVal %{
+    propval val;
     if ($input == Py_None)
         $1 = 0;
     else {
-        int ecode = SWIG_AsVal_int($input, &val.v.i32);
-        if (SWIG_IsOK(ecode))
-            val.t = 'i';
-        else {
-            ecode = SWIG_AsVal_float($input, &val.v.f);
-            if (SWIG_IsOK(ecode))
-                val.t = 'f';
-            else {
-                SWIG_exception_fail(SWIG_ArgError(ecode),
-                             "argument $argnum of type 'float' or 'int'");
-            }
+        val.type = 0;
+        check_type($input, &val.type, 1, 1);
+        if (!val.type)
+            return NULL;
+        if (PyList_Check($input))
+            val.length = PyList_Size($input);
+        else
+            val.length = 1;
+        val.value = malloc(val.length * mapper_type_size(val.type));
+        val.free_value = 1;
+        if (py_to_prop($input, val.value, val.type, val.length)) {
+            free(val.value);
+            PyErr_SetString(PyExc_ValueError,
+                            "Problem parsing property value.");
+            return NULL;
         }
         $1 = &val;
     }
 %}
-%typemap(out) maybeSigVal {
-    if ($1 && $1->t == 'f') {
-        $result = Py_BuildValue("f", $1->v.f);
+%typemap(out) maybePropVal {
+    $result = prop_to_py($1->type, $1->length, $1->value);
+    if ($result)
         free($1);
-    }
-    else if ($1 && $1->t == 'i') {
-        $result = Py_BuildValue("i", $1->v.i32);
-        free($1);
-    }
     else {
         $result = Py_None;
         Py_INCREF($result);
     }
  }
+%typemap(freearg) maybePropVal {
+    if ($1) {
+        maybePropVal prop = (maybePropVal)$1;
+        if (prop->value && prop->free_value)
+            free(prop->value);
+        free($1);
+    }
+}
 %typemap(out) maybeInt {
     if ($1) {
         $result = Py_BuildValue("i", *$1);
@@ -429,75 +436,306 @@ typedef struct _admin {} admin;
 
 PyThreadState *_save;
 
-static int copy_item_to_mval(PyObject *from, mval *to, char type)
+static int py_to_prop(PyObject *from, void *to, char type, int length)
 {
-    if (PyInt_Check(from)) {
-        if (type == 'i')
-            to->i32 = PyInt_AsLong(from);
-        else if (type == 'f')
-            to->f = (float)PyInt_AsLong(from);
-        else if (type == 'd')
-            to->d = (double)PyInt_AsLong(from);
-    }
-    else if (PyFloat_Check(from)) {
-        if (type == 'i')
-            to->i32 = (int)PyFloat_AsDouble(from);
-        else if (type == 'f')
-            to->f = PyFloat_AsDouble(from);
-        else if (type == 'd')
-            to->d = (double)PyFloat_AsDouble(from);
-    }
-    else
+    // here we are assuming sufficient memory has already been allocated
+
+    if (!length)
         return 1;
 
+    int i;
+    PyObject *v = 0;
+    if (length > 1)
+        v = PyList_New(length);
+    
+    switch (type) {
+        case 's':
+        {
+            // only strings are valid
+            if (length > 1) {
+                char ***str_to = (char***)to;
+                for (i=0; i<length; i++) {
+                    PyObject *element = PySequence_GetItem(from, i);
+                    if (!PyString_Check(element))
+                        return 1;
+                    (*str_to)[i] = strdup(PyString_AsString(element));
+                }
+            }
+            else {
+                if (!PyString_Check(from))
+                    return 1;
+                char **str_to = (char**)to;
+                *str_to = PyString_AsString(from);
+            }
+            break;
+        }
+        case 'c':
+        {
+            // only strings are valid
+            char *char_to = (char*)to;
+            if (length > 1) {
+                for (i=0; i<length; i++) {
+                    PyObject *element = PySequence_GetItem(from, i);
+                    if (!PyString_Check(element))
+                        return 1;
+                    char *temp = PyString_AsString(element);
+                    char_to[i] = temp[0];
+                }
+            }
+            else {
+                if (!PyString_Check(from))
+                    return 1;
+                char *temp = PyString_AsString(from);
+                *char_to = temp[0];
+            }
+            break;
+        }
+        case 'i':
+        {
+            int *int_to = (int*)to;
+            if (length > 1) {
+                for (i=0; i<length; i++) {
+                    PyObject *element = PySequence_GetItem(from, i);
+                    if (PyInt_Check(element))
+                        int_to[i] = PyInt_AsLong(element);
+                    else if (PyFloat_Check(element))
+                        int_to[i] = (int)PyFloat_AsDouble(element);
+                    else if (PyBool_Check(element)) {
+                        if (PyObject_IsTrue(element))
+                            int_to[i] = 1;
+                        else
+                            int_to[i] = 0;
+                    }
+                    else
+                        return 1;
+                }
+            }
+            else {
+                if (PyInt_Check(from))
+                    *int_to = PyInt_AsLong(from);
+                else if (PyFloat_Check(from))
+                    *int_to = (int)PyFloat_AsDouble(from);
+                else if (PyBool_Check(from)) {
+                    if (PyObject_IsTrue(from))
+                        *int_to = 1;
+                    else
+                        *int_to = 0;
+                }
+                else
+                    return 1;
+            }
+            break;
+        }
+        case 'f':
+        {
+            float *float_to = (float*)to;
+            if (length > 1) {
+                for (i=0; i<length; i++) {
+                    PyObject *element = PySequence_GetItem(from, i);
+                    if (PyFloat_Check(element))
+                        float_to[i] = PyFloat_AsDouble(element);
+                    else if (PyInt_Check(element))
+                        float_to[i] = (float)PyInt_AsLong(element);
+                    else if (PyBool_Check(element)) {
+                        if (PyObject_IsTrue(element))
+                            float_to[i] = 1.;
+                        else
+                            float_to[i] = 0.;
+                    }
+                    else
+                        return 1;
+                }
+            }
+            else {
+                if (PyFloat_Check(from))
+                    *float_to = PyFloat_AsDouble(from);
+                else if (PyInt_Check(from))
+                    *float_to = (float)PyInt_AsLong(from);
+                else if (PyBool_Check(from)) {
+                    if (PyObject_IsTrue(from))
+                        *float_to = 1.;
+                    else
+                        *float_to = 0.;
+                }
+                else
+                    return 1;
+            }
+            break;
+        }
+        default:
+            return 1;
+            break;
+    }
+    return 0;
+}
+
+static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
+{
+    if (PySequence_Check(v)) {
+        if (allow_sequence) {
+            int i;
+            for (i=0; i<PySequence_Size(v); i++) {
+                if (check_type(PySequence_GetItem(v, i), c, can_promote, 0))
+                    return 1;
+            }
+        }
+        else
+            return 1;
+    }
+    else if (PyInt_Check(v) || PyBool_Check(v)) {
+        if (*c == 0)
+            *c = 'i';
+        else if (*c == 's')
+            return 1;
+    }
+    else if (PyFloat_Check(v)) {
+        if (*c == 0)
+            *c = 'f';
+        else if (*c == 's')
+            return 1;
+        else if (*c == 'i' && can_promote)
+            *c = 'f';
+    }
+    else if (PyString_Check(v)) {
+        if (*c == 0)
+            *c = 's';
+        else if (*c != 's' && *c != 'c')
+            return 1;
+    }
     return 0;
 }
 
 static void alloc_and_copy_maybe_vector(PyObject *v, char *type,
-                                        mval **value, int *length)
+                                        void **value, int *length)
 {
-    if (*type != 'i' && *type != 'f' && *type != 'd')
-        *type = 'f';
+    // need to check type of arguments!
+    int type_set = *type;
+    if (check_type(v, type, type_set, 1)) {
+        PyErr_SetString(PyExc_ValueError, "Type mismatch.");
+        return;
+    }
+    if (*type == 0) {
+        PyErr_SetString(PyExc_ValueError, "Error finding type.");
+        return;
+    }
     if (*value)
         free(*value);
-    if (PySequence_Check(v)) {
-        int i, len = PySequence_Size(v);
-        if (*length && len != *length) {
-            *value = 0;
-            PyErr_SetString(PyExc_ValueError,
-                            "Vector lengths don't match.");
-            return;
-        }
-        *value = (mval *) malloc(len*sizeof(mval));
-        for (i = 0; i < len; i++) {
-            PyObject *r = PySequence_GetItem(v, i);
-            if (copy_item_to_mval(r, &(*value)[i], *type)) {
-                free(*value);
-                *value = 0;
-                PyErr_SetString(PyExc_ValueError,
-                                "List items must be int or float.");
-                return;
+
+    int obj_len = 1;
+    if (PySequence_Check(v))
+        obj_len = PySequence_Size(v);
+
+    
+    if (!*length)
+        *length = obj_len;
+    else if (obj_len != *length) {
+        *value = 0;
+        PyErr_SetString(PyExc_ValueError,
+                        "Vector lengths don't match.");
+        return;
+    }
+
+    *value = malloc(*length * mapper_type_size(*type));
+    if (py_to_prop(v, value, *type, *length)) {
+        free(*value);
+        *value = 0;
+    }
+}
+
+static PyObject *prop_to_py(char type, int length, const void *value)
+{
+    if (!length)
+        return 0;
+    int i;
+    PyObject *v = 0;
+    if (length > 1)
+        v = PyList_New(length);
+
+    switch (type) {
+        case 's':
+        case 'S':
+        {
+            if (length > 1) {
+                char **vect = (char**)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, PyString_FromString(vect[i]));
             }
+            else
+                v = PyString_FromString((char*)value);
+            break;
         }
-        *length = len;
+        case 'c':
+        {
+            if (length > 1) {
+                char *vect = (char*)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("c", vect[i]));
+            }
+            else
+                v = Py_BuildValue("c", *(char*)value);
+            break;
+        }
+        case 'i':
+        {
+            if (length > 1) {
+                int *vect = (int*)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("i", vect[i]));
+            }
+            else
+                v = Py_BuildValue("i", *(int*)value);
+            break;
+        }
+        case 'h':
+        {
+            if (length > 1) {
+                int64_t *vect = (int64_t*)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("l", vect[i]));
+            }
+            else
+                v = Py_BuildValue("l", *(int64_t*)value);
+            break;
+        }
+        case 'f':
+        {
+            if (length > 1) {
+                float *vect = (float*)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("f", vect[i]));
+            }
+            else
+                v = Py_BuildValue("f", *(float*)value);
+            break;
+        }
+        case 'd':
+        {
+            if (length > 1) {
+                double *vect = (double*)value;
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("d", vect[i]));
+            }
+            else
+                v = Py_BuildValue("d", *(double*)value);
+            break;
+        }
+        case 't':
+        {
+            mapper_timetag_t *vect = (mapper_timetag_t*)value;
+            if (length > 1) {
+                for (i=0; i<length; i++)
+                    PyList_SetItem(v, i, Py_BuildValue("d",
+                        mapper_timetag_get_double(vect[i])));
+            }
+            else
+                v = Py_BuildValue("d", mapper_timetag_get_double(*vect));
+            break;
+        }
+        default:
+            return 0;
+            break;
     }
-    else {
-        if (*length && *length != 1) {
-            *value = 0;
-            PyErr_SetString(PyExc_ValueError,
-                            "Vector lengths don't match.");
-            return;
-        }
-        *value = (mval *) malloc(sizeof(mval));
-        if (copy_item_to_mval(v, &(*value)[0], *type)) {
-            free(*value);
-            *value = 0;
-            PyErr_SetString(PyExc_ValueError,
-                            "List items must be int or float.");
-            return;
-        }
-        *length = 1;
-    }
+    return v;
 }
 
 static PyObject *device_to_py(mapper_db_device_t *dev)
@@ -509,31 +747,18 @@ static PyObject *device_to_py(mapper_db_device_t *dev)
     else {
         int i=0;
         const char *property;
-        lo_type type;
-        const lo_arg *value;
+        char type;
+        const void *value;
+        int length;
         while (!mapper_db_device_property_index(dev, i, &property,
-                                                &type, &value))
+                                                &type, &value, &length))
         {
             if (strcmp(property, "user_data")==0) {
                 i++;
                 continue;
             }
             PyObject *v = 0;
-            if (type=='s' || type=='S')
-                v = PyString_FromString(&value->s);
-            else if (type=='c')
-                v = Py_BuildValue("c", value->c);
-            else if (type=='i')
-                v = Py_BuildValue("i", value->i32);
-            else if (type=='h')
-                v = Py_BuildValue("l", value->i64);
-            else if (type=='f')
-                v = Py_BuildValue("f", value->f);
-            else if (type=='d')
-                v = Py_BuildValue("d", value->d);
-            else if (type=='t')
-                v = Py_BuildValue("d", mapper_timetag_get_double(value->t));
-            if (v) {
+            if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
             }
@@ -552,29 +777,18 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
     else {
         int i=0;
         const char *property;
-        lo_type type;
-        const lo_arg *value;
+        char type;
+        const void *value;
+        int length;
         while (!mapper_db_signal_property_index(sig, i, &property,
-                                                &type, &value))
+                                                &type, &value, &length))
         {
             if (strcmp(property, "user_data")==0) {
                 i++;
                 continue;
             }
             PyObject *v = 0;
-            if (type=='s' || type=='S')
-                v = PyString_FromString(&value->s);
-            else if (type=='c')
-                v = Py_BuildValue("c", value->c);
-            else if (type=='i')
-                v = Py_BuildValue("i", value->i32);
-            else if (type=='h')
-                v = Py_BuildValue("l", value->i64);
-            else if (type=='f')
-                v = Py_BuildValue("f", value->f);
-            else if (type=='d')
-                v = Py_BuildValue("d", value->d);
-            if (v) {
+            if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
             }
@@ -593,42 +807,19 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
     else {
         int i=0;
         const char *property;
-        lo_type type;
-        const lo_arg *value;
+        char type;
+        const void *value;
+        int length;
         while (!mapper_db_connection_property_index(con, i, &property,
-                                                    &type, &value))
+                                                    &type, &value, &length))
         {
             PyObject *v = 0;
-            if (type=='s' || type=='S')
-                v = PyString_FromString(&value->s);
-            else if (type=='c')
-                v = Py_BuildValue("c", value->c);
-            else if (type=='i')
-                v = Py_BuildValue("i", value->i32);
-            else if (type=='h')
-                v = Py_BuildValue("l", value->i64);
-            else if (type=='f')
-                v = Py_BuildValue("f", value->f);
-            else if (type=='d')
-                v = Py_BuildValue("d", value->d);
-            if (v) {
+            if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
             }
             i++;
         }
-        // add ranges
-        PyObject *v = Py_BuildValue("{OOOO}",
-                          (con->range.known & CONNECTION_RANGE_SRC_MIN
-                           ? Py_BuildValue("f", con->range.src_min) : Py_None),
-                          (con->range.known & CONNECTION_RANGE_SRC_MAX
-                           ? Py_BuildValue("f", con->range.src_max) : Py_None),
-                          (con->range.known & CONNECTION_RANGE_DEST_MIN
-                           ? Py_BuildValue("f", con->range.dest_min) : Py_None),
-                          (con->range.known & CONNECTION_RANGE_DEST_MAX
-                           ? Py_BuildValue("f", con->range.dest_max) : Py_None));
-        PyDict_SetItemString(o, "range", v);
-        Py_DECREF(v);
     }
     return o;
 }
@@ -642,36 +833,19 @@ static PyObject *link_to_py(mapper_db_link_t *link)
     else {
         int i=0;
         const char *property;
-        lo_type type;
-        const lo_arg *value;
+        char type;
+        const void *value;
+        int length;
         while (!mapper_db_link_property_index(link, i, &property,
-                                              &type, &value))
+                                              &type, &value, &length))
         {
             PyObject *v = 0;
-            if (type=='s' || type=='S')
-                v = PyString_FromString(&value->s);
-            else if (type=='c')
-                v = Py_BuildValue("c", value->c);
-            else if (type=='i')
-                v = Py_BuildValue("i", value->i32);
-            else if (type=='h')
-                v = Py_BuildValue("l", value->i64);
-            else if (type=='f')
-                v = Py_BuildValue("f", value->f);
-            else if (type=='d')
-                v = Py_BuildValue("d", value->d);
-            if (v) {
+            if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
                 Py_DECREF(v);
             }
             i++;
         }
-        // add link scopes
-        PyObject *v = PyList_New(link->num_scopes);
-        for (i=0; i<link->num_scopes; i++)
-            PyList_SetItem(v, i, Py_BuildValue("s", link->scope_names[i]));
-        PyDict_SetItemString(o, "scope_names", v);
-        Py_DECREF(v);
     }
     return o;
 }
@@ -821,9 +995,11 @@ static void device_connection_handler_py(mapper_device dev,
 }
 
 typedef struct {
-    mapper_signal_value_t v;
-    char t;
-} sigval, *maybeSigVal;
+    char type;
+    int length;
+    void *value;
+    int free_value;
+} propval, *maybePropVal;
 
 typedef int* maybeInt;
 typedef int booltype;
@@ -837,14 +1013,6 @@ typedef struct {
     mapper_db_connection_t props;
     int flags;
 } mapper_db_connection_with_flags_t;
-
-static void sigval_coerce(mapper_signal_value_t *out, sigval *v, char type)
-{
-    if (v->t == 'i' && type == 'f')
-        out->f = (float)v->v.i32;
-    else if (v->t == 'f' && type == 'i')
-        out->i32 = (int)v->v.f;
-}
 
 
 /* Wrapper for callback back to python when a mapper_db_device handler
@@ -1012,9 +1180,10 @@ typedef struct _admin {} admin;
     // Python.  Correspondingly, the SWIG default is to set thisown to
     // False, which is correct for this case.
     signal* add_input(const char *name, int length=1, const char type='f',
-                      const char *unit=0, maybeSigVal minimum=0,
-                      maybeSigVal maximum=0, PyObject *PyFunc=0)
+                      const char *unit=0, maybePropVal minimum=0,
+                      maybePropVal maximum=0, PyObject *PyFunc=0)
     {
+        int i;
         void *h = 0;
         PyObject **callbacks = 0;
         if (PyFunc) {
@@ -1024,95 +1193,146 @@ typedef struct _admin {} admin;
             callbacks[1] = 0;
             Py_INCREF(PyFunc);
         }
-        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
+        void *pmn=0, *pmx=0;
+        int pmn_coerced=0, pmx_coerced=0;
         if (type == 'f')
         {
-            if (minimum) {
-                if (minimum->t == 'f')
-                    pmn = &minimum->v;
-                else {
-                    mn.f = (float)minimum->v.i32;
-                    pmn = &mn;
+            if (minimum && minimum->length == length) {
+                if (minimum->type == 'f')
+                    pmn = &minimum->value;
+                else if (minimum->type == 'i') {
+                    float *to = (float*)malloc(length * sizeof(float));
+                    int *from = (int*)minimum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (float)from[i];
+                    }
+                    pmn = to;
+                    pmn_coerced = 1;
                 }
             }
-            if (maximum) {
-                if (maximum->t == 'f')
-                    pmx = &maximum->v;
-                else {
-                    mx.f = (float)maximum->v.i32;
-                    pmx = &mx;
+            if (maximum && maximum->length == length) {
+                if (maximum->type == 'f')
+                    pmx = &maximum->value;
+                else if (maximum->type == 'i') {
+                    float *to = (float*)malloc(length * sizeof(float));
+                    int *from = (int*)maximum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (float)from[i];
+                    }
+                    pmx = to;
+                    pmx_coerced = 1;
                 }
             }
         }
         else if (type == 'i')
         {
-            if (minimum) {
-                if (minimum->t == 'i')
-                    pmn = &minimum->v;
-                else {
-                    mn.i32 = (int)minimum->v.f;
-                    pmn = &mn;
+            if (minimum && minimum->length == length) {
+                if (minimum->type == 'i')
+                    pmn = &minimum->value;
+                else if (minimum->type == 'f') {
+                    int *to = (int*)malloc(length * sizeof(int));
+                    float *from = (float*)minimum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (int)from[i];
+                    }
+                    pmn = to;
+                    pmn_coerced = 1;
                 }
             }
-            if (maximum) {
-                if (maximum->t == 'i')
-                    pmx = &maximum->v;
-                else {
-                    mx.i32 = (int)maximum->v.f;
-                    pmx = &mx;
+            if (maximum && maximum->length == length) {
+                if (maximum->type == 'i')
+                    pmx = &maximum->value;
+                else if (maximum->type == 'f') {
+                    int *to = (int*)malloc(length * sizeof(int));
+                    float *from = (float*)maximum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (int)from[i];
+                    }
+                    pmx = to;
+                    pmx_coerced = 1;
                 }
             }
         }
         mapper_signal msig = mdev_add_input((mapper_device)$self, name,
                                             length, type, unit, pmn, pmx,
                                             h, callbacks);
+        if (pmn_coerced)
+            free(pmn);
+        if (pmx_coerced)
+            free(pmx);
         return (signal *)msig;
     }
     signal* add_output(const char *name, int length=1, const char type='f',
-                       const char *unit=0, maybeSigVal minimum=0,
-                       maybeSigVal maximum=0)
+                       const char *unit=0, maybePropVal minimum=0,
+                       maybePropVal maximum=0)
     {
-        mapper_signal_value_t mn, mx, *pmn=0, *pmx=0;
+        int i;
+        void *pmn=0, *pmx=0;
+        int pmn_coerced=0, pmx_coerced=0;
         if (type == 'f')
         {
-            if (minimum) {
-                if (minimum->t == 'f')
-                    pmn = &minimum->v;
-                else {
-                    mn.f = (float)minimum->v.i32;
-                    pmn = &mn;
+            if (minimum && minimum->length == length) {
+                if (minimum->type == 'f')
+                    pmn = &minimum->value;
+                else if (minimum->type == 'i') {
+                    float *to = (float*)malloc(length * sizeof(float));
+                    int *from = (int*)minimum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (float)from[i];
+                    }
+                    pmn = to;
+                    pmn_coerced = 1;
                 }
             }
-            if (maximum) {
-                if (maximum->t == 'f')
-                    pmx = &maximum->v;
-                else {
-                    mx.f = (float)maximum->v.i32;
-                    pmx = &mx;
+            if (maximum && maximum->length == length) {
+                if (maximum->type == 'f')
+                    pmx = &maximum->value;
+                else if (maximum->type == 'i') {
+                    float *to = (float*)malloc(length * sizeof(float));
+                    int *from = (int*)maximum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (float)from[i];
+                    }
+                    pmx = to;
+                    pmx_coerced = 1;
                 }
             }
         }
         else if (type == 'i')
         {
-            if (minimum) {
-                if (minimum->t == 'i')
-                    pmn = &minimum->v;
-                else {
-                    mn.i32 = (int)minimum->v.f;
-                    pmn = &mn;
+            if (minimum && minimum->length == length) {
+                if (minimum->type == 'i')
+                    pmn = &minimum->value;
+                else if (minimum->type == 'f') {
+                    int *to = (int*)malloc(length * sizeof(int));
+                    float *from = (float*)minimum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (int)from[i];
+                    }
+                    pmn = to;
+                    pmn_coerced = 1;
                 }
             }
-            if (maximum) {
-                if (maximum->t == 'i')
-                    pmx = &maximum->v;
-                else {
-                    mx.i32 = (int)maximum->v.f;
-                    pmx = &mx;
+            if (maximum && maximum->length == length) {
+                if (maximum->type == 'i')
+                    pmx = &maximum->value;
+                else if (maximum->type == 'f') {
+                    int *to = (int*)malloc(length * sizeof(int));
+                    float *from = (float*)maximum->value;
+                    for (i=0; i<length; i++) {
+                        to[i] = (int)from[i];
+                    }
+                    pmx = to;
+                    pmx_coerced = 1;
                 }
             }
         }
         mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
                                              type, unit, pmn, pmx);
+        if (pmn_coerced)
+            free(pmn);
+        if (pmx_coerced)
+            free(pmx);
         return (signal *)msig;
     }
     void remove_input(signal *sig) {
@@ -1168,19 +1388,34 @@ typedef struct _admin {} admin;
             mdev_remove_property((mapper_device)$self, key);
     }
     void set_property(const char *key, int val) {
-        mdev_set_property((mapper_device)$self, key, 'i', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'i', &val, 1);
+    }
+    void set_property(const char *key, int num_int, int *argv) {
+        mdev_set_property((mapper_device)$self, key, 'i', &argv, num_int);
     }
     void set_property(const char *key, int64_t val) {
-        mdev_set_property((mapper_device)$self, key, 'h', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'h', &val, 1);
+    }
+    void set_property(const char *key, int num_int64, int64_t *argv) {
+        mdev_set_property((mapper_device)$self, key, 'h', &argv, num_int64);
     }
     void set_property(const char *key, double val) {
-        mdev_set_property((mapper_device)$self, key, 'd', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'd', &val, 1);
+    }
+    void set_property(const char *key, int num_double, double *argv) {
+        mdev_set_property((mapper_device)$self, key, 'd', &argv, num_double);
     }
     void set_property(const char *key, float val) {
-        mdev_set_property((mapper_device)$self, key, 'f', (lo_arg*)&val);
+        mdev_set_property((mapper_device)$self, key, 'f', &val, 1);
+    }
+    void set_property(const char *key, int num_float, float *argv) {
+        mdev_set_property((mapper_device)$self, key, 'f', &argv, num_float);
     }
     void set_property(const char *key, const char *val) {
-        mdev_set_property((mapper_device)$self, key, 's', (lo_arg*)val);
+        mdev_set_property((mapper_device)$self, key, 's', &val, 1);
+    }
+    void set_property(const char *key, int num_str, const char **argv) {
+        mdev_set_property((mapper_device)$self, key, 'i', &argv, num_str);
     }
     void remove_property(const char *key) {
         mdev_remove_property((mapper_device)$self, key);
@@ -1259,23 +1494,23 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
-    void update(int argc, float *argv, double timetag=0) {
+    void update(int num_float, float *argv, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
-        if ((argc % sig->props.length) != 0) {
+        if ((num_float % sig->props.length) != 0) {
             printf("Signal update requires multiples of %i values.\n",
                    sig->props.length);
             return;
         }
-        int count = argc / sig->props.length;
+        int count = num_float / sig->props.length;
         if (sig->props.type == 'f')
             msig_update((mapper_signal)$self, argv, count, tt);
         else if (sig->props.type == 'i') {
-            int vint[argc];
+            int vint[num_float];
             int i;
-            for (i = 0; i < argc; i++)
+            for (i = 0; i < num_float; i++)
                 vint[i] = (int)argv[i];
             msig_update((mapper_signal)$self, vint, count, tt);
         }
@@ -1307,8 +1542,8 @@ typedef struct _admin {} admin;
     void reserve_instances(int num=1) {
         msig_reserve_instances((mapper_signal)$self, num, 0, 0);
     }
-    void reserve_instances(int num, int *argv) {
-        msig_reserve_instances((mapper_signal)$self, num, argv, 0);
+    void reserve_instances(int num_int, int *argv) {
+        msig_reserve_instances((mapper_signal)$self, num_int, argv, 0);
     }
     void update_instance(int id, float f, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1416,47 +1651,83 @@ typedef struct _admin {} admin;
             mapper_timetag_set_double(&tt, timetag);
         return msig_query_remotes((mapper_signal)$self, tt);
     }
-    void set_minimum(maybeSigVal v) {
+    void set_minimum(int val) {
         mapper_signal sig = (mapper_signal)$self;
-        if (!v)
+        if (!val) {
             msig_set_minimum((mapper_signal)$self, 0);
-        else if (v->t == sig->props.type)
-            msig_set_minimum((mapper_signal)$self, &v->v);
-        else {
-            mapper_signal_value_t tmp;
-            sigval_coerce(&tmp, v, sig->props.type);
-            msig_set_minimum((mapper_signal)$self, &tmp);
+            return;
+        }
+        else if (sig->props.length != 1) {
+            printf("set_minimum: value length must be %i\n", sig->props.length);
+            return;
+        }
+        switch (sig->props.type) {
+            case 'i': {
+                msig_set_minimum((mapper_signal)$self, &val);
+                break;
+            }
+            case 'f': {
+                float *temp = (float*)val;
+                msig_set_minimum((mapper_signal)$self, temp);
+                break;
+            }
+            case 'd': {
+                double *temp = (double*)val;
+                msig_set_minimum((mapper_signal)$self, temp);
+                break;
+            }
+            default:
+                break;
         }
     }
-    void set_maximum(maybeSigVal v) {
+    void set_maximum(maybePropVal val) {
         mapper_signal sig = (mapper_signal)$self;
-        if (!v)
+        if (!val) {
             msig_set_maximum((mapper_signal)$self, 0);
-        else if (v->t == sig->props.type)
-            msig_set_maximum((mapper_signal)$self, &v->v);
-        else {
-            mapper_signal_value_t tmp;
-            sigval_coerce(&tmp, v, sig->props.type);
-            msig_set_maximum((mapper_signal)$self, &tmp);
+            return;
+        }
+        else if (sig->props.length != val->length) {
+            printf("set_maximum: value length must be %i\n", sig->props.length);
+            return;
+        }
+        switch (sig->props.type) {
+            case 'i': {
+                msig_set_maximum((mapper_signal)$self, &val);
+                break;
+            }
+            case 'f': {
+                float *temp = (float*)val;
+                msig_set_maximum((mapper_signal)$self, temp);
+                break;
+            }
+            case 'd': {
+                double *temp = (double*)val;
+                msig_set_maximum((mapper_signal)$self, temp);
+                break;
+            }
+            default:
+                break;
         }
     }
-    maybeSigVal get_minimum() {
+    maybePropVal get_minimum() {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.minimum) {
-            sigval *pv = malloc(sizeof(sigval));
-            pv->t = sig->props.type;
-            pv->v = *sig->props.minimum;
-            return pv;
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->type = sig->props.type;
+            prop->length = sig->props.length;
+            prop->value = sig->props.minimum;
+            return prop;
         }
         return 0;
     }
-    maybeSigVal get_maximum() {
+    maybePropVal get_maximum() {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->props.maximum) {
-            sigval *pv = malloc(sizeof(sigval));
-            pv->t = sig->props.type;
-            pv->v = *sig->props.maximum;
-            return pv;
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->type = sig->props.type;
+            prop->length = sig->props.length;
+            prop->value = sig->props.maximum;
+            return prop;
         }
         return 0;
     }
@@ -1477,19 +1748,34 @@ typedef struct _admin {} admin;
             msig_remove_property((mapper_signal)$self, key);
     }
     void set_property(const char *key, int val) {
-        msig_set_property((mapper_signal)$self, key, 'i', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'i', &val, 1);
+    }
+    void set_property(const char *key, int num_int, int *argv) {
+        msig_set_property((mapper_signal)$self, key, 'i', &argv, num_int);
     }
     void set_property(const char *key, int64_t val) {
-        msig_set_property((mapper_signal)$self, key, 'h', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'h', &val, 1);
+    }
+    void set_property(const char *key, int num_int64, int64_t *argv) {
+        msig_set_property((mapper_signal)$self, key, 'h', &argv, num_int64);
     }
     void set_property(const char *key, double val) {
-        msig_set_property((mapper_signal)$self, key, 'd', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'd', &val, 1);
+    }
+    void set_property(const char *key, int num_double, double argv) {
+        msig_set_property((mapper_signal)$self, key, 'd', &argv, num_double);
     }
     void set_property(const char *key, float val) {
-        msig_set_property((mapper_signal)$self, key, 'f', (lo_arg*)&val);
+        msig_set_property((mapper_signal)$self, key, 'f', &val, 1);
+    }
+    void set_property(const char *key, int num_float, float argv) {
+        msig_set_property((mapper_signal)$self, key, 'f', &argv, num_float);
     }
     void set_property(const char *key, const char *val) {
-        msig_set_property((mapper_signal)$self, key, 's', (lo_arg*)val);
+        msig_set_property((mapper_signal)$self, key, 's', &val, 1);
+    }
+    void set_property(const char *key, int num_str, const char **argv) {
+        msig_set_property((mapper_signal)$self, key, 's', &argv, num_str);
     }
     void remove_property(const char *key) {
         msig_remove_property((mapper_signal)$self, key);
