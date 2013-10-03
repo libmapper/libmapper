@@ -97,10 +97,10 @@ typedef union _mapper_signal_value {
  *  which parts of the range are known.
  *  @ingroup connectiondb */
 typedef struct _mapper_connection_range {
-    mval *src_min;      //!< Array of source minima.
-    mval *src_max;      //!< Array of source maxima.
-    mval *dest_min;     //!< Destination minimum.
-    mval *dest_max;     //!< Destination maximum.
+    void *src_min;      //!< Array of source minima.
+    void *src_max;      //!< Array of source maxima.
+    void *dest_min;     //!< Destination minimum.
+    void *dest_max;     //!< Destination maximum.
     int known;          /*!< Bitfield identifying which range
                          *   extremities are known. */
 } mapper_connection_range_t;
