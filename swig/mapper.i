@@ -70,8 +70,11 @@
     else {
         val.type = 0;
         check_type($input, &val.type, 1, 1);
-        if (!val.type)
+        if (!val.type) {
+            PyErr_SetString(PyExc_ValueError,
+                            "Problem determining value type.");
             return NULL;
+        }
         if (PyList_Check($input))
             val.length = PyList_Size($input);
         else
@@ -88,9 +91,11 @@
     }
 %}
 %typemap(out) maybePropVal {
-    $result = prop_to_py($1->type, $1->length, $1->value);
-    if ($result)
-        free($1);
+    if ($1) {
+        $result = prop_to_py($1->type, $1->length, $1->value);
+        if ($result)
+            free($1);
+    }
     else {
         $result = Py_None;
         Py_INCREF($result);
@@ -99,9 +104,9 @@
 %typemap(freearg) maybePropVal {
     if ($1) {
         maybePropVal prop = (maybePropVal)$1;
-        if (prop->value && prop->free_value)
+        if (prop->value && prop->free_value) {
             free(prop->value);
-        free($1);
+        }
     }
 }
 %typemap(out) maybeInt {
@@ -440,7 +445,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
 {
     // here we are assuming sufficient memory has already been allocated
 
-    if (!length)
+    if (!from || !length)
         return 1;
 
     int i;
@@ -571,7 +576,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
 
 static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
 {
-    if (PySequence_Check(v)) {
+    if (PySequence_Check(v) && !PyString_Check(v)) {
         if (allow_sequence) {
             int i;
             for (i=0; i<PySequence_Size(v); i++) {
@@ -1383,39 +1388,12 @@ typedef struct _admin {} admin;
     signal *get_output_by_index(int index) {
         return (signal *)mdev_get_output_by_index((mapper_device)$self, index);
     }
-    void set_property(const char *key, void* val=0) {
-        if (!val)
+    void set_property(const char *key, maybePropVal val=0) {
+        if (val)
+            mdev_set_property((mapper_device)$self, key, val->type,
+                              val->value, val->length);
+        else
             mdev_remove_property((mapper_device)$self, key);
-    }
-    void set_property(const char *key, int val) {
-        mdev_set_property((mapper_device)$self, key, 'i', &val, 1);
-    }
-    void set_property(const char *key, int num_int, int *argv) {
-        mdev_set_property((mapper_device)$self, key, 'i', &argv, num_int);
-    }
-    void set_property(const char *key, int64_t val) {
-        mdev_set_property((mapper_device)$self, key, 'h', &val, 1);
-    }
-    void set_property(const char *key, int num_int64, int64_t *argv) {
-        mdev_set_property((mapper_device)$self, key, 'h', &argv, num_int64);
-    }
-    void set_property(const char *key, double val) {
-        mdev_set_property((mapper_device)$self, key, 'd', &val, 1);
-    }
-    void set_property(const char *key, int num_double, double *argv) {
-        mdev_set_property((mapper_device)$self, key, 'd', &argv, num_double);
-    }
-    void set_property(const char *key, float val) {
-        mdev_set_property((mapper_device)$self, key, 'f', &val, 1);
-    }
-    void set_property(const char *key, int num_float, float *argv) {
-        mdev_set_property((mapper_device)$self, key, 'f', &argv, num_float);
-    }
-    void set_property(const char *key, const char *val) {
-        mdev_set_property((mapper_device)$self, key, 's', &val, 1);
-    }
-    void set_property(const char *key, int num_str, const char **argv) {
-        mdev_set_property((mapper_device)$self, key, 'i', &argv, num_str);
     }
     void remove_property(const char *key) {
         mdev_remove_property((mapper_device)$self, key);
@@ -1474,7 +1452,9 @@ typedef struct _admin {} admin;
             return propsetter({})
         properties = property(__propgetter)
         def set_properties(self, props):
-            [self.set_property(k, props[k]) for k in props]
+            for k in props:
+                print 'prop', k, props[k]
+                self.set_property(k, props[k])
     }
 }
 
@@ -1651,7 +1631,7 @@ typedef struct _admin {} admin;
             mapper_timetag_set_double(&tt, timetag);
         return msig_query_remotes((mapper_signal)$self, tt);
     }
-    void set_minimum(int val) {
+    void set_minimum(maybePropVal val=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
             msig_set_minimum((mapper_signal)$self, 0);
@@ -1680,7 +1660,7 @@ typedef struct _admin {} admin;
                 break;
         }
     }
-    void set_maximum(maybePropVal val) {
+    void set_maximum(maybePropVal val=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
             msig_set_maximum((mapper_signal)$self, 0);
@@ -1716,6 +1696,7 @@ typedef struct _admin {} admin;
             prop->type = sig->props.type;
             prop->length = sig->props.length;
             prop->value = sig->props.minimum;
+            prop->free_value = 0;
             return prop;
         }
         return 0;
@@ -1727,6 +1708,7 @@ typedef struct _admin {} admin;
             prop->type = sig->props.type;
             prop->length = sig->props.length;
             prop->value = sig->props.maximum;
+            prop->free_value = 0;
             return prop;
         }
         return 0;
@@ -1743,39 +1725,13 @@ typedef struct _admin {} admin;
     mapper_db_signal get_properties() {
         return msig_properties((mapper_signal)$self);
     }
-    void set_property(const char *key, void* val=0) {
-        if (!val)
+    void set_property(const char *key, maybePropVal val=0) {
+        printf("--> device set_prop %s\n", key);
+        if (val)
+            msig_set_property((mapper_signal)$self, key, val->type,
+                              val->value, val->length);
+        else
             msig_remove_property((mapper_signal)$self, key);
-    }
-    void set_property(const char *key, int val) {
-        msig_set_property((mapper_signal)$self, key, 'i', &val, 1);
-    }
-    void set_property(const char *key, int num_int, int *argv) {
-        msig_set_property((mapper_signal)$self, key, 'i', &argv, num_int);
-    }
-    void set_property(const char *key, int64_t val) {
-        msig_set_property((mapper_signal)$self, key, 'h', &val, 1);
-    }
-    void set_property(const char *key, int num_int64, int64_t *argv) {
-        msig_set_property((mapper_signal)$self, key, 'h', &argv, num_int64);
-    }
-    void set_property(const char *key, double val) {
-        msig_set_property((mapper_signal)$self, key, 'd', &val, 1);
-    }
-    void set_property(const char *key, int num_double, double argv) {
-        msig_set_property((mapper_signal)$self, key, 'd', &argv, num_double);
-    }
-    void set_property(const char *key, float val) {
-        msig_set_property((mapper_signal)$self, key, 'f', &val, 1);
-    }
-    void set_property(const char *key, int num_float, float argv) {
-        msig_set_property((mapper_signal)$self, key, 'f', &argv, num_float);
-    }
-    void set_property(const char *key, const char *val) {
-        msig_set_property((mapper_signal)$self, key, 's', &val, 1);
-    }
-    void set_property(const char *key, int num_str, const char **argv) {
-        msig_set_property((mapper_signal)$self, key, 's', &argv, num_str);
     }
     void remove_property(const char *key) {
         msig_remove_property((mapper_signal)$self, key);
