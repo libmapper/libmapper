@@ -208,7 +208,7 @@
                     else if (strcmp(s, "range")==0) {
                         if (PySequence_Check(v)) {
                             int len = PySequence_Size(v), j, n;
-                            float *f;
+                            double *f;
                             for (j=0; j<len && j<4; j++) {
                                 PyObject *r = PySequence_GetItem(v, j);
                                 switch (j) {
@@ -221,13 +221,13 @@
                                 case 3: f = &p.props.range.dest_max;
                                     k = CONNECTION_RANGE_DEST_MAX; break;
                                 }
-                                int ecode = SWIG_AsVal_float(r, f);
+                                int ecode = SWIG_AsVal_double(r, f);
                                 if (SWIG_IsOK(ecode))
                                     p.props.range.known |= k;
                                 else {
                                     ecode = SWIG_AsVal_int(r, &n);
                                     if (SWIG_IsOK(ecode)) {
-                                        *f = (float)n;
+                                        *f = (double)n;
                                         p.props.range.known |= k;
                                     }
                                 }
@@ -518,13 +518,13 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
         // add ranges
         PyObject *v = Py_BuildValue("(OOOO)",
                           (con->range.known & CONNECTION_RANGE_SRC_MIN
-                           ? Py_BuildValue("f", con->range.src_min) : Py_None),
+                           ? Py_BuildValue("d", con->range.src_min) : Py_None),
                           (con->range.known & CONNECTION_RANGE_SRC_MAX
-                           ? Py_BuildValue("f", con->range.src_max) : Py_None),
+                           ? Py_BuildValue("d", con->range.src_max) : Py_None),
                           (con->range.known & CONNECTION_RANGE_DEST_MIN
-                           ? Py_BuildValue("f", con->range.dest_min) : Py_None),
+                           ? Py_BuildValue("d", con->range.dest_min) : Py_None),
                           (con->range.known & CONNECTION_RANGE_DEST_MAX
-                           ? Py_BuildValue("f", con->range.dest_max) : Py_None));
+                           ? Py_BuildValue("d", con->range.dest_max) : Py_None));
         PyDict_SetItemString(o, "range", v);
         Py_DECREF(v);
     }
