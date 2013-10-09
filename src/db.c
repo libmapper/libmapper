@@ -1523,7 +1523,8 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->src_length) {
             if (!con->range.src_max)
-                con->range.src_max = (mval*) malloc(length * sizeof(mval));
+                con->range.src_max = malloc(length *
+                                            mapper_type_size(con->src_type));
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
@@ -1545,7 +1546,8 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->src_length) {
             if (!con->range.src_min)
-                con->range.src_min = (mval*) malloc(length * sizeof(mval));
+                con->range.src_min = malloc(length *
+                                            mapper_type_size(con->src_type));
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
@@ -1567,7 +1569,8 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->dest_length) {
             if (!con->range.dest_max)
-                con->range.dest_max = (mval*) malloc(length * sizeof(mval));
+                con->range.dest_max = malloc(length *
+                                             mapper_type_size(con->dest_type));
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
@@ -1589,7 +1592,8 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->dest_length) {
             if (!con->range.dest_min)
-                con->range.dest_min = (mval*) malloc(length * sizeof(mval));
+                con->range.dest_min = malloc(length *
+                                             mapper_type_size(con->dest_type));
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
