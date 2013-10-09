@@ -516,7 +516,7 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
             i++;
         }
         // add ranges
-        PyObject *v = Py_BuildValue("{OOOO}",
+        PyObject *v = Py_BuildValue("(OOOO)",
                           (con->range.known & CONNECTION_RANGE_SRC_MIN
                            ? Py_BuildValue("f", con->range.src_min) : Py_None),
                           (con->range.known & CONNECTION_RANGE_SRC_MAX
