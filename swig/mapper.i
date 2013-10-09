@@ -889,7 +889,7 @@ typedef struct _db {} db;
 typedef struct _admin {} admin;
 
 %extend _device {
-    _device(const char *name, int port=9000, admin *DISOWN=0) {
+    _device(const char *name, int port=0, admin *DISOWN=0) {
         device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
         return d;
     }
