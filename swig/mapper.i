@@ -1006,6 +1006,91 @@ typedef struct {
     int free_value;
 } propval, *maybePropVal;
 
+static int coerce_prop(maybePropVal val, char type)
+{
+    int i;
+    if (!val)
+        return 1;
+    if (val->type == type)
+        return 0;
+
+    switch (type) {
+        case 'i':
+        {
+            int *to = malloc(val->length * sizeof(int));
+            if (val->type == 'f') {
+                float *from = (float*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (int)from[i];
+            }
+            else if (val->type == 'd') {
+                double *from = (double*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (int)from[i];
+            }
+            else {
+                free(to);
+                return 1;
+            }
+            if (val->free_value)
+                free(val->value);
+            val->value = to;
+            val->free_value = 1;
+            break;
+        }
+        case 'f':
+        {
+            float *to = malloc(val->length * sizeof(float));
+            if (val->type == 'i') {
+                int *from = (int*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (float)from[i];
+            }
+            else if (val->type == 'd') {
+                double *from = (double*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (float)from[i];
+            }
+            else {
+                free(to);
+                return 1;
+            }
+            if (val->free_value)
+                free(val->value);
+            val->value = to;
+            val->free_value = 1;
+            break;
+        }
+        case 'd':
+        {
+            double *to = malloc(val->length * sizeof(double));
+            if (val->type == 'i') {
+                int *from = (int*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (double)from[i];
+            }
+            else if (val->type == 'f') {
+                float *from = (float*)val->value;
+                for (i=0; i<val->length; i++)
+                    to[i] = (double)from[i];
+            }
+            else {
+                free(to);
+                return 1;
+            }
+            if (val->free_value)
+                free(val->value);
+            val->value = to;
+            val->free_value = 1;
+            break;
+        }
+        default:
+            return 1;
+            break;
+    }
+    return 0;
+}
+
 typedef int* maybeInt;
 typedef int booltype;
 
@@ -1637,28 +1722,15 @@ typedef struct _admin {} admin;
             msig_set_minimum((mapper_signal)$self, 0);
             return;
         }
-        else if (sig->props.length != 1) {
+        else if (sig->props.length != val->length) {
             printf("set_minimum: value length must be %i\n", sig->props.length);
             return;
         }
-        switch (sig->props.type) {
-            case 'i': {
-                msig_set_minimum((mapper_signal)$self, &val);
-                break;
-            }
-            case 'f': {
-                float *temp = (float*)val;
-                msig_set_minimum((mapper_signal)$self, temp);
-                break;
-            }
-            case 'd': {
-                double *temp = (double*)val;
-                msig_set_minimum((mapper_signal)$self, temp);
-                break;
-            }
-            default:
-                break;
+        else if (coerce_prop(val, sig->props.type)) {
+            printf("set_minimum: value type mismatch\n");
+            return;
         }
+        msig_set_minimum((mapper_signal)$self, val->value);
     }
     void set_maximum(maybePropVal val=0) {
         mapper_signal sig = (mapper_signal)$self;
@@ -1670,24 +1742,11 @@ typedef struct _admin {} admin;
             printf("set_maximum: value length must be %i\n", sig->props.length);
             return;
         }
-        switch (sig->props.type) {
-            case 'i': {
-                msig_set_maximum((mapper_signal)$self, &val);
-                break;
-            }
-            case 'f': {
-                float *temp = (float*)val;
-                msig_set_maximum((mapper_signal)$self, temp);
-                break;
-            }
-            case 'd': {
-                double *temp = (double*)val;
-                msig_set_maximum((mapper_signal)$self, temp);
-                break;
-            }
-            default:
-                break;
+        else if (coerce_prop(val, sig->props.type)) {
+            printf("set_maximum: value type mismatch\n");
+            return;
         }
+        msig_set_maximum((mapper_signal)$self, val->value);
     }
     maybePropVal get_minimum() {
         mapper_signal sig = (mapper_signal)$self;
