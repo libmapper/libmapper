@@ -42,13 +42,14 @@ def setup(d):
     print 'signal is_output', sig.is_output
     print 'signal unit', sig.unit
     dev.set_properties({"testInt":5, "testFloat":12.7, "testString":"test",
-                        'removed1':"shouldn't see this"})
+                        "removed1":"shouldn't see this"})
     dev.properties['testInt'] = 7
     dev.set_properties({"removed1":None, "removed2":"test"})
     dev.remove_property("removed2")
     print 'signal properties:', sig.properties
     sig.properties['testInt'] = 3
     print 'signal properties:', sig.properties
+    print 'setup done!'
 
 dev = mapper.device("test")
 setup(dev)
@@ -97,7 +98,7 @@ for i in range(1000):
         print 'link for /testsend.1, /testrecv.1:'
         print mon.db.get_link_by_src_dest_names("/testsend.1", "/testrecv.1")
         print 'not found link:'
-        print mon.db.get_link_by_src_dest_names("", "")
+        print mon.db.get_link_by_src_dest_names("/foo", "/bar")
 
     if i==500:
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",

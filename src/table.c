@@ -30,7 +30,8 @@ void table_free(table t, int free_values)
         if (free_values && t->store[i].value) {
             if (t->store[i].is_prop) {
                 mapper_prop_value_t *prop = t->store[i].value;
-                if (prop->type == 's' || prop->type == 'S') {
+                if ((prop->type == 's' || prop->type == 'S')
+                    && prop->length > 1) {
                     char **vals = (char**)prop->value;
                     for (j = 0; j < prop->length; j++) {
                         if (vals[j])
@@ -107,18 +108,15 @@ void table_remove_key(table t, const char *key, int free_value)
             if (n->is_prop) {
                 mapper_prop_value_t *prop = n->value;
                 if (prop->value) {
-                    if (prop->type == 's' || prop->type == 'S') {
-                        if (prop->length == 1)
-                            free((char*)prop->value);
-                        else {
-                            char **vals = (char**)prop->value;
-                            for (i = 0; i < prop->length; i++) {
-                                if (vals[i])
-                                    free(vals[i]);
-                            }
-                            free(vals);
+                    if ((prop->type == 's' || prop->type == 'S')
+                        && prop->length > 1) {
+                        char **vals = (char**)prop->value;
+                        for (i = 0; i < prop->length; i++) {
+                            if (vals[i])
+                                free(vals[i]);
                         }
                     }
+                    free(prop->value);
                 }
             }
             free(n->value);
