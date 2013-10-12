@@ -444,7 +444,6 @@ PyThreadState *_save;
 static int py_to_prop(PyObject *from, void *to, char type, int length)
 {
     // here we are assuming sufficient memory has already been allocated
-
     if (!from || !length)
         return 1;
 
@@ -630,7 +629,6 @@ static void alloc_and_copy_maybe_vector(PyObject *v, char *type,
     if (PySequence_Check(v))
         obj_len = PySequence_Size(v);
 
-    
     if (!*length)
         *length = obj_len;
     else if (obj_len != *length) {
@@ -641,7 +639,7 @@ static void alloc_and_copy_maybe_vector(PyObject *v, char *type,
     }
 
     *value = malloc(*length * mapper_type_size(*type));
-    if (py_to_prop(v, value, *type, *length)) {
+    if (py_to_prop(v, *value, *type, *length)) {
         free(*value);
         *value = 0;
     }
@@ -1785,7 +1783,6 @@ typedef struct _admin {} admin;
         return msig_properties((mapper_signal)$self);
     }
     void set_property(const char *key, maybePropVal val=0) {
-        printf("--> device set_prop %s\n", key);
         if (val)
             msig_set_property((mapper_signal)$self, key, val->type,
                               val->value, val->length);
