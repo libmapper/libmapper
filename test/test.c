@@ -38,13 +38,13 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mnf=0, mxf=10;
+    float mnf[]={0,0,0}, mxf[]={10,10,10};
     double mnd=0, mxd=10;
 
     sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'd', "Hz", &mnd, &mxd);
-    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', "mm", &mnf, &mxf);
-    sendsig_3 = mdev_add_output(source, "/outsig_3", 3, 'f', 0, &mnf, &mxf);
-    sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, &mnf, &mxf);
+    sendsig_2 = mdev_add_output(source, "/outsig_2", 1, 'f', "mm", mnf, mxf);
+    sendsig_3 = mdev_add_output(source, "/outsig_3", 3, 'f', 0, mnf, mxf);
+    sendsig_4 = mdev_add_output(source, "/outsig_4", 1, 'f', 0, mnf, mxf);
 
     printf("Output signal /outsig registered.\n");
 
@@ -101,17 +101,17 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    float mnf=0, mxf=1;
+    float mnf[]={0,0,0}, mxf[]={1,1,1};
     double mnd=0, mxd=1;
 
     recvsig_1 = mdev_add_input(destination, "/insig_1", 1, 'f',
-                               0, &mnf, &mxf, insig_handler, 0);
+                               0, mnf, mxf, insig_handler, 0);
     recvsig_2 = mdev_add_input(destination, "/insig_2", 1, 'd',
                                0, &mnd, &mxd, insig_handler, 0);
     recvsig_3 = mdev_add_input(destination, "/insig_3", 3, 'f',
-                               0, &mnf, &mxf, insig_handler, 0);
+                               0, mnf, mxf, insig_handler, 0);
     recvsig_4 = mdev_add_input(destination, "/insig_4", 1, 'f',
-                               0, &mnf, &mxf, insig_handler, 0);
+                               0, mnf, mxf, insig_handler, 0);
 
     printf("Input signal /insig registered.\n");
 
