@@ -108,13 +108,17 @@ void table_remove_key(table t, const char *key, int free_value)
                 mapper_prop_value_t *prop = n->value;
                 if (prop->value) {
                     if (prop->type == 's' || prop->type == 'S') {
-                        char **vals = (char**)prop->value;
-                        for (i = 0; i < prop->length; i++) {
-                            if (vals[i])
-                                free(vals[i]);
+                        if (prop->length == 1)
+                            free((char*)prop->value);
+                        else {
+                            char **vals = (char**)prop->value;
+                            for (i = 0; i < prop->length; i++) {
+                                if (vals[i])
+                                    free(vals[i]);
+                            }
+                            free(vals);
                         }
                     }
-                    free(prop->value);
                 }
             }
             free(n->value);
@@ -256,16 +260,10 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
                    "table cannot be null.\n");
         
         mapper_prop_value_t *prop = node->value;
-        if (prop->type == 's' || prop->type == 'S') {
-            if (prop->length == 1) {
-                char *vals = prop->value;
-                free(vals);
-            }
-            else if (prop->length > 1) {
-                char **vals = prop->value;
-                for (i = 0; i < prop->length; i++) {
-                    free(vals[i]);
-                }
+        if ((prop->type == 's' || prop->type == 'S') && prop->length > 1) {
+            char **vals = prop->value;
+            for (i = 0; i < prop->length; i++) {
+                free(vals[i]);
             }
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
@@ -380,16 +378,10 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
                    "table cannot be null.\n");
 
         mapper_prop_value_t *prop = node->value;
-        if (prop->type == 's' || prop->type == 'S') {
-            if (prop->length == 1) {
-                char *vals = prop->value;
-                free(vals);
-            }
-            else if (prop->length > 1) {
-                char **vals = prop->value;
-                for (i = 0; i < prop->length; i++) {
-                    free(vals[i]);
-                }
+        if ((prop->type == 's' || prop->type == 'S') && prop->length > 1) {
+            char **vals = prop->value;
+            for (i = 0; i < prop->length; i++) {
+                free(vals[i]);
             }
         }
         prop->value = realloc(prop->value, mapper_type_size(type) * length);
