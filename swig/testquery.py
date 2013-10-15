@@ -9,11 +9,11 @@ def h(sig, id, f, timetag):
         print 'exception'
         print sig, f
 
-src = mapper.device("src", 9000)
+src = mapper.device("src")
 outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
 outsig.set_callback(h)
 
-dest = mapper.device("dest", 9000)
+dest = mapper.device("dest")
 insig = dest.add_input("/insig", 1, 'f', None, 0, 1)
 
 while not src.ready() or not dest.ready():

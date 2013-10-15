@@ -1441,54 +1441,78 @@ static int update_connection_record_params(mapper_db_connection con,
     if (a_range && (*a_range)) {
         if (t_range[0] == 'f') {
             if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
-                || con->range.src_min != a_range[0]->f)
+                || con->range.src_min != (double)a_range[0]->f)
                 updated++;
-            con->range.src_min = a_range[0]->f;
+            con->range.src_min = (double)a_range[0]->f;
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
         } else if (t_range[0] == 'i') {
             if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
-                || con->range.src_min != (float)a_range[0]->i)
+                || con->range.src_min != (double)a_range[0]->i)
                 updated++;
-            con->range.src_min = (float)a_range[0]->i;
+            con->range.src_min = (double)a_range[0]->i;
+            con->range.known |= CONNECTION_RANGE_SRC_MIN;
+        } else if (t_range[0] == 'd') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MIN)
+                || con->range.src_min != a_range[0]->d)
+            updated++;
+            con->range.src_min = a_range[0]->d;
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
         }
         if (t_range[1] == 'f') {
             if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
-                || con->range.src_max != a_range[1]->f)
+                || con->range.src_max != (double)a_range[1]->f)
                 updated++;
-            con->range.src_max = a_range[1]->f;
+            con->range.src_max = (double)a_range[1]->f;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         } else if (t_range[1] == 'i') {
             if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
-                || con->range.src_max != a_range[1]->i)
+                || con->range.src_max != (double)a_range[1]->i)
                 updated++;
-            con->range.src_max = (float)a_range[1]->i;
+            con->range.src_max = (double)a_range[1]->i;
+            con->range.known |= CONNECTION_RANGE_SRC_MAX;
+        } else if (t_range[1] == 'd') {
+            if (!(con->range.known & CONNECTION_RANGE_SRC_MAX)
+                || con->range.src_max != a_range[1]->d)
+            updated++;
+            con->range.src_max = a_range[1]->d;
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
         }
         if (t_range[2] == 'f') {
             if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
-                || con->range.dest_min != a_range[2]->f)
+                || con->range.dest_min != (double)a_range[2]->f)
                 updated++;
-            con->range.dest_min = a_range[2]->f;
+            con->range.dest_min = (double)a_range[2]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         } else if (t_range[2] == 'i') {
             if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
-                || con->range.dest_min != a_range[2]->i)
+                || con->range.dest_min != (double)a_range[2]->i)
                 updated++;
-            con->range.dest_min = (float)a_range[2]->i;
+            con->range.dest_min = (double)a_range[2]->i;
+            con->range.known |= CONNECTION_RANGE_DEST_MIN;
+        } else if (t_range[2] == 'd') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MIN)
+                || con->range.dest_min != a_range[2]->d)
+            updated++;
+            con->range.dest_min = a_range[2]->d;
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
         }
         if (t_range[3] == 'f') {
             if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
-                || con->range.dest_max != a_range[3]->f)
+                || con->range.dest_max != (double)a_range[3]->f)
                 updated++;
-            con->range.dest_max = a_range[3]->f;
+            con->range.dest_max = (double)a_range[3]->f;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         } else if (t_range[3] == 'i') {
             if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
-                || con->range.dest_max != a_range[3]->i)
+                || con->range.dest_max != (double)a_range[3]->i)
                 updated++;
-            con->range.dest_max = (float)a_range[3]->i;
+            con->range.dest_max = (double)a_range[3]->i;
+            con->range.known |= CONNECTION_RANGE_DEST_MAX;
+        } else if (t_range[3] == 'd') {
+            if (!(con->range.known & CONNECTION_RANGE_DEST_MAX)
+                || con->range.dest_max != a_range[3]->d)
+            updated++;
+            con->range.dest_max = a_range[3]->d;
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
         }
     }

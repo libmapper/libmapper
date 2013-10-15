@@ -441,7 +441,7 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     return admin;
 }
 
-static void mapper_admin_send_bundle(mapper_admin admin)
+void mapper_admin_send_bundle(mapper_admin admin)
 {
     if (!admin->bundle)
         return;
