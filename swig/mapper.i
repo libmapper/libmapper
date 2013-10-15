@@ -7,34 +7,6 @@
     }
     $1 = $input;
  }
-%typemap(in) (int num_float, float *argv) {
-    int i;
-    if (!PyList_Check($input)) {
-        PyErr_SetString(PyExc_ValueError, "Expecting a list");
-        return NULL;
-    }
-    $1 = PyList_Size($input);
-    $2 = (float *) malloc($1*sizeof(float));
-    for (i = 0; i < $1; i++) {
-        PyObject *s = PyList_GetItem($input,i);
-        if (PyInt_Check(s))
-            $2[i] = (float)PyInt_AsLong(s);
-        else if (PyFloat_Check(s))
-            $2[i] = (float)PyFloat_AsDouble(s);
-        else {
-            free($2);
-            PyErr_SetString(PyExc_ValueError,
-                            "List items must be int or float.");
-            return NULL;
-        }
-    }
-}
-%typemap(typecheck) (int num_float, float *argv) {
-    $1 = PyList_Check($input) ? 1 : 0;
-}
-%typemap(freearg) (int num_float, float *argv) {
-    if ($2) free($2);
-}
 %typemap(in) (int num_int, int *argv) {
     int i;
     if (!PyList_Check($input)) {
@@ -1557,50 +1529,27 @@ typedef struct _admin {} admin;
         }
         return 0;
     }
-    void update(int num_float, float *argv, double timetag=0) {
+    void update(maybePropVal val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
-        if ((num_float % sig->props.length) != 0) {
+        if (!val) {
+            msig_update(sig, 0, 1, tt);
+            return;
+        }
+        else if (val->length < sig->props.length ||
+                 (val->length % sig->props.length) != 0) {
             printf("Signal update requires multiples of %i values.\n",
                    sig->props.length);
             return;
         }
-        int count = num_float / sig->props.length;
-        if (sig->props.type == 'f')
-            msig_update((mapper_signal)$self, argv, count, tt);
-        else if (sig->props.type == 'i') {
-            int vint[num_float];
-            int i;
-            for (i = 0; i < num_float; i++)
-                vint[i] = (int)argv[i];
-            msig_update((mapper_signal)$self, vint, count, tt);
+        int count = val->length / sig->props.length;
+        if (coerce_prop(val, sig->props.type)) {
+            printf("update: type mismatch\n");
+            return;
         }
-    }
-    void update(float f, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'f')
-            msig_update((mapper_signal)$self, &f, 1, tt);
-        else if (sig->props.type == 'i') {
-            int i = (int)f;
-            msig_update((mapper_signal)$self, &i, 1, tt);
-        }
-    }
-    void update(int i, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'i')
-            msig_update((mapper_signal)$self, &i, 1, tt);
-        else if (sig->props.type == 'f') {
-            float f = (float)i;
-            msig_update((mapper_signal)$self, &f, 1, tt);
-        }
+        msig_update(sig, val->value, count, tt);
     }
     void reserve_instances(int num=1) {
         msig_reserve_instances((mapper_signal)$self, num, 0, 0);
@@ -1608,29 +1557,27 @@ typedef struct _admin {} admin;
     void reserve_instances(int num_int, int *argv) {
         msig_reserve_instances((mapper_signal)$self, num_int, argv, 0);
     }
-    void update_instance(int id, float f, double timetag=0) {
+    void update_instance(int id, maybePropVal val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'f')
-            msig_update_instance((mapper_signal)$self, id, &f, 0, tt);
-        else if (sig->props.type == 'i') {
-            int i = (int)f;
-            msig_update_instance((mapper_signal)$self, id, &i, 0, tt);
+        if (!val) {
+            msig_update(sig, 0, 1, tt);
+            return;
         }
-    }
-    void update_instance(int id, int i, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.type == 'i')
-            msig_update_instance((mapper_signal)$self, id, &i, 0, tt);
-        else if (sig->props.type == 'f') {
-            float f = (float)i;
-            msig_update_instance((mapper_signal)$self, id, &f, 0, tt);
+        else if (val->length < sig->props.length ||
+                 (val->length % sig->props.length) != 0) {
+            printf("Signal update requires multiples of %i values.\n",
+                   sig->props.length);
+            return;
         }
+        int count = val->length / sig->props.length;
+        if (coerce_prop(val, sig->props.type)) {
+            printf("update: type mismatch\n");
+            return;
+        }
+        msig_update_instance(sig, id, val->value, count, tt);
     }
     void release_instance(int id, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
