@@ -695,7 +695,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
     }
     else if (stack[top].toktype == TOK_VECTORIZE) {
         arity = stack[top].vector_index;
-        vector_length = 1;
         can_precompute = 0;
     }
     else
@@ -709,14 +708,16 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
         type = compare_token_datatype(stack[top-1], type);
         if (stack[top-1].vector_length > vector_length)
             vector_length = stack[top-1].vector_length;
+
+        /* walk down stack distance of arity, checking datatypes
+         * and vector lengths */
         while (--i >= 0) {
             if (stack[i].toktype == TOK_FUNC &&
                 function_table[stack[i].func].arity)
                 can_precompute = 0;
             else if (stack[i].toktype != TOK_CONST)
                 can_precompute = 0;
-            /* walk down stack distance of arity, checking datatypes
-             * and vector lengths */
+
             if (depth[1] == 0) {
                 type = compare_token_datatype(stack[i], type);
                 if (stack[i].vector_length > vector_length)
@@ -731,26 +732,48 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 depth[1] += op_table[stack[i].op].arity;
             else if (stack[i].toktype == TOK_FUNC)
                 depth[1] += function_table[stack[i].func].arity;
-            else if (stack[i].toktype == TOK_VECTORIZE) {
+            else if (stack[i].toktype == TOK_VECTORIZE)
                 depth[1] += stack[i].vector_index;
-                depth[2] = stack[i].vector_index;
-            }
         }
 
         if (depth[0])
             return -1;
 
-        while (i <= top) {
-            // walk back up to top typecasting as necessary
+        /* walk down stack distance of arity again, promoting datatypes
+         * and vector lengths */
+        i = top;
+        depth[0] = arity;
+        depth[1] = 0;
+        while (--i >= 0) {
             promote_token_datatype(&stack[i], type);
-            // also promote vector lengths
-            if (!stack[i].vector_length_locked)
-                stack[i].vector_length = vector_length;
+            if (depth[1] == 0) {
+                if (!stack[i].vector_length_locked) {
+                    stack[i].vector_length = vector_length;
+                }
+                else if (stack[i].vector_length != vector_length
+                         && stack[top].toktype != TOK_VECTORIZE) {
+                    return -1;
+                }
+                depth[0]--;
+                if (depth[0] == 0)
+                    break;
+            }
+            else
+                depth[1]--;
+            if (stack[i].toktype == TOK_OP)
+                depth[1] += op_table[stack[i].op].arity;
+            else if (stack[i].toktype == TOK_FUNC)
+                depth[1] += function_table[stack[i].func].arity;
+            else if (stack[i].toktype == TOK_VECTORIZE)
+                depth[1] += stack[i].vector_index;
             if (vectorizing)
                 stack[i].vector_length_locked = 1;
-            i++;
         }
         stack[top].datatype = type;
+        if (!stack[top].vector_length_locked)
+            stack[top].vector_length = vector_length;
+        else if (stack[top].vector_length != vector_length)
+            return -1;
     }
     else {
         stack[top].datatype = 'f';
@@ -845,6 +868,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int lex_index = 0, outstack_index = -1, opstack_index = -1;
     int oldest_input = 0, oldest_output = 0, max_vector = 1;
     int vectorizing = 0;
+    int variable = 0;
     mapper_token_t tok;
 
     // all expressions must start with "y=" (ignoring spaces)
@@ -854,10 +878,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     while (str[lex_index]) {
         GET_NEXT_TOKEN(tok);
+        if (variable && tok.toktype != TOK_OPEN_SQUARE
+            && tok.toktype != TOK_OPEN_CURLY)
+            variable = 0;
         switch (tok.toktype) {
             case TOK_CONST:
                 // push to output stack
                 PUSH_TO_OUTPUT(tok);
+                variable = 0;
                 break;
             case TOK_VAR:
                 // set datatype
@@ -865,7 +893,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.history_index = 0;
                 tok.vector_index = 0;
                 tok.vector_length = tok.var == 'x' ? input_vector_size : output_vector_size;
+                tok.vector_length_locked = 1;
                 PUSH_TO_OUTPUT(tok);
+                variable = 1;
                 break;
             case TOK_FUNC:
                 if (function_table[tok.func].func_int32)
@@ -936,26 +966,16 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 PUSH_TO_OPERATOR(tok);
                 break;
             case TOK_OPEN_SQUARE:
-                if (outstack[outstack_index].toktype != TOK_VAR) {
-                    if (vectorizing)
-                        {FAIL("Nested (multidimensional) vectors not allowed");}
-                    tok.toktype = TOK_VECTORIZE;
-                    tok.vector_length = 0;
-                    // use vector index for tracking arity of tok
-                    tok.vector_index = 0;
-                    PUSH_TO_OPERATOR(tok);
-                    vectorizing = 1;
-                }
-                else {
+                if (variable) {
                     GET_NEXT_TOKEN(tok);
                     if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                         {FAIL("Non-integer vector index.");}
                     if (outstack[outstack_index].var == 'x') {
                         if (tok.i >= input_vector_size)
-                            {FAIL("Index exceeds vector length");}
+                            {FAIL("Index exceeds input vector length.");}
                     }
                     else if (tok.i >= output_vector_size)
-                        {FAIL("Index exceeds vector length");}
+                        {FAIL("Index exceeds output vector length.");}
                     outstack[outstack_index].vector_index = tok.i;
                     outstack[outstack_index].vector_length = 1;
                     outstack[outstack_index].vector_length_locked = 1;
@@ -967,18 +987,28 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                             {FAIL("Malformed vector index.");}
                         if (outstack[outstack_index].var == 'x') {
                             if (tok.i >= input_vector_size)
-                                {FAIL("Index exceeds vector length");}
+                                {FAIL("Index exceeds vector length.");}
                         }
                         else if (tok.i >= output_vector_size)
-                            {FAIL("Index exceeds vector length");}
+                            {FAIL("Index exceeds vector length.");}
                         if (tok.i <= outstack[outstack_index].vector_index)
-                            {FAIL("Malformed vector index");}
+                            {FAIL("Malformed vector index.");}
                         outstack[outstack_index].vector_length =
                             tok.i - outstack[outstack_index].vector_index + 1;
                         GET_NEXT_TOKEN(tok);
                     }
                     if (tok.toktype != TOK_CLOSE_SQUARE)
                         {FAIL("Unmatched bracket.");}
+                }
+                else {
+                    if (vectorizing)
+                        {FAIL("Nested (multidimensional) vectors not allowed.");}
+                    tok.toktype = TOK_VECTORIZE;
+                    tok.vector_length = 0;
+                    // use vector index for tracking arity of tok
+                    tok.vector_index = 0;
+                    PUSH_TO_OPERATOR(tok);
+                    vectorizing = 1;
                 }
                 break;
             case TOK_CLOSE_SQUARE:
@@ -998,7 +1028,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 POP_OPERATOR_TO_OUTPUT();
                 break;
             case TOK_OPEN_CURLY:
-                if (outstack[outstack_index].toktype != TOK_VAR)
+                if (!variable)
                     {FAIL("Misplaced brackets.");}
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype == TOK_NEGATE) {
