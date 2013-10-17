@@ -918,7 +918,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.datatype = tok.var < VAR_Y ? input_type : output_type;
                 tok.history_index = 0;
                 tok.vector_index = 0;
-                tok.vector_length = tok.var == 'x' ? input_vector_size : output_vector_size;
+                tok.vector_length = tok.var < VAR_Y ? input_vector_size : output_vector_size;
                 tok.vector_length_locked = 1;
                 PUSH_TO_OUTPUT(tok);
                 variable = 1;
@@ -996,7 +996,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     GET_NEXT_TOKEN(tok);
                     if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                         {FAIL("Non-integer vector index.");}
-                    if (outstack[outstack_index].var == 'x') {
+                    if (outstack[outstack_index].var < VAR_Y) {
                         if (tok.i >= input_vector_size)
                             {FAIL("Index exceeds input vector length.");}
                     }
@@ -1011,7 +1011,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         GET_NEXT_TOKEN(tok);
                         if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                             {FAIL("Malformed vector index.");}
-                        if (outstack[outstack_index].var == 'x') {
+                        if (outstack[outstack_index].var < VAR_Y) {
                             if (tok.i >= input_vector_size)
                                 {FAIL("Index exceeds vector length.");}
                         }
