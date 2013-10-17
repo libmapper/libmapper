@@ -100,6 +100,19 @@ static double uniformd(double x)
 }
 
 typedef enum {
+    VAR_UNKNOWN=-1,
+    VAR_X=0,
+    VAR_Y,
+    N_VARS
+} expr_var_t;
+
+const char *var_strings[] =
+{
+    "x",
+    "y",
+};
+
+typedef enum {
     FUNC_UNKNOWN=-1,
     FUNC_ABS=0,
     FUNC_ACOS,
@@ -270,7 +283,7 @@ typedef struct _token {
         float f;
         int i;
         double d;
-        char var;
+        expr_var_t var;
         expr_op_t op;
         expr_func_t func;
     };
@@ -290,6 +303,16 @@ static expr_func_t function_lookup(const char *s, int len)
             return i;
     }
     return FUNC_UNKNOWN;
+}
+
+static expr_var_t variable_lookup(const char *s, int len)
+{
+    int i;
+    for (i=0; i<N_VARS; i++) {
+        if (strncmp(s, var_strings[i], len)==0)
+            return i;
+    }
+    return VAR_UNKNOWN;
 }
 
 static int expr_lex(const char *str, int index, mapper_token_t *tok)
@@ -482,11 +505,6 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
     case ')':
         tok->toktype = TOK_CLOSE_PAREN;
         return ++index;
-    case 'x':
-    case 'y':
-        tok->toktype = TOK_VAR;
-        tok->var = c;
-        return ++index;
     case '[':
         tok->toktype = TOK_OPEN_SQUARE;
         return ++index;
@@ -522,8 +540,16 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         }
         while (c && (isalpha(c) || isdigit(c)))
             c = str[++index];
-        tok->toktype = TOK_FUNC;
-        tok->func = function_lookup(str+i, index-i);
+        if ((tok->var = variable_lookup(str+i, index-i)) != VAR_UNKNOWN) {
+            tok->toktype = TOK_VAR;
+        }
+        else if ((tok->func = function_lookup(str+i, index-i)) != FUNC_UNKNOWN) {
+            tok->toktype = TOK_FUNC;
+        }
+        else {
+            printf("Unknown variable or function name `%s'.\n",str+i);
+            break;
+        }
         return index;
     }
 
@@ -590,8 +616,8 @@ void printtoken(mapper_token_t tok)
                                   locked ? "'" : "");     break;
     case TOK_OPEN_PAREN:   printf("(");                   break;
     case TOK_CLOSE_PAREN:  printf(")");                   break;
-    case TOK_VAR:          printf("VAR(%c%c%d%s){%d}[%d]",
-                                  tok.var, tok.datatype,
+    case TOK_VAR:          printf("VAR(%s%c%d%s){%d}[%d]",
+                                  var_strings[tok.var], tok.datatype,
                                   tok.vector_length,
                                   locked ? "'" : "",
                                   tok.history_index,
@@ -889,7 +915,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
             case TOK_VAR:
                 // set datatype
-                tok.datatype = tok.var == 'x' ? input_type : output_type;
+                tok.datatype = tok.var < VAR_Y ? input_type : output_type;
                 tok.history_index = 0;
                 tok.vector_index = 0;
                 tok.vector_length = tok.var == 'x' ? input_vector_size : output_vector_size;
@@ -1029,7 +1055,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
             case TOK_OPEN_CURLY:
                 if (!variable)
-                    {FAIL("Misplaced brackets.");}
+                    {FAIL("Misplaced brace.");}
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype == TOK_NEGATE) {
                     // if negative sign found, get next token
@@ -1039,17 +1065,19 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                     {FAIL("Non-integer history index.");}
                 outstack[outstack_index].history_index *= tok.i;
-                if (outstack[outstack_index].var == 'x') {
+                if (outstack[outstack_index].var == VAR_X) {
                     if (outstack[outstack_index].history_index > 0)
                         {FAIL("Input history index cannot be > 0.");}
                 }
-                else if (outstack[outstack_index].history_index > -1)
+                else if (outstack[outstack_index].var == VAR_Y) {
+                    if (outstack[outstack_index].history_index > -1)
                     {FAIL("Output history index cannot be > -1.");}
+                }
 
-                if (outstack[outstack_index].var == 'x'
+                if (outstack[outstack_index].var == VAR_X
                     && outstack[outstack_index].history_index < oldest_input)
                     oldest_input = outstack[outstack_index].history_index;
-                else if (outstack[outstack_index].var == 'y'
+                else if (outstack[outstack_index].var == VAR_Y
                          && outstack[outstack_index].history_index < oldest_output)
                     oldest_output = outstack[outstack_index].history_index;
                 GET_NEXT_TOKEN(tok);
@@ -1160,7 +1188,7 @@ int mapper_expr_evaluate(mapper_expr expr,
             {
                 int idx;
                 switch (tok->var) {
-                case 'x':
+                case VAR_X:
                     ++top;
                     dims[top] = tok->vector_length;
                     idx = ((tok->history_index + from->position
@@ -1181,7 +1209,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                             stack[i][top].i32 = v[i+tok->vector_index];
                     }
                     break;
-                case 'y':
+                case VAR_Y:
                     ++top;
                     dims[top] = tok->vector_length;
                     idx = ((tok->history_index + to->position + 1

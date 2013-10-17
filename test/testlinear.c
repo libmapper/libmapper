@@ -12,7 +12,6 @@
 
 mapper_device source = 0;
 mapper_device destination = 0;
-mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
@@ -41,12 +40,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (router) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, router);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -94,38 +87,49 @@ void cleanup_destination()
     }
 }
 
-int setup_router()
+int setup_connection()
 {
-    const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->props.port,
-                               mdev_name(destination), 0);
-    mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, destination->props.port);
+    mval src_min, src_max, dest_min, dest_max;
+    src_min.f = 0.;
+    src_max.f = 1.;
+    dest_min.f = -10.;
+    dest_max.f = 10.;
 
-    char signame_in[1024];
-    if (!msig_full_name(recvsig, signame_in, 1024)) {
-        printf("Could not get destination signal name.\n");
-        return 1;
-    }
+    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char signame_out[1024];
-    if (!msig_full_name(sendsig, signame_out, 1024)) {
-        printf("Could not get source signal name.\n");
-        return 1;
-    }
+    char src_name[1024], dest_name[1024];
+    mapper_monitor_link(mon, mdev_name(source),
+                        mdev_name(destination), 0, 0);
 
-    printf("Connecting signal %s -> %s\n", signame_out, signame_in);
-    mapper_connection c = mapper_router_add_connection(router, sendsig,
-                                                       recvsig->props.name,
-                                                       'f', 1);
+    msig_full_name(sendsig, src_name, 1024);
+    msig_full_name(recvsig, dest_name, 1024);
+
     mapper_connection_range_t range;
-    range.src_min = 0;
-    range.src_max = 1;
-    range.dest_min = -10;
-    range.dest_max = 10;
+    range.src_min = &src_min;
+    range.src_max = &src_max;
+    range.dest_min = &dest_min;
+    range.dest_max = &dest_max;
     range.known = CONNECTION_RANGE_KNOWN;
-    
-    mapper_connection_set_linear_range(c, &range);
+
+    mapper_db_connection_t props;
+    props.range = range;
+    props.src_length = 1;
+    props.dest_length = 1;
+    props.src_type = 'f';
+    props.dest_type = 'f';
+    props.mode = MO_LINEAR;
+
+    mapper_monitor_connect(mon, src_name, dest_name, &props,
+                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE);
+
+    // poll devices for a bit to allow time for connection
+    int i = 0;
+    while (i++ < 10) {
+        mdev_poll(destination, 10);
+        mdev_poll(source, 10);
+    }
+
+    mapper_monitor_free(mon);
 
     return 0;
 }
@@ -172,7 +176,7 @@ int main()
 
     wait_ready();
 
-    if (setup_router()) {
+    if (setup_connection()) {
         printf("Error initializing router.\n");
         result = 1;
         goto done;
