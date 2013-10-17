@@ -6,6 +6,21 @@
 #include <time.h>
 #include <sys/time.h>
 
+char str[256];
+mapper_expr e;
+int result = 0;
+int iterations = 1;//000000;
+
+int src_int[] = {1, 2, 3}, dest_int[3];
+float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[3];
+double src_double[] = {1.0, 2.0, 3.0}, dest_double[3];
+double then, now;
+
+mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
+
+// signal_history structures
+mapper_signal_history_t inh, outh;
+
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -14,61 +29,107 @@ static double get_current_time()
     return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-int main()
+/* Examples:
+ vector indexing
+ unit-delay indexing
+ building vectors
+ conditionals
+ vector length mismatches
+ multiplication by 0
+ addition/subtraction by 0
+ division by 0?
+ addition/multiplication in series?
+ int/float/double
+ -----
+ display number of tokens required
+ display vector width required
+ display time to parse?
+ display time to compute N times
+ */
+
+void setup_test(char in_type, int in_size, int in_length, void *in_value,
+                char out_type, int out_size, int out_length, void *out_value)
 {
-//    const char str[] = "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)";
-    //const char str[] = "y=x?1:2";
-    const char str[] = "y=2.0 * [0,x] + 100";
-    int input_history_size, output_history_size;
-    mapper_expr e = mapper_expr_new_from_string(str, 'f', 'f', 3, 4,
-                                                &input_history_size,
-                                                &output_history_size);
-    printf("Parsing %s\n", str);
-    if (!e) { printf("Test FAILED.\n"); return 1; }
+    inh.type = in_type;
+    inh.size = in_size;
+    inh.length = in_length;
+    inh.value = in_value;
+    inh.position = 0;
+    inh.timetag = &tt_in;
+
+    outh.type = out_type;
+    outh.size = out_size;
+    outh.length = out_length;
+    outh.value = out_value;
+    outh.position = -1;
+    outh.timetag = &tt_out;
+}
+
+int parse_and_eval()
+{
+    printf("**********************************\n");
+    printf("Parsing string '%s'\n", str);
+    if (!(e = mapper_expr_new_from_string(str, inh.type, outh.type,
+                                          inh.length, outh.length,
+                                          &inh.size, &outh.size))) {
+        printf("Parser FAILED.\n");
+        return 1;
+    }
+
 #ifdef DEBUG
     printexpr("Parser returned: ", e);
 #endif
-    printf("\n");
 
-    float inp[] = {1.0, 2.0, 3.0}, outp[] = {-1., -1., -1., -1.};
-
-    // create signal_history structures
-    mapper_signal_history_t inh, outh;
-    inh.type = 'f';
-    inh.size = 1;
-    inh.length = 3;
-    inh.value = &inp;
-    inh.timetag = calloc(1, sizeof(mapper_timetag_t));
-    inh.position = 0;
-
-    outh.type = 'f';
-    outh.size = 1;
-    outh.length = 4;
-    outh.value = &outp;
-    outh.timetag = calloc(1, sizeof(mapper_timetag_t));
-    outh.position = -1;
-
-    int iterations = 1;//000000;
-    int results = 0;
-    double then = get_current_time();
-    printf("Calculate expression %i times... ", iterations);
-    while (iterations--) {
-        results += mapper_expr_evaluate(e, &inh, &outh);
+    if (!mapper_expr_evaluate(e, &inh, &outh)) {
+        printf("Evaluation FAILED.\n");
+        return 1;
     }
-    double now = get_current_time();
+
+    then = get_current_time();
+    printf("Calculate expression %i times... ", iterations);
+    int i = iterations;
+    while (i--) {
+        mapper_expr_evaluate(e, &inh, &outh);
+    }
+    now = get_current_time();
     printf("%f seconds.\n", now-then);
 
-    if (results) {
-        printf("Evaluate with x={%f,%f,%f}: [%f, %f, %f, %f] (expected: %f)\n",
-               inp[0], inp[1], inp[2], outp[0], outp[1], outp[2], outp[3],
-               26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+inp[0])*3*4+cosf(2.0f));
-    }
-    else
-        printf("NO results.\n");
+    printf("Got ");
+    mapper_prop_pp(outh.type, outh.length, outh.value);
+    printf(" ");
 
     mapper_expr_free(e);
-    free(inh.timetag);
-    free(outh.timetag);
+    return 0;
+}
+
+int main()
+{
+    /* Complex string */
+    snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
+    setup_test('f', 1, 1, src_float, 'f', 1, 1, dest_float);
+    if (!parse_and_eval())
+        printf("Expected: %f\n", 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_float[0])*3*4+cosf(2.0f));
+
+    /* Building vectors, conditionals */
+    snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
+    setup_test('f', 1, 3, src_float, 'i', 1, 3, dest_int);
+    if (!parse_and_eval())
+        printf("Expected: [%i, %i, %i]\n", src_float[0]>1?1:2,
+               src_float[1]>1?2:4, src_float[2]>1?3:6);
+
+    /* Building vectors with variables, operations inside vector-builder */
+    snprintf(str, 256, "y=[x*2,0]");
+    setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*2,
+               (double)src_int[1]*2, 0.0);
+
+    /* Indexing vectors by range */
+    snprintf(str, 256, "y=x[1:2]+100");
+    setup_test('d', 1, 3, src_double, 'f', 1, 2, dest_float);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f]\n", (float)src_double[1]+100,
+               (float)src_double[2]+100);
 
     return 0;
 }
