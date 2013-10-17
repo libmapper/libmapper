@@ -771,7 +771,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
         depth[0] = arity;
         depth[1] = 0;
         while (--i >= 0) {
-            promote_token_datatype(&stack[i], type);
             if (depth[1] == 0) {
                 if (!stack[i].vector_length_locked) {
                     stack[i].vector_length = vector_length;
@@ -781,8 +780,12 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                     return -1;
                 }
                 depth[0]--;
-                if (depth[0] == 0)
+                if (depth[0] == 0) {
+                    // TODO: continue down the stack for typecasting?
+                    if (stack[i].datatype != type)
+                        stack[i].casttype = type;
                     break;
+                }
             }
             else
                 depth[1]--;
@@ -794,6 +797,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 depth[1] += stack[i].vector_index;
             if (vectorizing)
                 stack[i].vector_length_locked = 1;
+            promote_token_datatype(&stack[i], type);
         }
         stack[top].datatype = type;
         if (!stack[top].vector_length_locked)
@@ -1128,6 +1132,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     if (outstack[outstack_index].datatype != output_type) {
         promote_token_datatype(&outstack[outstack_index], output_type);
         outstack_index = check_types_and_lengths(outstack, outstack_index, 0);
+        if (outstack[outstack_index].datatype != output_type)
+            outstack[outstack_index].casttype = output_type;
     }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
