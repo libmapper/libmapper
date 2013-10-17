@@ -694,7 +694,7 @@ static void promote_token_datatype(mapper_token_t *tok, char type)
             }
         }
     }
-    else if (tok->datatype == TOK_VAR) {
+    else if (tok->toktype == TOK_VAR) {
         // we need to cast at runtime
         if (tok->datatype == 'i' || type == 'd')
             tok->casttype = type;
@@ -768,9 +768,10 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
         /* walk down stack distance of arity again, promoting datatypes
          * and vector lengths */
         i = top;
-        depth[0] = arity;
         depth[1] = 0;
         while (--i >= 0) {
+            if (depth[1] < 0)
+                break;
             if (depth[1] == 0) {
                 if (!stack[i].vector_length_locked) {
                     stack[i].vector_length = vector_length;
@@ -778,13 +779,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 else if (stack[i].vector_length != vector_length
                          && stack[top].toktype != TOK_VECTORIZE) {
                     return -1;
-                }
-                depth[0]--;
-                if (depth[0] == 0) {
-                    // TODO: continue down the stack for typecasting?
-                    if (stack[i].datatype != type)
-                        stack[i].casttype = type;
-                    break;
                 }
             }
             else
@@ -1114,8 +1108,6 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             {FAIL("Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
     }
-
-    // TODO: promote datatypes/cast to destination datatype
 
     // Fail if top vector length doesn't match output vector length
     if (outstack[outstack_index].vector_length != output_vector_size)
@@ -1556,7 +1548,7 @@ int mapper_expr_evaluate(mapper_expr expr,
         default: goto error;
         }
         if (tok->casttype) {
-            trace_eval("casting from %c to %c", tok->datatype, tok->casttype);
+            trace_eval("casting from %c to %c\n", tok->datatype, tok->casttype);
             // need to cast to a different type
             if (tok->datatype == 'i') {
                 if (tok->casttype == 'f') {
