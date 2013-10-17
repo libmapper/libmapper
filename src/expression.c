@@ -1526,14 +1526,14 @@ int mapper_expr_evaluate(mapper_expr expr,
                 }
             }
             else if (tok->datatype == 'i') {
-                for (i = 0; i < tok->vector_index; i++) {
-                    for (j = 0; j < dims[top+i]; j++)
+                for (i = 1; i < tok->vector_index; i++) {
+                    for (j = 0; j < dims[top+1]; j++)
                         stack[k++][top].i32 = stack[j][top+i].i32;
                 }
             }
             else if (tok->datatype == 'd') {
-                for (i = 0; i < tok->vector_index; i++) {
-                    for (j = 0; j < dims[top+i]; j++)
+                for (i = 1; i < tok->vector_index; i++) {
+                    for (j = 0; j < dims[top+1]; j++)
                         stack[k++][top].d = stack[j][top+i].d;
                 }
             }
