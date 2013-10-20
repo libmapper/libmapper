@@ -77,7 +77,7 @@ int parse_and_eval()
     }
 
 #ifdef DEBUG
-    printexpr("Parser returned: ", e);
+    printexpr("Parser returned:", e);
 #endif
 
     if (!mapper_expr_evaluate(e, &inh, &outh)) {
@@ -94,9 +94,9 @@ int parse_and_eval()
     now = get_current_time();
     printf("%f seconds.\n", now-then);
 
-    printf("Got ");
+    printf("Got:      ");
     mapper_prop_pp(outh.type, outh.length, outh.value);
-    printf(" ");
+    printf(" \n");
 
     mapper_expr_free(e);
     return 0;
@@ -118,11 +118,18 @@ int main()
                src_float[1]>1?2:4, src_float[2]>1?3:6);
 
     /* Building vectors with variables, operations inside vector-builder */
-    snprintf(str, 256, "y=[x*2,0]");
+    snprintf(str, 256, "y=[x*-2+1,0]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
     if (!parse_and_eval())
-        printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*2,
-               (double)src_int[1]*2, 0.0);
+        printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*-2+1,
+               (double)src_int[1]*-2+1, 0.0);
+
+    /* Building vectors with variables, operations inside vector-builder */
+    snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
+    setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f, %f]\n", -99.4, (double)(-src_int[0]*1.1+src_int[0]),
+               (double)(-src_int[1]*1.1+src_int[1]));
 
     /* Indexing vectors by range */
     snprintf(str, 256, "y=x[1:2]+100");
@@ -130,6 +137,33 @@ int main()
     if (!parse_and_eval())
         printf("Expected: [%f, %f]\n", (float)src_double[1]+100,
                (float)src_double[2]+100);
+
+    /* Typical linear scaling expression with vectors */
+    snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
+    setup_test('f', 1, 3, src_float, 'f', 1, 3, dest_float);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f, %f]\n", src_float[0]*0.1f+2.f,
+               src_float[1]*3.7f+1.3f, src_float[2]*-.1112f+9000.f);
+
+    /* Check type and vector length promotion of operation sequences */
+    snprintf(str, 256, "y=1+2*3-4*x");
+    setup_test('f', 1, 2, src_float, 'f', 1, 2, dest_float);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f]\n", 1.f+2.f*3.f-4.f*src_float[0],
+               1.f+2.f*3.f-4.f*src_float[1]);
+
+    /* Swizzling, more pre-computation */
+    snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
+    setup_test('f', 1, 3, src_float, 'f', 1, 2, dest_float);
+    if (!parse_and_eval())
+        printf("Expected: [%f, %f]\n", src_float[2]*0.f+1.f+12.f,
+               src_float[0]*0.f+1.f+12.f);
+
+    /* Logical negation */
+    snprintf(str, 256, "y=!(x[1]*0)");
+    setup_test('d', 1, 3, src_double, 'i', 1, 1, dest_int);
+    if (!parse_and_eval())
+    printf("Expected: %i\n", (int)!(src_double[1]*0));
 
     return 0;
 }
