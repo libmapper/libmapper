@@ -1187,16 +1187,40 @@ int mapper_expr_output_history_size(mapper_expr expr)
 }
 
 #if TRACING
-#define trace_eval printf
-#else
-static void trace_eval(const char *s,...) {}
+static void print_stack_vector(mapper_signal_value_t *stack, char type,
+                               int vector_length)
+{
+    int i;
+    if (vector_length > 1)
+        printf("[");
+    switch (type) {
+        case 'i':
+            for (i = 0; i < vector_length; i++)
+                printf("%d, ", stack[i].i32);
+            break;
+        case 'f':
+            for (i = 0; i < vector_length; i++)
+                printf("%f, ", stack[i].f);
+            break;
+        case 'd':
+            for (i = 0; i < vector_length; i++)
+                printf("%f, ", stack[i].d);
+            break;
+        default:
+            break;
+    }
+    if (vector_length > 1)
+        printf("\b\b]");
+    else
+        printf("\b\b");
+}
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *from,
                          mapper_signal_history_t *to)
 {
-    mapper_signal_value_t stack[expr->vector_size][expr->length];
+    mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 
     int i, j, k, top = -1, count = 0;
@@ -1209,15 +1233,15 @@ int mapper_expr_evaluate(mapper_expr expr,
             dims[top] = tok->vector_length;
             if (tok->datatype == 'f') {
                 for (i = 0; i < tok->vector_length; i++)
-                    stack[i][top].f = tok->f;
+                    stack[top][i].f = tok->f;
             }
             else if (tok->datatype == 'd') {
                 for (i = 0; i < tok->vector_length; i++)
-                    stack[i][top].d = tok->d;
+                    stack[top][i].d = tok->d;
             }
             else if (tok->datatype == 'i') {
                 for (i = 0; i < tok->vector_length; i++)
-                    stack[i][top].i32 = tok->i;
+                    stack[top][i].i32 = tok->i;
             }
             break;
         case TOK_VAR:
@@ -1232,17 +1256,17 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (from->type == 'd') {
                         double *v = from->value + idx * from->length * mapper_type_size(from->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].d = v[i+tok->vector_index];
+                            stack[top][i].d = v[i+tok->vector_index];
                     }
                     else if (from->type == 'f') {
                         float *v = from->value + idx * from->length * mapper_type_size(from->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].f = v[i+tok->vector_index];
+                            stack[top][i].f = v[i+tok->vector_index];
                     }
                     else if (from->type == 'i') {
                         int *v = from->value + idx * from->length * mapper_type_size(from->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].i32 = v[i+tok->vector_index];
+                            stack[top][i].i32 = v[i+tok->vector_index];
                     }
                     break;
                 case VAR_Y:
@@ -1253,17 +1277,17 @@ int mapper_expr_evaluate(mapper_expr expr,
                     if (to->type == 'd') {
                         double *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].d = v[i+tok->vector_index];
+                            stack[top][i].d = v[i+tok->vector_index];
                     }
                     else if (to->type == 'f') {
                         float *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].f = v[i+tok->vector_index];
+                            stack[top][i].f = v[i+tok->vector_index];
                     }
                     else if (to->type == 'i') {
                         int *v = to->value + idx * to->length * mapper_type_size(to->type);
                         for (i = 0; i < tok->vector_length; i++)
-                            stack[i][top].i32 = v[i+tok->vector_index];
+                            stack[top][i].i32 = v[i+tok->vector_index];
                     }
                     break;
                 default: goto error;
@@ -1271,280 +1295,348 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_OP:
-            // TODO: move loops inside switch statement
-            // TODO: adjust trace_eval for arity of operation
             top -= op_table[tok->op].arity-1;
             dims[top] = tok->vector_length;
-            for (i = 0; i < tok->vector_length; i++) {
-                if (tok->datatype == 'f') {
-                    trace_eval("%f %sf %f = ", stack[i][top].f,
-                               op_table[tok->op].name, stack[i][top+1].f);
-                    switch (tok->op) {
-                        case OP_ADD:
-                            stack[i][top].f = stack[i][top].f + stack[i][top+1].f;
-                            break;
-                        case OP_SUBTRACT:
-                            stack[i][top].f = stack[i][top].f - stack[i][top+1].f;
-                            break;
-                        case OP_MULTIPLY:
-                            stack[i][top].f = stack[i][top].f * stack[i][top+1].f;
-                            break;
-                        case OP_DIVIDE:
-                            stack[i][top].f = stack[i][top].f / stack[i][top+1].f;
-                            break;
-                        case OP_MODULO:
-                            stack[i][top].f = fmod(stack[i][top].f, stack[i][top+1].f);
-                            break;
-                        case OP_IS_EQUAL:
-                            stack[i][top].f = stack[i][top].f == stack[i][top+1].f;
-                            break;
-                        case OP_IS_NOT_EQUAL:
-                            stack[i][top].f = stack[i][top].f != stack[i][top+1].f;
-                            break;
-                        case OP_IS_LESS_THAN:
-                            stack[i][top].f = stack[i][top].f < stack[i][top+1].f;
-                            break;
-                        case OP_IS_LESS_THAN_OR_EQUAL:
-                            stack[i][top].f = stack[i][top].f <= stack[i][top+1].f;
-                            break;
-                        case OP_IS_GREATER_THAN:
-                            stack[i][top].f = stack[i][top].f > stack[i][top+1].f;
-                            break;
-                        case OP_IS_GREATER_THAN_OR_EQUAL:
-                            stack[i][top].f = stack[i][top].f >= stack[i][top+1].f;
-                            break;
-                        case OP_LOGICAL_AND:
-                            stack[i][top].f = stack[i][top].f && stack[i][top+1].f;
-                            break;
-                        case OP_LOGICAL_OR:
-                            stack[i][top].f = stack[i][top].f || stack[i][top+1].f;
-                            break;
-                        case OP_LOGICAL_NOT:
-                            stack[i][top].f = !stack[i][top].f;
-                            break;
-                        case OP_CONDITIONAL_IF:
-                            if (stack[i][top].f)
-                                stack[i][top].f = stack[i][top+1].f;
-                            else
-                                return 0;
-                            break;
-                        case OP_CONDITIONAL_IF_ELSE:
-                            if (stack[i][top].f)
-                                stack[i][top].f = stack[i][top+1].f;
-                            else
-                                stack[i][top].f = stack[i][top+2].f;
-                            break;
-                        default: goto error;
-                    }
-                    trace_eval("%f\n", stack[i][top].f);
-                } else if (tok->datatype == 'd') {
-                    trace_eval("%f %sd %f = ", stack[i][top].d,
-                               op_table[tok->op].name, stack[i][top+1].d);
-                    switch (tok->op) {
-                        case OP_ADD:
-                            stack[i][top].d = stack[i][top].d + stack[i][top+1].d;
-                            break;
-                        case OP_SUBTRACT:
-                            stack[i][top].d = stack[i][top].d - stack[i][top+1].d;
-                            break;
-                        case OP_MULTIPLY:
-                            stack[i][top].d = stack[i][top].d * stack[i][top+1].d;
-                            break;
-                        case OP_DIVIDE:
-                            stack[i][top].d = stack[i][top].d / stack[i][top+1].d;
-                            break;
-                        case OP_MODULO:
-                            stack[i][top].d = fmod(stack[i][top].d, stack[i][top+1].d);
-                            break;
-                        case OP_IS_EQUAL:
-                            stack[i][top].d = stack[i][top].d == stack[i][top+1].d;
-                            break;
-                        case OP_IS_NOT_EQUAL:
-                            stack[i][top].d = stack[i][top].d != stack[i][top+1].d;
-                            break;
-                        case OP_IS_LESS_THAN:
-                            stack[i][top].d = stack[i][top].d < stack[i][top+1].d;
-                            break;
-                        case OP_IS_LESS_THAN_OR_EQUAL:
-                            stack[i][top].d = stack[i][top].d <= stack[i][top+1].d;
-                            break;
-                        case OP_IS_GREATER_THAN:
-                            stack[i][top].d = stack[i][top].d > stack[i][top+1].d;
-                            break;
-                        case OP_IS_GREATER_THAN_OR_EQUAL:
-                            stack[i][top].d = stack[i][top].d >= stack[i][top+1].d;
-                            break;
-                        case OP_LOGICAL_AND:
-                            stack[i][top].d = stack[i][top].d && stack[i][top+1].d;
-                            break;
-                        case OP_LOGICAL_OR:
-                            stack[i][top].d = stack[i][top].d || stack[i][top+1].d;
-                            break;
-                        case OP_LOGICAL_NOT:
-                            stack[i][top].d = !stack[i][top].d;
-                            break;
-                        case OP_CONDITIONAL_IF:
-                            if (stack[i][top].d)
-                                stack[i][top].d = stack[i][top+1].d;
-                            else
-                                return 0;
-                            break;
-                        case OP_CONDITIONAL_IF_ELSE:
-                            if (stack[i][top].d)
-                                stack[i][top].d = stack[i][top+1].d;
-                            else
-                                stack[i][top].d = stack[i][top+2].d;
-                            break;
-                        default: goto error;
-                    }
-                    trace_eval("%f\n", stack[i][top].d);
-                } else {
-                    trace_eval("%d %si %d = ", stack[i][top].i32,
-                               op_table[tok->op].name, stack[i][top+1].i32);
-                    switch (tok->op) {
-                        case OP_ADD:
-                            stack[i][top].i32 = stack[i][top].i32 + stack[i][top+1].i32;
-                            break;
-                        case OP_SUBTRACT:
-                            stack[i][top].i32 = stack[i][top].i32 - stack[i][top+1].i32;
-                            break;
-                        case OP_MULTIPLY:
-                            stack[i][top].i32 = stack[i][top].i32 * stack[i][top+1].i32;
-                            break;
-                        case OP_DIVIDE:
-                            stack[i][top].i32 = stack[i][top].i32 / stack[i][top+1].i32;
-                            break;
-                        case OP_MODULO:
-                            stack[i][top].i32 = stack[i][top].i32 % stack[i][top+1].i32;
-                            break;
-                        case OP_IS_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 == stack[i][top+1].i32;
-                            break;
-                        case OP_IS_NOT_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 != stack[i][top+1].i32;
-                            break;
-                        case OP_IS_LESS_THAN:
-                            stack[i][top].i32 = stack[i][top].i32 < stack[i][top+1].i32;
-                            break;
-                        case OP_IS_LESS_THAN_OR_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 <= stack[i][top+1].i32;
-                            break;
-                        case OP_IS_GREATER_THAN:
-                            stack[i][top].i32 = stack[i][top].i32 > stack[i][top+1].i32;
-                            break;
-                        case OP_IS_GREATER_THAN_OR_EQUAL:
-                            stack[i][top].i32 = stack[i][top].i32 >= stack[i][top+1].i32;
-                            break;
-                        case OP_LEFT_BIT_SHIFT:
-                            stack[i][top].i32 = stack[i][top].i32 << stack[i][top+1].i32;
-                            break;
-                        case OP_RIGHT_BIT_SHIFT:
-                            stack[i][top].i32 = stack[i][top].i32 >> stack[i][top+1].i32;
-                            break;
-                        case OP_BITWISE_AND:
-                            stack[i][top].i32 = stack[i][top].i32 & stack[i][top+1].i32;
-                            break;
-                        case OP_BITWISE_OR:
-                            stack[i][top].i32 = stack[i][top].i32 | stack[i][top+1].i32;
-                            break;
-                        case OP_BITWISE_XOR:
-                            stack[i][top].i32 = stack[i][top].i32 ^ stack[i][top+1].i32;
-                            break;
-                        case OP_LOGICAL_AND:
-                            stack[i][top].i32 = stack[i][top].i32 && stack[i][top+1].i32;
-                            break;
-                        case OP_LOGICAL_OR:
-                            stack[i][top].i32 = stack[i][top].i32 || stack[i][top+1].i32;
-                            break;
-                        case OP_LOGICAL_NOT:
-                            stack[i][top].i32 = !stack[i][top].i32;
-                            break;
-                        case OP_CONDITIONAL_IF:
-                            if (stack[i][top].i32)
-                                stack[i][top].i32 = stack[i][top+1].i32;
-                            else
-                                return 0;
-                            break;
-                        case OP_CONDITIONAL_IF_ELSE:
-                            if (stack[i][top].i32)
-                                stack[i][top].i32 = stack[i][top+1].i32;
-                            else
-                                stack[i][top].i32 = stack[i][top+2].i32;
-                            break;
-                        default: goto error;
-                    }
-                    trace_eval("%d\n", stack[i][top].i32);
+#if TRACING
+            if (tok->op == OP_CONDITIONAL_IF || tok->op == OP_CONDITIONAL_IF_ELSE) {
+                printf("IF ");
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" THEN ");
+                print_stack_vector(stack[top+1], tok->datatype, tok->vector_length);
+                if (tok->op == OP_CONDITIONAL_IF_ELSE) {
+                    printf(" ELSE ");
+                    print_stack_vector(stack[top+2], tok->datatype, tok->vector_length);
                 }
             }
+            else {
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" %s%c ", op_table[tok->op].name, tok->datatype);
+                print_stack_vector(stack[top+1], tok->datatype, tok->vector_length);
+            }
+#endif
+            if (tok->datatype == 'f') {
+                switch (tok->op) {
+                    case OP_ADD:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f + stack[top+1][i].f;
+                        break;
+                    case OP_SUBTRACT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f - stack[top+1][i].f;
+                        break;
+                    case OP_MULTIPLY:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f * stack[top+1][i].f;
+                        break;
+                    case OP_DIVIDE:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f / stack[top+1][i].f;
+                        break;
+                    case OP_MODULO:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = fmod(stack[top][i].f, stack[top+1][i].f);
+                        break;
+                    case OP_IS_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f == stack[top+1][i].f;
+                        break;
+                    case OP_IS_NOT_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f != stack[top+1][i].f;
+                        break;
+                    case OP_IS_LESS_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f < stack[top+1][i].f;
+                        break;
+                    case OP_IS_LESS_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f <= stack[top+1][i].f;
+                        break;
+                    case OP_IS_GREATER_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f > stack[top+1][i].f;
+                        break;
+                    case OP_IS_GREATER_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f >= stack[top+1][i].f;
+                        break;
+                    case OP_LOGICAL_AND:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f && stack[top+1][i].f;
+                        break;
+                    case OP_LOGICAL_OR:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = stack[top][i].f || stack[top+1][i].f;
+                        break;
+                    case OP_LOGICAL_NOT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = !stack[top][i].f;
+                        break;
+                    case OP_CONDITIONAL_IF:
+                        // TODO: should not permit implicit any()/all()
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].f)
+                                stack[top][i].f = stack[top+1][i].f;
+                            else
+                                return 0;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].f)
+                                stack[top][i].f = stack[top+1][i].f;
+                            else
+                                stack[top][i].f = stack[top+2][i].f;
+                        }
+                        break;
+                    default: goto error;
+                }
+            } else if (tok->datatype == 'd') {
+                switch (tok->op) {
+                    case OP_ADD:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d + stack[top+1][i].d;
+                        break;
+                    case OP_SUBTRACT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d - stack[top+1][i].d;
+                        break;
+                    case OP_MULTIPLY:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d * stack[top+1][i].d;
+                        break;
+                    case OP_DIVIDE:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d / stack[top+1][i].d;
+                        break;
+                    case OP_MODULO:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = fmod(stack[top][i].d, stack[top+1][i].d);
+                        break;
+                    case OP_IS_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d == stack[top+1][i].d;
+                        break;
+                    case OP_IS_NOT_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d != stack[top+1][i].d;
+                        break;
+                    case OP_IS_LESS_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d < stack[top+1][i].d;
+                        break;
+                    case OP_IS_LESS_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d <= stack[top+1][i].d;
+                        break;
+                    case OP_IS_GREATER_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d > stack[top+1][i].d;
+                        break;
+                    case OP_IS_GREATER_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d >= stack[top+1][i].d;
+                        break;
+                    case OP_LOGICAL_AND:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d && stack[top+1][i].d;
+                        break;
+                    case OP_LOGICAL_OR:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = stack[top][i].d || stack[top+1][i].d;
+                        break;
+                    case OP_LOGICAL_NOT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = !stack[top][i].d;
+                        break;
+                    case OP_CONDITIONAL_IF:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].d)
+                                stack[top][i].d = stack[top+1][i].d;
+                            else
+                                return 0;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].d)
+                                stack[top][i].d = stack[top+1][i].d;
+                            else
+                                stack[top][i].d = stack[top+2][i].d;
+                        }
+                        break;
+                    default: goto error;
+                }
+            } else {
+                switch (tok->op) {
+                    case OP_ADD:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 + stack[top+1][i].i32;
+                        break;
+                    case OP_SUBTRACT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 - stack[top+1][i].i32;
+                        break;
+                    case OP_MULTIPLY:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 * stack[top+1][i].i32;
+                        break;
+                    case OP_DIVIDE:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 / stack[top+1][i].i32;
+                        break;
+                    case OP_MODULO:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 % stack[top+1][i].i32;
+                        break;
+                    case OP_IS_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 == stack[top+1][i].i32;
+                        break;
+                    case OP_IS_NOT_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 != stack[top+1][i].i32;
+                        break;
+                    case OP_IS_LESS_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 < stack[top+1][i].i32;
+                        break;
+                    case OP_IS_LESS_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 <= stack[top+1][i].i32;
+                        break;
+                    case OP_IS_GREATER_THAN:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 > stack[top+1][i].i32;
+                        break;
+                    case OP_IS_GREATER_THAN_OR_EQUAL:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 >= stack[top+1][i].i32;
+                        break;
+                    case OP_LEFT_BIT_SHIFT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 << stack[top+1][i].i32;
+                        break;
+                    case OP_RIGHT_BIT_SHIFT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 >> stack[top+1][i].i32;
+                        break;
+                    case OP_BITWISE_AND:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 & stack[top+1][i].i32;
+                        break;
+                    case OP_BITWISE_OR:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 | stack[top+1][i].i32;
+                        break;
+                    case OP_BITWISE_XOR:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 ^ stack[top+1][i].i32;
+                        break;
+                    case OP_LOGICAL_AND:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 && stack[top+1][i].i32;
+                        break;
+                    case OP_LOGICAL_OR:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = stack[top][i].i32 || stack[top+1][i].i32;
+                        break;
+                    case OP_LOGICAL_NOT:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = !stack[top][i].i32;
+                        break;
+                    case OP_CONDITIONAL_IF:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].i32)
+                                stack[top][i].i32 = stack[top+1][i].i32;
+                            else
+                                return 0;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (stack[top][i].i32)
+                                stack[top][i].i32 = stack[top+1][i].i32;
+                            else
+                                stack[top][i].i32 = stack[top+2][i].i32;
+                        }
+                        break;
+                    default: goto error;
+                }
+            }
+#if TRACING
+            printf(" = ");
+            print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+            printf(" \n");
+#endif
             break;
         case TOK_FUNC:
             top -= function_table[tok->func].arity-1;
             dims[top] = tok->vector_length;
-            for (i = 0; i < tok->vector_length; i++) {
-                if (tok->datatype == 'f') {
-                    switch (function_table[tok->func].arity) {
-                        case 0:
-                            stack[i][top].f = ((func_float_arity0*)function_table[tok->func].func_float)();
-                            trace_eval("%s = %f\n", function_table[tok->func].name,
-                                       stack[i][top].f);
-                            break;
-                        case 1:
-                            trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].f);
-                            stack[i][top].f = ((func_float_arity1*)function_table[tok->func].func_float)(stack[i][top].f);
-                            trace_eval("%f\n", stack[i][top].f);
-                            break;
-                        case 2:
-                            trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
-                                       stack[i][top].f, stack[i][top+1].f);
-                            stack[i][top].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[i][top].f, stack[i][top+1].f);
-                            trace_eval("%f\n", stack[i][top].f);
-                            break;
-                        default: goto error;
-                    }
-                }
-                else if (tok->datatype == 'd') {
-                    switch (function_table[tok->func].arity) {
-                        case 0:
-                            stack[i][top].d = ((func_double_arity0*)function_table[tok->func].func_double)();
-                            trace_eval("%s = %f\n", function_table[tok->func].name,
-                                       stack[i][top].d);
-                            break;
-                        case 1:
-                            trace_eval("%s(%f) = ", function_table[tok->func].name, stack[i][top].d);
-                            stack[i][top].d = ((func_double_arity1*)function_table[tok->func].func_double)(stack[i][top].d);
-                            trace_eval("%f\n", stack[i][top].d);
-                            break;
-                        case 2:
-                            trace_eval("%s(%f,%f) = ", function_table[tok->func].name,
-                                       stack[i][top].d, stack[i][top+1].d);
-                            stack[i][top].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[i][top].d, stack[i][top+1].d);
-                            trace_eval("%f\n", stack[i][top].d);
-                            break;
-                        default: goto error;
-                    }
-                }
-                else if (tok->datatype == 'i') {
-                    switch (function_table[tok->func].arity) {
-                        case 0:
-                            stack[i][top].i32 = ((func_int32_arity0*)function_table[tok->func].func_int32)();
-                            trace_eval("%s = %d\n", function_table[tok->func].name,
-                                       stack[i][top].i32);
-                            break;
-                        case 1:
-                            trace_eval("%s(%d) = ", function_table[tok->func].name, stack[i][top].i32);
-                            stack[i][top].i32 = ((func_int32_arity1*)function_table[tok->func].func_int32)(stack[i][top].i32);
-                            trace_eval("%d\n", stack[i][top].i32);
-                            break;
-                        case 2:
-                            trace_eval("%s(%d,%d) = ", function_table[tok->func].name,
-                                       stack[i][top].i32, stack[i][top+1].i32);
-                            stack[i][top].i32 = ((func_int32_arity2*)function_table[tok->func].func_int32)(stack[i][top].i32, stack[i][top+1].i32);
-                            trace_eval("%d\n", stack[i][top].i32);
-                            break;
-                        default: goto error;
-                    }
+#if TRACING
+            printf("%s%c(", function_table[tok->func].name, tok->datatype);
+            for (i = 0; i < function_table[tok->func].arity; i++) {
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(", ");
+            }
+            printf("\b\b)\n");
+#endif
+            if (tok->datatype == 'f') {
+                switch (function_table[tok->func].arity) {
+                    case 0:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = ((func_float_arity0*)function_table[tok->func].func_float)();
+                        break;
+                    case 1:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = ((func_float_arity1*)function_table[tok->func].func_float)(stack[top][i].f);
+                        break;
+                    case 2:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[top][i].f, stack[top+1][i].f);
+                        break;
+                    default: goto error;
                 }
             }
+            else if (tok->datatype == 'd') {
+                switch (function_table[tok->func].arity) {
+                    case 0:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = ((func_double_arity0*)function_table[tok->func].func_double)();
+                        break;
+                    case 1:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = ((func_double_arity1*)function_table[tok->func].func_double)(stack[top][i].d);
+                        break;
+                    case 2:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[top][i].d, stack[top+1][i].d);
+                        break;
+                    default: goto error;
+                }
+            }
+            else if (tok->datatype == 'i') {
+                switch (function_table[tok->func].arity) {
+                    case 0:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = ((func_int32_arity0*)function_table[tok->func].func_int32)();
+                        break;
+                    case 1:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = ((func_int32_arity1*)function_table[tok->func].func_int32)(stack[top][i].i32);
+                        break;
+                    case 2:
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = ((func_int32_arity2*)function_table[tok->func].func_int32)(stack[top][i].i32, stack[top+1][i].i32);
+                        break;
+                    default: goto error;
+                }
+            }
+#if TRACING
+            printf(" = ");
+            print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+            printf(" \n");
+#endif
             break;
         case TOK_VECTORIZE:
             // don't need to copy vector elements from first token
@@ -1553,75 +1645,68 @@ int mapper_expr_evaluate(mapper_expr expr,
             if (tok->datatype == 'f') {
                 for (i = 1; i < tok->vector_index; i++) {
                     for (j = 0; j < dims[top+1]; j++)
-                        stack[k++][top].f = stack[j][top+i].f;
+                        stack[top][k++].f = stack[top+i][j].f;
                 }
             }
             else if (tok->datatype == 'i') {
                 for (i = 1; i < tok->vector_index; i++) {
                     for (j = 0; j < dims[top+1]; j++)
-                        stack[k++][top].i32 = stack[j][top+i].i32;
+                        stack[top][k++].i32 = stack[top+i][j].i32;
                 }
             }
             else if (tok->datatype == 'd') {
                 for (i = 1; i < tok->vector_index; i++) {
                     for (j = 0; j < dims[top+1]; j++)
-                        stack[k++][top].d = stack[j][top+i].d;
+                        stack[top][k++].d = stack[top+i][j].d;
                 }
             }
             dims[top] = tok->vector_length;
 #if TRACING
-            printf("built %i-element vector: [", tok->vector_length);
-            for (i = 0; i < tok->vector_length; i++) {
-                if (tok->datatype == 'f')
-                    printf("%f", stack[i][top].f);
-                else if (tok->datatype == 'i')
-                    printf("%i", stack[i][top].i32);
-                else if (tok->datatype == 'd')
-                    printf("%f", stack[i][top].d);
-                if (i < tok->vector_length - 1)
-                    printf(", ");
-            }
-            printf("]\n");
+            printf("built %i-element vector: ", tok->vector_length);
+            print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+            printf(" \n");
 #endif
             break;
         default: goto error;
         }
         if (tok->casttype) {
-            trace_eval("casting from %c to %c\n", tok->datatype, tok->casttype);
+#if TRACING
+            printf("casting from %c to %c\n", tok->datatype, tok->casttype);
+#endif
             // need to cast to a different type
             if (tok->datatype == 'i') {
                 if (tok->casttype == 'f') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].f = (float)stack[i][top].i32;
+                        stack[top][i].f = (float)stack[top][i].i32;
                     }
                 }
                 else if (tok->casttype == 'd') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].d = (double)stack[i][top].i32;
+                        stack[top][i].d = (double)stack[top][i].i32;
                     }
                 }
             }
             else if (tok->datatype == 'f') {
                 if (tok->casttype == 'i') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].i32 = (int)stack[i][top].f;
+                        stack[top][i].i32 = (int)stack[top][i].f;
                     }
                 }
                 else if (tok->casttype == 'd') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].d = (double)stack[i][top].f;
+                        stack[top][i].d = (double)stack[top][i].f;
                     }
                 }
             }
             else if (tok->datatype == 'd') {
                 if (tok->casttype == 'i') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].i32 = (int)stack[i][top].d;
+                        stack[top][i].i32 = (int)stack[top][i].d;
                     }
                 }
                 else if (tok->casttype == 'f') {
                     for (i = 0; i < tok->vector_length; i++) {
-                        stack[i][top].f = (float)stack[i][top].d;
+                        stack[top][i].f = (float)stack[top][i].d;
                     }
                 }
             }
@@ -1637,17 +1722,17 @@ int mapper_expr_evaluate(mapper_expr expr,
     if (to->type == 'f') {
         float *v = msig_history_value_pointer(*to);
         for (i = 0; i < to->length; i++)
-            v[i] = stack[i][top].f;
+            v[i] = stack[top][i].f;
     }
     else if (to->type == 'i') {
         int *v = msig_history_value_pointer(*to);
         for (i = 0; i < to->length; i++)
-            v[i] = stack[i][top].i32;
+            v[i] = stack[top][i].i32;
     }
     else if (to->type == 'd') {
         double *v = msig_history_value_pointer(*to);
         for (i = 0; i < to->length; i++)
-            v[i] = stack[i][top].d;
+            v[i] = stack[top][i].d;
     }
     return 1;
 

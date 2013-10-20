@@ -9,7 +9,7 @@
 char str[256];
 mapper_expr e;
 int result = 0;
-int iterations = 1;//000000;
+int iterations = 1000000;
 
 int src_int[] = {1, 2, 3}, dest_int[3];
 float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[3];
