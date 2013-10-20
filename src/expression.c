@@ -705,8 +705,23 @@ static void promote_token_datatype(mapper_token_t *tok, char type)
     }
 }
 
-static int check_types_and_lengths(mapper_token_t *stack, int top,
-                                   int vectorizing)
+static void lock_vector_lengths(mapper_token_t *stack, int top)
+{
+    int i=top, arity=1;
+
+    while ((i >= 0) && arity--) {
+        stack[i].vector_length_locked = 1;
+        if (stack[i].toktype == TOK_OP)
+            arity += op_table[stack[i].op].arity;
+        else if (stack[i].toktype == TOK_FUNC)
+            arity += function_table[stack[i].func].arity;
+        else if (stack[i].toktype == TOK_VECTORIZE)
+            arity += stack[i].vector_index;
+        i--;
+    }
+}
+
+static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
     int i, arity, can_precompute = 1;
     char type = stack[top].datatype;
@@ -729,7 +744,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
     if (arity) {
         // find operator or function inputs
         i = top;
-        int depth[2] = {arity,0};
+        int skip = 0;
+        int depth = arity;
         // last arg of op or func is at top-1
         type = compare_token_datatype(stack[top-1], type);
         if (stack[top-1].vector_length > vector_length)
@@ -744,60 +760,82 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
             else if (stack[i].toktype != TOK_CONST)
                 can_precompute = 0;
 
-            if (depth[1] == 0) {
+            if (skip == 0) {
                 type = compare_token_datatype(stack[i], type);
                 if (stack[i].vector_length > vector_length)
                     vector_length = stack[i].vector_length;
-                depth[0]--;
-                if (depth[0] == 0)
+                depth--;
+                if (depth == 0)
                     break;
             }
             else
-                depth[1]--;
+                skip--;
             if (stack[i].toktype == TOK_OP)
-                depth[1] += op_table[stack[i].op].arity;
+                skip += op_table[stack[i].op].arity;
             else if (stack[i].toktype == TOK_FUNC)
-                depth[1] += function_table[stack[i].func].arity;
+                skip += function_table[stack[i].func].arity;
             else if (stack[i].toktype == TOK_VECTORIZE)
-                depth[1] += stack[i].vector_index;
+                skip += stack[i].vector_index;
         }
 
-        if (depth[0])
+        if (depth)
             return -1;
 
         /* walk down stack distance of arity again, promoting datatypes
          * and vector lengths */
         i = top;
-        depth[1] = 0;
+        if (stack[top].toktype == TOK_VECTORIZE) {
+            skip = stack[top].vector_index;
+            depth = 0;
+        }
+        else {
+            skip = 0;
+            depth = arity;
+        }
         while (--i >= 0) {
-            if (depth[1] < 0)
-                break;
-            if (depth[1] == 0) {
-                if (!stack[i].vector_length_locked) {
+            // we will promote everything within range of compound arity
+            promote_token_datatype(&stack[i], type);
+
+            if (skip <= 0) {
+                // also check/promote vector length
+                if (!stack[i].vector_length_locked)
                     stack[i].vector_length = vector_length;
-                }
-                else if (stack[i].vector_length != vector_length
-                         && stack[top].toktype != TOK_VECTORIZE) {
+                else if (stack[i].vector_length != vector_length) {
+                    printf("Vector length mismatch (%d != %d).\n",
+                           stack[i].vector_length, vector_length);
                     return -1;
                 }
             }
-            else
-                depth[1]--;
-            if (stack[i].toktype == TOK_OP)
-                depth[1] += op_table[stack[i].op].arity;
-            else if (stack[i].toktype == TOK_FUNC)
-                depth[1] += function_table[stack[i].func].arity;
+
+            if (stack[i].toktype == TOK_OP) {
+                depth += op_table[stack[i].op].arity;
+                if (skip > 0)
+                    skip += op_table[stack[i].op].arity;
+            }
+            else if (stack[i].toktype == TOK_FUNC) {
+                depth += function_table[stack[i].func].arity;
+                if (skip > 0)
+                    skip += function_table[stack[i].func].arity;
+            }
             else if (stack[i].toktype == TOK_VECTORIZE)
-                depth[1] += stack[i].vector_index;
-            if (vectorizing)
-                stack[i].vector_length_locked = 1;
-            promote_token_datatype(&stack[i], type);
+                skip = stack[i].vector_index+1;
+
+            if (skip > 0)
+                skip--;
+            else {
+                depth--;
+                if (depth <= 0)
+                    break;
+            }
         }
         stack[top].datatype = type;
         if (!stack[top].vector_length_locked)
             stack[top].vector_length = vector_length;
-        else if (stack[top].vector_length != vector_length)
+        else if (stack[top].vector_length != vector_length) {
+            printf("Vector length mismatch (%d != %d).\n",
+                   stack[i].vector_length, vector_length);
             return -1;
+        }
     }
     else {
         stack[top].datatype = 'f';
@@ -861,8 +899,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
     }                                                               \
     PUSH_TO_OUTPUT(opstack[opstack_index]);                         \
     outstack_index = check_types_and_lengths(outstack,              \
-                                             outstack_index,        \
-                                             vectorizing);          \
+                                             outstack_index);       \
     if (outstack_index < 0)                                         \
          {FAIL("Malformed expression.");}                           \
     POP_OPERATOR();                                                 \
@@ -963,7 +1000,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     opstack[opstack_index].vector_index++;
                     opstack[opstack_index].vector_length +=
                         outstack[outstack_index].vector_length;
-                    outstack[outstack_index].vector_length_locked = 1;
+                    lock_vector_lengths(outstack, outstack_index);
                 }
                 break;
             case TOK_COLON:
@@ -1047,9 +1084,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 opstack[opstack_index].vector_index++;
                 opstack[opstack_index].vector_length +=
                     outstack[outstack_index].vector_length;
-                outstack[outstack_index].vector_length_locked = 1;
-                vectorizing = 0;
+                lock_vector_lengths(outstack, outstack_index);
                 POP_OPERATOR_TO_OUTPUT();
+                vectorizing = 0;
                 break;
             case TOK_OPEN_CURLY:
                 if (!variable)
@@ -1111,7 +1148,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // Fail if top vector length doesn't match output vector length
     if (outstack[outstack_index].vector_length != output_vector_size)
-        {FAIL("Vector length mismatch.");}
+        {FAIL("Expression vector length does not match destination.");}
 
     // Check for maximum vector length used in stack
     int i;
@@ -1123,7 +1160,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // If stack top type doesn't match output type, add cast
     if (outstack[outstack_index].datatype != output_type) {
         promote_token_datatype(&outstack[outstack_index], output_type);
-        outstack_index = check_types_and_lengths(outstack, outstack_index, 0);
+        // TODO: checking again shouldn't be necessary
+        outstack_index = check_types_and_lengths(outstack, outstack_index);
         if (outstack[outstack_index].datatype != output_type)
             outstack[outstack_index].casttype = output_type;
     }
@@ -1233,9 +1271,10 @@ int mapper_expr_evaluate(mapper_expr expr,
             }
             break;
         case TOK_OP:
+            // TODO: move loops inside switch statement
+            // TODO: adjust trace_eval for arity of operation
             top -= op_table[tok->op].arity-1;
             dims[top] = tok->vector_length;
-            // promote types as necessary
             for (i = 0; i < tok->vector_length; i++) {
                 if (tok->datatype == 'f') {
                     trace_eval("%f %sf %f = ", stack[i][top].f,
