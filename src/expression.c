@@ -1197,6 +1197,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     if (outstack[outstack_index].datatype != output_type) {
         promote_token_datatype(&outstack[outstack_index], output_type);
         outstack_index = check_types_and_lengths(outstack, outstack_index);
+        if (outstack[outstack_index].datatype != output_type)
+            outstack[outstack_index].casttype = output_type;
     }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
