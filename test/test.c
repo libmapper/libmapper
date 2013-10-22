@@ -38,7 +38,7 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mnf[]={0,0,0}, mxf[]={10,10,10};
+    float mnf[]={3.2,2,0}, mxf[]={-2,13,100};
     double mnd=0, mxd=10;
 
     sendsig_1 = mdev_add_output(source, "/outsig_1", 1, 'd', "Hz", &mnd, &mxd);
@@ -170,6 +170,10 @@ void loop()
         msig_full_name(recvsig_2, dest_name, 1024);
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
+        msig_full_name(sendsig_3, src_name, 1024);
+        msig_full_name(recvsig_3, dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
         // wait until connection has been established
         while (!source->routers || !source->routers->n_connections) {
             mdev_poll(source, 1);
@@ -179,11 +183,19 @@ void loop()
         mapper_monitor_free(mon);
     }
 
+    float val[3];
     while (i >= 0 && !done) {
         mdev_poll(source, 0);
-        msig_update_double(source->outputs[0], ((i % 10) * 1.0f));
-        msig_update_float(source->outputs[1], ((i % 10) * 1.0f));
-        printf("source value updated to %d -->\n", i % 10);
+        msig_update_double(sendsig_1, ((i % 10) * 1.0f));
+        printf("/outsig_1 value updated to %d -->\n", i % 10);
+
+        msig_update_float(sendsig_2, ((i % 10) * 1.0f));
+        printf("/outsig_2 value updated to %d -->\n", i % 10);
+
+        val[0] = val[1] = val[2] = (i % 10) * 1.0f;
+        msig_update(sendsig_3, val, 1, MAPPER_NOW);
+        printf("/outsig_3 value updated to [%f,%f,%f] -->\n",
+               val[0], val[1], val[2]);
 
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
         i++;
