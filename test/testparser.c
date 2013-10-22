@@ -30,21 +30,11 @@ static double get_current_time()
 }
 
 /* Examples:
- vector indexing
  unit-delay indexing
- building vectors
- conditionals
  vector length mismatches
  multiplication by 0
- addition/subtraction by 0
+ addition/subtraction of 0
  division by 0?
- addition/multiplication in series?
- int/float/double
- -----
- display number of tokens required
- display vector width required
- display time to parse?
- display time to compute N times
  */
 
 void setup_test(char in_type, int in_size, int in_length, void *in_value,
@@ -104,66 +94,114 @@ int parse_and_eval()
 
 int main()
 {
+    int result = 0;
+
     /* Complex string */
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test('f', 1, 1, src_float, 'f', 1, 1, dest_float);
-    if (!parse_and_eval())
-        printf("Expected: %f\n", 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_float[0])*3*4+cosf(2.0f));
+    result += parse_and_eval();
+    printf("Expected: %f\n", 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_float[0])*3*4+cosf(2.0f));
 
     /* Building vectors, conditionals */
     snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
     setup_test('f', 1, 3, src_float, 'i', 1, 3, dest_int);
-    if (!parse_and_eval())
-        printf("Expected: [%i, %i, %i]\n", src_float[0]>1?1:2,
-               src_float[1]>1?2:4, src_float[2]>1?3:6);
+    result += parse_and_eval();
+    printf("Expected: [%i, %i, %i]\n", src_float[0]>1?1:2, src_float[1]>1?2:4,
+           src_float[2]>1?3:6);
 
     /* Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[x*-2+1,0]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*-2+1,
-               (double)src_int[1]*-2+1, 0.0);
+    result += parse_and_eval();
+    printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*-2+1,
+           (double)src_int[1]*-2+1, 0.0);
 
     /* Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f, %f]\n", -99.4, (double)(-src_int[0]*1.1+src_int[0]),
-               (double)(-src_int[1]*1.1+src_int[1]));
+    result += parse_and_eval();
+    printf("Expected: [%f, %f, %f]\n", -99.4,
+           (double)(-src_int[0]*1.1+src_int[0]),
+           (double)(-src_int[1]*1.1+src_int[1]));
 
     /* Indexing vectors by range */
     snprintf(str, 256, "y=x[1:2]+100");
     setup_test('d', 1, 3, src_double, 'f', 1, 2, dest_float);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f]\n", (float)src_double[1]+100,
-               (float)src_double[2]+100);
+    result += parse_and_eval();
+    printf("Expected: [%f, %f]\n", (float)src_double[1]+100,
+           (float)src_double[2]+100);
 
     /* Typical linear scaling expression with vectors */
     snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test('f', 1, 3, src_float, 'f', 1, 3, dest_float);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f, %f]\n", src_float[0]*0.1f+2.f,
-               src_float[1]*3.7f+1.3f, src_float[2]*-.1112f+9000.f);
+    result += parse_and_eval();
+    printf("Expected: [%f, %f, %f]\n", src_float[0]*0.1f+2.f,
+           src_float[1]*3.7f+1.3f, src_float[2]*-.1112f+9000.f);
 
     /* Check type and vector length promotion of operation sequences */
     snprintf(str, 256, "y=1+2*3-4*x");
     setup_test('f', 1, 2, src_float, 'f', 1, 2, dest_float);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f]\n", 1.f+2.f*3.f-4.f*src_float[0],
-               1.f+2.f*3.f-4.f*src_float[1]);
+    result += parse_and_eval();
+    printf("Expected: [%f, %f]\n", 1.f+2.f*3.f-4.f*src_float[0],
+           1.f+2.f*3.f-4.f*src_float[1]);
 
     /* Swizzling, more pre-computation */
     snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
     setup_test('f', 1, 3, src_float, 'f', 1, 2, dest_float);
-    if (!parse_and_eval())
-        printf("Expected: [%f, %f]\n", src_float[2]*0.f+1.f+12.f,
-               src_float[0]*0.f+1.f+12.f);
+    result += parse_and_eval();
+    printf("Expected: [%f, %f]\n", src_float[2]*0.f+1.f+12.f,
+           src_float[0]*0.f+1.f+12.f);
 
     /* Logical negation */
     snprintf(str, 256, "y=!(x[1]*0)");
     setup_test('d', 1, 3, src_double, 'i', 1, 1, dest_int);
-    if (!parse_and_eval())
+    result += parse_and_eval();
     printf("Expected: %i\n", (int)!(src_double[1]*0));
 
-    return 0;
+    /* any() */
+    snprintf(str, 256, "y=any(x-1)");
+    setup_test('d', 1, 3, src_double, 'i', 1, 1, dest_int);
+    result += parse_and_eval();
+    printf("Expected: %i\n", ((int)src_double[0]-1)?1:0
+           | ((int)src_double[1]-1)?1:0
+           | ((int)src_double[2]-1)?1:0);
+
+    /* all() */
+    snprintf(str, 256, "y=x[1:2]*all(x-1)");
+    setup_test('d', 1, 3, src_double, 'i', 1, 2, dest_int);
+    result += parse_and_eval();
+    int temp = ((int)src_double[0]-1)?1:0 & ((int)src_double[1]-1)?1:0
+                & ((int)src_double[2]-1)?1:0;
+    printf("Expected: [%i, %i]\n", (int)src_double[1] * temp,
+           (int)src_double[2] * temp);
+
+    /* pi and e, extra spaces */
+    snprintf(str, 256, "y=x + pi -     e");
+    setup_test('d', 1, 1, src_double, 'f', 1, 1, dest_float);
+    result += parse_and_eval();
+    printf("Expected: %f\n", (float)(src_double[0]+M_PI-M_E));
+
+    /* bad vector notation */
+    snprintf(str, 256, "y=(x-2)[1]");
+    setup_test('i', 1, 1, src_int, 'i', 1, 1, dest_int);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+
+    /* vector index outside bounds */
+    snprintf(str, 256, "y=x[3]");
+    setup_test('i', 1, 3, src_int, 'i', 1, 1, dest_int);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+
+    /* vector length mismatch */
+    snprintf(str, 256, "y=x[1:2]");
+    setup_test('i', 1, 3, src_int, 'i', 1, 1, dest_int);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+
+    /* scientific notation */
+
+    printf("**********************************\n");
+    printf("Failed %d tests\n", result);
+    return result;
 }
