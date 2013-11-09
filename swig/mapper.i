@@ -1141,7 +1141,7 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend signal {
+%extend _signal {
     const char *get_name() {
         return ((mapper_signal)$self)->props.name;
     }
@@ -1525,7 +1525,7 @@ typedef struct _admin {} admin;
     }
 }
 
-%extend db {
+%extend _db {
     void add_device_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
         mapper_db_add_device_callback((mapper_db)$self, device_db_handler_py, PyFunc);
