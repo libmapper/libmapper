@@ -1,0 +1,38 @@
+# $Id$
+
+PortSystem          1.0
+
+name                libmapper
+version             0.3
+categories          net audio
+platforms           darwin
+license             LGPL
+maintainers         gmail.com:joseph.malloch
+description         Distributed system for media control mapping
+long_description    libmapper is a library for discovering and \
+                    connecting real-time control signals
+homepage            http://www.libmapper.org
+master_sites        http://idmil.org/pubfiles/software/libmapper/
+
+checksums           rmd160  \
+                    sha256 
+
+depends_lib         port:liblo \
+                    port:zlib
+
+configure.args      --disable-swig \
+                    --disable-jni \
+                    --disable-audio \
+                    --disable-docs
+
+variant python requires python {
+    configure.args_append  --enable-swig
+}
+
+variant java requires java {
+    configure.args_append --enable-jni
+}
+
+variant docs requires doxygen {
+    configure.args_append --enable-docs
+}
