@@ -7,6 +7,9 @@ import Mapper.Db.*;
 
 public class Device
 {
+    public Device(String name) {
+        _device = mdev_new(name, 0);
+    }
     public Device(String name, int port) {
         _device = mdev_new(name, port);
     }
@@ -69,16 +72,6 @@ public class Device
             checkDevice();
             msig_remove_property(_signal, property);
         }
-        public int query_remotes(TimeTag tt)
-        {
-            checkDevice();
-            return msig_query_remotes(_signal, tt);
-        }
-        public int query_remotes()
-        {
-            checkDevice();
-            return msig_query_remotes(_signal, null);
-        }
 
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
@@ -90,7 +83,6 @@ public class Device
         private native void msig_set_property(long sig, String property,
                                               PropertyValue p);
         private native void msig_remove_property(long sig, String property);
-        private native int msig_query_remotes(long sig, TimeTag tt);
 
         public native void set_instance_event_callback(
             InstanceEventListener handler, int flags);
@@ -100,7 +92,10 @@ public class Device
                                                  InputListener cb);
         public native InputListener get_instance_callback(int instance_id);
 
-        public native void reserve_instances(int num);
+        public native int reserve_instances(int num);
+        public native int reserve_instances(int[] ids);
+        public native int reserve_instances(int num, InputListener cb);
+        public native int reserve_instances(int[] ids, InputListener cb);
         public native void release_instance(int instance_id, TimeTag tt);
         public void release_instance(int instance_id)
             { release_instance(instance_id, null); }
@@ -182,6 +177,10 @@ public class Device
             { return instance_value(instance_id, value, null); }
         public boolean instance_value(int instance_id, double[] value)
             { return instance_value(instance_id, value, null); }
+
+        public native int query_remotes(TimeTag tt);
+        public int query_remotes()
+            { return query_remotes(null); };
 
         public int index()
         {

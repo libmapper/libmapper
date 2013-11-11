@@ -1505,13 +1505,13 @@ static int update_connection_record_params(mapper_db_connection con,
 
     mapper_boundary_action bound;
     bound = mapper_msg_get_boundary_action(params, AT_BOUND_MAX);
-    if (bound != -1 && bound != con->bound_max) {
+    if ((int)bound != -1 && bound != con->bound_max) {
         con->bound_max = bound;
         updated++;
     }
 
     bound = mapper_msg_get_boundary_action(params, AT_BOUND_MIN);
-    if (bound != -1 && bound != con->bound_min) {
+    if ((int)bound != -1 && bound != con->bound_min) {
         con->bound_min = bound;
         updated++;
     }
@@ -1612,7 +1612,7 @@ static int update_connection_record_params(mapper_db_connection con,
     updated += update_string_if_arg(&con->expression, params, AT_EXPRESSION);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
-    if (mode != -1 && mode != con->mode) {
+    if ((int)mode != -1 && mode != con->mode) {
         con->mode = mode;
         updated++;
     }

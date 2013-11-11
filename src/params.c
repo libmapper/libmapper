@@ -355,7 +355,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     while (pa != N_AT_PARAMS)
     {
         /* if parameter is -1, it means to skip this entry */
-        if (pa == -1) {
+        if ((int)pa == -1) {
             pa = (mapper_msg_param_t) va_arg(aq, int);
             pa = (mapper_msg_param_t) va_arg(aq, int);
             continue;
@@ -363,7 +363,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 
         /* Only "extra" is not a real property name */
 #ifdef DEBUG
-        if (pa >= 0 && pa < N_AT_PARAMS)
+        if ((int)pa >= 0 && pa < N_AT_PARAMS)
 #endif
             if (pa != AT_EXTRA)
                 lo_message_add_string(m, mapper_msg_param_strings[pa]);
