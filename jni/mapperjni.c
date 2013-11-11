@@ -867,10 +867,12 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1rate
         msig_set_rate(sig, (float)rate);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1query_1remotes
-  (JNIEnv *env, jobject obj, jlong s, jobject objtt)
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_query_1remotes
+  (JNIEnv *env, jobject obj, jobject objtt)
 {
-    mapper_signal sig = (mapper_signal)ptr_jlong(s);
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig)
+        return 0;
     if (objtt)
     {
         mapper_timetag_t tt, *ptt;
