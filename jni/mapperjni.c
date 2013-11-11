@@ -736,18 +736,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1start_1queue
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
 
-    jclass cls = (*env)->GetObjectClass(env, objtt);
-    if (cls) {
-        jfieldID secid = (*env)->GetFieldID(env, cls, "sec", "J");
-        jfieldID fracid = (*env)->GetFieldID(env, cls, "frac", "J");
-        if (secid && fracid) {
-            mapper_timetag_t tt;
-            tt.sec = (float)(*env)->GetDoubleField(env, objtt, secid);
-            tt.frac = (int)(*env)->GetDoubleField(env, objtt, fracid);
-
-            mdev_start_queue(dev, tt);
-        }
-    }
+    mapper_timetag_t tt, *ptt=0;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+    if (ptt)
+        mdev_start_queue(dev, *ptt);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1send_1queue
@@ -755,18 +747,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1send_1queue
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
 
-    jclass cls = (*env)->GetObjectClass(env, objtt);
-    if (cls) {
-        jfieldID secid = (*env)->GetFieldID(env, cls, "sec", "J");
-        jfieldID fracid = (*env)->GetFieldID(env, cls, "frac", "J");
-        if (secid && fracid) {
-            mapper_timetag_t tt;
-            tt.sec = (float)(*env)->GetDoubleField(env, objtt, secid);
-            tt.frac = (int)(*env)->GetDoubleField(env, objtt, fracid);
-
-            mdev_send_queue(dev, tt);
-        }
-    }
+    mapper_timetag_t tt, *ptt=0;
+    ptt = get_timetag_from_jobject(env, objtt, &tt);
+    if (ptt)
+        mdev_send_queue(dev, *ptt);
 }
 
 /**** Mapper.Device.Signal ****/
