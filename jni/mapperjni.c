@@ -211,6 +211,12 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
             (*genv)->SetIntArrayRegion(genv, varr, 0, props->length, v);
         vobj = (jobject) varr;
     }
+    else if (props->type == 'd' && v) {
+        jdoubleArray varr = (*genv)->NewDoubleArray(genv, props->length);
+        if (varr)
+            (*genv)->SetDoubleArrayRegion(genv, varr, 0, props->length, v);
+        vobj = (jobject) varr;
+    }
 
     if (!vobj && v) {
         char msg[1024];
@@ -248,6 +254,12 @@ static void java_msig_input_cb(mapper_signal sig, mapper_db_signal props,
                                            "(LMapper/Device$Signal;"
                                            "LMapper/Db/Signal;"
                                            "I[F"
+                                           "LMapper/TimeTag;)V");
+            else if (props->type=='d')
+                mid = (*genv)->GetMethodID(genv, cls, "onInput",
+                                           "(LMapper/Device$Signal;"
+                                           "LMapper/Db/Signal;"
+                                           "I[D"
                                            "LMapper/TimeTag;)V");
 
             if (mid) {
@@ -362,7 +374,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
    jchar type, jstring unit, jobject minimum, jobject maximum,
    jobject listener)
 {
-    if (!name || (length<=0) || (type!='f' && type!='i'))
+    if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
 
     mapper_device dev = get_device_from_jobject(env, obj);
@@ -374,6 +386,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     union {
         float f;
         int i;
+        double d;
     } mn, mx;
 
     if (minimum) {
@@ -385,6 +398,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
                     mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
                 else if (type == 'i')
                     mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
+                else if (type == 'd')
+                    mn.d = (*env)->GetDoubleField(env, minimum, val);
             }
         }
     }
@@ -398,6 +413,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
                     mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
                 else if (type == 'i')
                     mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
+                else if (type == 'd')
+                    mx.d = (*env)->GetDoubleField(env, maximum, val);
             }
         }
     }
@@ -424,7 +441,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
 JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
   (JNIEnv *env, jobject obj, jstring name, jint length, jchar type, jstring unit, jobject minimum, jobject maximum)
 {
-    if (!name || (length<=0) || (type!='f' && type!='i'))
+    if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
 
     mapper_device dev = get_device_from_jobject(env, obj);
@@ -436,6 +453,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
     union {
         float f;
         int i;
+        double d;
     } mn, mx;
 
     if (minimum) {
@@ -447,6 +465,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
                     mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
                 else if (type == 'i')
                     mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
+                else if (type == 'd')
+                    mn.d = (*env)->GetDoubleField(env, minimum, val);
             }
         }
     }
@@ -460,6 +480,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
                     mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
                 else if (type == 'i')
                     mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
+                else if (type == 'd')
+                    mx.d = (*env)->GetDoubleField(env, maximum, val);
             }
         }
     }
@@ -797,6 +819,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1minimum
         union {
             float f;
             int i;
+            double d;
         } mn;
 
         if (minimum) {
@@ -808,6 +831,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1minimum
                         mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
                     else if (p->type == 'i')
                         mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
+                    else if (p->type == 'd')
+                        mn.d = (*env)->GetDoubleField(env, minimum, val);
                     msig_set_minimum(sig, &mn);
                 }
             }
@@ -827,6 +852,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
         union {
             float f;
             int i;
+            double d;
         } mx;
 
         if (maximum) {
@@ -838,6 +864,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
                         mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
                     else if (p->type == 'i')
                         mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
+                    else if (p->type == 'd')
+                        mx.d = (*env)->GetDoubleField(env, maximum, val);
                     msig_set_minimum(sig, &mx);
                 }
             }
@@ -954,6 +982,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__ILMapper_TimeTag_2
         float v = (float)value;
         msig_update(sig, &v, 1, ptt ? *ptt : MAPPER_NOW);
     }
+    else if (props->type == 'd') {
+        double v = (double)value;
+        msig_update(sig, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__FLMapper_TimeTag_2
@@ -975,6 +1007,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__FLMapper_TimeTag_2
         throwIllegalArgumentTruncate(env, sig);
     else if (props->type == 'f') {
         msig_update(sig, &value, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+    else if (props->type == 'd') {
+        double v = (double)value;
+        msig_update(sig, &v, 1, ptt ? *ptt : MAPPER_NOW);
     }
 }
 
@@ -998,6 +1034,9 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update__DLMapper_TimeTag_2
     else if (props->type == 'f') {
         float v = (float)value;
         msig_update(sig, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+    else if (props->type == 'd') {
+        msig_update(sig, &value, 1, ptt ? *ptt : MAPPER_NOW);
     }
 }
 
@@ -1030,6 +1069,14 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3ILMapper_TimeTag
             msig_update(sig, arraycopy, 0, ptt ? *ptt : MAPPER_NOW);
             free(arraycopy);
         }
+        else if (props->type == 'd') {
+            double *arraycopy = malloc(sizeof(double)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (double)array[i];
+            msig_update(sig, arraycopy, 0, ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseIntArrayElements(env, value, array, JNI_ABORT);
     }
 }
@@ -1046,7 +1093,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3FLMapper_TimeTag
         throwIllegalArgumentLength(env, sig, length);
         return;
     }
-    if (props->type != 'f') {
+    if (props->type == 'i') {
         throwIllegalArgumentTruncate(env, sig);
         return;
     }
@@ -1056,7 +1103,17 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3FLMapper_TimeTag
 
     jfloat *array = (*env)->GetFloatArrayElements(env, value, 0);
     if (array) {
-        msig_update(sig, array, 0, ptt ? *ptt : MAPPER_NOW);
+        if (props->type == 'f') {
+            msig_update(sig, array, 0, ptt ? *ptt : MAPPER_NOW);
+        }
+        else {
+            double *arraycopy = malloc(sizeof(double)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (double)array[i];
+            msig_update(sig, arraycopy, 0, ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseFloatArrayElements(env, value, array, JNI_ABORT);
     }
 }
@@ -1073,7 +1130,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3DLMapper_TimeTag
         throwIllegalArgumentLength(env, sig, length);
         return;
     }
-    if (props->type != 'f') {
+    if (props->type == 'i') {
         throwIllegalArgumentTruncate(env, sig);
         return;
     }
@@ -1083,13 +1140,18 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update___3DLMapper_TimeTag
 
     jdouble *array = (*env)->GetDoubleArrayElements(env, value, 0);
     if (array) {
-        float *arraycopy = malloc(sizeof(float)*length);
-        int i;
-        for (i=0; i<length; i++)
-            arraycopy[i] = (float)array[i];
+        if (props->type == 'd') {
+            msig_update(sig, array, 0, ptt ? *ptt : MAPPER_NOW);
+        }
+        else {
+            float *arraycopy = malloc(sizeof(float)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (float)array[i];
+            msig_update(sig, arraycopy, 0, ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseDoubleArrayElements(env, value, array, JNI_ABORT);
-        msig_update(sig, arraycopy, 0, ptt ? *ptt : MAPPER_NOW);
-        free(arraycopy);
     }
 }
 
@@ -1156,6 +1218,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IILMappe
         float v = (float)value;
         msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
     }
+    else if (props->type == 'd') {
+        double v = (double)value;
+        msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IFLMapper_TimeTag_2
@@ -1177,6 +1243,10 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IFLMappe
         throwIllegalArgumentTruncate(env, sig);
     else if (props->type == 'f') {
         msig_update_instance(sig, id, &value, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+    else if (props->type == 'd') {
+        double v = (double)value;
+        msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
     }
 }
 
@@ -1200,6 +1270,9 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__IDLMappe
     else if (props->type == 'f') {
         float v = (float)value;
         msig_update_instance(sig, id, &v, 1, ptt ? *ptt : MAPPER_NOW);
+    }
+    else if (props->type == 'd') {
+        msig_update_instance(sig, id, &value, 1, ptt ? *ptt : MAPPER_NOW);
     }
 }
 
@@ -1233,6 +1306,15 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3ILMap
                                  ptt ? *ptt : MAPPER_NOW);
             free(arraycopy);
         }
+        else if (props->type == 'd') {
+            double *arraycopy = malloc(sizeof(double)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (double)array[i];
+            msig_update_instance(sig, id, arraycopy, 0,
+                                 ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseIntArrayElements(env, value, array, JNI_ABORT);
     }
 }
@@ -1249,7 +1331,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3FLMap
         throwIllegalArgumentLength(env, sig, length);
         return;
     }
-    if (props->type != 'f') {
+    if (props->type == 'i') {
         throwIllegalArgumentTruncate(env, sig);
         return;
     }
@@ -1259,7 +1341,18 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3FLMap
 
     jfloat *array = (*env)->GetFloatArrayElements(env, value, 0);
     if (array) {
-        msig_update_instance(sig, id, array, 0, ptt ? *ptt : MAPPER_NOW);
+        if (props->type == 'f') {
+            msig_update_instance(sig, id, array, 0, ptt ? *ptt : MAPPER_NOW);
+        }
+        else {
+            double *arraycopy = malloc(sizeof(double)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (double)array[i];
+            msig_update_instance(sig, id, arraycopy, 0,
+                                 ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseFloatArrayElements(env, value, array, JNI_ABORT);
     }
 }
@@ -1276,7 +1369,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3DLMap
         throwIllegalArgumentLength(env, sig, length);
         return;
     }
-    if (props->type != 'f') {
+    if (props->type == 'i') {
         throwIllegalArgumentTruncate(env, sig);
         return;
     }
@@ -1286,14 +1379,19 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_update_1instance__I_3DLMap
 
     jdouble *array = (*env)->GetDoubleArrayElements(env, value, 0);
     if (array) {
-        float *arraycopy = malloc(sizeof(float)*length);
-        int i;
-        for (i=0; i<length; i++)
-            arraycopy[i] = (float)array[i];
+        if (props->type == 'd') {
+            msig_update_instance(sig, id, array, 0, ptt ? *ptt : MAPPER_NOW);
+        }
+        else if (props->type == 'f') {
+            float *arraycopy = malloc(sizeof(float)*length);
+            int i;
+            for (i=0; i<length; i++)
+                arraycopy[i] = (float)array[i];
+            msig_update_instance(sig, id, arraycopy, 0,
+                                 ptt ? *ptt : MAPPER_NOW);
+            free(arraycopy);
+        }
         (*env)->ReleaseDoubleArrayElements(env, value, array, JNI_ABORT);
-        msig_update_instance(sig, id, arraycopy, 0,
-                             ptt ? *ptt : MAPPER_NOW);
-        free(arraycopy);
     }
 }
 
@@ -1362,25 +1460,35 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_value___3FLMapper_Time
         int i;
         switch (props->type)
         {
-        case 'i': {
-            int *value = msig_value(sig, &tt);
-            if (!value) {
-                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jfloat)value[i];
-        } break;
+            case 'i': {
+                int *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
 
-        case 'f': {
-            float *value = msig_value(sig, &tt);
-            if (!value) {
-                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }            
-            for (i=0; i < props->length; i++)
-                array[i] = (jfloat)value[i];
-        } break;
+            case 'f': {
+                float *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
+
+            case 'd': {
+                double *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
         }
 
         (*env)->ReleaseFloatArrayElements(env, ar, array, 0);
@@ -1421,25 +1529,35 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_value___3DLMapper_Time
         int i;
         switch (props->type)
         {
-        case 'i': {
-            int *value = msig_value(sig, &tt);
-            if (!value) {
-                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jdouble)value[i];
-        } break;
+            case 'i': {
+                int *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
 
-        case 'f': {
-            float *value = msig_value(sig, &tt);
-            if (!value) {
-                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jdouble)value[i];
-        } break;
+            case 'f': {
+                float *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
+
+            case 'd': {
+                double *value = msig_value(sig, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
         }
 
         (*env)->ReleaseDoubleArrayElements(env, ar, array, 0);
@@ -1525,25 +1643,35 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_instance_1value__I_3FL
         int i;
         switch (props->type)
         {
-        case 'i': {
-            int *value = msig_instance_value(sig, id, &tt);
-            if (!value) {
-                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jfloat)value[i];
-        } break;
+            case 'i': {
+                int *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
 
-        case 'f': {
-            float *value = msig_instance_value(sig, id, &tt);
-            if (!value) {
-                (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jfloat)value[i];
-        } break;
+            case 'f': {
+                float *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
+
+            case 'd': {
+                double *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseFloatArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jfloat)value[i];
+            } break;
         }
 
         (*env)->ReleaseFloatArrayElements(env, ar, array, 0);
@@ -1584,25 +1712,35 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_instance_1value__I_3DL
         int i;
         switch (props->type)
         {
-        case 'i': {
-            int *value = msig_instance_value(sig, id, &tt);
-            if (!value) {
-                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jdouble)value[i];
-        } break;
+            case 'i': {
+                int *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
 
-        case 'f': {
-            float *value = msig_instance_value(sig, id, &tt);
-            if (!value) {
-                (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
-                return JNI_FALSE;
-            }
-            for (i=0; i < props->length; i++)
-                array[i] = (jdouble)value[i];
-        } break;
+            case 'f': {
+                float *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
+
+            case 'd': {
+                double *value = msig_instance_value(sig, id, &tt);
+                if (!value) {
+                    (*env)->ReleaseDoubleArrayElements(env, ar, array, JNI_ABORT);
+                    return JNI_FALSE;
+                }
+                for (i=0; i < props->length; i++)
+                    array[i] = (jdouble)value[i];
+            } break;
         }
 
         (*env)->ReleaseDoubleArrayElements(env, ar, array, 0);
