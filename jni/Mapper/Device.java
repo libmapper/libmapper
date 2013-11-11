@@ -105,6 +105,8 @@ public class Device
 
         public native int reserve_instances(int num);
         public native int reserve_instances(int[] ids);
+        public native int reserve_instances(int num, InputListener cb);
+        public native int reserve_instances(int[] ids, InputListener cb);
         public native void release_instance(int instance_id, TimeTag tt);
         public void release_instance(int instance_id)
             { release_instance(instance_id, null); }

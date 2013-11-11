@@ -120,23 +120,34 @@ class test {
         out2.instance_value(1, new double[]{0});
         out2.release_instance(1);
 
-        System.out.println(inp1.name() + " instance 0 cb is "
-                           + inp1.get_instance_callback(0));
-        inp1.set_instance_callback(0, new InputListener() {
+        inp1.reserve_instances(3, new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
                                     float[] v,
                                     TimeTag tt) {
                     System.out.println("in onInput() for "
-                                       +props.name()+" instance 0: "
+                                       +props.name()+" instance "
+                                       +instance_id+": "
                                        +Arrays.toString(v));
                 }});
-        System.out.println(inp1.name() + " instance 0 cb is "
-                           + inp1.get_instance_callback(0));
-        inp1.set_instance_callback(0, null);
-        System.out.println(inp1.name() + " instance 0 cb is "
-                           + inp1.get_instance_callback(0));
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
+        inp1.set_instance_callback(1, new InputListener() {
+                public void onInput(Mapper.Device.Signal sig,
+                                    Mapper.Db.Signal props,
+                                    int instance_id,
+                                    float[] v,
+                                    TimeTag tt) {
+                    System.out.println("in onInput() for "
+                                       +props.name()+" instance 1: "
+                                       +Arrays.toString(v));
+                }});
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
+        inp1.set_instance_callback(1, null);
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
 
         out1.update(i);
         while (i >= 0) {
