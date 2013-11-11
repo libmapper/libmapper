@@ -3,9 +3,9 @@ import Mapper.*;
 import Mapper.Device.*;
 import java.util.Arrays;
 
-class test {
+class testreverse {
     public static void main(String [] args) {
-        final Device dev = new Device("javatest", 9000);
+        final Device dev = new Device("javatestreverse");
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
