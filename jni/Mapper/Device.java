@@ -7,6 +7,9 @@ import Mapper.Db.*;
 
 public class Device
 {
+    public Device(String name) {
+        _device = mdev_new(name, 0);
+    }
     public Device(String name, int port) {
         _device = mdev_new(name, port);
     }
