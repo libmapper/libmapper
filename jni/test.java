@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 class test {
     public static void main(String [] args) {
-        final Device dev = new Device("javatest", 9000);
+        final Device dev = new Device("javatest");
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -105,43 +105,44 @@ class test {
         System.out.println(inp1.name() + " allocation mode: "
                            + inp1.instance_allocation_mode());
 
-        out1.reserve_instances(3);
+        out1.reserve_instances(new int[]{10, 11, 12});
         out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
         out1.instance_value(10, new int[]{0});
         out1.release_instance(10);
 
         out2.reserve_instances(3);
-        out2.update_instance(20, 14.2f);
-        out2.update_instance(20, new float[]{21.9f});
-        out2.instance_value(20, new float[]{0});
-        out2.update_instance(20, 12.3);
-        out2.update_instance(20, new double[]{48.12});
-        out2.instance_value(20, new double[]{0});
-        out2.release_instance(20);
+        out2.update_instance(0, 14.2f);
+        out2.update_instance(1, new float[]{21.9f});
+        out2.instance_value(1, new float[]{0});
+        out2.update_instance(0, 12.3);
+        out2.update_instance(1, new double[]{48.12});
+        out2.instance_value(1, new double[]{0});
+        out2.release_instance(1);
 
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
-        inp1.set_instance_callback(10, new InputListener() {
+        System.out.println(inp1.name() + " instance 0 cb is "
+                           + inp1.get_instance_callback(0));
+        inp1.set_instance_callback(0, new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
                                     float[] v,
                                     TimeTag tt) {
                     System.out.println("in onInput() for "
-                                       +props.name()+" instance 10: "
+                                       +props.name()+" instance 0: "
                                        +Arrays.toString(v));
                 }});
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
-        inp1.set_instance_callback(10, null);
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
+        System.out.println(inp1.name() + " instance 0 cb is "
+                           + inp1.get_instance_callback(0));
+        inp1.set_instance_callback(0, null);
+        System.out.println(inp1.name() + " instance 0 cb is "
+                           + inp1.get_instance_callback(0));
 
+        out1.update(i);
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
 
-            // Note, we are testing an implicit cast form int to float
+            // Note, we are testing an implicit cast from int to float
             // here because we are passing a double[] into
             // out1.value().
             if (out1.value(ar, tt))

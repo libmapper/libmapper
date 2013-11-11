@@ -103,7 +103,8 @@ public class Device
                                                  InputListener cb);
         public native InputListener get_instance_callback(int instance_id);
 
-        public native void reserve_instances(int num);
+        public native int reserve_instances(int num);
+        public native int reserve_instances(int[] ids);
         public native void release_instance(int instance_id, TimeTag tt);
         public void release_instance(int instance_id)
             { release_instance(instance_id, null); }

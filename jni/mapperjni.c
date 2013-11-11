@@ -1839,7 +1839,8 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_set_1instance_1callback
   (JNIEnv *env, jobject obj, jint instance_id, jobject data)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig) return;
+    if (!sig)
+        return;
     jobject prev = (jobject)msig_get_instance_data(sig, instance_id);
     if (prev)
         (*env)->DeleteGlobalRef(env, prev);
@@ -1858,16 +1859,34 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_get_1instance_1callback
   (JNIEnv *env, jobject obj, jint instance_id)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig) return 0;
+    if (!sig)
+        return 0;
     return (jobject)msig_get_instance_data(sig, instance_id);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_reserve_1instances
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserve_1instances__I
   (JNIEnv *env, jobject obj, jint num)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig) return;
-    msig_reserve_instances(sig, num, 0, 0);
+    if (!sig)
+        return 0;
+    return msig_reserve_instances(sig, num, 0, 0);
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserve_1instances___3I
+(JNIEnv *env, jobject obj, jintArray ids)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (!sig)
+        return 0;
+    int length = (*env)->GetArrayLength(env, ids);
+    jint *array = (*env)->GetIntArrayElements(env, ids, 0);
+    if (array) {
+        int reserved = msig_reserve_instances(sig, length, array, 0);
+        (*env)->ReleaseIntArrayElements(env, ids, array, JNI_ABORT);
+        return reserved;
+    }
+    return 0;
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_release_1instance
