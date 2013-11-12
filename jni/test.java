@@ -44,22 +44,26 @@ class test {
         dev.set_property("deletethis", new PropertyValue("should not see me"));
         dev.remove_property("deletethis");
 
-        out1.set_property("width", new PropertyValue(128));
+        out1.set_property("width", new PropertyValue(new int[] {10, 11}));
         out1.set_property("height", new PropertyValue(6.25));
         out1.set_property("depth", new PropertyValue("test"));
         out1.set_property("deletethis", new PropertyValue("or me"));
         out1.remove_property("deletethis");
 
-        System.out.println("Setting name of out1 to `/out1test'.");
+        System.out.println("Signal properties:");
+        System.out.println("  Setting name of out1 to `/out1test'.");
         out1.properties().set_name("/out1test");
-        System.out.println("Name of out1: " + out1.properties().name());
+        System.out.println("  Name of out1: " + out1.properties().name());
 
-        System.out.println("Looking up `height': "
+        System.out.println("  Looking up `height': "
                            + out1.properties().property_lookup("height"));
-        System.out.println("Looking up `width': "
+        System.out.println("  Looking up `width': "
                            + out1.properties().property_lookup("width"));
-        System.out.println("Looking up `depth': "
+        System.out.println("  Looking up `depth': "
                            + out1.properties().property_lookup("depth"));
+        System.out.println("  Looking up `deletethis': "
+                           + out1.properties().property_lookup("deletethis")
+                           + " (should be null)");
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
