@@ -14,6 +14,7 @@
 
 int sent = 0;
 int received = 0;
+lo_address a = NULL;
 
 void handler(mapper_signal sig, mapper_db_signal props,
              int instance_id, void *value, int count,
@@ -57,10 +58,10 @@ int test_recv()
 	sprintf(port, "%i", md->props.port);
 	printf("using port = %s\n", port);
 	
-	lo_address a = lo_address_new("localhost", port);
+	a = lo_address_new("localhost", port);
     if (!a) {
         printf("Error creating lo_address for test.\n");
-        return 1;
+        goto error;
     }
 
     printf("Polling device..\n");
@@ -90,7 +91,8 @@ int test_recv()
   error:
     if (md)
         mdev_free(md);
-    lo_address_free(a);
+    if (a)
+        lo_address_free(a);
     return 1;
 }
 

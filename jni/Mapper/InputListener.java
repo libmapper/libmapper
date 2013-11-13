@@ -12,4 +12,9 @@ public class InputListener {
                         int instance_id,
                         int[] v,
                         TimeTag tt) {};
+    public void onInput(Mapper.Device.Signal sig,
+                        Mapper.Db.Signal props,
+                        int instance_id,
+                        double[] v,
+                        TimeTag tt) {};
 }

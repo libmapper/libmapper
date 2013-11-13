@@ -596,6 +596,8 @@ struct _mapper_expr
 
 void mapper_expr_free(mapper_expr expr)
 {
+    if (expr->start)
+        free(expr->start);
     free(expr);
 }
 

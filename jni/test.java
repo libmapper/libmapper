@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 class test {
     public static void main(String [] args) {
-        final Device dev = new Device("javatest", 9000);
+        final Device dev = new Device("javatest");
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -18,8 +18,9 @@ class test {
                     }
             });
 
-        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
-            new InputListener() {
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz",
+                                                  new PropertyValue('f', 2.0),
+                                                  null, new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
@@ -32,8 +33,12 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
-        Signal out2 = dev.add_output("outsig2", 1, 'f', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz",
+                                     new PropertyValue('i', 0.0),
+                                     new PropertyValue('i', 1.0));
+        Signal out2 = dev.add_output("outsig2", 1, 'f', "Hz",
+                                     new PropertyValue(0.0f),
+                                     new PropertyValue(1.0f));
 
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
@@ -44,22 +49,31 @@ class test {
         dev.set_property("deletethis", new PropertyValue("should not see me"));
         dev.remove_property("deletethis");
 
-        out1.set_property("width", new PropertyValue(128));
+        out1.set_property("width", new PropertyValue(new int[] {10, 11, 12}));
         out1.set_property("height", new PropertyValue(6.25));
-        out1.set_property("depth", new PropertyValue("test"));
+        out1.set_property("depth", new PropertyValue(new String[]{"one","two"}));
         out1.set_property("deletethis", new PropertyValue("or me"));
         out1.remove_property("deletethis");
+        out1.set_minimum(new PropertyValue(12));
 
-        System.out.println("Setting name of out1 to `/out1test'.");
+        System.out.println("Signal properties:");
+        System.out.println("  Setting name of out1 to `/out1test'.");
         out1.properties().set_name("/out1test");
-        System.out.println("Name of out1: " + out1.properties().name());
+        System.out.println("  Name of out1: " + out1.properties().name());
 
-        System.out.println("Looking up `height': "
+        System.out.println("  Looking up `height': "
                            + out1.properties().property_lookup("height"));
-        System.out.println("Looking up `width': "
+        System.out.println("  Looking up `width': "
                            + out1.properties().property_lookup("width"));
-        System.out.println("Looking up `depth': "
+        System.out.println("  Looking up `depth': "
                            + out1.properties().property_lookup("depth"));
+        System.out.println("  Looking up `deletethis': "
+                           + out1.properties().property_lookup("deletethis")
+                           + " (should be null)");
+        System.out.println("  Looking up minimum: "
+                           + out1.properties().minimum());
+        System.out.println("  Looking up maximum: "
+                           + out1.properties().maximum());
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
@@ -105,43 +119,55 @@ class test {
         System.out.println(inp1.name() + " allocation mode: "
                            + inp1.instance_allocation_mode());
 
-        out1.reserve_instances(3);
+        out1.reserve_instances(new int[]{10, 11, 12});
         out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
         out1.instance_value(10, new int[]{0});
         out1.release_instance(10);
 
         out2.reserve_instances(3);
-        out2.update_instance(20, 14.2f);
-        out2.update_instance(20, new float[]{21.9f});
-        out2.instance_value(20, new float[]{0});
-        out2.update_instance(20, 12.3);
-        out2.update_instance(20, new double[]{48.12});
-        out2.instance_value(20, new double[]{0});
-        out2.release_instance(20);
+        out2.update_instance(0, 14.2f);
+        out2.update_instance(1, new float[]{21.9f});
+        out2.instance_value(1, new float[]{0});
+        out2.update_instance(0, 12.3);
+        out2.update_instance(1, new double[]{48.12});
+        out2.instance_value(1, new double[]{0});
+        out2.release_instance(1);
 
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
-        inp1.set_instance_callback(10, new InputListener() {
+        inp1.reserve_instances(3, new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
                                     float[] v,
                                     TimeTag tt) {
                     System.out.println("in onInput() for "
-                                       +props.name()+" instance 10: "
+                                       +props.name()+" instance "
+                                       +instance_id+": "
                                        +Arrays.toString(v));
                 }});
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
-        inp1.set_instance_callback(10, null);
-        System.out.println(inp1.name() + " instance 10 cb is "
-                           + inp1.get_instance_callback(10));
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
+        inp1.set_instance_callback(1, new InputListener() {
+                public void onInput(Mapper.Device.Signal sig,
+                                    Mapper.Db.Signal props,
+                                    int instance_id,
+                                    float[] v,
+                                    TimeTag tt) {
+                    System.out.println("in onInput() for "
+                                       +props.name()+" instance 1: "
+                                       +Arrays.toString(v));
+                }});
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
+        inp1.set_instance_callback(1, null);
+        System.out.println(inp1.name() + " instance 1 cb is "
+                           + inp1.get_instance_callback(1));
 
+        out1.update(i);
         while (i >= 0) {
             System.out.print("Updated value to: " + i);
 
-            // Note, we are testing an implicit cast form int to float
+            // Note, we are testing an implicit cast from int to float
             // here because we are passing a double[] into
             // out1.value().
             if (out1.value(ar, tt))
