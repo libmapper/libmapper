@@ -465,9 +465,8 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj,
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
-  (JNIEnv *env, jobject obj, jstring name, jint length,
-   jchar type, jstring unit, jobject minimum, jobject maximum,
-   jobject listener)
+  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
+   jstring unit, jobject minimum, jobject maximum, jobject listener)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -477,43 +476,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     const char *cunit = 0;
     if (unit) cunit = (*env)->GetStringUTFChars(env, unit, 0);
-
-    union {
-        float f;
-        int i;
-        double d;
-    } mn, mx;
-
-    if (minimum) {
-        // TODO: read vector min and max
-        jclass cls = (*env)->GetObjectClass(env, minimum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'i')
-                    mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'd')
-                    mn.d = (*env)->GetDoubleField(env, minimum, val);
-            }
-        }
-    }
-
-    if (maximum) {
-        jclass cls = (*env)->GetObjectClass(env, maximum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'i')
-                    mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'd')
-                    mx.d = (*env)->GetDoubleField(env, maximum, val);
-            }
-        }
-    }
 
     msig_jni_context ctx =
         (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
@@ -523,19 +485,28 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     }
 
     mapper_signal s = mdev_add_input(dev, cname, length, type, cunit,
-                                     minimum ? &mn : 0,
-                                     maximum ? &mx : 0,
-                                     java_msig_input_cb,
-                                     ctx);
+                                     0, 0, java_msig_input_cb, ctx);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit) (*env)->ReleaseStringUTFChars(env, unit, cunit);
+
+    if (minimum) {
+        jstring minstring = (*env)->NewStringUTF(env, "min");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           minstring, minimum);
+    }
+    if (maximum) {
+        jstring maxstring = (*env)->NewStringUTF(env, "max");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           maxstring, maximum);
+    }
 
     return create_signal_object(env, obj, ctx, listener, s);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
-  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type, jstring unit, jobject minimum, jobject maximum)
+  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
+   jstring unit, jobject minimum, jobject maximum)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -546,42 +517,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
     const char *cunit = 0;
     if (unit) cunit = (*env)->GetStringUTFChars(env, unit, 0);
 
-    union {
-        float f;
-        int i;
-        double d;
-    } mn, mx;
-
-    if (minimum) {
-        jclass cls = (*env)->GetObjectClass(env, minimum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'i')
-                    mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'd')
-                    mn.d = (*env)->GetDoubleField(env, minimum, val);
-            }
-        }
-    }
-
-    if (maximum) {
-        jclass cls = (*env)->GetObjectClass(env, maximum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'i')
-                    mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'd')
-                    mx.d = (*env)->GetDoubleField(env, maximum, val);
-            }
-        }
-    }
-
     msig_jni_context ctx =
         (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
     if (!ctx) {
@@ -589,12 +524,21 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
         return 0;
     }
 
-    mapper_signal s = mdev_add_output(dev, cname, length, type, cunit,
-                                      minimum ? &mn : 0,
-                                      maximum ? &mx : 0);
+    mapper_signal s = mdev_add_output(dev, cname, length, type, cunit, 0, 0);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit) (*env)->ReleaseStringUTFChars(env, unit, cunit);
+
+    if (minimum) {
+        jstring minstring = (*env)->NewStringUTF(env, "min");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           minstring, minimum);
+    }
+    if (maximum) {
+        jstring maxstring = (*env)->NewStringUTF(env, "max");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           maxstring, maximum);
+    }
 
     return create_signal_object(env, obj, ctx, 0, s);
 }
@@ -911,74 +855,6 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_msig_1is_1output
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1minimum
-  (JNIEnv *env, jobject obj, jlong s, jobject minimum)
-{
-    mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig) {
-        mapper_db_signal p = msig_properties(sig);
-
-        union {
-            float f;
-            int i;
-            double d;
-        } mn;
-
-        if (minimum) {
-            // TODO: support vectors
-            jclass cls = (*env)->GetObjectClass(env, minimum);
-            if (cls) {
-                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-                if (val) {
-                    if (p->type == 'f')
-                        mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                    else if (p->type == 'i')
-                        mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                    else if (p->type == 'd')
-                        mn.d = (*env)->GetDoubleField(env, minimum, val);
-                    msig_set_minimum(sig, &mn);
-                }
-            }
-        }
-        else
-            msig_set_minimum(sig, 0);
-    }
-}
-
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
-  (JNIEnv *env, jobject obj, jlong s, jobject maximum)
-{
-    mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig) {
-        mapper_db_signal p = msig_properties(sig);
-
-        union {
-            float f;
-            int i;
-            double d;
-        } mx;
-
-        if (maximum) {
-            // TODO: support vectors
-            jclass cls = (*env)->GetObjectClass(env, maximum);
-            if (cls) {
-                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-                if (val) {
-                    if (p->type == 'f')
-                        mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                    else if (p->type == 'i')
-                        mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                    else if (p->type == 'd')
-                        mx.d = (*env)->GetDoubleField(env, maximum, val);
-                    msig_set_minimum(sig, &mx);
-                }
-            }
-        }
-        else
-            msig_set_maximum(sig, 0);
-    }
-}
-
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1rate
   (JNIEnv *env, jobject obj, jlong s, jdouble rate)
 {
@@ -1033,7 +909,6 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1property
             switch (type)
             {
                 case 'i':
-                    printf("storing int array of length %i\n", length);
                     valf = (*env)->GetFieldID(env, cls, "_i", "[I");
                     o = (*env)->GetObjectField(env, value, valf);
                     propval = (*env)->GetIntArrayElements(env, o, NULL);

@@ -18,8 +18,8 @@ class testquery {
                     }
             });
 
-        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
-            new InputListener() {
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", null,
+                                                  null, new InputListener() {
             public void onInput(Mapper.Device.Signal sig,
                                 Mapper.Db.Signal props,
                                 int instance_id,
@@ -28,7 +28,7 @@ class testquery {
                     System.out.println("in onInput(): "+Arrays.toString(v));
                 }});
 
-        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", null, null);
         out1.set_callback(
             new InputListener() {
             public void onInput(Mapper.Device.Signal sig,
