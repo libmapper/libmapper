@@ -84,6 +84,8 @@ typedef enum {
     ADM_LINKED,
     ADM_LOGOUT,
     ADM_SIGNAL,
+    ADM_INPUT_REMOVED,
+    ADM_OUTPUT_REMOVED,
     ADM_SYNC,
     ADM_UNLINK,
     ADM_UNLINKED,
@@ -138,14 +140,23 @@ typedef struct _mapper_clock_t {
     mapper_sync_timetag_t remote;
 } mapper_clock_t, *mapper_clock;
 
+typedef struct _mapper_admin_subscriber {
+    lo_address                      address;
+    uint32_t                        lease_expiration_sec;
+    int                             flags;
+    struct _mapper_admin_subscriber *next;
+} *mapper_admin_subscriber;
+
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
-    lo_server_thread admin_server;    /*!< LibLo server thread for the
+    lo_server_thread bus_server;      /*!< LibLo server thread for the
                                        *   admin bus. */
-    lo_address admin_addr;            /*!< LibLo address for the admin
+    lo_address bus_addr;              /*!< LibLo address for the admin
                                        *   bus. */
+    lo_server_thread mesh_server;     /*!< LibLo server thread for the
+                                       *   admin mesh. */
     char *interface_name;             /*!< The name of the network
                                        *   interface for receiving
                                        *   messages. */
@@ -158,6 +169,9 @@ typedef struct _mapper_admin {
                                        *   time syncronization. */
     lo_bundle bundle;                 /*!< Bundle pointer for sending
                                        *   messages on the admin bus. */
+    lo_address bundle_dest;
+    int message_type;
+    mapper_admin_subscriber subscribers; /*!< Linked-list of subscribed peers. */
 } mapper_admin_t;
 
 /*! The handle to this device is a pointer. */
@@ -321,6 +335,7 @@ typedef enum {
     AT_SRC_LENGTH,
     AT_SRC_PORT,
     AT_SRC_TYPE,
+    AT_SUBSCRIBE,
     AT_TYPE,
     AT_UNITS,
     AT_EXTRA,

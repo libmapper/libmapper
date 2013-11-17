@@ -1347,6 +1347,48 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
         lh->query_context->query_free(lh);
 }
 
+static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig,
+                                    int is_output)
+{
+    fptr_list cb = db->signal_callbacks;
+    while (cb) {
+        mapper_db_signal_handler *h = cb->f;
+        h(sig, MDB_REMOVE, cb->context);
+        cb = cb->next;
+    }
+
+    if (sig->name)
+        free(sig->name);
+    if (sig->device_name)
+        free(sig->device_name);
+    if (sig->unit)
+        free(sig->unit);
+    if (sig->minimum)
+        free(sig->minimum);
+    if (sig->maximum)
+        free(sig->maximum);
+    if (sig->extra)
+        table_free(sig->extra, 1);
+    if (is_output)
+        list_remove_item(sig, (void**)&db->registered_outputs);
+    else
+        list_remove_item(sig, (void**)&db->registered_inputs);
+}
+
+void mapper_db_remove_input_by_name(mapper_db db, const char *name,
+                                    const char *device_name)
+{
+    mapper_db_signal sig;
+    sig = mapper_db_get_input_by_device_and_signal_names(db, device_name, name);
+
+    if (!sig)
+        return;
+
+    mapper_db_remove_connections_by_query(db, mapper_db_get_connections_by_dest_device_and_signal_names(db, device_name, name));
+
+    mapper_db_remove_signal(db, sig, 0);
+}
+
 void mapper_db_remove_inputs_by_query(mapper_db db,
                                       mapper_db_signal_t **s)
 {
@@ -1354,27 +1396,22 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        fptr_list cb = db->signal_callbacks;
-        while (cb) {
-            mapper_db_signal_handler *h = cb->f;
-            h(sig, MDB_REMOVE, cb->context);
-            cb = cb->next;
-        }
-
-        if (sig->name)
-            free(sig->name);
-        if (sig->device_name)
-            free(sig->device_name);
-        if (sig->unit)
-            free(sig->unit);
-        if (sig->minimum)
-            free(sig->minimum);
-        if (sig->maximum)
-            free(sig->maximum);
-        if (sig->extra)
-            table_free(sig->extra, 1);
-        list_remove_item(sig, (void**)&db->registered_inputs);
+        mapper_db_remove_signal(db, sig, 0);
     }
+}
+
+void mapper_db_remove_output_by_name(mapper_db db, const char *name,
+                                     const char *device_name)
+{
+    mapper_db_signal sig;
+    sig = mapper_db_get_output_by_device_and_signal_names(db, device_name, name);
+
+    if (!sig)
+        return;
+
+    mapper_db_remove_connections_by_query(db, mapper_db_get_connections_by_src_device_and_signal_names(db, device_name, name));
+
+    mapper_db_remove_signal(db, sig, 1);
 }
 
 void mapper_db_remove_outputs_by_query(mapper_db db,
@@ -1384,26 +1421,7 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        fptr_list cb = db->signal_callbacks;
-        while (cb) {
-            mapper_db_signal_handler *h = cb->f;
-            h(sig, MDB_REMOVE, cb->context);
-            cb = cb->next;
-        }
-
-        if (sig->name)
-            free(sig->name);
-        if (sig->device_name)
-            free(sig->device_name);
-        if (sig->unit)
-            free(sig->unit);
-        if (sig->minimum)
-            free(sig->minimum);
-        if (sig->maximum)
-            free(sig->maximum);
-        if (sig->extra)
-            table_free(sig->extra, 1);
-        list_remove_item(sig, (void**)&db->registered_outputs);
+        mapper_db_remove_signal(db, sig, 1);
     }
 }
 

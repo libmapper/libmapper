@@ -575,6 +575,7 @@ double mdev_get_clock_offset(mapper_device md);
  *  connection. */
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
+    MDEV_LOCAL_MODIFIED,
     MDEV_LOCAL_DESTROYED,
 } mapper_device_local_action_t;
 

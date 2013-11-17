@@ -80,7 +80,8 @@ void mdev_free(mapper_device md)
 
     if (md->registered) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_send(md->admin, ADM_LOGOUT, 0, "s", mdev_name(md));
+        mapper_admin_set_bundle_dest_bus(md->admin);
+        mapper_admin_bundle_message(md->admin, ADM_LOGOUT, 0, "s", mdev_name(md));
     }
 
     // First release active instances
@@ -658,6 +659,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 
     mapper_receiver r = md->receivers;
     msig_full_name(sig, str2, 1024);
+    mapper_admin_set_bundle_dest_bus(md->admin);
     while (r) {
         mapper_receiver_signal rs = r->signals;
         while (rs) {
@@ -667,8 +669,9 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                 while (c) {
                     snprintf(str1, 1024, "%s%s", r->props.src_name,
                              c->props.src_name);
-                    mapper_admin_send(md->admin, ADM_DISCONNECT, 0, "ss",
-                                      str1, str2);
+                    // TODO: send directly to source device?
+                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                                "ss", str1, str2);
                     mapper_connection temp = c->next;
                     mapper_receiver_remove_connection(r, c);
                     c = temp;
@@ -679,6 +682,8 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         }
         r = r->next;
     }
+    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+    mapper_admin_bundle_message(md->admin, ADM_INPUT_REMOVED, 0, "s", str2);
 
     md->props.n_inputs --;
     mdev_increment_version(md);
@@ -710,6 +715,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 
     mapper_router r = md->routers;
     msig_full_name(sig, str1, 1024);
+    mapper_admin_set_bundle_dest_bus(md->admin);
     while (r) {
         mapper_router_signal rs = r->signals;
         while (rs) {
@@ -719,8 +725,9 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
                 while (c) {
                     snprintf(str2, 1024, "%s%s", r->props.dest_name,
                              c->props.dest_name);
-                    mapper_admin_send(md->admin, ADM_DISCONNECTED, 0, "ss",
-                                      str1, str2);
+                    // TODO: send directly to source device?
+                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECTED, 0,
+                                                "ss", str1, str2);
                     mapper_connection temp = c->next;
                     mapper_router_remove_connection(r, c);
                     c = temp;
@@ -731,6 +738,8 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         }
         r = r->next;
     }
+    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+    mapper_admin_bundle_message(md->admin, ADM_OUTPUT_REMOVED, 0, "s", str1);
 
     md->props.n_outputs --;
     mdev_increment_version(md);
@@ -897,9 +906,11 @@ int mdev_num_fds(mapper_device md)
 int mdev_get_fds(mapper_device md, int *fds, int num)
 {
     if (num > 0)
-        fds[0] = lo_server_get_socket_fd(md->admin->admin_server);
+        fds[0] = lo_server_get_socket_fd(md->admin->bus_server);
     if (num > 1)
-        fds[1] = lo_server_get_socket_fd(md->server);
+        fds[1] = lo_server_get_socket_fd(md->admin->mesh_server);
+    if (num > 2)
+        fds[2] = lo_server_get_socket_fd(md->server);
     else
         return 1;
     return 2;
@@ -907,7 +918,8 @@ int mdev_get_fds(mapper_device md, int *fds, int num)
 
 void mdev_service_fd(mapper_device md, int fd)
 {
-    if (fd == lo_server_get_socket_fd(md->admin->admin_server))
+    // TODO: separate fds for bus and mesh comms
+    if (fd == lo_server_get_socket_fd(md->admin->bus_server))
         mapper_admin_poll(md->admin);
     else if (md->server
              && fd == lo_server_get_socket_fd(md->server))
