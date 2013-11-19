@@ -39,7 +39,6 @@ const char* mapper_msg_param_strings[] =
     "@srcLength",       /* AT_SRC_LENGTH */
     "@srcPort",         /* AT_SRC_PORT */
     "@srcType",         /* AT_SRC_TYPE */
-    "@subscribe",       /* AT_SUBSCRIBE */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
     "",                 /* AT_EXTRA (special case, does not represent a

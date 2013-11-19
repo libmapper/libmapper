@@ -558,7 +558,7 @@ void mapper_monitor_link(mapper_monitor mon,
         // TODO: check if we know device ip/port, use mesh instead of bus
         mapper_admin_set_bundle_dest_bus(mon->admin);
 
-        // TODO: swicth scopes to regular props
+        // TODO: switch scopes to regular props
         lo_send_message(mon->admin->bus_addr, "/link", m);
         free(m);
     }
