@@ -142,19 +142,6 @@ typedef struct _mapper_signal_id_map
 
 /**** Admin ****/
 
-/*! Bit flags for coordinating monitor metadata subscriptions. */
-#define SUB_DEVICE                  0x01
-#define SUB_DEVICE_INPUTS           0x02
-#define SUB_DEVICE_OUTPUTS          0x04
-#define SUB_DEVICE_SIGNALS          0x06
-#define SUB_DEVICE_LINKS_IN         0x08
-#define SUB_DEVICE_LINKS_OUT        0x10
-#define SUB_DEVICE_LINKS            0x18
-#define SUB_DEVICE_CONNECTIONS_IN   0x20
-#define SUB_DEVICE_CONNECTIONS_OUT  0x40
-#define SUB_DEVICE_CONNECTIONS      0x60
-#define SUB_DEVICE_ALL              0xFF
-
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);

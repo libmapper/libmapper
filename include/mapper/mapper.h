@@ -1249,23 +1249,28 @@ int mapper_db_link_property_lookup(mapper_db_link link,
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
-typedef enum {
-    AUTOREQ_SIGNALS     = 0x01,
-    AUTOREQ_LINKS       = 0x02,
-    AUTOREQ_CONNECTIONS = 0x04,
-    AUTOREQ_ALL         = 0xFF
-} mapper_monitor_autoreq_mode_t;
+    /*! Bit flags for coordinating monitor metadata subscriptions. */
+#define SUB_DEVICE                  0x01
+#define SUB_DEVICE_INPUTS           0x02
+#define SUB_DEVICE_OUTPUTS          0x04
+#define SUB_DEVICE_SIGNALS          0x06
+#define SUB_DEVICE_LINKS_IN         0x08
+#define SUB_DEVICE_LINKS_OUT        0x10
+#define SUB_DEVICE_LINKS            0x18
+#define SUB_DEVICE_CONNECTIONS_IN   0x20
+#define SUB_DEVICE_CONNECTIONS_OUT  0x40
+#define SUB_DEVICE_CONNECTIONS      0x60
+#define SUB_DEVICE_ALL              0xFF
 
 /*! Create a network monitor.
- *  \param admin    A previously allocated admin to use.  If 0, an
- *                  admin will be allocated for use with this monitor.
- *  \param flags    Sets whether the monitor should automatically
- *                  request information about signals, links, and
- *                  connections when it encounters a previously-unseen
- *                  device.
+ *  \param admin               A previously allocated admin to use.  If 0, an
+ *                             admin will be allocated for use with this monitor.
+ *  \param autosubscribe_flags Sets whether the monitor should automatically
+ *                             subscribe to information about signals, links,
+ *                             and connections when it encounters a
+ *                             previously-unseen device.
  *  \return The new monitor. */
-mapper_monitor mapper_monitor_new(mapper_admin admin,
-                                  mapper_monitor_autoreq_mode_t flags);
+mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags);
 
 /*! Free a network monitor. */
 void mapper_monitor_free(mapper_monitor mon);
@@ -1280,6 +1285,23 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms);
 /*! Get the database associated with a monitor. This can be used as
  *  long as the monitor remains alive. */
 mapper_db mapper_monitor_get_db(mapper_monitor mon);
+
+/*! Subscribe to information about a specific device.
+ *  \param mon             The monitor to use.
+ *  \param device_name     The name of the device of interest.
+ *  \param subscribe_flags Bitflags setting the type of information of interest.
+ *                         Can be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
+ *                         SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS,
+ *                         SUB_DEVICE_LINKS_IN, SUB_DEVICE_LINKS_OUT,
+ *                         SUB_DEVICE_LINKS, SUB_DEVICE_CONNECTIONS_IN,
+ *                         SUB_DEVICE_CONNECTIONS_OUT, SUB_DEVICE_CONNECTIONS,
+ *                         or simply SUB_DEVICE_ALL for all information.
+ *  \param timeout         The length in seconds for this subscription. If set
+ *                         to -1, libmapper will automatically renew the
+ *                         subscription until the monitor is freed or this
+ *                         function is called again. */
+int mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
+                             int subscribe_flags, int timeout);
 
 /*! Request that all devices report in. */
 int mapper_monitor_request_devices(mapper_monitor mon);
@@ -1375,8 +1397,7 @@ int mapper_monitor_batch_request_connections_by_dest_device_name(
 /*! Sets whether the monitor should automatically make requests for
  *  information on signals, links, and connections when it encounters
  *  a previously-unseen device.*/
-void mapper_monitor_autorequest(mapper_monitor mon,
-                                mapper_monitor_autoreq_mode_t flags);
+void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
 
 /*! Interface to add a link between two devices.
  *  \param mon            The monitor to use for sending the message.

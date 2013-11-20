@@ -294,9 +294,9 @@ typedef struct _mapper_monitor {
     int own_admin;
 
     /*! Flags indicating whether information on signals, links,
-     *  and connections should be automatically requested when a
+     *  and connections should be automatically subscribed to when a
      *  new device is seen.*/
-    int autorequest;
+    int autosubscribe;
 
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;

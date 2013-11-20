@@ -591,7 +591,6 @@ void mapper_admin_set_bundle_dest_bus(mapper_admin admin)
 
 void mapper_admin_set_bundle_dest_mesh(mapper_admin admin, lo_address address)
 {
-    // TODO: ensure lo_address structures are freed when appropriate
     if (admin->bundle && admin->bundle_dest != address)
         mapper_admin_send_bundle(admin);
     admin->bundle_dest = address;
@@ -767,6 +766,7 @@ int mapper_admin_poll(mapper_admin admin)
                     "s", mdev_name(md));
 
             mapper_admin_add_device_methods(admin, md);
+            mapper_admin_maybe_send_ping(admin, 1);
 
             trace("</%s.?::%p> registered as <%s>\n",
                   md->props.identifier, admin, mdev_name(md));
@@ -774,12 +774,6 @@ int mapper_admin_poll(mapper_admin admin)
         }
     }
     else {
-        if (md->flags & FLAGS_DEVICE_ATTRIBS_CHANGED) {
-            md->flags &= ~FLAGS_DEVICE_ATTRIBS_CHANGED;
-            // TODO: merge basic "device" message with timing ping
-            mapper_admin_set_bundle_dest_bus(admin);
-            mapper_admin_send_device(admin, md);
-        }
         // Send out clock sync messages occasionally
         mapper_admin_maybe_send_ping(admin, 0);
     }
@@ -1178,7 +1172,11 @@ static int handler_device_info_get(const char *path, const char *types,
         mapper_admin_set_bundle_dest_bus(admin);
 
     mapper_admin_send_device(admin, admin->device);
-    mapper_admin_send_bundle(admin);
+
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     return 0;
 }
@@ -1432,13 +1430,17 @@ static int handler_id_n_signals_input_get(const char *path,
     }
 
     lo_address a = lo_message_get_source(msg);
-    // TODO: free address after bundle sent
+
     if (a)
         mapper_admin_set_bundle_dest_mesh(admin, a);
     else
         mapper_admin_set_bundle_dest_bus(admin);
     mapper_admin_send_inputs(admin, admin->device, min, max);
-    mapper_admin_send_bundle(admin);
+
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     md->flags |= FLAGS_SENT_DEVICE_INPUTS;
 
@@ -1486,13 +1488,17 @@ static int handler_id_n_signals_output_get(const char *path,
     }
 
     lo_address a = lo_message_get_source(msg);
-    // TODO: free address after bundle sent
+
     if (a)
         mapper_admin_set_bundle_dest_mesh(admin, a);
     else
         mapper_admin_set_bundle_dest_bus(admin);
     mapper_admin_send_outputs(admin, admin->device, min, max);
-    mapper_admin_send_bundle(admin);
+
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     md->flags |= FLAGS_SENT_DEVICE_OUTPUTS;
 
@@ -1844,7 +1850,7 @@ static int handler_device_linkTo(const char *path, const char *types,
         // TODO: check if metadata has actually changed
         // Inform user code of the modified link if requested
         if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED,
+            md->link_cb(md, &router->props, MDEV_LOCAL_MODIFIED,
                         md->link_cb_userdata);
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
@@ -1889,12 +1895,12 @@ static int handler_device_linkTo(const char *path, const char *types,
     // Announce the result to destination and subscribers.
     if (!a)
         mapper_admin_set_bundle_dest_bus(admin);
-    else {
+    else
         mapper_admin_set_bundle_dest_mesh(admin, a);
-        mapper_admin_send_linked(admin, router, 1);
-        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
-        mapper_admin_send_linked(admin, router, 1);
-    }
+
+    mapper_admin_send_linked(admin, router, 1);
+    mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
+    mapper_admin_send_linked(admin, router, 1);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
           mdev_name(md), dest_name, host, port);
@@ -1951,7 +1957,7 @@ static int handler_device_linked(const char *path, const char *types,
         // TODO: check if metadata actually changed
         // Inform user code of the modified link if requested
         if (md->link_cb)
-            md->link_cb(md, &receiver->props, MDEV_LOCAL_ESTABLISHED,
+            md->link_cb(md, &receiver->props, MDEV_LOCAL_MODIFIED,
                         md->link_cb_userdata);
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
@@ -2024,6 +2030,11 @@ static int handler_device_links_in_get(const char *path, const char *types,
 
     mapper_admin_send_links_in(admin, md);
 
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
+
     md->flags |= FLAGS_SENT_DEVICE_LINKS_IN;
 
     return 0;
@@ -2051,6 +2062,11 @@ static int handler_device_links_out_get(const char *path, const char *types,
         mapper_admin_set_bundle_dest_bus(admin);
 
     mapper_admin_send_links_out(admin, md);
+
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     md->flags |= FLAGS_SENT_DEVICE_LINKS_OUT;
 
@@ -2111,10 +2127,12 @@ static int handler_device_unlink(const char *path, const char *types,
 
         mdev_remove_router(md, router);
 
-        // Inform destination and subscribers
+        // Inform destination
         mapper_admin_set_bundle_dest_mesh(admin, router->remote_addr);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
                                                 0, "ss", mdev_name(md), dest_name);
+
+        // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
                                                 0, "ss", mdev_name(md), dest_name);
@@ -2890,7 +2908,10 @@ static int handler_device_connections_in_get(const char *path,
 
     mapper_admin_send_connections_in(admin, md, min, max);
 
-    mapper_admin_send_bundle(admin);
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS_IN;
     return 0;
@@ -2935,7 +2956,11 @@ static int handler_device_connections_out_get(const char *path,
         mapper_admin_set_bundle_dest_bus(admin);
 
     mapper_admin_send_connections_out(admin, md, min, max);
-    mapper_admin_send_bundle(admin);
+
+    if (a) {
+        // Send bundle while dest address still valid
+        mapper_admin_send_bundle(admin);
+    }
 
     md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS_OUT;
     return 0;
@@ -2972,10 +2997,11 @@ static int handler_sync(const char *path,
     float confidence = argv[3]->f;
 
     if (mon) {
-        // TODO: check if is new device, allow monitor to subscribe
         mapper_db_device reg = mapper_db_get_device_by_name(&mon->db,
                                                             &argv[0]->s);
-        if (reg)
+        if (!reg)
+            mapper_db_add_or_update_device_params(&mon->db, &argv[0]->s, NULL);
+        else
             mapper_timetag_cpy(&reg->synced, then);
     }
 

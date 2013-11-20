@@ -131,7 +131,7 @@ void printconnection(mapper_db_connection con)
 /*! Creation of a local dummy device. */
 int setup_monitor()
 {
-    mon = mapper_monitor_new(0, 1);
+    mon = mapper_monitor_new(0, SUB_DEVICE_ALL);
     if (!mon)
         goto error;
     printf("Monitor created.\n");

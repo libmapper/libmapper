@@ -26,8 +26,7 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mapper_monitor_new(mapper_admin admin,
-                                  mapper_monitor_autoreq_mode_t flags)
+mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
@@ -47,8 +46,8 @@ mapper_monitor mapper_monitor_new(mapper_admin admin,
     }
 
     mapper_admin_add_monitor(mon->admin, mon);
-    if (flags)
-        mapper_monitor_autorequest(mon, flags);
+    if (autosubscribe_flags)
+        mapper_monitor_autosubscribe(mon, autosubscribe_flags);
     return mon;
 }
 
@@ -91,6 +90,62 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 mapper_db mapper_monitor_get_db(mapper_monitor mon)
 {
     return &mon->db;
+}
+
+static void mapper_monitor_set_bundle_dest(mapper_monitor mon, const char *name)
+{
+    // TODO: look up device info, maybe send directly
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+}
+
+int mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
+                             int subscribe_flags, int timeout)
+{
+    char cmd[1024];
+    snprintf(cmd, 1024, "%s/subscribe", device_name);
+
+    if (timeout == -1) {
+        // special case: autorenew subscription lease
+        // TODO: store subscription record
+        timeout = 60;
+    }
+
+    mapper_monitor_set_bundle_dest(mon, device_name);
+    lo_message m = lo_message_new();
+    if (m) {
+        lo_message_add_int32(m, timeout);
+        if (subscribe_flags & SUB_DEVICE_ALL)
+            lo_message_add_string(m, "all");
+        else {
+            if (subscribe_flags & SUB_DEVICE_SIGNALS)
+                lo_message_add_string(m, "signals");
+            else {
+                if (subscribe_flags & SUB_DEVICE_INPUTS)
+                    lo_message_add_string(m, "inputs");
+                else if (subscribe_flags & SUB_DEVICE_OUTPUTS)
+                    lo_message_add_string(m, "outputs");
+            }
+            if (subscribe_flags & SUB_DEVICE_LINKS)
+                lo_message_add_string(m, "links");
+            else {
+                if (subscribe_flags & SUB_DEVICE_LINKS_IN)
+                    lo_message_add_string(m, "links_in");
+                else if (subscribe_flags & SUB_DEVICE_LINKS_OUT)
+                    lo_message_add_string(m, "links_out");
+            }
+            if (subscribe_flags & SUB_DEVICE_CONNECTIONS)
+                lo_message_add_string(m, "connections");
+            else {
+                if (subscribe_flags & SUB_DEVICE_CONNECTIONS_IN)
+                    lo_message_add_string(m, "connections_in");
+                else if (subscribe_flags & SUB_DEVICE_CONNECTIONS_OUT)
+                    lo_message_add_string(m, "connections_out");
+            }
+        }
+        lo_bundle_add_message(mon->admin->bundle, cmd, m);
+        mapper_admin_send_bundle(mon->admin);
+    }
+    return 0;
 }
 
 static int request_signals_by_device_name_internal(mapper_monitor mon,
@@ -283,7 +338,6 @@ int mapper_monitor_batch_request_output_signals_by_device_name(mapper_monitor mo
 
 int mapper_monitor_request_devices(mapper_monitor mon)
 {
-    // TODO: switch to subscription model
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
     return 0;
@@ -555,8 +609,7 @@ void mapper_monitor_link(mapper_monitor mon,
             }
         }
 
-        // TODO: check if we know device ip/port, use mesh instead of bus
-        mapper_admin_set_bundle_dest_bus(mon->admin);
+        mapper_monitor_set_bundle_dest(mon, dest_device);
 
         // TODO: switch scopes to regular props
         lo_send_message(mon->admin->bus_addr, "/link", m);
@@ -573,12 +626,12 @@ void mapper_monitor_link(mapper_monitor mon,
 }
 
 void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device,
+                           const char* src_device,
                            const char* dest_device)
 {
-    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_monitor_set_bundle_dest(mon, src_device);
     mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
-                                source_device, dest_device);
+                                src_device, dest_device);
 }
 
 void mapper_monitor_connection_modify(mapper_monitor mon,
@@ -653,32 +706,29 @@ void mapper_monitor_disconnect(mapper_monitor mon,
                                 source_signal, dest_signal);
 }
 
-static void on_device_autorequest(mapper_db_device dev,
-                                  mapper_db_action_t a,
-                                  void *user)
+static void on_device_autosubscribe(mapper_db_device dev,
+                                    mapper_db_action_t a,
+                                    void *user)
 {
     if (a == MDB_NEW)
     {
         mapper_monitor mon = (mapper_monitor)(user);
 
-        // Request signals, links, connections for new devices.
-        if ((mon->autorequest & AUTOREQ_SIGNALS))
-            mapper_monitor_batch_request_signals_by_device_name(mon, dev->name, 10);
-        if (mon->autorequest & AUTOREQ_LINKS)
-            mapper_monitor_request_links_by_src_device_name(mon, dev->name);
-        if (mon->autorequest & AUTOREQ_CONNECTIONS)
-            mapper_monitor_batch_request_connections_by_src_device_name(mon, dev->name, 10);
+        // Subscribe to signals, links, connections for new devices.
+        // TODO: re-enable batch requests if necessary
+        if (mon->autosubscribe)
+            mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
     }
 }
 
-void mapper_monitor_autorequest(mapper_monitor mon,
-                                mapper_monitor_autoreq_mode_t flags)
+void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 {
-    if (flags)
-        mapper_db_add_device_callback(&mon->db, on_device_autorequest, mon);
+    // TODO: remove autorenewing subscription record if necessary
+    if (autosubscribe_flags)
+        mapper_db_add_device_callback(&mon->db, on_device_autosubscribe, mon);
     else
-        mapper_db_remove_device_callback(&mon->db, on_device_autorequest, mon);
-    mon->autorequest = flags;
+        mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
+    mon->autosubscribe = autosubscribe_flags;
 }
 
 void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)

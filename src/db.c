@@ -771,6 +771,9 @@ static int update_device_record_params(mapper_db_device reg,
     if (updated)
         reg->name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
+    if (!params)
+        return updated;
+
     updated += update_string_if_arg(&reg->host, params, AT_IP);
 
     updated += update_int_if_arg(&reg->port, params, AT_PORT);
