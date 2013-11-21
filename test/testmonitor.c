@@ -307,8 +307,6 @@ int main()
     mapper_db_add_connection_callback(db, on_connection, 0);
     mapper_db_add_link_callback(db, on_link, 0);
 
-    mapper_monitor_request_devices(mon);
-
     loop();
 
   done:
