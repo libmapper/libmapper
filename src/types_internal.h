@@ -285,6 +285,13 @@ typedef struct _mapper_db {
     fptr_list   link_callbacks;       //<! List of link record callbacks.
 } mapper_db_t, *mapper_db;
 
+typedef struct _mapper_monitor_subscription {
+    char                                *name;
+    int                                 flags;
+    uint32_t                            lease_expiration_sec;
+    struct _mapper_monitor_subscription *next;
+} *mapper_monitor_subscription;
+
 typedef struct _mapper_monitor {
     mapper_admin      admin;    //<! Admin for this monitor.
 
@@ -297,6 +304,9 @@ typedef struct _mapper_monitor {
      *  and connections should be automatically subscribed to when a
      *  new device is seen.*/
     int autosubscribe;
+
+    /*! Linked-list of autorenewing device subscriptions. */
+    mapper_monitor_subscription subscriptions;
 
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;

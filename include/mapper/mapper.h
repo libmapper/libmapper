@@ -1300,8 +1300,13 @@ mapper_db mapper_monitor_get_db(mapper_monitor mon);
  *                         to -1, libmapper will automatically renew the
  *                         subscription until the monitor is freed or this
  *                         function is called again. */
-int mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
-                             int subscribe_flags, int timeout);
+void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
+                              int subscribe_flags, int timeout);
+
+/*! Unsubscribe from information about a specific device.
+ *  \param mon             The monitor to use.
+ *  \param device_name     The name of the device of interest. */
+void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name);
 
 /*! Request that all devices report in. */
 int mapper_monitor_request_devices(mapper_monitor mon);
