@@ -861,13 +861,19 @@ typedef enum {
     IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
 } msig_instance_event_t;
 
-/*! Possible monitor auto-request settings. */
-typedef enum {
-    AUTOREQ_SIGNALS     = 0x01,
-    AUTOREQ_LINKS       = 0x02,
-    AUTOREQ_CONNECTIONS = 0x04,
-    AUTOREQ_ALL         = 0xFF
-} mapper_monitor_autoreq_mode_t;
+/*! Possible monitor auto-subscribe settings. */
+%constant int SUB_NONE                    = 0x00;
+%constant int SUB_DEVICE                  = 0x01;
+%constant int SUB_DEVICE_INPUTS           = 0x02;
+%constant int SUB_DEVICE_OUTPUTS          = 0x04;
+%constant int SUB_DEVICE_SIGNALS          = 0x06; //!< SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
+%constant int SUB_DEVICE_LINKS_IN         = 0x08;
+%constant int SUB_DEVICE_LINKS_OUT        = 0x10;
+%constant int SUB_DEVICE_LINKS            = 0x18; //!< SUB_DEVICE_LINKS_IN & SUB_DEVICE_LINKS_OUT
+%constant int SUB_DEVICE_CONNECTIONS_IN   = 0x20;
+%constant int SUB_DEVICE_CONNECTIONS_OUT  = 0x40;
+%constant int SUB_DEVICE_CONNECTIONS      = 0x60; //!< SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
+%constant int SUB_DEVICE_ALL              = 0xFF;
 
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
@@ -1423,9 +1429,9 @@ typedef struct _admin {} admin;
 }
 
 %extend _monitor {
-    _monitor(admin *DISOWN=0, mapper_monitor_autoreq_mode_t autorequest=0xFF) {
+    _monitor(admin *DISOWN=0, int autosubscribe_flags=0x00) {
         return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
-                                             autorequest);
+                                             autosubscribe_flags);
     }
     ~_monitor() {
         mapper_monitor_free((mapper_monitor)$self);
@@ -1439,41 +1445,15 @@ typedef struct _admin {} admin;
     db *get_db() {
         return (db *)mapper_monitor_get_db((mapper_monitor)$self);
     }
-    void autorequest(mapper_monitor_autoreq_mode_t autorequest) {
-        mapper_monitor_autorequest((mapper_monitor)$self, autorequest);
+    void autosubscribe(int autosubscribe_flags) {
+        mapper_monitor_autosubscribe((mapper_monitor)$self, autosubscribe_flags);
     }
-    int request_devices() {
-        return mapper_monitor_request_devices((mapper_monitor)$self);
+    void subscribe(const char *name, int subscribe_flags, int timeout) {
+        return mapper_monitor_subscribe((mapper_monitor)$self, name,
+                                        subscribe_flags, timeout);
     }
-    int request_device_info(const char* name) {
-        return mapper_monitor_request_device_info((mapper_monitor)$self, name);
-    }
-    int request_signals_by_device_name(const char* name) {
-        return mapper_monitor_request_signals_by_device_name((mapper_monitor)$self, name);
-    }
-    int request_input_signals_by_device_name(const char* name) {
-        return mapper_monitor_request_input_signals_by_device_name((mapper_monitor)$self, name);
-    }
-    int request_output_signals_by_device_name(const char* name) {
-        return mapper_monitor_request_output_signals_by_device_name((mapper_monitor)$self, name);
-    }
-    int request_links_by_device_name(const char* name) {
-        return mapper_monitor_request_links_by_device_name((mapper_monitor)$self, name);
-    }
-    int request_links_by_src_device_name(const char* name) {
-        return mapper_monitor_request_links_by_src_device_name((mapper_monitor)$self, name);
-    }
-    int request_links_by_dest_device_name(const char* name) {
-        return mapper_monitor_request_links_by_dest_device_name((mapper_monitor)$self, name);
-    }
-    int request_connections_by_device_name(const char* name) {
-        return mapper_monitor_request_connections_by_device_name((mapper_monitor)$self, name);
-    }
-    int request_connections_by_src_device_name(const char* name) {
-        return mapper_monitor_request_connections_by_src_device_name((mapper_monitor)$self, name);
-    }
-    int request_connections_by_dest_device_name(const char* name) {
-        return mapper_monitor_request_connections_by_dest_device_name((mapper_monitor)$self, name);
+    void unsubscribe(const char *name) {
+        return mapper_monitor_unsubscribe((mapper_monitor)$self, name);
     }
     void link(const char* source_device,
               const char* dest_device,
