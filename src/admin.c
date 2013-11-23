@@ -65,16 +65,6 @@ const char* admin_msg_strings[] =
     "/device",                  /* ADM_DEVICE */
     "/disconnect",              /* ADM_DISCONNECT */
     "/disconnected",            /* ADM_DISCONNECTED */
-    "%s/connections/get",       /* ADM_GET_MY_CONNECTIONS */
-    "%s/connections/in/get",    /* ADM_GET_MY_CONNECTIONS_IN */
-    "%s/connections/out/get",   /* ADM_GET_MY_CONNECTIONS_OUT */
-    "%s/info/get",              /* ADM_GET_MY_DEVICE */
-    "%s/links/get",             /* ADM_GET_MY_LINKS */
-    "%s/links/in/get",          /* ADM_GET_MY_LINKS_IN */
-    "%s/links/out/get",         /* ADM_GET_MY_LINKS_OUT */
-    "%s/signals/get",           /* ADM_GET_MY_SIGNALS */
-    "%s/signals/input/get",     /* ADM_GET_MY_SIGNALS_IN */
-    "%s/signals/output/get",    /* ADM_GET_MY_SIGNALS_OUT */
     "/link",                    /* ADM_LINK */
     "/linkTo",                  /* ADM_LINK_TO */
     "/linked",                  /* ADM_LINKED */
@@ -100,22 +90,12 @@ static void mapper_admin_send_connected(mapper_admin admin, mapper_link link,
 /* Internal message handler prototypes. */
 static int handler_who(const char *, const char *, lo_arg **, int,
                        lo_message, void *);
-static int handler_device_info_get(const char *, const char *, lo_arg **, int,
-                                   lo_message, void *);
 static int handler_device(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_device_subcribe(const char *, const char *, lo_arg **,
                                    int, lo_message, void *);
-static int handler_id_n_signals_input_get(const char *, const char *,
-                                          lo_arg **, int, lo_message,
-                                          void *);
-static int handler_id_n_signals_output_get(const char *, const char *,
-                                           lo_arg **, int, lo_message,
-                                           void *);
-static int handler_id_n_signals_get(const char *, const char *,
-                                    lo_arg **, int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
 static int handler_input_signal_removed(const char *, const char *, lo_arg **,
@@ -136,12 +116,6 @@ static int handler_device_unlink(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_unlinked(const char *, const char *, lo_arg **,
                                    int, lo_message, void *);
-static int handler_device_links_get(const char *, const char *, lo_arg **,
-                                    int, lo_message, void *);
-static int handler_device_links_in_get(const char *, const char *, lo_arg **,
-                                       int, lo_message, void *);
-static int handler_device_links_out_get(const char *, const char *, lo_arg **,
-                                        int, lo_message, void *);
 static int handler_signal_connect(const char *, const char *, lo_arg **,
                                   int, lo_message, void *);
 static int handler_signal_connectTo(const char *, const char *, lo_arg **,
@@ -154,12 +128,6 @@ static int handler_signal_disconnect(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_signal_disconnected(const char *, const char *, lo_arg **,
                                        int, lo_message, void *);
-static int handler_device_connections_get(const char *, const char *,
-                                          lo_arg **, int, lo_message, void *);
-static int handler_device_connections_in_get(const char *, const char *,
-                                             lo_arg **, int, lo_message, void *);
-static int handler_device_connections_out_get(const char *, const char *,
-                                              lo_arg **, int, lo_message, void *);
 static int handler_sync(const char *, const char *,
                         lo_arg **, int, lo_message, void *);
 
@@ -191,16 +159,6 @@ const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
 
 static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_GET_MY_SIGNALS,         NULL,      handler_id_n_signals_get},
-    {ADM_GET_MY_SIGNALS_IN,      NULL,      handler_id_n_signals_input_get},
-    {ADM_GET_MY_SIGNALS_OUT,     NULL,      handler_id_n_signals_output_get},
-    {ADM_GET_MY_DEVICE,          NULL,      handler_device_info_get},
-    {ADM_GET_MY_LINKS,           NULL,      handler_device_links_get},
-    {ADM_GET_MY_LINKS_IN,        NULL,      handler_device_links_in_get},
-    {ADM_GET_MY_LINKS_OUT,       NULL,      handler_device_links_out_get},
-    {ADM_GET_MY_CONNECTIONS,     NULL,      handler_device_connections_get},
-    {ADM_GET_MY_CONNECTIONS_IN,  NULL,      handler_device_connections_in_get},
-    {ADM_GET_MY_CONNECTIONS_OUT, NULL,      handler_device_connections_out_get},
     {ADM_LINKED,                 NULL,      handler_device_linked},
     {ADM_UNLINKED,               NULL,      handler_device_unlinked},
     {ADM_SUBSCRIBE,              NULL,      handler_device_subcribe},
@@ -1159,29 +1117,6 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-/*! Respond to /device/info/get with the current device information. */
-static int handler_device_info_get(const char *path, const char *types,
-                                   lo_arg **argv, int argc, lo_message msg,
-                                   void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-
-    lo_address a = lo_message_get_source(msg);
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-
-    mapper_admin_send_device(admin, admin->device);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    return 0;
-}
-
 /*! Register information about port and host for the device. */
 static int handler_device(const char *path, const char *types,
                           lo_arg **argv, int argc, lo_message msg,
@@ -1390,141 +1325,6 @@ static int handler_device_subcribe(const char *path, const char *types,
     mapper_admin_add_subscriber(admin, a, flags, timeout_seconds);
 
     return 0;
-}
-
-/*! Respond to /signals/input/get by enumerating all supported
- *  inputs. */
-static int handler_id_n_signals_input_get(const char *path,
-                                          const char *types,
-                                          lo_arg **argv, int argc,
-                                          lo_message msg,
-                                          void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-    int min = 0, max = md->props.n_inputs - 1;
-
-    mapper_message_t params;
-    mapper_msg_parse_params(&params, path, &types[0],
-                            argc, &argv[0]);
-
-    if (!md->props.n_inputs)
-        return 0;
-
-    if (!argc && (md->flags & FLAGS_SENT_DEVICE_INPUTS))
-        return 0;
-
-    if (argc > 0) {
-        if (types[0] == 'i')
-            min = argv[0]->i;
-        else if (types[0] == 'f')
-            min = (int)argv[0]->f;
-        if (min < 0)
-            min = 0;
-        else if (min >= md->props.n_inputs)
-            min = md->props.n_inputs - 1;
-        max = min;
-    }
-    if (argc > 1) {
-        if (types[1] == 'i')
-            max = argv[1]->i;
-        else if (types[1] == 'f')
-            max = (int)argv[1]->f;
-        if (max < min)
-            max = min;
-        if (max >= md->props.n_inputs)
-            max = md->props.n_inputs - 1;
-    }
-
-    lo_address a = lo_message_get_source(msg);
-
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-    mapper_admin_send_inputs(admin, admin->device, min, max);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_INPUTS;
-
-    return 0;
-}
-
-/*! Respond to /signals/output/get by enumerating all supported
- *  outputs. */
-static int handler_id_n_signals_output_get(const char *path,
-                                           const char *types,
-                                           lo_arg **argv, int argc,
-                                           lo_message msg,
-                                           void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-    int min = 0, max = md->props.n_outputs - 1;
-
-    if (!md->props.n_outputs)
-        return 0;
-
-    if (!argc && (md->flags & FLAGS_SENT_DEVICE_OUTPUTS))
-        return 0;
-
-    if (argc > 0) {
-        if (types[0] == 'i')
-            min = argv[0]->i;
-        else if (types[0] == 'f')
-            min = (int)argv[0]->f;
-        if (min < 0)
-            min = 0;
-        else if (min >= md->props.n_outputs)
-            min = md->props.n_outputs - 1;
-        max = min;
-    }
-    if (argc > 1) {
-        if (types[1] == 'i')
-            max = argv[1]->i;
-        else if (types[1] == 'f')
-            max = (int)argv[1]->f;
-        if (max < min)
-            max = min;
-        if (max >= md->props.n_outputs)
-            max = md->props.n_outputs - 1;
-    }
-
-    lo_address a = lo_message_get_source(msg);
-
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-    mapper_admin_send_outputs(admin, admin->device, min, max);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_OUTPUTS;
-
-    return 0;
-}
-
-/*! Respond to /signals/get by enumerating all supported inputs and
- *  outputs. */
-static int handler_id_n_signals_get(const char *path, const char *types,
-                                    lo_arg **argv, int argc,
-                                    lo_message msg, void *user_data)
-{
-    handler_id_n_signals_input_get(path, types, argv, argc, msg,
-                                   user_data);
-    handler_id_n_signals_output_get(path, types, argv, argc, msg,
-                                    user_data);
-
-    return 0;
-
 }
 
 /*! Register information about a signal. */
@@ -2000,82 +1800,6 @@ static int handler_device_linked(const char *path, const char *types,
     // Inform subscribers
     mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
     mapper_admin_send_linked(admin, receiver, 0);
-
-    return 0;
-}
-
-/*! Report existing links to the network */
-static int handler_device_links_get(const char *path, const char *types,
-                                    lo_arg **argv, int argc,
-                                    lo_message msg, void *user_data)
-{
-    handler_device_links_in_get(path, types, argv, argc, msg, user_data);
-    handler_device_links_out_get(path, types, argv, argc, msg, user_data);
-
-    return 0;
-}
-
-/*! Report existing incoming links to the network */
-static int handler_device_links_in_get(const char *path, const char *types,
-                                       lo_arg **argv, int argc,
-                                       lo_message msg, void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    trace("<%s> got %s/links/get\n", mdev_name(md), path);
-
-    if (md->flags & FLAGS_SENT_DEVICE_LINKS_IN)
-        return 0;
-
-    // get sender info
-    lo_address a = lo_message_get_source(msg);
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-
-    mapper_admin_send_links_in(admin, md);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_LINKS_IN;
-
-    return 0;
-}
-
-/*! Report existing outgoing links to the network */
-static int handler_device_links_out_get(const char *path, const char *types,
-                                       lo_arg **argv, int argc,
-                                       lo_message msg, void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    trace("<%s> got %s/links/get\n", mdev_name(md),
-          mdev_name(md));
-
-    if (md->flags & FLAGS_SENT_DEVICE_LINKS_OUT)
-        return 0;
-
-    // get sender info
-    lo_address a = lo_message_get_source(msg);
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-
-    mapper_admin_send_links_out(admin, md);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_LINKS_OUT;
 
     return 0;
 }
@@ -2871,116 +2595,6 @@ static int handler_signal_disconnected(const char *path, const char *types,
     if (mapper_receiver_remove_connection(r, c)) {
         return 0;
     }
-    return 0;
-}
-
-/*! Report existing connections to the network */
-static int handler_device_connections_get(const char *path,
-                                          const char *types,
-                                          lo_arg **argv, int argc,
-                                          lo_message msg, void *user_data)
-{
-    handler_device_connections_in_get(path, types, argv, argc, msg, user_data);
-    handler_device_connections_out_get(path, types, argv, argc, msg, user_data);
-
-    return 0;
-}
-
-/*! Report existing incoming connections to the network */
-static int handler_device_connections_in_get(const char *path,
-                                             const char *types,
-                                             lo_arg **argv, int argc,
-                                             lo_message msg, void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-    int min = -1, max = -1;
-
-    trace("<%s> got /connections/get\n", mdev_name(md));
-
-    if (!argc && (md->flags & FLAGS_SENT_DEVICE_CONNECTIONS_IN))
-        return 0;
-
-    if (argc > 0) {
-        if (types[0] == 'i')
-            min = argv[0]->i;
-        else if (types[0] == 'f')
-            min = (int)argv[0]->f;
-        if (min < 0)
-            min = 0;
-    }
-    if (argc > 1) {
-        if (types[1] == 'i')
-            max = argv[1]->i;
-        else if (types[1] == 'f')
-            max = (int)argv[1]->f;
-        if (max < min)
-            max = min + 1;
-    }
-
-    lo_address a = lo_message_get_source(msg);
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-
-    mapper_admin_send_connections_in(admin, md, min, max);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS_IN;
-    return 0;
-}
-
-/*! Report existing outgoing connections to the network */
-static int handler_device_connections_out_get(const char *path,
-                                              const char *types,
-                                              lo_arg **argv, int argc,
-                                              lo_message msg, void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-    int min = -1, max = -1;
-
-    trace("<%s> got /connections/get\n", mdev_name(md));
-
-    if (!argc && (md->flags & FLAGS_SENT_DEVICE_CONNECTIONS_OUT))
-        return 0;
-
-    if (argc > 0) {
-        if (types[0] == 'i')
-            min = argv[0]->i;
-        else if (types[0] == 'f')
-            min = (int)argv[0]->f;
-        if (min < 0)
-            min = 0;
-    }
-    if (argc > 1) {
-        if (types[1] == 'i')
-            max = argv[1]->i;
-        else if (types[1] == 'f')
-            max = (int)argv[1]->f;
-        if (max < min)
-            max = min + 1;
-    }
-
-    lo_address a = lo_message_get_source(msg);
-    if (a)
-        mapper_admin_set_bundle_dest_mesh(admin, a);
-    else
-        mapper_admin_set_bundle_dest_bus(admin);
-
-    mapper_admin_send_connections_out(admin, md, min, max);
-
-    if (a) {
-        // Send bundle while dest address still valid
-        mapper_admin_send_bundle(admin);
-    }
-
-    md->flags |= FLAGS_SENT_DEVICE_CONNECTIONS_OUT;
     return 0;
 }
 
