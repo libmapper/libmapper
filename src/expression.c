@@ -302,6 +302,7 @@ typedef struct _token {
         expr_var_t var;
         expr_op_t op;
         expr_func_t func;
+        expr_vfunc_t vfunc;
     };
     char datatype;
     char casttype;
@@ -572,7 +573,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         else if ((tok->func = function_lookup(str+i, index-i)) != FUNC_UNKNOWN) {
             tok->toktype = TOK_FUNC;
         }
-        else if ((tok->func = vfunction_lookup(str+i, index-i)) != VFUNC_UNKNOWN) {
+        else if ((tok->vfunc = vfunction_lookup(str+i, index-i)) != VFUNC_UNKNOWN) {
             tok->toktype = TOK_VFUNC;
         }
         else {
