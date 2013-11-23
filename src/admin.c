@@ -1273,7 +1273,7 @@ static int handler_logout(const char *path, const char *types,
 
 // Add or renew a monitor subscription.
 static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
-                                       int flags, int timeout_seconds)
+                                        int flags, int timeout_seconds)
 {
     mapper_admin_subscriber sub = admin->subscribers;
     const char *ip = lo_address_get_hostname(address);
@@ -1289,19 +1289,25 @@ static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
             strcmp(port, lo_address_get_port(sub->address))==0) {
             // subscriber already exists, reset timeout
             sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-            sub->flags = flags;
-            return;
+            if (sub->flags == flags)
+                return;
+            int temp = flags;
+            flags &= ~sub->flags;
+            sub->flags = temp;
+            break;
         }
         sub = sub->next;
     }
 
-    // add new subscriber
-    sub = malloc(sizeof(struct _mapper_admin_subscriber));
-    sub->address = lo_address_new(ip, port);
-    sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-    sub->next = admin->subscribers;
-    sub->flags = flags;
-    admin->subscribers = sub;
+    if (!sub) {
+        // add new subscriber
+        sub = malloc(sizeof(struct _mapper_admin_subscriber));
+        sub->address = lo_address_new(ip, port);
+        sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
+        sub->flags = flags;
+        sub->next = admin->subscribers;
+        admin->subscribers = sub;
+    }
 
     // bring new subscriber up to date
     mapper_admin_set_bundle_dest_mesh(admin, sub->address);
