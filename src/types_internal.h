@@ -225,7 +225,8 @@ typedef struct _mapper_queue {
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_link {
-    lo_address remote_addr;         //!< Network address of remote endpoint
+    lo_address admin_addr;          //!< Network address of remote endpoint
+    lo_address data_addr;           //!< Network address of remote endpoint
     mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */

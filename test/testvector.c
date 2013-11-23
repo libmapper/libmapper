@@ -97,7 +97,10 @@ void cleanup_destination()
 int setup_router()
 {
     const char *host = "localhost";
-    router = mapper_router_new(source, host, destination->props.port,
+    int admin_port = lo_server_get_port(destination->admin->mesh_server);
+
+    router = mapper_router_new(source, host, admin_port,
+                               destination->props.port,
                                mdev_name(destination), 0);
     mdev_add_router(source, router);
     printf("Router to %s:%d added.\n", host, destination->props.port);

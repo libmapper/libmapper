@@ -251,7 +251,8 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int default_scope);
+                                int admin_port, int data_port,
+                                const char *name, int default_scope);
 
 void mapper_router_free(mapper_router router);
 
@@ -319,7 +320,8 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 /***** Receiver *****/
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
-                                    int port, const char *name, int default_scope);
+                                    int admin_port, int data_port,
+                                    const char *name, int default_scope);
 
 void mapper_receiver_free(mapper_receiver receiver);
 

@@ -204,6 +204,7 @@ static struct handler_method_assoc device_mesh_handlers[] = {
     {ADM_LINKED,                 NULL,      handler_device_linked},
     {ADM_UNLINKED,               NULL,      handler_device_unlinked},
     {ADM_SUBSCRIBE,              NULL,      handler_device_subcribe},
+    {ADM_CONNECT_TO,             NULL,      handler_signal_connectTo},
     {ADM_CONNECTED,              NULL,      handler_signal_connected},
     {ADM_DISCONNECTED,           "ss",      handler_signal_disconnected},
 };
@@ -1273,7 +1274,7 @@ static int handler_logout(const char *path, const char *types,
 
 // Add or renew a monitor subscription.
 static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
-                                       int flags, int timeout_seconds)
+                                        int flags, int timeout_seconds)
 {
     mapper_admin_subscriber sub = admin->subscribers;
     const char *ip = lo_address_get_hostname(address);
@@ -1289,19 +1290,25 @@ static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
             strcmp(port, lo_address_get_port(sub->address))==0) {
             // subscriber already exists, reset timeout
             sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-            sub->flags = flags;
-            return;
+            if (sub->flags == flags)
+                return;
+            int temp = flags;
+            flags &= ~sub->flags;
+            sub->flags = temp;
+            break;
         }
         sub = sub->next;
     }
 
-    // add new subscriber
-    sub = malloc(sizeof(struct _mapper_admin_subscriber));
-    sub->address = lo_address_new(ip, port);
-    sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-    sub->next = admin->subscribers;
-    sub->flags = flags;
-    admin->subscribers = sub;
+    if (!sub) {
+        // add new subscriber
+        sub = malloc(sizeof(struct _mapper_admin_subscriber));
+        sub->address = lo_address_new(ip, port);
+        sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
+        sub->flags = flags;
+        sub->next = admin->subscribers;
+        admin->subscribers = sub;
+    }
 
     // bring new subscriber up to date
     mapper_admin_set_bundle_dest_mesh(admin, sub->address);
@@ -1800,8 +1807,8 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
 
-    const char *src_name, *dest_name, *host=0, *scope=0;
-    int port;
+    const char *src_name, *dest_name, *host=0, *scope=0, *admin_port;
+    int data_port;
     mapper_message_t params;
     lo_address a = NULL;
 
@@ -1858,26 +1865,24 @@ static int handler_device_linkTo(const char *path, const char *types,
         return 0;
     }
 
-    // Retrieve the IP if specified.
-    host = mapper_msg_get_param_if_string(&params, AT_IP);
+    // Find the sender's hostname
+    a = lo_message_get_source(msg);
+    host = lo_address_get_hostname(a);
+    admin_port = lo_address_get_port(a);
     if (!host) {
-        // Find the sender's hostname
-        a = lo_message_get_source(msg);
-        host = lo_address_get_hostname(a);
-        if (!host) {
-            trace("can't perform /linkTo, host unknown\n");
-            return 0;
-        }
+        trace("can't perform /linkTo, host unknown\n");
+        return 0;
     }
 
     // Retrieve the port
-    if (mapper_msg_get_param_if_int(&params, AT_DEST_PORT, &port)) {
+    if (mapper_msg_get_param_if_int(&params, AT_DEST_PORT, &data_port)) {
         trace("can't perform /linkTo, port unknown\n");
         return 0;
     }
 
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, port, dest_name, scope ? 0 : 1);
+    router = mapper_router_new(md, host, atoi(admin_port), data_port,
+                               dest_name, scope ? 0 : 1);
     if (!router) {
         trace("can't perform /linkTo, NULL router\n");
         return 0;
@@ -1903,7 +1908,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin_send_linked(admin, router, 1);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
-          mdev_name(md), dest_name, host, port);
+          mdev_name(md), dest_name, host, data_port);
 
     return 0;
 }
@@ -1918,8 +1923,8 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_monitor mon = admin->monitor;
     mapper_db db = mapper_monitor_get_db(mon);
 
-    const char *src_name, *dest_name, *host=0, *scope=0;
-    int port = -1;
+    const char *src_name, *dest_name, *host=0, *scope=0, *admin_port;
+    int data_port = -1;
 
     if (argc < 2)
         return 0;
@@ -1968,15 +1973,17 @@ static int handler_device_linked(const char *path, const char *types,
     // Find the sender's hostname
     lo_address a = lo_message_get_source(msg);
     host = lo_address_get_hostname(a);
-    if (!host) {
+    admin_port = lo_address_get_port(a);
+    if (!host || !admin_port) {
         trace("can't add receiver on /linked, host unknown\n");
         return 0;
     }
 
     // Retrieve the src device port if it is defined
-    mapper_msg_get_param_if_int(&params, AT_SRC_PORT, &port);
+    mapper_msg_get_param_if_int(&params, AT_SRC_PORT, &data_port);
 
-    receiver = mapper_receiver_new(md, host, port, src_name, scope ? 0 : 1);
+    receiver = mapper_receiver_new(md, host, atoi(admin_port), data_port,
+                                   src_name, scope ? 0 : 1);
     if (!receiver) {
         trace("Error: NULL receiver\n");
         return 0;
@@ -2128,7 +2135,7 @@ static int handler_device_unlink(const char *path, const char *types,
         mdev_remove_router(md, router);
 
         // Inform destination
-        mapper_admin_set_bundle_dest_mesh(admin, router->remote_addr);
+        mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
                                                 0, "ss", mdev_name(md), dest_name);
 
@@ -2314,13 +2321,25 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     mapper_message_t params;
-
     // add arguments from /connect if any
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /connect.\n",
               mdev_name(md));
+        return 0;
+    }
+
+    mapper_receiver receiver =
+        mapper_receiver_find_by_src_name(md->receivers, src_name);
+
+    /* If no link found, we simply stop here. The idea was floated
+     * that we could automatically create links, but it was agreed
+     * that this kind of logic would be best left up to client
+     * applications. */
+    if (!receiver) {
+        trace("<%s> not linked from '%s' on /connect.\n",
+              mdev_name(md), src_name);
         return 0;
     }
 
@@ -2349,8 +2368,7 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
 
-    // TODO: check if source ip/port are available in metadata, send directly
-    mapper_admin_set_bundle_dest_bus(admin);
+    mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
     mapper_admin_bundle_message_with_params(admin, &params, input->props.extra,
                                             ADM_CONNECT_TO, 0, "ss", src_name,
                                             dest_name);
@@ -2479,7 +2497,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
     }
 
     // Inform destination device
-    mapper_admin_set_bundle_dest_mesh(admin, router->remote_addr);
+    mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
     mapper_admin_send_connected(admin, router, c, -1, 1);
 
     // Inform subscribers
@@ -2679,7 +2697,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     mapper_connection_set_from_message(c, &params);
 
     // Inform destination device
-    mapper_admin_set_bundle_dest_mesh(admin, router->remote_addr);
+    mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
     mapper_admin_send_connected(admin, router, c, -1, 1);
 
     // Inform subscribers
@@ -2763,7 +2781,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
     }
 
     // Inform destination and subscribers
-    mapper_admin_set_bundle_dest_mesh(admin, r->remote_addr);
+    mapper_admin_set_bundle_dest_mesh(admin, r->admin_addr);
     mapper_admin_bundle_message(admin, ADM_DISCONNECTED, 0, "ss",
                                 src_name, dest_name);
     mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_OUT);

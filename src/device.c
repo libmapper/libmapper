@@ -899,8 +899,8 @@ int mdev_poll(mapper_device md, int block_ms)
 
 int mdev_num_fds(mapper_device md)
 {
-    // One for the admin input, and one for the signal input.
-    return 2;
+    // Two for the admin inputs (bus and mesh), and one for the signal input.
+    return 3;
 }
 
 int mdev_get_fds(mapper_device md, int *fds, int num)

@@ -110,6 +110,12 @@ int create_connections()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
+    int i = 0;
+    while (i++ < 10) {
+        mdev_poll(source, 0);
+        mdev_poll(destination, 0);
+    }
+
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);

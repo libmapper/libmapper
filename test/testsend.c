@@ -26,10 +26,11 @@ int test_controller()
     printf("Number of outputs: %d\n", mdev_num_outputs(md));
 
     const char *host = "localhost";
-    int port = 9000;
-    mapper_router rt = mapper_router_new(md, host, port, "DESTINATION", 0);
+    int admin_port = 9000, data_port = 9001;
+    mapper_router rt = mapper_router_new(md, host, admin_port, data_port,
+                                         "DESTINATION", 0);
     mdev_add_router(md, rt);
-    printf("Router to %s:%d added.\n", host, port);
+    printf("Router to %s:%d added.\n", host, data_port);
 
     mapper_router_add_connection(rt, sig, "/mapped1", 'f', 1);
     mapper_router_add_connection(rt, sig, "/mapped2", 'f', 1);

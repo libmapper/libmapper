@@ -139,7 +139,7 @@ void wait_local_devices()
 void loop()
 {
     printf("-------------------- GO ! --------------------\n");
-    int i = 10, j = 0, count;
+    int i = 0, j = 0, count;
 
     if (automate) {
         mapper_monitor mon = mapper_monitor_new(source->admin, 0);
@@ -147,6 +147,11 @@ void loop()
         char src_name[1024], dest_name[1024];
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
+
+        while (i++ < 10) {
+            mdev_poll(source, 0);
+            mdev_poll(destination, 0);
+        }
 
         for (int i = 0; i < 4; i++) {
             msig_full_name(sendsig[i], src_name, 1024);
