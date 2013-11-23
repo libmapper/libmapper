@@ -204,6 +204,7 @@ static struct handler_method_assoc device_mesh_handlers[] = {
     {ADM_LINKED,                 NULL,      handler_device_linked},
     {ADM_UNLINKED,               NULL,      handler_device_unlinked},
     {ADM_SUBSCRIBE,              NULL,      handler_device_subcribe},
+    {ADM_CONNECT_TO,             NULL,      handler_signal_connectTo},
     {ADM_CONNECTED,              NULL,      handler_signal_connected},
     {ADM_DISCONNECTED,           "ss",      handler_signal_disconnected},
 };
@@ -2320,13 +2321,25 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     mapper_message_t params;
-
     // add arguments from /connect if any
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
     {
         trace("<%s> error parsing message parameters in /connect.\n",
               mdev_name(md));
+        return 0;
+    }
+
+    mapper_receiver receiver =
+        mapper_receiver_find_by_src_name(md->receivers, src_name);
+
+    /* If no link found, we simply stop here. The idea was floated
+     * that we could automatically create links, but it was agreed
+     * that this kind of logic would be best left up to client
+     * applications. */
+    if (!receiver) {
+        trace("<%s> not linked from '%s' on /connect.\n",
+              mdev_name(md), src_name);
         return 0;
     }
 
@@ -2355,8 +2368,7 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
 
-    // TODO: check if source ip/port are available in metadata, send directly
-    mapper_admin_set_bundle_dest_bus(admin);
+    mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
     mapper_admin_bundle_message_with_params(admin, &params, input->props.extra,
                                             ADM_CONNECT_TO, 0, "ss", src_name,
                                             dest_name);

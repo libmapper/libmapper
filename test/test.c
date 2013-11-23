@@ -160,6 +160,11 @@ void loop()
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
 
+        while (i++ < 10) {
+            mdev_poll(source, 0);
+            mdev_poll(destination, 0);
+        }
+
         msig_full_name(sendsig_1, src_name, 1024);
         msig_full_name(recvsig_1, dest_name, 1024);
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
@@ -177,6 +182,7 @@ void loop()
         mapper_monitor_free(mon);
     }
 
+    i = 0;
     while (i >= 0 && !done) {
         mdev_poll(source, 0);
         msig_update_double(source->outputs[0], ((i % 10) * 1.0f));
