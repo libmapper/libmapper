@@ -202,7 +202,7 @@ int main()
     /* Initialize filters */
     snprintf(str, 256, "y=x+y{-1}, y=100");
     setup_test('i', 1, 1, src_int, 'i', 1, 1, dest_int);
-    result += !parse_and_eval();
+    result += parse_and_eval();
     printf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* TODO: scientific notation */

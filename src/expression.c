@@ -623,8 +623,11 @@ void printtoken(mapper_token_t tok)
                                   tok.datatype,
                                   tok.vector_length,
                                   locked ? "'" : "");     break;
+    case TOK_OPEN_CURLY:   printf("{");                   break;
     case TOK_OPEN_PAREN:   printf("(");                   break;
     case TOK_CLOSE_PAREN:  printf(")");                   break;
+    case TOK_OPEN_SQUARE:  printf("[");                   break;
+    case TOK_CLOSE_SQUARE: printf("]");                   break;
     case TOK_VAR:          printf("VAR(%s%c%d%s){%d}[%d]",
                                   var_strings[tok.var], tok.datatype,
                                   tok.vector_length,
@@ -643,6 +646,7 @@ void printtoken(mapper_token_t tok)
                                   tok.datatype,
                                   tok.vector_length,
                                   tok.vector_index);      break;
+    case TOK_NEGATE:       printf("-");                   break;
     case TOK_VFUNC:        printf("VFUNC(%s)%c%d",
                                   vfunc_strings[tok.func],
                                   tok.datatype,
@@ -736,6 +740,7 @@ static void lock_vector_lengths(mapper_token_t *stack, int top)
 
 static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
+    // TODO: allow precomputation of const-only vectors
     int i, arity, can_precompute = 1;
     char type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
@@ -880,6 +885,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
     struct _mapper_expr e;
     e.start = &stack[top-arity];
     e.length = arity+1;
+    e.vector_size = vector_length;
     mapper_signal_history_t h;
     mapper_signal_value_t v;
     h.type = stack[top].datatype;
