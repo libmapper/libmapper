@@ -908,7 +908,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Non-integer vector index.");}
                 else if (tok.i != 0)
                     {FAIL("Vector indexing disabled for now.");}
-                if (outstack[outstack_index].var == 'x') {
+                if (outstack[outstack_index].var == VAR_X) {
                     if (tok.i >= input_vector_size)
                         {FAIL("Index exceeds vector length");}
                 }
