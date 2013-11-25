@@ -277,22 +277,22 @@ typedef double func_double_arity2(double,double);
 
 typedef struct _token {
     enum {
-        TOK_CONST,
-        TOK_OP,
-        TOK_VAR,
-        TOK_FUNC,
-        TOK_OPEN_PAREN,
-        TOK_CLOSE_PAREN,
-        TOK_OPEN_SQUARE,
-        TOK_CLOSE_SQUARE,
-        TOK_OPEN_CURLY,
-        TOK_CLOSE_CURLY,
-        TOK_COMMA,
-        TOK_QUESTION,
-        TOK_COLON,
-        TOK_NEGATE,
-        TOK_VECTORIZE,
-        TOK_VFUNC,
+        TOK_CONST           = 0x0001,
+        TOK_OP              = 0x0002,
+        TOK_VAR             = 0x0004,
+        TOK_FUNC            = 0x0008,
+        TOK_OPEN_PAREN      = 0x0010,
+        TOK_CLOSE_PAREN     = 0x0020,
+        TOK_OPEN_SQUARE     = 0x0040,
+        TOK_CLOSE_SQUARE    = 0x0080,
+        TOK_OPEN_CURLY      = 0x0100,
+        TOK_CLOSE_CURLY     = 0x0200,
+        TOK_COMMA           = 0x0400,
+        TOK_QUESTION        = 0x0800,
+        TOK_COLON           = 0x1000,
+        TOK_NEGATE          = 0x2000,
+        TOK_VECTORIZE       = 0x4000,
+        TOK_VFUNC           = 0x8000,
         TOK_END,
     } toktype;
     union {
@@ -966,8 +966,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     mapper_token_t opstack[STACK_SIZE];
     int lex_index = 0, outstack_index = -1, opstack_index = -1;
     int oldest_input = 0, oldest_output = 0, max_vector = 1;
+
     int vectorizing = 0;
     int variable = 0;
+    int allow_toktype = 0xFFFF;
     mapper_token_t tok;
 
     // all expressions must start with "y=" (ignoring spaces)
@@ -975,20 +977,19 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     while (str[lex_index] == ' ') lex_index++;
     if (str[lex_index++] != '=') return 0;
 
-    // TODO: store "last" token type, fail on malformed syntaxes:
-        // ")(", "][", ")[", etc
-        // two sequential operations except when second is negation
-
     while (str[lex_index]) {
         GET_NEXT_TOKEN(tok);
         if (variable && tok.toktype != TOK_OPEN_SQUARE
             && tok.toktype != TOK_OPEN_CURLY)
             variable = 0;
+        if (!(tok.toktype & allow_toktype))
+            {FAIL("Illegal token sequence.");}
         switch (tok.toktype) {
             case TOK_CONST:
                 // push to output stack
                 PUSH_TO_OUTPUT(tok);
-                variable = 0;
+                allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
+                                TOK_COMMA | TOK_QUESTION | TOK_COLON;
                 break;
             case TOK_VAR:
                 // set datatype
@@ -998,7 +999,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.vector_length = tok.var < VAR_Y ? input_vector_size : output_vector_size;
                 tok.vector_length_locked = 1;
                 PUSH_TO_OUTPUT(tok);
-                variable = 1;
+                // variables can have vector and history indices
+                variable = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
+                allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
+                                TOK_COMMA | TOK_QUESTION | TOK_COLON | variable;
                 break;
             case TOK_FUNC:
                 if (function_table[tok.func].func_int32)
@@ -1009,12 +1013,20 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (!function_table[tok.func].arity) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
+                if (function_table[tok.func].arity)
+                    allow_toktype = TOK_OPEN_PAREN;
+                else
+                    allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
+                                    TOK_COMMA | TOK_QUESTION | TOK_COLON;
                 break;
             case TOK_VFUNC:
                 PUSH_TO_OPERATOR(tok);
+                allow_toktype = TOK_OPEN_PAREN;
                 break;
             case TOK_OPEN_PAREN:
                 PUSH_TO_OPERATOR(tok);
+                allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
+                                TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE;
                 break;
             case TOK_CLOSE_PAREN:
                 // pop from operator stack to output until left parenthesis found
@@ -1031,6 +1043,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         POP_OPERATOR_TO_OUTPUT();
                     }
                 }
+                allow_toktype = TOK_OP | TOK_QUESTION | TOK_COLON | TOK_COMMA |
+                                TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE;
                 break;
             case TOK_COMMA:
                 // pop from operator stack to output until left parenthesis or TOK_VECTORIZE found
@@ -1047,6 +1061,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         outstack[outstack_index].vector_length;
                     lock_vector_lengths(outstack, outstack_index);
                 }
+                allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
+                                TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE;
                 break;
             case TOK_COLON:
                 // pop from operator stack to output until conditional found
@@ -1058,6 +1074,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index < 0)
                     {FAIL("Unmatched colon.");}
                 opstack[opstack_index].op = OP_CONDITIONAL_IF_ELSE;
+                allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
+                                TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE;
                 break;
             case TOK_QUESTION:
                 tok.toktype = TOK_OP;
@@ -1070,9 +1088,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 PUSH_TO_OPERATOR(tok);
+                allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
+                                TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE;
                 break;
             case TOK_OPEN_SQUARE:
-                if (variable) {
+                if (variable & TOK_OPEN_SQUARE) {
                     GET_NEXT_TOKEN(tok);
                     if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                         {FAIL("Non-integer vector index.");}
@@ -1105,6 +1125,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     }
                     if (tok.toktype != TOK_CLOSE_SQUARE)
                         {FAIL("Unmatched bracket.");}
+                    // vector index set
+                    variable &= ~TOK_OPEN_SQUARE;
+                    allow_toktype = TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN |
+                                    TOK_CLOSE_SQUARE | TOK_QUESTION |
+                                    TOK_COLON | variable;
                 }
                 else {
                     if (vectorizing)
@@ -1115,6 +1140,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     tok.vector_index = 0;
                     PUSH_TO_OPERATOR(tok);
                     vectorizing = 1;
+                    allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
+                                    TOK_OPEN_PAREN | TOK_NEGATE;
                 }
                 break;
             case TOK_CLOSE_SQUARE:
@@ -1132,9 +1159,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 lock_vector_lengths(outstack, outstack_index);
                 POP_OPERATOR_TO_OUTPUT();
                 vectorizing = 0;
+                allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_COMMA |
+                                TOK_QUESTION | TOK_COLON;
                 break;
             case TOK_OPEN_CURLY:
-                if (!variable)
+                if (!(variable & TOK_OPEN_CURLY))
                     {FAIL("Misplaced brace.");}
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype == TOK_NEGATE) {
@@ -1163,6 +1192,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype != TOK_CLOSE_CURLY)
                     {FAIL("Unmatched brace.");}
+                variable &= ~TOK_OPEN_CURLY;
+                allow_toktype = TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN |
+                                TOK_CLOSE_SQUARE | TOK_QUESTION |
+                                TOK_COLON | variable;
                 break;
             case TOK_NEGATE:
                 // push '0' to output stack, and '-' to operator stack
@@ -1173,6 +1206,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.toktype = TOK_OP;
                 tok.op = OP_SUBTRACT;
                 PUSH_TO_OPERATOR(tok);
+                allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC;
                 break;
             default:
                 {FAIL("Unknown token type.");}
