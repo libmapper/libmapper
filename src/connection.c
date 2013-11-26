@@ -59,10 +59,6 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from,
                               mapper_signal_history_t *to)
 {
-    /* Currently expressions on vectors are not supported by the
-     * evaluator.  For now, we half-support it by performing
-     * element-wise operations on each item in the vector. */
-
     int changed = 0, i;
     int vector_length = from->length < to->length ? from->length : to->length;
 
@@ -588,7 +584,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
         }
     }
     else {
-        int len;
+        int len, diff;
         int min_length = c->props.src_length < c->props.dest_length ?
                          c->props.src_length : c->props.dest_length;
         double src_min, src_max, dest_min, dest_max;
@@ -598,7 +594,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
         else if (c->props.src_length > c->props.dest_length)
             snprintf(expr, 256, "y=x[0:%i]*[", c->props.dest_length-1);
         else {
-            int len, diff = c->props.dest_length - c->props.src_length;
+            diff = c->props.dest_length - c->props.src_length;
             snprintf(expr, 256, "y=[x,");
             while (diff--) {
                 len = strlen(expr);
@@ -626,6 +622,11 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                 snprintf(expr+len, 256-len, "%g,", scale);
             }
         }
+        diff = c->props.dest_length - c->props.src_length;
+        while (diff--) {
+            len = strlen(expr);
+            snprintf(expr+len, 256-len, "0,");
+        }
         len = strlen(expr);
         snprintf(expr+len-1, 256-len+1, "]+[");
 
@@ -647,6 +648,11 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                                  / (src_min - src_max));
                 snprintf(expr+len, 256-len, "%g,", offset);
             }
+        }
+        diff = c->props.dest_length - c->props.src_length;
+        while (diff--) {
+            len = strlen(expr);
+            snprintf(expr+len, 256-len, "0,");
         }
         len = strlen(expr);
         snprintf(expr+len-1, 256-len+1, "]");

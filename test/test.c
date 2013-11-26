@@ -197,6 +197,9 @@ void loop()
         printf("/outsig_3 value updated to [%f,%f,%f] -->\n",
                val[0], val[1], val[2]);
 
+        msig_update_float(sendsig_4, ((i % 10) * 1.0f));
+        printf("/outsig_4 value updated to %d -->\n", i % 10);
+
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
         i++;
     }
