@@ -232,8 +232,9 @@ typedef enum {
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
     OP_ASSIGNMENT,
-    OP_CONDITIONAL_IF,
+    OP_CONDITIONAL_IF_THEN,
     OP_CONDITIONAL_IF_ELSE,
+    OP_CONDITIONAL_IF_THEN_ELSE,
 } expr_op_t;
 
 static struct {
@@ -241,28 +242,29 @@ static struct {
     unsigned int arity;
     unsigned int precedence;
 } op_table[] = {
-    { "!",      1,  11 },
-    { "*",      2,  10 },
-    { "/",      2,  10 },
-    { "%",      2,  10 },
-    { "+",      2,   9 },
-    { "-",      2,   9 },
-    { "<<",     2,   8 },
-    { ">>",     2,   8 },
-    { ">",      2,   7 },
-    { ">=",     2,   7 },
-    { "<",      2,   7 },
-    { "<=",     2,   7 },
-    { "==",     2,   6 },
-    { "!=",     2,   6 },
-    { "&",      2,   5 },
-    { "^",      2,   4 },
-    { "|",      2,   3 },
-    { "&&",     2,   2 },
-    { "||",     2,   1 },
-    { "=",      2,   0 },
-    { "IF",     2,   0 },
-    { "IFELSE", 3,   0 },
+    { "!",          1,  11 },
+    { "*",          2,  10 },
+    { "/",          2,  10 },
+    { "%",          2,  10 },
+    { "+",          2,   9 },
+    { "-",          2,   9 },
+    { "<<",         2,   8 },
+    { ">>",         2,   8 },
+    { ">",          2,   7 },
+    { ">=",         2,   7 },
+    { "<",          2,   7 },
+    { "<=",         2,   7 },
+    { "==",         2,   6 },
+    { "!=",         2,   6 },
+    { "&",          2,   5 },
+    { "^",          2,   4 },
+    { "|",          2,   3 },
+    { "&&",         2,   2 },
+    { "||",         2,   1 },
+    { "=",          2,   0 },
+    { "IFTHEN",     2,   0 },
+    { "IFELSE",     2,   0 },
+    { "IFTHENELSE", 3,   0 },
 };
 
 typedef int func_int32_arity0();
@@ -556,7 +558,13 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
     case '?':
         // conditional
         tok->toktype = TOK_QUESTION;
-        return ++index;
+        tok->op = OP_CONDITIONAL_IF_THEN;
+        c = str[++index];
+        if (c == ':') {
+            tok->op = OP_CONDITIONAL_IF_ELSE;
+            ++index;
+        }
+        return index;
     case ':':
         tok->toktype = TOK_COLON;
         return ++index;
@@ -933,7 +941,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 {                                                                   \
     if (opstack[opstack_index].toktype == TOK_QUESTION) {           \
         opstack[opstack_index].toktype = TOK_OP;                    \
-        opstack[opstack_index].op = OP_CONDITIONAL_IF;              \
     }                                                               \
     PUSH_TO_OUTPUT(opstack[opstack_index]);                         \
     outstack_index = check_types_and_lengths(outstack,              \
@@ -1068,18 +1075,18 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 // pop from operator stack to output until conditional found
                 while (opstack_index >= 0 &&
                        (opstack[opstack_index].toktype != TOK_OP ||
-                        opstack[opstack_index].op != OP_CONDITIONAL_IF)) {
+                        opstack[opstack_index].op != OP_CONDITIONAL_IF_THEN)) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 if (opstack_index < 0)
                     {FAIL("Unmatched colon.");}
-                opstack[opstack_index].op = OP_CONDITIONAL_IF_ELSE;
+                opstack[opstack_index].op = OP_CONDITIONAL_IF_THEN_ELSE;
                 allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC |
                                 TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE;
                 break;
             case TOK_QUESTION:
                 tok.toktype = TOK_OP;
-                tok.op = OP_CONDITIONAL_IF;
+                // lexer has already set op for either '?' or "?:"
             case TOK_OP:
                 // check precedence of operators on stack
                 while (opstack_index >= 0 && opstack[opstack_index].toktype == TOK_OP
@@ -1376,14 +1383,22 @@ int mapper_expr_evaluate(mapper_expr expr,
             top -= op_table[tok->op].arity-1;
             dims[top] = tok->vector_length;
 #if TRACING
-            if (tok->op == OP_CONDITIONAL_IF || tok->op == OP_CONDITIONAL_IF_ELSE) {
+            if (tok->op == OP_CONDITIONAL_IF_THEN || tok->op == OP_CONDITIONAL_IF_ELSE ||
+                tok->op == OP_CONDITIONAL_IF_THEN_ELSE) {
                 printf("IF ");
                 print_stack_vector(stack[top], tok->datatype, tok->vector_length);
                 printf(" THEN ");
-                print_stack_vector(stack[top+1], tok->datatype, tok->vector_length);
                 if (tok->op == OP_CONDITIONAL_IF_ELSE) {
+                    print_stack_vector(stack[top], tok->datatype, tok->vector_length);
                     printf(" ELSE ");
-                    print_stack_vector(stack[top+2], tok->datatype, tok->vector_length);
+                    print_stack_vector(stack[top+1], tok->datatype, tok->vector_length);
+                }
+                else {
+                    print_stack_vector(stack[top+1], tok->datatype, tok->vector_length);
+                    if (tok->op == OP_CONDITIONAL_IF_THEN_ELSE) {
+                        printf(" ELSE ");
+                        print_stack_vector(stack[top+2], tok->datatype, tok->vector_length);
+                    }
                 }
             }
             else {
@@ -1450,7 +1465,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++)
                             stack[top][i].f = !stack[top][i].f;
                         break;
-                    case OP_CONDITIONAL_IF:
+                    case OP_CONDITIONAL_IF_THEN:
                         // TODO: should not permit implicit any()/all()
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].f)
@@ -1460,6 +1475,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (!stack[top][i].f)
+                                stack[top][i].f = stack[top+1][i].f;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_THEN_ELSE:
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].f)
                                 stack[top][i].f = stack[top+1][i].f;
@@ -1527,7 +1548,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++)
                             stack[top][i].d = !stack[top][i].d;
                         break;
-                    case OP_CONDITIONAL_IF:
+                    case OP_CONDITIONAL_IF_THEN:
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].d)
                                 stack[top][i].d = stack[top+1][i].d;
@@ -1536,6 +1557,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (!stack[top][i].d)
+                                stack[top][i].d = stack[top+1][i].d;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_THEN_ELSE:
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].d)
                                 stack[top][i].d = stack[top+1][i].d;
@@ -1623,7 +1650,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++)
                             stack[top][i].i32 = !stack[top][i].i32;
                         break;
-                    case OP_CONDITIONAL_IF:
+                    case OP_CONDITIONAL_IF_THEN:
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].i32)
                                 stack[top][i].i32 = stack[top+1][i].i32;
@@ -1632,6 +1659,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
+                        for (i = 0; i < tok->vector_length; i++) {
+                            if (!stack[top][i].i32)
+                                stack[top][i].i32 = stack[top+1][i].i32;
+                        }
+                        break;
+                    case OP_CONDITIONAL_IF_THEN_ELSE:
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].i32)
                                 stack[top][i].i32 = stack[top+1][i].i32;

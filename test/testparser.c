@@ -109,6 +109,12 @@ int main()
     printf("Expected: [%i, %i, %i]\n", src_float[0]>1?1:2, src_float[1]>1?2:4,
            src_float[2]>1?3:6);
 
+    /* Conditionals with shortened syntax */
+    snprintf(str, 256, "y=!x?:123");
+    setup_test('f', 1, 1, src_float, 'i', 1, 1, dest_int);
+    result += parse_and_eval();
+    printf("Expected: %i\n", !(int)src_float[0]?:123);
+
     /* Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[x*-2+1,0]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
