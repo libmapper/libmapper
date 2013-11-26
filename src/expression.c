@@ -1927,6 +1927,14 @@ int mapper_expr_evaluate(mapper_expr expr,
         for (i = 0; i < to->length; i++)
             v[i] = stack[top][i].d;
     }
+
+    if (from) {
+        // Also copy timetag from input
+        mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
+        mapper_timetag_t *ttto = msig_history_tt_pointer(*to);
+        memcpy(ttto, ttfrom, sizeof(mapper_timetag_t));
+    }
+
     return 1;
 
   error:
