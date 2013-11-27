@@ -1378,16 +1378,20 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig,
         list_remove_item(sig, (void**)&db->registered_inputs);
 }
 
-void mapper_db_remove_input_by_name(mapper_db db, const char *name,
-                                    const char *device_name)
+void mapper_db_remove_input_by_name(mapper_db db, const char *device_name,
+                                    const char *signal_name)
 {
     mapper_db_signal sig;
-    sig = mapper_db_get_input_by_device_and_signal_names(db, device_name, name);
+    sig = mapper_db_get_input_by_device_and_signal_names(db, device_name,
+                                                         signal_name);
 
     if (!sig)
         return;
 
-    mapper_db_remove_connections_by_query(db, mapper_db_get_connections_by_dest_device_and_signal_names(db, device_name, name));
+    mapper_db_remove_connections_by_query(db,
+        mapper_db_get_connections_by_dest_device_and_signal_names(db,
+                                                                  device_name,
+                                                                  signal_name));
 
     mapper_db_remove_signal(db, sig, 0);
 }
@@ -1403,16 +1407,20 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
     }
 }
 
-void mapper_db_remove_output_by_name(mapper_db db, const char *name,
-                                     const char *device_name)
+void mapper_db_remove_output_by_name(mapper_db db, const char *device_name,
+                                     const char *signal_name)
 {
     mapper_db_signal sig;
-    sig = mapper_db_get_output_by_device_and_signal_names(db, device_name, name);
+    sig = mapper_db_get_output_by_device_and_signal_names(db, device_name,
+                                                          signal_name);
 
     if (!sig)
         return;
 
-    mapper_db_remove_connections_by_query(db, mapper_db_get_connections_by_src_device_and_signal_names(db, device_name, name));
+    mapper_db_remove_connections_by_query(db,
+        mapper_db_get_connections_by_src_device_and_signal_names(db,
+                                                                 device_name,
+                                                                 signal_name));
 
     mapper_db_remove_signal(db, sig, 1);
 }

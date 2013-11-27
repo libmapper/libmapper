@@ -785,8 +785,7 @@ static void on_device_autosubscribe(mapper_db_device dev,
     {
         mapper_monitor mon = (mapper_monitor)(user);
 
-        // Subscribe to signals, links, connections for new devices.
-        // TODO: re-enable batch requests if necessary
+        // Subscribe to signals, links, and/or connections for new devices.
         if (mon->autosubscribe)
             mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
     }
