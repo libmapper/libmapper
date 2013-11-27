@@ -21,8 +21,8 @@ static double get_current_time()
 }
 
 // function prototypes
-void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
-                                int subscribe_flags, int timeout);
+static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+                                       int subscribe_flags, int timeout);
 
 typedef enum _db_request_direction {
     DIRECTION_IN,
@@ -121,8 +121,8 @@ static void mapper_monitor_set_bundle_dest(mapper_monitor mon, const char *name)
     mapper_admin_set_bundle_dest_bus(mon->admin);
 }
 
-void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
-                                int subscribe_flags, int timeout)
+static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+                                       int subscribe_flags, int timeout)
 {
     char cmd[1024];
     snprintf(cmd, 1024, "%s/subscribe", device_name);
@@ -194,15 +194,9 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout);
 }
 
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+static void mapper_monitor_remove_subscription_internal(mapper_monitor mon,
+                                                        const char *device_name)
 {
-    char cmd[1024];
-    snprintf(cmd, 1024, "%s/unsubscribe", device_name);
-    mapper_monitor_set_bundle_dest(mon, device_name);
-    lo_message m = lo_message_new();
-    if (m)
-        mapper_admin_bundle_message(mon->admin, -1, cmd, "");
-
     // check if autorenewing subscription exists
     mapper_monitor_subscription *s = &mon->subscriptions;
     while (*s) {
@@ -217,6 +211,18 @@ void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
         }
         s = &(*s)->next;
     }
+}
+
+void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+{
+    char cmd[1024];
+    snprintf(cmd, 1024, "%s/unsubscribe", device_name);
+    mapper_monitor_set_bundle_dest(mon, device_name);
+    lo_message m = lo_message_new();
+    if (m)
+        mapper_admin_bundle_message(mon->admin, -1, cmd, "");
+
+    mapper_monitor_remove_subscription_internal(mon, device_name);
 }
 
 static int request_signals_by_device_name_internal(mapper_monitor mon,
@@ -781,13 +787,15 @@ static void on_device_autosubscribe(mapper_db_device dev,
                                     mapper_db_action_t a,
                                     void *user)
 {
-    if (a == MDB_NEW)
-    {
-        mapper_monitor mon = (mapper_monitor)(user);
+    mapper_monitor mon = (mapper_monitor)(user);
 
+    if (a == MDB_NEW) {
         // Subscribe to signals, links, and/or connections for new devices.
         if (mon->autosubscribe)
             mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
+    }
+    else if (a == MDB_REMOVE) {
+        mapper_monitor_remove_subscription_internal(mon, dev->name);
     }
 }
 
