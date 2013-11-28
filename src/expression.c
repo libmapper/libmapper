@@ -1160,12 +1160,18 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 }
                 if (opstack_index < 0)
                     {FAIL("Unmatched brackets or misplaced comma.");}
-                opstack[opstack_index].vector_length_locked = 1;
-                opstack[opstack_index].vector_index++;
-                opstack[opstack_index].vector_length +=
-                    outstack[outstack_index].vector_length;
-                lock_vector_lengths(outstack, outstack_index);
-                POP_OPERATOR_TO_OUTPUT();
+                if (opstack[opstack_index].vector_length) {
+                    opstack[opstack_index].vector_length_locked = 1;
+                    opstack[opstack_index].vector_index++;
+                    opstack[opstack_index].vector_length +=
+                        outstack[outstack_index].vector_length;
+                    lock_vector_lengths(outstack, outstack_index);
+                    POP_OPERATOR_TO_OUTPUT();
+                }
+                else {
+                    // we do not need vectorizer token if vector length == 1
+                    POP_OPERATOR();
+                }
                 vectorizing = 0;
                 allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_COMMA |
                                 TOK_QUESTION | TOK_COLON;
