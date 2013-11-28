@@ -74,6 +74,8 @@ typedef enum {
     ADM_LINKED,
     ADM_LOGOUT,
     ADM_SIGNAL,
+    ADM_INPUT,
+    ADM_OUTPUT,
     ADM_INPUT_REMOVED,
     ADM_OUTPUT_REMOVED,
     ADM_SUBSCRIBE,

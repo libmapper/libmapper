@@ -70,6 +70,8 @@ const char* admin_msg_strings[] =
     "/linked",                  /* ADM_LINKED */
     "/logout",                  /* ADM_LOGOUT */
     "/signal",                  /* ADM_SIGNAL */
+    "/input",                   /* ADM_INPUT */
+    "/output",                  /* ADM_OUTPUT */
     "/input/removed",           /* ADM_INPUT_SIGNAL_REMOVED */
     "/output/removed",          /* ADM_OUTPUT_SIGNAL_REMOVED */
     "%s/subscribe",             /* ADM_SUBSCRIBE */
@@ -895,6 +897,34 @@ static void mapper_admin_send_device(mapper_admin admin,
     device->flags |= FLAGS_SENT_DEVICE_INFO;
 }
 
+void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
+                              mapper_signal sig)
+{
+    char sig_name[1024];
+    msig_full_name(sig, sig_name, 1024);
+    mapper_admin_bundle_message(
+        admin, ADM_SIGNAL, 0, "s", sig_name,
+        AT_DIRECTION, sig->props.is_output ? "output" : "input",
+        AT_TYPE, sig->props.type,
+        AT_LENGTH, sig->props.length,
+        sig->props.unit ? AT_UNITS : -1, sig,
+        sig->props.minimum ? AT_MIN : -1, sig,
+        sig->props.maximum ? AT_MAX : -1, sig,
+        sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig,
+        sig->props.rate ? AT_RATE : -1, sig,
+        AT_EXTRA, sig->props.extra);
+}
+
+void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
+                                      mapper_signal sig)
+{
+    char sig_name[1024];
+    msig_full_name(sig, sig_name, 1024);
+    mapper_admin_bundle_message(admin, sig->props.is_output ?
+                                ADM_OUTPUT_REMOVED : ADM_INPUT_REMOVED,
+                                0, "s", sig_name);
+}
+
 static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
                                      int min, int max)
 {
@@ -904,25 +934,10 @@ static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
         return;
     if (max < 0 || max > md->props.n_inputs)
         max = md->props.n_inputs-1;
-    char sig_name[1024];
 
     int i = min;
-    for (; i <= max; i++) {
-        mapper_signal sig = md->inputs[i];
-        msig_full_name(sig, sig_name, 1024);
-        mapper_admin_bundle_message(
-            admin, ADM_SIGNAL, 0, "s", sig_name,
-            AT_ID, i,
-            AT_DIRECTION, "input",
-            AT_TYPE, sig->props.type,
-            AT_LENGTH, sig->props.length,
-            sig->props.unit ? AT_UNITS : -1, sig,
-            sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig,
-            sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig,
-            sig->props.rate ? AT_RATE : -1, sig,
-            AT_EXTRA, sig->props.extra);
-    }
+    for (; i <= max; i++)
+        mapper_admin_send_signal(admin, md, md->inputs[i]);
 }
 
 static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
@@ -934,25 +949,10 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
         return;
     if (max < 0 || max > md->props.n_outputs)
         max = md->props.n_outputs-1;
-    char sig_name[1024];
 
     int i = min;
-    for (; i <= max; i++) {
-        mapper_signal sig = md->outputs[i];
-        msig_full_name(sig, sig_name, 1024);
-        mapper_admin_bundle_message(
-            admin, ADM_SIGNAL, 0, "s", sig_name,
-            AT_ID, i,
-            AT_DIRECTION, "output",
-            AT_TYPE, sig->props.type,
-            AT_LENGTH, sig->props.length,
-            sig->props.unit ? AT_UNITS : -1, sig,
-            sig->props.minimum ? AT_MIN : -1, sig,
-            sig->props.maximum ? AT_MAX : -1, sig,
-            sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig,
-            sig->props.rate ? AT_RATE : -1, sig,
-            AT_EXTRA, sig->props.extra);
-    }
+    for (; i <= max; i++)
+        mapper_admin_send_signal(admin, md, md->outputs[i]);
 }
 
 static void mapper_admin_send_linked(mapper_admin admin,

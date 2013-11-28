@@ -158,6 +158,12 @@ void mapper_admin_set_bundle_dest_subscribers(mapper_admin admin, int type);
 
 void mapper_admin_send_bundle(mapper_admin admin);
 
+void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
+                              mapper_signal sig);
+
+void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
+                                      mapper_signal sig);
+
 void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
 
 /*! Macro for calling message-sending function. */

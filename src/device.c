@@ -515,6 +515,10 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     free(type_string);
     free(signal_get);
 
+    // Notify subscribers
+    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+    mapper_admin_send_signal(md->admin, md, sig);
+
     return sig;
 }
 
@@ -536,6 +540,11 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
     md->outputs[md->props.n_outputs - 1] = sig;
     sig->device = md;
+
+    // Notify subscribers
+    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+    mapper_admin_send_signal(md->admin, md, sig);
+
     return sig;
 }
 
@@ -659,12 +668,12 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 
     mapper_receiver r = md->receivers;
     msig_full_name(sig, str2, 1024);
-    mapper_admin_set_bundle_dest_bus(md->admin);
     while (r) {
         mapper_receiver_signal rs = r->signals;
         while (rs) {
             if (rs->signal == sig) {
                 // need to disconnect?
+                mapper_admin_set_bundle_dest_mesh(md->admin, r->admin_addr);
                 mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str1, 1024, "%s%s", r->props.src_name,
@@ -683,7 +692,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         r = r->next;
     }
     mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
-    mapper_admin_bundle_message(md->admin, ADM_INPUT_REMOVED, 0, "s", str2);
+    mapper_admin_send_signal_removed(md->admin, md, sig);
 
     md->props.n_inputs --;
     mdev_increment_version(md);
@@ -715,12 +724,12 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 
     mapper_router r = md->routers;
     msig_full_name(sig, str1, 1024);
-    mapper_admin_set_bundle_dest_bus(md->admin);
     while (r) {
         mapper_router_signal rs = r->signals;
         while (rs) {
             if (rs->signal == sig) {
                 // need to disconnect?
+                mapper_admin_set_bundle_dest_mesh(md->admin, r->admin_addr);
                 mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str2, 1024, "%s%s", r->props.dest_name,
@@ -739,7 +748,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         r = r->next;
     }
     mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
-    mapper_admin_bundle_message(md->admin, ADM_OUTPUT_REMOVED, 0, "s", str1);
+    mapper_admin_send_signal_removed(md->admin, md, sig);
 
     md->props.n_outputs --;
     mdev_increment_version(md);
