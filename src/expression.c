@@ -6,6 +6,7 @@
 
 #include "mapper_internal.h"
 
+#define MAX_HISTORY -100
 #define STACK_SIZE 128
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see trace during parse & eval. */
@@ -1184,10 +1185,14 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (outstack[outstack_index].var == VAR_X) {
                     if (outstack[outstack_index].history_index > 0)
                         {FAIL("Input history index cannot be > 0.");}
+                    else if (outstack[outstack_index].history_index < MAX_HISTORY)
+                        {FAIL("Input history index cannot be < -100.");}
                 }
                 else if (outstack[outstack_index].var == VAR_Y) {
                     if (outstack[outstack_index].history_index > -1)
-                    {FAIL("Output history index cannot be > -1.");}
+                        {FAIL("Output history index cannot be > -1.");}
+                    else if (outstack[outstack_index].history_index < MAX_HISTORY)
+                        {FAIL("Output history index cannot be < -100.");}
                 }
 
                 if (outstack[outstack_index].var == VAR_X
