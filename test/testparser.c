@@ -173,13 +173,12 @@ int main()
            | ((int)src_double[2]-1)?1:0);
 
     /* all() */
-    snprintf(str, 256, "y=x[1:2]*all(x-1)");
-    setup_test('d', 1, 3, src_double, 'i', 1, 2, dest_int);
+    snprintf(str, 256, "y=x[2]*all(x-1)");
+    setup_test('d', 1, 3, src_double, 'i', 1, 1, dest_int);
     result += parse_and_eval();
     int temp = ((int)src_double[0]-1)?1:0 & ((int)src_double[1]-1)?1:0
                 & ((int)src_double[2]-1)?1:0;
-    printf("Expected: [%i, %i]\n", (int)src_double[1] * temp,
-           (int)src_double[2] * temp);
+    printf("Expected: %i\n", (int)src_double[2] * temp);
 
     /* pi and e, extra spaces */
     snprintf(str, 256, "y=x + pi -     e");
@@ -230,6 +229,18 @@ int main()
     printf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* TODO: scientific notation */
+
+    /* Vector assignment */
+    snprintf(str, 256, "y[1]=x[1]");
+    setup_test('d', 1, 3, src_double, 'i', 1, 3, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [NULL, %i, NULL]\n", (int)src_double[1]);
+
+    /* Vector assignment */
+    snprintf(str, 256, "y[1:2]=[x[1],10]");
+    setup_test('d', 1, 3, src_double, 'i', 1, 3, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [NULL, %i, %i]\n", (int)src_double[1], 10);
 
     printf("**********************************\n");
     printf("Failed %d tests\n", result);

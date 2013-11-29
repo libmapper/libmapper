@@ -232,7 +232,6 @@ typedef enum {
     OP_BITWISE_OR,
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
-    OP_ASSIGNMENT,
     OP_CONDITIONAL_IF_THEN,
     OP_CONDITIONAL_IF_ELSE,
     OP_CONDITIONAL_IF_THEN_ELSE,
@@ -262,7 +261,6 @@ static struct {
     { "|",          2,   3 },
     { "&&",         2,   2 },
     { "||",         2,   1 },
-    { "=",          2,   0 },
     { "IFTHEN",     2,   0 },
     { "IFELSE",     2,   0 },
     { "IFTHENELSE", 3,   0 },
@@ -289,13 +287,14 @@ typedef struct _token {
         TOK_OPEN_SQUARE     = 0x0040,
         TOK_CLOSE_SQUARE    = 0x0080,
         TOK_OPEN_CURLY      = 0x0100,
-        TOK_CLOSE_CURLY     = 0x0200,
+        TOK_ASSIGNMENT      = 0x0200,
         TOK_COMMA           = 0x0400,
         TOK_QUESTION        = 0x0800,
         TOK_COLON           = 0x1000,
         TOK_NEGATE          = 0x2000,
         TOK_VECTORIZE       = 0x4000,
         TOK_VFUNC           = 0x8000,
+        TOK_CLOSE_CURLY,
         TOK_END,
     } toktype;
     union {
@@ -457,12 +456,14 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         return ++index;
     case '=':
         // could be '=', '=='
-        tok->toktype = TOK_OP;
-        tok->op = OP_ASSIGNMENT;
         c = str[++index];
         if (c == '=') {
+            tok->toktype = TOK_OP;
             tok->op = OP_IS_EQUAL;
             ++index;
+        }
+        else {
+            tok->toktype = TOK_ASSIGNMENT;
         }
         return index;
     case '<':
@@ -660,6 +661,12 @@ void printtoken(mapper_token_t tok)
                                   vfunc_strings[tok.func],
                                   tok.datatype,
                                   tok.vector_length);     break;
+    case TOK_ASSIGNMENT:   printf("ASSIGN(%s%c%d%s){%d}[%d]",
+                                  var_strings[tok.var], tok.datatype,
+                                  tok.vector_length,
+                                  locked ? "'" : "",
+                                  tok.history_index,
+                                  tok.vector_index);      break;
     case TOK_END:          printf("END");                 break;
     default:               printf("(unknown token)");     break;
     }
@@ -688,47 +695,68 @@ void printexpr(const char *s, mapper_expr e)
 static char compare_token_datatype(mapper_token_t tok, char type)
 {
     // return the higher datatype
-    if (tok.datatype == 'd' || tok.casttype == 'd' || type == 'd')
+    if (tok.datatype == 'd' || type == 'd')
         return 'd';
-    else if (tok.datatype == 'f' || tok.casttype == 'f' || type == 'f')
+    else if (tok.datatype == 'f' || type == 'f')
         return 'f';
     else
         return 'i';
 }
 
-static void promote_token_datatype(mapper_token_t *tok, char type)
+static char promote_token_datatype(mapper_token_t *tok, char type)
 {
+    tok->casttype = 0;
+
     if (tok->datatype == type)
-        return;
+        return type;
+
+    if (tok->toktype == TOK_ASSIGNMENT) {
+        // typecasting is not possible
+        return tok->datatype;
+    }
 
     if (tok->toktype == TOK_CONST) {
         // constants can be cast immediately
         if (tok->datatype == 'i') {
             if (type == 'f') {
                 tok->f = (float)tok->i;
-                tok->datatype = 'f';
+                tok->datatype = type;
             }
             else if (type == 'd') {
                 tok->d = (double)tok->i;
-                tok->datatype = 'd';
+                tok->datatype = type;
             }
         }
         else if (tok->datatype == 'f') {
             if (type == 'd') {
                 tok->d = (double)tok->f;
-                tok->datatype = 'd';
+                tok->datatype = type;
+            }
+            else if (type == 'i') {
+                tok->casttype = type;
             }
         }
+        else {
+            tok->casttype = type;
+        }
+        return type;
     }
     else if (tok->toktype == TOK_VAR) {
         // we need to cast at runtime
-        if (tok->datatype == 'i' || type == 'd')
-            tok->casttype = type;
+        tok->casttype = type;
+        return type;
     }
     else {
-        if (tok->datatype == 'i' || type == 'd')
+        if (tok->datatype == 'i' || type == 'd') {
             tok->datatype = type;
+            return type;
+        }
+        else {
+            tok->casttype = type;
+            return tok->datatype;
+        }
     }
+    return type;
 }
 
 static void lock_vector_lengths(mapper_token_t *stack, int top)
@@ -754,22 +782,28 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
     char type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
 
-    if (stack[top].toktype == TOK_OP)
-        arity = op_table[stack[top].op].arity;
-    else if (stack[top].toktype == TOK_FUNC) {
-        arity = function_table[stack[top].func].arity;
-        if (stack[top].func >= FUNC_UNIFORM)
+    switch (stack[top].toktype) {
+        case TOK_OP:
+            arity = op_table[stack[top].op].arity;
+            break;
+        case TOK_FUNC:
+            arity = function_table[stack[top].func].arity;
+            if (stack[top].func >= FUNC_UNIFORM)
+                can_precompute = 0;
+            break;
+        case TOK_VFUNC:
+            arity = 1;
+            break;
+        case TOK_VECTORIZE:
+            arity = stack[top].vector_index;
             can_precompute = 0;
+            break;
+        case TOK_ASSIGNMENT:
+            arity = 1;
+            break;
+        default:
+            return top;
     }
-    else if (stack[top].toktype == TOK_VFUNC) {
-        arity = 1;
-    }
-    else if (stack[top].toktype == TOK_VECTORIZE) {
-        arity = stack[top].vector_index;
-        can_precompute = 0;
-    }
-    else
-        return top;
 
     if (arity) {
         // find operator or function inputs
@@ -830,14 +864,22 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             skip = 0;
             depth = arity;
         }
+        type = promote_token_datatype(&stack[i], type);
         while (--i >= 0) {
             // we will promote types within range of compound arity
-            promote_token_datatype(&stack[i], type);
+            type = promote_token_datatype(&stack[i], type);
 
             if (skip <= 0) {
                 // also check/promote vector length
                 if (!stack[i].vector_length_locked) {
-                    if (stack[i].toktype != TOK_VFUNC)
+                    if (stack[i].toktype == TOK_VFUNC) {
+                        if (stack[i].vector_length != vector_length) {
+                            printf("Vector length mismatch (%d != %d).\n",
+                                   stack[i].vector_length, vector_length);
+                            return -1;
+                        }
+                    }
+                    else
                         stack[i].vector_length = vector_length;
                 }
                 else if (stack[i].vector_length != vector_length) {
@@ -871,7 +913,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             if (depth <= 0 && skip <= 0)
                 break;
         }
-        stack[top].datatype = type;
 
         if (!stack[top].vector_length_locked) {
             if (stack[top].toktype != TOK_VFUNC)
@@ -975,23 +1016,29 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int lex_index = 0, outstack_index = -1, opstack_index = -1;
     int oldest_input = 0, oldest_output = 0, max_vector = 1;
 
+    int assigning = 0;
     int vectorizing = 0;
     int variable = 0;
     int allow_toktype = 0xFFFF;
+    int assignment_tokens = TOK_VAR | TOK_OPEN_SQUARE | TOK_ASSIGNMENT | TOK_COMMA;
     mapper_token_t tok;
 
     // all expressions must start with "y=" (ignoring spaces)
-    if (str[lex_index++] != 'y') return 0;
+    //if (str[lex_index++] != 'y') return 0;
     while (str[lex_index] == ' ') lex_index++;
-    if (str[lex_index++] != '=') return 0;
+    //if (str[lex_index++] != '=') return 0;
+
+    assigning = 1;
+    allow_toktype = TOK_VAR | TOK_OPEN_SQUARE;
 
     while (str[lex_index]) {
         GET_NEXT_TOKEN(tok);
         if (variable && tok.toktype != TOK_OPEN_SQUARE
             && tok.toktype != TOK_OPEN_CURLY)
             variable = 0;
-        if (!(tok.toktype & allow_toktype))
+        if (!(tok.toktype & allow_toktype & (assigning ? assignment_tokens : 0xFFFF))) {
             {FAIL("Illegal token sequence.");}
+        }
         switch (tok.toktype) {
             case TOK_CONST:
                 // push to output stack
@@ -1010,7 +1057,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 // variables can have vector and history indices
                 variable = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
                 allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
-                                TOK_COMMA | TOK_QUESTION | TOK_COLON | variable;
+                                TOK_COMMA | TOK_QUESTION | TOK_COLON |
+                                variable | (assigning ? TOK_ASSIGNMENT : 0);
                 break;
             case TOK_FUNC:
                 if (function_table[tok.func].func_int32)
@@ -1136,8 +1184,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     // vector index set
                     variable &= ~TOK_OPEN_SQUARE;
                     allow_toktype = TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN |
-                                    TOK_CLOSE_SQUARE | TOK_QUESTION |
-                                    TOK_COLON | variable;
+                                    TOK_CLOSE_SQUARE | TOK_QUESTION | TOK_COLON |
+                                    variable | (assigning ? TOK_ASSIGNMENT : 0);
                 }
                 else {
                     if (vectorizing)
@@ -1212,8 +1260,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Unmatched brace.");}
                 variable &= ~TOK_OPEN_CURLY;
                 allow_toktype = TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN |
-                                TOK_CLOSE_SQUARE | TOK_QUESTION |
-                                TOK_COLON | variable;
+                                TOK_CLOSE_SQUARE | TOK_QUESTION | TOK_COLON |
+                                variable | (assigning ? TOK_ASSIGNMENT : 0);
                 break;
             case TOK_NEGATE:
                 // push '0' to output stack, and '-' to operator stack
@@ -1225,6 +1273,24 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.op = OP_SUBTRACT;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC;
+                break;
+            case TOK_ASSIGNMENT:
+                // assignment to variable
+                // for now we assume variable is output (VAR_Y)
+                if (!assigning)
+                    {FAIL("Misplaced assignment operator.");}
+                if (opstack_index >= 0)
+                    {FAIL("Malformed expression left of assignment.");}
+                // compress everything on the outstack, move to opstack
+                if ((outstack_index == 0) && (outstack[0].toktype == TOK_VAR)
+                    && (outstack[0].var == VAR_Y)) {
+                    // nothing extraordinary, continue as normal
+                    outstack[outstack_index].toktype = TOK_ASSIGNMENT;
+                    PUSH_TO_OPERATOR(outstack[outstack_index]);
+                    outstack_index = -1;
+                }
+                assigning = 0;
+                allow_toktype = 0xFFFF;
                 break;
             default:
                 {FAIL("Unknown token type.");}
@@ -1243,23 +1309,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         POP_OPERATOR_TO_OUTPUT();
     }
 
-    // Fail if top vector length doesn't match output vector length
-    if (outstack[outstack_index].vector_length != output_vector_size)
-        {FAIL("Expression vector length does not match destination.");}
+//    // Fail if top vector length doesn't match output vector length
+//    if (outstack[outstack_index].vector_length != output_vector_size)
+//        {FAIL("Expression vector length does not match destination.");}
 
     // Check for maximum vector length used in stack
     int i;
     for (i = 0; i < outstack_index; i++) {
         if (outstack[i].vector_length > max_vector)
             max_vector = outstack[i].vector_length;
-    }
-
-    // If stack top type doesn't match output type, add cast
-    if (outstack[outstack_index].datatype != output_type) {
-        promote_token_datatype(&outstack[outstack_index], output_type);
-        outstack_index = check_types_and_lengths(outstack, outstack_index);
-        if (outstack[outstack_index].datatype != output_type)
-            outstack[outstack_index].casttype = output_type;
     }
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
@@ -1871,6 +1929,40 @@ int mapper_expr_evaluate(mapper_expr expr,
             printf(" \n");
 #endif
             break;
+        case TOK_ASSIGNMENT:
+#if TRACING
+            printf("assigning values from to output\n");
+#endif
+            if (tok->var == VAR_Y) {
+                /* Increment index position of output data structure.
+                 * We do this after computation to handle conditional output. */
+                // TODO: only do this once per update even with multiple expr
+                to->position = (to->position + 1) % to->size;
+
+                if (to->type == 'f') {
+                    float *v = msig_history_value_pointer(*to);
+                    for (i = 0; i < tok->vector_length; i++)
+                        v[i] = stack[top][i].f;
+                }
+                else if (to->type == 'i') {
+                    int *v = msig_history_value_pointer(*to);
+                    for (i = 0; i < tok->vector_length; i++)
+                        v[i] = stack[top][i].i32;
+                }
+                else if (to->type == 'd') {
+                    double *v = msig_history_value_pointer(*to);
+                    for (i = 0; i < tok->vector_length; i++)
+                        v[i] = stack[top][i].d;
+                }
+
+                if (from) {
+                    // Also copy timetag from input
+                    mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
+                    mapper_timetag_t *ttto = msig_history_tt_pointer(*to);
+                    memcpy(ttto, ttfrom, sizeof(mapper_timetag_t));
+                }
+            }
+            break;
         default: goto error;
         }
         if (tok->casttype) {
@@ -1937,13 +2029,6 @@ int mapper_expr_evaluate(mapper_expr expr,
         double *v = msig_history_value_pointer(*to);
         for (i = 0; i < to->length; i++)
             v[i] = stack[top][i].d;
-    }
-
-    if (from) {
-        // Also copy timetag from input
-        mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
-        mapper_timetag_t *ttto = msig_history_tt_pointer(*to);
-        memcpy(ttto, ttfrom, sizeof(mapper_timetag_t));
     }
 
     return 1;
