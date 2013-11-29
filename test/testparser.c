@@ -15,6 +15,7 @@ int src_int[] = {1, 2, 3}, dest_int[3];
 float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[3];
 double src_double[] = {1.0, 2.0, 3.0}, dest_double[3];
 double then, now;
+char typestring[3];
 
 mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
 
@@ -36,6 +37,50 @@ static double get_current_time()
  addition/subtraction of 0
  division by 0?
  */
+
+void print_value(char *types, int length, const void *value)
+{
+    if (!value || !types || length < 1)
+        return;
+
+    if (length > 1)
+        printf("[");
+
+    int i, j=0;
+    for (i = 0; i < length; i++) {
+        switch (types[i]) {
+            case 'N':
+                printf("NULL, ");
+                break;
+            case 'f':
+            {
+                float *pf = (float*)value;
+                printf("%f, ", pf[j++]);
+                break;
+            }
+            case 'i':
+            {
+                int *pi = (int*)value;
+                printf("%d, ", pi[j++]);
+                break;
+            }
+            case 'd':
+            {
+                double *pd = (double*)value;
+                printf("%f, ", pd[j++]);
+                break;
+            }
+            default:
+                printf("\nTYPE ERROR\n");
+                return;
+        }
+    }
+
+    if (length > 1)
+        printf("\b\b]");
+    else
+        printf("\b\b");
+}
 
 void setup_test(char in_type, int in_size, int in_length, void *in_value,
                 char out_type, int out_size, int out_length, void *out_value)
@@ -70,7 +115,7 @@ int parse_and_eval()
     printexpr("Parser returned:", e);
 #endif
 
-    if (!mapper_expr_evaluate(e, &inh, &outh)) {
+    if (!mapper_expr_evaluate(e, &inh, &outh, typestring)) {
         printf("Evaluation FAILED.\n");
         return 1;
     }
@@ -79,13 +124,13 @@ int parse_and_eval()
     printf("Calculate expression %i times... ", iterations);
     int i = iterations;
     while (i--) {
-        mapper_expr_evaluate(e, &inh, &outh);
+        mapper_expr_evaluate(e, &inh, &outh, typestring);
     }
     now = get_current_time();
     printf("%f seconds.\n", now-then);
 
     printf("Got:      ");
-    mapper_prop_pp(outh.type, outh.length, outh.value);
+    print_value(typestring, outh.length, outh.value);
     printf(" \n");
 
     mapper_expr_free(e);

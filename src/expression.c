@@ -943,7 +943,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
     h.position = -1;
     h.length = 1;
     h.size = 1;
-    if (!mapper_expr_evaluate(&e, 0, &h))
+    if (!mapper_expr_evaluate(&e, 0, &h, 0))
         return top;
 
     switch (stack[top].datatype) {
@@ -1372,13 +1372,18 @@ static void print_stack_vector(mapper_signal_value_t *stack, char type,
 
 int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *from,
-                         mapper_signal_history_t *to)
+                         mapper_signal_history_t *to,
+                         char *typestring)
 {
     mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 
     int i, j, k, top = -1, count = 0, found;
     mapper_token_t *tok = expr->start;
+
+    // init typestring
+    if (typestring)
+        memset(typestring, 'N', to->length);
 
     while (count < expr->length && tok->toktype != TOK_END) {
         switch (tok->toktype) {

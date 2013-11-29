@@ -268,7 +268,8 @@ void mapper_router_send_update(mapper_router r,
                                int history_index,
                                mapper_id_map id_map,
                                mapper_timetag_t tt,
-                               lo_blob blob);
+                               lo_blob blob,
+                               char *typestring);
 
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
@@ -457,7 +458,8 @@ void msig_release_instance_internal(mapper_signal sig,
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
-                              mapper_signal_history_t *to_value);
+                              mapper_signal_history_t *to_value,
+                              char *typestring);
 
 int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
@@ -722,7 +724,8 @@ void printexpr(const char*, mapper_expr);
 
 int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *input_history,
-                         mapper_signal_history_t *output_history);
+                         mapper_signal_history_t *output_history,
+                         char *typestring);
 
 void mapper_expr_free(mapper_expr expr);
 

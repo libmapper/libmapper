@@ -177,7 +177,7 @@ void mapper_router_process_signal(mapper_router r,
             if ((c->props.mode != MO_REVERSE) &&
                 (!c->props.send_as_instance || in_scope))
                 mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          map : 0, tt, 0);
+                                          map : 0, tt, 0, 0);
 
             c = c->next;
         }
@@ -209,13 +209,14 @@ void mapper_router_process_signal(mapper_router r,
 
         c = rs->connections;
         while (c) {
+            char typestring[c->props.dest_length];
             if ((c->props.mode == MO_REVERSE) ||
                 (c->props.send_as_instance && !in_scope)) {
                 c = c->next;
                 continue;
             }
-            if (mapper_connection_perform(c, &rs->history[id],
-                                          &c->history[id]))
+            if (mapper_connection_perform(c, &rs->history[id], &c->history[id],
+                                          typestring))
             {
                 if (mapper_boundary_perform(c, &c->history[id])) {
                     if (count > 1)
@@ -226,7 +227,7 @@ void mapper_router_process_signal(mapper_router r,
                                c->props.dest_length);
                     else
                         mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                                  map : 0, tt, 0);
+                                                  map : 0, tt, 0, typestring);
                 }
             }
             c = c->next;
@@ -240,7 +241,7 @@ void mapper_router_process_signal(mapper_router r,
                 lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
                                            * c->props.dest_length * count, c->blob);
                 mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          map : 0, tt, blob);
+                                          map : 0, tt, blob, 0);
             }
             c = c->next;
         }
@@ -253,9 +254,10 @@ void mapper_router_send_update(mapper_router r,
                                int history_index,
                                mapper_id_map id_map,
                                mapper_timetag_t tt,
-                               lo_blob blob)
+                               lo_blob blob,
+                               char *typestring)
 {
-    int i;
+    int i, j=0;
     if (!r->remote_addr)
         return;
 
@@ -275,18 +277,30 @@ void mapper_router_send_update(mapper_router r,
         }
         else if (c->history[history_index].type == 'f') {
             float *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++)
-                lo_message_add_float(m, v[i]);
+            for (i = 0; i < c->history[history_index].length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_float(m, v[j++]);
+            }
         }
         else if (c->history[history_index].type == 'i') {
             int *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++)
-                lo_message_add_int32(m, v[i]);
+            for (i = 0; i < c->history[history_index].length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_int32(m, v[i]);
+            }
         }
         else if (c->history[history_index].type == 'd') {
             double *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++)
-                lo_message_add_double(m, v[i]);
+            for (i = 0; i < c->history[history_index].length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_double(m, v[i]);
+            }
         }
     }
     else if (id_map) {

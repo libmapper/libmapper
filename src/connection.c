@@ -57,7 +57,8 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
 
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from,
-                              mapper_signal_history_t *to)
+                              mapper_signal_history_t *to,
+                              char *typestring)
 {
     int changed = 0, i;
     int vector_length = from->length < to->length ? from->length : to->length;
@@ -156,7 +157,7 @@ int mapper_connection_perform(mapper_connection connection,
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(connection->expr, from, to));
+        return (mapper_expr_evaluate(connection->expr, from, to, typestring));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -261,7 +262,7 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            return (mapper_expr_evaluate(connection->expr, from, to));
+            return (mapper_expr_evaluate(connection->expr, from, to, typestring));
         else
             return 0;
     }
