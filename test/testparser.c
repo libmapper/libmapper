@@ -46,7 +46,7 @@ void print_value(char *types, int length, const void *value)
     if (length > 1)
         printf("[");
 
-    int i, j=0;
+    int i;
     for (i = 0; i < length; i++) {
         switch (types[i]) {
             case 'N':
@@ -55,19 +55,19 @@ void print_value(char *types, int length, const void *value)
             case 'f':
             {
                 float *pf = (float*)value;
-                printf("%f, ", pf[j++]);
+                printf("%f, ", pf[i]);
                 break;
             }
             case 'i':
             {
                 int *pi = (int*)value;
-                printf("%d, ", pi[j++]);
+                printf("%d, ", pi[i]);
                 break;
             }
             case 'd':
             {
                 double *pd = (double*)value;
-                printf("%f, ", pd[j++]);
+                printf("%f, ", pd[i]);
                 break;
             }
             default:
@@ -286,6 +286,13 @@ int main()
     setup_test('d', 1, 3, src_double, 'i', 1, 3, dest_int);
     result += parse_and_eval();
     printf("Expected: [NULL, %i, %i]\n", (int)src_double[1], 10);
+
+    /* Multiple expressions */
+    snprintf(str, 256, "y[0]=x*100-23.5, y[2]=100-x*6.7");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += parse_and_eval();
+    printf("Expected: [%f, NULL, %f]\n", src_int[0]*100.f-23.5f,
+           100-src_int[0]*6.7f);
 
     printf("**********************************\n");
     printf("Failed %d tests\n", result);

@@ -257,7 +257,7 @@ void mapper_router_send_update(mapper_router r,
                                lo_blob blob,
                                char *typestring)
 {
-    int i, j=0;
+    int i;
     if (!r->remote_addr)
         return;
 
@@ -281,7 +281,7 @@ void mapper_router_send_update(mapper_router r,
                 if (typestring[i] == 'N')
                     lo_message_add_nil(m);
                 else
-                    lo_message_add_float(m, v[j++]);
+                    lo_message_add_float(m, v[i]);
             }
         }
         else if (c->history[history_index].type == 'i') {

@@ -800,6 +800,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             break;
         case TOK_ASSIGNMENT:
             arity = 1;
+            can_precompute = 0;
             break;
         default:
             return top;
@@ -1023,13 +1024,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int assignment_tokens = TOK_VAR | TOK_OPEN_SQUARE | TOK_ASSIGNMENT | TOK_COMMA;
     mapper_token_t tok;
 
-    // all expressions must start with "y=" (ignoring spaces)
-    //if (str[lex_index++] != 'y') return 0;
+    // all expressions must start with assignment e.g. "y=" (ignoring spaces)
     while (str[lex_index] == ' ') lex_index++;
-    //if (str[lex_index++] != '=') return 0;
 
     assigning = 1;
-    allow_toktype = TOK_VAR | TOK_OPEN_SQUARE;
+    allow_toktype = TOK_VAR;
 
     while (str[lex_index]) {
         GET_NEXT_TOKEN(tok);
@@ -1109,8 +1108,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                        && opstack[opstack_index].toktype != TOK_VECTORIZE) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                if (opstack_index < 0)
-                    {FAIL("Unmatched parentheses, brackets or misplaced comma.");}
+                if (opstack_index < 0) {
+                    // could be starting another sub-expression
+                    assigning = 1;
+                    allow_toktype = TOK_VAR;
+                    break;
+                }
                 if (opstack[opstack_index].toktype == TOK_VECTORIZE) {
                     opstack[opstack_index].vector_index++;
                     opstack[opstack_index].vector_length +=
@@ -1282,12 +1285,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index >= 0)
                     {FAIL("Malformed expression left of assignment.");}
                 // compress everything on the outstack, move to opstack
-                if ((outstack_index == 0) && (outstack[0].toktype == TOK_VAR)
-                    && (outstack[0].var == VAR_Y)) {
+                if ((outstack[outstack_index].toktype == TOK_VAR) &&
+                    (outstack[outstack_index].var == VAR_Y)) {
                     // nothing extraordinary, continue as normal
                     outstack[outstack_index].toktype = TOK_ASSIGNMENT;
                     PUSH_TO_OPERATOR(outstack[outstack_index]);
-                    outstack_index = -1;
+                    outstack_index--;
                 }
                 assigning = 0;
                 allow_toktype = 0xFFFF;
@@ -1302,6 +1305,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 #endif
     }
 
+    if (allow_toktype & TOK_CONST)
+        {FAIL("Malformed expression.");}
+
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0) {
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
@@ -1309,6 +1315,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         POP_OPERATOR_TO_OUTPUT();
     }
 
+#if TRACING
+    printstack("--->OUTPUT STACK:", outstack, outstack_index);
+    printstack("--->OPERATOR STACK:", opstack, opstack_index);
+#endif
+
+    // TODO: check if expr vector length matches assignment vector length
 //    // Fail if top vector length doesn't match output vector length
 //    if (outstack[outstack_index].vector_length != output_vector_size)
 //        {FAIL("Expression vector length does not match destination.");}
@@ -1378,18 +1390,29 @@ int mapper_expr_evaluate(mapper_expr expr,
     mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 
-    int i, j, k, top = -1, count = 0, found;
+    int i, j, k, top = -1, count = 0, found, updated = 0;
     mapper_token_t *tok = expr->start;
 
     // init typestring
     if (typestring)
         memset(typestring, 'N', to->length);
 
+    /* Increment index position of output data structure. */
+    to->position = (to->position + 1) % to->size;
+
     while (count < expr->length && tok->toktype != TOK_END) {
         switch (tok->toktype) {
         case TOK_CONST:
             ++top;
             dims[top] = tok->vector_length;
+#if TRACING
+            if (tok->datatype == 'f')
+                printf("storing const %f\n", tok->f);
+            else if (tok->datatype == 'i')
+                printf("storing const %i\n", tok->i);
+            else if (tok->datatype == 'd')
+                printf("storing const %f\n", tok->d);
+#endif
             if (tok->datatype == 'f') {
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].f = tok->f;
@@ -1936,28 +1959,24 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         case TOK_ASSIGNMENT:
 #if TRACING
-            printf("assigning values from to output\n");
+            printf("assigning values to variable[%i]\n", tok->vector_index);
 #endif
+            updated++;
             if (tok->var == VAR_Y) {
-                /* Increment index position of output data structure.
-                 * We do this after computation to handle conditional output. */
-                // TODO: only do this once per update even with multiple expr
-                to->position = (to->position + 1) % to->size;
-
                 if (to->type == 'f') {
                     float *v = msig_history_value_pointer(*to);
                     for (i = 0; i < tok->vector_length; i++)
-                        v[i] = stack[top][i].f;
+                        v[i + tok->vector_index] = stack[top][i].f;
                 }
                 else if (to->type == 'i') {
                     int *v = msig_history_value_pointer(*to);
                     for (i = 0; i < tok->vector_length; i++)
-                        v[i] = stack[top][i].i32;
+                        v[i + tok->vector_index] = stack[top][i].i32;
                 }
                 else if (to->type == 'd') {
                     double *v = msig_history_value_pointer(*to);
                     for (i = 0; i < tok->vector_length; i++)
-                        v[i] = stack[top][i].d;
+                        v[i + tok->vector_index] = stack[top][i].d;
                 }
 
                 if (typestring) {
@@ -1965,14 +1984,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                         typestring[i] = tok->datatype;
                     }
                 }
-
-                if (from) {
-                    // Also copy timetag from input
-                    mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
-                    mapper_timetag_t *ttto = msig_history_tt_pointer(*to);
-                    memcpy(ttto, ttfrom, sizeof(mapper_timetag_t));
-                }
             }
+            top--;
             break;
         default: goto error;
         }
@@ -2022,24 +2035,42 @@ int mapper_expr_evaluate(mapper_expr expr,
         count++;
     }
 
-    /* Increment index position of output data structure.
-     * We do this after computation to handle conditional output. */
-    to->position = (to->position + 1) % to->size;
+    if (!typestring) {
+        /* Internal evaluation during parsing doesn't contain assignment token,
+         * so we need to copy to output here. */
 
-    if (to->type == 'f') {
-        float *v = msig_history_value_pointer(*to);
-        for (i = 0; i < to->length; i++)
-            v[i] = stack[top][i].f;
+        /* Increment index position of output data structure.
+         * We do this after computation to handle conditional output. */
+        to->position = (to->position + 1) % to->size;
+
+        if (to->type == 'f') {
+            float *v = msig_history_value_pointer(*to);
+            for (i = 0; i < to->length; i++)
+                v[i] = stack[top][i].f;
+        }
+        else if (to->type == 'i') {
+            int *v = msig_history_value_pointer(*to);
+            for (i = 0; i < to->length; i++)
+                v[i] = stack[top][i].i32;
+        }
+        else if (to->type == 'd') {
+            double *v = msig_history_value_pointer(*to);
+            for (i = 0; i < to->length; i++)
+                v[i] = stack[top][i].d;
+        }
     }
-    else if (to->type == 'i') {
-        int *v = msig_history_value_pointer(*to);
-        for (i = 0; i < to->length; i++)
-            v[i] = stack[top][i].i32;
+
+    /* Undo position increment if nothing was updated. */
+    if (!updated) {
+        --to->position;
+        if (to->position < 0)
+            to->position = to->size - 1;
     }
-    else if (to->type == 'd') {
-        double *v = msig_history_value_pointer(*to);
-        for (i = 0; i < to->length; i++)
-            v[i] = stack[top][i].d;
+    else if (from) {
+        // Also copy timetag from input
+        mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
+        mapper_timetag_t *ttto = msig_history_tt_pointer(*to);
+        memcpy(ttto, ttfrom, sizeof(mapper_timetag_t));
     }
 
     return 1;
