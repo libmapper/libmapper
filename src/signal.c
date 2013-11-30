@@ -63,6 +63,8 @@ mapper_signal msig_new(const char *name, int length, char type,
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
     sig->props.num_instances = 0;
+    sig->has_complete_value = calloc(1, length / 8 + 1);
+    memset(sig->has_complete_value, 0xFF, length / 8 + 1);
     sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
@@ -90,8 +92,10 @@ void msig_free(mapper_signal sig)
     }
     free(sig->id_maps);
     for (i = 0; i < sig->props.num_instances; i++) {
-        if(sig->instances[i]->value)
+        if (sig->instances[i]->value)
             free(sig->instances[i]->value);
+        if (sig->instances[i]->has_value_flags)
+            free(sig->instances[i]->has_value_flags);
         free(sig->instances[i]);
     }
     free(sig->instances);
@@ -103,6 +107,8 @@ void msig_free(mapper_signal sig)
         free((char*)sig->props.name);
     if (sig->props.unit)
         free((char*)sig->props.unit);
+    if (sig->has_complete_value)
+        free(sig->has_complete_value);
     if (sig->props.extra)
         table_free(sig->props.extra, 1);
     free(sig);
@@ -532,6 +538,7 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
         (mapper_signal_instance) calloc(1, sizeof(struct _mapper_signal_instance));
     si = sig->instances[sig->props.num_instances];
     si->value = calloc(1, msig_vector_bytes(sig));
+    si->has_value_flags = calloc(1, sig->props.length / 8 + 1);
     si->has_value = 0;
 
     if (id)

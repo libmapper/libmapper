@@ -1960,6 +1960,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                         v[i] = stack[top][i].d;
                 }
 
+                if (typestring) {
+                    for (i = tok->vector_index; i < tok->vector_index + tok->vector_length; i++) {
+                        typestring[i] = tok->datatype;
+                    }
+                }
+
                 if (from) {
                     // Also copy timetag from input
                     mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);

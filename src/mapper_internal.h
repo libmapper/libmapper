@@ -29,6 +29,9 @@ struct _mapper_signal
     /*! Array of pointers to the signal instances. */
     struct _mapper_signal_instance **instances;
 
+    /*! Bitflag value when entire signal vector is known. */
+    char *has_complete_value;
+
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
 
@@ -113,6 +116,7 @@ typedef struct _mapper_signal_instance
 
     /*! Indicates whether this instance has a value. */
     int has_value;
+    char *has_value_flags;
 
     /*! The current value of this signal instance. */
     void *value;

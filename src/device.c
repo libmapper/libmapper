@@ -204,17 +204,14 @@ static int handler_signal(const char *path, const char *types,
                           void *user_data)
 {
     mapper_signal sig = (mapper_signal) user_data;
-    mapper_device md = sig->device;
+    mapper_device md;
     void *dataptr = 0;
     int count = 1;
 
-    if (!md) {
-        trace("error, sig->device==0\n");
+    if (!sig || !(md = sig->device)) {
+        trace("error, cannot retrieve user_data\n");
         return 0;
     }
-
-    if (!sig)
-        return 0;
 
     lo_timetag tt = lo_message_get_timestamp(msg);
 
@@ -231,20 +228,25 @@ static int handler_signal(const char *path, const char *types,
         count = lo_blob_datasize((lo_blob)argv[0]) /
             mapper_type_size(sig->props.type);
     }
-    else
-        dataptr = argv[0];
-
-    if (types[0] == LO_NIL) {
+    else if (argc == 1 && types[0] == LO_NIL) {
         si->has_value = 0;
+        memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
     }
     else {
-        /* This is cheating a bit since we know that the arguments pointed
-         * to by argv are layed out sequentially in memory.  It's not
-         * clear if liblo's semantics guarantee it, but known to be true
-         * on all platforms. */
-        // TODO: should copy last value from sample vector (or add history)
-        memcpy(si->value, dataptr, msig_vector_bytes(sig));
-        si->has_value = 1;
+        int i = 0, size = mapper_type_size(sig->props.type);
+        while (i < argc && i < sig->props.length) {
+            if (types[i] != sig->props.type) {
+                i++;
+                continue;
+            }
+            memcpy(si->value + i * size, argv[i], size);
+            si->has_value_flags[i/8] |= 1 << (i % 8);
+            i++;
+        }
+        if (!si->has_value && memcmp(si->has_value_flags, sig->has_complete_value, sig->props.length / 8 + 1))
+            si->has_value = 1;
+        if (si->has_value)
+            dataptr = si->value;
     }
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
@@ -340,14 +342,18 @@ static int handler_signal_instance(const char *path, const char *types,
                 mapper_type_size(sig->props.type);
         }
         else {
-            /* This is cheating a bit since we know that the arguments pointed
-             * to by argv are layed out sequentially in memory.  It's not
-             * clear if liblo's semantics guarantee it, but known to be true
-             * on all platforms. */
-            // TODO: should copy last value from sample vector (or add history)
-            memcpy(si->value, argv[2], msig_vector_bytes(sig));
-            si->has_value = 1;
-            dataptr = si->value;
+            int i = 0, size = mapper_type_size(sig->props.type);
+            while (i < argc && i < sig->props.length) {
+                if (types[i] != sig->props.type)
+                    continue;
+                memcpy(si->value + i * size, argv[i], size);
+                si->has_value_flags[i/8] |= 1 << (i % 8);
+                i++;
+            }
+            if (!si->has_value && memcmp(si->has_value_flags, sig->has_complete_value, sig->props.length / 8 + 1))
+                si->has_value = 1;
+            if (si->has_value)
+                dataptr = si->value;
         }
 
         if (sig->handler) {
@@ -480,30 +486,8 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     type_string[0] = type_string[1] = 'i';
     memset(type_string + 2, sig->props.type, sig->props.length);
     type_string[sig->props.length + 2] = 0;
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         type_string + 2,
-                         handler_signal, (void *) (sig));
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         "b",
-                         handler_signal, (void *) (sig));
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         "N",
-                         handler_signal, (void *) (sig));
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         type_string,
-                         handler_signal_instance, (void *) (sig));
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         "iib",
-                         handler_signal_instance, (void *) (sig));
-    lo_server_add_method(md->server,
-                         sig->props.name,
-                         "iiN",
-                         handler_signal_instance, (void *) (sig));
+    lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
+                         (void *) (sig));
     int len = strlen(sig->props.name) + 5;
     signal_get = (char*) realloc(signal_get, len);
     snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
@@ -1161,30 +1145,8 @@ void mdev_start_server(mapper_device md, int starting_port)
             memset(type + 2, md->inputs[i]->props.type,
                    md->inputs[i]->props.length);
             type[md->inputs[i]->props.length + 2] = 0;
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 type + 2,
+            lo_server_add_method(md->server, md->inputs[i]->props.name, NULL,
                                  handler_signal, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 "b",
-                                 handler_signal, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 "N",
-                                 handler_signal, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 type,
-                                 handler_signal_instance, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 "iib",
-                                 handler_signal_instance, (void *) (md->inputs[i]));
-            lo_server_add_method(md->server,
-                                 md->inputs[i]->props.name,
-                                 "iiN",
-                                 handler_signal_instance, (void *) (md->inputs[i]));
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             path = (char*) realloc(path, len);
             snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
