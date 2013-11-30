@@ -243,7 +243,8 @@ static int handler_signal(const char *path, const char *types,
             si->has_value_flags[i/8] |= 1 << (i % 8);
             i++;
         }
-        if (!si->has_value && memcmp(si->has_value_flags, sig->has_complete_value, sig->props.length / 8 + 1))
+        if (!si->has_value && memcmp(si->has_value_flags,
+            sig->has_complete_value, sig->props.length / 8 + 1)==0)
             si->has_value = 1;
         if (si->has_value)
             dataptr = si->value;
@@ -350,7 +351,8 @@ static int handler_signal_instance(const char *path, const char *types,
                 si->has_value_flags[i/8] |= 1 << (i % 8);
                 i++;
             }
-            if (!si->has_value && memcmp(si->has_value_flags, sig->has_complete_value, sig->props.length / 8 + 1))
+            if (!si->has_value && memcmp(si->has_value_flags,
+                sig->has_complete_value, sig->props.length / 8 + 1)==0)
                 si->has_value = 1;
             if (si->has_value)
                 dataptr = si->value;

@@ -52,6 +52,7 @@ mapper_signal msig_new(const char *name, int length, char type,
                        mapper_signal_update_handler *handler,
                        void *user_data)
 {
+    int i;
     if (length < 1) return 0;
     if (!name) return 0;
     if (type != 'f' && type != 'i' && type != 'd')
@@ -64,7 +65,9 @@ mapper_signal msig_new(const char *name, int length, char type,
     sig->handler = handler;
     sig->props.num_instances = 0;
     sig->has_complete_value = calloc(1, length / 8 + 1);
-    memset(sig->has_complete_value, 0xFF, length / 8 + 1);
+    for (i = 0; i < length; i++) {
+        sig->has_complete_value[i/8] |= 1 << (i % 8);
+    }
     sig->props.user_data = user_data;
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
