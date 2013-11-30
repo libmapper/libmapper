@@ -539,7 +539,7 @@ void mapper_connection_set_mode_direct(mapper_connection c)
 
 void mapper_connection_set_mode_linear(mapper_connection c)
 {
-    int i;
+    int i, len;
     char expr[256] = "";
     const char *e = expr;
     mapper_connection_range_t r = c->props.range;
@@ -547,75 +547,42 @@ void mapper_connection_set_mode_linear(mapper_connection c)
     if (r.known != CONNECTION_RANGE_KNOWN)
         return;
 
-    if (c->props.dest_length == 1) {
-        if (memcmp(r.src_min, r.src_max,
-                   mapper_type_size(c->props.src_type))==0) {
-            // set value to constant to avoid division by zero
-            if (c->props.src_type == 'f') {
-                float *temp = (float*)r.dest_min;
-                snprintf(expr, 256, "y=%g", temp[0]);
-            }
-            else if (c->props.src_type == 'i') {
-                int *temp = (int*)r.dest_min;
-                snprintf(expr, 256, "y=%i", temp[0]);
-            }
-            else if (c->props.src_type == 'd') {
-                double *temp = (double*)r.dest_min;
-                snprintf(expr, 256, "y=%g", temp[0]);
-            }
-        }
-        else {
-            double src_min, src_max, dest_min, dest_max;
-            if (c->props.src_length > 1)
-                snprintf(expr, 256, "y=x[0]");
-            else
-                snprintf(expr, 256, "y=x");
+    int min_length = c->props.src_length < c->props.dest_length ?
+                     c->props.src_length : c->props.dest_length;
+    double src_min, src_max, dest_min, dest_max;
 
-            src_min = propval_get_double(r.src_min, c->props.src_type, 0);
-            src_max = propval_get_double(r.src_max, c->props.src_type, 0);
-            dest_min = propval_get_double(r.dest_min, c->props.dest_type, 0);
-            dest_max = propval_get_double(r.dest_max, c->props.dest_type, 0);
-
-            if ((src_min != dest_min) || (src_max != dest_max)) {
-                double scale = ((dest_min - dest_max) / (src_min - src_max));
-                double offset = ((dest_max * src_min - dest_min * src_max)
-                                 / (src_min - src_max));
-                snprintf(expr+strlen(expr), 256, "*(%g)+(%g)", scale, offset);
-            }
-        }
+    if (c->props.dest_length == c->props.src_length)
+        snprintf(expr, 256, "y=x*");
+    else if (c->props.dest_length > c->props.src_length) {
+        if (min_length == 1)
+            snprintf(expr, 256, "y[0]=x*");
+        else
+            snprintf(expr, 256, "y[0:%i]=x*", min_length);
     }
     else {
-        int len, diff;
-        int min_length = c->props.src_length < c->props.dest_length ?
-                         c->props.src_length : c->props.dest_length;
-        double src_min, src_max, dest_min, dest_max;
+        if (min_length == 1)
+            snprintf(expr, 256, "y=x[0]*");
+        else
+            snprintf(expr, 256, "y=x[0:%i]*", min_length);
+    }
 
-        if (c->props.src_length == c->props.dest_length)
-            snprintf(expr, 256, "y=x*[");
-        else if (c->props.src_length > c->props.dest_length)
-            snprintf(expr, 256, "y=x[0:%i]*[", c->props.dest_length-1);
+    if (min_length > 1) {
+        len = strlen(expr);
+        snprintf(expr+len, 256-len, "[");
+    }
+
+    for (i = 0; i < min_length; i++) {
+        // get multiplier
+        src_min = propval_get_double(r.src_min, c->props.src_type, i);
+        src_max = propval_get_double(r.src_max, c->props.src_type, i);
+
+        len = strlen(expr);
+        if (src_min == src_max)
+            snprintf(expr+len, 256-len, "0,");
         else {
-            diff = c->props.dest_length - c->props.src_length;
-            snprintf(expr, 256, "y=[x,");
-            while (diff--) {
-                len = strlen(expr);
-                snprintf(expr+len, 256-len, "0,");
-            }
-            len = strlen(expr);
-            snprintf(expr+len-1, 256-len+1, "]*[");
-        }
-
-        // add scale
-        for (i=0; i<min_length; i++) {
-            src_min = propval_get_double(r.src_min, c->props.src_type, i);
-            src_max = propval_get_double(r.src_max, c->props.src_type, i);
             dest_min = propval_get_double(r.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(r.dest_max, c->props.dest_type, i);
-
-            len = strlen(expr);
-            if (src_min == src_max)
-                snprintf(expr+len, 256-len, "0,");
-            else if ((src_min == dest_min) && (src_max == dest_max)) {
+            if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "1,");
             }
             else {
@@ -623,25 +590,25 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                 snprintf(expr+len, 256-len, "%g,", scale);
             }
         }
-        diff = c->props.dest_length - c->props.src_length;
-        while (diff--) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "0,");
-        }
-        len = strlen(expr);
+    }
+    len = strlen(expr);
+    if (min_length > 1)
         snprintf(expr+len-1, 256-len+1, "]+[");
+    else
+        snprintf(expr+len-1, 256-len+1, "+");
 
-        // add offset
-        for (i=0; i<min_length; i++) {
-            src_min = propval_get_double(r.src_min, c->props.src_type, i);
-            src_max = propval_get_double(r.src_max, c->props.src_type, i);
+    // add offset
+    for (i=0; i<min_length; i++) {
+        src_min = propval_get_double(r.src_min, c->props.src_type, i);
+        src_max = propval_get_double(r.src_max, c->props.src_type, i);
+
+        len = strlen(expr);
+        if (src_min == src_max)
+            snprintf(expr+len, 256-len, "%g,", src_min);
+        else {
             dest_min = propval_get_double(r.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(r.dest_max, c->props.dest_type, i);
-
-            len = strlen(expr);
-            if (src_min == src_max)
-                snprintf(expr+len, 256-len, "%g,", src_min);
-            else if ((src_min == dest_min) && (src_max == dest_max)) {
+            if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "0,");
             }
             else {
@@ -650,14 +617,12 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                 snprintf(expr+len, 256-len, "%g,", offset);
             }
         }
-        diff = c->props.dest_length - c->props.src_length;
-        while (diff--) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "0,");
-        }
-        len = strlen(expr);
-        snprintf(expr+len-1, 256-len+1, "]");
     }
+    len = strlen(expr);
+    if (min_length > 1)
+        snprintf(expr+len-1, 256-len+1, "]");
+    else
+        expr[len-1] = '\0';
 
     // If everything is successful, replace the connection's expression.
     if (e) {
@@ -697,27 +662,38 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
 
     char expr[256];
     int i, len;
+    int min_length = c->props.src_length < c->props.dest_length ?
+                     c->props.src_length : c->props.dest_length;
 
-    if (c->props.dest_length > 1)
-        snprintf(expr, 256, "y=[");
+    if (c->props.dest_length > c->props.src_length) {
+        if (min_length == 1)
+            snprintf(expr, 256, "y[0]=");
+        else
+            snprintf(expr, 256, "y[0:%i]=", min_length);
+    }
     else
         snprintf(expr, 256, "y=");
 
-    if (c->props.src_type == 'f') {
+    if (c->props.dest_length > 1) {
+        len = strlen(expr);
+        snprintf(expr+len, 256-len, "[");
+    }
+
+    if (c->props.dest_type == 'f') {
         float *temp = (float*)c->props.range.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%g,", temp[i]);
         }
     }
-    else if (c->props.src_type == 'i') {
+    else if (c->props.dest_type == 'i') {
         int *temp = (int*)c->props.range.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%i,", temp[i]);
         }
     }
-    else if (c->props.src_type == 'd') {
+    else if (c->props.dest_type == 'd') {
         double *temp = (double*)c->props.range.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
@@ -725,10 +701,11 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
         }
     }
 
-    if (c->props.dest_length > 1) {
-        len = strlen(expr);
+    len = strlen(expr);
+    if (c->props.dest_length > 1)
         snprintf(expr+len-1, 256-len+1, "]");
-    }
+    else
+        expr[len-1] = '\0';
 
     c->props.expression = strdup(expr);
 
@@ -1044,18 +1021,20 @@ void mapper_connection_set_from_message(mapper_connection c,
                 else {
                     char expr[256] = "";
                     if (c->props.src_length > c->props.dest_length) {
-                        // truncate
-                        snprintf(expr, 256, "y=x[0:%i]", c->props.dest_length-1);
+                        // truncate source
+                        if (c->props.dest_length == 1)
+                            snprintf(expr, 256, "y=x[0]");
+                        else
+                            snprintf(expr, 256, "y=x[0:%i]",
+                                     c->props.dest_length-1);
                     }
                     else {
-                        // zero-pad
-                        int diff = c->props.dest_length - c->props.src_length;
-                        snprintf(expr, 256, "y=[x,");
-                        while (diff--) {
-                            int len = strlen(expr);
-                            snprintf(expr+len, 256-len, "0,");
-                        }
-                        expr[strlen(expr)-1] = ']';
+                        // truncate destination
+                        if (c->props.src_length == 1)
+                            snprintf(expr, 256, "y[0]=x");
+                        else
+                            snprintf(expr, 256, "y[0:%i]=x",
+                                     c->props.src_length);
                     }
                     c->props.expression = strdup(expr);
                 }
