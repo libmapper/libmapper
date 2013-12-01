@@ -604,7 +604,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
 
         len = strlen(expr);
         if (src_min == src_max)
-            snprintf(expr+len, 256-len, "%g,", src_min);
+            snprintf(expr+len, 256-len, "%g,", dest_min);
         else {
             dest_min = propval_get_double(r.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(r.dest_max, c->props.dest_type, i);
