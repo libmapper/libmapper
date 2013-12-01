@@ -169,6 +169,9 @@ void mapper_receiver_send_update(mapper_receiver r,
             continue;
         }
 
+        // TODO: check sendAsInstance property of connection
+        // TODO: check if link scoped to carry instance
+
         if (sig->props.num_instances == 1) {
             lo_message m = lo_message_new();
             if (!m)
@@ -182,12 +185,17 @@ void mapper_receiver_send_update(mapper_receiver r,
             lo_message m = lo_message_new();
             if (!m)
                 return;
+            if (si->has_value) {
+                // TODO: need to determine proper typestring if N != M
+                message_add_coerced_signal_value(m, sig, si, c->props.src_type);
+            }
+            else {
+                for (i = 0; i < c->props.src_length; i++)
+                    lo_message_add_nil(m);
+            }
+            lo_message_add_string(m, "@instance");
             lo_message_add_int32(m, map->origin);
             lo_message_add_int32(m, map->public);
-            if (si->has_value)
-                message_add_coerced_signal_value(m, sig, si, c->props.src_type);
-            else
-                lo_message_add_nil(m);
             lo_bundle_add_message(b, c->props.query_name, m);
         }
         else {

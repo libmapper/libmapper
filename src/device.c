@@ -199,85 +199,31 @@ static void mdev_increment_version(mapper_device md)
     }
 }
 
-static int handler_signal(const char *path, const char *types,
-                          lo_arg **argv, int argc, lo_message msg,
-                          void *user_data)
+static int handler_signal_instance(mapper_signal sig, const char *types,
+                                   lo_arg **argv, int argc, lo_message msg)
 {
-    mapper_signal sig = (mapper_signal) user_data;
-    mapper_device md;
-    void *dataptr = 0;
-    int count = 1;
-
-    if (!sig || !(md = sig->device)) {
-        trace("error, cannot retrieve user_data\n");
-        return 0;
-    }
-
-    lo_timetag tt = lo_message_get_timestamp(msg);
-
-    int index = 0;
-    if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
-    if (index < 0)
-        return 0;
-
-    mapper_signal_instance si = sig->id_maps[index].instance;
-
-    if (types[0] == LO_BLOB) {
-        dataptr = lo_blob_dataptr((lo_blob)argv[0]);
-        count = lo_blob_datasize((lo_blob)argv[0]) /
-            mapper_type_size(sig->props.type);
-    }
-    else if (argc == 1 && types[0] == LO_NIL) {
-        si->has_value = 0;
-        memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
-    }
-    else {
-        int i = 0, size = mapper_type_size(sig->props.type);
-        while (i < argc && i < sig->props.length) {
-            if (types[i] != sig->props.type) {
-                i++;
-                continue;
-            }
-            memcpy(si->value + i * size, argv[i], size);
-            si->has_value_flags[i/8] |= 1 << (i % 8);
-            i++;
-        }
-        if (!si->has_value && memcmp(si->has_value_flags,
-            sig->has_complete_value, sig->props.length / 8 + 1)==0)
-            si->has_value = 1;
-        if (si->has_value)
-            dataptr = si->value;
-    }
-    si->timetag.sec = tt.sec;
-    si->timetag.frac = tt.frac;
-    if (sig->handler)
-        sig->handler(sig, &sig->props, sig->id_maps[index].map->local,
-                     dataptr, count, &tt);
-    if (!sig->props.is_output)
-        mdev_receive_update(md, sig, index, tt);
-
-    return 0;
-}
-
-static int handler_signal_instance(const char *path, const char *types,
-                                   lo_arg **argv, int argc, lo_message msg,
-                                   void *user_data)
-{
-    mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
     void *dataptr = 0;
-    int count = 1;
+    int i, count = 1, nulls = 0;
 
     if (!md) {
         trace("error, sig->device==0\n");
         return 0;
     }
-    if (argc < 3)
-        return 0;
 
-    int origin = argv[0]->i32;
-    int public_id = argv[1]->i32;
+    // check types
+    for (i = 0; i < sig->props.length; i++) {
+        if (types[i] == 'N')
+            nulls++;
+        else if (types[i] != sig->props.type) {
+            trace("error, unexpected typestring for signal %s\n",
+                  sig->props.name);
+            return 0;
+        }
+    }
+
+    int origin = argv[sig->props.length+1]->i32;
+    int public_id = argv[sig->props.length+2]->i32;
 
     int index = msig_find_instance_with_remote_ids(sig, origin, public_id,
                                                    IN_RELEASED_LOCALLY);
@@ -287,7 +233,7 @@ static int handler_signal_instance(const char *path, const char *types,
     mapper_id_map map;
     if (index < 0) {    // no instance found with this map
         // Don't activate instance just to release it again
-        if (types[2] == LO_NIL || types[2] == LO_FALSE)
+        if (nulls == sig->props.length)
             return 0;
 
         // otherwise try to init reserved/stolen instance with device map
@@ -301,7 +247,7 @@ static int handler_signal_instance(const char *path, const char *types,
     else {
         if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
             // map was already released locally, we are only interested in release messages
-            if (types[2] == LO_NIL || types[2] == LO_FALSE) {
+            if (nulls == sig->props.length) {
                 // we can clear signal's reference to map
                 map = sig->id_maps[index].map;
                 sig->id_maps[index].map = 0;
@@ -324,7 +270,8 @@ static int handler_signal_instance(const char *path, const char *types,
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
-    if (types[2] == LO_NIL) {
+    if (nulls == sig->props.length) {
+        // TODO: handle multiple upstream devices
         sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
         map->refcount_remote--;
         if (sig->instance_event_handler
@@ -337,10 +284,10 @@ static int handler_signal_instance(const char *path, const char *types,
         }
     }
     else {
-        if (types[2] == LO_BLOB) {
-            dataptr = lo_blob_dataptr((lo_blob)argv[2]);
-            count = lo_blob_datasize((lo_blob)argv[2]) /
-                mapper_type_size(sig->props.type);
+        if (types[0] == LO_BLOB) {
+            dataptr = lo_blob_dataptr((lo_blob)argv[0]);
+            count = lo_blob_datasize((lo_blob)argv[0]) /
+            mapper_type_size(sig->props.type);
         }
         else {
             int i = 0, size = mapper_type_size(sig->props.type);
@@ -352,7 +299,8 @@ static int handler_signal_instance(const char *path, const char *types,
                 i++;
             }
             if (!si->has_value && memcmp(si->has_value_flags,
-                sig->has_complete_value, sig->props.length / 8 + 1)==0)
+                                         sig->has_complete_value,
+                                         sig->props.length / 8 + 1)==0)
                 si->has_value = 1;
             if (si->has_value)
                 dataptr = si->value;
@@ -364,6 +312,101 @@ static int handler_signal_instance(const char *path, const char *types,
     }
     if (!sig->props.is_output)
         mdev_receive_update(md, sig, index, tt);
+    return 0;
+}
+
+static int handler_signal(const char *path, const char *types,
+                          lo_arg **argv, int argc, lo_message msg,
+                          void *user_data)
+{
+    mapper_signal sig = (mapper_signal) user_data;
+    mapper_device md;
+    void *dataptr = 0;
+    int i, count = 1, nulls = 0, offset;
+
+    if (!sig || !(md = sig->device)) {
+        trace("error, cannot retrieve user_data\n");
+        return 0;
+    }
+
+    if (!argc)
+        return 0;
+
+    // check types
+    if (types[0] == LO_BLOB) {
+        offset = 1;
+    }
+    else if (argc < sig->props.length)
+        return 0;
+    else {
+        for (i = 0; i < sig->props.length; i++) {
+            if (types[i] == 'N')
+                nulls++;
+            else if (types[i] != sig->props.type) {
+                trace("error, unexpected typestring for signal %s\n",
+                      sig->props.name);
+                return 0;
+            }
+        }
+        offset = sig->props.length;
+    }
+
+    if (argc >= offset + 3) {
+        // could be instance
+        if (types[offset] != 's' && types[offset] != 'S')
+            return 0;
+        if (strcmp(&argv[offset]->s, "@instance") != 0)
+            return 0;
+        if (types[offset+1] != 'i' || types[offset+2] != 'i')
+            return 0;
+        return handler_signal_instance(sig, types, argv, argc, msg);
+    }
+
+    lo_timetag tt = lo_message_get_timestamp(msg);
+
+    int index = 0;
+    if (!sig->id_maps[0].instance)
+        index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
+    if (index < 0)
+        return 0;
+
+    mapper_signal_instance si = sig->id_maps[index].instance;
+
+    if (types[0] == LO_BLOB) {
+        dataptr = lo_blob_dataptr((lo_blob)argv[0]);
+        count = lo_blob_datasize((lo_blob)argv[0]) /
+            mapper_type_size(sig->props.type);
+    }
+    else if (nulls == sig->props.length) {
+        si->has_value = 0;
+        memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
+    }
+    else {
+        int i = 0, size = mapper_type_size(sig->props.type);
+        while (i < argc && i < sig->props.length) {
+            if (types[i] != sig->props.type) {
+                i++;
+                continue;
+            }
+            memcpy(si->value + i * size, argv[i], size);
+            si->has_value_flags[i/8] |= 1 << (i % 8);
+            i++;
+        }
+        if (!si->has_value && memcmp(si->has_value_flags,
+                                     sig->has_complete_value,
+                                     sig->props.length / 8 + 1)==0)
+            si->has_value = 1;
+        if (si->has_value)
+            dataptr = si->value;
+    }
+    si->timetag.sec = tt.sec;
+    si->timetag.frac = tt.frac;
+    if (sig->handler)
+        sig->handler(sig, &sig->props, sig->id_maps[index].map->local,
+                     dataptr, count, &tt);
+    if (!sig->props.is_output)
+        mdev_receive_update(md, sig, index, tt);
+
     return 0;
 }
 
@@ -539,22 +582,7 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
     type[0] = type[1] = 'i';
     memset(type + 2, sig->props.type, sig->props.length);
     type[sig->props.length + 2] = 0;
-    lo_server_add_method(md->server,
-                         path,
-                         type + 2,
-                         handler_signal, (void *)sig);
-    lo_server_add_method(md->server,
-                         path,
-                         type,
-                         handler_signal_instance, (void *)sig);
-    lo_server_add_method(md->server,
-                         path,
-                         "N",
-                         handler_signal, (void *)sig);
-    lo_server_add_method(md->server,
-                         path,
-                         "iiN",
-                         handler_signal_instance, (void *)sig);
+    lo_server_add_method(md->server, path, NULL, handler_signal, (void *)sig);
     md->n_output_callbacks ++;
     free(path);
     free(type);
@@ -1167,22 +1195,8 @@ void mdev_start_server(mapper_device md, int starting_port)
                 int len = (int) strlen(md->outputs[i]->props.name) + 5;
                 path = (char*) realloc(path, len);
                 snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
-                lo_server_add_method(md->server,
-                                     path,
-                                     type + 2,
-                                     handler_signal, (void *) (md->outputs[i]));
-                lo_server_add_method(md->server,
-                                     path,
-                                     type,
-                                     handler_signal_instance, (void *) (md->outputs[i]));
-                lo_server_add_method(md->server,
-                                     path,
-                                     "N",
-                                     handler_signal, (void *) (md->outputs[i]));
-                lo_server_add_method(md->server,
-                                     path,
-                                     "iiN",
-                                     handler_signal_instance, (void *) (md->outputs[i]));
+                lo_server_add_method(md->server, path, NULL, handler_signal,
+                                     (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
             }
             if (md->outputs[i]->instance_event_handler &&

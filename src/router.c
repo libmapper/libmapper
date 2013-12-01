@@ -265,11 +265,6 @@ void mapper_router_send_update(mapper_router r,
     if (!m)
         return;
 
-    if (id_map) {
-        lo_message_add_int32(m, id_map->origin);
-        lo_message_add_int32(m, id_map->public);
-    }
-
     if (c->history[history_index].position != -1) {
         if (blob) {
             lo_message_add_blob(m, blob);
@@ -304,7 +299,14 @@ void mapper_router_send_update(mapper_router r,
         }
     }
     else if (id_map) {
-        lo_message_add_nil(m);
+        for (i = 0; i < c->history[history_index].length; i++)
+            lo_message_add_nil(m);
+    }
+
+    if (id_map) {
+        lo_message_add_string(m, "@instance");
+        lo_message_add_int32(m, id_map->origin);
+        lo_message_add_int32(m, id_map->public);
     }
 
     mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
