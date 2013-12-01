@@ -207,13 +207,16 @@ void mapper_receiver_send_update(mapper_receiver r,
                 lo_message m = lo_message_new();
                 if (!m)
                     return;
-                lo_message_add_int32(m, map->origin);
-                lo_message_add_int32(m, map->public);
                 if (si->has_value)
                     message_add_coerced_signal_value(m, sig, si,
                                                      c->props.src_type);
-                else
-                    lo_message_add_nil(m);
+                else {
+                    for (i = 0; i < c->props.src_length; i++)
+                        lo_message_add_nil(m);
+                }
+                lo_message_add_string(m, "@instance");
+                lo_message_add_int32(m, map->origin);
+                lo_message_add_int32(m, map->public);
                 lo_bundle_add_message(b, c->props.query_name, m);
                 sent++;
             }
@@ -254,13 +257,16 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
     lo_bundle b = lo_bundle_new(tt);
 
     c = rs->connections;
+    int i;
     while (c) {
         lo_message m = lo_message_new();
         if (!m)
             return;
+        for (i = 0; i < c->props.src_length; i++)
+            lo_message_add_nil(m);
+        lo_message_add_string(m, "@instance");
         lo_message_add_int32(m, map->origin);
         lo_message_add_int32(m, map->public);
-        lo_message_add_false(m);
         lo_bundle_add_message(b, c->props.src_name, m);
         c = c->next;
     }
