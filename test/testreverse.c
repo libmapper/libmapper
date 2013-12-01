@@ -26,17 +26,29 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
+    int i;
     if (value) {
-        if (props->type == 'f')
-            printf("--> %s got %f\n", props->is_output ?
-                   "source" : "destination", (*(float*)value));
-        else if (props->type == 'i')
-            printf("--> %s got %i\n", props->is_output ?
-                   "source" : "destination", (*(int*)value));
+        if (props->type == 'f') {
+            printf("--> %s got ", props->is_output ?
+                   "source" : "destination");
+            for (i = 0; i < props->length * count; i++)
+                printf("%f ", ((float*)value)[i]);
+            printf("\n");
+        }
+        else if (props->type == 'i') {
+            printf("--> %s got ", props->is_output ?
+                   "source" : "destination");
+            for (i = 0; i < props->length * count; i++)
+                printf("%i ", ((int*)value)[i]);
+            printf("\n");
+        }
     }
     else {
-        printf("--> %s got NIL\n", props->is_output ?
+        printf("--> %s got ", props->is_output ?
                "source" : "destination");
+        for (i = 0; i < props->length * count; i++)
+            printf("NIL ");
+        printf("\n");
     }
     received++;
 }
@@ -49,9 +61,9 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mn=0, mx=10;
+    float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
+    sendsig = mdev_add_output(source, "/outsig", 2, 'i', 0, mn, mx);
     msig_set_callback(sendsig, insig_handler, 0);
 
     printf("Output signals registered.\n");
@@ -144,6 +156,8 @@ void loop()
         mapper_monitor_free(mon);
     }
 
+    int val[] = {0, 0};
+    msig_update(sendsig, val, 1, MAPPER_NOW);
     while (i >= 0 && !done) {
         msig_update_float(recvsig, ((i % 10) * 1.0f));
         printf("\ndestination value updated to %f -->\n", (i % 10) * 1.0f);

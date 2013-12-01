@@ -26,8 +26,12 @@ void query_response_handler(mapper_signal sig, mapper_db_signal props,
                             int instance_id, void *value, int count,
                             mapper_timetag_t *timetag)
 {
+    int i;
     if (value) {
-        printf("--> source got query response: %s %i\n", props->name, (*(int*)value));
+        printf("--> source got query response: %s ", props->name);
+        for (i = 0; i < props->length * count; i++)
+            printf("%i ", ((int*)value)[i]);
+        printf("\n");
     }
     else {
         printf("--> source got empty query response: %s\n", props->name);
@@ -45,11 +49,11 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    int mn=0, mx=10;
+    int mn[]={0,0,0,0}, mx[]={10,10,10,10};
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, 1, 'i', 0, &mn, &mx);
+        sendsig[i] = mdev_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
         msig_set_callback(sendsig[i], query_response_handler, 0);
     }
 
@@ -97,12 +101,12 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    float mn=0, mx=1;
+    float mn[]={0,0,0,0}, mx[]={1,1,1,1};
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mdev_add_input(destination, sig_name, 1,
-                                    'f', 0, &mn, &mx, insig_handler, 0);
+        recvsig[i] = mdev_add_input(destination, sig_name, i+1,
+                                    'f', 0, mn, mx, insig_handler, 0);
     }
 
     printf("Input signal /insig registered.\n");
@@ -140,6 +144,7 @@ void loop()
 {
     printf("-------------------- GO ! --------------------\n");
     int i = 10, j = 0, count;
+    float value[] = {0., 0., 0., 0.};
 
     if (automate) {
         mapper_monitor mon = mapper_monitor_new(source->admin, 0);
@@ -148,24 +153,33 @@ void loop()
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 2; i++) {
             msig_full_name(sendsig[i], src_name, 1024);
             msig_full_name(recvsig[i], dest_name, 1024);
             mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
         }
+        // swap the last two signals
+        msig_full_name(sendsig[2], src_name, 1024);
+        msig_full_name(recvsig[3], dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+        msig_full_name(sendsig[3], src_name, 1024);
+        msig_full_name(recvsig[2], dest_name, 1024);
+        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
+        mapper_monitor_free(mon);
 
         // wait until connection has been established
         while (!source->routers || !source->routers->n_connections) {
             mdev_poll(source, 1);
             mdev_poll(destination, 1);
         }
-
-        mapper_monitor_free(mon);
     }
 
     while (i >= 0 && !done) {
-        for (j = 0; j < 2; j++) {
-            msig_update_float(recvsig[j], ((i % 10) * 1.0f));
+        for (j = 0; j < 4; j++)
+            value[j] = (i % 10) * 1.0f;
+        for (j = 0; j < 4; j++) {
+            msig_update(recvsig[j], value, 0, MAPPER_NOW);
         }
         printf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
