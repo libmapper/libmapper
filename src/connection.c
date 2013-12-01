@@ -639,7 +639,7 @@ void mapper_connection_set_mode_linear(mapper_connection c)
 
             len = strlen(expr);
             if (src_min == src_max)
-                snprintf(expr+len, 256-len, "%g,", src_min);
+                snprintf(expr+len, 256-len, "%g,", dest_min);
             else if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "0,");
             }
