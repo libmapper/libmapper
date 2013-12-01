@@ -140,7 +140,7 @@ void mapper_receiver_send_update(mapper_receiver r,
     int count=0;
     mapper_id_map map = sig->id_maps[instance_index].map;
 
-    int in_scope = mapper_receiver_in_scope(r, map->origin);
+    int in_scope = map ? mapper_receiver_in_scope(r, map->origin) : 0;
 
     // find the signal connection
     mapper_receiver_signal rc = r->signals;
