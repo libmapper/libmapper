@@ -55,7 +55,7 @@ void print_value(char *types, int length, const void *value)
             case 'f':
             {
                 float *pf = (float*)value;
-                printf("%f, ", pf[i]);
+                printf("%g, ", pf[i]);
                 break;
             }
             case 'i':
@@ -67,7 +67,7 @@ void print_value(char *types, int length, const void *value)
             case 'd':
             {
                 double *pd = (double*)value;
-                printf("%f, ", pd[i]);
+                printf("%g, ", pd[i]);
                 break;
             }
             default:
@@ -127,7 +127,7 @@ int parse_and_eval()
         mapper_expr_evaluate(e, &inh, &outh, typestring);
     }
     now = get_current_time();
-    printf("%f seconds.\n", now-then);
+    printf("%g seconds.\n", now-then);
 
     printf("Got:      ");
     print_value(typestring, outh.length, outh.value);
@@ -145,7 +145,7 @@ int main()
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test('f', 1, 1, src_float, 'f', 1, 1, dest_float);
     result += parse_and_eval();
-    printf("Expected: %f\n", 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_float[0])*3*4+cosf(2.0f));
+    printf("Expected: %g\n", 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_float[0])*3*4+cosf(2.0f));
 
     /* Building vectors, conditionals */
     snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
@@ -164,14 +164,14 @@ int main()
     snprintf(str, 256, "y=[x*-2+1,0]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
     result += parse_and_eval();
-    printf("Expected: [%f, %f, %f]\n", (double)src_int[0]*-2+1,
+    printf("Expected: [%g, %g, %g]\n", (double)src_int[0]*-2+1,
            (double)src_int[1]*-2+1, 0.0);
 
     /* Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
     setup_test('i', 1, 2, src_int, 'd', 1, 3, dest_double);
     result += parse_and_eval();
-    printf("Expected: [%f, %f, %f]\n", -99.4,
+    printf("Expected: [%g, %g, %g]\n", -99.4,
            (double)(-src_int[0]*1.1+src_int[0]),
            (double)(-src_int[1]*1.1+src_int[1]));
 
@@ -179,28 +179,28 @@ int main()
     snprintf(str, 256, "y=x[1:2]+100");
     setup_test('d', 1, 3, src_double, 'f', 1, 2, dest_float);
     result += parse_and_eval();
-    printf("Expected: [%f, %f]\n", (float)src_double[1]+100,
+    printf("Expected: [%g, %g]\n", (float)src_double[1]+100,
            (float)src_double[2]+100);
 
     /* Typical linear scaling expression with vectors */
     snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test('f', 1, 3, src_float, 'f', 1, 3, dest_float);
     result += parse_and_eval();
-    printf("Expected: [%f, %f, %f]\n", src_float[0]*0.1f+2.f,
+    printf("Expected: [%g, %g, %g]\n", src_float[0]*0.1f+2.f,
            src_float[1]*3.7f+1.3f, src_float[2]*-.1112f+9000.f);
 
     /* Check type and vector length promotion of operation sequences */
     snprintf(str, 256, "y=1+2*3-4*x");
     setup_test('f', 1, 2, src_float, 'f', 1, 2, dest_float);
     result += parse_and_eval();
-    printf("Expected: [%f, %f]\n", 1.f+2.f*3.f-4.f*src_float[0],
+    printf("Expected: [%g, %g]\n", 1.f+2.f*3.f-4.f*src_float[0],
            1.f+2.f*3.f-4.f*src_float[1]);
 
     /* Swizzling, more pre-computation */
     snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
     setup_test('f', 1, 3, src_float, 'f', 1, 2, dest_float);
     result += parse_and_eval();
-    printf("Expected: [%f, %f]\n", src_float[2]*0.f+1.f+12.f,
+    printf("Expected: [%g, %g]\n", src_float[2]*0.f+1.f+12.f,
            src_float[0]*0.f+1.f+12.f);
 
     /* Logical negation */
@@ -229,7 +229,7 @@ int main()
     snprintf(str, 256, "y=x + pi -     e");
     setup_test('d', 1, 1, src_double, 'f', 1, 1, dest_float);
     result += parse_and_eval();
-    printf("Expected: %f\n", (float)(src_double[0]+M_PI-M_E));
+    printf("Expected: %g\n", (float)(src_double[0]+M_PI-M_E));
 
     /* bad vector notation */
     snprintf(str, 256, "y=(x-2)[1]");
@@ -287,11 +287,18 @@ int main()
     result += parse_and_eval();
     printf("Expected: [NULL, %i, %i]\n", (int)src_double[1], 10);
 
+    /* Vector assignment */
+    snprintf(str, 256, "[y[0],y[2]]=x[1:2]");
+    setup_test('f', 1, 3, src_float, 'd', 1, 3, dest_double);
+    result += parse_and_eval();
+    printf("Expected: [%g, NULL, %g]\n", (double)src_float[1],
+           (double)src_float[2]);
+
     /* Multiple expressions */
     snprintf(str, 256, "y[0]=x*100-23.5, y[2]=100-x*6.7");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += parse_and_eval();
-    printf("Expected: [%f, NULL, %f]\n", src_int[0]*100.f-23.5f,
+    printf("Expected: [%g, NULL, %g]\n", src_int[0]*100.f-23.5f,
            100-src_int[0]*6.7f);
 
     printf("**********************************\n");
