@@ -1056,6 +1056,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     // all expressions must start with assignment e.g. "y=" (ignoring spaces)
     while (str[lex_index] == ' ') lex_index++;
+    if (!str[lex_index])
+        {FAIL("No expression found.");}
 
     assigning = 1;
     allow_toktype = TOK_VAR | TOK_OPEN_SQUARE;
@@ -1352,7 +1354,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 #endif
     }
 
-    if (allow_toktype & TOK_CONST)
+    if (allow_toktype & TOK_CONST || assigning)
         {FAIL("Malformed expression.");}
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_ASSIGNMENT) {

@@ -287,7 +287,7 @@ int main()
     result += parse_and_eval();
     printf("Expected: [NULL, %i, %i]\n", (int)src_double[1], 10);
 
-    /* Vector assignment */
+    /* Output vector swizzling */
     snprintf(str, 256, "[y[0],y[2]]=x[1:2]");
     setup_test('f', 1, 3, src_float, 'd', 1, 3, dest_double);
     result += parse_and_eval();
@@ -300,6 +300,28 @@ int main()
     result += parse_and_eval();
     printf("Expected: [%g, NULL, %g]\n", src_int[0]*100.f-23.5f,
            100-src_int[0]*6.7f);
+
+    /* Some bad syntax */
+    snprintf(str, 256, "");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+    snprintf(str, 256, " ");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+    snprintf(str, 256, "y");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+    snprintf(str, 256, "y=");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+    snprintf(str, 256, "=x");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
 
     printf("**********************************\n");
     printf("Failed %d tests\n", result);
