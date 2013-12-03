@@ -306,11 +306,11 @@ typedef struct _token {
         expr_vfunc_t vfunc;
     };
     char datatype;
-    char casttype;
     union {
-        char history_index;
+        char casttype;
         int assignment_offset;
     };
+    char history_index;
     int vector_length;
     char vector_length_locked;
     union {
@@ -603,6 +603,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
 
 struct _mapper_expr
 {
+    mapper_token tokens;
     mapper_token start;
     int length;
     int vector_size;
@@ -612,8 +613,8 @@ struct _mapper_expr
 
 void mapper_expr_free(mapper_expr expr)
 {
-    if (expr->start)
-        free(expr->start);
+    if (expr->tokens)
+        free(expr->tokens);
     free(expr);
 }
 
@@ -665,10 +666,11 @@ void printtoken(mapper_token_t tok)
                                   vfunc_strings[tok.func],
                                   tok.datatype,
                                   tok.vector_length);     break;
-    case TOK_ASSIGNMENT:   printf("ASSIGN(%s%c%d%s)[%d]->[%d]",
+    case TOK_ASSIGNMENT:   printf("ASSIGN_TO:VAR(%s%c%d%s){%d}[%d]->[%d]",
                                   var_strings[tok.var], tok.datatype,
                                   tok.vector_length,
                                   locked ? "'" : "",
+                                  tok.history_index,
                                   tok.assignment_offset,
                                   tok.vector_index);      break;
     case TOK_END:          printf("END");                 break;
@@ -691,7 +693,7 @@ void printstack(const char *s, mapper_token_t *stack, int top)
 
 void printexpr(const char *s, mapper_expr e)
 {
-    printstack(s, e->start, e->length-1);
+    printstack(s, e->tokens, e->length-1);
 }
 
 #endif
@@ -994,6 +996,23 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     return 0;
 }
 
+static int move_history_initialization(mapper_token_t *stack, int top)
+{
+    // should only be one token or vectorizer
+    int i = top-1;
+    while (i >= 0 && stack[i].toktype == TOK_ASSIGNMENT) {
+        i--;
+    }
+    if (i < 0) {
+        printf("error");
+        return -1;
+    }
+
+    // TODO: move initialization expression to beginning of stack
+
+    return top;
+}
+
 /* Macros to help express stack operations in parser. */
 #define FAIL(msg) { printf("%s\n", msg); return 0; }
 #define PUSH_TO_OUTPUT(x)                                           \
@@ -1142,6 +1161,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 }
                 if (opstack_index < 0) {
                     // could be starting another sub-expression
+                    if (outstack[outstack_index].toktype != TOK_ASSIGNMENT)
+                        {FAIL("Malformed expression.");}
+                    if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
+                        {FAIL("Malformed expression.");}
+                    if (outstack[outstack_index].history_index != 0) {
+                        outstack_index = move_history_initialization(outstack, outstack_index);
+                        if (outstack_index < 0)
+                            {FAIL("Malformed expression.");}
+                    }
                     assigning = 1;
                     allow_toktype = TOK_VAR;
                     break;
@@ -1251,7 +1279,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_COMMA | TOK_COLON;
                 break;
             case TOK_OPEN_CURLY:
-                if (!(variable & TOK_OPEN_CURLY) || assigning)
+                if (!(variable & TOK_OPEN_CURLY))
                     {FAIL("Misplaced brace.");}
                 GET_NEXT_TOKEN(tok);
                 if (tok.toktype == TOK_NEGATE) {
@@ -1313,7 +1341,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     (outstack[outstack_index].toktype != TOK_VECTORIZE))
                     {FAIL("Malformed expression left of assignment.");}
 
-                // First deal with initialization, no vectorization allowed
+                // First deal with initialization
+                /* non-initialized elements are set to 0 */
+                if (outstack[outstack_index].history_index != 0) {
+                    ;
+                }
 
                 if (outstack[outstack_index].toktype == TOK_VAR) {
                     if (outstack[outstack_index].var == VAR_Y) {
@@ -1372,6 +1404,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // check vector length and type
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
         {FAIL("Malformed expression.");}
+    if (outstack[outstack_index].history_index != 0) {
+        outstack_index = move_history_initialization(outstack, outstack_index);
+        if (outstack_index < 0)
+            {FAIL("Malformed expression.");}
+    }
 
 #if TRACING
     printstack("--->OUTPUT STACK:", outstack, outstack_index);
@@ -1392,8 +1429,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->length = outstack_index + 1;
-    expr->start = malloc(sizeof(struct _token)*expr->length);
-    memcpy(expr->start, &outstack, sizeof(struct _token)*expr->length);
+    expr->tokens = malloc(sizeof(struct _token)*expr->length);
+    memcpy(expr->tokens, &outstack, sizeof(struct _token)*expr->length);
+    expr->start = expr->tokens;
     expr->vector_size = max_vector;
     expr->input_history_size = *input_history_size = -oldest_input+1;
     expr->output_history_size = *output_history_size = -oldest_output+1;
@@ -1512,7 +1550,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                 case VAR_Y:
                     ++top;
                     dims[top] = tok->vector_length;
-                    idx = ((tok->history_index + to->position + 1
+                    idx = ((tok->history_index + to->position
                             + to->size) % to->size);
                     if (to->type == 'd') {
                         double *v = to->value + idx * to->length * mapper_type_size(to->type);
@@ -2017,27 +2055,41 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         case TOK_ASSIGNMENT:
 #if TRACING
-            printf("assigning values to variable[%i]\n", tok->vector_index);
+            printf("assigning values to VAR(%s){%i}[%i]\n", var_strings[tok->var],
+                   tok->history_index, tok->vector_index);
 #endif
             updated++;
             if (tok->var == VAR_Y) {
+                int idx = (tok->history_index + to->position + to->size);
+                if (idx < 0)
+                    idx = to->size - idx;
+                else
+                    idx %= to->size;
+
                 if (to->type == 'f') {
-                    float *v = msig_history_value_pointer(*to);
+                    float *v = to->value + idx * to->length * mapper_type_size(to->type);
                     for (i = 0; i < tok->vector_length; i++)
                         v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].f;
                 }
                 else if (to->type == 'i') {
-                    int *v = msig_history_value_pointer(*to);
+                    int *v = to->value + idx * to->length * mapper_type_size(to->type);
                     for (i = 0; i < tok->vector_length; i++)
                         v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].i32;
                 }
                 else if (to->type == 'd') {
-                    double *v = msig_history_value_pointer(*to);
+                    double *v = to->value + idx * to->length * mapper_type_size(to->type);
                     for (i = 0; i < tok->vector_length; i++)
                         v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].d;
                 }
 
-                if (typestring) {
+                // if assignment was history initialization, move expression start token pointer
+                if (tok->history_index != 0) {
+                    int offset = tok - expr->start + 1;
+                    expr->start = tok+1;
+                    expr->length -= offset;
+                    count -= offset;
+                }
+                else if (typestring) {
                     for (i = tok->vector_index; i < tok->vector_index + tok->vector_length; i++) {
                         typestring[i] = tok->datatype;
                     }
@@ -2096,8 +2148,7 @@ int mapper_expr_evaluate(mapper_expr expr,
         /* Internal evaluation during parsing doesn't contain assignment token,
          * so we need to copy to output here. */
 
-        /* Increment index position of output data structure.
-         * We do this after computation to handle conditional output. */
+        /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
 
         if (to->type == 'f') {

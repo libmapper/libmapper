@@ -11,9 +11,9 @@ mapper_expr e;
 int result = 0;
 int iterations = 1000000;
 
-int src_int[] = {1, 2, 3}, dest_int[3];
-float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[3];
-double src_double[] = {1.0, 2.0, 3.0}, dest_double[3];
+int src_int[] = {1, 2, 3}, dest_int[6];
+float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[6];
+double src_double[] = {1.0, 2.0, 3.0}, dest_double[6];
 double then, now;
 char typestring[3];
 
@@ -38,7 +38,7 @@ static double get_current_time()
  division by 0?
  */
 
-void print_value(char *types, int length, const void *value)
+void print_value(char *types, int length, const void *value, int position)
 {
     if (!value || !types || length < 1)
         return;
@@ -46,7 +46,7 @@ void print_value(char *types, int length, const void *value)
     if (length > 1)
         printf("[");
 
-    int i;
+    int i, offset = position * length;
     for (i = 0; i < length; i++) {
         switch (types[i]) {
             case 'N':
@@ -55,19 +55,19 @@ void print_value(char *types, int length, const void *value)
             case 'f':
             {
                 float *pf = (float*)value;
-                printf("%g, ", pf[i]);
+                printf("%g, ", pf[i + offset]);
                 break;
             }
             case 'i':
             {
                 int *pi = (int*)value;
-                printf("%d, ", pi[i]);
+                printf("%d, ", pi[i + offset]);
                 break;
             }
             case 'd':
             {
                 double *pd = (double*)value;
-                printf("%g, ", pd[i]);
+                printf("%g, ", pd[i + offset]);
                 break;
             }
             default:
@@ -122,7 +122,7 @@ int parse_and_eval()
 
     then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
-    int i = iterations;
+    int i = iterations-1;
     while (i--) {
         mapper_expr_evaluate(e, &inh, &outh, typestring);
     }
@@ -130,7 +130,7 @@ int parse_and_eval()
     printf("%g seconds.\n", now-then);
 
     printf("Got:      ");
-    print_value(typestring, outh.length, outh.value);
+    print_value(typestring, outh.length, outh.value, outh.position);
     printf(" \n");
 
     mapper_expr_free(e);
@@ -266,12 +266,6 @@ int main()
     setup_test('i', 1, 1, src_int, 'i', 1, 1, dest_int);
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
-
-    /* Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}, y{-1}=100");
-    setup_test('i', 1, 1, src_int, 'i', 1, 1, dest_int);
-    result += parse_and_eval();
-    printf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* TODO: scientific notation */
 
