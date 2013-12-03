@@ -295,7 +295,40 @@ int main()
     printf("Expected: [%g, NULL, %g]\n", src_int[0]*100.f-23.5f,
            100-src_int[0]*6.7f);
 
-    /* Some bad syntax */
+    /* Initialize filters */
+    snprintf(str, 256, "y{-1}=100, y=x+y{-1}");
+    setup_test('i', 1, 1, src_int, 'i', 2, 1, dest_int);
+    result += parse_and_eval();
+    printf("Expected: %i\n", src_int[0]*iterations + 100);
+
+    /* Initialize filters + vector index */
+    snprintf(str, 256, "y[1]{-1}=100, y=x+y{-1}");
+    setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [%i, %i]\n", src_int[0]*iterations,
+           src_int[1]*iterations + 100);
+
+    /* Initialize filters + vector index */
+    snprintf(str, 256, "y{-1}=[100,101], y=x+y{-1}");
+    setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [%i, %i]\n", src_int[0]*iterations + 100,
+           src_int[1]*iterations + 101);
+
+    /* Initialize filters */
+    snprintf(str, 256, "y[0]{-1}=100, y[2]{-1}=200, y=x+y{-1}");
+    setup_test('i', 1, 3, src_int, 'i', 2, 3, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [%i, %i, %i]\n", src_int[0]*iterations + 100,
+           src_int[1]*iterations, src_int[2]*iterations + 200);
+
+    /* Only initialize */
+    snprintf(str, 256, "y{-1}=100");
+    setup_test('i', 1, 3, src_int, 'i', 1, 1, dest_int);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+
+    /* Some examples of bad syntax */
     snprintf(str, 256, "");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += !parse_and_eval();
@@ -313,6 +346,10 @@ int main()
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
     snprintf(str, 256, "=x");
+    setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
+    snprintf(str, 256, "sin(x)");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
