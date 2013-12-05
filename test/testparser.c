@@ -267,7 +267,11 @@ int main()
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
 
-    /* TODO: scientific notation */
+    /* scientific notation */
+    snprintf(str, 256, "y=x[1]*1.23e-20");
+    setup_test('i', 1, 2, src_int, 'd', 1, 1, dest_double);
+    result += parse_and_eval();
+    printf("Expected: %g\n", (double)src_int[1] * 1.23e-20);
 
     /* Vector assignment */
     snprintf(str, 256, "y[1]=x[1]");
