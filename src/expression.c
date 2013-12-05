@@ -978,11 +978,15 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
 
     while (i >= 0 && stack[i].toktype == TOK_ASSIGNMENT) {
         if (stack[i].var != var) {
-            printf("error: cannot mix variable references in assignment\n");
+            printf("Cannot mix variable references in assignment\n");
             return -1;
         }
         vector_length += stack[i].vector_length;
         i--;
+    }
+    if (i < 0) {
+        printf("Malformed expression");
+        return -1;
     }
     if (stack[i].vector_length != vector_length) {
         printf("Vector length mismatch (%d != %d).\n",
@@ -993,6 +997,25 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     if (check_types_and_lengths(stack, i) == -1)
         return -1;
     promote_token_datatype(&stack[i], stack[top].datatype);
+
+    if (stack[top].history_index == 0 || i == 0)
+        return 0;
+
+    // Move assignment expression to beginning of stack
+    int j = 0, expr_length = top-i+1;
+    if (stack[i].toktype == TOK_VECTORIZE)
+        expr_length += stack[i].vectorizer_arity;
+
+    mapper_token_t *temp = malloc(sizeof(mapper_token_t) * expr_length);
+    for (i = top-expr_length+1; i <= top; i++)
+        memcpy(&temp[j++], &stack[i], sizeof(mapper_token_t));
+
+    for (i = top-expr_length; i >= 0; i--)
+        memcpy(&stack[i+expr_length], &stack[i], sizeof(mapper_token_t));
+
+    for (i = 0; i < expr_length; i++)
+        memcpy(&stack[i], &temp[i], sizeof(mapper_token_t));
+
     return 0;
 }
 
@@ -1063,6 +1086,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int oldest_input = 0, oldest_output = 0, max_vector = 1;
 
     int assigning = 0;
+    int output_assigned = 0;
     int vectorizing = 0;
     int variable = 0;
     int allow_toktype = 0xFFFF;
@@ -1336,19 +1360,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index >= 0)
                     {FAIL("Malformed expression left of assignment.");}
 
-                // fail if opstack tokens not TOK_VAR | TOK_VECTORIZE
-                if ((outstack[outstack_index].toktype != TOK_VAR) &&
-                    (outstack[outstack_index].toktype != TOK_VECTORIZE))
-                    {FAIL("Malformed expression left of assignment.");}
-
-                // First deal with initialization
-                /* non-initialized elements are set to 0 */
-                if (outstack[outstack_index].history_index != 0) {
-                    ;
-                }
-
                 if (outstack[outstack_index].toktype == TOK_VAR) {
                     if (outstack[outstack_index].var == VAR_Y) {
+                        if (outstack[outstack_index].history_index == 0)
+                            output_assigned = 1;
                         // nothing extraordinary, continue as normal
                         outstack[outstack_index].toktype = TOK_ASSIGNMENT;
                         outstack[outstack_index].assignment_offset = 0;
@@ -1356,12 +1371,15 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         outstack_index--;
                     }
                 }
-                else {
+                else if (outstack[outstack_index].toktype == TOK_VECTORIZE) {
                     // outstack token is vectorizer
                     outstack_index--;
                     while (outstack_index >= 0) {
                         if (outstack[outstack_index].toktype != TOK_VAR)
                             {FAIL("Illegal tokens left of assignment.");}
+                        if (outstack[outstack_index].var == VAR_Y &&
+                            outstack[outstack_index].history_index == 0)
+                            output_assigned = 1;
                         outstack[outstack_index].toktype = TOK_ASSIGNMENT;
                         PUSH_TO_OPERATOR(outstack[outstack_index]);
                         outstack_index--;
@@ -1373,6 +1391,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         index--;
                     }
                 }
+                else
+                    {FAIL("Malformed expression left of assignment.");}
                 assigning = 0;
                 allow_toktype = 0xFFFF;
                 break;
@@ -1386,8 +1406,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 #endif
     }
 
-    if (allow_toktype & TOK_CONST || assigning)
-        {FAIL("Malformed expression.");}
+    if (allow_toktype & TOK_CONST || assigning || !output_assigned)
+        {FAIL("Expression has no output assignment.");}
+
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_ASSIGNMENT) {
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)

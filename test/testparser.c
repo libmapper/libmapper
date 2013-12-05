@@ -300,31 +300,37 @@ int main()
            100-src_int[0]*6.7f);
 
     /* Initialize filters */
-    snprintf(str, 256, "y{-1}=100, y=x+y{-1}");
+    snprintf(str, 256, "y=x+y{-1}, y{-1}=100");
     setup_test('i', 1, 1, src_int, 'i', 2, 1, dest_int);
     result += parse_and_eval();
     printf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* Initialize filters + vector index */
-    snprintf(str, 256, "y[1]{-1}=100, y=x+y{-1}");
+    snprintf(str, 256, "y=x+y{-1}, y[1]{-1}=100");
     setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
     result += parse_and_eval();
     printf("Expected: [%i, %i]\n", src_int[0]*iterations,
            src_int[1]*iterations + 100);
 
     /* Initialize filters + vector index */
-    snprintf(str, 256, "y{-1}=[100,101], y=x+y{-1}");
+    snprintf(str, 256, "y=x+y{-1}, y{-1}=[100,101]");
     setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
     result += parse_and_eval();
     printf("Expected: [%i, %i]\n", src_int[0]*iterations + 100,
            src_int[1]*iterations + 101);
 
     /* Initialize filters */
-    snprintf(str, 256, "y[0]{-1}=100, y[2]{-1}=200, y=x+y{-1}");
+    snprintf(str, 256, "y=x+y{-1}, y[0]{-1}=100, y[2]{-1}=200");
     setup_test('i', 1, 3, src_int, 'i', 2, 3, dest_int);
     result += parse_and_eval();
     printf("Expected: [%i, %i, %i]\n", src_int[0]*iterations + 100,
            src_int[1]*iterations, src_int[2]*iterations + 200);
+
+    /* Initialize filters */
+    snprintf(str, 256, "y=x+y{-1}-y{-2}, y{-1}=[100,101], y{-2}=[100,101]");
+    setup_test('i', 1, 2, src_int, 'i', 3, 2, dest_int);
+    result += parse_and_eval();
+    printf("Expected: [1, 2]\n");
 
     /* Only initialize */
     snprintf(str, 256, "y{-1}=100");
