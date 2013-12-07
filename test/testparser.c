@@ -30,12 +30,10 @@ static double get_current_time()
     return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-/* Examples:
- unit-delay indexing
- vector length mismatches
+/* TODO:
  multiplication by 0
  addition/subtraction of 0
- division by 0?
+ division by 0
  */
 
 void print_value(char *types, int length, const void *value, int position)
@@ -363,6 +361,18 @@ int main()
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
+
+    /* Variable declaration */
+    snprintf(str, 256, "var=3.5, y=x+var");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval();
+    printf("Expected: %g\n", (float)src_int[0] + 3.5);
+
+    /* Variable declaration */
+    snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1, y=ema*2, ema{-1}=90");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval();
+    printf("Expected: 2\n");
 
     printf("**********************************\n");
     printf("Failed %d tests\n", result);
