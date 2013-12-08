@@ -12,6 +12,7 @@ Expressions in libmapper must always be presented in the form
 `y = x`, where `x` refers to the updated source value and `y` is
 the computed value to be forwarded to the destination.
 
+
 Available Functions
 -------------------
 
@@ -64,6 +65,31 @@ Available Functions
 * `y = midiToHz(x)` — convert MIDI note value to Hz
 * `y = hzToMidi(x)` — convert Hz value to MIDI note
 
+Vectors
+=======
+
+Individual elements of variable values can be accessed using the notation
+`<variable>[<index>]`. The index specifies the vector element, and
+obviously must be `<=0`. Expressions must match the vector lengths of the
+source and destination signals, and can be used to translate between
+signals with different vector lengths.
+
+### Vector examples
+
+* `y = x[0]` — simple vector indexing
+* `y = x[1:2]` — specify a range within the vector
+* `y = [x[1], x[2], x[0]]` — rearranging ("swizzling") vector elements
+* `y[1] = x` — apply update to a specific element of the output
+* `y[0:2] = x` — apply update to elements `0-2` of the output vector
+* `[y[0], y[2]] = x` — apply update to output vector elements `0` and `2` but
+leave `1` unchanged.
+
+### Vector functions
+
+There are two special functions that operate across all elements of the vector:
+
+* `y = any(x)` — output `1` if any of the elements of `x` are non-zero, otherwise output `0`
+* `y = all(x)` — output `1` if all of the elements of `x` are non-zero, otherwise output `0`
 
 FIR and IIR Filters
 ===================
@@ -87,3 +113,28 @@ Impulse Response** ( IIR ) filters - here are some simple examples:
 
 Of course the filter can contain references to past samples of both `x` and `y` -
 currently libmapper will reject expressions referring to sample delays `> 100`.
+
+Initializing filters
+--------------------
+Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using commas:
+
+* `y = y{-1} + x`, `y{-1} = 100`
+
+Filter initialization takes place the first time the expression evaluator is called;
+after this point the initialization sub-expressions will not be evaluated. This means
+the filter could be initialized with the first sample of `x` for example:
+
+* `y = y{-1} + x`, `y{-1} = x * 2`
+
+A function could also be used for initialization:
+
+* `y = y{-1} + x`, `y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
+
+User-Declared Variables
+=======================
+
+Up to 8 additional variables can be declared as-needed in the expression. The values of these variables are stored with the expression and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
+
+* `ema = ema{-1} * 0.9 + x * 0.1`, `y = x - ema`
+
+
