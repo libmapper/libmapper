@@ -445,22 +445,28 @@ void mapper_connection_set_linear_range(mapper_connection c,
         & (CONNECTION_RANGE_SRC_MIN | CONNECTION_RANGE_SRC_MAX))
     {
         if (r->src_min == r->src_max)
-            snprintf(expr, 256, "y=%g", r->src_min);
+            snprintf(expr, 256, "y=%g", r->dest_min);
 
-        else if (r->known == CONNECTION_RANGE_KNOWN
-                 && r->src_min == r->dest_min
-                 && r->src_max == r->dest_max)
-            snprintf(expr, 256, "y=x");
+        else if (r->src_min == r->src_max)
+            snprintf(expr, 256, "y=%g", r->dest_min);
 
         else if (r->known == CONNECTION_RANGE_KNOWN) {
-            float scale = ((r->dest_min - r->dest_max)
-                           / (r->src_min - r->src_max));
-            float offset =
-                ((r->dest_max * r->src_min
-                  - r->dest_min * r->src_max)
-                 / (r->src_min - r->src_max));
+            if (r->src_min == r->dest_min && r->src_max == r->dest_max)
+                snprintf(expr, 256, "y=x");
 
-            snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
+            else if (r->dest_min == r->dest_max)
+                snprintf(expr, 256, "y=%g", r->dest_min);
+
+            else {
+                float scale = ((r->dest_min - r->dest_max)
+                               / (r->src_min - r->src_max));
+                float offset =
+                    ((r->dest_max * r->src_min
+                      - r->dest_min * r->src_max)
+                     / (r->src_min - r->src_max));
+
+                snprintf(expr, 256, "y=x*(%g)+(%g)", scale, offset);
+            }
         }
         else
             e = 0;
@@ -548,10 +554,13 @@ static int get_range(mapper_connection connection,
         for (i=0; i<4; i++) {
             if (t_range[i] == 'f') {
                 range_known |= known[i];
-                range[i] = a_range[i]->f;
+                range[i] = (double)a_range[i]->f;
             } else if (t_range[i] == 'i') {
                 range_known |= known[i];
-                range[i] = (float)a_range[i]->i;
+                range[i] = (double)a_range[i]->i;
+            } else if (t_range[i] == 'd') {
+                range_known |= known[i];
+                range[i] = a_range[i]->d;
             }
         }
     }
@@ -563,10 +572,13 @@ static int get_range(mapper_connection connection,
     {
         if (t_min[0]=='f') {
             range_known |= CONNECTION_RANGE_DEST_MIN;
-            range[2] = (*a_min)->f;
+            range[2] = (double)(*a_min)->f;
         } else if (t_min[0]=='i') {
             range_known |= CONNECTION_RANGE_DEST_MIN;
-            range[2] = (float)(*a_min)->i;
+            range[2] = (double)(*a_min)->i;
+        } else if (t_min[0]=='d') {
+            range_known |= CONNECTION_RANGE_DEST_MIN;
+            range[2] = (*a_min)->d;
         }
     }
 
@@ -575,10 +587,13 @@ static int get_range(mapper_connection connection,
     {
         if (t_max[0]=='f') {
             range_known |= CONNECTION_RANGE_DEST_MAX;
-            range[3] = (*a_max)->f;
+            range[3] = (double)(*a_max)->f;
         } else if (t_max[0]=='i') {
             range_known |= CONNECTION_RANGE_DEST_MAX;
-            range[3] = (float)(*a_max)->i;
+            range[3] = (double)(*a_max)->i;
+        } else if (t_max[0]=='d') {
+            range_known |= CONNECTION_RANGE_DEST_MAX;
+            range[3] = (*a_max)->d;
         }
     }
 
@@ -622,10 +637,10 @@ static int get_range(mapper_connection connection,
         {
             if (sig->props.type == 'f') {
                 range_known |= CONNECTION_RANGE_SRC_MIN;
-                range[0] = sig->props.minimum->f;
+                range[0] = (double)sig->props.minimum->f;
             } else if (sig->props.type == 'i') {
                 range_known |= CONNECTION_RANGE_SRC_MIN;
-                range[0] = sig->props.minimum->i32;
+                range[0] = (double)sig->props.minimum->i32;
             } else if (sig->props.type == 'd') {
                 range_known |= CONNECTION_RANGE_SRC_MIN;
                 range[0] = sig->props.minimum->d;
@@ -637,10 +652,10 @@ static int get_range(mapper_connection connection,
         {
             if (sig->props.type == 'f') {
                 range_known |= CONNECTION_RANGE_SRC_MAX;
-                range[1] = sig->props.maximum->f;
+                range[1] = (double)sig->props.maximum->f;
             } else if (sig->props.type == 'i') {
                 range_known |= CONNECTION_RANGE_SRC_MAX;
-                range[1] = sig->props.maximum->i32;
+                range[1] = (double)sig->props.maximum->i32;
             } else if (sig->props.type == 'd') {
                 range_known |= CONNECTION_RANGE_SRC_MAX;
                 range[1] = sig->props.maximum->d;

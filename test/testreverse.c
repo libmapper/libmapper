@@ -49,7 +49,7 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mn=0, mx=10;
+    int mn=0, mx=10;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
     msig_set_callback(sendsig, insig_handler, 0);
