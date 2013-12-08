@@ -217,12 +217,12 @@ static struct handler_method_assoc monitor_bus_handlers[] = {
     {ADM_DEVICE,                NULL,       handler_device},
     {ADM_LOGOUT,                NULL,       handler_logout},
     {ADM_SYNC,                  "siifiid",  handler_sync},
-//    {ADM_WHO,                   NULL,       handler_who},
 };
 const int N_MONITOR_BUS_HANDLERS =
 sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
 
 static struct handler_method_assoc monitor_mesh_handlers[] = {
+    {ADM_DEVICE,                NULL,       handler_device},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_INPUT_REMOVED,         "s",        handler_input_signal_removed},
     {ADM_OUTPUT_REMOVED,        "s",        handler_output_signal_removed},
