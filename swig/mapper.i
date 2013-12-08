@@ -1448,7 +1448,7 @@ typedef struct _admin {} admin;
     void autosubscribe(int autosubscribe_flags) {
         mapper_monitor_autosubscribe((mapper_monitor)$self, autosubscribe_flags);
     }
-    void subscribe(const char *name, int subscribe_flags, int timeout) {
+    void subscribe(const char *name, int subscribe_flags=0, int timeout=0) {
         return mapper_monitor_subscribe((mapper_monitor)$self, name,
                                         subscribe_flags, timeout);
     }
