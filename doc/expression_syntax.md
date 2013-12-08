@@ -88,8 +88,8 @@ leave `1` unchanged.
 
 There are two special functions that operate across all elements of the vector:
 
-* `y = any(x)` — output `1` if any of the elements of `x` are non-zero, otherwise output `0`
-* `y = all(x)` — output `1` if all of the elements of `x` are non-zero, otherwise output `0`
+* `y = any(x)` — output `1` if **any** of the elements of `x` are non-zero, otherwise output `0`
+* `y = all(x)` — output `1` if **all** of the elements of `x` are non-zero, otherwise output `0`
 
 FIR and IIR Filters
 ===================
@@ -130,11 +130,19 @@ A function could also be used for initialization:
 
 * `y = y{-1} + x`, `y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
 
+Any past values that are not explicitly initialized are given the value `0`.
+
+
 User-Declared Variables
 =======================
 
-Up to 8 additional variables can be declared as-needed in the expression. The values of these variables are stored with the expression and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
+Up to 8 additional variables can be declared as-needed in the expression. The variable names can be any string except for the reserved variable names `x` and `y` or the name of an existing function.  The values of these variables are stored with the expression and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
 
 * `ema = ema{-1} * 0.9 + x * 0.1`, `y = x - ema`
 
+Just like the output variable `y` we can initialize past values of user-defined variables before expression evaluation. **Initialization will always be performed first**, after which sub-expressions are evaluated **in the order they are written**. For example, the expression string `y=ema*2, ema=ema{-1}*0.9+x*0.1, ema{-1}=90` will be evaluated in the following order:
+
+1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
+2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied by `2`. The current value of `ema` is `0` since it has not yet been set.
+3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
 
