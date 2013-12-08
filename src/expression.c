@@ -1114,7 +1114,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     mapper_token_t outstack[STACK_SIZE];
     mapper_token_t opstack[STACK_SIZE];
-    int lex_index = 0, outstack_index = -1, opstack_index = -1;
+    int i, lex_index = 0, outstack_index = -1, opstack_index = -1;
     int oldest_input = 0, oldest_output = 0, max_vector = 1;
 
     int assigning = 0;
@@ -1449,9 +1449,23 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Malformed expression left of assignment.");}
 
                 if (outstack[outstack_index].toktype == TOK_VAR) {
-                    if (outstack[outstack_index].var == VAR_Y &&
-                        outstack[outstack_index].history_index == 0)
-                        output_assigned = 1;
+                    int var = outstack[outstack_index].var;
+                    if (var == VAR_X)
+                        {FAIL("Cannot assign to input variable 'x'.");}
+                    else if (var == VAR_Y) {
+                        if (outstack[outstack_index].history_index == 0) {
+                            if (output_assigned)
+                                {FAIL("Variable 'y' already assigned.");}
+                            output_assigned = 1;
+                        }
+                    }
+                    else if (var >= N_VARS) {
+                        if (outstack[outstack_index].history_index == 0) {
+                            if (variables[var-N_VARS].assigned)
+                                {FAIL("Variable already assigned.");}
+                            variables[var-N_VARS].assigned = 1;
+                        }
+                    }
                     // nothing extraordinary, continue as normal
                     outstack[outstack_index].toktype = TOK_ASSIGNMENT;
                     outstack[outstack_index].assignment_offset = 0;
@@ -1461,12 +1475,30 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else if (outstack[outstack_index].toktype == TOK_VECTORIZE) {
                     // outstack token is vectorizer
                     outstack_index--;
+                    if (outstack[outstack_index].toktype != TOK_VAR)
+                        {FAIL("Illegal tokens left of assignment.");}
+                    int var = outstack[outstack_index].var;
+                    if (var == VAR_X)
+                        {FAIL("Cannot assign to input variable 'x'.");}
+                    else if (var == VAR_Y) {
+                        if (outstack[outstack_index].history_index == 0) {
+                            if (output_assigned)
+                                {FAIL("Variable 'y' already assigned.");}
+                            output_assigned = 1;
+                        }
+                    }
+                    else if (var >= N_VARS) {
+                        if (outstack[outstack_index].history_index == 0) {
+                            if (variables[var-N_VARS].assigned)
+                                {FAIL("Variable already assigned.");}
+                            variables[var-N_VARS].assigned = 1;
+                        }
+                    }
                     while (outstack_index >= 0) {
                         if (outstack[outstack_index].toktype != TOK_VAR)
                             {FAIL("Illegal tokens left of assignment.");}
-                        if (outstack[outstack_index].var == VAR_Y &&
-                            outstack[outstack_index].history_index == 0)
-                            output_assigned = 1;
+                        else if (outstack[outstack_index].var != var)
+                            {FAIL("Cannot mix variables in vector assignment.");}
                         outstack[outstack_index].toktype = TOK_ASSIGNMENT;
                         PUSH_TO_OPERATOR(outstack[outstack_index]);
                         outstack_index--;
@@ -1496,6 +1528,12 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     if (allow_toktype & TOK_CONST || assigning || !output_assigned)
         {FAIL("Expression has no output assignment.");}
 
+    // check that all used-defined variables were assigned
+    for (i = 0; i < num_variables; i++) {
+        if (!variables[i].assigned)
+            {FAIL("User-defined variable not assigned.");}
+    }
+
     // finish popping operators to output, check for unbalanced parentheses
     while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_ASSIGNMENT) {
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
@@ -1524,7 +1562,6 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 #endif
 
     // Check for maximum vector length used in stack
-    int i;
     for (i = 0; i < outstack_index; i++) {
         if (outstack[i].vector_length > max_vector)
             max_vector = outstack[i].vector_length;
@@ -1799,8 +1836,23 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].f)
                                 stack[top][i].f = stack[top+1][i].f;
-                            else
-                                return 0;
+                            else {
+                                // skip ahead until after assignment
+                                found = 0;
+                                tok++;
+                                count++;
+                                while (count < expr->length && tok->toktype != TOK_END) {
+                                    if (tok->toktype == TOK_ASSIGNMENT)
+                                        found = 1;
+                                    else if (found) {
+                                        --tok;
+                                        --count;
+                                        break;
+                                    }
+                                    tok++;
+                                    count++;
+                                }
+                            }
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
@@ -1881,8 +1933,23 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].d)
                                 stack[top][i].d = stack[top+1][i].d;
-                            else
-                                return 0;
+                            else {
+                                // skip ahead until after assignment
+                                found = 0; // found assignment
+                                tok++;
+                                count++;
+                                while (count < expr->length && tok->toktype != TOK_END) {
+                                    if (tok->toktype == TOK_ASSIGNMENT)
+                                        found = 1;
+                                    else if (found) {
+                                        --tok;
+                                        --count;
+                                        break;
+                                    }
+                                    tok++;
+                                    count++;
+                                }
+                            }
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
@@ -1983,8 +2050,23 @@ int mapper_expr_evaluate(mapper_expr expr,
                         for (i = 0; i < tok->vector_length; i++) {
                             if (stack[top][i].i32)
                                 stack[top][i].i32 = stack[top+1][i].i32;
-                            else
-                                return 0;
+                            else {
+                                // skip ahead until after assignment
+                                found = 0; // found assignment
+                                tok++;
+                                count++;
+                                while (count < expr->length && tok->toktype != TOK_END) {
+                                    if (tok->toktype == TOK_ASSIGNMENT)
+                                        found = 1;
+                                    else if (found) {
+                                        --tok;
+                                        --count;
+                                        break;
+                                    }
+                                    tok++;
+                                    count++;
+                                }
+                            }
                         }
                         break;
                     case OP_CONDITIONAL_IF_ELSE:
@@ -2318,6 +2400,7 @@ int mapper_expr_evaluate(mapper_expr expr,
             for (i = 0; i < to->length; i++)
                 v[i] = stack[top][i].d;
         }
+        return 1;
     }
 
     /* Undo position increment if nothing was updated. */
@@ -2325,6 +2408,7 @@ int mapper_expr_evaluate(mapper_expr expr,
         --to->position;
         if (to->position < 0)
             to->position = to->size - 1;
+        return 0;
     }
     else if (from) {
         // Also copy timetag from input

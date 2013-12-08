@@ -6,14 +6,16 @@
 #include <time.h>
 #include <sys/time.h>
 
+#define DEST_ARRAY_LEN 6
+
 char str[256];
 mapper_expr e;
 int result = 0;
 int iterations = 1000000;
 
-int src_int[] = {1, 2, 3}, dest_int[6];
-float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[6];
-double src_double[] = {1.0, 2.0, 3.0}, dest_double[6];
+int src_int[] = {1, 2, 3}, dest_int[DEST_ARRAY_LEN];
+float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[DEST_ARRAY_LEN];
+double src_double[] = {1.0, 2.0, 3.0}, dest_double[DEST_ARRAY_LEN];
 double then, now;
 char typestring[3];
 
@@ -100,6 +102,14 @@ void setup_test(char in_type, int in_size, int in_length, void *in_value,
 
 int parse_and_eval()
 {
+    // clear output arrays
+    int i;
+    for (i = 0; i < DEST_ARRAY_LEN; i++) {
+        dest_int[i] = 0;
+        dest_float[i] = 0;
+        dest_double[i] = 0;
+    }
+
     printf("**********************************\n");
     printf("Parsing string '%s'\n", str);
     if (!(e = mapper_expr_new_from_string(str, inh.type, outh.type,
@@ -120,7 +130,7 @@ int parse_and_eval()
 
     then = get_current_time();
     printf("Calculate expression %i times... ", iterations);
-    int i = iterations-1;
+    i = iterations-1;
     while (i--) {
         mapper_expr_evaluate(e, &inh, &outh, typestring);
     }
@@ -157,6 +167,12 @@ int main()
     setup_test('f', 1, 1, src_float, 'i', 1, 1, dest_int);
     result += parse_and_eval();
     printf("Expected: %i\n", (int)src_float[0]?:123);
+
+    /* Conditional that should be optimized */
+    snprintf(str, 256, "y=1?2:123");
+    setup_test('f', 1, 1, src_float, 'i', 1, 1, dest_int);
+    result += parse_and_eval();
+    printf("Expected: 2\n");
 
     /* Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[x*-2+1,0]");
@@ -293,9 +309,8 @@ int main()
     /* Multiple expressions */
     snprintf(str, 256, "y[0]=x*100-23.5, y[2]=100-x*6.7");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
-    result += parse_and_eval();
-    printf("Expected: [%g, NULL, %g]\n", src_int[0]*100.f-23.5f,
-           100-src_int[0]*6.7f);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
 
     /* Initialize filters */
     snprintf(str, 256, "y=x+y{-1}, y{-1}=100");
@@ -373,6 +388,12 @@ int main()
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += parse_and_eval();
     printf("Expected: 2\n");
+
+    /* Variable declaration */
+    snprintf(str, 256, "y=x + myvariable * 10");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += !parse_and_eval();
+    printf("Expected: FAILURE\n");
 
     printf("**********************************\n");
     printf("Failed %d tests\n", result);
