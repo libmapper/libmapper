@@ -8,6 +8,8 @@
 #include "config.h"
 #include "mapper_internal.h"
 
+#define AUTOSUBSCRIBE_INTERVAL 60
+
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -90,8 +92,11 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
     }
     while (s) {
         if (s->lease_expiration_sec < mon->admin->clock.now.sec) {
-            monitor_subscribe_internal(mon, s->name, s->flags, 60);
-            s->lease_expiration_sec = mon->admin->clock.now.sec + 50;
+            monitor_subscribe_internal(mon, s->name, s->flags,
+                                       AUTOSUBSCRIBE_INTERVAL);
+            // leave 10-second buffer for subscription renewal
+            s->lease_expiration_sec =
+                mon->admin->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
         }
         s = s->next;
     }
@@ -182,13 +187,14 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
         s = malloc(sizeof(struct _mapper_monitor_subscription));
         s->name = strdup(device_name);
         s->flags = subscribe_flags;
-        // set timeout for 50 seconds in the future
+
         mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
-        s->lease_expiration_sec = mon->admin->clock.now.sec + 50;
         // leave 10-second buffer for subscription lease
+        s->lease_expiration_sec =
+            mon->admin->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
         s->next = mon->subscriptions;
         mon->subscriptions = s;
-        timeout = 60;
+        timeout = AUTOSUBSCRIBE_INTERVAL;
     }
 
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout);
