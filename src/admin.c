@@ -175,12 +175,12 @@ static struct handler_method_assoc monitor_bus_handlers[] = {
     {ADM_DEVICE,                NULL,       handler_device},
     {ADM_LOGOUT,                NULL,       handler_logout},
     {ADM_SYNC,                  "siifiid",  handler_sync},
-//    {ADM_WHO,                   NULL,       handler_who},
 };
 const int N_MONITOR_BUS_HANDLERS =
 sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
 
 static struct handler_method_assoc monitor_mesh_handlers[] = {
+    {ADM_DEVICE,                NULL,       handler_device},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_INPUT_REMOVED,         "s",        handler_input_signal_removed},
     {ADM_OUTPUT_REMOVED,        "s",        handler_output_signal_removed},
@@ -1209,7 +1209,8 @@ static int handler_logout(const char *path, const char *types,
 
 // Add or renew a monitor subscription.
 static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
-                                        int flags, int timeout_seconds)
+                                        int flags, int timeout_seconds,
+                                        int revision)
 {
     mapper_admin_subscriber sub = admin->subscribers;
     const char *ip = lo_address_get_hostname(address);
@@ -1245,6 +1246,9 @@ static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
         admin->subscribers = sub;
     }
 
+    if (revision == admin->device->props.version)
+        return;
+
     // bring new subscriber up to date
     mapper_admin_set_bundle_dest_mesh(admin, sub->address);
     if (flags & SUB_DEVICE)
@@ -1270,6 +1274,7 @@ static int handler_device_subcribe(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    int version = -1;
 
     lo_address a  = lo_message_get_source(msg);
     if (!a || !argc) return 0;
@@ -1296,10 +1301,8 @@ static int handler_device_subcribe(const char *path, const char *types,
         for (i = 1; i < argc; i++) {
             if (types[i] != 's' && types[i] != 'S')
                 break;
-            else if (strcmp(&argv[i]->s, "all")==0) {
+            else if (strcmp(&argv[i]->s, "all")==0)
                 flags = SUB_DEVICE_ALL;
-                break;
-            }
             else if (strcmp(&argv[i]->s, "device")==0)
                 flags |= SUB_DEVICE;
             else if (strcmp(&argv[i]->s, "inputs")==0)
@@ -1318,11 +1321,17 @@ static int handler_device_subcribe(const char *path, const char *types,
                 flags |= SUB_DEVICE_CONNECTIONS_IN;
             else if (strcmp(&argv[i]->s, "connections_out")==0)
                 flags |= SUB_DEVICE_CONNECTIONS_OUT;
+            else if (strcmp(&argv[i]->s, "@version")==0) {
+                // next argument is last device version recorded by subscriber
+                ++i;
+                if (i < argc && types[i] == 'i')
+                    version = argv[i]->i;
+            }
         }
     }
 
     // add or renew subscription
-    mapper_admin_add_subscriber(admin, a, flags, timeout_seconds);
+    mapper_admin_add_subscriber(admin, a, flags, timeout_seconds, version);
 
     return 0;
 }

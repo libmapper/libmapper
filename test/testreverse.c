@@ -49,7 +49,7 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mn=0, mx=10;
+    int mn=0, mx=10;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
     msig_set_callback(sendsig, insig_handler, 0);
@@ -127,9 +127,9 @@ void loop()
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
 
-        while (i++ < 10) {
-            mdev_poll(source, 0);
-            mdev_poll(destination, 0);
+        while (!destination->receivers) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
         }
 
         msig_full_name(sendsig, src_name, 1024);
@@ -140,10 +140,9 @@ void loop()
                                CONNECTION_MODE);
 
         // wait until connection has been established
-        while (!destination->receivers ||
-               !destination->receivers->n_connections) {
-            mdev_poll(source, 1);
-            mdev_poll(destination, 1);
+        while (!destination->receivers->n_connections) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
         }
 
         mapper_monitor_free(mon);

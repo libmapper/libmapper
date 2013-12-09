@@ -148,9 +148,9 @@ void loop()
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
 
-        while (i++ < 10) {
-            mdev_poll(source, 0);
-            mdev_poll(destination, 0);
+        while (!source->routers) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
         }
 
         for (int i = 0; i < 4; i++) {
@@ -160,14 +160,15 @@ void loop()
         }
 
         // wait until connection has been established
-        while (!source->routers || !source->routers->n_connections) {
-            mdev_poll(source, 1);
-            mdev_poll(destination, 1);
+        while (!source->routers->n_connections) {
+            mdev_poll(source, 10);
+            mdev_poll(destination, 10);
         }
 
         mapper_monitor_free(mon);
     }
 
+    i = 10;
     while (i >= 0 && !done) {
         for (j = 0; j < 2; j++) {
             msig_update_float(recvsig[j], ((i % 10) * 1.0f));
