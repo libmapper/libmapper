@@ -75,6 +75,7 @@ const char* admin_msg_strings[] =
     "/input/removed",           /* ADM_INPUT_SIGNAL_REMOVED */
     "/output/removed",          /* ADM_OUTPUT_SIGNAL_REMOVED */
     "%s/subscribe",             /* ADM_SUBSCRIBE */
+    "%s/unsubscribe",           /* ADM_UNSUBSCRIBE */
     "/sync",                    /* ADM_SYNC */
     "/unlink",                  /* ADM_UNLINK */
     "/unlinked",                /* ADM_UNLINKED */
@@ -98,6 +99,8 @@ static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_device_subcribe(const char *, const char *, lo_arg **,
                                    int, lo_message, void *);
+static int handler_device_unsubcribe(const char *, const char *, lo_arg **,
+                                     int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
 static int handler_input_signal_removed(const char *, const char *, lo_arg **,
@@ -150,6 +153,7 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subcribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubcribe},
     {ADM_CONNECT,               NULL,       handler_signal_connect},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
@@ -164,6 +168,7 @@ static struct handler_method_assoc device_mesh_handlers[] = {
     {ADM_LINKED,                 NULL,      handler_device_linked},
     {ADM_UNLINKED,               NULL,      handler_device_unlinked},
     {ADM_SUBSCRIBE,              NULL,      handler_device_subcribe},
+    {ADM_UNSUBSCRIBE,            NULL,      handler_device_unsubcribe},
     {ADM_CONNECT_TO,             NULL,      handler_signal_connectTo},
     {ADM_CONNECTED,              NULL,      handler_signal_connected},
     {ADM_DISCONNECTED,           "ss",      handler_signal_disconnected},
@@ -501,7 +506,7 @@ void mapper_admin_send_bundle(mapper_admin admin)
             mapper_clock_now(&admin->clock, &admin->clock.now);
         }
         while (*s) {
-            if ((*s)->lease_expiration_sec < admin->clock.now.sec) {
+            if ((*s)->lease_expiration_sec < admin->clock.now.sec || !(*s)->flags) {
                 // subscription expired, remove from subscriber list
                 mapper_admin_subscriber temp = *s;
                 *s = temp->next;
@@ -1207,12 +1212,12 @@ static int handler_logout(const char *path, const char *types,
     return 0;
 }
 
-// Add or renew a monitor subscription.
-static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
-                                        int flags, int timeout_seconds,
-                                        int revision)
+// Add/renew/remove a monitor subscription.
+static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address address,
+                                           int flags, int timeout_seconds,
+                                           int revision)
 {
-    mapper_admin_subscriber sub = admin->subscribers;
+    mapper_admin_subscriber *s = &admin->subscribers;
     const char *ip = lo_address_get_hostname(address);
     const char *port = lo_address_get_port(address);
     if (!ip || !port)
@@ -1221,24 +1226,41 @@ static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
     mapper_clock_t *clock = &admin->clock;
     mapper_clock_now(clock, &clock->now);
 
-    while (sub) {
-        if (strcmp(ip, lo_address_get_hostname(sub->address))==0 &&
-            strcmp(port, lo_address_get_port(sub->address))==0) {
-            // subscriber already exists, reset timeout
-            sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-            if (sub->flags == flags)
-                return;
-            int temp = flags;
-            flags &= ~sub->flags;
-            sub->flags = temp;
+    while (*s) {
+        if (strcmp(ip, lo_address_get_hostname((*s)->address))==0 &&
+            strcmp(port, lo_address_get_port((*s)->address))==0) {
+            // subscriber already exists
+            if (!flags || !timeout_seconds) {
+                // remove subscription
+                mapper_admin_subscriber temp = *s;
+                int prev_flags = temp->flags;
+                *s = temp->next;
+                if (temp->address)
+                    lo_address_free(temp->address);
+                free(temp);
+                if (!flags || !(flags &= ~prev_flags))
+                    return;
+            }
+            else {
+                // reset timeout
+                (*s)->lease_expiration_sec = clock->now.sec + timeout_seconds;
+                if ((*s)->flags == flags)
+                    return;
+                int temp = flags;
+                flags &= ~(*s)->flags;
+                (*s)->flags = temp;
+            }
             break;
         }
-        sub = sub->next;
+        s = &(*s)->next;
     }
 
-    if (!sub) {
+    if (!flags)
+        return;
+
+    if (!(*s)) {
         // add new subscriber
-        sub = malloc(sizeof(struct _mapper_admin_subscriber));
+        mapper_admin_subscriber sub = malloc(sizeof(struct _mapper_admin_subscriber));
         sub->address = lo_address_new(ip, port);
         sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
         sub->flags = flags;
@@ -1250,7 +1272,7 @@ static void mapper_admin_add_subscriber(mapper_admin admin, lo_address address,
         return;
 
     // bring new subscriber up to date
-    mapper_admin_set_bundle_dest_mesh(admin, sub->address);
+    mapper_admin_set_bundle_dest_mesh(admin, (*s)->address);
     if (flags & SUB_DEVICE)
         mapper_admin_send_device(admin, admin->device);
     if (flags & SUB_DEVICE_INPUTS)
@@ -1331,7 +1353,23 @@ static int handler_device_subcribe(const char *path, const char *types,
     }
 
     // add or renew subscription
-    mapper_admin_add_subscriber(admin, a, flags, timeout_seconds, version);
+    mapper_admin_manage_subscriber(admin, a, flags, timeout_seconds, version);
+
+    return 0;
+}
+
+/*! Respond to /unsubscribe message by removing a subscription. */
+static int handler_device_unsubcribe(const char *path, const char *types,
+                                     lo_arg **argv, int argc, lo_message msg,
+                                     void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+
+    lo_address a  = lo_message_get_source(msg);
+    if (!a) return 0;
+
+    // remove subscription
+    mapper_admin_manage_subscriber(admin, a, 0, 0, 0);
 
     return 0;
 }

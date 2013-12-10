@@ -200,6 +200,17 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout);
 }
 
+void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+{
+    char cmd[1024];
+    snprintf(cmd, 1024, "%s/unsubscribe", device_name);
+
+    mapper_monitor_set_bundle_dest(mon, device_name);
+    lo_message m = lo_message_new();
+    lo_bundle_add_message(mon->admin->bundle, cmd, m);
+    mapper_admin_send_bundle(mon->admin);
+}
+
 static void mapper_monitor_remove_subscription_internal(mapper_monitor mon,
                                                         const char *device_name)
 {
