@@ -1046,23 +1046,6 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     return 0;
 }
 
-static int move_history_initialization(mapper_token_t *stack, int top)
-{
-    // should only be one token or vectorizer
-    int i = top-1;
-    while (i >= 0 && stack[i].toktype == TOK_ASSIGNMENT) {
-        i--;
-    }
-    if (i < 0) {
-        printf("error");
-        return -1;
-    }
-
-    // TODO: move initialization expression to beginning of stack
-
-    return top;
-}
-
 /* Macros to help express stack operations in parser. */
 #define FAIL(msg) {                                                 \
     printf("%s\n", msg);                                            \
@@ -1270,11 +1253,6 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         {FAIL("Malformed expression.");}
                     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
                         {FAIL("Malformed expression.");}
-                    if (outstack[outstack_index].history_index != 0) {
-                        outstack_index = move_history_initialization(outstack, outstack_index);
-                        if (outstack_index < 0)
-                            {FAIL("Malformed expression.");}
-                    }
                     assigning = 1;
                     allow_toktype = TOK_VAR;
                     break;
@@ -1550,11 +1528,6 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // check vector length and type
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
         {FAIL("Malformed expression.");}
-    if (outstack[outstack_index].history_index != 0) {
-        outstack_index = move_history_initialization(outstack, outstack_index);
-        if (outstack_index < 0)
-            {FAIL("Malformed expression.");}
-    }
 
 #if TRACING
     printstack("--->OUTPUT STACK:", outstack, outstack_index);
