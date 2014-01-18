@@ -306,31 +306,31 @@ typedef struct _token {
         expr_func_t func;
         expr_vfunc_t vfunc;
     };
-    char datatype;
     union {
         char casttype;
         int assignment_offset;
     };
-    char history_index;
     int vector_length;
-    char vector_length_locked;
     union {
         int vector_index;
         int vectorizer_arity;
     };
+    char history_index;
+    char vector_length_locked;
+    char datatype;
 } mapper_token_t, *mapper_token;
 
 typedef struct _variable {
     char *name; // TODO: don't need to store this in expr once parsed
     double *value;
+    int vector_index;
+    int vector_length;
     char datatype;
     char casttype;
     char history_size;
     char history_position;
-    int vector_length;
     char vector_length_locked;
     char assigned;
-    int vector_index;
 } mapper_variable_t, *mapper_variable;
 
 static expr_func_t function_lookup(const char *s, int len)
