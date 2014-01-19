@@ -242,13 +242,13 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name, int default_scope);
+                                int port, const char *name);
 
 void mapper_router_free(mapper_router router);
 
 /*! Set a router's properties based on message parameters. */
-void mapper_router_set_from_message(mapper_router router,
-                                    mapper_message_t *msg);
+int mapper_router_set_from_message(mapper_router router,
+                                   mapper_message_t *msg);
 
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
@@ -299,10 +299,6 @@ mapper_router mapper_router_find_by_dest_address(mapper_router routers,
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
                                               const char *dest_name);
 
-int mapper_router_add_scope(mapper_router router, const char *scope);
-
-int mapper_router_remove_scope(mapper_router router, const char *scope);
-
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
 void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
@@ -310,13 +306,13 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 /***** Receiver *****/
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
-                                    int port, const char *name, int default_scope);
+                                    int port, const char *name);
 
 void mapper_receiver_free(mapper_receiver receiver);
 
 /*! Set a router's properties based on message parameters. */
-void mapper_receiver_set_from_message(mapper_receiver receiver,
-                                      mapper_message_t *msg);
+int mapper_receiver_set_from_message(mapper_receiver receiver,
+                                     mapper_message_t *msg);
 
 void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_signal sig,
@@ -463,8 +459,8 @@ int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
 /*! Set a connection's properties based on message parameters. */
-void mapper_connection_set_from_message(mapper_connection connection,
-                                        mapper_message_t *msg);
+int mapper_connection_set_from_message(mapper_connection connection,
+                                       mapper_message_t *msg);
 
 void mapper_connection_set_mode_direct(mapper_connection connection);
 
@@ -701,6 +697,10 @@ void mapper_link_prepare_osc_message(lo_message m,
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
+
+// Helper for setting property value from different lo_arg types
+int propval_set_from_lo_arg(void *dest, const char dest_type,
+                            lo_arg *src, const char src_type, int index);
 
 /**** Expression parser/evaluator ****/
 

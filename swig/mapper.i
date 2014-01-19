@@ -1209,7 +1209,8 @@ typedef enum {
 
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
-    MDEV_LOCAL_DESTROYED
+    MDEV_LOCAL_DESTROYED,
+    MDEV_LOCAL_MODIFIED,
 } mapper_device_local_action_t;
 
 typedef struct _device {} device;

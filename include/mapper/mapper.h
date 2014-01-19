@@ -578,6 +578,7 @@ double mdev_get_clock_offset(mapper_device md);
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
     MDEV_LOCAL_DESTROYED,
+    MDEV_LOCAL_MODIFIED,
 } mapper_device_local_action_t;
 
 /*! Function to call when a local device link is established or

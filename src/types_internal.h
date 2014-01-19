@@ -82,6 +82,7 @@ typedef enum {
     ADM_GET_MY_SIGNALS_IN,
     ADM_GET_MY_SIGNALS_OUT,
     ADM_LINK,
+    ADM_LINK_MODIFY,
     ADM_LINK_TO,
     ADM_LINKED,
     ADM_LOGOUT,
