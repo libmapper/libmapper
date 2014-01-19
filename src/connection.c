@@ -500,6 +500,10 @@ static int replace_expression_string(mapper_connection c,
         mapper_expr_free(c->expr);
 
     c->expr = expr;
+
+    if (c->props.expression == expr_str)
+        return 0;
+
     int len = strlen(expr_str);
     if (!c->props.expression || len > strlen(c->props.expression))
         c->props.expression = realloc(c->props.expression, len+1);
