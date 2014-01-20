@@ -1457,34 +1457,6 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /**** Connection records ****/
 
-// Helper for setting property value from different lo_arg types
-static int propval_set_from_lo_arg(void *dest, const char dest_type,
-                                   lo_arg *src, const char src_type, int index)
-{
-    if (dest_type == 'f') {
-        float *temp = (float*)dest;
-        if (src_type == 'f')        temp[index] = src->f;
-        else if (src_type == 'i')   temp[index] = (float)src->i;
-        else if (src_type == 'd')   temp[index] = (float)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'i') {
-        int *temp = (int*)dest;
-        if (src_type == 'f')        temp[index] = (int)src->f;
-        else if (src_type == 'i')   temp[index] = src->i;
-        else if (src_type == 'd')   temp[index] = (int)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'd') {
-        double *temp = (double*)dest;
-        if (src_type == 'f')        temp[index] = (double)src->f;
-        else if (src_type == 'i')   temp[index] = (double)src->i;
-        else if (src_type == 'd')   temp[index] = src->d;
-        else                        return 1;
-    }
-    return 0;
-}
-
 /*! Update information about a given connection record based on
  *  message parameters. */
 static int update_connection_record_params(mapper_db_connection con,
@@ -1523,13 +1495,15 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->src_length) {
             if (!con->range.src_max)
-                con->range.src_max = malloc(length *
+                con->range.src_max = calloc(1, length *
                                             mapper_type_size(con->src_type));
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(con->range.src_max, con->src_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
@@ -1546,13 +1520,15 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->src_length) {
             if (!con->range.src_min)
-                con->range.src_min = malloc(length *
+                con->range.src_min = calloc(1, length *
                                             mapper_type_size(con->src_type));
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(con->range.src_min, con->src_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
@@ -1569,13 +1545,15 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->dest_length) {
             if (!con->range.dest_max)
-                con->range.dest_max = malloc(length *
+                con->range.dest_max = calloc(1, length *
                                              mapper_type_size(con->dest_type));
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(con->range.dest_max, con->dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
@@ -1592,13 +1570,15 @@ static int update_connection_record_params(mapper_db_connection con,
     if (args && types) {
         if (length == con->dest_length) {
             if (!con->range.dest_min)
-                con->range.dest_min = malloc(length *
+                con->range.dest_min = calloc(1, length *
                                              mapper_type_size(con->dest_type));
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(con->range.dest_min, con->dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
@@ -2096,6 +2076,14 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
         free(con->dest_name);
     if (con->expression)
         free(con->expression);
+    if (con->range.src_min)
+        free(con->range.src_min);
+    if (con->range.src_max)
+        free(con->range.src_max);
+    if (con->range.dest_min)
+        free(con->range.dest_min);
+    if (con->range.dest_max)
+        free(con->range.dest_max);
     if (con->extra)
         table_free(con->extra, 1);
     list_remove_item(con, (void**)&db->registered_connections);

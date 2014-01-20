@@ -518,6 +518,10 @@ static int replace_expression_string(mapper_connection c,
         mapper_expr_free(c->expr);
 
     c->expr = expr;
+
+    if (c->props.expression == expr_str)
+        return 0;
+
     int len = strlen(expr_str);
     if (!c->props.expression || len > strlen(c->props.expression))
         c->props.expression = realloc(c->props.expression, len+1);
@@ -734,47 +738,19 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
     c->calibrating = 0;
 }
 
-// Helper for setting property value from different lo_arg types
-static int propval_set_from_lo_arg(void *dest, const char dest_type,
-                                   lo_arg *src, const char src_type, int index)
-{
-    if (dest_type == 'f') {
-        float *temp = (float*)dest;
-        if (src_type == 'f')        temp[index] = src->f;
-        else if (src_type == 'i')   temp[index] = (float)src->i;
-        else if (src_type == 'd')   temp[index] = (float)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'i') {
-        int *temp = (int*)dest;
-        if (src_type == 'f')        temp[index] = (int)src->f;
-        else if (src_type == 'i')   temp[index] = src->i;
-        else if (src_type == 'd')   temp[index] = (int)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'd') {
-        double *temp = (double*)dest;
-        if (src_type == 'f')        temp[index] = (double)src->f;
-        else if (src_type == 'i')   temp[index] = (double)src->i;
-        else if (src_type == 'd')   temp[index] = src->d;
-        else                        return 1;
-    }
-    return 0;
-}
-
 /* Helper to fill in the range (src_min, src_max, dest_min, dest_max)
  * based on message parameters and known connection and signal
  * properties; return flags to indicate which parts of the range were
  * found. */
-static void set_range(mapper_connection c,
-                      mapper_message_t *msg)
+static int set_range(mapper_connection c,
+                     mapper_message_t *msg)
 {
     lo_arg **args = NULL;
     const char *types = NULL;
-    int i, length = 0;
+    int i, length = 0, updated = 0;
 
     if (!c)
-        return;
+        return 0;
 
     /* The logic here is to first try to use information from the
      * message, starting with @srcMax, @srcMin, @destMax, @destMin,
@@ -789,13 +765,14 @@ static void set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.src_length) {
             if (!c->props.range.src_max)
-                c->props.range.src_max = malloc(length *
-                                                c->props.src_type);
+                c->props.range.src_max = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.src_max,
                                             c->props.src_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
@@ -812,13 +789,14 @@ static void set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.src_length) {
             if (!c->props.range.src_min)
-                c->props.range.src_min = malloc(length *
-                                                c->props.src_type);
+                c->props.range.src_min = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.src_min,
                                             c->props.src_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
@@ -835,13 +813,14 @@ static void set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_max)
-                c->props.range.dest_max = malloc(length *
-                                                 c->props.dest_type);
+                c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_max,
                                             c->props.dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
@@ -858,13 +837,14 @@ static void set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_min)
-                c->props.range.dest_min = malloc(length *
-                                                 c->props.dest_type);
+                c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_min,
                                             c->props.dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
@@ -883,13 +863,14 @@ static void set_range(mapper_connection c,
     {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_min)
-                c->props.range.dest_min = malloc(length *
-                                                 c->props.dest_type);
+                c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_min,
                                             c->props.dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
@@ -907,13 +888,14 @@ static void set_range(mapper_connection c,
     {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_max)
-                c->props.range.dest_max = malloc(length *
-                                                 c->props.dest_type);
+                c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_max,
                                             c->props.dest_type,
-                                            args[i], types[i], i)) {
+                                            args[i], types[i], i))
+                    updated++;
+                else {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
@@ -931,7 +913,7 @@ static void set_range(mapper_connection c,
      * for negotiating new connections, we will only fill-in ranges for the
      * "source" signal.*/
     if (!sig || !sig->props.is_output)
-        return;
+        return updated;
 
     if (!c->props.range.src_min && sig->props.minimum)
     {
@@ -939,6 +921,7 @@ static void set_range(mapper_connection c,
         memcpy(c->props.range.src_min, sig->props.minimum,
                msig_vector_bytes(sig));
         c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+        updated++;
     }
 
     if (!c->props.range.src_max && sig->props.maximum)
@@ -947,23 +930,30 @@ static void set_range(mapper_connection c,
         memcpy(c->props.range.src_max, sig->props.maximum,
                msig_vector_bytes(sig));
         c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+        updated++;
     }
+
+    return updated;
 }
 
-void mapper_connection_set_from_message(mapper_connection c,
-                                        mapper_message_t *msg)
+int mapper_connection_set_from_message(mapper_connection c,
+                                       mapper_message_t *msg)
 {
+    int updated = 0;
     /* First record any provided parameters. */
 
     /* Destination type. */
 
     const char *dest_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
-    if (dest_type)
+    if (dest_type && c->props.dest_type != dest_type[0]) {
+        // TODO: need to reinitialize connections using this destination signal
         c->props.dest_type = dest_type[0];
+        updated++;
+    }
 
     /* Range information. */
 
-    set_range(c, msg);
+    updated += set_range(c, msg);
     if (c->props.range.known == CONNECTION_RANGE_KNOWN &&
         c->props.mode == MO_LINEAR) {
         mapper_connection_set_mode_linear(c);
@@ -971,21 +961,28 @@ void mapper_connection_set_from_message(mapper_connection c,
 
     /* Muting. */
     int muting;
-    if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting))
+    if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
+        && c->props.muted != muting) {
         c->props.muted = muting;
+        updated++;
+    }
 
     /* Range boundary actions. */
     int bound_min = mapper_msg_get_boundary_action(msg, AT_BOUND_MIN);
-    if (bound_min >= 0)
+    if (bound_min >= 0 && c->props.bound_min != bound_min) {
         c->props.bound_min = bound_min;
+        updated++;
+    }
 
     int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
-    if (bound_max >= 0)
+    if (bound_max >= 0 && c->props.bound_max != bound_max) {
         c->props.bound_max = bound_max;
+        updated++;
+    }
 
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    if (expr) {
+    if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
         int input_history_size, output_history_size;
         if (!replace_expression_string(c, expr, &input_history_size,
                                        &output_history_size)) {
@@ -993,20 +990,26 @@ void mapper_connection_set_from_message(mapper_connection c,
                 reallocate_connection_histories(c, input_history_size,
                                                 output_history_size);
         }
+        updated++;
     }
 
     /* Instances. */
     int send_as_instance;
-    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance))
+    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
+        && c->props.send_as_instance != send_as_instance) {
         c->props.send_as_instance = send_as_instance;
+        updated++;
+    }
 
     /* Extra properties. */
-    mapper_msg_add_or_update_extra_params(c->props.extra, msg);
+    updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 
     /* Now set the mode type depending on the requested type and
      * the known properties. */
 
     int mode = mapper_msg_get_mode(msg);
+    if (mode >= 0 && mode != c->props.mode)
+        updated++;
 
     switch (mode)
     {
@@ -1069,6 +1072,8 @@ void mapper_connection_set_from_message(mapper_connection c,
         trace("unknown result from mapper_msg_get_mode()\n");
         break;
     }
+
+    return updated;
 }
 
 mapper_connection mapper_connection_find_by_names(mapper_device md,

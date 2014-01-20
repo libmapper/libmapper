@@ -258,8 +258,7 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
     return 0;
 }
 
-int mapper_msg_add_or_update_extra_params(table t,
-                                          mapper_message_t *params)
+int mapper_msg_add_or_update_extra_params(table t, mapper_message_t *params)
 {
     int i=0, updated=0;
     while (params->extra_args[i])
@@ -577,6 +576,16 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_link_prepare_osc_message(lo_message m,
                                      mapper_link link)
 {
+    int i;
+
+    // Add link scopes
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
+    if (link->props.num_scopes) {
+        for (i=0; i<link->props.num_scopes; i++)
+            lo_message_add_string(m, link->props.scope_names[i]);
+    }
+    else
+        lo_message_add_string(m, "none");
     mapper_msg_add_value_table(m, link->props.extra);
 }
 
@@ -712,6 +721,76 @@ int mapper_msg_get_mute(mapper_message_t *msg)
         return 0;
     else
         return -1;
+}
+
+// Helper for setting property value from different lo_arg types
+int propval_set_from_lo_arg(void *dest, const char dest_type,
+                            lo_arg *src, const char src_type, int index)
+{
+    if (dest_type == 'f') {
+        float *temp = (float*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != src->f) {
+                temp[index] = src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != (float)src->i) {
+                temp[index] = (float)src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != (float)src->d) {
+                temp[index] = (float)src->d;
+                return 1;
+            }
+        }
+    }
+    else if (dest_type == 'i') {
+        int *temp = (int*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != (int)src->f) {
+                temp[index] = (int)src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != src->i) {
+                temp[index] = src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != (int)src->d) {
+                temp[index] = (int)src->d;
+                return 1;
+            }
+        }
+    }
+    else if (dest_type == 'd') {
+        double *temp = (double*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != (double)src->f) {
+                temp[index] = (double)src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != (double)src->i) {
+                temp[index] = (double)src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != src->d) {
+                temp[index] = src->d;
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 void mapper_prop_pp(char type, int length, const void *value)
