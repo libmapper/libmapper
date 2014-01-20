@@ -93,7 +93,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         i--;
                         break;
                     }
-                    else if (types[i] != msg->extra_types[j]) {
+                    else if (types[i] != msg->extra_types[extra_count]) {
                         trace("message %s, value vector for key %s has heterogeneous types.\n",
                               path, &(*msg->extra_args[extra_count])->s);
                         msg->extra_lengths[extra_count] = 0;
