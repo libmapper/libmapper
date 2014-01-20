@@ -1466,7 +1466,7 @@ static int update_connection_record_params(mapper_db_connection con,
 {
     lo_arg **args;
     const char *types;
-    int updated = 0;
+    int updated = 0, result;
 
     updated += update_string_if_different(&con->src_name, src_name);
     updated += update_string_if_different(&con->dest_name, dest_name);
@@ -1500,13 +1500,15 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.src_max, con->src_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(con->range.src_max,
+                                                 con->src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -1525,13 +1527,15 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.src_min, con->src_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(con->range.src_min,
+                                                 con->src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -1550,13 +1554,15 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.dest_max, con->dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(con->range.dest_max,
+                                                 con->dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -1575,13 +1581,15 @@ static int update_connection_record_params(mapper_db_connection con,
             con->range.known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.dest_min, con->dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(con->range.dest_min,
+                                                 con->dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else

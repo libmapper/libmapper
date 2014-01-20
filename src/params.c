@@ -761,6 +761,8 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
     else if (dest_type == 'i') {
         int *temp = (int*)dest;
@@ -782,6 +784,8 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
     else if (dest_type == 'd') {
         double *temp = (double*)dest;
@@ -803,7 +807,11 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
+    else
+        return -1;
     return 0;
 }
 
