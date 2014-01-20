@@ -651,7 +651,7 @@ static int set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.src_length) {
             if (!c->props.range.src_max)
-                c->props.range.src_max = malloc(length * c->props.src_type);
+                c->props.range.src_max = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.src_max,
@@ -675,7 +675,7 @@ static int set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.src_length) {
             if (!c->props.range.src_min)
-                c->props.range.src_min = malloc(length * c->props.src_type);
+                c->props.range.src_min = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.src_min,
@@ -699,7 +699,7 @@ static int set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_max)
-                c->props.range.dest_max = malloc(length * c->props.dest_type);
+                c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_max,
@@ -723,7 +723,7 @@ static int set_range(mapper_connection c,
     if (args && types) {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_min)
-                c->props.range.dest_min = malloc(length * c->props.dest_type);
+                c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_min,
@@ -749,7 +749,7 @@ static int set_range(mapper_connection c,
     {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_min)
-                c->props.range.dest_min = malloc(length * c->props.dest_type);
+                c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_min,
@@ -774,7 +774,7 @@ static int set_range(mapper_connection c,
     {
         if (length == c->props.dest_length) {
             if (!c->props.range.dest_max)
-                c->props.range.dest_max = malloc(length * c->props.dest_type);
+                c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
                 if (propval_set_from_lo_arg(c->props.range.dest_max,

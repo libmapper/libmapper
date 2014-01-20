@@ -737,7 +737,7 @@ table table_new();
 void table_free(table t, int free_values);
 
 /*! Add a string to a table. */
-void table_add(table t, const char *key, void *value);
+void table_add(table t, const char *key, void *value, int is_mapper_prop);
 
 /*! Sort a table.  Call this after table_add and before table_find. */
 void table_sort(table t);
