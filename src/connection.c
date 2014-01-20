@@ -747,7 +747,7 @@ static int set_range(mapper_connection c,
 {
     lo_arg **args = NULL;
     const char *types = NULL;
-    int i, length = 0, updated = 0;
+    int i, length = 0, updated = 0, result;
 
     if (!c)
         return 0;
@@ -768,14 +768,15 @@ static int set_range(mapper_connection c,
                 c->props.range.src_max = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MAX;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.src_max,
-                                            c->props.src_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.src_max,
+                                                 c->props.src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -792,14 +793,15 @@ static int set_range(mapper_connection c,
                 c->props.range.src_min = calloc(1, length * c->props.src_type);
             c->props.range.known |= CONNECTION_RANGE_SRC_MIN;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.src_min,
-                                            c->props.src_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.src_min,
+                                                 c->props.src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -816,14 +818,15 @@ static int set_range(mapper_connection c,
                 c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.dest_max,
-                                            c->props.dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.dest_max,
+                                                 c->props.dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -840,14 +843,15 @@ static int set_range(mapper_connection c,
                 c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.dest_min,
-                                            c->props.dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.dest_min,
+                                                 c->props.dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -866,14 +870,15 @@ static int set_range(mapper_connection c,
                 c->props.range.dest_min = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MIN;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.dest_min,
-                                            c->props.dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.dest_min,
+                                                 c->props.dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
@@ -891,14 +896,15 @@ static int set_range(mapper_connection c,
                 c->props.range.dest_max = calloc(1, length * c->props.dest_type);
             c->props.range.known |= CONNECTION_RANGE_DEST_MAX;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(c->props.range.dest_max,
-                                            c->props.dest_type,
-                                            args[i], types[i], i))
-                    updated++;
-                else {
+                result = propval_set_from_lo_arg(c->props.range.dest_max,
+                                                 c->props.dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
                     c->props.range.known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else

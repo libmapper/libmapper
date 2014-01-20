@@ -73,7 +73,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             lo_arg_pp(types[i], argv[i]);
             trace("' not a string.\n");
 #endif
-            return 1;
+            continue;
         }
 
         for (j=0; j<N_AT_PARAMS; j++)
@@ -93,12 +93,20 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         i--;
                         break;
                     }
+                    else if (types[i] != msg->extra_types[j]) {
+                        trace("message %s, value vector for key %s has heterogeneous types.\n",
+                              path, &(*msg->extra_args[extra_count])->s);
+                        msg->extra_lengths[extra_count] = 0;
+                        break;
+                    }
                     msg->extra_lengths[extra_count]++;
                 }
                 if (!msg->extra_lengths[extra_count]) {
                     trace("message %s, key %s has no values.\n",
                           path, &(*msg->extra_args[extra_count])->s);
-                    return 1;
+                    msg->extra_args[extra_count] = 0;
+                    msg->extra_types[extra_count] = 0;
+                    continue;
                 }
                 extra_count++;
                 continue;
@@ -118,6 +126,12 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 i--;
                 break;
             }
+            else if (types[i] != *msg->types[j]) {
+                trace("message %s, value vector for key %s has heterogeneous types.\n",
+                      path, mapper_msg_param_strings[j]);
+                msg->lengths[j] = 0;
+                break;
+            }
             msg->lengths[j]++;
         }
         if (!msg->lengths[j]) {
@@ -125,7 +139,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                   path, mapper_msg_param_strings[j]);
             msg->types[j] = 0;
             msg->values[j] = 0;
-            return 1;
+            continue;
         }
     }
     return 0;
@@ -747,6 +761,8 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
     else if (dest_type == 'i') {
         int *temp = (int*)dest;
@@ -768,6 +784,8 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
     else if (dest_type == 'd') {
         double *temp = (double*)dest;
@@ -789,7 +807,11 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
                 return 1;
             }
         }
+        else
+            return -1;
     }
+    else
+        return -1;
     return 0;
 }
 
