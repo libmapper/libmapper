@@ -370,82 +370,6 @@ static void free_query_src_dest_queries(list_header_t *lh)
     free_query_single_context(lh);
 }
 
-/* Helper functions for updating struct fields based on message
- * parameters. */
-
-static int update_signal_value_if_arg(mapper_message_t *params,
-                                      mapper_msg_param_t field,
-                                      char sigtype, int siglength,
-                                      void *value)
-{
-    lo_arg **a = mapper_msg_get_param(params, field);
-    const char *type = mapper_msg_get_type(params, field);
-    int length = mapper_msg_get_length(params, field);
-
-    if (!a || !(*a) || length != siglength)
-        return 0;
-
-    int i, updated = 0;
-    if (sigtype == 'f') {
-        float *vf = (float*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (*a)->f;
-            else if (type[i] == 'i')
-                temp = (float)(*a)->i;
-            else if (type[i] == 'd')
-                temp = (float)(*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vf[i]) {
-                vf[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    else if (sigtype == 'i') {
-        int *vi = (int*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (int)(*a)->f;
-            else if (type[i] == 'i')
-                temp = (*a)->i;
-            else if (type[i] == 'd')
-                temp = (int)(*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vi[i]) {
-                vi[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    else if (sigtype == 'd') {
-        double *vd = (double*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (double)(*a)->f;
-            else if (type[i] == 'i')
-                temp = (double)(*a)->i;
-            else if (type[i] == 'd')
-                temp = (*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vd[i]) {
-                vd[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    return updated;
-}
-
 static int update_string_if_different(char **pdest_str,
                                       const char *src_str)
 {
@@ -1098,7 +1022,10 @@ static int update_signal_record_params(mapper_db_signal sig,
                                        const char *device_name,
                                        mapper_message_t *params)
 {
-    int updated = 0;
+    lo_arg **args;
+    const char *types;
+    int length, updated = 0, result;
+
     updated += update_string_if_different((char**)&sig->name, name);
     updated += update_string_if_different((char**)&sig->device_name, device_name);
 
@@ -1110,11 +1037,51 @@ static int update_signal_record_params(mapper_db_signal sig,
 
     updated += update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
-    updated += update_signal_value_if_arg(params, AT_MAX, sig->type,
-                                          sig->length, &sig->maximum);
+    /* @max */
+    args = mapper_msg_get_param(params, AT_MAX);
+    types = mapper_msg_get_type(params, AT_MAX);
+    length = mapper_msg_get_length(params, AT_MAX);
+    if (args && types) {
+        if (length == sig->length) {
+            if (!sig->maximum)
+                sig->maximum = calloc(1, length * mapper_type_size(sig->type));
+            int i;
+            for (i=0; i<length; i++) {
+                result = propval_set_from_lo_arg(sig->maximum, sig->type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    free(sig->maximum);
+                    sig->maximum = 0;
+                    break;
+                }
+                else
+                    updated += result;
+            }
+        }
+    }
 
-    updated += update_signal_value_if_arg(params, AT_MIN, sig->type,
-                                          sig->length, &sig->minimum);
+    /* @min */
+    args = mapper_msg_get_param(params, AT_MIN);
+    types = mapper_msg_get_type(params, AT_MIN);
+    length = mapper_msg_get_length(params, AT_MIN);
+    if (args && types) {
+        if (length == sig->length) {
+            if (!sig->minimum)
+                sig->minimum = calloc(1, length * mapper_type_size(sig->type));
+            int i;
+            for (i=0; i<length; i++) {
+                result = propval_set_from_lo_arg(sig->minimum, sig->type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    free(sig->minimum);
+                    sig->minimum = 0;
+                    break;
+                }
+                else
+                    updated += result;
+            }
+        }
+    }
 
     int is_output = mapper_msg_get_direction(params);
     if (is_output != -1 && is_output != sig->is_output) {
@@ -1186,6 +1153,7 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
     sig->length = length;
     sig->unit = unit ? strdup(unit) : 0;
     sig->extra = table_new();
+    sig->minimum = sig->maximum = 0;
 
     if (!name)
         return;
