@@ -200,24 +200,24 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout);
 }
 
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
+                                                const char *device_name,
+                                                int send_message)
 {
     char cmd[1024];
-    snprintf(cmd, 1024, "%s/unsubscribe", device_name);
-
-    mapper_monitor_set_bundle_dest(mon, device_name);
-    lo_message m = lo_message_new();
-    lo_bundle_add_message(mon->admin->bundle, cmd, m);
-    mapper_admin_send_bundle(mon->admin);
-}
-
-static void mapper_monitor_remove_subscription_internal(mapper_monitor mon,
-                                                        const char *device_name)
-{
     // check if autorenewing subscription exists
     mapper_monitor_subscription *s = &mon->subscriptions;
     while (*s) {
         if (strcmp((*s)->name, device_name)==0) {
+            if (send_message) {
+                snprintf(cmd, 1024, "%s/unsubscribe", device_name);
+                mapper_monitor_set_bundle_dest(mon, device_name);
+                lo_message m = lo_message_new();
+                if (!m)
+                    break;
+                lo_bundle_add_message(mon->admin->bundle, cmd, m);
+                mapper_admin_send_bundle(mon->admin);
+            }
             // remove from subscriber list
             mapper_monitor_subscription temp = *s;
             *s = temp->next;
@@ -228,6 +228,11 @@ static void mapper_monitor_remove_subscription_internal(mapper_monitor mon,
         }
         s = &(*s)->next;
     }
+}
+
+void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+{
+    mapper_monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
 void mapper_monitor_link(mapper_monitor mon,
@@ -396,7 +401,7 @@ static void on_device_autosubscribe(mapper_db_device dev,
             mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
     }
     else if (a == MDB_REMOVE) {
-        mapper_monitor_remove_subscription_internal(mon, dev->name);
+        mapper_monitor_unsubscribe_internal(mon, dev->name, 0);
     }
 }
 
