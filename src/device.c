@@ -519,9 +519,11 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     free(type_string);
     free(signal_get);
 
-    // Notify subscribers
-    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
-    mapper_admin_send_signal(md->admin, md, sig);
+    if (md->registered) {
+        // Notify subscribers
+        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+        mapper_admin_send_signal(md->admin, md, sig);
+    }
 
     return sig;
 }
@@ -545,9 +547,11 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     md->outputs[md->props.n_outputs - 1] = sig;
     sig->device = md;
 
-    // Notify subscribers
-    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
-    mapper_admin_send_signal(md->admin, md, sig);
+    if (md->registered) {
+        // Notify subscribers
+        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+        mapper_admin_send_signal(md->admin, md, sig);
+    }
 
     return sig;
 }
@@ -695,8 +699,12 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         }
         r = r->next;
     }
-    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
-    mapper_admin_send_signal_removed(md->admin, md, sig);
+
+    if (md->registered) {
+        // Notify subscribers
+        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+        mapper_admin_send_signal_removed(md->admin, md, sig);
+    }
 
     md->props.n_inputs --;
     mdev_increment_version(md);
@@ -751,8 +759,12 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         }
         r = r->next;
     }
-    mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
-    mapper_admin_send_signal_removed(md->admin, md, sig);
+
+    if (md->registered) {
+        // Notify subscribers
+        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+        mapper_admin_send_signal_removed(md->admin, md, sig);
+    }
 
     md->props.n_outputs --;
     mdev_increment_version(md);
