@@ -58,13 +58,19 @@ public class Signal
     private native void msig_db_signal_set_unit(long p, String unit);
     private native String msig_db_signal_get_unit(long p);
 
-    Double _minimum;
-    public Double minimum() { return _minimum; }
-    private native Double msig_db_signal_get_minimum(long p);
+    PropertyValue _minimum;
+    public PropertyValue minimum() {
+        _minimum = msig_db_signal_get_minimum(_sigprops);
+        return _minimum;
+    }
+    private native PropertyValue msig_db_signal_get_minimum(long p);
 
-    Double _maximum;
-    public Double maximum() { return _maximum; }
-    private native Double msig_db_signal_get_maximum(long p);
+    PropertyValue _maximum;
+    public PropertyValue maximum() {
+        _maximum = msig_db_signal_get_maximum(_sigprops);
+        return _maximum;
+    }
+    private native PropertyValue msig_db_signal_get_maximum(long p);
 
     double _rate;
     public double rate() { return _rate; }

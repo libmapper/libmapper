@@ -42,13 +42,14 @@ def setup(d):
     print 'signal is_output', sig.is_output
     print 'signal unit', sig.unit
     dev.set_properties({"testInt":5, "testFloat":12.7, "testString":"test",
-                        'removed1':"shouldn't see this"})
+                        "removed1":"shouldn't see this"})
     dev.properties['testInt'] = 7
     dev.set_properties({"removed1":None, "removed2":"test"})
     dev.remove_property("removed2")
     print 'signal properties:', sig.properties
     sig.properties['testInt'] = 3
     print 'signal properties:', sig.properties
+    print 'setup done!'
 
 dev = mapper.device("test")
 setup(dev)
@@ -95,17 +96,18 @@ for i in range(1000):
         print 'link for /testsend.1, /testrecv.1:'
         print mon.db.get_link_by_src_dest_names("/testsend.1", "/testrecv.1")
         print 'not found link:'
-        print mon.db.get_link_by_src_dest_names("", "")
+        print mon.db.get_link_by_src_dest_names("/foo", "/bar")
 
     if i==500:
         mon.connect("/testsend.1/outsig_3", "/testrecv.1/insig_3",
                     {'mode': mapper.MO_EXPRESSION,
                      'expression': 'y=x',
+                     'src_min': [1,2,3,4],
                      'bound_min': mapper.BA_WRAP,
                      'bound_max': mapper.BA_CLAMP})
     if i==750:
         mon.modify({'src_name':"/testsend.1/outsig_3",
                     'dest_name':"/testrecv.1/insig_3",
-                    'range':[None,None,3,4],
+                    'dest_max':[10,11,12,13],
                     'muted':True,
                     'mode': mapper.MO_LINEAR})

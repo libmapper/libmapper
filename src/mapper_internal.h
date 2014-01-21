@@ -177,8 +177,7 @@ void _real_mapper_admin_bundle_message(mapper_admin admin,
                                        const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
-void _real_mapper_admin_bundle_message_with_params(const char *file, int line,
-                                                   mapper_admin admin,
+void _real_mapper_admin_bundle_message_with_params(mapper_admin admin,
                                                    mapper_message_t *params,
                                                    mapper_string_table_t *extra,
                                                    int msg_index,
@@ -186,9 +185,7 @@ void _real_mapper_admin_bundle_message_with_params(const char *file, int line,
                                                    const char *types, ...);
 
 #define mapper_admin_bundle_message_with_params(...)                        \
-    _real_mapper_admin_bundle_message_with_params(__FILE__, __LINE__,       \
-                                                  __VA_ARGS__,              \
-                                                  LO_MARKER_A, LO_MARKER_B)
+    _real_mapper_admin_bundle_message_with_params(__VA_ARGS__, N_AT_PARAMS)
 
 /***** Device *****/
 
@@ -258,13 +255,13 @@ const char *mdev_name(mapper_device md);
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int admin_port, int data_port,
-                                const char *name, int default_scope);
+                                const char *name);
 
 void mapper_router_free(mapper_router router);
 
 /*! Set a router's properties based on message parameters. */
-void mapper_router_set_from_message(mapper_router router,
-                                    mapper_message_t *msg);
+int mapper_router_set_from_message(mapper_router router,
+                                   mapper_message_t *msg);
 
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
@@ -315,10 +312,6 @@ mapper_router mapper_router_find_by_dest_address(mapper_router routers,
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
                                               const char *dest_name);
 
-int mapper_router_add_scope(mapper_router router, const char *scope);
-
-int mapper_router_remove_scope(mapper_router router, const char *scope);
-
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
 void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
@@ -327,13 +320,13 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
                                     int admin_port, int data_port,
-                                    const char *name, int default_scope);
+                                    const char *name);
 
 void mapper_receiver_free(mapper_receiver receiver);
 
 /*! Set a router's properties based on message parameters. */
-void mapper_receiver_set_from_message(mapper_receiver receiver,
-                                      mapper_message_t *msg);
+int mapper_receiver_set_from_message(mapper_receiver receiver,
+                                     mapper_message_t *msg);
 
 void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_signal sig,
@@ -480,19 +473,17 @@ int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
 /*! Set a connection's properties based on message parameters. */
-void mapper_connection_set_from_message(mapper_connection connection,
-                                        mapper_message_t *msg);
+int mapper_connection_set_from_message(mapper_connection connection,
+                                       mapper_message_t *msg);
 
-void mapper_connection_set_direct(mapper_connection connection);
+void mapper_connection_set_mode_direct(mapper_connection connection);
 
-void mapper_connection_set_linear_range(mapper_connection connection,
-                                        mapper_connection_range_t *range);
+void mapper_connection_set_mode_linear(mapper_connection connection);
 
-void mapper_connection_set_expression(mapper_connection connection,
-                                      const char *expr);
+void mapper_connection_set_mode_expression(mapper_connection connection,
+                                           const char *expr);
 
-void mapper_connection_set_calibrate(mapper_connection connection,
-                                     float dest_min, float dest_max);
+void mapper_connection_set_mode_calibrate(mapper_connection connection);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
@@ -729,6 +720,10 @@ void mapper_link_prepare_osc_message(lo_message m,
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
 
+// Helper for setting property value from different lo_arg types
+int propval_set_from_lo_arg(void *dest, const char dest_type,
+                            lo_arg *src, const char src_type, int index);
+
 /**** Expression parser/evaluator ****/
 
 mapper_expr mapper_expr_new_from_string(const char *str,
@@ -764,7 +759,7 @@ table table_new();
 void table_free(table t, int free_values);
 
 /*! Add a string to a table. */
-void table_add(table t, const char *key, void *value);
+void table_add(table t, const char *key, void *value, int is_mapper_prop);
 
 /*! Sort a table.  Call this after table_add and before table_find. */
 void table_sort(table t);
@@ -802,17 +797,30 @@ int table_add_or_update(table t, const char *key, void *value);
 void table_dump_osc_values(table t);
 #endif
 
-/*! Add a typed OSC argument to a string table.
- *  \param t    Table to update.
- *  \param key  Key to store.
- *  \param type OSC type of value to add.
- *  \param arg  OSC value to add
+/*! Add a typed OSC argument from a mapper_msg to a string table.
+ *  \param t        Table to update.
+ *  \param key      Key to store.
+ *  \param type     OSC type of value to add.
+ *  \param arg      Array of OSC values to add
+ *  \param length   Number of OSC argument in array
  *  \return The number of table values added or modified. */
-int mapper_table_add_or_update_osc_value(table t, const char *key,
-                                         lo_type type, lo_arg *arg);
+int mapper_table_add_or_update_msg_value(table t, const char *key,
+                                         lo_type type, lo_arg **args,
+                                         int length);
 
-/*! Add OSC arguments contained in a string table to a lo_message */
-void mapper_msg_add_osc_value_table(lo_message m, table t);
+/*! Add a typed argument to a string table.
+ *  \param t        Table to update.
+ *  \param key      Key to store.
+ *  \param type     OSC type of value to add.
+ *  \param arg      Value(s) to add
+ *  \param length   Number of OSC argument in array
+ *  \return The number of table values added or modified. */
+int mapper_table_add_or_update_typed_value(table t, const char *key,
+                                           char type, void *args,
+                                           int length);
+
+/*! Add arguments contained in a string table to a lo_message */
+void mapper_msg_add_value_table(lo_message m, table t);
 
 /**** Clock synchronization ****/
 
@@ -857,11 +865,15 @@ static void die_unless(...) {};
 /*! Helper to find size of signal value types. */
 inline static int mapper_type_size(char type)
 {
-    mapper_signal_value_t v;
     switch (type) {
-    case 'i': return sizeof(v.i32);
-    case 'f': return sizeof(v.f);
-    case 'd': return sizeof(v.d);
+    case 'i': return sizeof(int);
+    case 'f': return sizeof(float);
+    case 'd': return sizeof(double);
+    case 's':
+    case 'S': return sizeof(char*);
+    case 'h': return sizeof(int64_t);
+    case 't': return sizeof(mapper_timetag_t);
+    case 'c': return sizeof(char);
     default:
         die_unless(0, "getting size of unknown type %c\n", type);
         return 0;

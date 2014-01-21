@@ -18,8 +18,9 @@ class test {
                     }
             });
 
-        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz", 2.0, null,
-            new InputListener() {
+        Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz",
+                                                  new PropertyValue('f', 2.0),
+                                                  null, new InputListener() {
                 public void onInput(Mapper.Device.Signal sig,
                                     Mapper.Db.Signal props,
                                     int instance_id,
@@ -32,8 +33,12 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz", 0.0, 1.0);
-        Signal out2 = dev.add_output("outsig2", 1, 'f', "Hz", 0.0, 1.0);
+        Signal out1 = dev.add_output("outsig1", 1, 'i', "Hz",
+                                     new PropertyValue('i', 0.0),
+                                     new PropertyValue('i', 1.0));
+        Signal out2 = dev.add_output("outsig2", 1, 'f', "Hz",
+                                     new PropertyValue(0.0f),
+                                     new PropertyValue(1.0f));
 
         System.out.println("Output signal index: "+out1.index());
         System.out.println("Zeroeth output signal name: "+dev.get_output_by_index(0).name());
@@ -44,22 +49,31 @@ class test {
         dev.set_property("deletethis", new PropertyValue("should not see me"));
         dev.remove_property("deletethis");
 
-        out1.set_property("width", new PropertyValue(128));
+        out1.set_property("width", new PropertyValue(new int[] {10, 11, 12}));
         out1.set_property("height", new PropertyValue(6.25));
-        out1.set_property("depth", new PropertyValue("test"));
+        out1.set_property("depth", new PropertyValue(new String[]{"one","two"}));
         out1.set_property("deletethis", new PropertyValue("or me"));
         out1.remove_property("deletethis");
+        out1.set_minimum(new PropertyValue(12));
 
-        System.out.println("Setting name of out1 to `/out1test'.");
+        System.out.println("Signal properties:");
+        System.out.println("  Setting name of out1 to `/out1test'.");
         out1.properties().set_name("/out1test");
-        System.out.println("Name of out1: " + out1.properties().name());
+        System.out.println("  Name of out1: " + out1.properties().name());
 
-        System.out.println("Looking up `height': "
+        System.out.println("  Looking up `height': "
                            + out1.properties().property_lookup("height"));
-        System.out.println("Looking up `width': "
+        System.out.println("  Looking up `width': "
                            + out1.properties().property_lookup("width"));
-        System.out.println("Looking up `depth': "
+        System.out.println("  Looking up `depth': "
                            + out1.properties().property_lookup("depth"));
+        System.out.println("  Looking up `deletethis': "
+                           + out1.properties().property_lookup("deletethis")
+                           + " (should be null)");
+        System.out.println("  Looking up minimum: "
+                           + out1.properties().minimum());
+        System.out.println("  Looking up maximum: "
+                           + out1.properties().maximum());
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {

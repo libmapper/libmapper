@@ -17,7 +17,7 @@ static void mapper_router_send_or_bundle_message(mapper_router router,
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
                                 int admin_port, int data_port,
-                                const char *name, int default_scope)
+                                const char *name)
 {
     char str[16];
     mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
@@ -30,16 +30,13 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->admin_addr = lo_address_new(host, str);
     r->props.dest_name = strdup(name);
     r->props.dest_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
-    if (default_scope) {
-        r->props.num_scopes = 1;
-        r->props.scope_names = (char **) malloc(sizeof(char *));
-        r->props.scope_names[0] = strdup(mdev_name(device));
-        r->props.scope_hashes = (uint32_t *) malloc(sizeof(uint32_t));
-        r->props.scope_hashes[0] = mdev_id(device);
-    }
-    else {
-        r->props.num_scopes = 0;
-    }
+
+    r->props.num_scopes = 1;
+    r->props.scope_names = (char **) malloc(sizeof(char *));
+    r->props.scope_names[0] = strdup(mdev_name(device));
+    r->props.scope_hashes = (uint32_t *) malloc(sizeof(uint32_t));
+    r->props.scope_hashes[0] = mdev_id(device);
+
     r->props.extra = table_new();
     r->device = device;
     r->signals = 0;
@@ -88,11 +85,45 @@ void mapper_router_free(mapper_router r)
     }
 }
 
-void mapper_router_set_from_message(mapper_router router,
-                                    mapper_message_t *msg)
+int mapper_router_set_from_message(mapper_router r, mapper_message_t *msg)
 {
-    /* Extra properties. */
-    mapper_msg_add_or_update_extra_params(router->props.extra, msg);
+    int i, j, num_scopes, updated = 0;
+    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
+    num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
+
+    if (a_scopes && *a_scopes) {
+        if (num_scopes == 1 && strcmp(&a_scopes[0]->s, "none")==0)
+            num_scopes = 0;
+
+        // First remove old scopes that are missing
+        for (i=0; i<r->props.num_scopes; i++) {
+            int found = 0;
+            for (j=0; j<num_scopes; j++) {
+                if (strcmp(r->props.scope_names[i], &a_scopes[j]->s) == 0) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                mapper_db_link_remove_scope(&r->props,
+                                            r->props.scope_names[i]);
+                updated++;
+            }
+        }
+        // ...then add any new scopes
+        for (i=0; i<num_scopes; i++)
+            updated += (1 - mapper_db_link_add_scope(&r->props,
+                                                     &a_scopes[i]->s));
+
+        if (num_scopes != r->props.num_scopes) {
+            r->props.num_scopes = num_scopes;
+        }
+    }
+    if (updated)
+        updated = 1;
+
+    updated += mapper_msg_add_or_update_extra_params(r->props.extra, msg);
+    return updated;
 }
 
 void mapper_router_num_instances_changed(mapper_router r,
@@ -423,18 +454,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                                                char dest_type,
                                                int dest_length)
 {
-    /* Currently, fail if lengths don't match.  TODO: In the future,
-     * we'll have to examine the expression to see if its input and
-     * output lengths are compatible. */
-    if (sig->props.length != dest_length) {
-        char n[1024];
-        msig_full_name(sig, n, 1024);
-        trace("rejecting connection %s -> %s%s because lengths "
-              "don't match (not yet supported)\n",
-              n, r->props.dest_name, dest_name);
-        return 0;
-    }
-
     // find signal in router_signal list
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
@@ -471,11 +490,17 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.dest_type = dest_type;
     c->props.dest_length = dest_length;
     c->props.mode = MO_UNDEFINED;
-    c->props.expression = strdup("y=x");
+    c->props.expression = 0;
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
+
+    c->props.range.src_min = 0;
+    c->props.range.src_max = 0;
+    c->props.range.dest_min = 0;
+    c->props.range.dest_max = 0;
+
     c->props.extra = table_new();
 
     int len = strlen(dest_name) + 5;
@@ -520,6 +545,14 @@ static void mapper_router_free_connection(mapper_router r,
             free(c->props.expression);
         if (c->props.query_name)
             free(c->props.query_name);
+        if (c->props.range.src_min)
+            free(c->props.range.src_min);
+        if (c->props.range.src_max)
+            free(c->props.range.src_max);
+        if (c->props.range.dest_min)
+            free(c->props.range.dest_min);
+        if (c->props.range.dest_max)
+            free(c->props.range.dest_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);
@@ -595,19 +628,6 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
         return NULL;
     else
         return c;
-}
-
-int mapper_router_add_scope(mapper_router router, const char *scope)
-{
-    return mapper_db_link_add_scope(&router->props, scope);
-}
-
-int mapper_router_remove_scope(mapper_router router, const char *scope)
-{
-    return mapper_db_link_remove_scope(&router->props, scope);
-
-    /* Here we could release mapped signal instances with this scope,
-     * but we will let the receiver-side handle it instead. */
 }
 
 int mapper_router_in_scope(mapper_router router, uint32_t name_hash)

@@ -12,7 +12,7 @@
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
                                     int admin_port, int data_port,
-                                    const char *name, int default_scope)
+                                    const char *name)
 {
     char str[16];
     mapper_receiver r = (mapper_receiver) calloc(1, sizeof(struct _mapper_link));
@@ -25,16 +25,13 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->props.src_name = strdup(name);
     r->props.src_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     r->props.dest_name = strdup(mdev_name(device));
-    if (default_scope) {
-        r->props.num_scopes = 1;
-        r->props.scope_names = (char **) malloc(sizeof(char *));
-        r->props.scope_names[0] = strdup(name);
-        r->props.scope_hashes = (uint32_t *) malloc(sizeof(uint32_t));
-        r->props.scope_hashes[0] = crc32(0L, (const Bytef *)name, strlen(name));;
-    }
-    else {
-        r->props.num_scopes = 0;
-    }
+
+    r->props.num_scopes = 1;
+    r->props.scope_names = (char **) malloc(sizeof(char *));
+    r->props.scope_names[0] = strdup(name);
+    r->props.scope_hashes = (uint32_t *) malloc(sizeof(uint32_t));
+    r->props.scope_hashes[0] = crc32(0L, (const Bytef *)name, strlen(name));
+
     r->props.extra = table_new();
     r->device = device;
     r->signals = 0;
@@ -78,11 +75,38 @@ void mapper_receiver_free(mapper_receiver r)
 }
 
 /*! Set a router's properties based on message parameters. */
-void mapper_receiver_set_from_message(mapper_receiver rc,
-                                      mapper_message_t *msg)
+int mapper_receiver_set_from_message(mapper_receiver r, mapper_message_t *msg)
 {
-    /* Extra properties. */
-    mapper_msg_add_or_update_extra_params(rc->props.extra, msg);
+    int i, j, num_scopes, updated = 0;
+    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
+    num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
+
+    if (num_scopes) {
+        // First remove old scopes that are missing
+        for (i=0; i<r->props.num_scopes; i++) {
+            int found = 0;
+            for (j=0; j<num_scopes; j++) {
+                if (strcmp(r->props.scope_names[i], &a_scopes[j]->s) == 0) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                mapper_db_link_remove_scope(&r->props, r->props.scope_names[i]);
+                updated++;
+            }
+        }
+        // ...then add any new scopes
+        for (i=0; i<num_scopes; i++)
+            updated += (1 - mapper_db_link_add_scope(&r->props, &a_scopes[i]->s));
+
+        if (num_scopes != r->props.num_scopes) {
+            r->props.num_scopes = num_scopes;
+        }
+    }
+
+    updated += mapper_msg_add_or_update_extra_params(r->props.extra, msg);
+    return updated;
 }
 
 static void message_add_coerced_signal_value(lo_message m,
@@ -274,18 +298,6 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
                                                  char src_type,
                                                  int src_length)
 {
-    /* Currently, fail if lengths don't match.  TODO: In the future,
-     * we'll have to examine the expression to see if its input and
-     * output lengths are compatible. */
-    if (sig->props.length != src_length) {
-        char n[1024];
-        msig_full_name(sig, n, 1024);
-        trace("rejecting connection %s -> %s%s because lengths "
-              "don't match (not yet supported)\n",
-              n, r->props.src_name, src_name);
-        return 0;
-    }
-
     // find signal in signal connection list
     mapper_receiver_signal rs = r->signals;
     while (rs && rs->signal != sig)
@@ -310,10 +322,16 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     c->props.dest_type = sig->props.type;
     c->props.dest_length = sig->props.length;
     c->props.mode = MO_UNDEFINED;
-    c->props.expression = strdup("y=x");
+    c->props.expression = 0;
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
+
+    c->props.range.src_min = 0;
+    c->props.range.src_max = 0;
+    c->props.range.dest_min = 0;
+    c->props.range.dest_max = 0;
+
     c->props.extra = table_new();
 
     int len = strlen(src_name) + 5;
@@ -343,6 +361,14 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
             free(c->props.expression);
         if (c->props.query_name)
             free(c->props.query_name);
+        if (c->props.range.src_min)
+            free(c->props.range.src_min);
+        if (c->props.range.src_max)
+            free(c->props.range.src_max);
+        if (c->props.range.dest_min)
+            free(c->props.range.dest_min);
+        if (c->props.range.dest_max)
+            free(c->props.range.dest_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);

@@ -102,8 +102,8 @@ static mapper_signal get_signal_from_jobject(JNIEnv *env, jobject obj)
     return 0;
 }
 
-static mapper_timetag_t *get_timetag_from_jobject
-  (JNIEnv *env, jobject obj, mapper_timetag_t *tt)
+static mapper_timetag_t *get_timetag_from_jobject(JNIEnv *env, jobject obj,
+                                                  mapper_timetag_t *tt)
 {
     if (!obj) return 0;
     jclass cls = (*env)->GetObjectClass(env, obj);
@@ -119,8 +119,7 @@ static mapper_timetag_t *get_timetag_from_jobject
     return 0;
 }
 
-static jobject get_jobject_from_timetag
-  (JNIEnv *env, mapper_timetag_t *tt)
+static jobject get_jobject_from_timetag(JNIEnv *env, mapper_timetag_t *tt)
 {
     jobject objtt = 0;
     if (tt) {
@@ -139,6 +138,102 @@ static jobject get_jobject_from_timetag
         }
     }
     return objtt;
+}
+
+static jobject build_PropertyValue(JNIEnv *env, const char type,
+                                   const void *value, const int length)
+{
+    if (length <= 0)
+        return 0;
+
+    jmethodID methodID;
+    jclass cls = (*env)->FindClass(env, "Mapper/PropertyValue");
+
+    switch (type) {
+        case 'i': {
+            if (length == 1) {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(CI)V");
+                if (methodID)
+                    return (*env)->NewObject(env, cls, methodID, type,
+                                             *((int *)value));
+            }
+            else {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(C[I)V");
+                if (methodID) {
+                    jintArray arr = (*env)->NewIntArray(env, length);
+                    (*env)->SetIntArrayRegion(env, arr, 0, length, value);
+                    return (*env)->NewObject(env, cls, methodID, type, arr);
+                }
+            }
+                
+            break;
+        }
+        case 'f': {
+            if (length == 1) {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(CF)V");
+                if (methodID)
+                    return (*env)->NewObject(env, cls, methodID, type,
+                                             *((float *)value));
+            }
+            else {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(C[F)V");
+                if (methodID) {
+                    jfloatArray arr = (*env)->NewFloatArray(env, length);
+                    (*env)->SetFloatArrayRegion(env, arr, 0, length, value);
+                    return (*env)->NewObject(env, cls, methodID, type, arr);
+                }
+            }
+            break;
+        }
+        case 'd': {
+            if (length == 1) {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(CD)V");
+                if (methodID)
+                    return (*env)->NewObject(env, cls, methodID, type,
+                                             *((double *)value));
+            }
+            else {
+                methodID = (*env)->GetMethodID(env, cls, "<init>", "(C[D)V");
+                if (methodID) {
+                    jdoubleArray arr = (*env)->NewDoubleArray(env, length);
+                    (*env)->SetDoubleArrayRegion(env, arr, 0, length, value);
+                    return (*env)->NewObject(env, cls, methodID, type, arr);
+                }
+            }
+            break;
+        }
+        case 's': {
+            if (length == 1) {
+                methodID = (*env)->GetMethodID(env, cls, "<init>",
+                                               "(CLjava/lang/String;)V");
+                if (methodID) {
+                    jobject s = (*env)->NewStringUTF(env, (char *)value);
+                    if (s)
+                        return (*env)->NewObject(env, cls, methodID, type, s);
+                }
+            }
+            else {
+                methodID = (*env)->GetMethodID(env, cls, "<init>",
+                                               "(C[Ljava/lang/String;)V");
+                if (methodID) {
+                    jobjectArray arr = (*env)->NewObjectArray(env, length,
+                        (*env)->FindClass(env, "java/lang/String"),
+                        (*env)->NewStringUTF(env, ""));
+                    int i;
+                    char **strings = (char**)value;
+                    for (i = 0; i < length; i++) {
+                        (*env)->SetObjectArrayElement(env, arr, i,
+                            (*env)->NewStringUTF(env, strings[i]));
+                    }
+                    return (*env)->NewObject(env, cls, methodID, type, arr);
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return 0;
 }
 
 /**** Mapper.Device ****/
@@ -370,9 +465,8 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj,
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
-  (JNIEnv *env, jobject obj, jstring name, jint length,
-   jchar type, jstring unit, jobject minimum, jobject maximum,
-   jobject listener)
+  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
+   jstring unit, jobject minimum, jobject maximum, jobject listener)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -382,42 +476,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     const char *cunit = 0;
     if (unit) cunit = (*env)->GetStringUTFChars(env, unit, 0);
-
-    union {
-        float f;
-        int i;
-        double d;
-    } mn, mx;
-
-    if (minimum) {
-        jclass cls = (*env)->GetObjectClass(env, minimum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'i')
-                    mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'd')
-                    mn.d = (*env)->GetDoubleField(env, minimum, val);
-            }
-        }
-    }
-
-    if (maximum) {
-        jclass cls = (*env)->GetObjectClass(env, maximum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'i')
-                    mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'd')
-                    mx.d = (*env)->GetDoubleField(env, maximum, val);
-            }
-        }
-    }
 
     msig_jni_context ctx =
         (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
@@ -427,19 +485,28 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1input
     }
 
     mapper_signal s = mdev_add_input(dev, cname, length, type, cunit,
-                                     minimum ? &mn : 0,
-                                     maximum ? &mx : 0,
-                                     java_msig_input_cb,
-                                     ctx);
+                                     0, 0, java_msig_input_cb, ctx);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit) (*env)->ReleaseStringUTFChars(env, unit, cunit);
+
+    if (minimum) {
+        jstring minstring = (*env)->NewStringUTF(env, "min");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           minstring, minimum);
+    }
+    if (maximum) {
+        jstring maxstring = (*env)->NewStringUTF(env, "max");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           maxstring, maximum);
+    }
 
     return create_signal_object(env, obj, ctx, listener, s);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
-  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type, jstring unit, jobject minimum, jobject maximum)
+  (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
+   jstring unit, jobject minimum, jobject maximum)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -450,42 +517,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
     const char *cunit = 0;
     if (unit) cunit = (*env)->GetStringUTFChars(env, unit, 0);
 
-    union {
-        float f;
-        int i;
-        double d;
-    } mn, mx;
-
-    if (minimum) {
-        jclass cls = (*env)->GetObjectClass(env, minimum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'i')
-                    mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                else if (type == 'd')
-                    mn.d = (*env)->GetDoubleField(env, minimum, val);
-            }
-        }
-    }
-
-    if (maximum) {
-        jclass cls = (*env)->GetObjectClass(env, maximum);
-        if (cls) {
-            jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-            if (val) {
-                if (type == 'f')
-                    mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'i')
-                    mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                else if (type == 'd')
-                    mx.d = (*env)->GetDoubleField(env, maximum, val);
-            }
-        }
-    }
-
     msig_jni_context ctx =
         (msig_jni_context)calloc(1, sizeof(msig_jni_context_t));
     if (!ctx) {
@@ -493,12 +524,21 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_add_1output
         return 0;
     }
 
-    mapper_signal s = mdev_add_output(dev, cname, length, type, cunit,
-                                      minimum ? &mn : 0,
-                                      maximum ? &mx : 0);
+    mapper_signal s = mdev_add_output(dev, cname, length, type, cunit, 0, 0);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit) (*env)->ReleaseStringUTFChars(env, unit, cunit);
+
+    if (minimum) {
+        jstring minstring = (*env)->NewStringUTF(env, "min");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           minstring, minimum);
+    }
+    if (maximum) {
+        jstring maxstring = (*env)->NewStringUTF(env, "max");
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+                                                           maxstring, maximum);
+    }
 
     return create_signal_object(env, obj, ctx, 0, s);
 }
@@ -627,42 +667,64 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1set_1property
     jclass cls = (*env)->GetObjectClass(env, value);
     if (cls) {
         jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
-        if (typeid) {
+        jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
+        if (typeid && lengthid) {
             char type;
-            lo_arg a, *pa=&a;
+            int length = 1;
+            void *propval = 0;
             jfieldID valf = 0;
             jobject o;
             type = (*env)->GetCharField(env, value, typeid);
+            length = (*env)->GetIntField(env, value, lengthid);
             switch (type)
             {
-            case 'i':
-                valf = (*env)->GetFieldID(env, cls, "_i", "I");
-                a.i = (*env)->GetIntField(env, value, valf);
-                break;
-            case 'f':
-                valf = (*env)->GetFieldID(env, cls, "_f", "F");
-                a.f = (*env)->GetFloatField(env, value, valf);
-                break;
-            case 'd':
-                valf = (*env)->GetFieldID(env, cls, "_d", "D");
-                a.d = (*env)->GetDoubleField(env, value, valf);
-                break;
-            case 's':
-            case 'S':
-                valf = (*env)->GetFieldID(env, cls, "_s", "Ljava/lang/String;");
-                o = (*env)->GetObjectField(env, value, valf);
-                pa = (lo_arg*)(*env)->GetStringUTFChars(env, o, 0);
-                break;
-            }
-            if (valf) {
-                mdev_set_property(dev, ckey, type, pa);
-                if (pa != &a)
-                    (*env)->ReleaseStringUTFChars(env, o, (const char*)pa);
+                case 'i':
+                    valf = (*env)->GetFieldID(env, cls, "_i", "[I");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetIntArrayElements(env, o, NULL);
+                    mdev_set_property(dev, ckey, type, propval, length);
+                    (*env)->ReleaseIntArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 'f':
+                    valf = (*env)->GetFieldID(env, cls, "_f", "[F");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetFloatArrayElements(env, o, NULL);
+                    mdev_set_property(dev, ckey, type, propval, length);
+                    (*env)->ReleaseFloatArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 'd':
+                    valf = (*env)->GetFieldID(env, cls, "_d", "[D");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetDoubleArrayElements(env, value, NULL);
+                    mdev_set_property(dev, ckey, type, propval, length);
+                    (*env)->ReleaseDoubleArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 's':
+                case 'S':
+                    valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    // need to unpack string array and rebuild
+                    jstring jstrings[length];
+                    const char *cstrings[length];
+                    int i;
+                    for (i = 0; i < length; i++) {
+                        jstrings[i] = (jstring) (*env)->GetObjectArrayElement(env, o, i);
+                        cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
+                    }
+                    if (length == 1)
+                        mdev_set_property(dev, ckey, type, (void*)&cstrings[0], 1);
+                    else
+                        mdev_set_property(dev, ckey, type, (void*)&cstrings, length);
+                    for (i = 0; i < length; i++)
+                        (*env)->ReleaseStringUTFChars(env, jstrings[i], cstrings[i]);
+                    break;
             }
         }
     }
     (*env)->ReleaseStringUTFChars(env, key, ckey);
 }
+
+// TODO: add generic device properties functions
 
 JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1remove_1property
   (JNIEnv *env, jobject obj, jlong d, jstring key)
@@ -793,72 +855,6 @@ JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_msig_1is_1output
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1minimum
-  (JNIEnv *env, jobject obj, jlong s, jobject minimum)
-{
-    mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig) {
-        mapper_db_signal p = msig_properties(sig);
-
-        union {
-            float f;
-            int i;
-            double d;
-        } mn;
-
-        if (minimum) {
-            jclass cls = (*env)->GetObjectClass(env, minimum);
-            if (cls) {
-                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-                if (val) {
-                    if (p->type == 'f')
-                        mn.f = (float)(*env)->GetDoubleField(env, minimum, val);
-                    else if (p->type == 'i')
-                        mn.i = (int)(*env)->GetDoubleField(env, minimum, val);
-                    else if (p->type == 'd')
-                        mn.d = (*env)->GetDoubleField(env, minimum, val);
-                    msig_set_minimum(sig, &mn);
-                }
-            }
-        }
-        else
-            msig_set_minimum(sig, 0);
-    }
-}
-
-JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1maximum
-  (JNIEnv *env, jobject obj, jlong s, jobject maximum)
-{
-    mapper_signal sig=(mapper_signal)ptr_jlong(s);
-    if (sig) {
-        mapper_db_signal p = msig_properties(sig);
-
-        union {
-            float f;
-            int i;
-            double d;
-        } mx;
-
-        if (maximum) {
-            jclass cls = (*env)->GetObjectClass(env, maximum);
-            if (cls) {
-                jfieldID val = (*env)->GetFieldID(env, cls, "value", "D");
-                if (val) {
-                    if (p->type == 'f')
-                        mx.f = (float)(*env)->GetDoubleField(env, maximum, val);
-                    else if (p->type == 'i')
-                        mx.i = (int)(*env)->GetDoubleField(env, maximum, val);
-                    else if (p->type == 'd')
-                        mx.d = (*env)->GetDoubleField(env, maximum, val);
-                    msig_set_minimum(sig, &mx);
-                }
-            }
-        }
-        else
-            msig_set_maximum(sig, 0);
-    }
-}
-
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1rate
   (JNIEnv *env, jobject obj, jlong s, jdouble rate)
 {
@@ -901,37 +897,56 @@ JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_msig_1set_1property
     jclass cls = (*env)->GetObjectClass(env, value);
     if (cls) {
         jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
-        if (typeid) {
+        jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
+        if (typeid && lengthid) {
             char type;
-            lo_arg a, *pa=&a;
+            int length;
+            void *propval = 0;
             jfieldID valf = 0;
             jobject o;
             type = (*env)->GetCharField(env, value, typeid);
+            length = (*env)->GetIntField(env, value, lengthid);
             switch (type)
             {
-            case 'i':
-                valf = (*env)->GetFieldID(env, cls, "_i", "I");
-                a.i = (*env)->GetIntField(env, value, valf);
-                break;
-            case 'f':
-                valf = (*env)->GetFieldID(env, cls, "_f", "F");
-                a.f = (*env)->GetFloatField(env, value, valf);
-                break;
-            case 'd':
-                valf = (*env)->GetFieldID(env, cls, "_d", "D");
-                a.d = (*env)->GetDoubleField(env, value, valf);
-                break;
-            case 's':
-            case 'S':
-                valf = (*env)->GetFieldID(env, cls, "_s", "Ljava/lang/String;");
-                o = (*env)->GetObjectField(env, value, valf);
-                pa = (lo_arg*)(*env)->GetStringUTFChars(env, o, 0);
-                break;
-            }
-            if (valf) {
-                msig_set_property(sig, ckey, type, pa);
-                if (pa != &a)
-                    (*env)->ReleaseStringUTFChars(env, o, (const char*)pa);
+                case 'i':
+                    valf = (*env)->GetFieldID(env, cls, "_i", "[I");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetIntArrayElements(env, o, NULL);
+                    msig_set_property(sig, ckey, type, propval, length);
+                    (*env)->ReleaseIntArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 'f':
+                    valf = (*env)->GetFieldID(env, cls, "_f", "[F");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetFloatArrayElements(env, o, NULL);
+                    msig_set_property(sig, ckey, type, propval, length);
+                    (*env)->ReleaseFloatArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 'd':
+                    valf = (*env)->GetFieldID(env, cls, "_d", "[D");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    propval = (*env)->GetDoubleArrayElements(env, o, NULL);
+                    msig_set_property(sig, ckey, type, propval, length);
+                    (*env)->ReleaseDoubleArrayElements(env, o, propval, JNI_ABORT);
+                    break;
+                case 's':
+                case 'S':
+                    valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
+                    o = (*env)->GetObjectField(env, value, valf);
+                    jstring jstrings[length];
+                    const char *cstrings[length];
+                    int i;
+                    for (i = 0; i < length; i++) {
+                        jstrings[i] = (jstring) (*env)->GetObjectArrayElement(env, o, i);
+                        cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
+                    }
+                    if (length == 1)
+                        msig_set_property(sig, ckey, type, (void*)&cstrings[0], 1);
+                    else
+                        msig_set_property(sig, ckey, type, (void*)&cstrings, length);
+                    for (i = 0; i < length; i++)
+                        (*env)->ReleaseStringUTFChars(env, jstrings[i], cstrings[i]);
+                    break;
             }
         }
     }
@@ -1816,19 +1831,9 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1minimum
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
 
-    if (props->minimum)
-    {
-        jclass cls = (*env)->FindClass(env, "java/lang/Double");
-        if (cls) {
-            jmethodID methodID = (*env)->GetMethodID(env, cls,
-                                                     "<init>", "(D)V");
-            if (methodID)
-                return (*env)->NewObject(env, cls, methodID,
-                                         *(props->minimum));
-        }
-    }
-
-    return 0;
+    if (!props->minimum)
+        return 0;
+    return build_PropertyValue(env, props->type, props->minimum, props->length);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1maximum
@@ -1836,19 +1841,9 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1maximum
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
 
-    if (props->maximum)
-    {
-        jclass cls = (*env)->FindClass(env, "java/lang/Double");
-        if (cls) {
-            jmethodID methodID = (*env)->GetMethodID(env, cls,
-                                                     "<init>", "(D)V");
-            if (methodID)
-                return (*env)->NewObject(env, cls, methodID,
-                                         *(props->maximum));
-        }
-    }
-
-    return 0;
+    if (!props->maximum)
+        return 0;
+    return build_PropertyValue(env, props->type, props->maximum, props->length);
 }
 
 JNIEXPORT jdouble JNICALL Java_Mapper_Db_Signal_msig_1db_1signal_1get_1rate
@@ -1863,54 +1858,14 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mapper_1db_1signal_1property_1lo
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
     const char *cprop = (*env)->GetStringUTFChars(env, property, 0);
-    lo_type t;
-    const lo_arg *a;
+    char type;
+    int length;
+    const void *value;
     jobject o = 0;
 
-    if (mapper_db_signal_property_lookup(props, cprop, &t, &a))
-        goto done;
+    if (!mapper_db_signal_property_lookup(props, cprop, &type, &value, &length))
+        o = build_PropertyValue(env, type, value, length);
 
-    jmethodID methodID;
-    jclass cls = (*env)->FindClass(env, "Mapper/PropertyValue");
-    if (cls) {
-        switch (t) {
-        case 'i':
-            methodID = (*env)->GetMethodID(env, cls,
-                                           "<init>", "(CI)V");
-            if (methodID)
-                return (*env)->NewObject(env, cls, methodID, t, a->i);
-            break;
-        case 'f':
-            methodID = (*env)->GetMethodID(env, cls,
-                                           "<init>", "(CF)V");
-            if (methodID)
-                return (*env)->NewObject(env, cls, methodID, t, a->f);
-            break;
-        case 'd':
-            methodID = (*env)->GetMethodID(env, cls,
-                                           "<init>", "(CD)V");
-            if (methodID)
-                return (*env)->NewObject(env, cls, methodID, t, a->d);
-            break;
-        case 's':
-        case 'S':
-            methodID = (*env)->GetMethodID(env, cls,
-                                           "<init>", "(CLjava/lang/String;)V");
-            if (methodID) {
-                jobject s = (*env)->NewStringUTF(env, &a->s);
-                if (s)
-                    return (*env)->NewObject(env, cls, methodID, t, s);
-            }
-            break;
-        default:
-            // TODO handle all OSC types
-            // Not throwing an exception here because this data comes
-            // from the network: just ignore unknown types.
-            break;
-        }
-    }
-
-  done:
     (*env)->ReleaseStringUTFChars(env, property, cprop);
     return o;
 }

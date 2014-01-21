@@ -45,9 +45,11 @@ int setup_source()
     mapper_db_signal props = msig_properties(sendsig);
     printf("Rate for /outsig is set to: %f\n", props->rate);
 
-    const lo_arg *a;
-    lo_type t;
-    if (mapper_db_signal_property_lookup(props, "rate", &t, &a))
+    const float *a;
+    char t;
+    int l;
+    if (mapper_db_signal_property_lookup(props, "rate", &t,
+                                         (const void**)&a, &l))
     {
         printf("Couldn't find `rate' property.\n");
         mdev_free(source);
@@ -55,8 +57,12 @@ int setup_source()
         exit(1);
     }
 
+    if (l!=1) {
+        printf("Rate property was unexpected length %d\n", l);
+        exit(1);
+    }
     if (t=='f')
-        printf("Rate for /outsig is set to: %f\n", a->f);
+        printf("Rate for /outsig is set to: %f\n", a[0]);
     else {
         printf("Rate property was unexpected type `%c'\n", t);
         mdev_free(source);
@@ -64,7 +70,7 @@ int setup_source()
         exit(1);
     }
 
-    if (props->rate != a->f) {
+    if (props->rate != a[0]) {
         printf("Rate properties don't agree.\n");
         mdev_free(source);
         mdev_free(destination);

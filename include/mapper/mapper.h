@@ -310,10 +310,11 @@ mapper_db_signal msig_properties(mapper_signal sig);
  *  metadata.  Value pointed to will be copied.
  *  \param sig       The signal to operate on.
  *  \param property  The name of the property to add.
- *  \param type      The property OSC type.
- *  \param value     The property OSC value. */
+ *  \param type      The property  datatype.
+ *  \param value     An array of property values.
+ *  \param length    The length of value array. */
 void msig_set_property(mapper_signal sig, const char *property,
-                       lo_type type, lo_arg *value);
+                       char type, void *value, int length);
 
 /*! Remove a property of a signal.
  *  \param sig       The signal to operate on.
@@ -464,10 +465,11 @@ mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
  *  metadata.  Value pointed to will be copied.
  *  \param dev       The device to operate on.
  *  \param property  The name of the property to add.
- *  \param type      The property OSC type.
- *  \param value     The property OSC value. */
+ *  \param type      The property  datatype.
+ *  \param value     An array of property values.
+ *  \param length    The length of value array. */
 void mdev_set_property(mapper_device dev, const char *property,
-                       lo_type type, lo_arg *value);
+                       char type, void *value, int length);
 
 /*! Remove a property of a device.
  *  \param dev       The device to operate on.
@@ -740,26 +742,36 @@ void mapper_db_device_done(mapper_db_device_t **s);
  *  \param index    Numerical index of a device property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type     Address of a lo_type to receive the property value
- *                  type.
- *  \param value    Address of a lo_arg* to receive the property value.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
-                                    const char **property, lo_type *type,
-                                    const lo_arg **value);
+                                    const char **property, char *type,
+                                    const void **value, int *length);
 
 /*! Look up a device property by name.
  *  \param dev      The device to look at.
  *  \param property The name of the property to retrive.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
- *  \param value    A pointer a location to receive the address of the
+ *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_device_property_lookup(mapper_db_device dev,
-                                     const char *property,
-                                     lo_type *type,
-                                     const lo_arg **value);
+                                     const char *property, char *type,
+                                     const void **value, int *length);
+
+/*! Helper for printing typed mapper_prop values.
+ *  \param type     The value type.
+ *  \param length   The vector length of the value.
+ *  \param value    A pointer to the property value to print. */
+void mapper_prop_pp(char type, int length, const void *value);
 
 /* @} */
 
@@ -888,25 +900,30 @@ void mapper_db_signal_done(mapper_db_signal_t **s);
  *  \param index    Numerical index of a signal property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type     Address of a lo_type to receive the property value type.
- *  \param value    Address of a lo_arg* to receive the property value.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
-                                    const char **property, lo_type *type,
-                                    const lo_arg **value);
+                                    const char **property, char *type,
+                                    const void **value, int *length);
 
 /*! Look up a signal property by name.
  *  \param sig      The signal to look at.
  *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type
- *                  of the property value. (Required.)
- *  \param value    A pointer a location to receive the address of the
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_signal_property_lookup(mapper_db_signal sig,
-                                     const char *property,
-                                     lo_type *type,
-                                     const lo_arg **value);
+                                     const char *property, char *type,
+                                     const void **value, int *length);
 
 /* @} */
 
@@ -1079,28 +1096,31 @@ void mapper_db_connection_done(mapper_db_connection_t **s);
  *  \param index    Numerical index of a connection property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type     Address of a lo_type to receive the property value
- *                  type.
- *  \param value    Address of a lo_arg* to receive the property value.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_connection_property_index(mapper_db_connection con,
                                         unsigned int index,
-                                        const char **property,
-                                        lo_type *type,
-                                        const lo_arg **value);
+                                        const char **property, char *type,
+                                        const void **value, int *length);
 
 /*! Look up a connection property by name.
  *  \param con      The connection to look at.
  *  \param property The name of the property to retrive.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
- *  \param value    A pointer a location to receive the address of the
+ *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_connection_property_lookup(mapper_db_connection con,
-                                         const char *property,
-                                         lo_type *type,
-                                         const lo_arg **value);
+                                         const char *property, char *type,
+                                         const void **value, int *length);
 
 /* @} */
 
@@ -1214,26 +1234,30 @@ void mapper_db_link_done(mapper_db_link_t **s);
  *  \param index    Numerical index of a link property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
- *  \param type     Address of a lo_type to receive the property value
- *                  type.
- *  \param value Address of a lo_arg* to receive the property value.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
-                                  const char **property, lo_type *type,
-                                  const lo_arg **value);
+                                  const char **property, char *type,
+                                  const void **value, int *length);
 
 /*! Look up a link property by name.
  *  \param link     The link to look at.
  *  \param property The name of the property to retrive.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
- *  \param value    A pointer a location to receive the address of the
+ *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_db_link_property_lookup(mapper_db_link link,
-                                   const char *property,
-                                   lo_type *type,
-                                   const lo_arg **value);
+                                   const char *property, char *type,
+                                   const void **value, int *length);
 
 /* @} */
 

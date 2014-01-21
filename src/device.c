@@ -148,8 +148,12 @@ void mdev_free(mapper_device md)
         free(md->props.name);
     if (md->props.host)
         free(md->props.host);
-    if (md->admin && md->own_admin)
-        mapper_admin_free(md->admin);
+    if (md->admin) {
+        if (md->own_admin)
+            mapper_admin_free(md->admin);
+        else
+            md->admin->device = 0;
+    }
     if (md->server)
         lo_server_free(md->server);
     free(md);
@@ -1319,10 +1323,10 @@ int mdev_ready(mapper_device device)
 }
 
 void mdev_set_property(mapper_device dev, const char *property,
-                       lo_type type, lo_arg *value)
+                       char type, void *value, int length)
 {
-    mapper_table_add_or_update_osc_value(dev->props.extra,
-                                         property, type, value);
+    mapper_table_add_or_update_typed_value(dev->props.extra, property,
+                                           type, value, length);
 }
 
 void mdev_remove_property(mapper_device dev, const char *property)

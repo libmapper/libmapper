@@ -50,13 +50,13 @@ public class Device
             checkDevice();
             return msig_is_output(_signal);
         }
-        public void set_minimum(Double minimum) {
+        public void set_minimum(PropertyValue p) {
             checkDevice();
-            msig_set_minimum(_signal, minimum);
+            msig_set_property(_signal, new String("min"), p);
         }
-        public void set_maximum(Double maximum) {
+        public void set_maximum(PropertyValue p) {
             checkDevice();
-            msig_set_maximum(_signal, maximum);
+            msig_set_property(_signal, new String("max"), p);
         }
         public void set_rate(double rate) {
             checkDevice();
@@ -76,8 +76,6 @@ public class Device
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
         private native boolean msig_is_output(long sig);
-        private native void msig_set_minimum(long sig, Double minimum);
-        private native void msig_set_maximum(long sig, Double maximum);
         private native void msig_set_rate(long sig, double rate);
         public native Mapper.Db.Signal properties();
         private native void msig_set_property(long sig, String property,
@@ -376,14 +374,12 @@ public class Device
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);
 
-    public native Signal add_input(String name, int length,
-                                   char type, String unit,
-                                   Double minimum, Double maximum,
+    public native Signal add_input(String name, int length, char type, String unit,
+                                   PropertyValue minimum, PropertyValue maximum,
                                    InputListener handler);
 
-    public native Signal add_output(String name, int length,
-                                    char type, String unit,
-                                    Double minimum, Double maximum);
+    public native Signal add_output(String name, int length, char type, String unit,
+                                    PropertyValue minimum, PropertyValue maximum);
 
     private long _device;
     public boolean valid() {

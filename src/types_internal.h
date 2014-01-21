@@ -39,15 +39,17 @@ struct _mapper_id_map;
  *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
  *  type is a string, the allocated size may be longer than
  *  sizeof(mapper_osc_arg_t). */
-typedef struct _mapper_osc_value {
-    lo_type type;
-    lo_arg value;
-} mapper_osc_value_t;
+typedef struct _mapper_prop_value {
+    char type;
+    int length;
+    void *value;
+} mapper_prop_value_t;
 
 /*! Used to hold string look-up table nodes. */
 typedef struct {
     const char *key;
     void *value;
+    int is_prop;
 } string_table_node_t;
 
 /*! Used to hold string look-up tables. */
@@ -70,6 +72,7 @@ typedef enum {
     ADM_DISCONNECT,
     ADM_DISCONNECTED,
     ADM_LINK,
+    ADM_LINK_MODIFY,
     ADM_LINK_TO,
     ADM_LINKED,
     ADM_LOGOUT,
@@ -312,6 +315,8 @@ typedef enum {
     AT_BOUND_MAX,
     AT_BOUND_MIN,
     AT_DEST_LENGTH,
+    AT_DEST_MAX,
+    AT_DEST_MIN,
     AT_DEST_PORT,
     AT_DEST_TYPE,
     AT_DIRECTION,
@@ -332,12 +337,13 @@ typedef enum {
     AT_NUM_LINKS_OUT,
     AT_NUM_OUTPUTS,
     AT_PORT,
-    AT_RANGE,
     AT_RATE,
     AT_REV,
     AT_SCOPE,
     AT_SEND_AS_INSTANCE,
     AT_SRC_LENGTH,
+    AT_SRC_MAX,
+    AT_SRC_MIN,
     AT_SRC_PORT,
     AT_SRC_TYPE,
     AT_TYPE,

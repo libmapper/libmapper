@@ -789,6 +789,7 @@ void msig_remove_instance(mapper_signal sig, int instance_id)
 
     if (sig->instances[i]->value)
         free(sig->instances[i]->value);
+    free(sig->instances[i]);
     i++;
     for (; i < sig->props.num_instances; i++) {
         sig->instances[i-1] = sig->instances[i];
@@ -1008,13 +1009,8 @@ void msig_set_minimum(mapper_signal sig, void *minimum)
     if (minimum) {
         if (!sig->props.minimum)
             sig->props.minimum = (mapper_signal_value_t *)
-            malloc(sizeof(mapper_signal_value_t));
-        if (sig->props.type == 'f')
-            sig->props.minimum->f = *(float*)minimum;
-        else if (sig->props.type == 'i')
-            sig->props.minimum->i32 = *(int*)minimum;
-        else if (sig->props.type == 'd')
-            sig->props.minimum->d = *(double*)minimum;
+                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+        memcpy(sig->props.minimum, minimum, msig_vector_bytes(sig));
     }
     else {
         if (sig->props.minimum)
@@ -1028,13 +1024,8 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
     if (maximum) {
         if (!sig->props.maximum)
             sig->props.maximum = (mapper_signal_value_t *)
-            malloc(sizeof(mapper_signal_value_t));
-        if (sig->props.type == 'f')
-            sig->props.maximum->f = *(float*)maximum;
-        else if (sig->props.type == 'i')
-            sig->props.maximum->i32 = *(int*)maximum;
-        else if (sig->props.type == 'd')
-            sig->props.maximum->d = *(double*)maximum;
+                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+        memcpy(sig->props.maximum, maximum, msig_vector_bytes(sig));
     }
     else {
         if (sig->props.maximum)
@@ -1054,7 +1045,7 @@ mapper_db_signal msig_properties(mapper_signal sig)
 }
 
 void msig_set_property(mapper_signal sig, const char *property,
-                       lo_type type, lo_arg *value)
+                       char type, void *value, int length)
 {
     if (strcmp(property, "name") == 0 ||
         strcmp(property, "type") == 0 ||
@@ -1063,58 +1054,37 @@ void msig_set_property(mapper_signal sig, const char *property,
 
     if (strcmp(property, "min") == 0 ||
         strcmp(property, "minimum") == 0) {
-        if (type == 'i') {
-            if (sig->props.type == 'i')
-                msig_set_minimum(sig, value);
-            else if (sig->props.type == 'f') {
-                float f = (float)value->i32;
-                msig_set_minimum(sig, &f);
-            }
-        }
-        else if (type == 'f') {
-            if (sig->props.type == 'i') {
-                int i = (int)value->f;
-                msig_set_minimum(sig, &i);
-            }
-            else if (sig->props.type == 'f')
-                msig_set_minimum(sig, value);
-        }
+        if (length == sig->props.length && type == sig->props.type)
+            msig_set_minimum(sig, value);
+        // TODO: if types differ need to cast entire vector
         return;
     }
     else if (strcmp(property, "max") == 0 ||
              strcmp(property, "maximum") == 0) {
-        if (type == 'i') {
-            if (sig->props.type == 'i')
-                msig_set_maximum(sig, value);
-            else if (sig->props.type == 'f') {
-                float f = (float)value->i32;
-                msig_set_maximum(sig, &f);
-            }
-        }
-        else if (type == 'f') {
-            if (sig->props.type == 'i') {
-                int i = (int)value->f;
-                msig_set_maximum(sig, &i);
-            }
-            else if (sig->props.type == 'f')
-                msig_set_maximum(sig, value);
-        }
+        if (length == sig->props.length && type == sig->props.type)
+            msig_set_maximum(sig, value);
+        // TODO: if types differ need to cast entire vector
         return;
     }
     else if ((strcmp(property, "unit") == 0 ||
              strcmp(property, "units") == 0) &&
              (type == 's' || type == 'S')) {
-        if (!sig->props.unit || strcmp(sig->props.unit, &value->s)) {
-            char *str = (char*)realloc((void *)sig->props.unit,
-                                             strlen(&value->s)+1);
-            strcpy(str, &value->s);
-            sig->props.unit = str;
+        if (!length || !value) {
+            if (sig->props.unit) {
+                free(sig->props.unit);
+                sig->props.unit = 0;
+            }
+            return;
+        }
+        if (!sig->props.unit || strcmp(sig->props.unit, (char*)value)) {
+            sig->props.unit = realloc(sig->props.unit, strlen((char*)value)+1);
+            strcpy(sig->props.unit, (char*)value);
         }
         return;
     }
 
-    mapper_table_add_or_update_osc_value(sig->props.extra,
-                                         property, type, value);
+    mapper_table_add_or_update_typed_value(sig->props.extra, property,
+                                           type, value, length);
 }
 
 void msig_remove_property(mapper_signal sig, const char *property)

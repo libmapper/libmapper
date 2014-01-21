@@ -13,7 +13,6 @@
 
 mapper_device source = 0;
 mapper_device destination = 0;
-mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 
@@ -27,7 +26,7 @@ int setup_source()
         goto error;
     printf("source created.\n");
 
-    float mn=0, mx=1;
+    float mn[]={0,0,0}, mx[]={1,2,3};
     sendsig = mdev_add_output(source, "/outsig", 3, 'f', 0, &mn, &mx);
 
     printf("Output signal /outsig registered.\n");
@@ -41,12 +40,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (router) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, router);
-            printf("ok\n");
-        }
         printf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -72,7 +65,7 @@ int setup_destination()
         goto error;
     printf("destination created.\n");
 
-    float mn=0, mx=1;
+    float mn[]={0,0,0}, mx[]={1,1,1};
     recvsig = mdev_add_input(destination, "/insig", 3, 'f', 0,
                              &mn, &mx, insig_handler, 0);
 
@@ -94,35 +87,19 @@ void cleanup_destination()
     }
 }
 
-int setup_router()
+int setup_connections()
 {
-    const char *host = "localhost";
-    int admin_port = lo_server_get_port(destination->admin->mesh_server);
+    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    router = mapper_router_new(source, host, admin_port,
-                               destination->props.port,
-                               mdev_name(destination), 0);
-    mdev_add_router(source, router);
-    printf("Router to %s:%d added.\n", host, destination->props.port);
+    char src_name[1024], dest_name[1024];
+    mapper_monitor_link(mon, mdev_name(source),
+                        mdev_name(destination), 0, 0);
 
-    char signame_in[1024];
-    if (!msig_full_name(recvsig, signame_in, 1024)) {
-        printf("Could not get destination signal name.\n");
-        return 1;
-    }
+    msig_full_name(sendsig, src_name, 1024);
+    msig_full_name(recvsig, dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
-    char signame_out[1024];
-    if (!msig_full_name(sendsig, signame_out, 1024)) {
-        printf("Could not get source signal name.\n");
-        return 1;
-    }
-
-    printf("Mapping signal %s -> %s\n", signame_out, signame_in);
-    mapper_connection c = mapper_router_add_connection(router, sendsig,
-                                                       recvsig->props.name,
-                                                       'f', 3);
-    const char *expr = "y=x*10";
-    mapper_connection_set_expression(c, expr);
+    mapper_monitor_free(mon);
 
     return 0;
 }
@@ -140,7 +117,7 @@ void loop()
 {
     printf("Polling device..\n");
     int i;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 1000; i++) {
         mdev_poll(source, 0);
         float v[3];
         v[0] = (float)i;
@@ -173,7 +150,7 @@ int main()
 
     wait_ready();
 
-    if (setup_router()) {
+    if (setup_connections()) {
         printf("Error initializing router.\n");
         result = 1;
         goto done;
