@@ -1260,7 +1260,7 @@ typedef struct _admin {} admin;
         {
             if (minimum && minimum->length == length) {
                 if (minimum->type == 'f')
-                    pmn = &minimum->value;
+                    pmn = minimum->value;
                 else if (minimum->type == 'i') {
                     float *to = (float*)malloc(length * sizeof(float));
                     int *from = (int*)minimum->value;
@@ -1273,7 +1273,7 @@ typedef struct _admin {} admin;
             }
             if (maximum && maximum->length == length) {
                 if (maximum->type == 'f')
-                    pmx = &maximum->value;
+                    pmx = maximum->value;
                 else if (maximum->type == 'i') {
                     float *to = (float*)malloc(length * sizeof(float));
                     int *from = (int*)maximum->value;
@@ -1289,7 +1289,7 @@ typedef struct _admin {} admin;
         {
             if (minimum && minimum->length == length) {
                 if (minimum->type == 'i')
-                    pmn = &minimum->value;
+                    pmn = minimum->value;
                 else if (minimum->type == 'f') {
                     int *to = (int*)malloc(length * sizeof(int));
                     float *from = (float*)minimum->value;
@@ -1302,7 +1302,7 @@ typedef struct _admin {} admin;
             }
             if (maximum && maximum->length == length) {
                 if (maximum->type == 'i')
-                    pmx = &maximum->value;
+                    pmx = maximum->value;
                 else if (maximum->type == 'f') {
                     int *to = (int*)malloc(length * sizeof(int));
                     float *from = (float*)maximum->value;
@@ -1334,7 +1334,7 @@ typedef struct _admin {} admin;
         {
             if (minimum && minimum->length == length) {
                 if (minimum->type == 'f')
-                    pmn = &minimum->value;
+                    pmn = minimum->value;
                 else if (minimum->type == 'i') {
                     float *to = (float*)malloc(length * sizeof(float));
                     int *from = (int*)minimum->value;
@@ -1347,7 +1347,7 @@ typedef struct _admin {} admin;
             }
             if (maximum && maximum->length == length) {
                 if (maximum->type == 'f')
-                    pmx = &maximum->value;
+                    pmx = maximum->value;
                 else if (maximum->type == 'i') {
                     float *to = (float*)malloc(length * sizeof(float));
                     int *from = (int*)maximum->value;
@@ -1363,7 +1363,7 @@ typedef struct _admin {} admin;
         {
             if (minimum && minimum->length == length) {
                 if (minimum->type == 'i')
-                    pmn = &minimum->value;
+                    pmn = minimum->value;
                 else if (minimum->type == 'f') {
                     int *to = (int*)malloc(length * sizeof(int));
                     float *from = (float*)minimum->value;
@@ -1376,7 +1376,7 @@ typedef struct _admin {} admin;
             }
             if (maximum && maximum->length == length) {
                 if (maximum->type == 'i')
-                    pmx = &maximum->value;
+                    pmx = maximum->value;
                 else if (maximum->type == 'f') {
                     int *to = (int*)malloc(length * sizeof(int));
                     float *from = (float*)maximum->value;
