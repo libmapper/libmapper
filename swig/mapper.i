@@ -36,30 +36,30 @@
     if ($2) free($2);
 }
 %typemap(in) maybePropVal %{
-    propval val;
+    propval *val = alloca(sizeof(*val));
     if ($input == Py_None)
         $1 = 0;
     else {
-        val.type = 0;
-        check_type($input, &val.type, 1, 1);
-        if (!val.type) {
+        val->type = 0;
+        check_type($input, &val->type, 1, 1);
+        if (!val->type) {
             PyErr_SetString(PyExc_ValueError,
                             "Problem determining value type.");
             return NULL;
         }
         if (PyList_Check($input))
-            val.length = PyList_Size($input);
+            val->length = PyList_Size($input);
         else
-            val.length = 1;
-        val.value = malloc(val.length * mapper_type_size(val.type));
-        val.free_value = 1;
-        if (py_to_prop($input, val.value, val.type, val.length)) {
-            free(val.value);
+            val->length = 1;
+        val->value = malloc(val->length * mapper_type_size(val->type));
+        val->free_value = 1;
+        if (py_to_prop($input, val->value, val->type, val->length)) {
+            free(val->value);
             PyErr_SetString(PyExc_ValueError,
                             "Problem parsing property value.");
             return NULL;
         }
-        $1 = &val;
+        $1 = val;
     }
 %}
 %typemap(out) maybePropVal {
@@ -98,10 +98,10 @@
  }
 
 %typemap(in) mapper_db_link_with_flags_t* %{
-    mapper_db_link_with_flags_t p;
+    mapper_db_link_with_flags_t *p = alloca(sizeof(*p));
     $1 = 0;
     if (PyDict_Check($input)) {
-        memset(&p, 0, sizeof(mapper_db_link_with_flags_t));
+        memset(p, 0, sizeof(mapper_db_link_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
             int i = PyList_GET_SIZE(keys), k;
@@ -112,48 +112,48 @@
                     char *s = PyString_AsString(o);
                     if (strcmp(s, "scope_names")==0) {
                         if (PyString_Check(v)) {
-                            p.props.num_scopes = 1;
-                            p.flags |= LINK_NUM_SCOPES;
+                            p->props.num_scopes = 1;
+                            p->flags |= LINK_NUM_SCOPES;
                             char *scope = PyString_AsString(v);
-                            p.props.scope_names = &scope;
-                            p.flags |= LINK_SCOPE_NAMES;
+                            p->props.scope_names = &scope;
+                            p->flags |= LINK_SCOPE_NAMES;
                         }
                     }
                     else if (strcmp(s, "src_name")==0) {
                         if (PyString_Check(v))
-                            p.props.src_name = PyString_AsString(v);
+                            p->props.src_name = PyString_AsString(v);
                     }
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_name = PyString_AsString(v);
+                            p->props.dest_name = PyString_AsString(v);
                     }
                     else if (strcmp(s, "num_scopes")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode))
-                            p.props.num_scopes = k;
+                            p->props.num_scopes = k;
                     }
                     else if (strcmp(s, "src_host")==0) {
                         if (PyString_Check(v))
-                            p.props.src_host = PyString_AsString(v);
+                            p->props.src_host = PyString_AsString(v);
                     }
                     else if (strcmp(s, "src_port")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode))
-                            p.props.src_port = k;
+                            p->props.src_port = k;
                     }
                     else if (strcmp(s, "dest_host")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_host = PyString_AsString(v);
+                            p->props.dest_host = PyString_AsString(v);
                     }
                     else if (strcmp(s, "dest_port")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode))
-                            p.props.dest_port = k;
+                            p->props.dest_port = k;
                     }
                 }
             }
             Py_DECREF(keys);
-            $1 = &p;
+            $1 = p;
         }
     }
     else {
@@ -163,14 +163,14 @@
  %}
 
 %typemap(in) mapper_db_connection_with_flags_t* %{
-    mapper_db_connection_with_flags_t p;
-    p.props.src_length = 0;
-    p.props.dest_length = 0;
-    p.props.src_type = 0;
-    p.props.dest_type = 0;
+    mapper_db_connection_with_flags_t *p = alloca(sizeof(*p));
+    p->props.src_length = 0;
+    p->props.dest_length = 0;
+    p->props.src_type = 0;
+    p->props.dest_type = 0;
     $1 = 0;
     if (PyDict_Check($input)) {
-        memset(&p, 0, sizeof(mapper_db_connection_with_flags_t));
+        memset(p, 0, sizeof(mapper_db_connection_with_flags_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
             // first try to retrieve src_type, dest_type if provided
@@ -182,14 +182,14 @@
                     char *s = PyString_AsString(o);
                     if (strcmp(s, "src_type")==0) {
                         if (PyString_Check(v))
-                            p.props.src_type = PyString_AsString(v)[0];
-                        if (p.props.dest_type)
+                            p->props.src_type = PyString_AsString(v)[0];
+                        if (p->props.dest_type)
                             continue;
                     }
                     else if (strcmp(s, "dest_type")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_type = PyString_AsString(v)[0];
-                        if (p.props.src_type)
+                            p->props.dest_type = PyString_AsString(v)[0];
+                        if (p->props.src_type)
                             continue;
                     }
                 }
@@ -203,28 +203,28 @@
                     if (strcmp(s, "bound_max")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.bound_max = k;
-                            p.flags |= CONNECTION_BOUND_MAX;
+                            p->props.bound_max = k;
+                            p->flags |= CONNECTION_BOUND_MAX;
                         }
                     }
                     else if (strcmp(s, "bound_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.bound_min = k;
-                            p.flags |= CONNECTION_BOUND_MIN;
+                            p->props.bound_min = k;
+                            p->flags |= CONNECTION_BOUND_MIN;
                         }
                     }
                     else if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
-                            p.props.expression = PyString_AsString(v);
-                            p.flags |= CONNECTION_EXPRESSION;
+                            p->props.expression = PyString_AsString(v);
+                            p->flags |= CONNECTION_EXPRESSION;
                         }
                     }
                     else if (strcmp(s, "mode")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p.props.mode = k;
-                            p.flags |= CONNECTION_MODE;
+                            p->props.mode = k;
+                            p->flags |= CONNECTION_MODE;
                         }
                     }
                     else if (strcmp(s, "muted")==0) {
@@ -242,63 +242,63 @@
                                 k = -1;
                         }
                         if (k>-1) {
-                            p.props.muted = k;
-                            p.flags |= CONNECTION_MUTED;
+                            p->props.muted = k;
+                            p->flags |= CONNECTION_MUTED;
                         }
                     }
                     else if (strcmp(s, "src_name")==0) {
                         if (PyString_Check(v))
-                            p.props.src_name = PyString_AsString(v);
+                            p->props.src_name = PyString_AsString(v);
                     }
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
-                            p.props.dest_name = PyString_AsString(v);
+                            p->props.dest_name = PyString_AsString(v);
                     }
                     else if (strcmp(s, "src_min")==0) {
-                        alloc_and_copy_maybe_vector(v, &p.props.src_type,
-                                                    &p.props.range.src_min,
-                                                    &p.props.src_length);
-                        if (p.props.range.src_min) {
-                            p.props.range.known |= CONNECTION_RANGE_SRC_MIN;
-                            p.flags |= CONNECTION_SRC_LENGTH;
-                            p.flags |= CONNECTION_SRC_TYPE;
+                        alloc_and_copy_maybe_vector(v, &p->props.src_type,
+                                                    &p->props.range.src_min,
+                                                    &p->props.src_length);
+                        if (p->props.range.src_min) {
+                            p->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                            p->flags |= CONNECTION_SRC_LENGTH;
+                            p->flags |= CONNECTION_SRC_TYPE;
                         }
                     }
                     else if (strcmp(s, "src_max")==0) {
-                        alloc_and_copy_maybe_vector(v, &p.props.src_type,
-                                                    &p.props.range.src_max,
-                                                    &p.props.src_length);
-                        if (p.props.range.src_max) {
-                            p.props.range.known |= CONNECTION_RANGE_SRC_MAX;
-                            p.flags |= CONNECTION_SRC_LENGTH;
-                            p.flags |= CONNECTION_SRC_TYPE;
+                        alloc_and_copy_maybe_vector(v, &p->props.src_type,
+                                                    &p->props.range.src_max,
+                                                    &p->props.src_length);
+                        if (p->props.range.src_max) {
+                            p->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                            p->flags |= CONNECTION_SRC_LENGTH;
+                            p->flags |= CONNECTION_SRC_TYPE;
                         }
                     }
                     else if (strcmp(s, "dest_min")==0) {
-                        alloc_and_copy_maybe_vector(v, &p.props.dest_type,
-                                                    &p.props.range.dest_min,
-                                                    &p.props.dest_length);
-                        if (p.props.range.dest_min) {
-                            p.props.range.known |= CONNECTION_RANGE_DEST_MIN;
-                            p.flags |= CONNECTION_DEST_LENGTH;
-                            p.flags |= CONNECTION_DEST_TYPE;
+                        alloc_and_copy_maybe_vector(v, &p->props.dest_type,
+                                                    &p->props.range.dest_min,
+                                                    &p->props.dest_length);
+                        if (p->props.range.dest_min) {
+                            p->props.range.known |= CONNECTION_RANGE_DEST_MIN;
+                            p->flags |= CONNECTION_DEST_LENGTH;
+                            p->flags |= CONNECTION_DEST_TYPE;
                         }
                     }
                     else if (strcmp(s, "dest_max")==0) {
-                        alloc_and_copy_maybe_vector(v, &p.props.dest_type,
-                                                    &p.props.range.dest_max,
-                                                    &p.props.dest_length);
-                        if (p.props.range.dest_max) {
-                            p.props.range.known |= CONNECTION_RANGE_DEST_MAX;
-                            p.flags |= CONNECTION_DEST_LENGTH;
-                            p.flags |= CONNECTION_DEST_TYPE;
+                        alloc_and_copy_maybe_vector(v, &p->props.dest_type,
+                                                    &p->props.range.dest_max,
+                                                    &p->props.dest_length);
+                        if (p->props.range.dest_max) {
+                            p->props.range.known |= CONNECTION_RANGE_DEST_MAX;
+                            p->flags |= CONNECTION_DEST_LENGTH;
+                            p->flags |= CONNECTION_DEST_TYPE;
                         }
                     }
-                    p.flags |= p.props.range.known;
+                    p->flags |= p->props.range.known;
                 }
             }
             Py_DECREF(keys);
-            $1 = &p;
+            $1 = p;
         }
     }
     else {

@@ -39,7 +39,7 @@ const char* mapper_mode_type_strings[] =
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 {
-    die_unless(bound < N_MAPPER_BOUNDARY_ACTIONS && bound >= 0,
+    die_unless(bound < N_MAPPER_BOUNDARY_ACTIONS,
                "called mapper_get_boundary_action_string() with "
                "bad parameter.\n");
 
@@ -48,7 +48,7 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode)
 {
-    die_unless(mode < N_MAPPER_MODE_TYPES && mode >= 0,
+    die_unless(mode < N_MAPPER_MODE_TYPES,
                "called mapper_get_mode_type_string() with "
                "bad parameter.\n");
 

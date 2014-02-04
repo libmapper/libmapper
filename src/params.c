@@ -147,7 +147,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->values[param];
 }
@@ -155,7 +155,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
 const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->types[param];
 }
@@ -163,7 +163,7 @@ const char* mapper_msg_get_type(mapper_message_t *msg,
 int mapper_msg_get_length(mapper_message_t *msg,
                           mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->lengths[param];
 }
@@ -171,7 +171,7 @@ int mapper_msg_get_length(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
                                            mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
     lo_arg **a = mapper_msg_get_param(msg, param);
@@ -189,7 +189,7 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
                                          mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
     lo_arg **a = mapper_msg_get_param(msg, param);
@@ -212,7 +212,7 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
                                 mapper_msg_param_t param,
                                 int *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
@@ -233,7 +233,7 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
@@ -254,7 +254,7 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
                                    mapper_msg_param_t param,
                                    double *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
