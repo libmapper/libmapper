@@ -94,8 +94,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         break;
                     }
                     else if (types[i] != msg->extra_types[extra_count]) {
-                        trace("message %s, value vector for key %s has heterogeneous types.\n",
-                              path, &(*msg->extra_args[extra_count])->s);
+                        trace("message %s, value vector for key %s has heterogeneous types.\n", path, &(*msg->extra_args[extra_count])->s);
                         msg->extra_lengths[extra_count] = 0;
                         break;
                     }
@@ -278,11 +277,11 @@ int mapper_msg_add_or_update_extra_params(table t, mapper_message_t *params)
     while (params->extra_args[i])
     {
         const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
-        lo_arg *arg = *(params->extra_args[i]+1);
         char type = params->extra_types[i];
         int length = params->extra_lengths[i];
         updated += mapper_table_add_or_update_msg_value(t, key, type,
-                                                        &arg, length);
+                                                        &params->extra_args[i][1],
+                                                        length);
         i++;
     }
     return updated;
