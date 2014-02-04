@@ -661,7 +661,7 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                         *length = *(int*)((char*)thestruct + prop->length);
                     else
                         *length = prop->length * -1;
-                    if (prop->type == 's' && *length == 1) {
+                    if (prop->type == 's' && prop->length > 0 && *length == 1) {
                         // In this case pass the char* rather than the array
                         char **temp = *pp;
                         *value = temp[0];
@@ -732,7 +732,7 @@ static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
         if (prop->indirect) {
             void **pp = (void**)((char*)thestruct + prop->offset);
             if (*pp) {
-                if (prop->type == 's' && *length == 1) {
+                if (prop->type == 's' && prop->length > 0 && *length == 1) {
                     // In this case pass the char* rather than the array
                     char **temp = *pp;
                     *value = temp[0];
