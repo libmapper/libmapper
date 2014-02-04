@@ -828,7 +828,7 @@ void mapper_prop_pp(char type, int length, const void *value)
         case 'S':
         {
             if (length == 1)
-                printf("'%s, '", (char*)value);
+                printf("'%s', ", (char*)value);
             else {
                 char **ps = (char**)value;
                 for (i = 0; i < length; i++)

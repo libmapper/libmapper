@@ -657,8 +657,17 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                     if (property)
                         *property = table_key_at_index(proptable, i);
                     *type = prop->type == 'o' ? o_type : prop->type;
-                    *value = *pp;
-                    *length = prop->length > 0 ?: prop->length * -1;
+                    if (prop->length > 0)
+                        *length = *(int*)((char*)thestruct + prop->length);
+                    else
+                        *length = prop->length * -1;
+                    if (prop->type == 's' && *length == 1) {
+                        // In this case pass the char* rather than the array
+                        char **temp = *pp;
+                        *value = temp[0];
+                    }
+                    else
+                        *value = *pp;
                     return 0;
                 }
                 j++;
@@ -670,7 +679,10 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                     *property = table_key_at_index(proptable, i);
                 *type = prop->type == 'o' ? o_type : prop->type;
                 *value = (lo_arg*)((char*)thestruct + prop->offset);
-                *length = prop->length > 0 ?: prop->length * -1;
+                if (prop->length > 0)
+                    *length = *(int*)((char*)thestruct + prop->length);
+                else
+                    *length = prop->length * -1;
                 return 0;
             }
             j++;
@@ -713,14 +725,23 @@ static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
     prop = table_find_p(proptable, property);
     if (prop) {
         *type = prop->type == 'o' ? o_type : prop->type;
-        *length = prop->length > 0 ?: prop->length * -1;
+        if (prop->length > 0)
+            *length = *(int*)((char*)thestruct + prop->length);
+        else
+            *length = prop->length * -1;
         if (prop->indirect) {
             void **pp = (void**)((char*)thestruct + prop->offset);
-            if (*pp)
-                *value = *pp;
-            else {
-                return 1;
+            if (*pp) {
+                if (prop->type == 's' && *length == 1) {
+                    // In this case pass the char* rather than the array
+                    char **temp = *pp;
+                    *value = temp[0];
+                }
+                else
+                    *value = *pp;
             }
+            else
+                return 1;
         }
         else
             *value = (void*)((char*)thestruct + prop->offset);
