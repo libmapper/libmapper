@@ -93,18 +93,6 @@ typedef union _mapper_signal_value {
     int i32;
 } mapper_signal_value_t, mval;
 
-/*! A structure to keep range information, with a bitfield indicating
- *  which parts of the range are known.
- *  @ingroup connectiondb */
-typedef struct _mapper_connection_range {
-    void *src_min;      //!< Array of source minima.
-    void *src_max;      //!< Array of source maxima.
-    void *dest_min;     //!< Destination minimum.
-    void *dest_max;     //!< Destination maximum.
-    int known;          /*!< Bitfield identifying which range
-                         *   extremities are known. */
-} mapper_connection_range_t;
-
 /*! Describes what happens when the range boundaries are
  *  exceeded.
  *  @ingroup connectiondb */
@@ -163,7 +151,13 @@ typedef struct _mapper_db_connection {
 
     int send_as_instance;       //!< 1 to send as instance, 0 otherwise.
 
-    mapper_connection_range_t range;  //!< Range information.
+    void *src_min;              //!< Array of source minima.
+    void *src_max;              //!< Array of source maxima.
+    void *dest_min;             //!< Array of destination minima.
+    void *dest_max;             //!< Array of destination maxima.
+    int range_known;            /*!< Bitfield identifying which range
+                                 *   extremities are known. */
+
     char *expression;
 
     mapper_mode_type mode;      /*!< Bypass, linear, calibrate, or

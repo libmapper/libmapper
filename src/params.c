@@ -449,30 +449,30 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
+            if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
                 msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->range.src_min);
+                                    con->src_min);
             }
             break;
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
+            if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
                 msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->range.src_max);
+                                    con->src_max);
             }
             break;
         case AT_DEST_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
+            if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
                 msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->range.dest_min);
+                                    con->dest_min);
             }
             break;
         case AT_DEST_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
+            if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
                 msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->range.dest_max);
+                                    con->dest_max);
             }
             break;
         case AT_MUTE:
@@ -614,28 +614,28 @@ void mapper_connection_prepare_osc_message(lo_message m,
         lo_message_add_string(m, con->props.expression);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
+    if (con->props.range_known & CONNECTION_RANGE_SRC_MIN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MIN]);
         msg_add_typed_value(m, con->props.src_type, con->props.src_length,
-                            con->props.range.src_min);
+                            con->props.src_min);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_SRC_MAX) {
+    if (con->props.range_known & CONNECTION_RANGE_SRC_MAX) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MAX]);
         msg_add_typed_value(m, con->props.src_type, con->props.src_length,
-                            con->props.range.src_max);
+                            con->props.src_max);
     }
     
-    if (con->props.range.known & CONNECTION_RANGE_DEST_MIN) {
+    if (con->props.range_known & CONNECTION_RANGE_DEST_MIN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MIN]);
         msg_add_typed_value(m, con->props.dest_type, con->props.dest_length,
-                            con->props.range.dest_min);
+                            con->props.dest_min);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_DEST_MAX) {
+    if (con->props.range_known & CONNECTION_RANGE_DEST_MAX) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MAX]);
         msg_add_typed_value(m, con->props.dest_type, con->props.dest_length,
-                            con->props.range.dest_max);
+                            con->props.dest_max);
     }
 
     lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MIN]);
