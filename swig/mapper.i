@@ -256,45 +256,45 @@
                     }
                     else if (strcmp(s, "src_min")==0) {
                         alloc_and_copy_maybe_vector(v, &p->props.src_type,
-                                                    &p->props.range.src_min,
+                                                    &p->props.src_min,
                                                     &p->props.src_length);
-                        if (p->props.range.src_min) {
-                            p->props.range.known |= CONNECTION_RANGE_SRC_MIN;
+                        if (p->props.src_min) {
+                            p->props.range_known |= CONNECTION_RANGE_SRC_MIN;
                             p->flags |= CONNECTION_SRC_LENGTH;
                             p->flags |= CONNECTION_SRC_TYPE;
                         }
                     }
                     else if (strcmp(s, "src_max")==0) {
                         alloc_and_copy_maybe_vector(v, &p->props.src_type,
-                                                    &p->props.range.src_max,
+                                                    &p->props.src_max,
                                                     &p->props.src_length);
-                        if (p->props.range.src_max) {
-                            p->props.range.known |= CONNECTION_RANGE_SRC_MAX;
+                        if (p->props.src_max) {
+                            p->props.range_known |= CONNECTION_RANGE_SRC_MAX;
                             p->flags |= CONNECTION_SRC_LENGTH;
                             p->flags |= CONNECTION_SRC_TYPE;
                         }
                     }
                     else if (strcmp(s, "dest_min")==0) {
                         alloc_and_copy_maybe_vector(v, &p->props.dest_type,
-                                                    &p->props.range.dest_min,
+                                                    &p->props.dest_min,
                                                     &p->props.dest_length);
-                        if (p->props.range.dest_min) {
-                            p->props.range.known |= CONNECTION_RANGE_DEST_MIN;
+                        if (p->props.dest_min) {
+                            p->props.range_known |= CONNECTION_RANGE_DEST_MIN;
                             p->flags |= CONNECTION_DEST_LENGTH;
                             p->flags |= CONNECTION_DEST_TYPE;
                         }
                     }
                     else if (strcmp(s, "dest_max")==0) {
                         alloc_and_copy_maybe_vector(v, &p->props.dest_type,
-                                                    &p->props.range.dest_max,
+                                                    &p->props.dest_max,
                                                     &p->props.dest_length);
-                        if (p->props.range.dest_max) {
-                            p->props.range.known |= CONNECTION_RANGE_DEST_MAX;
+                        if (p->props.dest_max) {
+                            p->props.range_known |= CONNECTION_RANGE_DEST_MAX;
                             p->flags |= CONNECTION_DEST_LENGTH;
                             p->flags |= CONNECTION_DEST_TYPE;
                         }
                     }
-                    p->flags |= p->props.range.known;
+                    p->flags |= p->props.range_known;
                 }
             }
             Py_DECREF(keys);
@@ -309,14 +309,14 @@
 
 %typemap(freearg) mapper_db_connection_with_flags_t* {
     if ($1) {
-        if ($1->props.range.known & CONNECTION_RANGE_SRC_MIN)
-            free($1->props.range.src_min);
-        if ($1->props.range.known & CONNECTION_RANGE_SRC_MAX)
-            free($1->props.range.src_max);
-        if ($1->props.range.known | CONNECTION_RANGE_DEST_MIN)
-            free($1->props.range.dest_min);
-        if ($1->props.range.known | CONNECTION_RANGE_DEST_MAX)
-            free($1->props.range.dest_max);
+        if ($1->props.range_known & CONNECTION_RANGE_SRC_MIN)
+            free($1->props.src_min);
+        if ($1->props.range_known & CONNECTION_RANGE_SRC_MAX)
+            free($1->props.src_max);
+        if ($1->props.range_known | CONNECTION_RANGE_DEST_MIN)
+            free($1->props.dest_min);
+        if ($1->props.range_known | CONNECTION_RANGE_DEST_MAX)
+            free($1->props.dest_max);
     }
 }
 
