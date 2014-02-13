@@ -565,14 +565,14 @@ void mapper_msg_prepare_params(lo_message m,
         if (!msg->values[pa])
             continue;
 
-        lo_arg *a = *msg->values[pa];
+        lo_arg **a = msg->values[pa];
         if (!a)
             continue;
 
         lo_message_add_string(m, mapper_msg_param_strings[pa]);
 
         for (i = 0; i < msg->lengths[pa]; i++) {
-            msg_add_lo_arg(m, *msg->types[pa], a+i);
+            msg_add_lo_arg(m, *msg->types[pa], a[i]);
         }
     }
     pa = 0;
