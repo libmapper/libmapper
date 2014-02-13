@@ -1444,6 +1444,9 @@ typedef struct _admin {} admin;
     signal *get_output_by_index(int index) {
         return (signal *)mdev_get_output_by_index((mapper_device)$self, index);
     }
+    mapper_db_device get_properties() {
+        return mdev_properties((mapper_device)$self);
+    }
     void set_property(const char *key, maybePropVal val=0) {
         if (val)
             mdev_set_property((mapper_device)$self, key, val->type,
@@ -1498,19 +1501,17 @@ typedef struct _admin {} admin;
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
         def __propgetter(self):
-            signal = self
-            props = {}
+            device = self
+            props = self.get_properties()
             class propsetter(dict):
                 __getitem__ = props.__getitem__
                 def __setitem__(self, key, value):
                     props[key] = value
-                    signal.set_property(key, value)
-            return propsetter({})
+                    device.set_property(key, value)
+            return propsetter(self.get_properties())
         properties = property(__propgetter)
         def set_properties(self, props):
-            for k in props:
-                print 'prop', k, props[k]
-                self.set_property(k, props[k])
+            [self.set_property(k, props[k]) for k in props]
     }
 }
 

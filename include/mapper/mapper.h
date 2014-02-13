@@ -461,6 +461,11 @@ mapper_signal mdev_get_input_by_index(mapper_device dev, int index);
  *         if not found. */
 mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
 
+/*! Get a device's property structure.
+ *  \param dev  The device to operate on.
+ *  \return     A structure containing the device's properties. */
+mapper_db_device mdev_properties(mapper_device dev);
+
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
  *  \param dev       The device to operate on.
