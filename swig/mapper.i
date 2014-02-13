@@ -429,19 +429,19 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
         {
             // only strings are valid
             if (length > 1) {
-                char ***str_to = (char***)to;
+                char **str_to = (char**)to;
                 for (i=0; i<length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (!PyString_Check(element))
                         return 1;
-                    (*str_to)[i] = strdup(PyString_AsString(element));
+                    str_to[i] = strdup(PyString_AsString(element));
                 }
             }
             else {
                 if (!PyString_Check(from))
                     return 1;
                 char **str_to = (char**)to;
-                *str_to = PyString_AsString(from);
+                *str_to = strdup(PyString_AsString(from));
             }
             break;
         }
