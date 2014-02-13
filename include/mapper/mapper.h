@@ -1433,6 +1433,8 @@ void mapper_monitor_unlink(mapper_monitor mon,
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
+ *  \param source_signal  Source signal name.
+ *  \param dest_signal    Destination signal name.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
@@ -1440,6 +1442,8 @@ void mapper_monitor_unlink(mapper_monitor mon,
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      const char *source_signal,
+                                      const char *dest_signal,
                                       mapper_db_connection_t *properties,
                                       unsigned int property_flags);
 

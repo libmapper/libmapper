@@ -1837,17 +1837,14 @@ typedef struct _admin {} admin;
     void unlink(const char* source_device, const char* dest_device) {
         mapper_monitor_unlink((mapper_monitor)$self, source_device, dest_device);
     }
-    void modify(mapper_db_connection_with_flags_t *properties) {
+    void modify_connection(const char* source_signal,
+                           const char* dest_signal,
+                           mapper_db_connection_with_flags_t *properties) {
         if (properties)
         {
-            if (!properties->props.src_name || !properties->props.dest_name)
-                SWIG_exception_fail(SWIG_ValueError,
-                                    "modify() requires 'src_name' and "
-                                    "'dest_name' in properties dict");
-            mapper_monitor_connection_modify((mapper_monitor)$self, &properties->props,
+            mapper_monitor_connection_modify((mapper_monitor)$self, source_signal,
+                                             dest_signal, &properties->props,
                                              properties->flags);
-          fail:
-            ;
         }
     }
     void connect(const char* source_signal,

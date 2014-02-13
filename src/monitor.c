@@ -566,12 +566,14 @@ void mapper_monitor_unlink(mapper_monitor mon,
 }
 
 void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      const char *source_signal,
+                                      const char *dest_signal,
                                       mapper_db_connection_t *props,
                                       unsigned int props_flags)
 {
     if (props) {
         mapper_admin_send( mon->admin, ADM_CONNECTION_MODIFY, 0, "ss",
-                           props->src_name, props->dest_name,
+                           source_signal, dest_signal,
                            (props_flags & CONNECTION_BOUND_MIN)
                            ? AT_BOUND_MIN : -1, props->bound_min,
                            (props_flags & CONNECTION_BOUND_MAX)
