@@ -737,6 +737,17 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
     c->calibrating = 0;
 }
 
+/* Helper to check if type is a number. */
+static int is_number_type(const char type)
+{
+    switch (type) {
+        case 'i':   return 1;
+        case 'f':   return 1;
+        case 'd':   return 1;
+        default:    return 0;
+    }
+}
+
 /* Helper to fill in the range (src_min, src_max, dest_min, dest_max)
  * based on message parameters and known connection and signal
  * properties; return flags to indicate which parts of the range were
@@ -761,7 +772,7 @@ static int set_range(mapper_connection c,
     args = mapper_msg_get_param(msg, AT_SRC_MAX);
     types = mapper_msg_get_type(msg, AT_SRC_MAX);
     length = mapper_msg_get_length(msg, AT_SRC_MAX);
-    if (args && types) {
+    if (args && types && is_number_type(types[0])) {
         if (length == c->props.src_length) {
             if (!c->props.src_max)
                 c->props.src_max = calloc(1, length * c->props.src_type);
@@ -786,7 +797,7 @@ static int set_range(mapper_connection c,
     args = mapper_msg_get_param(msg, AT_SRC_MIN);
     types = mapper_msg_get_type(msg, AT_SRC_MIN);
     length = mapper_msg_get_length(msg, AT_SRC_MIN);
-    if (args && types) {
+    if (args && types && is_number_type(types[0])) {
         if (length == c->props.src_length) {
             if (!c->props.src_min)
                 c->props.src_min = calloc(1, length * c->props.src_type);
@@ -811,7 +822,7 @@ static int set_range(mapper_connection c,
     args = mapper_msg_get_param(msg, AT_DEST_MAX);
     types = mapper_msg_get_type(msg, AT_DEST_MAX);
     length = mapper_msg_get_length(msg, AT_DEST_MAX);
-    if (args && types) {
+    if (args && types && is_number_type(types[0])) {
         if (length == c->props.dest_length) {
             if (!c->props.dest_max)
                 c->props.dest_max = calloc(1, length * c->props.dest_type);
@@ -836,7 +847,7 @@ static int set_range(mapper_connection c,
     args = mapper_msg_get_param(msg, AT_DEST_MIN);
     types = mapper_msg_get_type(msg, AT_DEST_MIN);
     length = mapper_msg_get_length(msg, AT_DEST_MIN);
-    if (args && types) {
+    if (args && types && is_number_type(types[0])) {
         if (length == c->props.dest_length) {
             if (!c->props.dest_min)
                 c->props.dest_min = calloc(1, length * c->props.dest_type);
@@ -858,56 +869,58 @@ static int set_range(mapper_connection c,
     }
 
     /* @min, @max */
-    args = mapper_msg_get_param(msg, AT_MIN);
-    types = mapper_msg_get_type(msg, AT_MIN);
-    length = mapper_msg_get_length(msg, AT_MIN);
-    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MIN)
-        && args && types)
-    {
-        if (length == c->props.dest_length) {
-            if (!c->props.dest_min)
-                c->props.dest_min = calloc(1, length * c->props.dest_type);
-            c->props.range_known |= CONNECTION_RANGE_DEST_MIN;
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.dest_min,
-                                                 c->props.dest_type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
-                    break;
+    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MIN)) {
+        args = mapper_msg_get_param(msg, AT_MIN);
+        types = mapper_msg_get_type(msg, AT_MIN);
+        length = mapper_msg_get_length(msg, AT_MIN);
+        if (args && types && is_number_type(types[0]))
+        {
+            if (length == c->props.dest_length) {
+                if (!c->props.dest_min)
+                    c->props.dest_min = calloc(1, length * c->props.dest_type);
+                c->props.range_known |= CONNECTION_RANGE_DEST_MIN;
+                for (i=0; i<length; i++) {
+                    result = propval_set_from_lo_arg(c->props.dest_min,
+                                                     c->props.dest_type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
+                        break;
+                    }
+                    else
+                        updated += result;
                 }
-                else
-                    updated += result;
             }
+            else
+                c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
-    args = mapper_msg_get_param(msg, AT_MAX);
-    types = mapper_msg_get_type(msg, AT_MAX);
-    length = mapper_msg_get_length(msg, AT_MAX);
-    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MAX)
-        && args && types)
-    {
-        if (length == c->props.dest_length) {
-            if (!c->props.dest_max)
-                c->props.dest_max = calloc(1, length * c->props.dest_type);
-            c->props.range_known |= CONNECTION_RANGE_DEST_MAX;
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.dest_max,
-                                                 c->props.dest_type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
-                    break;
+    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MAX)) {
+        args = mapper_msg_get_param(msg, AT_MAX);
+        types = mapper_msg_get_type(msg, AT_MAX);
+        length = mapper_msg_get_length(msg, AT_MAX);
+        if (args && types && is_number_type(types[0]))
+        {
+            if (length == c->props.dest_length) {
+                if (!c->props.dest_max)
+                    c->props.dest_max = calloc(1, length * c->props.dest_type);
+                c->props.range_known |= CONNECTION_RANGE_DEST_MAX;
+                for (i=0; i<length; i++) {
+                    result = propval_set_from_lo_arg(c->props.dest_max,
+                                                     c->props.dest_type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
+                        break;
+                    }
+                    else
+                        updated += result;
                 }
-                else
-                    updated += result;
             }
+            else
+                c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
     }
 
     /* Signal */
