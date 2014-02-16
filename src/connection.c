@@ -727,10 +727,11 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
         }
     }
 
-    if (c->props.dest_length > 1) {
-        len = strlen(expr);
+    len = strlen(expr);
+    if (c->props.dest_length > 1)
         snprintf(expr+len-1, 256-len+1, "]");
-    }
+    else
+        expr[len-1] = '\0';
 
     c->props.expression = strdup(expr);
 
