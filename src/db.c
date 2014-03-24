@@ -370,82 +370,6 @@ static void free_query_src_dest_queries(list_header_t *lh)
     free_query_single_context(lh);
 }
 
-/* Helper functions for updating struct fields based on message
- * parameters. */
-
-static int update_signal_value_if_arg(mapper_message_t *params,
-                                      mapper_msg_param_t field,
-                                      char sigtype, int siglength,
-                                      void *value)
-{
-    lo_arg **a = mapper_msg_get_param(params, field);
-    const char *type = mapper_msg_get_type(params, field);
-    int length = mapper_msg_get_length(params, field);
-
-    if (!a || !(*a) || length != siglength)
-        return 0;
-
-    int i, updated = 0;
-    if (sigtype == 'f') {
-        float *vf = (float*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (*a)->f;
-            else if (type[i] == 'i')
-                temp = (float)(*a)->i;
-            else if (type[i] == 'd')
-                temp = (float)(*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vf[i]) {
-                vf[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    else if (sigtype == 'i') {
-        int *vi = (int*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (int)(*a)->f;
-            else if (type[i] == 'i')
-                temp = (*a)->i;
-            else if (type[i] == 'd')
-                temp = (int)(*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vi[i]) {
-                vi[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    else if (sigtype == 'd') {
-        double *vd = (double*)value, temp;
-        for (i = 0; i < length; i++) {
-            if (type[i] == 'f')
-                temp = (double)(*a)->f;
-            else if (type[i] == 'i')
-                temp = (double)(*a)->i;
-            else if (type[i] == 'd')
-                temp = (*a)->d;
-            else {
-                trace("Signal extrema props must be int, float, or double.");
-                return 0;
-            }
-            if (temp != vd[i]) {
-                vd[i] = temp;
-                updated = 1;
-            }
-        }
-    }
-    return updated;
-}
-
 static int update_string_if_different(char **pdest_str,
                                       const char *src_str)
 {
@@ -547,7 +471,10 @@ static int update_int_if_arg(int *pdest_int,
 
 typedef struct {
     char type;
-    char indirect;
+    union {
+        int indirect;
+        int alt_type;
+    };
     int length;     // lengths stored as negatives, lookup lengths as offsets
     int offset;
 } property_table_value_t;
@@ -558,6 +485,10 @@ typedef struct {
 #define LINKDB_OFFSET(x) offsetof(mapper_db_link_t, x)
 #define CONDB_OFFSET(x) offsetof(mapper_db_connection_t, x)
 
+#define SIG_TYPE    (SIGDB_OFFSET(type))
+#define SRC_TYPE    (CONDB_OFFSET(src_type))
+#define DEST_TYPE   (CONDB_OFFSET(dest_type))
+
 #define SIG_LENGTH  (SIGDB_OFFSET(length))
 #define SRC_LENGTH  (CONDB_OFFSET(src_length))
 #define DEST_LENGTH (CONDB_OFFSET(dest_length))
@@ -567,16 +498,16 @@ typedef struct {
  * type as the signal's type".  The lookup and index functions will
  * return the sig->type instead of the value's type. */
 static property_table_value_t sigdb_values[] = {
-    { 's', 1, -1,         SIGDB_OFFSET(device_name) },
-    { 'i', 0, -1,         SIGDB_OFFSET(is_output) },
-    { 'i', 0, -1,         SIGDB_OFFSET(length) },
-    { 'o', 1, SIG_LENGTH, SIGDB_OFFSET(maximum) },
-    { 'o', 1, SIG_LENGTH, SIGDB_OFFSET(minimum) },
-    { 's', 1, -1,         SIGDB_OFFSET(name) },
-    { 'f', 0, -1,         SIGDB_OFFSET(rate) },
-    { 'c', 0, -1,         SIGDB_OFFSET(type) },
-    { 's', 1, -1,         SIGDB_OFFSET(unit) },
-    { 'i', 0,  0,         SIGDB_OFFSET(user_data) },
+    { 's', {1},        -1,         SIGDB_OFFSET(device_name) },
+    { 'i', {0},        -1,         SIGDB_OFFSET(is_output) },
+    { 'i', {0},        -1,         SIGDB_OFFSET(length) },
+    { 'o', {SIG_TYPE}, SIG_LENGTH, SIGDB_OFFSET(maximum) },
+    { 'o', {SIG_TYPE}, SIG_LENGTH, SIGDB_OFFSET(minimum) },
+    { 's', {1},        -1,         SIGDB_OFFSET(name) },
+    { 'f', {0},        -1,         SIGDB_OFFSET(rate) },
+    { 'c', {0},        -1,         SIGDB_OFFSET(type) },
+    { 's', {1},        -1,         SIGDB_OFFSET(unit) },
+    { 'i', {0},         0,         SIGDB_OFFSET(user_data) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -597,18 +528,18 @@ static mapper_string_table_t sigdb_table =
   { sigdb_nodes, 10, 10 };
 
 static property_table_value_t devdb_values[] = {
-    { 's', 1, -1, DEVDB_OFFSET(host) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_connections_in) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_connections_out) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_inputs) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_links_in) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_links_out) },
-    { 'i', 0, -1, DEVDB_OFFSET(n_outputs) },
-    { 's', 1, -1, DEVDB_OFFSET(name) },
-    { 'i', 0, -1, DEVDB_OFFSET(port) },
-    { 't', 0, -1, DEVDB_OFFSET(synced) },
-    { 'i', 0,  0, DEVDB_OFFSET(user_data) },
-    { 'i', 0, -1, DEVDB_OFFSET(version) },
+    { 's', {1}, -1, DEVDB_OFFSET(host) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_connections_in) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_connections_out) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_inputs) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_links_in) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_links_out) },
+    { 'i', {0}, -1, DEVDB_OFFSET(n_outputs) },
+    { 's', {1}, -1, DEVDB_OFFSET(name) },
+    { 'i', {0}, -1, DEVDB_OFFSET(port) },
+    { 't', {0}, -1, DEVDB_OFFSET(synced) },
+    { 'i', {0},  0, DEVDB_OFFSET(user_data) },
+    { 'i', {0}, -1, DEVDB_OFFSET(version) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -631,15 +562,15 @@ static mapper_string_table_t devdb_table =
   { devdb_nodes, 12, 12 };
 
 static property_table_value_t linkdb_values[] = {
-    { 's', 1, -1,         LINKDB_OFFSET(dest_host) },
-    { 's', 1, -1,         LINKDB_OFFSET(dest_name) },
-    { 'i', 0, -1,         LINKDB_OFFSET(dest_port) },
-    { 'i', 0, -1,         LINKDB_OFFSET(num_scopes) },
-    { 's', 1, NUM_SCOPES, LINKDB_OFFSET(scope_names)},
-    { 'i', 1, NUM_SCOPES, LINKDB_OFFSET(scope_hashes)},
-    { 's', 1, -1,         LINKDB_OFFSET(src_host) },
-    { 's', 1, -1,         LINKDB_OFFSET(src_name) },
-    { 'i', 0, -1,         LINKDB_OFFSET(src_port) },
+    { 's', {1}, -1,         LINKDB_OFFSET(dest_host) },
+    { 's', {1}, -1,         LINKDB_OFFSET(dest_name) },
+    { 'i', {0}, -1,         LINKDB_OFFSET(dest_port) },
+    { 'i', {0}, -1,         LINKDB_OFFSET(num_scopes) },
+    { 's', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_names)},
+    { 'i', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_hashes)},
+    { 's', {1}, -1,         LINKDB_OFFSET(src_host) },
+    { 's', {1}, -1,         LINKDB_OFFSET(src_name) },
+    { 'i', {0}, -1,         LINKDB_OFFSET(src_port) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -659,21 +590,21 @@ static mapper_string_table_t linkdb_table =
 { linkdb_nodes, 9, 9 };
 
 static property_table_value_t condb_values[] = {
-    { 'i', 0, -1,          CONDB_OFFSET(bound_min) },
-    { 'i', 0, -1,          CONDB_OFFSET(bound_max) },
-    { 'i', 0, -1,          CONDB_OFFSET(dest_length) },
-    { 'o', 1, DEST_LENGTH, CONDB_OFFSET(range.dest_max) },
-    { 'o', 1, DEST_LENGTH, CONDB_OFFSET(range.dest_min) },
-    { 's', 1, -1,          CONDB_OFFSET(dest_name) },
-    { 'c', 0, -1,          CONDB_OFFSET(dest_type) },
-    { 's', 1, -1,          CONDB_OFFSET(expression) },
-    { 'i', 0, -1,          CONDB_OFFSET(mode) },
-    { 'i', 0, -1,          CONDB_OFFSET(muted) },
-    { 'i', 0, -1,          CONDB_OFFSET(src_length) },
-    { 'o', 1, SRC_LENGTH,  CONDB_OFFSET(range.src_max) },
-    { 'o', 1, SRC_LENGTH,  CONDB_OFFSET(range.src_min) },
-    { 's', 1, -1,          CONDB_OFFSET(src_name) },
-    { 'c', 0, -1,          CONDB_OFFSET(src_type) },
+    { 'i', {0},         -1,          CONDB_OFFSET(bound_min) },
+    { 'i', {0},         -1,          CONDB_OFFSET(bound_max) },
+    { 'i', {0},         -1,          CONDB_OFFSET(dest_length) },
+    { 'o', {DEST_TYPE}, DEST_LENGTH, CONDB_OFFSET(dest_max) },
+    { 'o', {DEST_TYPE}, DEST_LENGTH, CONDB_OFFSET(dest_min) },
+    { 's', {1},         -1,          CONDB_OFFSET(dest_name) },
+    { 'c', {0},         -1,          CONDB_OFFSET(dest_type) },
+    { 's', {1},         -1,          CONDB_OFFSET(expression) },
+    { 'i', {0},         -1,          CONDB_OFFSET(mode) },
+    { 'i', {0},         -1,          CONDB_OFFSET(muted) },
+    { 'i', {0},         -1,          CONDB_OFFSET(src_length) },
+    { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_max) },
+    { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_min) },
+    { 's', {1},         -1,          CONDB_OFFSET(src_name) },
+    { 'c', {0},         -1,          CONDB_OFFSET(src_type) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -701,7 +632,7 @@ static mapper_string_table_t condb_table =
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
 
-static int mapper_db_property_index(void *thestruct, char o_type, table extra,
+static int mapper_db_property_index(void *thestruct, table extra,
                                     unsigned int index, const char **property,
                                     char *type, const void **value,
                                     int *length, table proptable)
@@ -732,9 +663,21 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
                 if (j==index) {
                     if (property)
                         *property = table_key_at_index(proptable, i);
-                    *type = prop->type == 'o' ? o_type : prop->type;
-                    *value = *pp;
-                    *length = prop->length > 0 ?: prop->length * -1;
+                    if (prop->type == 'o')
+                        *type = *((char*)thestruct + prop->alt_type);
+                    else
+                        *type = prop->type;
+                    if (prop->length > 0)
+                        *length = *(int*)((char*)thestruct + prop->length);
+                    else
+                        *length = prop->length * -1;
+                    if (prop->type == 's' && prop->length > 0 && *length == 1) {
+                        // In this case pass the char* rather than the array
+                        char **temp = *pp;
+                        *value = temp[0];
+                    }
+                    else
+                        *value = *pp;
                     return 0;
                 }
                 j++;
@@ -744,9 +687,15 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
             if (j==index) {
                 if (property)
                     *property = table_key_at_index(proptable, i);
-                *type = prop->type == 'o' ? o_type : prop->type;
+                if (prop->type == 'o')
+                    *type = *((char*)thestruct + prop->alt_type);
+                else
+                    *type = prop->type;
                 *value = (lo_arg*)((char*)thestruct + prop->offset);
-                *length = prop->length > 0 ?: prop->length * -1;
+                if (prop->length > 0)
+                    *length = *(int*)((char*)thestruct + prop->length);
+                else
+                    *length = prop->length * -1;
                 return 0;
             }
             j++;
@@ -759,7 +708,7 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
     if (val) {
         if (property)
             *property = table_key_at_index(extra, index);
-        *type = val->type == 'o' ? o_type : val->type;
+        *type = val->type;
         *value = val->value;
         *length = val->length;
         return 0;
@@ -768,7 +717,7 @@ static int mapper_db_property_index(void *thestruct, char o_type, table extra,
     return 1;
 }
 
-static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
+static int mapper_db_property_lookup(void *thestruct, table extra,
                                      const char *property, char *type,
                                      const void **value, int *length, table proptable)
 {
@@ -779,7 +728,7 @@ static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
     const mapper_prop_value_t *val;
     val = table_find_p(extra, property);
     if (val) {
-        *type = val->type == 'o' ? o_type : val->type;
+        *type = val->type;
         *value = val->value;
         *length = val->length;
         return 0;
@@ -788,15 +737,27 @@ static int mapper_db_property_lookup(void *thestruct, char o_type, table extra,
     property_table_value_t *prop;
     prop = table_find_p(proptable, property);
     if (prop) {
-        *type = prop->type == 'o' ? o_type : prop->type;
-        *length = prop->length > 0 ?: prop->length * -1;
+        if (prop->type == 'o')
+            *type = *((char*)thestruct + prop->alt_type);
+        else
+            *type = prop->type;
+        if (prop->length > 0)
+            *length = *(int*)((char*)thestruct + prop->length);
+        else
+            *length = prop->length * -1;
         if (prop->indirect) {
             void **pp = (void**)((char*)thestruct + prop->offset);
-            if (*pp)
-                *value = *pp;
-            else {
-                return 1;
+            if (*pp) {
+                if (prop->type == 's' && prop->length > 0 && *length == 1) {
+                    // In this case pass the char* rather than the array
+                    char **temp = *pp;
+                    *value = temp[0];
+                }
+                else
+                    *value = *pp;
             }
+            else
+                return 1;
         }
         else
             *value = (void*)((char*)thestruct + prop->offset);
@@ -877,14 +838,14 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     const char **property, char *type,
                                     const void **value, int *length)
 {
-    return mapper_db_property_index(dev, 0, dev->extra, index, property, type,
+    return mapper_db_property_index(dev, dev->extra, index, property, type,
                                     value, length, &devdb_table);
 }
 
 int mapper_db_device_property_lookup(mapper_db_device dev, const char *property,
                                      char *type, const void **value, int *length)
 {
-    return mapper_db_property_lookup(dev, 0, dev->extra, property, type,
+    return mapper_db_property_lookup(dev, dev->extra, property, type,
                                      value, length, &devdb_table);
 }
 
@@ -1028,26 +989,26 @@ void mapper_db_dump(mapper_db db)
     trace("Registered connections:\n");
     while (con) {
         char r[1024] = "(";
-        if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
-            mapper_prop_pp(con->src_type, con->src_length, con->range.src_min);
+        if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
+            mapper_prop_pp(con->src_type, con->src_length, con->src_min);
             sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
-            mapper_prop_pp(con->src_type, con->src_length, con->range.src_max);
+        if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
+            mapper_prop_pp(con->src_type, con->src_length, con->src_max);
             sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
-            mapper_prop_pp(con->dest_type, con->dest_length, con->range.dest_min);
+        if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
+            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_min);
             sprintf(r+strlen(r), ", ");
         }
         else
             strcat(r, "-, ");
-        if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
-            mapper_prop_pp(con->dest_type, con->dest_length, con->range.dest_max);
+        if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
+            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_max);
         }
         else
             strcat(r, "-");
@@ -1098,7 +1059,10 @@ static int update_signal_record_params(mapper_db_signal sig,
                                        const char *device_name,
                                        mapper_message_t *params)
 {
-    int updated = 0;
+    lo_arg **args;
+    const char *types;
+    int length, updated = 0, result;
+
     updated += update_string_if_different((char**)&sig->name, name);
     updated += update_string_if_different((char**)&sig->device_name, device_name);
 
@@ -1110,11 +1074,51 @@ static int update_signal_record_params(mapper_db_signal sig,
 
     updated += update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
 
-    updated += update_signal_value_if_arg(params, AT_MAX, sig->type,
-                                          sig->length, &sig->maximum);
+    /* @max */
+    args = mapper_msg_get_param(params, AT_MAX);
+    types = mapper_msg_get_type(params, AT_MAX);
+    length = mapper_msg_get_length(params, AT_MAX);
+    if (args && types) {
+        if (length == sig->length) {
+            if (!sig->maximum)
+                sig->maximum = calloc(1, length * mapper_type_size(sig->type));
+            int i;
+            for (i=0; i<length; i++) {
+                result = propval_set_from_lo_arg(sig->maximum, sig->type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    free(sig->maximum);
+                    sig->maximum = 0;
+                    break;
+                }
+                else
+                    updated += result;
+            }
+        }
+    }
 
-    updated += update_signal_value_if_arg(params, AT_MIN, sig->type,
-                                          sig->length, &sig->minimum);
+    /* @min */
+    args = mapper_msg_get_param(params, AT_MIN);
+    types = mapper_msg_get_type(params, AT_MIN);
+    length = mapper_msg_get_length(params, AT_MIN);
+    if (args && types) {
+        if (length == sig->length) {
+            if (!sig->minimum)
+                sig->minimum = calloc(1, length * mapper_type_size(sig->type));
+            int i;
+            for (i=0; i<length; i++) {
+                result = propval_set_from_lo_arg(sig->minimum, sig->type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    free(sig->minimum);
+                    sig->minimum = 0;
+                    break;
+                }
+                else
+                    updated += result;
+            }
+        }
+    }
 
     int is_output = mapper_msg_get_direction(params);
     if (is_output != -1 && is_output != sig->is_output) {
@@ -1186,6 +1190,7 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
     sig->length = length;
     sig->unit = unit ? strdup(unit) : 0;
     sig->extra = table_new();
+    sig->minimum = sig->maximum = 0;
 
     if (!name)
         return;
@@ -1207,15 +1212,15 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
                                     const char **property, char *type,
                                     const void **value, int *length)
 {
-    return mapper_db_property_index(sig, sig->type, sig->extra, index, property,
-                                    type, value, length, &sigdb_table);
+    return mapper_db_property_index(sig, sig->extra, index, property, type,
+                                    value, length, &sigdb_table);
 }
 
 int mapper_db_signal_property_lookup(mapper_db_signal sig, const char *property,
                                      char *type, const void **value, int *length)
 {
-    return mapper_db_property_lookup(sig, sig->type, sig->extra, property,
-                                     type, value, length, &sigdb_table);
+    return mapper_db_property_lookup(sig, sig->extra, property, type,
+                                     value, length, &sigdb_table);
 }
 
 void mapper_db_add_signal_callback(mapper_db db,
@@ -1457,34 +1462,6 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /**** Connection records ****/
 
-// Helper for setting property value from different lo_arg types
-static int propval_set_from_lo_arg(void *dest, const char dest_type,
-                                   lo_arg *src, const char src_type, int index)
-{
-    if (dest_type == 'f') {
-        float *temp = (float*)dest;
-        if (src_type == 'f')        temp[index] = src->f;
-        else if (src_type == 'i')   temp[index] = (float)src->i;
-        else if (src_type == 'd')   temp[index] = (float)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'i') {
-        int *temp = (int*)dest;
-        if (src_type == 'f')        temp[index] = (int)src->f;
-        else if (src_type == 'i')   temp[index] = src->i;
-        else if (src_type == 'd')   temp[index] = (int)src->d;
-        else                        return 1;
-    }
-    else if (dest_type == 'd') {
-        double *temp = (double*)dest;
-        if (src_type == 'f')        temp[index] = (double)src->f;
-        else if (src_type == 'i')   temp[index] = (double)src->i;
-        else if (src_type == 'd')   temp[index] = src->d;
-        else                        return 1;
-    }
-    return 0;
-}
-
 /*! Update information about a given connection record based on
  *  message parameters. */
 static int update_connection_record_params(mapper_db_connection con,
@@ -1494,7 +1471,7 @@ static int update_connection_record_params(mapper_db_connection con,
 {
     lo_arg **args;
     const char *types;
-    int updated = 0;
+    int updated = 0, result;
 
     updated += update_string_if_different(&con->src_name, src_name);
     updated += update_string_if_different(&con->dest_name, dest_name);
@@ -1522,21 +1499,25 @@ static int update_connection_record_params(mapper_db_connection con,
     int length = mapper_msg_get_length(params, AT_SRC_MAX);
     if (args && types) {
         if (length == con->src_length) {
-            if (!con->range.src_max)
-                con->range.src_max = malloc(length *
+            if (!con->src_max)
+                con->src_max = calloc(1, length *
                                             mapper_type_size(con->src_type));
-            con->range.known |= CONNECTION_RANGE_SRC_MAX;
+            con->range_known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.src_max, con->src_type,
-                                            args[i], types[i], i)) {
-                    con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+                result = propval_set_from_lo_arg(con->src_max,
+                                                 con->src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    con->range_known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
-            con->range.known &= ~CONNECTION_RANGE_SRC_MAX;
+            con->range_known &= ~CONNECTION_RANGE_SRC_MAX;
     }
 
     /* @srcMin */
@@ -1545,21 +1526,25 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_SRC_MIN);
     if (args && types) {
         if (length == con->src_length) {
-            if (!con->range.src_min)
-                con->range.src_min = malloc(length *
+            if (!con->src_min)
+                con->src_min = calloc(1, length *
                                             mapper_type_size(con->src_type));
-            con->range.known |= CONNECTION_RANGE_SRC_MIN;
+            con->range_known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.src_min, con->src_type,
-                                            args[i], types[i], i)) {
-                    con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
+                result = propval_set_from_lo_arg(con->src_min,
+                                                 con->src_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    con->range_known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
-            con->range.known &= ~CONNECTION_RANGE_SRC_MIN;
+            con->range_known &= ~CONNECTION_RANGE_SRC_MIN;
     }
 
     /* @destMax */
@@ -1568,21 +1553,25 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_DEST_MAX);
     if (args && types) {
         if (length == con->dest_length) {
-            if (!con->range.dest_max)
-                con->range.dest_max = malloc(length *
+            if (!con->dest_max)
+                con->dest_max = calloc(1, length *
                                              mapper_type_size(con->dest_type));
-            con->range.known |= CONNECTION_RANGE_DEST_MAX;
+            con->range_known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.dest_max, con->dest_type,
-                                            args[i], types[i], i)) {
-                    con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
+                result = propval_set_from_lo_arg(con->dest_max,
+                                                 con->dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    con->range_known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
-            con->range.known &= ~CONNECTION_RANGE_DEST_MAX;
+            con->range_known &= ~CONNECTION_RANGE_DEST_MAX;
     }
 
     /* @destMin */
@@ -1591,21 +1580,25 @@ static int update_connection_record_params(mapper_db_connection con,
     length = mapper_msg_get_length(params, AT_DEST_MIN);
     if (args && types) {
         if (length == con->dest_length) {
-            if (!con->range.dest_min)
-                con->range.dest_min = malloc(length *
+            if (!con->dest_min)
+                con->dest_min = calloc(1, length *
                                              mapper_type_size(con->dest_type));
-            con->range.known |= CONNECTION_RANGE_DEST_MIN;
+            con->range_known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
-                if (propval_set_from_lo_arg(con->range.dest_min, con->dest_type,
-                                            args[i], types[i], i)) {
-                    con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
+                result = propval_set_from_lo_arg(con->dest_min,
+                                                 con->dest_type,
+                                                 args[i], types[i], i);
+                if (result == -1) {
+                    con->range_known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
+                else
+                    updated += result;
             }
         }
         else
-            con->range.known &= ~CONNECTION_RANGE_DEST_MIN;
+            con->range_known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
@@ -1641,8 +1634,8 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
     if (!con) {
         con = (mapper_db_connection)
             list_new_item(sizeof(mapper_db_connection_t));
-        con->range.src_min = 0;
-        con->range.src_max = 0;
+        con->src_min = 0;
+        con->src_max = 0;
         con->extra = table_new();
         rc = 1;
     }
@@ -1671,7 +1664,7 @@ int mapper_db_connection_property_index(mapper_db_connection con,
                                         const char **property, char *type,
                                         const void **value, int *length)
 {
-    return mapper_db_property_index(con, 0, con->extra, index, property, type,
+    return mapper_db_property_index(con, con->extra, index, property, type,
                                     value, length, &condb_table);
 }
 
@@ -1679,7 +1672,7 @@ int mapper_db_connection_property_lookup(mapper_db_connection con,
                                          const char *property, char *type,
                                          const void **value, int *length)
 {
-    return mapper_db_property_lookup(con, 0, con->extra, property, type,
+    return mapper_db_property_lookup(con, con->extra, property, type,
                                      value, length, &condb_table);
 }
 
@@ -2096,6 +2089,14 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
         free(con->dest_name);
     if (con->expression)
         free(con->expression);
+    if (con->src_min)
+        free(con->src_min);
+    if (con->src_max)
+        free(con->src_max);
+    if (con->dest_min)
+        free(con->dest_min);
+    if (con->dest_max)
+        free(con->dest_max);
     if (con->extra)
         table_free(con->extra, 1);
     list_remove_item(con, (void**)&db->registered_connections);
@@ -2245,14 +2246,14 @@ int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
                                   const char **property, char *type,
                                   const void **value, int *length)
 {
-    return mapper_db_property_index(link, 0, link->extra, index, property,
+    return mapper_db_property_index(link, link->extra, index, property,
                                     type, value, length, &linkdb_table);
 }
 
 int mapper_db_link_property_lookup(mapper_db_link link, const char *property,
                                    char *type, const void **value, int *length)
 {
-    return mapper_db_property_lookup(link, 0, link->extra, property, type,
+    return mapper_db_property_lookup(link, link->extra, property, type,
                                      value, length, &linkdb_table);
 }
 

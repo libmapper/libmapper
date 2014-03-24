@@ -63,7 +63,7 @@ int setup_source()
 
     float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mdev_add_output(source, "/outsig", 2, 'i', 0, mn, mx);
+    sendsig = mdev_add_output(source, "/outsig", 2, 'f', 0, mn, mx);
     msig_set_callback(sendsig, insig_handler, 0);
 
     printf("Output signals registered.\n");

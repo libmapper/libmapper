@@ -27,4 +27,4 @@ uninstall-hook:
 	cat @top_builddir@/swig/installed_files.log \
 	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
-EXTRA_DIST = mapper.i tkgui.py
+EXTRA_DIST = mapper.i tkgui.py copywhich.sh

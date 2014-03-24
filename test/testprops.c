@@ -110,7 +110,7 @@ int main()
     else
         printf("OK\n");
 
-    printf("Test 4:  retrieving property 'test':");
+    printf("Test 4:  retrieving property 'test'... ");
     char type;
     const void *val;
     int length;
@@ -119,7 +119,7 @@ int main()
         rc=1;
         goto cleanup;
     }
-    printf("%s... OK?\n", (char*)val);
+    printf("OK\n");
 
     printf("\t checking type: %c ... ", type);
     if (type != 's') {

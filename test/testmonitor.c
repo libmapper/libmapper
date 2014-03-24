@@ -47,9 +47,21 @@ void printdevice(mapper_db_device dev)
         // already printed this
         if (strcmp(key, "name")==0)
             continue;
-
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (strcmp(key, "synced")==0) {
+            // check current time
+            mapper_timetag_t now;
+            mapper_monitor_now(mon, &now);
+            mapper_timetag_t *tt = (mapper_timetag_t *)val;
+            if (tt->sec == 0)
+                printf(", seconds_since_sync=unknown");
+            else
+                printf(", seconds_since_sync=%f",
+                       mapper_timetag_difference(now, *tt));
+        }
+        else if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -76,8 +88,10 @@ void printsignal(mapper_db_signal sig)
             || strcmp(key, "direction")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -101,8 +115,10 @@ void printlink(mapper_db_link link)
             || strcmp(key, "dest_name")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -126,8 +142,10 @@ void printconnection(mapper_db_connection con)
             || strcmp(key, "dest_name")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -135,7 +153,7 @@ void printconnection(mapper_db_connection con)
 /*! Creation of a local dummy device. */
 int setup_monitor()
 {
-    mon = mapper_monitor_new(0, 1);
+    mon = mapper_monitor_new(0, AUTOREQ_ALL);
     if (!mon)
         goto error;
     printf("Monitor created.\n");

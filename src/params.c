@@ -73,7 +73,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
             lo_arg_pp(types[i], argv[i]);
             trace("' not a string.\n");
 #endif
-            return 1;
+            continue;
         }
 
         for (j=0; j<N_AT_PARAMS; j++)
@@ -93,12 +93,19 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         i--;
                         break;
                     }
+                    else if (types[i] != msg->extra_types[extra_count]) {
+                        trace("message %s, value vector for key %s has heterogeneous types.\n", path, &(*msg->extra_args[extra_count])->s);
+                        msg->extra_lengths[extra_count] = 0;
+                        break;
+                    }
                     msg->extra_lengths[extra_count]++;
                 }
                 if (!msg->extra_lengths[extra_count]) {
                     trace("message %s, key %s has no values.\n",
                           path, &(*msg->extra_args[extra_count])->s);
-                    return 1;
+                    msg->extra_args[extra_count] = 0;
+                    msg->extra_types[extra_count] = 0;
+                    continue;
                 }
                 extra_count++;
                 continue;
@@ -118,6 +125,12 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 i--;
                 break;
             }
+            else if (types[i] != *msg->types[j]) {
+                trace("message %s, value vector for key %s has heterogeneous types.\n",
+                      path, mapper_msg_param_strings[j]);
+                msg->lengths[j] = 0;
+                break;
+            }
             msg->lengths[j]++;
         }
         if (!msg->lengths[j]) {
@@ -125,7 +138,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                   path, mapper_msg_param_strings[j]);
             msg->types[j] = 0;
             msg->values[j] = 0;
-            return 1;
+            continue;
         }
     }
     return 0;
@@ -134,7 +147,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 lo_arg** mapper_msg_get_param(mapper_message_t *msg,
                               mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->values[param];
 }
@@ -142,7 +155,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg,
 const char* mapper_msg_get_type(mapper_message_t *msg,
                                 mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->types[param];
 }
@@ -150,7 +163,7 @@ const char* mapper_msg_get_type(mapper_message_t *msg,
 int mapper_msg_get_length(mapper_message_t *msg,
                           mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     return msg->lengths[param];
 }
@@ -158,7 +171,7 @@ int mapper_msg_get_length(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
                                            mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
     lo_arg **a = mapper_msg_get_param(msg, param);
@@ -176,7 +189,7 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
                                          mapper_msg_param_t param)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
     lo_arg **a = mapper_msg_get_param(msg, param);
@@ -199,7 +212,7 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
                                 mapper_msg_param_t param,
                                 int *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
@@ -220,7 +233,7 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
@@ -241,7 +254,7 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
                                    mapper_msg_param_t param,
                                    double *value)
 {
-    die_unless(param >= 0 && param < N_AT_PARAMS,
+    die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
@@ -258,18 +271,17 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
     return 0;
 }
 
-int mapper_msg_add_or_update_extra_params(table t,
-                                          mapper_message_t *params)
+int mapper_msg_add_or_update_extra_params(table t, mapper_message_t *params)
 {
     int i=0, updated=0;
     while (params->extra_args[i])
     {
         const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
-        lo_arg *arg = *(params->extra_args[i]+1);
         char type = params->extra_types[i];
         int length = params->extra_lengths[i];
         updated += mapper_table_add_or_update_msg_value(t, key, type,
-                                                        &arg, length);
+                                                        &params->extra_args[i][1],
+                                                        length);
         i++;
     }
     return updated;
@@ -437,30 +449,30 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_SRC_MIN) {
+            if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
                 msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->range.src_min);
+                                    con->src_min);
             }
             break;
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_SRC_MAX) {
+            if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
                 msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->range.src_max);
+                                    con->src_max);
             }
             break;
         case AT_DEST_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_DEST_MIN) {
+            if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
                 msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->range.dest_min);
+                                    con->dest_min);
             }
             break;
         case AT_DEST_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range.known & CONNECTION_RANGE_DEST_MAX) {
+            if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
                 msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->range.dest_max);
+                                    con->dest_max);
             }
             break;
         case AT_MUTE:
@@ -553,14 +565,14 @@ void mapper_msg_prepare_params(lo_message m,
         if (!msg->values[pa])
             continue;
 
-        lo_arg *a = *msg->values[pa];
+        lo_arg **a = msg->values[pa];
         if (!a)
             continue;
 
         lo_message_add_string(m, mapper_msg_param_strings[pa]);
 
         for (i = 0; i < msg->lengths[pa]; i++) {
-            msg_add_lo_arg(m, *msg->types[pa], a+i);
+            msg_add_lo_arg(m, *msg->types[pa], a[i]);
         }
     }
     pa = 0;
@@ -577,6 +589,16 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_link_prepare_osc_message(lo_message m,
                                      mapper_link link)
 {
+    int i;
+
+    // Add link scopes
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
+    if (link->props.num_scopes) {
+        for (i=0; i<link->props.num_scopes; i++)
+            lo_message_add_string(m, link->props.scope_names[i]);
+    }
+    else
+        lo_message_add_string(m, "none");
     mapper_msg_add_value_table(m, link->props.extra);
 }
 
@@ -592,28 +614,28 @@ void mapper_connection_prepare_osc_message(lo_message m,
         lo_message_add_string(m, con->props.expression);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_SRC_MIN) {
+    if (con->props.range_known & CONNECTION_RANGE_SRC_MIN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MIN]);
         msg_add_typed_value(m, con->props.src_type, con->props.src_length,
-                            con->props.range.src_min);
+                            con->props.src_min);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_SRC_MAX) {
+    if (con->props.range_known & CONNECTION_RANGE_SRC_MAX) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_SRC_MAX]);
         msg_add_typed_value(m, con->props.src_type, con->props.src_length,
-                            con->props.range.src_max);
+                            con->props.src_max);
     }
     
-    if (con->props.range.known & CONNECTION_RANGE_DEST_MIN) {
+    if (con->props.range_known & CONNECTION_RANGE_DEST_MIN) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MIN]);
         msg_add_typed_value(m, con->props.dest_type, con->props.dest_length,
-                            con->props.range.dest_min);
+                            con->props.dest_min);
     }
 
-    if (con->props.range.known & CONNECTION_RANGE_DEST_MAX) {
+    if (con->props.range_known & CONNECTION_RANGE_DEST_MAX) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_DEST_MAX]);
         msg_add_typed_value(m, con->props.dest_type, con->props.dest_length,
-                            con->props.range.dest_max);
+                            con->props.dest_max);
     }
 
     lo_message_add_string(m, mapper_msg_param_strings[AT_BOUND_MIN]);
@@ -714,6 +736,84 @@ int mapper_msg_get_mute(mapper_message_t *msg)
         return -1;
 }
 
+// Helper for setting property value from different lo_arg types
+int propval_set_from_lo_arg(void *dest, const char dest_type,
+                            lo_arg *src, const char src_type, int index)
+{
+    if (dest_type == 'f') {
+        float *temp = (float*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != src->f) {
+                temp[index] = src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != (float)src->i) {
+                temp[index] = (float)src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != (float)src->d) {
+                temp[index] = (float)src->d;
+                return 1;
+            }
+        }
+        else
+            return -1;
+    }
+    else if (dest_type == 'i') {
+        int *temp = (int*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != (int)src->f) {
+                temp[index] = (int)src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != src->i) {
+                temp[index] = src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != (int)src->d) {
+                temp[index] = (int)src->d;
+                return 1;
+            }
+        }
+        else
+            return -1;
+    }
+    else if (dest_type == 'd') {
+        double *temp = (double*)dest;
+        if (src_type == 'f') {
+            if (temp[index] != (double)src->f) {
+                temp[index] = (double)src->f;
+                return 1;
+            }
+        }
+        else if (src_type == 'i') {
+            if (temp[index] != (double)src->i) {
+                temp[index] = (double)src->i;
+                return 1;
+            }
+        }
+        else if (src_type == 'd') {
+            if (temp[index] != src->d) {
+                temp[index] = src->d;
+                return 1;
+            }
+        }
+        else
+            return -1;
+    }
+    else
+        return -1;
+    return 0;
+}
+
 void mapper_prop_pp(char type, int length, const void *value)
 {
     int i;
@@ -728,7 +828,7 @@ void mapper_prop_pp(char type, int length, const void *value)
         case 'S':
         {
             if (length == 1)
-                printf("'%s, '", (char*)value);
+                printf("'%s', ", (char*)value);
             else {
                 char **ps = (char**)value;
                 for (i = 0; i < length; i++)

@@ -104,15 +104,12 @@ int setup_connection()
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
 
-    mapper_connection_range_t range;
-    range.src_min = &src_min;
-    range.src_max = &src_max;
-    range.dest_min = &dest_min;
-    range.dest_max = &dest_max;
-    range.known = CONNECTION_RANGE_KNOWN;
-
     mapper_db_connection_t props;
-    props.range = range;
+    props.src_min = &src_min;
+    props.src_max = &src_max;
+    props.dest_min = &dest_min;
+    props.dest_max = &dest_max;
+    props.range_known = CONNECTION_RANGE_KNOWN;
     props.src_length = 1;
     props.dest_length = 1;
     props.src_type = 'f';

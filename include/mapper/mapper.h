@@ -461,6 +461,11 @@ mapper_signal mdev_get_input_by_index(mapper_device dev, int index);
  *         if not found. */
 mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
 
+/*! Get a device's property structure.
+ *  \param dev  The device to operate on.
+ *  \return     A structure containing the device's properties. */
+mapper_db_device mdev_properties(mapper_device dev);
+
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
  *  \param dev       The device to operate on.
@@ -578,6 +583,7 @@ double mdev_get_clock_offset(mapper_device md);
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
     MDEV_LOCAL_DESTROYED,
+    MDEV_LOCAL_MODIFIED,
 } mapper_device_local_action_t;
 
 /*! Function to call when a local device link is established or
@@ -1427,6 +1433,8 @@ void mapper_monitor_unlink(mapper_monitor mon,
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
+ *  \param source_signal  Source signal name.
+ *  \param dest_signal    Destination signal name.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
@@ -1434,6 +1442,8 @@ void mapper_monitor_unlink(mapper_monitor mon,
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      const char *source_signal,
+                                      const char *dest_signal,
                                       mapper_db_connection_t *properties,
                                       unsigned int property_flags);
 

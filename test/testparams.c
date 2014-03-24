@@ -78,15 +78,27 @@ int main()
 
     /*****/
 
-    printf("2: expected failure\n");
+    printf("2: deliberately malformed message\n");
 
     args[0] = (lo_arg*)"@port";
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@IP";
 
     rc = mapper_msg_parse_params(&msg, "/test", "sis", 3, args);
-    if (!rc) {
-        printf("2: Error, unexpected parsing success.\n");
+    if (rc) {
+        printf("2: Error parsing.\n");
+        return 1;
+    }
+
+    a = mapper_msg_get_param(&msg, AT_PORT);
+    if (!a) {
+        printf("2: Could not get @port param.\n");
+        return 1;
+    }
+
+    a = mapper_msg_get_param(&msg, AT_IP);
+    if (a) {
+        printf("2: Error, should not have been able to retrieve @IP param.\n");
         return 1;
     }
 

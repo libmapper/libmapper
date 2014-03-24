@@ -47,16 +47,17 @@ void table_free(table t, int free_values)
     free(t);
 }
 
-void table_add(table t, const char *key, void *value)
+void table_add(table t, const char *key, void *value, int is_prop)
 {
     t->len += 1;
     if (t->len > t->alloced) {
         while (t->len > t->alloced)
             t->alloced *= 2;
-        t->store = realloc(t->store, t->alloced*sizeof(string_table_node_t));
+        t->store = realloc(t->store, t->alloced * sizeof(string_table_node_t));
     }
     t->store[t->len-1].key = strdup(key);
     t->store[t->len-1].value = value;
+    t->store[t->len-1].is_prop = is_prop;
 }
 
 void table_sort(table t)
@@ -135,7 +136,7 @@ int table_add_or_update(table t, const char *key, void *value)
         *val = value;
         return 0;
     } else {
-        table_add(t, key, value);
+        table_add(t, key, value, 0);
         table_sort(t);
         return 1;
     }
@@ -177,17 +178,15 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
     {
         char **from = (char**)args;
         if (length == 1) {
-            char **to = (char**)&prop->value;
-            int n = strlen(*from);
-            *to = malloc(n+1);
-            memcpy(*to, *from, n+1);
+            free(prop->value);
+            prop->value = strdup(*from);
         }
         else {
-            char ***to = (char***)&prop->value;
+            char **to = (char**)prop->value;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
-                (*to)[i] = malloc(n+1);
-                memcpy((*to)[i], from[i], n+1);
+                to[i] = malloc(n+1);
+                memcpy(to[i], from[i], n+1);
             }
         }
     } else {
@@ -279,7 +278,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
         prop->length = length;
         prop->type = type;
         
-        table_add(t, key, prop);
+        table_add(t, key, prop, 1);
         table_sort(t);
         return 1;
     }
@@ -299,13 +298,12 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
     if (type == 's' || type == 'S')
     {
         if (length == 1) {
-            char **to = (char**)&prop->value;
-            int n = strlen((char*)&args[0]->s);
-            *to = malloc(n+1);
-            memcpy(*to, (char*)&args[0]->s, n+1);
+            free(prop->value);
+            prop->value = strdup((char*)&args[0]->s);
+
         }
         else if (length > 1) {
-            char ***to = (char***)&prop->value;
+            char **to = (char**)prop->value;
             char **from = (char**)args;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
@@ -397,7 +395,7 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
         prop->length = length;
         prop->type = type;
 
-        table_add(t, key, prop);
+        table_add(t, key, prop, 1);
         table_sort(t);
         return 1;
     }
