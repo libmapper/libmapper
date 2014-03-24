@@ -287,6 +287,8 @@ void mapper_monitor_unlink(mapper_monitor mon,
 }
 
 void mapper_monitor_connection_modify(mapper_monitor mon,
+                                      const char *source_signal,
+                                      const char *dest_signal,
                                       mapper_db_connection_t *props,
                                       unsigned int props_flags)
 {

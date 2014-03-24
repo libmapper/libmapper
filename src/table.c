@@ -182,11 +182,11 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
             prop->value = strdup(*from);
         }
         else {
-            char ***to = (char***)&prop->value;
+            char **to = (char**)prop->value;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);
-                (*to)[i] = malloc(n+1);
-                memcpy((*to)[i], from[i], n+1);
+                to[i] = malloc(n+1);
+                memcpy(to[i], from[i], n+1);
             }
         }
     } else {
@@ -303,7 +303,7 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
 
         }
         else if (length > 1) {
-            char ***to = (char***)&prop->value;
+            char **to = (char**)prop->value;
             char **from = (char**)args;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);

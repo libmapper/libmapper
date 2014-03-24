@@ -1334,6 +1334,11 @@ int mdev_ready(mapper_device device)
     return device->registered;
 }
 
+mapper_db_device mdev_properties(mapper_device dev)
+{
+    return &dev->props;
+}
+
 void mdev_set_property(mapper_device dev, const char *property,
                        char type, void *value, int length)
 {
