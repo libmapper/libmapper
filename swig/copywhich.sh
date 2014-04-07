@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PYMACHINE="$(python -c 'import platform; print platform.machine()')"
+PYMACHINE="$(python2 -c 'import platform; print platform.machine()')"
 ARCHES="$(ls -d build/lib.*/$1)"
 
 # If the Python platform architecture is found, copy that one

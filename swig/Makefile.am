@@ -7,20 +7,20 @@ $(builddir)/%_wrap.c %.py: %.i
 
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.c
-	env CFLAGS="" python setup.py build_ext
+	env CFLAGS="" python2 setup.py build_ext
 	cp -v `./copywhich.sh $@` .
 
 clean-local:
 	-@rm -vf mapper.py mapper_wrap.c
-	python setup.py clean --all
+	python2 setup.py clean --all
 
 MOSTLYCLEANFILES = _mapper.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mapper_wrap.c
 	if test -n "$(DESTDIR)"; then\
-		python setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+		python2 setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	else \
-		python setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+		python2 setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	fi
 
 uninstall-hook:
