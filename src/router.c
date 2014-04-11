@@ -144,7 +144,7 @@ void mapper_router_num_instances_changed(mapper_router r,
     // Need to allocate more instances
     rs->history = realloc(rs->history, sizeof(struct _mapper_signal_history)
                           * size);
-    int i;
+    int i, j;
     for (i=rs->num_instances; i<size; i++) {
         rs->history[i].type = sig->props.type;
         rs->history[i].length = sig->props.length;
@@ -161,6 +161,8 @@ void mapper_router_num_instances_changed(mapper_router r,
     while (c) {
         c->history = realloc(c->history, sizeof(struct _mapper_signal_history)
                              * size);
+        c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
+                              * size);
         for (i=rs->num_instances; i<size; i++) {
             c->history[i].type = c->props.dest_type;
             c->history[i].length = c->props.dest_length;
@@ -170,6 +172,24 @@ void mapper_router_num_instances_changed(mapper_router r,
             c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
                                            * c->props.dest_history_size);
             c->history[i].position = -1;
+
+            c->expr_vars[i] = malloc(sizeof(struct _mapper_signal_history) *
+                                     c->num_expr_vars);
+        }
+        if (rs->num_instances > 0 && c->num_expr_vars > 0) {
+            for (i=rs->num_instances; i<size; i++) {
+                for (j=0; j<c->num_expr_vars; j++) {
+                    c->expr_vars[i][j].type = c->expr_vars[0][j].type;
+                    c->expr_vars[i][j].length = c->expr_vars[0][j].length;
+                    c->expr_vars[i][j].size = c->expr_vars[0][j].size;
+                    c->expr_vars[i][j].position = -1;
+                    c->expr_vars[i][j].value = calloc(1, sizeof(double) *
+                                                     c->expr_vars[i][j].length *
+                                                     c->expr_vars[i][j].size);
+                    c->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t) *
+                                                       c->expr_vars[i][j].size);
+                }
+            }
         }
         c = c->next;
     }
@@ -246,8 +266,8 @@ void mapper_router_process_signal(mapper_router r,
                 c = c->next;
                 continue;
             }
-            if (mapper_connection_perform(c, &rs->history[id], &c->history[id],
-                                          typestring))
+            if (mapper_connection_perform(c, &rs->history[id], &c->expr_vars[id],
+                                          &c->history[id], typestring))
             {
                 if (mapper_boundary_perform(c, &c->history[id])) {
                     if (count > 1)
@@ -521,6 +541,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     c->history = malloc(sizeof(struct _mapper_signal_history)
                         * rs->num_instances);
+    c->expr_vars = calloc(1, sizeof(mapper_signal_history_t*) * rs->num_instances);
+    c->num_expr_vars = 0;
     int i;
     for (i=0; i<rs->num_instances; i++) {
         // allocate history vectors
@@ -538,23 +560,18 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     rs->connections = c;
     c->parent = rs;
     r->n_connections++;
-
     return c;
 }
 
 static void mapper_router_free_connection(mapper_router r,
                                           mapper_connection c)
 {
-    int i;
+    int i, j;
     if (r && c) {
         if (c->props.src_name)
             free(c->props.src_name);
         if (c->props.dest_name)
             free(c->props.dest_name);
-        if (c->expr)
-            mapper_expr_free(c->expr);
-        if (c->props.expression)
-            free(c->props.expression);
         if (c->props.query_name)
             free(c->props.query_name);
         if (c->props.src_min)
@@ -566,12 +583,24 @@ static void mapper_router_free_connection(mapper_router r,
         if (c->props.dest_max)
             free(c->props.dest_max);
         table_free(c->props.extra, 1);
-        for (i=0; i<c->parent->num_instances; i++) {
-            free(c->history[i].value);
-            free(c->history[i].timetag);
+        if (c->num_expr_vars) {
+            for (i=0; i<c->parent->num_instances; i++) {
+                free(c->history[i].value);
+                free(c->history[i].timetag);
+                for (j=0; j<c->num_expr_vars; j++) {
+                    free(c->expr_vars[i][j].value);
+                    free(c->expr_vars[i][j].timetag);
+                }
+                free(c->expr_vars[i]);
+            }
+            free(c->expr_vars);
         }
         if (c->history)
             free(c->history);
+        if (c->expr)
+            mapper_expr_free(c->expr);
+        if (c->props.expression)
+            free(c->props.expression);
         if (c->blob)
             free(c->blob);
         free(c);
@@ -607,7 +636,7 @@ int mapper_router_remove_connection(mapper_router r,
             if (*rstemp == rs) {
                 *rstemp = rs->next;
                 int i;
-                for (i=0; i < rs->num_instances; i++) {
+                for (i=0; i<rs->num_instances; i++) {
                     free(rs->history[i].value);
                     free(rs->history[i].timetag);
                 }

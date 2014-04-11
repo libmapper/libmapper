@@ -7,6 +7,7 @@
 #include <sys/time.h>
 
 #define DEST_ARRAY_LEN 6
+#define MAX_VARS 3
 
 char str[256];
 mapper_expr e;
@@ -22,7 +23,7 @@ char typestring[3];
 mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
 
 // signal_history structures
-mapper_signal_history_t inh, outh;
+mapper_signal_history_t inh, outh, user_vars[MAX_VARS], *user_vars_p = user_vars;
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -31,6 +32,29 @@ static double get_current_time()
     gettimeofday(&tv, NULL);
     return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
+
+typedef struct _variable {
+    char *name;
+    int vector_index;
+    int vector_length;
+    char datatype;
+    char casttype;
+    char history_size;
+    char vector_length_locked;
+    char assigned;
+} mapper_variable_t, *mapper_variable;
+
+struct _mapper_expr
+{
+    void *tokens;
+    void *start;
+    int length;
+    int vector_size;
+    int input_history_size;
+    int output_history_size;
+    mapper_variable variables;
+    int num_variables;
+};
 
 /* TODO:
  multiplication by 0
@@ -106,24 +130,38 @@ int parse_and_eval()
     int i;
     for (i = 0; i < DEST_ARRAY_LEN; i++) {
         dest_int[i] = 0;
-        dest_float[i] = 0;
-        dest_double[i] = 0;
+        dest_float[i] = 0.0f;
+        dest_double[i] = 0.0;
     }
 
     printf("**********************************\n");
     printf("Parsing string '%s'\n", str);
     if (!(e = mapper_expr_new_from_string(str, inh.type, outh.type,
-                                          inh.length, outh.length,
-                                          &inh.size, &outh.size))) {
+                                          inh.length, outh.length))) {
         printf("Parser FAILED.\n");
         return 1;
+    }
+    inh.size = mapper_expr_input_history_size(e);
+    outh.size = mapper_expr_output_history_size(e);
+
+    if (mapper_expr_num_variables(e) > MAX_VARS) {
+        printf("Maximum variables exceeded.\n");
+        return 1;
+    }
+
+    // reallocate variable value histories
+    for (i = 0; i < e->num_variables; i++) {
+        printf("user_var[%d]: %p\n", i, &user_vars[i]);
+        mhist_realloc(&user_vars[i], e->variables[i].history_size,
+                      sizeof(double), 0);
     }
 
 #ifdef DEBUG
     printexpr("Parser returned:", e);
 #endif
 
-    if (!mapper_expr_evaluate(e, &inh, &outh, typestring)) {
+    printf("Try evaluation once...\n");
+    if (!mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring)) {
         printf("Evaluation FAILED.\n");
         return 1;
     }
@@ -132,7 +170,7 @@ int parse_and_eval()
     printf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
-        mapper_expr_evaluate(e, &inh, &outh, typestring);
+        mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring);
     }
     now = get_current_time();
     printf("%g seconds.\n", now-then);
@@ -389,7 +427,7 @@ int main()
     result += parse_and_eval();
     printf("Expected: 2\n");
 
-    /* Variable declaration */
+    /* Malformed variable declaration */
     snprintf(str, 256, "y=x + myvariable * 10");
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += !parse_and_eval();

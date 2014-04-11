@@ -196,8 +196,6 @@ typedef struct _mapper_signal_history
     // TODO: switch to mapper_timetag_t;
     //mapper_timetag_t *timetag;
     lo_timetag *timetag;
-
-    struct _mapper_signal_history *next;
 } mapper_signal_history_t;
 
 /*! A record that describes properties of a signal.

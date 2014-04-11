@@ -184,6 +184,8 @@ typedef struct _mapper_connection {
     void *blob;                             /*!< Blob for staging vector
                                              *   signal updates. */
     mapper_expr expr;                       //!< The mapping expression.
+    mapper_signal_history_t **expr_vars;    //!< User variables values.
+    int num_expr_vars;                      //!< Number of user variables.
     mapper_signal_history_t *history;       /*!< Array of output histories
                                              *   for each signal instance. */
     struct _mapper_connection *next;        //!< Next connection in the list.
@@ -200,7 +202,7 @@ typedef struct _mapper_link_signal {
                                              *   for each signal instance. */
     mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
-    struct _mapper_link_signal *next;     /*!< The next signal connection
+    struct _mapper_link_signal *next;       /*!< The next signal connection
                                              *   in the list. */
 } *mapper_link_signal, *mapper_router_signal, *mapper_receiver_signal;
 

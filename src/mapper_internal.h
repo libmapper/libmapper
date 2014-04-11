@@ -458,6 +458,7 @@ void msig_release_instance_internal(mapper_signal sig,
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
+                              mapper_signal_history_t **expr_vars,
                               mapper_signal_history_t *to_value,
                               char *typestring);
 
@@ -584,6 +585,11 @@ int mapper_db_link_add_scope(mapper_db_link link,
 /*! Remove a scope identifier from a given link record. */
 int mapper_db_link_remove_scope(mapper_db_link link,
                                 const char *scope);
+
+/**** Connections ****/
+
+void mhist_realloc(mapper_signal_history_t *history, int history_size,
+                   int sample_size, int is_output);
 
 /**** Messages ****/
 
@@ -714,21 +720,26 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
                                         char output_type,
                                         int input_vector_size,
-                                        int output_vector_size,
-                                        int *input_history_size,
-                                        int *output_history_size);
+                                        int output_vector_size);
 
 int mapper_expr_input_history_size(mapper_expr expr);
 
 int mapper_expr_output_history_size(mapper_expr expr);
+
+int mapper_expr_num_variables(mapper_expr expr);
+
+int mapper_expr_variable_history_size(mapper_expr expr, int index);
+
+int mapper_expr_variable_vector_length(mapper_expr expr, int index);
 
 #ifdef DEBUG
 void printexpr(const char*, mapper_expr);
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr,
-                         mapper_signal_history_t *input_history,
-                         mapper_signal_history_t *output_history,
+                         mapper_signal_history_t *from_value,
+                         mapper_signal_history_t **expr_vars,
+                         mapper_signal_history_t *to_value,
                          char *typestring);
 
 void mapper_expr_free(mapper_expr expr);
