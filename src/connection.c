@@ -560,13 +560,13 @@ void mapper_connection_set_mode_linear(mapper_connection c)
         if (min_length == 1)
             snprintf(expr, 256, "y[0]=x*");
         else
-            snprintf(expr, 256, "y[0:%i]=x*", min_length);
+            snprintf(expr, 256, "y[0:%i]=x*", min_length-1);
     }
     else {
         if (min_length == 1)
             snprintf(expr, 256, "y=x[0]*");
         else
-            snprintf(expr, 256, "y=x[0:%i]*", min_length);
+            snprintf(expr, 256, "y=x[0:%i]*", min_length-1);
     }
 
     if (min_length > 1) {
@@ -672,7 +672,7 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
         if (min_length == 1)
             snprintf(expr, 256, "y[0]=");
         else
-            snprintf(expr, 256, "y[0:%i]=", min_length);
+            snprintf(expr, 256, "y[0:%i]=", min_length-1);
     }
     else
         snprintf(expr, 256, "y=");
