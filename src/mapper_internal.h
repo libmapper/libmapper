@@ -388,6 +388,14 @@ mapper_signal msig_new(const char *name, int length, char type,
  *  \param sig The signal to free. */
 void msig_free(mapper_signal sig);
 
+/*! Coerce a signal instance value to a particular type and vector length
+ *  and add it to a lo_message. */
+void message_add_coerced_signal_instance_value(lo_message m,
+                                               mapper_signal sig,
+                                               mapper_signal_instance si,
+                                               int length,
+                                               const char type);
+
 /**** Instances ****/
 
 /*! Store an instance id_map record.

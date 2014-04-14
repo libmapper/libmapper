@@ -104,56 +104,6 @@ int mapper_receiver_set_from_message(mapper_receiver r, mapper_message_t *msg)
     return updated;
 }
 
-static void message_add_coerced_signal_value(lo_message m,
-                                             mapper_db_connection c,
-                                             mapper_signal_instance si)
-{
-    int i, min_length = c->src_length < c->dest_length ?
-                        c->src_length : c->dest_length;
-
-    if (c->dest_type == 'f') {
-        float *v = (float *) si->value;
-        for (i = 0; i < min_length; i++) {
-            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
-                lo_message_add_nil(m);
-            else if (c->src_type == 'f')
-                lo_message_add_float(m, v[i]);
-            else if (c->src_type == 'i')
-                lo_message_add_int32(m, (int)v[i]);
-            else if (c->src_type == 'd')
-                lo_message_add_double(m, (double)v[i]);
-        }
-    }
-    else if (c->dest_type == 'i') {
-        int *v = (int *) si->value;
-        for (i = 0; i < min_length; i++) {
-            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
-                lo_message_add_nil(m);
-            else if (c->src_type == 'i')
-                lo_message_add_int32(m, v[i]);
-            else if (c->src_type == 'f')
-                lo_message_add_float(m, (float)v[i]);
-            else if (c->src_type == 'd')
-                lo_message_add_double(m, (double)v[i]);
-        }
-    }
-    else if (c->dest_type == 'd') {
-        double *v = (double *) si->value;
-        for (i = 0; i < min_length; i++) {
-            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
-                lo_message_add_nil(m);
-            else if (c->src_type == 'd')
-                lo_message_add_double(m, (int)v[i]);
-            else if (c->src_type == 'i')
-                lo_message_add_int32(m, (int)v[i]);
-            else if (c->src_type == 'f')
-                lo_message_add_float(m, (float)v[i]);
-        }
-    }
-    for (i = min_length; i < c->src_length; i++)
-        lo_message_add_nil(m);
-}
-
 void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_signal sig,
                                  int instance_index,
@@ -199,7 +149,9 @@ void mapper_receiver_send_update(mapper_receiver r,
             return;
 
         mapper_signal_instance si = sig->id_maps[instance_index].instance;
-        message_add_coerced_signal_value(m, &c->props, si);
+        message_add_coerced_signal_instance_value(m, sig, si,
+                                                  c->props.src_length,
+                                                  c->props.src_type);
         if (c->props.send_as_instance) {
             lo_message_add_string(m, "@instance");
             lo_message_add_int32(m, map->origin);

@@ -367,6 +367,7 @@ int mapper_router_send_query(mapper_router r,
                              mapper_signal sig,
                              mapper_timetag_t tt)
 {
+    // TODO: cache the response string
     // find this signal in list of connections
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
@@ -387,6 +388,10 @@ int mapper_router_send_query(mapper_router r,
         if (!m)
             continue;
         lo_message_add_string(m, response_string);
+        lo_message_add_int32(m, sig->props.length);
+        // include response address as argument to allow TCP queries?
+        // TODO: always use TCP for queries?
+        lo_message_add_char(m, sig->props.type);
         mapper_router_send_or_bundle_message(r, c->props.query_name, m, tt);
         count++;
         c = c->next;

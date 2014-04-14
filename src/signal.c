@@ -1152,3 +1152,56 @@ int msig_num_connections(mapper_signal sig)
     }
     return count;
 }
+
+void message_add_coerced_signal_instance_value(lo_message m,
+                                               mapper_signal sig,
+                                               mapper_signal_instance si,
+                                               int length,
+                                               const char type)
+{
+    int i;
+    int min_length = length < sig->props.length ?
+                     length : sig->props.length;
+
+    if (sig->props.type == 'f') {
+        float *v = (float *) si->value;
+        for (i = 0; i < min_length; i++) {
+            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
+                lo_message_add_nil(m);
+            else if (type == 'f')
+                lo_message_add_float(m, v[i]);
+            else if (type == 'i')
+                lo_message_add_int32(m, (int)v[i]);
+            else if (type == 'd')
+                lo_message_add_double(m, (double)v[i]);
+        }
+    }
+    else if (sig->props.type == 'i') {
+        int *v = (int *) si->value;
+        for (i = 0; i < min_length; i++) {
+            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
+                lo_message_add_nil(m);
+            else if (type == 'i')
+                lo_message_add_int32(m, v[i]);
+            else if (type == 'f')
+                lo_message_add_float(m, (float)v[i]);
+            else if (type == 'd')
+                lo_message_add_double(m, (double)v[i]);
+        }
+    }
+    else if (sig->props.type == 'd') {
+        double *v = (double *) si->value;
+        for (i = 0; i < min_length; i++) {
+            if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
+                lo_message_add_nil(m);
+            else if (type == 'd')
+                lo_message_add_double(m, (int)v[i]);
+            else if (type == 'i')
+                lo_message_add_int32(m, (int)v[i]);
+            else if (type == 'f')
+                lo_message_add_float(m, (float)v[i]);
+        }
+    }
+    for (i = min_length; i < length; i++)
+        lo_message_add_nil(m);
+}

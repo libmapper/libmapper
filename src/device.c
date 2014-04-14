@@ -337,40 +337,29 @@ static int handler_signal(const char *path, const char *types,
     if (!argc)
         return 0;
 
-    // check types
+    // TODO: remove lo_blob approach, is not longer necessary with explicit instance ids
     if (types[0] == LO_BLOB) {
         offset = 1;
     }
-    else if (argc < sig->props.length)
-        return 0;
     else {
+        // We need to consider that there may be properties appended to the msg
+        int value_len = 0;
+        while (value_len < argc && types[value_len] != 's' && types[value_len] != 'S') {
+            value_len++;
+        }
+        if (value_len != sig->props.length) {
+            // TODO; switch trace to ifdefs
+            trace("error: unexpected length for signal %s\n",
+                  sig->props.name);
+            return 0;
+        }
+        // check types
         for (i = 0; i < sig->props.length; i++) {
-            if (types[i] == 'N')
+            if (i >= value_len || types[i] == 'N')
                 nulls++;
             else if (types[i] != sig->props.type) {
-                if (types[i] == 'i') {
-                    if (sig->props.type == 'f')
-                        argv[i]->f = (float) argv[i]->i32;
-                    else if (sig->props.type == 'd')
-                        argv[i]->d = (double) argv[i]->i32;
-                }
-                else if (types[i] == 'f') {
-                    if (sig->props.type == 'i')
-                        argv[i]->i32 = (int) argv[i]->f;
-                    else if (sig->props.type == 'd')
-                        argv[i]->d = (double) argv[i]->f;
-                }
-                else if (types[i] == 'd') {
-                    if (sig->props.type == 'i')
-                        argv[i]->i32 = (int) argv[i]->d;
-                    else if (sig->props.type == 'f')
-                        argv[i]->f = (float) argv[i]->d;
-                }
-                else {
-                    trace("error, unexpected typestring for signal %s\n",
-                          sig->props.name);
-                    return 0;
-                }
+                trace("error: unexpected typestring for signal %s\n",
+                      sig->props.name);
             }
         }
         offset = sig->props.length;
@@ -470,6 +459,8 @@ static int handler_query(const char *path, const char *types,
 {
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md = sig->device;
+    int length = sig->props.length;
+    char type = sig->props.type;
 
     if (!md) {
         trace("error, sig->device==0\n");
@@ -482,53 +473,49 @@ static int handler_query(const char *path, const char *types,
         return 0;
 
     int i, j, sent = 0;
-    lo_message m = lo_message_new();
-    if (!m)
-        return 0;
 
-    // respond with same timestamp
+    // respond with same timestamp as query
+    // TODO: should we also include actual timestamp for signal value?
     lo_timetag tt = lo_message_get_timestamp(msg);
     lo_bundle b = lo_bundle_new(tt);
+
+    // query response string is first argument
+    const char *response_path = &argv[0]->s;
+
+    // vector length and data type may also be provided
+    if (argc >= 3) {
+        if (types[1] == 'i')
+            length = argv[1]->i32;
+        if (types[2] == 'c')
+            type = argv[2]->c;
+    }
 
     mapper_signal_instance si;
     for (i = 0; i < sig->id_map_length; i++) {
         if (!(si = sig->id_maps[i].instance))
             continue;
-        if (si->has_value) {
-            if (sig->props.type == 'f') {
-                float *v = si->value;
-                for (j = 0; j < sig->props.length; j++)
-                    lo_message_add_float(m, v[j]);
-            }
-            else if (sig->props.type == 'i') {
-                int *v = si->value;
-                for (j = 0; j < sig->props.length; j++)
-                    lo_message_add_int32(m, v[j]);
-            }
-            else if (sig->props.type == 'd') {
-                double *v = si->value;
-                for (j = 0; j < sig->props.length; j++)
-                    lo_message_add_double(m, v[j]);
-            }
-        }
-        else {
-            for (j = 0; j < sig->props.length; j++)
-                lo_message_add_nil(m);
-        }
+        lo_message m = lo_message_new();
+        if (!m)
+            continue;
+        message_add_coerced_signal_instance_value(m, sig, si, length, type);
         if (sig->props.num_instances > 1) {
             lo_message_add_string(m, "@instance");
             lo_message_add_int32(m, (long)sig->id_maps[i].map->origin);
             lo_message_add_int32(m, (long)sig->id_maps[i].map->public);
         }
-        lo_bundle_add_message(b, &argv[0]->s, m);
+        lo_bundle_add_message(b, response_path, m);
         sent++;
     }
     if (!sent) {
-        // If there are no active instances, send null response
-        for (j = 0; j < sig->props.length; j++)
-            lo_message_add_nil(m);
-        lo_bundle_add_message(b, &argv[0]->s, m);
+        // If there are no active instances, send a single null response
+        lo_message m = lo_message_new();
+        if (m) {
+            for (j = 0; j < length; j++)
+                lo_message_add_nil(m);
+            lo_bundle_add_message(b, response_path, m);
+        }
     }
+    // TODO: do we need to free the lo_address here?
     lo_send_bundle(lo_message_get_source(msg), b);
     lo_bundle_free_messages(b);
     return 0;
@@ -563,7 +550,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     int len = strlen(sig->props.name) + 5;
     signal_get = (char*) realloc(signal_get, len);
     snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-    lo_server_add_method(md->server, signal_get, "s",
+    lo_server_add_method(md->server, signal_get, NULL,
                          handler_query, (void *) (sig));
 
     free(signal_get);
@@ -1186,7 +1173,7 @@ void mdev_start_server(mapper_device md, int starting_port)
             int len = (int) strlen(md->inputs[i]->props.name) + 5;
             path = (char*) realloc(path, len);
             snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
-            lo_server_add_method(md->server, path, "s", handler_query,
+            lo_server_add_method(md->server, path, NULL, handler_query,
                                  (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->props.n_outputs; i++) {
