@@ -152,8 +152,6 @@ int mapper_admin_poll(mapper_admin admin);
 
 void mapper_admin_send_bundle(mapper_admin admin);
 
-void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
-
 /*! Macro for calling message-sending function. */
 #define mapper_admin_send(...)                  \
     _real_mapper_admin_send(__VA_ARGS__, N_AT_PARAMS)

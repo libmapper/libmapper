@@ -445,6 +445,11 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     return admin;
 }
 
+const char *mapper_admin_libversion(mapper_admin admin)
+{
+    return PACKAGE_VERSION;
+}
+
 void mapper_admin_send_bundle(mapper_admin admin)
 {
     if (!admin->bundle)
@@ -494,6 +499,30 @@ void mapper_admin_free(mapper_admin admin)
         lo_address_free(admin->admin_addr);
 
     free(admin);
+}
+
+/*! Probe the admin bus to see if a device's proposed name.ordinal is
+ *  already taken. */
+static void mapper_admin_probe_device_name(mapper_admin admin,
+                                           mapper_device device)
+{
+    device->ordinal.collision_count = -1;
+    device->ordinal.count_time = get_current_time();
+
+    /* Note: mdev_name() would refuse here since the
+     * ordinal is not yet locked, so we have to build it manually at
+     * this point. */
+    char name[256];
+    trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
+    snprintf(name, 256, "/%s.%d", device->props.identifier, device->ordinal.value);
+
+    /* Calculate a hash from the name and store it in id.value */
+    device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
+
+    /* For the same reason, we can't use mapper_admin_send()
+     * here. */
+    lo_send(admin->admin_addr, "/name/probe", "si",
+            name, admin->random_id);
 }
 
 /*! Add an uninitialized device to this admin. */
@@ -625,30 +654,6 @@ int mapper_admin_poll(mapper_admin admin)
         }
     }
     return count;
-}
-
-/*! Probe the admin bus to see if a device's proposed name.ordinal is
- *  already taken.
- */
-void mapper_admin_probe_device_name(mapper_admin admin, mapper_device device)
-{
-    device->ordinal.collision_count = -1;
-    device->ordinal.count_time = get_current_time();
-
-    /* Note: mdev_name() would refuse here since the
-     * ordinal is not yet locked, so we have to build it manually at
-     * this point. */
-    char name[256];
-    trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
-    snprintf(name, 256, "/%s.%d", device->props.identifier, device->ordinal.value);
-
-    /* Calculate a hash from the name and store it in id.value */
-    device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
-
-    /* For the same reason, we can't use mapper_admin_send()
-     * here. */
-    lo_send(admin->admin_addr, "/name/probe", "si",
-            name, admin->random_id);
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
