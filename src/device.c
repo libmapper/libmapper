@@ -230,6 +230,11 @@ static int handler_signal(const char *path, const char *types,
 
     mapper_signal_instance si = sig->id_maps[index].instance;
 
+    // TODO: optionally discard out-of-order messages
+    // requires timebase sync for many-to-one connections or local updates
+    //    if (sig->discard_out_of_order && out_of_order(si->timetag, tt))
+    //        return 0;
+
     if (types[0] == LO_BLOB) {
         dataptr = lo_blob_dataptr((lo_blob)argv[0]);
         count = lo_blob_datasize((lo_blob)argv[0]) /
@@ -321,6 +326,11 @@ static int handler_signal_instance(const char *path, const char *types,
 
     mapper_signal_instance si = sig->id_maps[index].instance;
     map = sig->id_maps[index].map;
+
+    // TODO: optionally discard out-of-order messages
+    // requires timebase sync for many-to-one connections or local updates
+    //    if (sig->discard_out_of_order && out_of_order(si->timetag, tt))
+    //        return 0;
 
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
