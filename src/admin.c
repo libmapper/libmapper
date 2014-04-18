@@ -590,6 +590,7 @@ int mapper_admin_poll(mapper_admin admin)
     while (count < 10 && lo_server_recv_noblock(admin->admin_server, 0)) {
         count++;
     }
+    admin->msgs_recvd += count;
 
     if (!md)
         return count;
@@ -666,13 +667,19 @@ static int check_collisions(mapper_admin admin,
 
     timediff = get_current_time() - resource->count_time;
 
-    if (timediff >= 2.0 && resource->collision_count <= 1) {
+    if (!admin->msgs_recvd) {
+        if (timediff >= 5.0) {
+            // reprobe with the same value
+            return 1;
+        }
+        return 0;
+    }
+    else if (timediff >= 2.0 && resource->collision_count <= 1) {
         resource->locked = 1;
         if (resource->on_lock)
             resource->on_lock(admin->device, resource);
         return 2;
     }
-
     else if (timediff >= 0.5 && resource->collision_count > 0) {
         /* If resource collisions were found within 500 milliseconds of the
          * last probe, add a random number based on the number of
