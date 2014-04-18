@@ -562,7 +562,6 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon)
     if (mon) {
         admin->monitor = mon;
         mapper_admin_add_monitor_methods(admin);
-        mapper_admin_send(admin, ADM_WHO, 0, "");
     }
 }
 

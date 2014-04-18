@@ -685,8 +685,10 @@ static void on_device_autorequest(mapper_db_device dev,
 void mapper_monitor_autorequest(mapper_monitor mon,
                                 mapper_monitor_autoreq_mode_t flags)
 {
-    if (flags)
+    if (flags) {
         mapper_db_add_device_callback(&mon->db, on_device_autorequest, mon);
+        mapper_admin_send(mon->admin, ADM_WHO, 0, "");
+    }
     else
         mapper_db_remove_device_callback(&mon->db, on_device_autorequest, mon);
     mon->autorequest = flags;
