@@ -602,6 +602,7 @@ struct _mapper_expr
     int vector_size;
     int input_history_size;
     int output_history_size;
+    int constant_output;
 };
 
 void mapper_expr_free(mapper_expr expr)
@@ -978,6 +979,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int vectorizing = 0;
     int variable = 0;
     int allow_toktype = 0xFFFF;
+    int constant_output = 1;
     mapper_token_t tok;
 
     // all expressions must start with "y=" (ignoring spaces)
@@ -1002,6 +1004,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             case TOK_VAR:
                 // set datatype
                 tok.datatype = tok.var < VAR_Y ? input_type : output_type;
+                if (tok.var == VAR_X)
+                    constant_output = 0;
                 tok.history_index = 0;
                 tok.vector_index = 0;
                 tok.vector_length = tok.var < VAR_Y ? input_vector_size : output_vector_size;
@@ -1026,6 +1030,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else
                     allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
                                     TOK_COMMA | TOK_QUESTION | TOK_COLON;
+                if (tok.func >= FUNC_UNIFORM)
+                    constant_output = 0;
                 break;
             case TOK_VFUNC:
                 PUSH_TO_OPERATOR(tok);
@@ -1269,6 +1275,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     expr->vector_size = max_vector;
     expr->input_history_size = *input_history_size = -oldest_input+1;
     expr->output_history_size = *output_history_size = -oldest_output+1;
+    expr->constant_output = constant_output;
+
     return expr;
 }
 
@@ -1280,6 +1288,13 @@ int mapper_expr_input_history_size(mapper_expr expr)
 int mapper_expr_output_history_size(mapper_expr expr)
 {
     return expr->output_history_size;
+}
+
+int mapper_expr_constant_output(mapper_expr expr)
+{
+    if (expr->constant_output)
+        return 1;
+    return 0;
 }
 
 #if TRACING

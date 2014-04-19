@@ -722,6 +722,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *input_history,
                          mapper_signal_history_t *output_history);
 
+int mapper_expr_constant_output(mapper_expr expr);
+
 void mapper_expr_free(mapper_expr expr);
 
 /**** String tables ****/
