@@ -628,13 +628,14 @@ struct _mapper_expr
 
 void mapper_expr_free(mapper_expr expr)
 {
+    int i;
     if (expr->tokens)
         free(expr->tokens);
     if (expr->num_variables && expr->variables) {
-        int i;
         for (i = 0; i < expr->num_variables; i++) {
             free(expr->variables[i].name);
         }
+        free(expr->variables);
     }
     free(expr);
 }
@@ -1032,7 +1033,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     if (stack[i].toktype == TOK_VECTORIZE)
         expr_length += stack[i].vectorizer_arity;
 
-    mapper_token_t *temp = malloc(sizeof(mapper_token_t) * expr_length);
+    mapper_token_t temp[expr_length];
     for (i = top-expr_length+1; i <= top; i++)
         memcpy(&temp[j++], &stack[i], sizeof(mapper_token_t));
 
@@ -1152,8 +1153,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     // get name of variable
                     int index = lex_index-1;
                     char c = str[index];
-                    while (index >= 0 && c && (isalpha(c) || isdigit(c)))
-                        c = str[--index];
+                    while (index >= 0 && c && (isalpha(c) || isdigit(c))) {
+                        if (--index >= 0)
+                            c = str[index];
+                    }
 
                     // check if variable name matches known variable
                     int i;
@@ -1419,7 +1422,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 // for now we assume variable is output (VAR_Y)
                 if (!assigning)
                     {FAIL("Misplaced assignment operator.");}
-                if (opstack_index >= 0)
+                if (opstack_index >= 0 || outstack_index < 0)
                     {FAIL("Malformed expression left of assignment.");}
 
                 if (outstack[outstack_index].toktype == TOK_VAR) {
@@ -1547,9 +1550,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     expr->input_history_size = -oldest_input+1;
     expr->output_history_size = -oldest_output+1;
 
-    // copy user-defined variables
-    expr->variables = malloc(sizeof(mapper_variable_t)*num_variables);
-    memcpy(expr->variables, variables, sizeof(mapper_variable_t)*num_variables);
+    if (num_variables) {
+        // copy user-defined variables
+        expr->variables = malloc(sizeof(mapper_variable_t)*num_variables);
+        memcpy(expr->variables, variables, sizeof(mapper_variable_t)*num_variables);
+    }
     expr->num_variables = num_variables;
 
     return expr;

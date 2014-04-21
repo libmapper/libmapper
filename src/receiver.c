@@ -264,7 +264,7 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
 
 static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection c)
 {
-    int i;
+    int i, j;
     if (r && c) {
         if (c->props.src_name)
             free(c->props.src_name);
@@ -288,7 +288,16 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);
             free(c->history[i].timetag);
+            if (c->num_expr_vars) {
+                for (j=0; j<c->num_expr_vars; j++) {
+                    free(c->expr_vars[i][j].value);
+                    free(c->expr_vars[i][j].timetag);
+                }
+                free(c->expr_vars[i]);
+            }
         }
+        if (c->expr_vars)
+            free(c->expr_vars);
         if (c->history)
             free(c->history);
         if (c->blob)

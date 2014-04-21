@@ -588,18 +588,19 @@ static void mapper_router_free_connection(mapper_router r,
         if (c->props.dest_max)
             free(c->props.dest_max);
         table_free(c->props.extra, 1);
-        if (c->num_expr_vars) {
-            for (i=0; i<c->parent->num_instances; i++) {
-                free(c->history[i].value);
-                free(c->history[i].timetag);
+        for (i=0; i<c->parent->num_instances; i++) {
+            free(c->history[i].value);
+            free(c->history[i].timetag);
+            if (c->num_expr_vars) {
                 for (j=0; j<c->num_expr_vars; j++) {
                     free(c->expr_vars[i][j].value);
                     free(c->expr_vars[i][j].timetag);
                 }
                 free(c->expr_vars[i]);
             }
-            free(c->expr_vars);
         }
+        if (c->expr_vars)
+            free(c->expr_vars);
         if (c->history)
             free(c->history);
         if (c->expr)

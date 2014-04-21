@@ -799,6 +799,8 @@ void msig_remove_instance(mapper_signal sig, int instance_id)
 
     if (sig->instances[i]->value)
         free(sig->instances[i]->value);
+    if (sig->instances[i]->has_value_flags)
+        free(sig->instances[i]->has_value_flags);
     free(sig->instances[i]);
     i++;
     for (; i < sig->props.num_instances; i++) {

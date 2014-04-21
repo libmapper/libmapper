@@ -23,7 +23,7 @@ char typestring[3];
 mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
 
 // signal_history structures
-mapper_signal_history_t inh, outh, user_vars[MAX_VARS], *user_vars_p = user_vars;
+mapper_signal_history_t inh, outh, user_vars[MAX_VARS], *user_vars_p;
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -155,6 +155,7 @@ int parse_and_eval()
         mhist_realloc(&user_vars[i], e->variables[i].history_size,
                       sizeof(double), 0);
     }
+    user_vars_p = user_vars;
 
 #ifdef DEBUG
     printexpr("Parser returned:", e);
@@ -390,7 +391,7 @@ int main()
     printf("Expected: FAILURE\n");
 
     /* Some examples of bad syntax */
-    snprintf(str, 256, "");
+    snprintf(str, 256, " ");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += !parse_and_eval();
     printf("Expected: FAILURE\n");
