@@ -8,11 +8,14 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testcpp testcustomtransport testdb testexpression \
+noinst_PROGRAMS = test testadmin testcustomtransport testdb testexpression \
                   testinstance testlinear testmany testmonitor testparams \
                   testparser testprops testqueue testquery testrate testrecv \
                   testreverse testselect testsend testsignals testspeed testsync \
                   testvector
+if HAVE_LAMBDA
+noinst_PROGRAMS += testcpp
+endif
 
 test_all_ordered = testparams testprops testdb testparser testadmin testmany \
                    testsend testrecv test testlinear testexpression testqueue \
