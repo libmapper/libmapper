@@ -182,9 +182,7 @@ typedef struct _mapper_signal_history
     void *value;
 
     /*! Timetag for each sample of stored history. */
-    // TODO: switch to mapper_timetag_t;
-    //mapper_timetag_t *timetag;
-    lo_timetag *timetag;
+    mapper_timetag_t *timetag;
 
     struct _mapper_signal_history *next;
 } mapper_signal_history_t;
