@@ -89,11 +89,7 @@ void cleanup_destination()
 
 int setup_connection()
 {
-    mval src_min, src_max, dest_min, dest_max;
-    src_min.f = 0.;
-    src_max.f = 1.;
-    dest_min.f = -10.;
-    dest_max.f = 10.;
+    float src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
 
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
@@ -117,7 +113,9 @@ int setup_connection()
     props.mode = MO_LINEAR;
 
     mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE);
+                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE |
+                           CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
+                           CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
 
     // poll devices for a bit to allow time for connection
     int i = 0;
