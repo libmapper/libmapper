@@ -70,7 +70,7 @@ Vectors
 
 Individual elements of variable values can be accessed using the notation
 `<variable>[<index>]`. The index specifies the vector element, and
-obviously must be `<=0`. Expressions must match the vector lengths of the
+obviously must be `>=0`. Expressions must match the vector lengths of the
 source and destination signals, and can be used to translate between
 signals with different vector lengths.
 
@@ -81,8 +81,8 @@ signals with different vector lengths.
 * `y = [x[1], x[2], x[0]]` — rearranging ("swizzling") vector elements
 * `y[1] = x` — apply update to a specific element of the output
 * `y[0:2] = x` — apply update to elements `0-2` of the output vector
-* `[y[0], y[2]] = x` — apply update to output vector elements `0` and `2` but
-leave `1` unchanged.
+* `[y[0], y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
+leave `y[1]` unchanged.
 
 ### Vector functions
 
@@ -95,17 +95,15 @@ FIR and IIR Filters
 ===================
 
 Past samples of expression input and output can be accessed using the notation
-`<variable>{<index>}`. The index specifies the amount of delay in samples, and
-obviously must be `<=0` for the input and `<0` for the output ( i.e. it cannot
-be a value that has not been provided or computed yet ).
+`<variable>{<index>}`. The index specifies the history index in samples, and must be `<=0` for the input (with `0` representing the present input sample) and `<0` for the expression output ( i.e. it cannot be a value that has not been provided or computed yet ).
 
-Using only delayed samples of the expression *input* `x` we can create **Finite
+Using only past samples of the expression *input* `x` we can create **Finite
 Impulse Response** ( FIR ) filters - here are some simple examples:
 
 * `y = x - x{-1}` — 2-sample derivative
 * `y = x + x{-1}` — 2-sample integral
 
-Using delayed samples of the expression *output* `y` we can create **Infinite
+Using past samples of the expression *output* `y` we can create **Infinite
 Impulse Response** ( IIR ) filters - here are some simple examples:
 
 * `y = y{-1} * 0.9 + x * 0.1` — exponential moving average with current-sample-weight of `0.1`
@@ -136,7 +134,7 @@ Any past values that are not explicitly initialized are given the value `0`.
 User-Declared Variables
 =======================
 
-Up to 8 additional variables can be declared as-needed in the expression. The variable names can be any string except for the reserved variable names `x` and `y` or the name of an existing function.  The values of these variables are stored with the expression and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
+Up to 8 additional variables can be declared as-needed in the expression. The variable names can be any string except for the reserved variable names `x` and `y` or the name of an existing function.  The values of these variables are stored with the connection context and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
 
 * `ema = ema{-1} * 0.9 + x * 0.1`, `y = x - ema`
 
@@ -145,4 +143,3 @@ Just like the output variable `y` we can initialize past values of user-defined 
 1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
 2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied by `2`. The current value of `ema` is `0` since it has not yet been set.
 3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
-
