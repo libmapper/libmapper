@@ -278,6 +278,12 @@ typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
 
+typedef union _mapper_signal_value {
+    float f;
+    double d;
+    int i32;
+} mapper_signal_value_t, mval;
+
 typedef struct _token {
     enum {
         TOK_CONST           = 0x0001,
