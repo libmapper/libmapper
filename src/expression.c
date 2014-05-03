@@ -644,65 +644,82 @@ void mapper_expr_free(mapper_expr expr)
 
 void printtoken(mapper_token_t tok)
 {
-    int locked = tok.vector_length_locked;
+    int i;
+    char tokstr[32];
     switch (tok.toktype) {
-    case TOK_CONST:
-        switch (tok.datatype) {
-            case 'f':       printf("%f_f%d", tok.f, tok.vector_length); break;
-            case 'd':       printf("%f_d%d", tok.d, tok.vector_length); break;
-            case 'i':       printf("%d_i%d", tok.i, tok.vector_length); break;
-        }                                                               break;
-    case TOK_OP:            printf("%s_%c%d%s", op_table[tok.op].name,
-                                   tok.datatype, tok.vector_length,
-                                   locked ? "'" : "");                  break;
-    case TOK_OPEN_CURLY:    printf("{");                                break;
-    case TOK_OPEN_PAREN:    printf("(");                                break;
-    case TOK_CLOSE_PAREN:   printf(")");                                break;
-    case TOK_OPEN_SQUARE:   printf("[");                                break;
-    case TOK_CLOSE_SQUARE:  printf("]");                                break;
-    case TOK_VAR:
-        if (tok.var<N_VARS) printf("%s_%c%d{%d}[%d]", var_strings[tok.var],
-                                   tok.datatype, tok.vector_length,
-                                   tok.history_index, tok.vector_index);
-        else                printf("var%d_%c%d{%d}[%d]", tok.var-N_VARS,
-                                   tok.datatype, tok.vector_length,
-                                   tok.history_index, tok.vector_index);break;
-    case TOK_FUNC:          printf("FUNC(%s)%c%d", function_table[tok.func].name,
-                                   tok.datatype, tok.vector_length);    break;
-    case TOK_COMMA:         printf(",");                                break;
-    case TOK_COLON:         printf(":");                                break;
-    case TOK_VECTORIZE:     printf("VECT%c%d(%d)", tok.datatype,
-                                   tok.vector_length, tok.vectorizer_arity);
-                                                                        break;
-    case TOK_NEGATE:        printf("-");                                break;
-    case TOK_VFUNC:         printf("VFUNC(%s)%c%d", vfunc_strings[tok.func],
-                                   tok.datatype, tok.vector_length);    break;
-    case TOK_ASSIGNMENT:
-        if (tok.var<N_VARS) printf("ASSIGN_TO:%s_%c%d{%d}[%d]->[%d]",
-                                   var_strings[tok.var], tok.datatype,
-                                   tok.vector_length, tok.history_index,
-                                   tok.assignment_offset, tok.vector_index);
-        else                printf("ASSIGN_TO:var%d_%c%d{%d}[%d]->[%d]",
-                                   tok.var-N_VARS, tok.datatype,
-                                   tok.vector_length, tok.history_index,
-                                   tok.assignment_offset, tok.vector_index);
-                                                                        break;
-    case TOK_END:           printf("END");                              break;
-    default:                printf("(unknown token)");                  break;
+        case TOK_CONST:
+            switch (tok.datatype) {
+                case 'f':   snprintf(tokstr, 32, "%f", tok.f);  break;
+                case 'd':   snprintf(tokstr, 32, "%f", tok.d);  break;
+                case 'i':   snprintf(tokstr, 32, "%d", tok.i);  break;
+            }                                                   break;
+        case TOK_OP:
+            snprintf(tokstr, 32, "%s", op_table[tok.op].name);  break;
+        case TOK_OPEN_CURLY:    snprintf(tokstr, 32, "{");      break;
+        case TOK_OPEN_PAREN:    snprintf(tokstr, 32, "(");      break;
+        case TOK_OPEN_SQUARE:   snprintf(tokstr, 32, "[");      break;
+        case TOK_CLOSE_CURLY:   snprintf(tokstr, 32, "}");      break;
+        case TOK_CLOSE_PAREN:   snprintf(tokstr, 32, ")");      break;
+        case TOK_CLOSE_SQUARE:  snprintf(tokstr, 32, "]");      break;
+        case TOK_VAR:
+            if (tok.var<N_VARS)
+                snprintf(tokstr, 32, "%s{%d}[%d]", var_strings[tok.var],
+                         tok.history_index, tok.vector_index);
+            else
+                snprintf(tokstr, 32, "var%d{%d}[%d]", tok.var-N_VARS,
+                         tok.history_index, tok.vector_index);
+            break;
+        case TOK_FUNC:
+            snprintf(tokstr, 32, "%s()", function_table[tok.func].name);
+            break;
+        case TOK_COMMA:         snprintf(tokstr, 32, ",");      break;
+        case TOK_COLON:         snprintf(tokstr, 32, ":");      break;
+        case TOK_VECTORIZE:
+            snprintf(tokstr, 32, "VECT(%d)", tok.vectorizer_arity);
+            break;
+        case TOK_NEGATE:        snprintf(tokstr, 32, "-");      break;
+        case TOK_VFUNC:
+            snprintf(tokstr, 32, "%s()", vfunc_strings[tok.func]);
+            break;
+        case TOK_ASSIGNMENT:
+            if (tok.var<N_VARS)
+                snprintf(tokstr, 32, "ASSIGN_TO:%s{%d}[%d]->[%d]",
+                         var_strings[tok.var], tok.history_index,
+                         tok.assignment_offset, tok.vector_index);
+            else
+                snprintf(tokstr, 32, "ASSIGN_TO:var%d{%d}[%d]->[%d]",
+                         tok.var-N_VARS, tok.history_index,
+                         tok.assignment_offset, tok.vector_index);
+            break;
+        case TOK_END:       printf("END\n");                    return;
+        default:            printf("(unknown token)");          return;
     }
+    printf("%s", tokstr);
+    // indent
+    int len = strlen(tokstr);
+    for (i = len; i < 30; i++) {
+        printf(" ");
+    }
+    printf("%c[%d]", tok.datatype, tok.vector_length);
     if (tok.vector_length_locked)
-        printf("'");
+        printf("L");
     if (tok.casttype)
         printf("->%c", tok.casttype);
+    printf("\n");
 }
 
 void printstack(const char *s, mapper_token_t *stack, int top)
 {
-    int i;
+    int i, j, indent = 0;
     printf("%s ", s);
+    if (s)
+        indent = strlen(s) + 1;
     for (i=0; i<=top; i++) {
+        if (i != 0) {
+            for (j=0; j<indent; j++)
+                printf(" ");
+        }
         printtoken(stack[i]);
-        printf(" ");
     }
     printf("\n");
 }
