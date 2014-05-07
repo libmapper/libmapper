@@ -70,7 +70,13 @@ void on_mdev_connection(mapper_device dev,
     printf("destination host is %s, port is %i\n",
            link->dest_host, link->dest_port);
 
-    if (send_socket != -1) {
+    if (action == MDEV_LOCAL_DESTROYED) {
+        if (send_socket != -1) {
+            close(send_socket);
+            send_socket = -1;
+        }
+    }
+    else if (send_socket != -1) {
         printf("send socket already in use, not doing anything.\n");
         return;
     }
@@ -349,6 +355,8 @@ void loop()
         mdev_poll(destination, 100);
         i++;
     }
+    if (send_socket != -1)
+        close(send_socket);
 }
 
 void ctrlc(int sig)
