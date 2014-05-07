@@ -5,10 +5,22 @@
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <signal.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
 #endif
+
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+int verbose = 1;
+int terminate = 0;
+int autoconnect = 1;
+int done = 0;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -29,15 +41,15 @@ int setup_source()
     source = mdev_new("testsend", port, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     float mn=0, mx=1;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     sendsig1= mdev_add_output(source, "/outsig1", 1, 'f', 0, &mn, &mx);
 
-	printf("Output signal /outsig registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal /outsig registered.\n");
+    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
     return 0;
 
   error:
@@ -48,15 +60,15 @@ void cleanup_source()
 {
     if (source) {
         if (router) {
-            printf("Removing router.. ");
+            eprintf("Removing router.. ");
             fflush(stdout);
             mdev_remove_router(source, router);
-            printf("ok\n");
+            eprintf("ok\n");
         }
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -65,7 +77,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("handler: Got %f\n", (*(float*)value));
+        eprintf("handler: Got %f\n", (*(float*)value));
     }
     received++;
 }
@@ -75,7 +87,7 @@ int setup_destination()
     destination = mdev_new("testrecv", port, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
@@ -84,8 +96,8 @@ int setup_destination()
 	recvsig1= mdev_add_input(destination, "/insig1", 1, 'f', 0,
                              &mn, &mx, insig_handler, 0);
 
-    printf("Input signal /insig registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal /insig registered.\n");
+    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
     return 0;
 
   error:
@@ -95,10 +107,10 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -140,45 +152,84 @@ void wait_ready()
 
 void loop()
 {
-    printf("Polling device..\n");
-	int i;
+    eprintf("Polling device..\n");
+	int i = 0;
 	float j=1;
-	for (i = 0; i < 10; i++) {
+	while ((!terminate || i < 50) && !done) {
         j=i;
         mapper_timetag_t now;
         mdev_now(source, &now);
         mdev_start_queue(source, now);
 		mdev_poll(source, 0);
-        printf("Updating signal %s to %f\n",
-               sendsig->props.name, j);
+        eprintf("Updating signal %s to %f\n",
+                sendsig->props.name, j);
         msig_update(sendsig, &j, 0, now);
 		msig_update(sendsig1, &j, 0, now);
 		mdev_send_queue(sendsig->device, now);
 		sent = sent+2;
-        mdev_poll(destination, 250);
+        mdev_poll(destination, 100);
+        i++;
+
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
+    }
+}
+
+void ctrlc(int sig)
+{
+    done = 1;
+}
+
+int main(int argc, char **argv)
+{
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        eprintf("testqueue.c: possible arguments "
+                                "-q quiet (suppress output), "
+                                "-t terminate automatically, "
+                                "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
     }
 
-}
-int main()
-{
-    int result = 0;
+    signal(SIGINT, ctrlc);
 
     if (setup_destination()) {
-        printf("Error initializing destination.\n");
+        eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
     if (setup_source()) {
-        printf("Done initializing source.\n");
+        eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
 
     wait_ready();
 
-    if (create_connections()) {
-        printf("Error creating connections.\n");
+    if (autoconnect && create_connections()) {
+        eprintf("Error creating connections.\n");
         result = 1;
         goto done;
     }
@@ -186,9 +237,9 @@ int main()
     loop();
 
     if (sent != received) {
-        printf("Not all sent messages were received.\n");
-        printf("Updated value %d time%s, but received %d of them.\n",
-               sent, sent == 1 ? "" : "s", received);
+        eprintf("Not all sent messages were received.\n");
+        eprintf("Updated value %d time%s, but received %d of them.\n",
+                sent, sent == 1 ? "" : "s", received);
         result = 1;
     }
 
