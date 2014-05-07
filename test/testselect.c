@@ -4,13 +4,25 @@
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
-
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
+
+void timersub(struct timeval *a, struct timeval *b, struct timeval *res)
+{
+    res->tv_sec = a->tv_sec - b->tv_sec;
+    if (a->tv_usec >= b->tv_usec)
+        res->tv_usec = a->tv_usec - b->tv_usec;
+    else {
+        res->tv_sec--;
+        res->tv_usec = 999999 - b->tv_usec + a->tv_usec;
+    }
+}
 #endif
 
 int automate = 1;
@@ -145,9 +157,9 @@ void wait_local_devices()
 
 /* This is where we test the use of select() to wait on multiple
  * devices at once. */
-void select_on_both_devices()
+void select_on_both_devices(int block_ms)
 {
-    int i;
+    int i, updated = 0;
 
     fd_set fdr;
 
@@ -172,22 +184,36 @@ void select_on_both_devices()
         if (fds2[i] > mfd) mfd = fds2[i];
     }
 
-    /* Timeout should not be more than 100 ms */
-    struct timeval timeout = { 0, 100000 };
-
-    if (select(mfd+1, &fdr, 0, 0, &timeout) > 0)
-    {
-        for (i = 0; i < nfds1; i++) {
-            if (FD_ISSET(fds1[i], &fdr))
-                mdev_service_fd(source, fds1[i]);
-        }
-        for (i = 0; i < nfds2; i++) {
-            if (FD_ISSET(fds2[i], &fdr))
-                mdev_service_fd(destination, fds2[i]);
-        }
+    struct timeval timeout = { block_ms * 0.001, (block_ms * 1000) % 1000000 };
+    struct timeval now, then;
+    gettimeofday(&now, NULL);
+    then.tv_sec = now.tv_sec + block_ms * 0.001;
+    then.tv_usec = now.tv_usec + block_ms * 1000;
+    if (then.tv_usec > 1000000) {
+        then.tv_sec++;
+        then.tv_usec %= 1000000;
     }
-    else
-    {
+
+    while (timercmp(&now, &then, <)) {
+        if (select(mfd+1, &fdr, 0, 0, &timeout) > 0)
+        {
+            for (i = 0; i < nfds1; i++) {
+                if (FD_ISSET(fds1[i], &fdr))
+                    mdev_service_fd(source, fds1[i]);
+            }
+            for (i = 0; i < nfds2; i++) {
+                if (FD_ISSET(fds2[i], &fdr))
+                    mdev_service_fd(destination, fds2[i]);
+            }
+            updated ++;
+        }
+        gettimeofday(&now, NULL);
+
+        // not necessary in Linux since timeout is updated by select()
+        timersub(&then, &now, &timeout);
+    }
+
+    if (!updated) {
         /* If nothing happened in 100 ms, we should poll the devices
          * anyways in case action needs to be taken. */
         mdev_poll(source, 0);
@@ -201,8 +227,6 @@ void loop()
     int i = 0;
 
     while (i >= 0 && !done) {
-        select_on_both_devices();
-
         msig_update_float(sendsig, ((i % 10) * 1.0f));
         printf("source value updated to %d -->\n", i % 10);
         printf("Received %i messages.\n\n", mdev_poll(destination, 100));
@@ -211,6 +235,7 @@ void loop()
         sent++;
         if (automate && sent >= 20)
             break;
+        select_on_both_devices(100);
     }
 }
 
