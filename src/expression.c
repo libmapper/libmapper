@@ -14,6 +14,9 @@
 #define TRACING 0
 #endif
 
+#define lex_error trace
+#define parse_error trace
+
 static int mini(int x, int y)
 {
     if (y < x) return y;
@@ -412,7 +415,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
             tok->toktype = TOK_FUNC;
             tok->func = function_lookup(str+i, index-i);
             if (tok->func == FUNC_UNKNOWN) {
-                printf("unexpected `e' outside float\n");
+                lex_error("unexpected `e' outside float\n");
                 break;
             }
             else
@@ -420,7 +423,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         }
         c = str[++index];
         if (c!='-' && c!='+' && !isdigit(c)) {
-            printf("Incomplete scientific notation `%s'.\n",str+i);
+            lex_error("Incomplete scientific notation `%s'.\n", str+i);
             break;
         }
         if (c=='-' || c=='+')
@@ -577,7 +580,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         return ++index;
     default:
         if (!isalpha(c)) {
-            printf("unknown character '%c' in lexer\n", c);
+            lex_error("unknown character '%c' in lexer\n", c);
             break;
         }
         while (c && (isalpha(c) || isdigit(c)))
@@ -592,7 +595,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
             tok->toktype = TOK_VFUNC;
         }
         else {
-            printf("Unknown variable or function name `%s'.\n",str+i);
+            lex_error("Unknown variable or function name `%s'.\n",str+i);
             break;
         }
         return index;
@@ -848,8 +851,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                         stack[i].vector_length = vector_length;
                 }
                 else if (stack[i].vector_length != vector_length) {
-                    printf("Vector length mismatch (%d != %d).\n",
-                           stack[i].vector_length, vector_length);
+                    parse_error("Vector length mismatch (%d != %d).\n",
+                                stack[i].vector_length, vector_length);
                     return -1;
                 }
             }
@@ -885,8 +888,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                 stack[top].vector_length = vector_length;
         }
         else if (stack[top].vector_length != vector_length) {
-            printf("Vector length mismatch (%d != %d).\n",
-                   stack[i].vector_length, vector_length);
+            parse_error("Vector length mismatch (%d != %d).\n",
+                        stack[i].vector_length, vector_length);
             return -1;
         }
     }
@@ -931,7 +934,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 }
 
 /* Macros to help express stack operations in parser. */
-#define FAIL(msg) { printf("%s\n", msg); return 0; }
+#define FAIL(msg) { parse_error("%s\n", msg); return 0; }
 #define PUSH_TO_OUTPUT(x)                                           \
 {                                                                   \
     if (++outstack_index >= STACK_SIZE)                             \
