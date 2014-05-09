@@ -271,6 +271,11 @@ static int handler_signal_instance(mapper_signal sig, const char *types,
     mapper_signal_instance si = sig->id_maps[index].instance;
     map = sig->id_maps[index].map;
 
+    // TODO: optionally discard out-of-order messages
+    // requires timebase sync for many-to-one connections or local updates
+    //    if (sig->discard_out_of_order && out_of_order(si->timetag, tt))
+    //        return 0;
+
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 

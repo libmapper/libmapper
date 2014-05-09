@@ -6,7 +6,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <lo/lo.h>
-
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <signal.h>
@@ -16,7 +15,15 @@
 #define usleep(x) Sleep(x/1000)
 #endif
 
-int automate = 1;
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+int autoconnect = 1;
+int terminate = 0;
+int iterations = 50; // only matters when terminate==1
+int verbose = 1;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -44,13 +51,13 @@ void on_mdev_link(mapper_device dev,
                   mapper_device_local_action_t action,
                   void *user)
 {
-    printf("%s link for %s (%s -> %s), ",
-           action == MDEV_LOCAL_ESTABLISHED ? "New"
-           : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-           mdev_name(dev), link->src_name, link->dest_name);
+    eprintf("%s link for %s (%s -> %s), ",
+            action == MDEV_LOCAL_ESTABLISHED ? "New"
+            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
+            mdev_name(dev), link->src_name, link->dest_name);
 
-    printf("destination host is %s, port is %i\n",
-           link->dest_host, link->dest_port);
+    eprintf("destination host is %s, port is %i\n",
+            link->dest_host, link->dest_port);
 }
 
 void on_mdev_connection(mapper_device dev,
@@ -60,18 +67,24 @@ void on_mdev_connection(mapper_device dev,
                         mapper_device_local_action_t action,
                         void *user)
 {
-    printf("%s connection for %s (%s:%s -> %s:%s), ",
-           action == MDEV_LOCAL_ESTABLISHED ? "New"
-           : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-           mdev_name(dev),
-           link->src_name, connection->src_name,
-           link->dest_name, connection->dest_name);
+    eprintf("%s connection for %s (%s:%s -> %s:%s), ",
+            action == MDEV_LOCAL_ESTABLISHED ? "New"
+            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
+            mdev_name(dev),
+            link->src_name, connection->src_name,
+            link->dest_name, connection->dest_name);
 
-    printf("destination host is %s, port is %i\n",
-           link->dest_host, link->dest_port);
+    eprintf("destination host is %s, port is %i\n",
+            link->dest_host, link->dest_port);
 
-    if (send_socket != -1) {
-        printf("send socket already in use, not doing anything.\n");
+    if (action == MDEV_LOCAL_DESTROYED) {
+        if (send_socket != -1) {
+            close(send_socket);
+            send_socket = -1;
+        }
+    }
+    else if (send_socket != -1) {
+        eprintf("send socket already in use, not doing anything.\n");
         return;
     }
 
@@ -83,14 +96,14 @@ void on_mdev_connection(mapper_device dev,
                                              &length)
         || t != 's' || length != 1)
     {
-        printf("Couldn't find `transport' property.\n");
+        eprintf("Couldn't find `transport' property.\n");
         return;
     }
 
     
     if (strncmp(a_transport, "tcp", 3) != 0) {
-        printf("Unknown transport property `%s', "
-               "was expecting `tcp'.\n", a_transport);
+        eprintf("Unknown transport property `%s', "
+                "was expecting `tcp'.\n", a_transport);
         return;
     }
 
@@ -100,8 +113,8 @@ void on_mdev_connection(mapper_device dev,
                                              (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
-        printf("Couldn't make TCP connection, "
-               "tcpPort property not found.\n");
+        eprintf("Couldn't make TCP connection, "
+                "tcpPort property not found.\n");
         return;
     }
 
@@ -119,7 +132,7 @@ void on_mdev_connection(mapper_device dev,
 
     const char *host = link->dest_host;
 
-    printf("Connecting with TCP to `%s' on port %d.\n", host, port);
+    eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
     struct sockaddr_in addr;
     memset((char *) &addr, 0, sizeof(addr));
@@ -130,7 +143,7 @@ void on_mdev_connection(mapper_device dev,
     if (connect(send_socket, (struct sockaddr*)&addr, sizeof(addr)))
     {
         if (errno == EINPROGRESS)
-            printf("Connecting!\n");
+            eprintf("Connecting!\n");
         else
         {
             perror("connect");
@@ -147,7 +160,7 @@ int setup_source()
     source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     float mn=0, mx=10;
 
@@ -161,7 +174,7 @@ int setup_source()
     char *str = "tcp";
     msig_set_property(sendsig, "transport", 's', &str, 1);
 
-    printf("Output signal /outsig registered.\n");
+    eprintf("Output signal /outsig registered.\n");
 
     return 0;
 
@@ -172,10 +185,10 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -184,12 +197,12 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination got %s", props->name);
+        eprintf("--> destination got %s", props->name);
         float *v = value;
         for (int i = 0; i < props->length; i++) {
-            printf(" %f", v[i]);
+            eprintf(" %f", v[i]);
         }
-        printf("\n");
+        eprintf("\n");
     }
     received++;
 }
@@ -200,7 +213,7 @@ int setup_destination()
     destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
@@ -216,7 +229,7 @@ int setup_destination()
     // custom transport.
     msig_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
 
-    printf("Input signal /insig registered.\n");
+    eprintf("Input signal /insig registered.\n");
 
     return 0;
 
@@ -227,10 +240,10 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -246,10 +259,10 @@ void wait_local_devices()
 
 void loop()
 {
-    printf("-------------------- GO ! --------------------\n");
+    eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
 
-    if (automate) {
+    if (autoconnect) {
         mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
         char src_name[1024], dest_name[1024];
@@ -278,11 +291,11 @@ void loop()
         exit(1);
     }
 
-    printf("Bound to TCP port %d\n", tcp_port);
+    eprintf("Bound to TCP port %d\n", tcp_port);
 
     listen(listen_socket, 1);
 
-    while (i >= 0 && !done) {
+    while ((!terminate || received < iterations) && !done) {
         mdev_poll(source, 0);
 
         // Instead of
@@ -314,41 +327,52 @@ void loop()
                     if (recv_socket < 0)
                         perror("accept");
                     else
-                        printf("TCP connection accepted.\n");
+                        eprintf("TCP connection accepted.\n");
                 }
 
                 if (recv_socket >= 0
                     && FD_ISSET(recv_socket, &fdsr))
                 {
                     float j;
-                    if (recv(recv_socket, &j, sizeof(float), 0) > 0)
-                        printf("received value %g\n", j);
+                    if (recv(recv_socket, &j, sizeof(float), 0) > 0) {
+                        eprintf("received value %g\n", j);
+                        received++;
+                    }
                     else {
                         perror("recv");
-                        printf("closing receive socket.\n");
+                        eprintf("closing receive socket.\n");
                         close(recv_socket);
                         recv_socket = -1;
                     }
                 }
 
-                if (FD_ISSET(send_socket, &fdss)) {
+                if (FD_ISSET(send_socket, &fdss)
+                    && (!terminate || sent < iterations)) {
 
                     float j = (i % 10) * 1.0f;
-                    if (send(send_socket, &j, sizeof(float), 0) > 0)
-                        printf("source value updated to %g -->\n", j);
+                    if (send(send_socket, &j, sizeof(float), 0) > 0) {
+                        eprintf("source value updated to %g -->\n", j);
+                        sent++;
+                    }
                     else {
                         perror("send");
-                        printf("closing send socket.\n");
+                        eprintf("closing send socket.\n");
                         close(send_socket);
                         send_socket = -1;
                     }
                 }
             }
         }
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
 
         mdev_poll(destination, 100);
         i++;
     }
+    if (send_socket != -1)
+        close(send_socket);
 }
 
 void ctrlc(int sig)
@@ -356,20 +380,46 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testcustomtransport.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-t terminate automatically, "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 
     if (setup_destination()) {
-        printf("Error initializing destination.\n");
+        eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
     if (setup_source()) {
-        printf("Done initializing source.\n");
+        eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
@@ -378,8 +428,14 @@ int main()
 
     loop();
 
+    if (autoconnect && received != sent) {
+        eprintf("sent: %d, recvd: %d\n", sent, received);
+        result = 1;
+    }
+
   done:
     cleanup_destination();
     cleanup_source();
+    printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

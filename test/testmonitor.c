@@ -16,7 +16,8 @@
 mapper_monitor mon = 0;
 mapper_db db = 0;
 
-int port = 9000;
+int verbose = 1;
+int terminate = 0;
 int done = 0;
 int update = 0;
 
@@ -178,7 +179,8 @@ void cleanup_monitor()
 
 void loop()
 {
-    while (!done)
+    int i = 0;
+    while ((!terminate || i++ < 200) && !done)
     {
         mapper_monitor_poll(mon, 0);
         usleep(polltime_ms * 1000);
@@ -312,9 +314,35 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testmonitor.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-t terminate automatically, "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 

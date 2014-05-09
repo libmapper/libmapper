@@ -1020,8 +1020,7 @@ void msig_set_minimum(mapper_signal sig, void *minimum)
 {
     if (minimum) {
         if (!sig->props.minimum)
-            sig->props.minimum = (mapper_signal_value_t *)
-                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+            sig->props.minimum = malloc(msig_vector_bytes(sig));
         memcpy(sig->props.minimum, minimum, msig_vector_bytes(sig));
     }
     else {
@@ -1035,8 +1034,7 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
 {
     if (maximum) {
         if (!sig->props.maximum)
-            sig->props.maximum = (mapper_signal_value_t *)
-                malloc(sig->props.length * sizeof(mapper_signal_value_t));
+            sig->props.maximum = malloc(msig_vector_bytes(sig));
         memcpy(sig->props.maximum, maximum, msig_vector_bytes(sig));
     }
     else {

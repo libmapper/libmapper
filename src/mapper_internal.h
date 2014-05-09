@@ -156,8 +156,6 @@ int mapper_admin_poll(mapper_admin admin);
 
 void mapper_admin_send_bundle(mapper_admin admin);
 
-void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
-
 /*! Macro for calling message-sending function. */
 #define mapper_admin_send(...)                  \
     _real_mapper_admin_send(__VA_ARGS__, N_AT_PARAMS)
@@ -749,6 +747,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t **expr_vars,
                          mapper_signal_history_t *to_value,
                          char *typestring);
+
+int mapper_expr_constant_output(mapper_expr expr);
 
 void mapper_expr_free(mapper_expr expr);
 

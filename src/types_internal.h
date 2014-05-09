@@ -145,6 +145,8 @@ typedef struct _mapper_clock_t {
 typedef struct _mapper_admin {
     int random_id;                    /*!< Random ID for allocation
                                            speedup. */
+    int msgs_recvd;                   /*!< Number of messages received on the
+                                           admin bus. */
     lo_server_thread admin_server;    /*!< LibLo server thread for the
                                        *   admin bus. */
     lo_address admin_addr;            /*!< LibLo address for the admin

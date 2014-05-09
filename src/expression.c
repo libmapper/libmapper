@@ -15,6 +15,9 @@
 #define TRACING 0
 #endif
 
+#define lex_error trace
+#define parse_error trace
+
 static int mini(int x, int y)
 {
     if (y < x) return y;
@@ -277,6 +280,12 @@ typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
 
+typedef union _mapper_signal_value {
+    float f;
+    double d;
+    int i32;
+} mapper_signal_value_t, mval;
+
 typedef struct _token {
     enum {
         TOK_CONST           = 0x0001,
@@ -434,7 +443,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         }
         c = str[++index];
         if (c!='-' && c!='+' && !isdigit(c)) {
-            printf("Incomplete scientific notation `%s'.\n",str+i);
+            lex_error("Incomplete scientific notation `%s'.\n", str+i);
             break;
         }
         if (c=='-' || c=='+')
@@ -593,7 +602,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         return ++index;
     default:
         if (!isalpha(c)) {
-            printf("unknown character '%c' in lexer\n", c);
+            lex_error("unknown character '%c' in lexer\n", c);
             break;
         }
         while (c && (isalpha(c) || isdigit(c)))
@@ -624,6 +633,7 @@ struct _mapper_expr
     int output_history_size;
     mapper_variable variables;
     int num_variables;
+    int constant_output;
 };
 
 void mapper_expr_free(mapper_expr expr)
@@ -921,8 +931,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                 if (!stack[i].vector_length_locked) {
                     if (stack[i].toktype == TOK_VFUNC) {
                         if (stack[i].vector_length != vector_length) {
-                            printf("Vector length mismatch (%d != %d).\n",
-                                   stack[i].vector_length, vector_length);
+                            parse_error("Vector length mismatch (%d != %d).\n",
+                                        stack[i].vector_length, vector_length);
                             return -1;
                         }
                     }
@@ -930,8 +940,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                         stack[i].vector_length = vector_length;
                 }
                 else if (stack[i].vector_length != vector_length) {
-                    printf("Vector length mismatch (%d != %d).\n",
-                           stack[i].vector_length, vector_length);
+                    parse_error("Vector length mismatch (%d != %d).\n",
+                                stack[i].vector_length, vector_length);
                     return -1;
                 }
             }
@@ -966,8 +976,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                 stack[top].vector_length = vector_length;
         }
         else if (stack[top].vector_length != vector_length) {
-            printf("Vector length mismatch (%d != %d).\n",
-                   stack[top].vector_length, vector_length);
+            parse_error("Vector length mismatch (%d != %d).\n",
+                        stack[top].vector_length, vector_length);
             return -1;
         }
     }
@@ -1022,19 +1032,19 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
 
     while (i >= 0 && stack[i].toktype == TOK_ASSIGNMENT) {
         if (stack[i].var != var) {
-            printf("Cannot mix variable references in assignment\n");
+            parse_error("Cannot mix variable references in assignment\n");
             return -1;
         }
         vector_length += stack[i].vector_length;
         i--;
     }
     if (i < 0) {
-        printf("Malformed expression");
+        parse_error("Malformed expression");
         return -1;
     }
     if (stack[i].vector_length != vector_length) {
-        printf("Vector length mismatch (%d != %d).\n",
-               stack[i].vector_length, vector_length);
+        parse_error("Vector length mismatch (%d != %d).\n",
+                    stack[i].vector_length, vector_length);
         return -1;
     }
     promote_token_datatype(&stack[i], stack[top].datatype);
@@ -1065,7 +1075,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
 
 /* Macros to help express stack operations in parser. */
 #define FAIL(msg) {                                                 \
-    printf("%s\n", msg);                                            \
+    parse_error("%s\n", msg);                                       \
     while (--num_variables >= 0)                                    \
         free(variables[num_variables].name);                        \
     return 0;                                                       \
@@ -1120,6 +1130,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int vectorizing = 0;
     int variable = 0;
     int allow_toktype = 0xFFFF;
+    int constant_output = 1;
 
     mapper_variable_t variables[VAR_SIZE];
     int num_variables = 0;
@@ -1160,6 +1171,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     tok.datatype = input_type;
                     tok.vector_length = input_vector_size;
                     tok.vector_length_locked = 1;
+                    constant_output = 0;
                 }
                 else if (tok.var == VAR_Y) {
                     tok.datatype = output_type;
@@ -1229,6 +1241,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else
                     allow_toktype = TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE |
                                     TOK_COMMA | TOK_COLON;
+                if (tok.func >= FUNC_UNIFORM)
+                    constant_output = 0;
                 break;
             case TOK_VFUNC:
                 PUSH_TO_OPERATOR(tok);
@@ -1566,6 +1580,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     expr->vector_size = max_vector;
     expr->input_history_size = -oldest_input+1;
     expr->output_history_size = -oldest_output+1;
+    expr->constant_output = constant_output;
 
     if (num_variables) {
         // copy user-defined variables
@@ -1606,6 +1621,13 @@ int mapper_expr_variable_vector_length(mapper_expr expr, int index)
         return 0;
     else
         return expr->variables[index].vector_length;
+}
+
+int mapper_expr_constant_output(mapper_expr expr)
+{
+    if (expr->constant_output)
+        return 1;
+    return 0;
 }
 
 #if TRACING
