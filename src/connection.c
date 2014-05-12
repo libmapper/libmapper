@@ -683,6 +683,34 @@ void mapper_connection_set_mode_expression(mapper_connection c,
     c->props.mode = MO_EXPRESSION;
     reallocate_connection_histories(c, input_history_size,
                                     output_history_size);
+    /* Special case: if we are the receiver and the new expression
+     * evaluates to a constant we can update immediately. */
+    /* TODO: should call handler for all instances updated
+     * through this connection. */
+    mapper_signal sig = c->parent->signal;
+    if (!sig->props.is_output && mapper_expr_constant_output(c->expr)) {
+        int index = 0;
+        mapper_timetag_t now;
+        mapper_clock_now(&sig->device->admin->clock, &now);
+        if (!sig->id_maps[0].instance)
+            index = msig_get_instance_with_local_id(sig, 0, 1, &now);
+        if (index < 0)
+            return;
+        mapper_signal_instance si = sig->id_maps[index].instance;
+
+        // evaluate expression
+        mapper_signal_history_t h;
+        h.type = sig->props.type;
+        h.value = si->value;
+        h.position = -1;
+        h.length = sig->props.length;
+        h.size = 1;
+        mapper_expr_evaluate(c->expr, 0, &h);
+
+        // call handler if it exists
+        if (sig->handler)
+            sig->handler(sig, &sig->props, 0, si->value, 1, &now);
+    }
 }
 
 void mapper_connection_set_mode_reverse(mapper_connection c)

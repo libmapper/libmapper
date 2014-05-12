@@ -28,22 +28,30 @@ void sig_handler(mapper_signal sig, mapper_db_signal props,
 
 int main(int argc, char ** argv)
 {
-    int i;
+    int i, result = 0;
     char signame[32];
 
-    printf("Creating device...\n");
+    printf("Creating device... ");
+    fflush(stdout);
     mdev = mdev_new("testsignals", 0, 0);
-    if (!mdev)
-        goto error;
+    if (!mdev) {
+        result = 1;
+        goto done;
+    }
 
-    printf("Adding 200 signals...\n");
+    printf("Adding signals... ");
+    fflush(stdout);
     for (i = 0; i < 100; i++) {
         mdev_poll(mdev, 100);
         snprintf(signame, 32, "/s%i", i);
-        if (!(inputs[i] = mdev_add_input(mdev, signame, 1, 'f', 0, 0, 0, sig_handler, 0)))
-            goto error;
-        if (!(outputs[i] = mdev_add_output(mdev, signame, 1, 'f', 0, 0, 0)))
-            goto error;
+        if (!mdev_add_input(mdev, signame, 1, 'f', 0, 0, 0, sig_handler, 0)) {
+            result = 1;
+            goto done;
+        }
+        if (!mdev_add_output(mdev, signame, 1, 'f', 0, 0, 0)) {
+            result = 1;
+            goto done;
+        }
     }
     printf("Removing 200 signals...\n");
     for (i = 0; i < 100; i++) {
@@ -53,11 +61,9 @@ int main(int argc, char ** argv)
         mdev_poll(mdev, 100);
     }
 
-    mdev_free(mdev);
-    return 0;
-
-  error:
+  done:
     if (mdev)
         mdev_free(mdev);
-    return 1;
+    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    return result;
 }

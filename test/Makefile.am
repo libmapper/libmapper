@@ -13,6 +13,11 @@ noinst_PROGRAMS = test testadmin testcustomtransport testdb testexpression \
                   testreverse testselect testsend testsignals testspeed testsync \
                   testvector
 
+test_all_ordered = testparams testprops testdb testparser testadmin testmany \
+                   testsend testrecv test testlinear testexpression testqueue \
+                   testquery testrate testinstance testreverse testselect \
+                   testvector testcustomtransport testspeed testsync
+
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
 test_LDADD = $(TEST_LDADD)
@@ -104,3 +109,10 @@ testsync_LDADD = $(TEST_LDADD)
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
+
+tests: all
+	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
+	echo Running testmonitor and testsignals; ./testmonitor -t & ./testsignals
+
+memtest: all
+	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper-0.2.dylib valgrind --leakcheck=full ./.libs/$$i -qt; then exit 1; fi; done

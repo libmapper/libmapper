@@ -164,8 +164,6 @@ void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
 void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
                                       mapper_signal sig);
 
-void mapper_admin_probe_device_name(mapper_admin admin, mapper_device dev);
-
 /*! Macro for calling message-sending function. */
 #define mapper_admin_bundle_message(...)                                    \
     _real_mapper_admin_bundle_message(__VA_ARGS__, N_AT_PARAMS)
@@ -745,6 +743,8 @@ void printexpr(const char*, mapper_expr);
 int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *input_history,
                          mapper_signal_history_t *output_history);
+
+int mapper_expr_constant_output(mapper_expr expr);
 
 void mapper_expr_free(mapper_expr expr);
 

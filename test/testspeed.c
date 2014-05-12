@@ -6,9 +6,18 @@
 #include <time.h>
 #include <sys/time.h>
 #include <lo/lo.h>
-
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
+
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+    else                                        \
+        fprintf(stdout, ".");                   \
+} while(0)
+
+int verbose = 1;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -45,15 +54,15 @@ int setup_source()
     source = mdev_new("testSpeedSend", 0, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
     msig_reserve_instances(sendsig, 9, 0, 0);
 
-    printf("Output signal registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal registered.\n");
+    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
 
     return 0;
 
@@ -64,16 +73,10 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            printf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            printf("ok\n");
-        }
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -92,8 +95,8 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
             msig_update(sendsig, value, 1, MAPPER_NOW);
     }
     else
-        printf("--> destination %s instance %ld got NULL\n",
-               props->name, (long)instance_id);
+        eprintf("--> destination %s instance %ld got NULL\n",
+                props->name, (long)instance_id);
 }
 
 /*! Creation of a local destination. */
@@ -102,7 +105,7 @@ int setup_destination()
     destination = mdev_new("testSpeedRecv", 0, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f',
                              0, 0, 0, insig_handler, 0);
@@ -110,8 +113,8 @@ int setup_destination()
         goto error;
     msig_reserve_instances(recvsig, 9, 0, 0);
 
-    printf("Input signal registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal registered.\n");
+    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
 
     return 0;
 
@@ -122,10 +125,10 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -176,11 +179,11 @@ void switch_modes()
 {
     int i;
     // possible modes: bypass/expression/calibrate, boundary actions, instances, instance-stealing
-    printf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
+    eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
     times[mode*numTrials+trial] = get_current_time() - times[mode*numTrials+trial];
     if (++trial >= numTrials) {
-        printf("SWITCHING MODES...\n");
+        eprintf("SWITCHING MODES...\n");
         trial = 0;
         mode++;
     }
@@ -223,9 +226,31 @@ void print_results()
     printf("\n*****************************************************\n");
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testspeed.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     value = (float)rand();
 
@@ -238,7 +263,7 @@ int main()
     }
 
     if (setup_source()) {
-        printf("Error initializing source.\n");
+        eprintf("Error initializing source.\n");
         result = 1;
         goto done;
     }
@@ -248,7 +273,7 @@ int main()
     connect_signals();
 
     // start things off
-    printf("STARTING TEST...\n");
+    eprintf("STARTING TEST...\n");
     times[0] = get_current_time();
     msig_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
     while (!done) {
@@ -260,6 +285,8 @@ int main()
   done:
     cleanup_destination();
     cleanup_source();
-    print_results();
+    if (verbose)
+        print_results();
+    printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

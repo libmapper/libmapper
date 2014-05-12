@@ -4,13 +4,22 @@
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
-
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
 #endif
+
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+int verbose = 1;
+int iterations = 100;
+int autoconnect = 1;
 
 int automate = 1;
 
@@ -29,7 +38,7 @@ int setup_source()
     source = mdev_new("testInstanceSend", 0, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     float mn=0, mx=10;
 
@@ -38,8 +47,8 @@ int setup_source()
         goto error;
     msig_reserve_instances(sendsig, 9, 0, 0);
 
-    printf("Output signal registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal registered.\n");
+    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
 
     return 0;
 
@@ -50,10 +59,10 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -62,13 +71,13 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination %s instance %ld got %f\n",
-               props->name, (long)instance_id, (*(float*)value));
+        eprintf("--> destination %s instance %ld got %f\n",
+                props->name, (long)instance_id, (*(float*)value));
         received++;
     }
     else {
-        printf("--> destination %s instance %ld got NULL\n",
-               props->name, (long)instance_id);
+        eprintf("--> destination %s instance %ld got NULL\n",
+                props->name, (long)instance_id);
         msig_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
@@ -78,11 +87,11 @@ void more_handler(mapper_signal sig, mapper_db_signal props,
                   mapper_timetag_t *timetag)
 {
     if (event & IN_OVERFLOW) {
-        printf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
+        eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
         msig_reserve_instances(sig, 1, 0, 0);
     }
     else if (event & IN_UPSTREAM_RELEASE) {
-        printf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
+        eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
         msig_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
@@ -93,7 +102,7 @@ int setup_destination()
     destination = mdev_new("testInstanceRecv", 0, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     float mn=0;//, mx=1;
 
@@ -109,8 +118,8 @@ int setup_destination()
         msig_reserve_instances(recvsig, 1, &i, 0);
     }
 
-    printf("Input signal registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal registered.\n");
+    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
 
     return 0;
 
@@ -121,10 +130,10 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -141,10 +150,10 @@ void wait_local_devices()
 void print_instance_ids(mapper_signal sig)
 {
     int i, n = msig_num_active_instances(sig);
-    printf("active %s: [", sig->props.name);
+    eprintf("active %s: [", sig->props.name);
     for (i=0; i<n; i++)
-        printf(" %ld", (long)msig_active_instance_id(sig, i));
-    printf(" ]   ");
+        eprintf(" %ld", (long)msig_active_instance_id(sig, i));
+    eprintf(" ]   ");
 }
 
 void connect_signals()
@@ -173,19 +182,19 @@ void connect_signals()
     mapper_monitor_free(mon);
 }
 
-void loop(int iterations)
+void loop()
 {
-    printf("-------------------- GO ! --------------------\n");
+    eprintf("-------------------- GO ! --------------------\n");
     int i = 0, j = 0;
     float value = 0;
 
-    while (i >= 0 && iterations-- >= 0 && !done) {
+    while (i < iterations && !done) {
         // here we should create, update and destroy some instances
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
                 j = rand() % 10;
-                printf("--> Retiring sender instance %i\n", j);
+                eprintf("--> Retiring sender instance %i\n", j);
                 msig_release_instance(sendsig, j, MAPPER_NOW);
                 break;
             default:
@@ -193,19 +202,23 @@ void loop(int iterations)
                 // try to update an instance
                 value = (rand() % 10) * 1.0f;
                 msig_update_instance(sendsig, j, &value, 0, MAPPER_NOW);
-                printf("--> sender instance %d updated to %f\n", j, value);
+                eprintf("--> sender instance %d updated to %f\n", j, value);
                 sent++;
                 break;
         }
 
         print_instance_ids(sendsig);
         print_instance_ids(recvsig);
-        printf("\n");
+        eprintf("\n");
 
         mdev_poll(destination, 100);
         mdev_poll(source, 0);
         i++;
-        //usleep(1 * 1000);
+
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
     }
 }
 
@@ -214,21 +227,42 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
-    int stats[6], i;
+    int i, j, result = 0, stats[6];
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testinstance.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 
     if (setup_destination()) {
-        printf("Error initializing destination.\n");
+        eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
     if (setup_source()) {
-        printf("Done initializing source.\n");
+        eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
@@ -238,9 +272,9 @@ int main()
     if (automate)
         connect_signals();
 
-    printf("\n**********************************************\n");
-    printf("************ NO INSTANCE STEALING ************\n");
-    loop(100);
+    eprintf("\n**********************************************\n");
+    eprintf("************ NO INSTANCE STEALING ************\n");
+    loop();
 
     stats[0] = sent;
     stats[1] = received;
@@ -250,9 +284,11 @@ int main()
     sent = received = 0;
 
     msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
-    printf("\n**********************************************\n");
-    printf("************ STEAL OLDEST INSTANCE ***********\n");
-    loop(100);
+    eprintf("\n**********************************************\n");
+    eprintf("************ STEAL OLDEST INSTANCE ***********\n");
+    if (!verbose)
+        printf("\n");
+    loop();
 
     stats[2] = sent;
     stats[3] = received;
@@ -264,16 +300,21 @@ int main()
 
     msig_set_instance_event_callback(recvsig, more_handler,
                                      IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
-    printf("\n**********************************************\n");
-    printf("*********** CALLBACK -> ADD INSTANCE *********\n");
-    loop(100);
+    eprintf("\n**********************************************\n");
+    eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
+    if (!verbose)
+        printf("\n");
+    loop();
 
     stats[4] = sent;
     stats[5] = received;
 
-    printf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n", stats[0], stats[1]);
-    printf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n", stats[2], stats[3]);
-    printf("ADD INSTANCE: sent %i updates, received %i updates.\n", stats[4], stats[5]);
+    eprintf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n",
+            stats[0], stats[1]);
+    eprintf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n",
+            stats[2], stats[3]);
+    eprintf("ADD INSTANCE: sent %i updates, received %i updates.\n",
+            stats[4], stats[5]);
 
     result = (stats[4] != stats[5]);
 

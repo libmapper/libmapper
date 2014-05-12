@@ -4,16 +4,36 @@
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
-
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
+
+void timersub(struct timeval *a, struct timeval *b, struct timeval *res)
+{
+    res->tv_sec = a->tv_sec - b->tv_sec;
+    if (a->tv_usec >= b->tv_usec)
+        res->tv_usec = a->tv_usec - b->tv_usec;
+    else {
+        res->tv_sec--;
+        res->tv_usec = 999999 - b->tv_usec + a->tv_usec;
+    }
+}
 #endif
 
-int automate = 1;
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+int verbose = 1;
+int terminate = 0;
+int autoconnect = 1;
+int done = 0;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -22,7 +42,6 @@ mapper_signal recvsig = 0;
 
 int sent = 0;
 int received = 0;
-int done = 0;
 
 /*! Creation of a local source. */
 int setup_source()
@@ -30,13 +49,13 @@ int setup_source()
     source = mdev_new("testselect-send", 0, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     float mn=0, mx=10;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 
-    printf("Output signal /outsig registered.\n");
+    eprintf("Output signal /outsig registered.\n");
 
     return 0;
 
@@ -47,10 +66,10 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -59,12 +78,12 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination got %s", props->name);
+        eprintf("--> destination got %s", props->name);
         float *v = value;
         for (int i = 0; i < props->length; i++) {
-            printf(" %f", v[i]);
+            eprintf(" %f", v[i]);
         }
-        printf("\n");
+        eprintf("\n");
     }
     received++;
 }
@@ -75,14 +94,14 @@ int setup_destination()
     destination = mdev_new("testselect-recv", 0, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f',
                              0, &mn, &mx, insig_handler, 0);
 
-    printf("Input signal /insig registered.\n");
+    eprintf("Input signal /insig registered.\n");
 
     return 0;
 
@@ -93,10 +112,10 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -130,7 +149,7 @@ int setup_connection()
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-    printf("Connection established.\n");
+    eprintf("Connection established.\n");
 
     mapper_monitor_free(mon);
 
@@ -152,9 +171,9 @@ void wait_local_devices()
 
 /* This is where we test the use of select() to wait on multiple
  * devices at once. */
-void select_on_both_devices()
+void select_on_both_devices(int block_ms)
 {
-    int i;
+    int i, updated = 0;
 
     fd_set fdr;
 
@@ -179,22 +198,36 @@ void select_on_both_devices()
         if (fds2[i] > mfd) mfd = fds2[i];
     }
 
-    /* Timeout should not be more than 100 ms */
-    struct timeval timeout = { 0, 100000 };
-
-    if (select(mfd+1, &fdr, 0, 0, &timeout) > 0)
-    {
-        for (i = 0; i < nfds1; i++) {
-            if (FD_ISSET(fds1[i], &fdr))
-                mdev_service_fd(source, fds1[i]);
-        }
-        for (i = 0; i < nfds2; i++) {
-            if (FD_ISSET(fds2[i], &fdr))
-                mdev_service_fd(destination, fds2[i]);
-        }
+    struct timeval timeout = { block_ms * 0.001, (block_ms * 1000) % 1000000 };
+    struct timeval now, then;
+    gettimeofday(&now, NULL);
+    then.tv_sec = now.tv_sec + block_ms * 0.001;
+    then.tv_usec = now.tv_usec + block_ms * 1000;
+    if (then.tv_usec > 1000000) {
+        then.tv_sec++;
+        then.tv_usec %= 1000000;
     }
-    else
-    {
+
+    while (timercmp(&now, &then, <)) {
+        if (select(mfd+1, &fdr, 0, 0, &timeout) > 0)
+        {
+            for (i = 0; i < nfds1; i++) {
+                if (FD_ISSET(fds1[i], &fdr))
+                    mdev_service_fd(source, fds1[i]);
+            }
+            for (i = 0; i < nfds2; i++) {
+                if (FD_ISSET(fds2[i], &fdr))
+                    mdev_service_fd(destination, fds2[i]);
+            }
+            updated ++;
+        }
+        gettimeofday(&now, NULL);
+
+        // not necessary in Linux since timeout is updated by select()
+        timersub(&then, &now, &timeout);
+    }
+
+    if (!updated) {
         /* If nothing happened in 100 ms, we should poll the devices
          * anyways in case action needs to be taken. */
         mdev_poll(source, 0);
@@ -204,20 +237,19 @@ void select_on_both_devices()
 
 void loop()
 {
-    printf("-------------------- GO ! --------------------\n");
+    eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
 
-    while (i >= 0 && !done) {
-        select_on_both_devices();
-
+    while ((!terminate || i < 50) && !done) {
         msig_update_float(sendsig, ((i % 10) * 1.0f));
-        printf("source value updated to %d -->\n", i % 10);
-        printf("Received %i messages.\n\n", mdev_poll(destination, 100));
-
+        eprintf("\nsource value updated to %d -->\n", i % 10);
         i++;
         sent++;
-        if (automate && sent >= 20)
-            break;
+        select_on_both_devices(100);
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
     }
 }
 
@@ -226,40 +258,69 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        eprintf("testselect.c: possible arguments"
+                                "-q quiet (suppress output), "
+                                "-t terminate automatically, "
+                                "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 
     if (setup_destination()) {
-        printf("Error initializing destination.\n");
+        eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
     if (setup_source()) {
-        printf("Error initializing source.\n");
+        eprintf("Error initializing source.\n");
         result = 1;
         goto done;
     }
 
     wait_local_devices();
 
-    if (automate && setup_connection()) {
-        printf("Error initializing connection.\n");
+    if (autoconnect && setup_connection()) {
+        eprintf("Error initializing connection.\n");
         result = 1;
         goto done;
     }
 
     loop();
 
-    result = (sent != received);
+    if (sent != received) {
+        result = 1;
+        eprintf("Error: sent %i messages but received %i messages.\n",
+                sent, received);
+    }
 
   done:
     cleanup_destination();
     cleanup_source();
-    printf("Sent %i messages; received %i messages.\nTest %s.\n",
-           sent, received, result ? "FAILED" : "PASSED");
+    printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

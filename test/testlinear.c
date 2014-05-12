@@ -3,12 +3,23 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
-
 #include <unistd.h>
+#include <signal.h>
+#include <string.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
 #endif
+
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+int verbose = 1;
+int terminate = 0;
+int autoconnect = 1;
+int done = 0;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -23,14 +34,14 @@ int setup_source()
     source = mdev_new("testsend", 0, 0);
     if (!source)
         goto error;
-    printf("source created.\n");
+    eprintf("source created.\n");
 
     float mn=0, mx=1;
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
 
-    printf("Output signal /outsig registered.\n");
-    printf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal /outsig registered.\n");
+    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
     return 0;
 
   error:
@@ -40,10 +51,10 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        printf("Freeing source.. ");
+        eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
@@ -52,7 +63,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("handler: Got %f\n", (*(float*)value));
+        eprintf("handler: Got %f\n", (*(float*)value));
     }
     received++;
 }
@@ -62,15 +73,15 @@ int setup_destination()
     destination = mdev_new("testrecv", 0, 0);
     if (!destination)
         goto error;
-    printf("destination created.\n");
+    eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
     recvsig = mdev_add_input(destination, "/insig", 1, 'f', 0,
                              &mn, &mx, insig_handler, 0);
 
-    printf("Input signal /insig registered.\n");
-    printf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal /insig registered.\n");
+    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
     return 0;
 
   error:
@@ -80,19 +91,16 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        printf("Freeing destination.. ");
+        eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
-        printf("ok\n");
+        eprintf("ok\n");
     }
 }
 
 int setup_connection()
 {
-    float src_min = 0.;
-    float src_max = 1.;
-    float dest_min = -10.;
-    float dest_max = 10.;
+    float src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
 
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
@@ -122,7 +130,9 @@ int setup_connection()
     props.mode = MO_LINEAR;
 
     mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE);
+                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE |
+                           CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
+                           CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
 
     // Wait until connection has been established
     while (!source->routers->n_connections) {
@@ -146,39 +156,77 @@ void wait_ready()
 
 void loop()
 {
-    printf("Polling device..\n");
-    int i;
-    for (i = 0; i < 10; i++) {
+    eprintf("Polling device..\n");
+    int i = 0;
+    while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 0);
-        printf("Updating signal %s to %f\n",
+        eprintf("Updating signal %s to %f\n",
                sendsig->props.name, (i * 1.0f));
         msig_update_float(sendsig, (i * 1.0f));
         sent++;
-        usleep(250 * 1000);
-        mdev_poll(destination, 0);
+        mdev_poll(destination, 100);
+        i++;
+
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
     }
 }
 
-int main()
+void ctrlc(int signal)
 {
-    int result = 0;
+    done = 1;
+}
+
+int main(int argc, char **argv)
+{
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testlinear.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-t terminate automatically, "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
+
+    signal(SIGINT, ctrlc);
 
     if (setup_destination()) {
-        printf("Error initializing destination.\n");
+        eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
     if (setup_source()) {
-        printf("Done initializing source.\n");
+        eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
 
     wait_ready();
 
-    if (setup_connection()) {
-        printf("Error initializing router.\n");
+    if (autoconnect && setup_connection()) {
+        eprintf("Error initializing router.\n");
         result = 1;
         goto done;
     }
@@ -186,9 +234,9 @@ int main()
     loop();
 
     if (sent != received) {
-        printf("Not all sent messages were received.\n");
-        printf("Updated value %d time%s, but received %d of them.\n",
-               sent, sent == 1 ? "" : "s", received);
+        eprintf("Not all sent messages were received.\n");
+        eprintf("Updated value %d time%s, but received %d of them.\n",
+                sent, sent == 1 ? "" : "s", received);
         result = 1;
     }
 

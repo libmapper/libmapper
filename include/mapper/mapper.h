@@ -649,6 +649,9 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port);
 /*! Free an admin created with mapper_admin_new(). */
 void mapper_admin_free(mapper_admin admin);
 
+/*! Get the version of libmapper */
+const char *mapper_admin_libversion(mapper_admin admin);
+
 /* @} */
 
 /**** Device database ****/

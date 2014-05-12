@@ -82,17 +82,6 @@ typedef struct _mapper_db_device {
 #define CONNECTION_DEST_LENGTH      0x2000
 #define CONNECTION_ALL              0xFFFF
 
-/*! A signal value may be one of several different types, so we use a
- *  union to represent this.  The appropriate selection from this
- *  union is determined by the mapper_signal::type variable.
- *  @ingroup signaldb */
-
-typedef union _mapper_signal_value {
-    float f;
-    double d;
-    int i32;
-} mapper_signal_value_t, mval;
-
 /*! Describes what happens when the range boundaries are
  *  exceeded.
  *  @ingroup connectiondb */
@@ -193,9 +182,7 @@ typedef struct _mapper_signal_history
     void *value;
 
     /*! Timetag for each sample of stored history. */
-    // TODO: switch to mapper_timetag_t;
-    //mapper_timetag_t *timetag;
-    lo_timetag *timetag;
+    mapper_timetag_t *timetag;
 
     struct _mapper_signal_history *next;
 } mapper_signal_history_t;

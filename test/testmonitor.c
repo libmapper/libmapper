@@ -16,7 +16,8 @@
 mapper_monitor mon = 0;
 mapper_db db = 0;
 
-int port = 9000;
+int verbose = 1;
+int terminate = 0;
 int done = 0;
 int update = 0;
 
@@ -47,9 +48,21 @@ void printdevice(mapper_db_device dev)
         // already printed this
         if (strcmp(key, "name")==0)
             continue;
-
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (strcmp(key, "synced")==0) {
+            // check current time
+            mapper_timetag_t now;
+            mapper_monitor_now(mon, &now);
+            mapper_timetag_t *tt = (mapper_timetag_t *)val;
+            if (tt->sec == 0)
+                printf(", seconds_since_sync=unknown");
+            else
+                printf(", seconds_since_sync=%f",
+                       mapper_timetag_difference(now, *tt));
+        }
+        else if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -76,8 +89,10 @@ void printsignal(mapper_db_signal sig)
             || strcmp(key, "direction")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -101,8 +116,10 @@ void printlink(mapper_db_link link)
             || strcmp(key, "dest_name")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -126,8 +143,10 @@ void printconnection(mapper_db_connection con)
             || strcmp(key, "dest_name")==0)
             continue;
 
-        printf(", %s=", key);
-        mapper_prop_pp(type, length, val);
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
     printf("\n");
 }
@@ -160,7 +179,8 @@ void cleanup_monitor()
 
 void loop()
 {
-    while (!done)
+    int i = 0;
+    while ((!terminate || i++ < 200) && !done)
     {
         mapper_monitor_poll(mon, 0);
         usleep(polltime_ms * 1000);
@@ -294,9 +314,35 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    int result = 0;
+    int i, j, result = 0;
+
+    // process flags for -v verbose, -t terminate, -h help
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("testmonitor.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-t terminate automatically, "
+                               "-h help\n");
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 

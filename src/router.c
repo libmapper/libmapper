@@ -207,6 +207,11 @@ void mapper_router_process_signal(mapper_router r,
 
     if (!value) {
         rs->history[id].position = -1;
+        // reset associated input memory for this instance
+        memset(rs->history[id].value, 0, rs->signal->props.history_size *
+               msig_vector_bytes(rs->signal));
+        memset(rs->history[id].timetag, 0, rs->signal->props.history_size *
+               sizeof(mapper_timetag_t));
         c = rs->connections;
         while (c) {
             c->history[id].position = -1;
@@ -214,6 +219,11 @@ void mapper_router_process_signal(mapper_router r,
                 (!c->props.send_as_instance || in_scope))
                 mapper_router_send_update(r, c, id, c->props.send_as_instance ?
                                           map : 0, tt, 0);
+            // also need to reset associated output memory
+            memset(c->history[id].value, 0, c->props.dest_history_size *
+                   c->props.dest_length * mapper_type_size(c->props.dest_type));
+            memset(c->history[id].timetag, 0, c->props.dest_history_size *
+                   sizeof(mapper_timetag_t));
 
             c = c->next;
         }

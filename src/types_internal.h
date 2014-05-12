@@ -150,6 +150,8 @@ typedef struct _mapper_admin {
                                            speedup. */
     lo_server_thread bus_server;      /*!< LibLo server thread for the
                                        *   admin bus. */
+    int msgs_recvd;                   /*!< Number of messages received on the
+                                           admin bus. */
     lo_address bus_addr;              /*!< LibLo address for the admin
                                        *   bus. */
     lo_server_thread mesh_server;     /*!< LibLo server thread for the
