@@ -942,13 +942,16 @@ int mdev_get_fds(mapper_device md, int *fds, int num)
 {
     if (num > 0)
         fds[0] = lo_server_get_socket_fd(md->admin->bus_server);
-    if (num > 1)
+    if (num > 1) {
         fds[1] = lo_server_get_socket_fd(md->admin->mesh_server);
-    if (num > 2)
-        fds[2] = lo_server_get_socket_fd(md->server);
+        if (num > 2)
+            fds[2] = lo_server_get_socket_fd(md->server);
+        else
+            return 2;
+    }
     else
         return 1;
-    return 2;
+    return 3;
 }
 
 void mdev_service_fd(mapper_device md, int fd)
