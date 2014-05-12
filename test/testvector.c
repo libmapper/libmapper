@@ -99,20 +99,32 @@ void cleanup_destination()
 
 int setup_connections()
 {
+    int i = 0;
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
     char src_name[1024], dest_name[1024];
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
+    // wait until link has been established
+    while (!source->routers) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+        if (i++ > 100)
+            return 1;
+    }
+
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
     // wait until connection has been established
-    while (!source->routers || !source->routers->n_connections) {
-        mdev_poll(source, 1);
-        mdev_poll(destination, 1);
+    i = 0;
+    while (!source->routers->n_connections) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+        if (i++ > 100)
+            return 1;
     }
 
     mapper_monitor_free(mon);
