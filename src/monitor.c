@@ -235,6 +235,13 @@ void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
     mapper_monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
+int mapper_monitor_request_devices(mapper_monitor mon)
+{
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
+    return 0;
+}
+
 void mapper_monitor_link(mapper_monitor mon,
                          const char* source_device,
                          const char* dest_device,

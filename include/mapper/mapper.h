@@ -1318,6 +1318,9 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms);
  *  long as the monitor remains alive. */
 mapper_db mapper_monitor_get_db(mapper_monitor mon);
 
+/*! Request that all devices report in. */
+int mapper_monitor_request_devices(mapper_monitor mon);
+
 /*! Subscribe to information about a specific device.
  *  \param mon             The monitor to use.
  *  \param device_name     The name of the device of interest.
