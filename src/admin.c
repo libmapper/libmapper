@@ -1292,6 +1292,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         sub->flags = flags;
         sub->next = admin->subscribers;
         admin->subscribers = sub;
+        s = &sub;
     }
 
     if (revision == admin->device->props.version)
