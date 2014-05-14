@@ -6,13 +6,19 @@ libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERS
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 	$(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
-JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
+JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h    \
+           Mapper_Db_Device.h Mapper_Db_Link.h Mapper_Db_Connection.h   \
+           Mapper_Monitor.h
 
 JFLAGS = -source 1.5 -target 1.5
-JCLASSES = Mapper/Db/Signal.class Mapper/InputListener.class	\
-           Mapper/PropertyValue.class Mapper/Device.class		\
-           Mapper/NativeLib.class Mapper/TimeTag.class			\
-           Mapper/InstanceEventListener.class
+JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
+           Mapper/PropertyValue.class Mapper/TimeTag.class                  \
+           Mapper/InputListener.class Mapper/InstanceEventListener.class    \
+           Mapper/Monitor.class Mapper/Db/Device.class                      \
+           Mapper/Db/Signal.class Mapper/Db/Link.class                      \
+           Mapper/Db/Connection.class Mapper/Db/DeviceListener.class        \
+           Mapper/Db/SignalListener.class Mapper/Db/LinkListener.class      \
+           Mapper/Db/ConnectionListener.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
                    Mapper/PropertyValue$$PropertyException.class

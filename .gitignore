@@ -34,9 +34,7 @@ examples/pwm_example
 examples/py_tk_gui/pwm.py
 examples/py_tk_gui/setup.py
 jni/Mapper/NativeLib.java
-jni/Mapper_Db_Signal.h
-jni/Mapper_Device.h
-jni/Mapper_Device_Signal.h
+jni/*.h
 jni/libmapper-0.jar
 libmapper-0.2.tar.gz
 libmapper-0.pc

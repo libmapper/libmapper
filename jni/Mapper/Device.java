@@ -7,6 +7,12 @@ import Mapper.Db.*;
 
 public class Device
 {
+    /*! The set of possible actions on a local device link or
+     *  connection. */
+    public static final int MDEV_LOCAL_ESTABLISHED  = 0;
+    public static final int MDEV_LOCAL_MODIFIED     = 1;
+    public static final int MDEV_LOCAL_DESTROYED    = 2;
+
     public Device(String name) {
         _device = mdev_new(name, 0);
     }
@@ -28,10 +34,9 @@ public class Device
 
         /*! Describes the voice-stealing mode for instances.
          *  Arguments to set_instance_allocation_mode(). */
-        public static final int IN_UNDEFINED = 1;
-        public static final int IN_STEAL_OLDEST = 2;
-        public static final int IN_STEAL_NEWEST = 3;
-        public static final int N_MAPPER_INSTANCE_ALLOCATION_TYPES = 4;
+        public static final int IN_UNDEFINED                        = 0;
+        public static final int IN_STEAL_OLDEST                     = 1;
+        public static final int IN_STEAL_NEWEST                     = 2;
 
         private Signal(long s, Device d) { _signal = s; _device = d; }
 
@@ -361,6 +366,7 @@ public class Device
                                                 Integer index);
     private native long mdev_get_input_by_index(long _d, int index);
     private native long mdev_get_output_by_index(long _d, int index);
+    public native Mapper.Db.Device properties();
     private native void mdev_set_property(long _d, String property,
                                           PropertyValue p);
     private native void mdev_remove_property(long _d, String property);

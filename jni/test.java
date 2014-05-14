@@ -57,18 +57,16 @@ class test {
         out1.set_minimum(new PropertyValue(12));
 
         System.out.println("Signal properties:");
-        System.out.println("  Setting name of out1 to `/out1test'.");
-        out1.properties().set_name("/out1test");
         System.out.println("  Name of out1: " + out1.properties().name());
 
         System.out.println("  Looking up `height': "
-                           + out1.properties().property_lookup("height"));
+                           + out1.properties().property("height"));
         System.out.println("  Looking up `width': "
-                           + out1.properties().property_lookup("width"));
+                           + out1.properties().property("width"));
         System.out.println("  Looking up `depth': "
-                           + out1.properties().property_lookup("depth"));
+                           + out1.properties().property("depth"));
         System.out.println("  Looking up `deletethis': "
-                           + out1.properties().property_lookup("deletethis")
+                           + out1.properties().property("deletethis")
                            + " (should be null)");
         System.out.println("  Looking up minimum: "
                            + out1.properties().minimum());
