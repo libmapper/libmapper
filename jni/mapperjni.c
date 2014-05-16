@@ -422,7 +422,7 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj,
 {
     jobject sigobj = 0, sigdbobj = 0;
     // Create a wrapper class for this signal
-    jclass cls = (*env)->FindClass(env, "LMapper/Device$Signal;");
+    jclass cls = (*env)->FindClass(env, "Mapper/Device$Signal");
     if (cls) {
         jmethodID mid = (*env)->GetMethodID(env, cls, "<init>",
                             "(LMapper/Device;JLMapper/Device;)V");
@@ -438,7 +438,7 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj,
         ctx->db_signal = (*env)->NewGlobalRef(env, sigdbobj);
 
         // Create a wrapper class for this signal's properties
-        cls = (*env)->FindClass(env, "LMapper/Db/Signal;");
+        cls = (*env)->FindClass(env, "Mapper/Db/Signal");
         if (cls) {
             jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
             sigdbobj = (*env)->NewObject(env, cls, mid,
@@ -692,7 +692,7 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1set_1property
                 case 'd':
                     valf = (*env)->GetFieldID(env, cls, "_d", "[D");
                     o = (*env)->GetObjectField(env, value, valf);
-                    propval = (*env)->GetDoubleArrayElements(env, value, NULL);
+                    propval = (*env)->GetDoubleArrayElements(env, o, NULL);
                     mdev_set_property(dev, ckey, type, propval, length);
                     (*env)->ReleaseDoubleArrayElements(env, o, propval, JNI_ABORT);
                     break;
@@ -2083,16 +2083,62 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unlink
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
   (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name,
-   jobject connection_props)
+   jobject jprops)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
     const char *cdest_name = (*env)->GetStringUTFChars(env, dest_name, 0);
-    // TODO: process props!
-printf("trying to connect %s -> %s\n", csrc_name, cdest_name);
-    mapper_monitor_connect(mon, csrc_name, cdest_name, 0, 0);
+
+    // process props
+    // don't bother letting user define signal types or lengths (will be overwritten)
+    mapper_db_connection_t cprops;
+    jstring expr_jstr = 0;
+    // TODO: extrema, "extra" props
+    int props_flags = 0;
+    if (jprops) {
+        jclass cls = (*env)->GetObjectClass(env, jprops);
+        if (cls) {
+            // include src and dest name???
+            // fields: mode, expression, bound, extrema, lengths, types, extra
+            // mode
+            
+            jfieldID fid = (*env)->GetFieldID(env, cls, "mode", "I");
+            if (fid) {
+                cprops.mode = (*env)->GetIntField(env, jprops, fid);
+                if ((int)cprops.mode >= 0)
+                    props_flags |= CONNECTION_MODE;
+            }
+            // expression
+            fid = (*env)->GetFieldID(env, cls, "expression", "Ljava/lang/String;");
+            if (fid) {
+                expr_jstr = (*env)->GetObjectField(env, jprops, fid);
+                if (expr_jstr) {
+                    cprops.expression = (char*)(*env)->GetStringUTFChars(env, expr_jstr, 0);
+                    props_flags |= CONNECTION_EXPRESSION;
+                }
+            }
+            // bound_min
+            fid = (*env)->GetFieldID(env, cls, "boundMin", "I");
+            if (fid) {
+                cprops.bound_min = (*env)->GetIntField(env, jprops, fid);
+                if ((int)cprops.bound_min >= 0)
+                    props_flags |= CONNECTION_BOUND_MIN;
+            }
+            // bound_max
+            fid = (*env)->GetFieldID(env, cls, "boundMax", "I");
+            if (fid) {
+                cprops.bound_max = (*env)->GetIntField(env, jprops, fid);
+                if ((int)cprops.bound_max >= 0)
+                    props_flags |= CONNECTION_BOUND_MAX;
+            }
+        }
+    }
+
+    mapper_monitor_connect(mon, csrc_name, cdest_name, &cprops, props_flags);
     (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
     (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
+    if (expr_jstr)
+        (*env)->ReleaseStringUTFChars(env, expr_jstr, cprops.expression);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connection_1modify
@@ -2140,7 +2186,7 @@ static void java_db_device_cb(mapper_db_device record,
         return;
 
     // Create a wrapper class for the device properties
-    jclass cls = (*genv)->FindClass(genv, "LMapper/Db/Device;");
+    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Device");
     if (!cls)
     return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
@@ -2170,7 +2216,7 @@ static void java_db_signal_cb(mapper_db_signal record,
         return;
 
     // Create a wrapper class for the signal properties
-    jclass cls = (*genv)->FindClass(genv, "LMapper/Db/Signal;");
+    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Signal");
     if (!cls)
         return;
 
@@ -2201,7 +2247,7 @@ static void java_db_link_cb(mapper_db_link record,
     return;
 
     // Create a wrapper class for the link properties
-    jclass cls = (*genv)->FindClass(genv, "LMapper/Db/Link;");
+    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Link");
     if (!cls)
         return;
 
@@ -2232,7 +2278,7 @@ static void java_db_connection_cb(mapper_db_connection record,
         return;
 
     // Create a wrapper class for the connection properties
-    jclass cls = (*genv)->FindClass(genv, "LMapper/Db/Connection;");
+    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Connection");
     if (!cls)
         return;
 
@@ -2710,11 +2756,20 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1dest_1
     return build_PropertyValue(env, props->src_type, props->dest_max, props->src_length);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1range_1known
+JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1mode
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
-    return props->range_known;
+    return props->mode;
+}
+
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1expression
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    if (props->expression)
+        return (*env)->NewStringUTF(env, props->expression);
+    return 0;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mapper_1db_1connection_1property_1lookup

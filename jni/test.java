@@ -39,7 +39,8 @@ class test {
         mon.Db.addConnectionCallback(new Mapper.Db.ConnectionListener() {
             public void onEvent(Mapper.Db.Connection c, int event) {
                 System.out.println("db onEvent() for connection "
-                                   +c.srcName()+" -> "+c.destName());
+                                   +c.srcName+" -> "+c.destName+" @expr "
+                                   +c.expression);
             }});
 
         Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz",
@@ -111,7 +112,10 @@ class test {
         mon.link(dev.name(), dev.name(), null);
         while (dev.num_links_in() <= 0) { dev.poll(100); }
 
-        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), null);
+        Mapper.Db.Connection c = new Mapper.Db.Connection();
+        c.mode = Mapper.Db.Connection.MO_EXPRESSION;
+        c.expression = "y=x*100";
+        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
         while ((dev.num_connections_in()) <= 0) { dev.poll(100); }
 
         int i = 0;

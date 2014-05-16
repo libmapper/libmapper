@@ -28,89 +28,89 @@ public class Connection
     private Connection(long conprops) {
         _conprops = conprops;
 
-        _src_name = mdb_connection_get_src_name(_conprops);
-        _dest_name = mdb_connection_get_dest_name(_conprops);
+        srcName = mdb_connection_get_src_name(_conprops);
+        destName = mdb_connection_get_dest_name(_conprops);
 
-        _src_type = mdb_connection_get_src_type(_conprops);
-        _dest_type = mdb_connection_get_dest_type(_conprops);
+        srcType = mdb_connection_get_src_type(_conprops);
+        destType = mdb_connection_get_dest_type(_conprops);
 
-        _src_length = mdb_connection_get_src_length(_conprops);
-        _dest_length = mdb_connection_get_dest_length(_conprops);
+        srcLength = mdb_connection_get_src_length(_conprops);
+        destLength = mdb_connection_get_dest_length(_conprops);
 
-        _bound_min = mdb_connection_get_bound_min(_conprops);
-        _bound_max = mdb_connection_get_bound_max(_conprops);
+        boundMin = mdb_connection_get_bound_min(_conprops);
+        boundMax = mdb_connection_get_bound_max(_conprops);
 
-        _src_min = mdb_connection_get_src_min(_conprops);
-        _src_max = mdb_connection_get_src_max(_conprops);
-        _dest_min = mdb_connection_get_dest_min(_conprops);
-        _dest_max = mdb_connection_get_dest_max(_conprops);
+        srcMin = mdb_connection_get_src_min(_conprops);
+        srcMax = mdb_connection_get_src_max(_conprops);
+        destMin = mdb_connection_get_dest_min(_conprops);
+        destMax = mdb_connection_get_dest_max(_conprops);
 
-        _range_known = mdb_connection_get_range_known(_conprops);
+        mode = mdb_connection_get_mode(_conprops);
+        expression = mdb_connection_get_expression(_conprops);
     }
 
-    private String _src_name;
-    public String srcName() { return _src_name; }
+    public Connection(String _srcName, String _destName) {
+        srcName = _srcName;
+        destName = _destName;
+        srcType = 0;
+        destType = 0;
+        srcLength = -1;
+        destLength = -1;
+        boundMin = -1;
+        boundMax = -1;
+        srcMin = null;
+        srcMax = null;
+        destMin = null;
+        destMax = null;
+        mode = -1;
+        expression = null;
+    }
+
+    public Connection() {
+        this(null, null);
+    }
+
+    public String srcName;
     private native String mdb_connection_get_src_name(long p);
 
-    private String _dest_name;
-    public String destName() { return _dest_name; }
+    public String destName;
     private native String mdb_connection_get_dest_name(long p);
 
-    char _src_type;
-    public char srcType() { return _src_type; }
+    public char srcType;
     private native char mdb_connection_get_src_type(long p);
 
-    char _dest_type;
-    public char destType() { return _dest_type; }
+    public char destType;
     private native char mdb_connection_get_dest_type(long p);
 
-    int _src_length;
-    public int srcLength() { return _src_length; }
+    public int srcLength;
     private native int mdb_connection_get_src_length(long p);
 
-    int _dest_length;
-    public int destLength() { return _dest_length; }
+    public int destLength;
     private native int mdb_connection_get_dest_length(long p);
 
-    int _bound_min;
-    public int boundMin() { return _bound_min; }
+    public int boundMin;
     private native int mdb_connection_get_bound_min(long p);
 
-    int _bound_max;
-    public int boundMax() { return _bound_max; }
+    public int boundMax;
     private native int mdb_connection_get_bound_max(long p);
 
-    PropertyValue _src_min;
-    public PropertyValue srcMinimum() {
-        _src_min = mdb_connection_get_src_min(_conprops);
-        return _src_min;
-    }
+    public PropertyValue srcMin;
     private native PropertyValue mdb_connection_get_src_min(long p);
 
-    PropertyValue _src_max;
-    public PropertyValue srcMaximum() {
-        _src_max = mdb_connection_get_src_max(_conprops);
-        return _src_max;
-    }
+    public PropertyValue srcMax;
     private native PropertyValue mdb_connection_get_src_max(long p);
 
-    PropertyValue _dest_min;
-    public PropertyValue destMinimum() {
-        _dest_min = mdb_connection_get_dest_min(_conprops);
-        return _src_min;
-    }
+    public PropertyValue destMin;
     private native PropertyValue mdb_connection_get_dest_min(long p);
 
-    PropertyValue _dest_max;
-    public PropertyValue destMaximum() {
-        _dest_max = mdb_connection_get_dest_max(_conprops);
-        return _dest_max;
-    }
+    public PropertyValue destMax;
     private native PropertyValue mdb_connection_get_dest_max(long p);
 
-    int _range_known;
-    public int rangeKnown() { return _range_known; }
-    private native int mdb_connection_get_range_known(long p);
+    public int mode;
+    private native int mdb_connection_get_mode(long p);
+
+    public String expression;
+    private native String mdb_connection_get_expression(long p);
 
     public PropertyValue property(String property) {
         return mapper_db_connection_property_lookup(_conprops, property);
