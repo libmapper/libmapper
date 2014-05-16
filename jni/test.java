@@ -6,6 +6,7 @@ import java.util.Arrays;
 class test {
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
+        final Monitor mon = new Monitor(Mapper.Monitor.SUB_DEVICE_ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -15,8 +16,31 @@ class test {
                 public void run()
                     {
                         dev.free();
+                        mon.free();
                     }
             });
+
+        mon.Db.addDeviceCallback(new Mapper.Db.DeviceListener() {
+            public void onEvent(Mapper.Db.Device d, int event) {
+                System.out.println("db onEvent() for device "+d.name());
+            }});
+
+        mon.Db.addSignalCallback(new Mapper.Db.SignalListener() {
+            public void onEvent(Mapper.Db.Signal s, int event) {
+                System.out.println("db onEvent() for signal "+s.name());
+            }});
+
+        mon.Db.addLinkCallback(new Mapper.Db.LinkListener() {
+            public void onEvent(Mapper.Db.Link l, int event) {
+                System.out.println("db onEvent() for link "
+                                   +l.srcName()+" -> "+l.destName());
+            }});
+
+        mon.Db.addConnectionCallback(new Mapper.Db.ConnectionListener() {
+            public void onEvent(Mapper.Db.Connection c, int event) {
+                System.out.println("db onEvent() for connection "
+                                   +c.srcName()+" -> "+c.destName());
+            }});
 
         Mapper.Device.Signal inp1 = dev.add_input("insig1", 1, 'f', "Hz",
                                                   new PropertyValue('f', 2.0),
@@ -26,8 +50,7 @@ class test {
                                     int instance_id,
                                     float[] v,
                                     TimeTag tt) {
-                    System.out.println("in onInput() for "
-                                       +props.name()+": "
+                    System.out.println(" >> in onInput() for "+props.name()+": "
                                        +Arrays.toString(v));
                 }});
 
@@ -85,7 +108,13 @@ class test {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        int i = 100;
+        mon.link(dev.name(), dev.name(), null);
+        while (dev.num_links_in() <= 0) { dev.poll(100); }
+
+        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), null);
+        while ((dev.num_connections_in()) <= 0) { dev.poll(100); }
+
+        int i = 0;
         double [] ar = new double [] {0};
         TimeTag tt = new TimeTag(0,0);
 
@@ -118,16 +147,13 @@ class test {
                            + inp1.instance_allocation_mode());
 
         out1.reserve_instances(new int[]{10, 11, 12});
-        out1.update_instance(10, -8);
         out1.update_instance(10, new int[]{-8});
         out1.instance_value(10, new int[]{0});
         out1.release_instance(10);
 
         out2.reserve_instances(3);
-        out2.update_instance(0, 14.2f);
         out2.update_instance(1, new float[]{21.9f});
         out2.instance_value(1, new float[]{0});
-        out2.update_instance(0, 12.3);
         out2.update_instance(1, new double[]{48.12});
         out2.instance_value(1, new double[]{0});
         out2.release_instance(1);
@@ -161,9 +187,9 @@ class test {
         System.out.println(inp1.name() + " instance 1 cb is "
                            + inp1.get_instance_callback(1));
 
-        out1.update(i);
-        while (i >= 0) {
+        while (i <= 100) {
             System.out.print("Updated value to: " + i);
+            out1.update(i);
 
             // Note, we are testing an implicit cast from int to float
             // here because we are passing a double[] into
@@ -173,12 +199,9 @@ class test {
             else
                 System.out.print("  Signal has no value.");
 
-            System.out.print("      \r");
-
-            dev.poll(100);
-            --i;
-
-            out1.update(i);
+            dev.poll(50);
+            mon.poll(50);
+            i++;
         }
 
         System.out.println();

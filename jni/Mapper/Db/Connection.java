@@ -25,7 +25,7 @@ public class Connection
     public static final int IN_STEAL_OLDEST = 1;
     public static final int IN_STEAL_NEWEST = 2;
 
-    public Connection(long conprops) {
+    private Connection(long conprops) {
         _conprops = conprops;
 
         _src_name = mdb_connection_get_src_name(_conprops);

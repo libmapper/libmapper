@@ -1,14 +1,12 @@
 
 package Mapper.Db;
 
-import Mapper.Device;
 import Mapper.PropertyValue;
 
 public class Signal
 {
-    public Signal(long sigprops, Device.Signal s) {
+    public Signal(long sigprops) {
         _sigprops = sigprops;
-        _signal = s;
 
         _name = mdb_signal_get_name(_sigprops);
         _device_name = mdb_signal_get_device_name(_sigprops);
@@ -70,13 +68,5 @@ public class Signal
     private native PropertyValue mdb_signal_property_lookup(
         long p, String property);
 
-    private void checkParents() {
-        if (!_signal.valid())
-            throw new NullPointerException(
-                "Cannot set property for a Signal object that "
-                +"is associated with an invalid Device");
-    }
-
     private long _sigprops;
-    private Device.Signal _signal;
 }
