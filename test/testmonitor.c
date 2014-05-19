@@ -23,6 +23,25 @@ int update = 0;
 
 const int polltime_ms = 100;
 
+const char *mode_strings[] =
+{
+    "undefined",
+    "bypass",
+    "linear",
+    "expression",
+    "calibrate",
+    "reverse"
+};
+
+const char *bound_strings[] =
+{
+    "none",
+    "mute",
+    "clamp",
+    "fold",
+    "wrap"
+};
+
 void dbpause()
 {
     // Don't pause normally, but this is left here to be easily
@@ -145,7 +164,12 @@ void printconnection(mapper_db_connection con)
 
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            if (strcmp(key, "mode")==0)
+                printf("%s", mode_strings[*((int*)val)]);
+            else if (strncmp(key, "bound", 5)==0)
+                printf("%s", bound_strings[*((int*)val)]);
+            else
+                mapper_prop_pp(type, length, val);
         }
     }
     printf("\n");
