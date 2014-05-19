@@ -115,6 +115,11 @@ class test {
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         c.mode = Mapper.Db.Connection.MO_EXPRESSION;
         c.expression = "y=x*100";
+        c.srcMin = new PropertyValue(15);
+        c.srcMax = new PropertyValue(-15);
+        c.destMax = new PropertyValue(1000);
+        c.destMin = new PropertyValue(-2000);
+        c.boundMin = Mapper.Db.Connection.BA_FOLD;
         mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
         while ((dev.num_connections_in()) <= 0) { dev.poll(100); }
 

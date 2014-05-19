@@ -235,6 +235,121 @@ static jobject build_PropertyValue(JNIEnv *env, const char type,
     return 0;
 }
 
+static int get_PropertyValue_elements(JNIEnv *env, jobject jprop, void **value,
+                                      char *type)
+{
+    jclass cls = (*env)->GetObjectClass(env, jprop);
+    if (!cls)
+        return 0;
+
+    jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+    jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
+    if (!typeid || !lengthid)
+        return 0;
+
+    *type = (*env)->GetCharField(env, jprop, typeid);
+    int length = (*env)->GetIntField(env, jprop, lengthid);
+    if (!length)
+        return 0;
+
+    jfieldID valf = 0;
+    jobject o = 0;
+
+    switch (*type)
+    {
+        case 'i':
+            valf = (*env)->GetFieldID(env, cls, "_i", "[I");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            *value = (*env)->GetIntArrayElements(env, o, NULL);
+            break;
+        case 'f':
+            valf = (*env)->GetFieldID(env, cls, "_f", "[F");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            *value = (*env)->GetFloatArrayElements(env, o, NULL);
+            break;
+        case 'd':
+            valf = (*env)->GetFieldID(env, cls, "_d", "[D");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            *value = (*env)->GetDoubleArrayElements(env, o, NULL);
+            break;
+        case 's':
+        case 'S':
+        {
+            valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            // need to unpack string array and rebuild
+            jstring jstrings[length];
+            const char **cstrings = malloc(sizeof(char*) * length);
+            int i;
+            for (i = 0; i < length; i++) {
+                jstrings[i] = (jstring) (*env)->GetObjectArrayElement(env, o, i);
+                cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
+            }
+            *value = cstrings;
+            break;
+        }
+        default:
+            return 0;
+    }
+    return length;
+}
+
+static void release_PropertyValue_elements(JNIEnv *env, jobject jprop,
+                                           void *value)
+{
+    jclass cls = (*env)->GetObjectClass(env, jprop);
+    if (!cls)
+        return;
+
+    jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+    jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
+    if (!typeid || !lengthid)
+        return;
+
+    char type = (*env)->GetCharField(env, jprop, typeid);
+    int length = (*env)->GetIntField(env, jprop, lengthid);
+    if (!length)
+        return;
+
+    jfieldID valf = 0;
+    jobject o = 0;
+
+    switch (type)
+    {
+        case 'i':
+            valf = (*env)->GetFieldID(env, cls, "_i", "[I");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            (*env)->ReleaseIntArrayElements(env, o, value, JNI_ABORT);
+            break;
+        case 'f':
+            valf = (*env)->GetFieldID(env, cls, "_f", "[F");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            (*env)->ReleaseFloatArrayElements(env, o, value, JNI_ABORT);
+            break;
+        case 'd':
+            valf = (*env)->GetFieldID(env, cls, "_d", "[D");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            (*env)->ReleaseDoubleArrayElements(env, o, value, JNI_ABORT);
+            break;
+        case 's':
+        case 'S':
+        {
+            valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
+            o = (*env)->GetObjectField(env, jprop, valf);
+
+            jstring jstr;
+            const char **cstrings = (const char**)value;
+            int i;
+            for (i = 0; i < length; i++) {
+                jstr = (jstring) (*env)->GetObjectArrayElement(env, o, i);
+                (*env)->ReleaseStringUTFChars(env, jstr, cstrings[i]);
+            }
+            free(cstrings);
+            break;
+        }
+    }
+}
+
 /**** Mapper.Device ****/
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1new
@@ -2093,15 +2208,16 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
     // don't bother letting user define signal types or lengths (will be overwritten)
     mapper_db_connection_t cprops;
     jstring expr_jstr = 0;
-    // TODO: extrema, "extra" props
+    int src_length = 0, dest_length = 0;
+    char src_type = 0, dest_type = 0;
+    jobject src_min_field = NULL, src_max_field = NULL;
+    jobject dest_min_field = NULL, dest_max_field = NULL;
+    // TODO: "extra" props
     int props_flags = 0;
     if (jprops) {
         jclass cls = (*env)->GetObjectClass(env, jprops);
         if (cls) {
-            // include src and dest name???
-            // fields: mode, expression, bound, extrema, lengths, types, extra
             // mode
-            
             jfieldID fid = (*env)->GetFieldID(env, cls, "mode", "I");
             if (fid) {
                 cprops.mode = (*env)->GetIntField(env, jprops, fid);
@@ -2131,6 +2247,90 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
                 if ((int)cprops.bound_max >= 0)
                     props_flags |= CONNECTION_BOUND_MAX;
             }
+            // src_min
+            fid = (*env)->GetFieldID(env, cls, "srcMin", "LMapper/PropertyValue;");
+            if (fid) {
+                src_min_field = (*env)->GetObjectField(env, jprops, fid);
+                if (src_min_field) {
+                    src_length = get_PropertyValue_elements(env, src_min_field,
+                                                            &cprops.src_min,
+                                                            &src_type);
+                    if (src_length) {
+                        cprops.src_length = src_length;
+                        cprops.src_type = src_type;
+                        props_flags |= (CONNECTION_RANGE_SRC_MIN
+                                        | CONNECTION_SRC_LENGTH
+                                        | CONNECTION_SRC_TYPE);
+                    }
+                }
+            }
+            // src_max
+            fid = (*env)->GetFieldID(env, cls, "srcMax", "LMapper/PropertyValue;");
+            if (fid) {
+                src_max_field = (*env)->GetObjectField(env, jprops, fid);
+                if (src_max_field) {
+                    char type;
+                    int length = get_PropertyValue_elements(env, src_max_field,
+                                                            &cprops.src_max,
+                                                            &type);
+                    if (length) {
+                        if (src_length && length != src_length)
+                            printf("differing lengths for src!\n");
+                        else if (src_type && type != src_type)
+                            printf("differing types for src!\n");
+                        else {
+                            // check if length and type match, abort or cast otherwise
+                            cprops.src_length = length;
+                            cprops.src_type = type;
+                            props_flags |= (CONNECTION_RANGE_SRC_MAX
+                                            | CONNECTION_SRC_LENGTH
+                                            | CONNECTION_SRC_TYPE);
+                        }
+                    }
+                }
+            }
+            // dest_min
+            fid = (*env)->GetFieldID(env, cls, "destMin", "LMapper/PropertyValue;");
+            if (fid) {
+                dest_min_field = (*env)->GetObjectField(env, jprops, fid);
+                if (dest_min_field) {
+                    dest_length = get_PropertyValue_elements(env, dest_min_field,
+                                                             &cprops.dest_min,
+                                                             &dest_type);
+                    if (dest_length) {
+                        cprops.dest_length = dest_length;
+                        cprops.dest_type = dest_type;
+                        props_flags |= (CONNECTION_RANGE_DEST_MIN
+                                        | CONNECTION_DEST_LENGTH
+                                        | CONNECTION_DEST_TYPE);
+                    }
+                }
+            }
+            // src_max
+            fid = (*env)->GetFieldID(env, cls, "destMax", "LMapper/PropertyValue;");
+            if (fid) {
+                dest_max_field = (*env)->GetObjectField(env, jprops, fid);
+                if (dest_max_field) {
+                    char type;
+                    int length = get_PropertyValue_elements(env, dest_max_field,
+                                                            &cprops.dest_max,
+                                                            &type);
+                    if (length) {
+                        if (dest_length && length != dest_length)
+                            printf("differing lengths for dest!\n");
+                        else if (dest_type && type != dest_type)
+                            printf("differing types for dest!\n");
+                        else {
+                            // check if length and type match, abort or cast otherwise
+                            cprops.dest_length = length;
+                            cprops.dest_type = type;
+                            props_flags |= (CONNECTION_RANGE_DEST_MAX
+                                            | CONNECTION_DEST_LENGTH
+                                            | CONNECTION_DEST_TYPE);
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2139,6 +2339,14 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
     (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
     if (expr_jstr)
         (*env)->ReleaseStringUTFChars(env, expr_jstr, cprops.expression);
+    if (src_min_field)
+        release_PropertyValue_elements(env, src_min_field, cprops.src_min);
+    if (src_max_field)
+        release_PropertyValue_elements(env, src_max_field, cprops.src_max);
+    if (dest_min_field)
+        release_PropertyValue_elements(env, dest_min_field, cprops.dest_min);
+    if (dest_max_field)
+        release_PropertyValue_elements(env, dest_max_field, cprops.dest_max);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connection_1modify
