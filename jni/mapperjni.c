@@ -936,6 +936,16 @@ JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1send_1queue
         mdev_send_queue(dev, *ptt);
 }
 
+JNIEXPORT jobject JNICALL Java_Mapper_Device_mdev_1now
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(p);
+    mapper_timetag_t tt;
+    mdev_now(dev, &tt);
+    jobject o = get_jobject_from_timetag(genv, &tt);
+    return o;
+}
+
 /**** Mapper.Device.Signal ****/
 
 JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1full_1name
@@ -1962,7 +1972,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1autosubscribe
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Monitor_mmon_1now
-  (JNIEnv *env, jobject obj, jint p)
+  (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     mapper_timetag_t tt;

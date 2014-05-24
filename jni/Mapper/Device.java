@@ -355,6 +355,11 @@ public class Device
         mdev_send_queue(_device, tt);
     }
 
+    public TimeTag now()
+    {
+        return mdev_now(_device);
+    }
+
     // Note: this is _not_ guaranteed to run, the user should still
     // call free() explicitly when the device is no longer needed.
     protected void finalize() throws Throwable {
@@ -395,6 +400,7 @@ public class Device
     private native int mdev_id(long _d);
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);
+    private native TimeTag mdev_now(long _d);
 
     public native Signal addInput(String name, int length, char type, String unit,
                                   PropertyValue minimum, PropertyValue maximum,
