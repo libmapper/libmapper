@@ -159,7 +159,7 @@ public class Monitor
     public void connect(String sourceSignal, String destSignal,
                         Mapper.Db.Connection props)
     {
-        mmon_connect(_monitor, sourceSignal, destSignal, props);
+        mmon_connect_or_mod(_monitor, sourceSignal, destSignal, props, 0);
     }
 
     public void disconnect(String sourceSignal, String destSignal)
@@ -167,10 +167,10 @@ public class Monitor
         mmon_disconnect(_monitor, sourceSignal, destSignal);
     }
 
-    public void connection_modify(String sourceSignal, String destSignal,
-                                  Mapper.Db.Connection props)
+    public void modifyConnection(String sourceSignal, String destSignal,
+                                 Mapper.Db.Connection props)
     {
-        mmon_connection_modify(_monitor, sourceSignal, destSignal, props);
+        mmon_connect_or_mod(_monitor, sourceSignal, destSignal, props, 1);
     }
 
     public void autosubscribe(int autosubscribeFlags)
@@ -204,12 +204,10 @@ public class Monitor
                                   String dest_device, Mapper.Db.Link props);
     private native void mmon_unlink(long _d, String source_device,
                                     String dest_device);
-    private native void mmon_connect(long _d, String source_signal,
-                                     String dest_signal,
-                                     Mapper.Db.Connection props);
-    private native void mmon_connection_modify(long _d, String source_signal,
-                                               String dest_signal,
-                                               Mapper.Db.Connection props);
+    private native void mmon_connect_or_mod(long _d, String source_signal,
+                                            String dest_signal,
+                                            Mapper.Db.Connection props,
+                                            int modify);
     private native void mmon_disconnect(long _d, String source_signal,
                                         String dest_signal);
     private native void mmon_autosubscribe(long _d, int autosubscribe_flags);

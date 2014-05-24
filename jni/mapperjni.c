@@ -1786,9 +1786,9 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unlink
     (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
   (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name,
-   jobject jprops)
+   jobject jprops, jint modify)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
@@ -1924,7 +1924,11 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
         }
     }
 
-    mapper_monitor_connect(mon, csrc_name, cdest_name, &cprops, props_flags);
+    if (modify)
+        mapper_monitor_connection_modify(mon, csrc_name, cdest_name,
+                                         &cprops, props_flags);
+    else
+        mapper_monitor_connect(mon, csrc_name, cdest_name, &cprops, props_flags);
     (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
     (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
     if (expr_jstr)
@@ -1937,13 +1941,6 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect
         release_PropertyValue_elements(env, dest_min_field, cprops.dest_min);
     if (dest_max_field)
         release_PropertyValue_elements(env, dest_max_field, cprops.dest_max);
-}
-
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connection_1modify
-  (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name,
-   jobject connection_props)
-{
-    // TODO: process props!
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect

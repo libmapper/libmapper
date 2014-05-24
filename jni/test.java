@@ -118,7 +118,6 @@ class test {
         c.srcMax = new PropertyValue(-15);
         c.destMax = new PropertyValue(1000);
         c.destMin = new PropertyValue(-2000);
-        c.boundMin = Mapper.Db.Connection.BA_FOLD;
         mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
@@ -204,6 +203,12 @@ class test {
                 System.out.print("  Signal has value: " + ar[0]);
             else
                 System.out.print("  Signal has no value.");
+
+            if (i == 50) {
+                c.expression = "y=x*-100";
+                mon.modifyConnection(dev.name()+out1.name(),
+                                     dev.name()+inp1.name(), c);
+            }
 
             dev.poll(50);
             mon.poll(50);
