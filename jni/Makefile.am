@@ -26,11 +26,11 @@ JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class testquery.class testreverse.class \
-    libmapper-@MAJOR_VERSION@.jar
+    testspeed.class libmapper-@MAJOR_VERSION@.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
 	$(subst $$,\$$,test$$1.class test$$2.class test$$3.class testquery$$1.class \
     testquery$$2.class testquery$$3.class testreverse$$1.class testreverse$$2.class \
-    testreverse$$3.class)
+    testreverse$$3.class testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
 Mapper_%.h: Mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
@@ -52,6 +52,9 @@ testquery.class: testquery.java $(JCLASSES)
 testreverse.class: testreverse.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
+testspeed.class: testspeed.java $(JCLASSES)
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 	if mkdir -v TestInstances/code; then \
@@ -60,4 +63,5 @@ libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	  ln -v -s ../../$@; \
 	fi # For processing test sketch
 
-EXTRA_DIST = $(JJAVA) test.java testquery.java testreverse.java $(JHEADERS)
+EXTRA_DIST = $(JJAVA) test.java testquery.java testreverse.java testspeed.java \
+             $(JHEADERS)
