@@ -30,34 +30,34 @@ void setup()
 
   /* Note: null for the InputListener, since we are specifying
    * this later per-instance. */
-  sig_x_in = dev.add_input("x", 1, 'i', "pixels",
-                           (double)0.0, (double)width, null);
-  sig_y_in = dev.add_input("y", 1, 'i', "pixels",
-                           (double)0.0, (double)width, null);
+  sig_x_in = dev.addInput("x", 1, 'i', "pixels",
+                          (double)0.0, (double)width, null);
+  sig_y_in = dev.addInput("y", 1, 'i', "pixels",
+                          (double)0.0, (double)width, null);
 
-  sig_x_out = dev.add_output("x", 1, 'i', "pixels",
-                             (double)0.0, (double)width);
-  sig_y_out = dev.add_output("y", 1, 'i', "pixels",
-                             (double)0.0, (double)width);
+  sig_x_out = dev.addOutput("x", 1, 'i', "pixels",
+                            (double)0.0, (double)width);
+  sig_y_out = dev.addOutput("y", 1, 'i', "pixels",
+                            (double)0.0, (double)width);
 
   Mapper.InstanceEventListener evin = new Mapper.InstanceEventListener() {
     public void onEvent(Mapper.Device.Signal sig,
                  Mapper.Db.Signal props,
-                 int instance_id,
+                 int instanceId,
                  int event,
                  TimeTag tt) {
-      sig_x_in.set_instance_callback(instance_id, circles[instance_id-1].lx);
-      sig_y_in.set_instance_callback(instance_id, circles[instance_id-1].ly);
+      sig_x_in.setInstanceCallback(instanceId, circles[instanceId-1].lx);
+      sig_y_in.setInstanceCallback(instanceId, circles[instanceId-1].ly);
     };
   };
 
-  sig_x_in.set_instance_event_callback(evin,
+  sig_x_in.setInstanceEventCallback(evin,
     Mapper.InstanceEventListener.IN_ALL);
 
-  sig_x_in.reserve_instances(circles.length);
-  sig_y_in.reserve_instances(circles.length);
-  sig_x_out.reserve_instances(circles.length);
-  sig_y_out.reserve_instances(circles.length);
+  sig_x_in.reserveInstances(circles.length);
+  sig_y_in.reserveInstances(circles.length);
+  sig_x_out.reserveInstances(circles.length);
+  sig_y_out.reserveInstances(circles.length);
 
   for (int i=0; i < circles.length; i++) {
     circles[i] = new Circle(Math.random()*(width-bs*2)+bs,
@@ -131,7 +131,7 @@ class Circle
     lx = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
                        Mapper.Db.Signal props,
-                       int instance_id, int[] v, TimeTag tt) {
+                       int instanceId, int[] v, TimeTag tt) {
             if (v!=null)
               bx = v[0];
           }};
@@ -139,7 +139,7 @@ class Circle
     ly = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
                        Mapper.Db.Signal props,
-                       int instance_id, int[] v, TimeTag tt) {
+                       int instanceId, int[] v, TimeTag tt) {
             if (v!=null)
               by = v[0];
           }};
@@ -183,8 +183,8 @@ class Circle
     fill(0, 0, 256);
     text(""+id, bx, by);
 
-    sig_x_out.update_instance(id, (int)bx);
-    sig_y_out.update_instance(id, (int)by);
+    sig_x_out.updateInstance(id, (int)bx);
+    sig_y_out.updateInstance(id, (int)by);
   }
 }
 

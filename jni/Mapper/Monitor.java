@@ -21,8 +21,8 @@ public class Monitor
     public static final int SUB_DEVICE_CONNECTIONS      = 0x60;
     public static final int SUB_DEVICE_ALL              = 0xFF;
 
-    public Monitor(int autosubscribe_flags) {
-        _monitor = mmon_new(autosubscribe_flags);
+    public Monitor(int autosubscribeFlags) {
+        _monitor = mmon_new(autosubscribeFlags);
         Db = this.new Db(mmon_get_db(_monitor));
     }
     public Monitor() {
@@ -135,47 +135,47 @@ public class Monitor
         private Mapper.Db.ConnectionListener _connection_cb;
     };
 
-    public void subscribe(String device_name, int subscribe_flags, int timeout)
+    public void subscribe(String deviceName, int subscribeFlags, int timeout)
     {
-        mmon_subscribe(_monitor, device_name, subscribe_flags, timeout);
+        mmon_subscribe(_monitor, deviceName, subscribeFlags, timeout);
     }
 
-    public void unsubscribe(String device_name)
+    public void unsubscribe(String deviceName)
     {
-        mmon_unsubscribe(_monitor, device_name);
+        mmon_unsubscribe(_monitor, deviceName);
     }
 
-    public void link(String source_device, String dest_device,
+    public void link(String sourceDevice, String destDevice,
                      Mapper.Db.Link props)
     {
-        mmon_link(_monitor, source_device, dest_device, props);
+        mmon_link(_monitor, sourceDevice, destDevice, props);
     }
 
-    public void unlink(String source_device, String dest_device)
+    public void unlink(String sourceDevice, String destDevice)
     {
-        mmon_unlink(_monitor, source_device, dest_device);
+        mmon_unlink(_monitor, sourceDevice, destDevice);
     }
 
-    public void connect(String source_signal, String dest_signal,
+    public void connect(String sourceSignal, String destSignal,
                         Mapper.Db.Connection props)
     {
-        mmon_connect(_monitor, source_signal, dest_signal, props);
+        mmon_connect(_monitor, sourceSignal, destSignal, props);
     }
 
-    public void disconnect(String source_signal, String dest_signal)
+    public void disconnect(String sourceSignal, String destSignal)
     {
-        mmon_disconnect(_monitor, source_signal, dest_signal);
+        mmon_disconnect(_monitor, sourceSignal, destSignal);
     }
 
-    public void connection_modify(String source_signal, String dest_signal,
+    public void connection_modify(String sourceSignal, String destSignal,
                                   Mapper.Db.Connection props)
     {
-        mmon_connection_modify(_monitor, source_signal, dest_signal, props);
+        mmon_connection_modify(_monitor, sourceSignal, destSignal, props);
     }
 
-    public void autosubscribe(int autosubscribe_flags)
+    public void autosubscribe(int autosubscribeFlags)
     {
-        mmon_autosubscribe(_monitor, autosubscribe_flags);
+        mmon_autosubscribe(_monitor, autosubscribeFlags);
     }
 
     public TimeTag now()
