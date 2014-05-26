@@ -205,9 +205,12 @@ class test {
                 System.out.print("  Signal has no value.");
 
             if (i == 50) {
-                c.expression = "y=x*-100";
+                Mapper.Db.Connection mod = new Mapper.Db.Connection();
+                mod.expression = "y=x*-100";
+                System.out.println("Should be connecting "+dev.name()+out1.name()+" -> "+dev.name()+inp1.name());
                 mon.modifyConnection(dev.name()+out1.name(),
-                                     dev.name()+inp1.name(), c);
+                                     dev.name()+inp1.name(),
+                                     mod);
             }
 
             dev.poll(50);

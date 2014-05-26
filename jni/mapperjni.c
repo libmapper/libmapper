@@ -1874,12 +1874,12 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
                                                             &cprops.src_max,
                                                             &type);
                     if (length) {
+                        // check if length and type match, abort or cast otherwise
                         if (src_length && length != src_length)
                             printf("differing lengths for src!\n");
                         else if (src_type && type != src_type)
                             printf("differing types for src!\n");
                         else {
-                            // check if length and type match, abort or cast otherwise
                             cprops.src_length = length;
                             cprops.src_type = type;
                             props_flags |= (CONNECTION_RANGE_SRC_MAX
@@ -1906,7 +1906,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
                     }
                 }
             }
-            // src_max
+            // dest_max
             fid = (*env)->GetFieldID(env, cls, "destMax", "LMapper/PropertyValue;");
             if (fid) {
                 dest_max_field = (*env)->GetObjectField(env, jprops, fid);
