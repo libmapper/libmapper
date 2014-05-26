@@ -303,7 +303,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
         // TODO: lookup device ip/ports, send directly?
         mapper_admin_set_bundle_dest_bus(mon->admin);
         mapper_admin_bundle_message(mon->admin, ADM_CONNECTION_MODIFY, 0, "ss",
-                                    props->src_name, props->dest_name,
+                                    source_signal, dest_signal,
                                     (props_flags & CONNECTION_BOUND_MIN)
                                     ? AT_BOUND_MIN : -1, props->bound_min,
                                     (props_flags & CONNECTION_BOUND_MAX)
