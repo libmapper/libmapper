@@ -110,9 +110,10 @@ void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_timetag_t tt)
 {
     // TODO: check vector has_values flags, include defined elements even if !has_value?
-
     int count=0;
     mapper_id_map map = sig->id_maps[instance_index].map;
+    if (!map)
+        return;
 
     int in_scope = map ? mapper_receiver_in_scope(r, map->origin) : 0;
 
@@ -300,8 +301,6 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
             free(c->expr_vars);
         if (c->history)
             free(c->history);
-        if (c->blob)
-            free(c->blob);
         free(c);
         r->n_connections--;
         return;

@@ -206,6 +206,7 @@ void mapper_router_process_signal(mapper_router r,
 {
     mapper_id_map map = sig->id_maps[instance_index].map;
     int in_scope = mapper_router_in_scope(r, map->origin);
+    lo_message m;
 
     // find the signal connection
     mapper_router_signal rs = r->signals;
@@ -231,9 +232,14 @@ void mapper_router_process_signal(mapper_router r,
         while (c) {
             c->history[id].position = -1;
             if ((c->props.mode != MO_REVERSE) &&
-                (!c->props.send_as_instance || in_scope))
-                mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          map : 0, tt, 0, 0);
+                (!c->props.send_as_instance || in_scope)) {
+                m = mapper_router_build_message(0, c->props.dest_length,
+                                                c->props.dest_type, 0,
+                                                c->props.send_as_instance ? map : 0);
+                if (m)
+                    mapper_router_send_or_bundle_message(r, c->props.dest_name,
+                                                         m, tt);
+            }
             // also need to reset associated output memory
             memset(c->history[id].value, 0, c->props.dest_history_size *
                    c->props.dest_length * mapper_type_size(c->props.dest_type));
@@ -245,113 +251,104 @@ void mapper_router_process_signal(mapper_router r,
         return;
     }
 
-    if (count > 1) {
-        // allocate blob for each connection
-        c = rs->connections;
-        while (c) {
-            if ((c->props.mode != MO_REVERSE) &&
-                (!c->props.send_as_instance || in_scope))
-                c->blob = realloc(c->blob, mapper_type_size(c->props.dest_type)
-                                  * c->props.dest_length * count);
+    // if count > 1, we need to allocate sufficient memory for largest output
+    // vector so that we can store calculated values before sending
+    // TODO: calculate max_output_size, cache in link_signal
+    void *out_value_p = count == 1 ? 0 : alloca(count * sig->props.length * sizeof(double));
+    int i, j;
+    c = rs->connections;
+    while (c) {
+        if ((c->props.mode == MO_REVERSE)
+            || (c->props.send_as_instance && !in_scope)) {
             c = c->next;
+            continue;
         }
-    }
 
-    int i;
-    for (i=0; i<count; i++) {
-        // copy input history
-        size_t n = msig_vector_bytes(sig);
-        rs->history[id].position = (rs->history[id].position + 1)
-                                   % rs->history[id].size;
-        memcpy(msig_history_value_pointer(rs->history[id]),
-               value + n * i, n);
-        memcpy(msig_history_tt_pointer(rs->history[id]),
-               &tt, sizeof(mapper_timetag_t));
+        char typestring[c->props.dest_length * count];
+        j = 0;
+        for (i = 0; i < count; i++) {
+            // copy input history
+            size_t n = msig_vector_bytes(sig);
+            rs->history[id].position = ((rs->history[id].position + 1)
+                                        % rs->history[id].size);
+            memcpy(msig_history_value_pointer(rs->history[id]),
+                   value + n * i, n);
+            memcpy(msig_history_tt_pointer(rs->history[id]),
+                   &tt, sizeof(mapper_timetag_t));
 
-        c = rs->connections;
-        while (c) {
-            char typestring[c->props.dest_length];
-            if ((c->props.mode == MO_REVERSE) ||
-                (c->props.send_as_instance && !in_scope)) {
-                c = c->next;
+            // handle cases in which part of count update does not cause output
+            if (!(mapper_connection_perform(c, &rs->history[id],
+                                            &c->expr_vars[id],
+                                            &c->history[id],
+                                            typestring+c->props.dest_length*j)))
                 continue;
+            if (!(mapper_boundary_perform(c, &c->history[id])))
+                continue;
+
+            if (count > 1)
+                memcpy((char*)out_value_p + mapper_type_size(c->props.dest_type) *
+                       c->props.dest_length * i,
+                       msig_history_value_pointer(c->history[id]),
+                       mapper_type_size(c->props.dest_type) *
+                       c->props.dest_length);
+            else {
+                m = mapper_router_build_message(msig_history_value_pointer(c->history[id]),
+                                                c->props.dest_length,
+                                                c->props.dest_type,
+                                                typestring,
+                                                c->props.send_as_instance ? map : 0);
+                if (m)
+                    mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
             }
-            if (mapper_connection_perform(c, &rs->history[id], &c->expr_vars[id],
-                                          &c->history[id], typestring))
-            {
-                if (mapper_boundary_perform(c, &c->history[id])) {
-                    if (count > 1)
-                        memcpy(c->blob + mapper_type_size(c->props.dest_type) *
-                               c->props.dest_length * i,
-                               msig_history_value_pointer(c->history[id]),
-                               mapper_type_size(c->props.dest_type) *
-                               c->props.dest_length);
-                    else
-                        mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                                  map : 0, tt, 0, typestring);
-                }
-            }
-            c = c->next;
+            j++;
         }
-    }
-    if (count > 1) {
-        c = rs->connections;
-        while (c) {
-            if ((c->props.mode != MO_REVERSE) &&
-                (!c->props.send_as_instance || in_scope)) {
-                lo_blob blob = lo_blob_new(mapper_type_size(c->props.dest_type)
-                                           * c->props.dest_length * count, c->blob);
-                mapper_router_send_update(r, c, id, c->props.send_as_instance ?
-                                          map : 0, tt, blob, 0);
-            }
-            c = c->next;
+        if (count > 1 && (c->props.mode != MO_REVERSE) &&
+            (!c->props.send_as_instance || in_scope)) {
+            m = mapper_router_build_message(out_value_p,
+                                            c->props.dest_length * j,
+                                            c->props.dest_type,
+                                            typestring,
+                                            c->props.send_as_instance ? map : 0);
+            if (m)
+                mapper_router_send_or_bundle_message(r, c->props.dest_name,
+                                                     m, tt);
         }
+        c = c->next;
     }
 }
 
 /*! Build a value update message for a given connection. */
-void mapper_router_send_update(mapper_router r,
-                               mapper_connection c,
-                               int history_index,
-                               mapper_id_map id_map,
-                               mapper_timetag_t tt,
-                               lo_blob blob,
-                               char *typestring)
+lo_message mapper_router_build_message(void *value, int length, char type,
+                                       char *typestring, mapper_id_map id_map)
 {
     int i;
-    if (!r->remote_addr)
-        return;
 
     lo_message m = lo_message_new();
     if (!m)
-        return;
+        return 0;
 
-    if (c->history[history_index].position != -1) {
-        if (blob) {
-            lo_message_add_blob(m, blob);
-            lo_blob_free(blob);
-        }
-        else if (c->history[history_index].type == 'f') {
-            float *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++) {
+    if (value) {
+        if (type == 'f') {
+            float *v = (float*)value;
+            for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
                     lo_message_add_nil(m);
                 else
                     lo_message_add_float(m, v[i]);
             }
         }
-        else if (c->history[history_index].type == 'i') {
-            int *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++) {
+        else if (type == 'i') {
+            int *v = (int*)value;
+            for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
                     lo_message_add_nil(m);
                 else
                     lo_message_add_int32(m, v[i]);
             }
         }
-        else if (c->history[history_index].type == 'd') {
-            double *v = msig_history_value_pointer(c->history[history_index]);
-            for (i = 0; i < c->history[history_index].length; i++) {
+        else if (type == 'd') {
+            double *v = (double*)value;
+            for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
                     lo_message_add_nil(m);
                 else
@@ -360,7 +357,7 @@ void mapper_router_send_update(mapper_router r,
         }
     }
     else if (id_map) {
-        for (i = 0; i < c->history[history_index].length; i++)
+        for (i = 0; i < length; i++)
             lo_message_add_nil(m);
     }
 
@@ -369,8 +366,7 @@ void mapper_router_send_update(mapper_router r,
         lo_message_add_int32(m, id_map->origin);
         lo_message_add_int32(m, id_map->public);
     }
-
-    mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
+    return m;
 }
 
 int mapper_router_send_query(mapper_router r,
@@ -617,8 +613,6 @@ static void mapper_router_free_connection(mapper_router r,
             mapper_expr_free(c->expr);
         if (c->props.expression)
             free(c->props.expression);
-        if (c->blob)
-            free(c->blob);
         free(c);
     }
 }

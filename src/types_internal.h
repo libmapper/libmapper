@@ -183,8 +183,6 @@ typedef struct _mapper_connection {
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */
-    void *blob;                             /*!< Blob for staging vector
-                                             *   signal updates. */
     mapper_expr expr;                       //!< The mapping expression.
     mapper_signal_history_t **expr_vars;    //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
@@ -200,6 +198,8 @@ typedef struct _mapper_link_signal {
     struct _mapper_link *link;              //!< The parent link.
     struct _mapper_signal *signal;          //!< The associated signal.
     int num_instances;                      //!< Number of instances allocated.
+//    int max_output_size;                    /*!< Maximum output vector size in
+//                                             *   child connections. */
     mapper_signal_history_t *history;       /*!< Array of value histories
                                              *   for each signal instance. */
     mapper_connection connections;          /*!< The first connection for

@@ -265,13 +265,11 @@ void mapper_router_process_signal(mapper_router r,
                                   int count,
                                   mapper_timetag_t timetag);
 
-void mapper_router_send_update(mapper_router r,
-                               mapper_connection c,
-                               int history_index,
-                               mapper_id_map id_map,
-                               mapper_timetag_t tt,
-                               lo_blob blob,
-                               char *typestring);
+lo_message mapper_router_build_message(void *value,
+                                       int length,
+                                       char type,
+                                       char *typestring,
+                                       mapper_id_map id_map);
 
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
