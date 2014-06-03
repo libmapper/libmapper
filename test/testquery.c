@@ -62,6 +62,7 @@ int setup_source()
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
         sendsig[i] = mdev_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
         msig_set_callback(sendsig[i], query_response_handler, 0);
+        msig_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
 
     eprintf("Output signals registered.\n");

@@ -167,7 +167,7 @@ void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
-    int val[] = {0, 0};
+    float val[] = {0, 0};
     msig_update(sendsig, val, 1, MAPPER_NOW);
 
     while ((!terminate || i < 50) && !done) {
