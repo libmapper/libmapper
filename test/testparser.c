@@ -447,6 +447,27 @@ int run_tests()
     result += !parse_and_eval();
     eprintf("Expected: FAILURE\n");
 
+    /* Vector functions mean() and sum() */
+    snprintf(str, 256, "y=mean(x)==(sum(x)/3)");
+    setup_test('f', 1, 3, src_float, 'i', 1, 1, dest_int);
+    result += parse_and_eval();
+    eprintf("Expected: %i\n", 1);
+
+    /* Vector function vmax() and vmin() */
+    snprintf(str, 256, "y=vmax(x)-vmin(x)");
+    setup_test('f', 1, 3, src_float, 'i', 1, 1, dest_int);
+    result += parse_and_eval();
+    eprintf("Expected: %i\n",
+            ((src_float[0]>src_float[1])?
+             (src_float[0]>src_float[2]?(int)src_float[0]:(int)src_float[2]):
+             (src_float[1]>src_float[2]?(int)src_float[1]:(int)src_float[2])) -
+            ((src_float[0]<src_float[1])?
+             (src_float[0]<src_float[2]?(int)src_float[0]:(int)src_float[2]):
+             (src_float[1]<src_float[2]?(int)src_float[1]:(int)src_float[2])));
+
+    printf("**********************************\n");
+    printf("Failed %d tests\n", result);
+
     return result;
 }
 
