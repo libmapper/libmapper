@@ -1546,58 +1546,28 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_00024Signal_getInstanceCallback
     return (jobject)msig_get_instance_data(sig, instance_id);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances__I
-  (JNIEnv *env, jobject obj, jint num)
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances
+  (JNIEnv *env, jobject obj, jintArray ids, jint num, jobject cb)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     if (!sig)
         return 0;
-    return msig_reserve_instances(sig, num, 0, 0);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances___3I
-  (JNIEnv *env, jobject obj, jintArray ids)
-{
-    mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig)
-        return 0;
-    int length = (*env)->GetArrayLength(env, ids);
-    jint *array = (*env)->GetIntArrayElements(env, ids, 0);
-    if (array) {
-        int reserved = msig_reserve_instances(sig, length, array, 0);
+    int i, reserved = 0;
+    jobject ref = cb ? (*env)->NewGlobalRef(env, cb) : 0;
+    if (ids) {
+        int length = (*env)->GetArrayLength(env, ids);
+        jint *array = (*env)->GetIntArrayElements(env, ids, 0);
+        for (i = 0; i < length; i++) {
+            int id = (int)array[i];
+            reserved += msig_reserve_instances(sig, 1, &id, ref ? (void **)&ref : 0);
+        }
         (*env)->ReleaseIntArrayElements(env, ids, array, JNI_ABORT);
         return reserved;
     }
-    return 0;
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances__ILMapper_InputListener_2
-  (JNIEnv *env, jobject obj, jint num, jobject data)
-{
-    mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig)
-        return 0;
-    jobject ref = data ? (*env)->NewGlobalRef(env, data) : 0;
-    int i, reserved = 0;
-    for (i=0; i<num; i++)
-        reserved += msig_reserve_instances(sig, 1, 0, (void**)&ref);
-    return reserved;
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances___3ILMapper_InputListener_2
-  (JNIEnv *env, jobject obj, jintArray ids, jobject data)
-{
-    mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig)
-        return 0;
-    int length = (*env)->GetArrayLength(env, ids);
-    jint *array = (*env)->GetIntArrayElements(env, ids, 0);
-    if (array) {
-        jobject ref = data ? (*env)->NewGlobalRef(env, data) : 0;
-        int i, reserved = 0;
-        for (i=0; i<length; i++)
-            reserved += msig_reserve_instances(sig, 1, &array[i], (void**)&ref);
-        (*env)->ReleaseIntArrayElements(env, ids, array, JNI_ABORT);
+    else {
+        for (i = 0; i < num; i++) {
+            reserved += msig_reserve_instances(sig, 1, 0, (void **)ref);
+        }
         return reserved;
     }
     return 0;

@@ -99,10 +99,17 @@ public class Device
                                                InputListener cb);
         public native InputListener getInstanceCallback(int instanceId);
 
-        public native int reserveInstances(int num);
-        public native int reserveInstances(int[] ids);
-        public native int reserveInstances(int num, InputListener cb);
-        public native int reserveInstances(int[] ids, InputListener cb);
+        public native int reserveInstances(int[] ids, int num, InputListener cb);
+        public int reserveInstances(int num)
+            { return reserveInstances(null, num, null); }
+        public int reserveInstances(int[] ids)
+            { return reserveInstances(ids, 0, null); }
+        public int reserveInstances(int num, InputListener cb)
+            { return reserveInstances(null, num, cb); }
+        public int reserveInstances(int[] ids, InputListener cb)
+            { return reserveInstances(ids, 0, cb); }
+
+
         public native void releaseInstance(int instanceId, TimeTag tt);
         public void releaseInstance(int instanceId)
             { releaseInstance(instanceId, null); }
