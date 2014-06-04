@@ -137,9 +137,9 @@ class test {
         // Test instances
         out1.setInstanceEventCallback(new InstanceEventListener() {
                 public void onEvent(Mapper.Device.Signal sig,
-                                    Mapper.Db.Signal props,
                                     int instanceId,
-                                    int event)
+                                    int event,
+                                    TimeTag tt)
                     {
                         System.out.println("Instance "
                                            + instanceId

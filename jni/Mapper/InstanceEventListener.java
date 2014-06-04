@@ -11,7 +11,6 @@ public class InstanceEventListener {
     public static final int IN_ALL                = 0xFF;
 
     public void onEvent(Mapper.Device.Signal sig,
-                        Mapper.Db.Signal props,
                         int instanceId,
                         int event,
                         TimeTag tt) {};
