@@ -13,7 +13,7 @@ Circle circles[] = new Circle[5];
 int bs = 15;
 int count = 0;
 
-Mapper.Device dev = new Mapper.Device("TestInstances", 9000);
+Mapper.Device dev = new Mapper.Device("TestInstances");
 
 Mapper.Device.Signal sig_x_in = null;
 Mapper.Device.Signal sig_y_in = null;
@@ -31,21 +31,20 @@ void setup()
   /* Note: null for the InputListener, since we are specifying
    * this later per-instance. */
   sig_x_in = dev.addInput("x", 1, 'i', "pixels",
-                          (double)0.0, (double)width, null);
+                          new PropertyValue(0), new PropertyValue(width), null);
   sig_y_in = dev.addInput("y", 1, 'i', "pixels",
-                          (double)0.0, (double)width, null);
+                          new PropertyValue(0), new PropertyValue(height), null);
 
   sig_x_out = dev.addOutput("x", 1, 'i', "pixels",
-                            (double)0.0, (double)width);
+                            new PropertyValue(0), new PropertyValue(width));
   sig_y_out = dev.addOutput("y", 1, 'i', "pixels",
-                            (double)0.0, (double)width);
+                            new PropertyValue(0), new PropertyValue(height));
 
   Mapper.InstanceEventListener evin = new Mapper.InstanceEventListener() {
     public void onEvent(Mapper.Device.Signal sig,
-                 Mapper.Db.Signal props,
-                 int instanceId,
-                 int event,
-                 TimeTag tt) {
+                        int instanceId,
+                        int event,
+                        TimeTag tt) {
       sig_x_in.setInstanceCallback(instanceId, circles[instanceId-1].lx);
       sig_y_in.setInstanceCallback(instanceId, circles[instanceId-1].ly);
     };
@@ -130,7 +129,6 @@ class Circle
     /* Add listeners for our instance */
     lx = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
-                       Mapper.Db.Signal props,
                        int instanceId, int[] v, TimeTag tt) {
             if (v!=null)
               bx = v[0];
@@ -138,7 +136,6 @@ class Circle
 
     ly = new Mapper.InputListener() {
           void onInput(Mapper.Device.Signal sig,
-                       Mapper.Db.Signal props,
                        int instanceId, int[] v, TimeTag tt) {
             if (v!=null)
               by = v[0];
