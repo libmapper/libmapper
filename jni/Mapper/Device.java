@@ -30,6 +30,10 @@ public class Device
         return mdev_poll(_device, timeout);
     }
 
+    public int poll() {
+        return mdev_poll(_device, 0);
+    }
+
     public class Signal {
 
         /*! Describes the voice-stealing mode for instances.
