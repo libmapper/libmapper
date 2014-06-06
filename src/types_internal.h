@@ -200,6 +200,7 @@ typedef struct _mapper_link_signal {
     int num_instances;                      //!< Number of instances allocated.
     mapper_signal_history_t *history;       /*!< Array of value histories
                                              *   for each signal instance. */
+    int history_size;                       /*! Size of the history vector. */
     mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
     struct _mapper_link_signal *next;     /*!< The next signal connection
