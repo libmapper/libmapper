@@ -2314,7 +2314,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                 print_stack_vector(stack[top], tok->datatype, tok->vector_length);
                 printf(", ");
             }
-            printf("\b\b)");
+            printf("%s)", function_table[tok->func].arity ? "\b\b" : "");
 #endif
             if (tok->datatype == 'f') {
                 switch (function_table[tok->func].arity) {

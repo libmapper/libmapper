@@ -20,11 +20,13 @@ char str[256];
 mapper_expr e;
 int result = 0;
 int iterations = 1000000;
+int token_count = 0;
 
 int src_int[] = {1, 2, 3}, dest_int[DEST_ARRAY_LEN];
 float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[DEST_ARRAY_LEN];
 double src_double[] = {1.0, 2.0, 3.0}, dest_double[DEST_ARRAY_LEN];
 double then, now;
+double total_elapsed_time = 0;
 char typestring[3];
 
 mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
@@ -61,6 +63,7 @@ struct _mapper_expr
     int output_history_size;
     mapper_variable variables;
     int num_variables;
+    int constant_output;
 };
 
 /* TODO:
@@ -165,9 +168,14 @@ int parse_and_eval()
     user_vars_p = user_vars;
 
 #ifdef DEBUG
-    if (verbose)
-        printexpr("Parser returned:", e);
+    if (verbose) {
+        char str[128];
+        snprintf(str, 128, "Parser returned %d tokens:", e->length);
+        printexpr(str, e);
+    }
 #endif
+
+    token_count += e->length;
 
     eprintf("Try evaluation once...\n");
     if (!mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring)) {
@@ -183,6 +191,7 @@ int parse_and_eval()
     }
     now = get_current_time();
     eprintf("%g seconds.\n", now-then);
+    total_elapsed_time += now-then;
 
     if (verbose) {
         printf("Got:      ");
@@ -465,8 +474,11 @@ int run_tests()
              (src_float[0]<src_float[2]?(int)src_float[0]:(int)src_float[2]):
              (src_float[1]<src_float[2]?(int)src_float[1]:(int)src_float[2])));
 
-    printf("**********************************\n");
-    printf("Failed %d tests\n", result);
+    /* Optimization: multiplication by zero */
+    snprintf(str, 256, "y=x*0+0");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval();
+    eprintf("Expected: 0\n");
 
     return result;
 }
@@ -497,5 +509,11 @@ int main(int argc, char **argv)
     }
 
     result = run_tests();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    eprintf("**********************************\n");
+    printf("Test %s ", result ? "FAILED" : "PASSED");
+    if (!result)
+        printf("in %f seconds using %d tokens in total.\n",
+               total_elapsed_time, token_count);
+    else
+        printf("\n");
 }
