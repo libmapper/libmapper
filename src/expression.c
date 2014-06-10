@@ -1011,6 +1011,45 @@ static void lock_vector_lengths(mapper_token_t *stack, int top)
     }
 }
 
+static int precompute(mapper_token_t *stack, int length, int vector_length)
+{
+    struct _mapper_expr e;
+    e.start = stack;
+    e.length = length;
+    e.vector_size = vector_length;
+    e.variables = 0;
+    e.num_variables = 0;
+    mapper_signal_history_t h;
+    // TODO: this variable should not be mapper_signal_value_t?
+    mapper_signal_value_t v;
+    h.type = stack[length-1].datatype;
+    h.value = &v;
+    h.position = -1;
+    h.length = 1;
+    h.size = 1;
+
+    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0))
+        return 0;
+
+    switch (stack[length-1].datatype) {
+        case 'f':
+            stack[0].f = v.f;
+            break;
+        case 'd':
+            stack[0].d = v.d;
+            break;
+        case 'i':
+            stack[0].i = v.i32;
+            break;
+        default:
+            return 0;
+        break;
+    }
+    stack[0].toktype = TOK_CONST;
+    stack[0].datatype = stack[length-1].datatype;
+    return length-1;
+}
+
 static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
     // TODO: allow precomputation of const-only vectors
@@ -1166,43 +1205,10 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
     }
 
     // if stack within bounds of arity was only constants, we're ok to compute
-    if (!can_precompute)
+    if (can_precompute)
+        return top - precompute(&stack[top-arity], arity+1, vector_length);
+    else
         return top;
-
-    struct _mapper_expr e;
-    e.start = &stack[top-arity];
-    e.length = arity+1;
-    e.vector_size = vector_length;
-    e.variables = 0;
-    e.num_variables = 0;
-    mapper_signal_history_t h;
-    // TODO: this variable should not be mapper_signal_value_t?
-    mapper_signal_value_t v;
-    h.type = stack[top].datatype;
-    h.value = &v;
-    h.position = -1;
-    h.length = 1;
-    h.size = 1;
-    
-    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0))
-        return top;
-
-    switch (stack[top].datatype) {
-        case 'f':
-            stack[top-arity].f = v.f;
-            break;
-        case 'd':
-            stack[top-arity].d = v.d;
-            break;
-        case 'i':
-            stack[top-arity].i = v.i32;
-            break;
-        default:
-            return 0;
-            break;
-    }
-    stack[top-arity].toktype = TOK_CONST;
-    return top-arity;
 }
 
 static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
