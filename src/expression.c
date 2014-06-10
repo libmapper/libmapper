@@ -424,33 +424,40 @@ typedef enum {
     OP_CONDITIONAL_IF_THEN_ELSE,
 } expr_op_t;
 
+#define NO_OPTIMIZATION 0
+#define GETS_ZERO       1
+#define ERROR           2
+#define GETS_OPERAND    3
+
 static struct {
     const char *name;
     unsigned int arity;
     unsigned int precedence;
+    unsigned int zero_first;
+    unsigned int zero_second;
 } op_table[] = {
-    { "!",          1,  11 },
-    { "*",          2,  10 },
-    { "/",          2,  10 },
-    { "%",          2,  10 },
-    { "+",          2,   9 },
-    { "-",          2,   9 },
-    { "<<",         2,   8 },
-    { ">>",         2,   8 },
-    { ">",          2,   7 },
-    { ">=",         2,   7 },
-    { "<",          2,   7 },
-    { "<=",         2,   7 },
-    { "==",         2,   6 },
-    { "!=",         2,   6 },
-    { "&",          2,   5 },
-    { "^",          2,   4 },
-    { "|",          2,   3 },
-    { "&&",         2,   2 },
-    { "||",         2,   1 },
-    { "IFTHEN",     2,   0 },
-    { "IFELSE",     2,   0 },
-    { "IFTHENELSE", 3,   0 },
+    { "!",          1,  11, NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "*",          2,  10, GETS_ZERO,          GETS_ZERO       },
+    { "/",          2,  10, GETS_ZERO,          ERROR           },
+    { "%",          2,  10, GETS_ZERO,          GETS_OPERAND    },
+    { "+",          2,  9,  GETS_OPERAND,       GETS_OPERAND    },
+    { "-",          2,  9,  NO_OPTIMIZATION,    GETS_OPERAND    },
+    { "<<",         2,  8,  GETS_ZERO,          GETS_OPERAND    },
+    { ">>",         2,  8,  GETS_ZERO,          GETS_OPERAND    },
+    { ">",          2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { ">=",         2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "<",          2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "<=",         2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "==",         2,  6,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "!=",         2,  6,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "&",          2,  5,  GETS_ZERO,          GETS_ZERO       },
+    { "^",          2,  4,  GETS_OPERAND,       GETS_OPERAND    },
+    { "|",          2,  3,  GETS_OPERAND,       GETS_OPERAND    },
+    { "&&",         2,  2,  GETS_ZERO,          GETS_ZERO       },
+    { "||",         2,  1,  GETS_OPERAND,       GETS_OPERAND    },
+    { "IFTHEN",     2,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "IFELSE",     2,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "IFTHENELSE", 3,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
 };
 
 typedef int func_int32_arity0();
@@ -549,6 +556,19 @@ static expr_var_t variable_lookup(const char *s, int len)
     }
     return VAR_UNKNOWN;
 }
+
+//static int const_tok_is_zero(mapper_token_t tok)
+//{
+//    switch (tok.datatype) {
+//        case 'i':
+//            return tok.i == 0;
+//        case 'f':
+//            return tok.f == 0.f;
+//        case 'd':
+//            return tok.d == 0.0;
+//    }
+//    return 0;
+//}
 
 static int expr_lex(const char *str, int index, mapper_token_t *tok)
 {
