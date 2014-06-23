@@ -424,40 +424,42 @@ typedef enum {
     OP_CONDITIONAL_IF_THEN_ELSE,
 } expr_op_t;
 
-#define NO_OPTIMIZATION 0
+#define NO_OPTIMIZE     0
 #define GETS_ZERO       1
-#define ERROR           2
+#define GETS_ONE        2
 #define GETS_OPERAND    3
+#define GETS_ERROR      4
 
 static struct {
     const char *name;
     unsigned int arity;
     unsigned int precedence;
-    unsigned int zero_first;
-    unsigned int zero_second;
+    // TODO: use bit fields instead
+    unsigned int optimize_const_operands[4];
 } op_table[] = {
-    { "!",          1,  11, NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "*",          2,  10, GETS_ZERO,          GETS_ZERO       },
-    { "/",          2,  10, GETS_ZERO,          ERROR           },
-    { "%",          2,  10, GETS_ZERO,          GETS_OPERAND    },
-    { "+",          2,  9,  GETS_OPERAND,       GETS_OPERAND    },
-    { "-",          2,  9,  NO_OPTIMIZATION,    GETS_OPERAND    },
-    { "<<",         2,  8,  GETS_ZERO,          GETS_OPERAND    },
-    { ">>",         2,  8,  GETS_ZERO,          GETS_OPERAND    },
-    { ">",          2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { ">=",         2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "<",          2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "<=",         2,  7,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "==",         2,  6,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "!=",         2,  6,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "&",          2,  5,  GETS_ZERO,          GETS_ZERO       },
-    { "^",          2,  4,  GETS_OPERAND,       GETS_OPERAND    },
-    { "|",          2,  3,  GETS_OPERAND,       GETS_OPERAND    },
-    { "&&",         2,  2,  GETS_ZERO,          GETS_ZERO       },
-    { "||",         2,  1,  GETS_OPERAND,       GETS_OPERAND    },
-    { "IFTHEN",     2,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "IFELSE",     2,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
-    { "IFTHENELSE", 3,  0,  NO_OPTIMIZATION,    NO_OPTIMIZATION },
+    { "!",          1, 11, {GETS_ONE,     GETS_ONE,     GETS_ZERO,    GETS_ZERO   }},
+    { "*",          2, 10, {GETS_ZERO,    GETS_ZERO,    GETS_OPERAND, GETS_OPERAND}},
+    { "/",          2, 10, {GETS_ZERO,    GETS_ERROR,   NO_OPTIMIZE,  GETS_OPERAND}},
+    { "%",          2, 10, {GETS_ZERO,    GETS_OPERAND, GETS_ONE,     GETS_OPERAND}},
+    { "+",          2, 9,  {GETS_OPERAND, GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "-",          2, 9,  {NO_OPTIMIZE,  GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "<<",         2, 8,  {GETS_ZERO,    GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { ">>",         2, 8,  {GETS_ZERO,    GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { ">",          2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { ">=",         2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "<",          2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "<=",         2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "==",         2, 6,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "!=",         2, 6,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "&",          2, 5,  {GETS_ZERO,    GETS_ZERO,    NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "^",          2, 4,  {GETS_OPERAND, GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "|",          2, 3,  {GETS_OPERAND, GETS_OPERAND, GETS_ONE,     GETS_ONE    }},
+    { "&&",         2, 2,  {GETS_ZERO,    GETS_ZERO,    NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "||",         2, 1,  {GETS_OPERAND, GETS_OPERAND, GETS_ONE,     GETS_ONE    }},
+    // TODO: handle ternary operator
+    { "IFTHEN",     2, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "IFELSE",     2, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "IFTHENELSE", 3, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
 };
 
 typedef int func_int32_arity0();
@@ -557,18 +559,48 @@ static expr_var_t variable_lookup(const char *s, int len)
     return VAR_UNKNOWN;
 }
 
-//static int const_tok_is_zero(mapper_token_t tok)
-//{
-//    switch (tok.datatype) {
-//        case 'i':
-//            return tok.i == 0;
-//        case 'f':
-//            return tok.f == 0.f;
-//        case 'd':
-//            return tok.d == 0.0;
-//    }
-//    return 0;
-//}
+static int const_tok_is_zero(mapper_token_t tok)
+{
+    switch (tok.datatype) {
+        case 'i':
+            return tok.i == 0;
+        case 'f':
+            return tok.f == 0.f;
+        case 'd':
+            return tok.d == 0.0;
+    }
+    return 0;
+}
+
+static int const_tok_is_one(mapper_token_t tok)
+{
+    switch (tok.datatype) {
+        case 'i':
+            return tok.i == 1;
+        case 'f':
+            return tok.f == 1.f;
+        case 'd':
+            return tok.d == 1.0;
+    }
+    return 0;
+}
+
+static int tok_arity(mapper_token_t tok)
+{
+    switch (tok.toktype) {
+        case TOK_OP:
+            return op_table[tok.op].arity;
+        case TOK_FUNC:
+            return function_table[tok.func].arity;
+        case TOK_VFUNC:
+            return vfunction_table[tok.func].arity;
+        case TOK_VECTORIZE:
+            return tok.vectorizer_arity;
+        default:
+            return 0;
+    }
+    return 0;
+}
 
 static int expr_lex(const char *str, int index, mapper_token_t *tok)
 {
@@ -1073,7 +1105,7 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
 static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
     // TODO: allow precomputation of const-only vectors
-    int i, arity, can_precompute = 1;
+    int i, arity, can_precompute = 1, optimize = NO_OPTIMIZE;
     char type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
 
@@ -1106,6 +1138,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
         i = top;
         int skip = 0;
         int depth = arity;
+        int operand;
         // last arg of op or func is at top-1
         type = compare_token_datatype(stack[top-1], type);
         if (stack[top-1].vector_length > vector_length)
@@ -1121,6 +1154,26 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                 can_precompute = 0;
 
             if (skip == 0) {
+                if (stack[i].toktype == TOK_CONST
+                    && stack[top].toktype == TOK_OP
+                    && depth <= op_table[stack[top].op].arity) {
+                    if (const_tok_is_zero(stack[i])) {
+                        optimize = op_table[stack[top].op].optimize_const_operands[depth-1];
+                    }
+                    else if (const_tok_is_one(stack[i])) {
+                        optimize = op_table[stack[top].op].optimize_const_operands[depth+1];
+                    }
+                    if (optimize == GETS_OPERAND) {
+                        if (i == top-1) {
+                            // optimize immediately without moving other operand
+                            return top-2;
+                        }
+                        else {
+                            // store position of non-zero operand
+                            operand = top-1;
+                        }
+                    }
+                }
                 type = compare_token_datatype(stack[i], type);
                 if (stack[i].toktype == TOK_VFUNC)
                     stack[i].vector_length = vector_length;
@@ -1144,6 +1197,41 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 
         if (depth)
             return -1;
+
+        if (!can_precompute) {
+            switch (optimize) {
+                case GETS_ERROR:
+                    parse_error("Operator '%s' cannot have zero operand.\n",
+                                op_table[stack[top].op].name);
+                    return -1;
+                case GETS_ZERO:
+                case GETS_ONE: {
+                    // finish walking down compound arity
+                    int _arity = 0;
+                    while ((_arity += tok_arity(stack[i])) && i >= 0) {
+                        _arity--;
+                        i--;
+                    }
+                    stack[i].toktype = TOK_CONST;
+                    stack[i].datatype = 'i';
+                    stack[i].i = optimize == GETS_ZERO ? 0 : 1;
+                    stack[i].vector_length = vector_length;
+                    stack[i].vector_length_locked = 0;
+                    stack[i].casttype = 0;
+                    return i;
+                }
+                case GETS_OPERAND:
+                    // copy tokens for non-zero operand
+                    for (; i < operand; i++) {
+                        // shunt tokens down stack
+                        memcpy(stack+i, stack+i+1, sizeof(mapper_token_t));
+                    }
+                    // we may need to promote vector length, so do not return yet
+                    top = operand-1;
+                default:
+                    break;
+            }
+        }
 
         /* walk down stack distance of arity again, promoting datatypes
          * and vector lengths */
@@ -1245,7 +1333,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
         i--;
     }
     if (i < 0) {
-        parse_error("Malformed expression");
+        parse_error("Malformed expression (1).");
         return -1;
     }
     if (stack[i].vector_length != vector_length) {
@@ -1305,7 +1393,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     outstack_index = check_types_and_lengths(outstack,              \
                                              outstack_index);       \
     if (outstack_index < 0)                                         \
-         {FAIL("Malformed expression.");}                           \
+         {FAIL("Malformed expression (2).");}                       \
     POP_OPERATOR();                                                 \
 }
 #define GET_NEXT_TOKEN(x)                                           \
@@ -1491,9 +1579,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 if (opstack_index < 0) {
                     // could be starting another sub-expression
                     if (outstack[outstack_index].toktype != TOK_ASSIGNMENT)
-                        {FAIL("Malformed expression.");}
+                        {FAIL("Malformed expression (3).");}
                     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
-                        {FAIL("Malformed expression.");}
+                        {FAIL("Malformed expression (4).");}
                     assigning = 1;
                     allow_toktype = TOK_VAR;
                     break;
@@ -1775,13 +1863,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     // pop assignment operator(s) to output
     while (opstack_index >= 0) {
         if (opstack[opstack_index].toktype != TOK_ASSIGNMENT)
-            {FAIL("Malformed expression.");}
+            {FAIL("Malformed expression (5).");}
         PUSH_TO_OUTPUT(opstack[opstack_index]);
         POP_OPERATOR();
     }
     // check vector length and type
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
-        {FAIL("Malformed expression.");}
+        {FAIL("Malformed expression (6).");}
 
 #if TRACING
     printstack("--->OUTPUT STACK:", outstack, outstack_index);
