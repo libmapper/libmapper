@@ -424,42 +424,41 @@ typedef enum {
     OP_CONDITIONAL_IF_THEN_ELSE,
 } expr_op_t;
 
-#define NO_OPTIMIZE     0
-#define GETS_ZERO       1
-#define GETS_ONE        2
-#define GETS_OPERAND    3
-#define GETS_ERROR      4
+#define NONE        0x0
+#define GET_ZERO    0x1
+#define GET_ONE     0x2
+#define GET_OPER    0x4
+#define ERROR       0x8
 
 static struct {
     const char *name;
-    unsigned int arity;
-    unsigned int precedence;
-    // TODO: use bit fields instead
-    unsigned int optimize_const_operands[4];
+    char arity;
+    char precedence;
+    uint16_t optimize_const_operands;
 } op_table[] = {
-    { "!",          1, 11, {GETS_ONE,     GETS_ONE,     GETS_ZERO,    GETS_ZERO   }},
-    { "*",          2, 10, {GETS_ZERO,    GETS_ZERO,    GETS_OPERAND, GETS_OPERAND}},
-    { "/",          2, 10, {GETS_ZERO,    GETS_ERROR,   NO_OPTIMIZE,  GETS_OPERAND}},
-    { "%",          2, 10, {GETS_ZERO,    GETS_OPERAND, GETS_ONE,     GETS_OPERAND}},
-    { "+",          2, 9,  {GETS_OPERAND, GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "-",          2, 9,  {NO_OPTIMIZE,  GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "<<",         2, 8,  {GETS_ZERO,    GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { ">>",         2, 8,  {GETS_ZERO,    GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { ">",          2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { ">=",         2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "<",          2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "<=",         2, 7,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "==",         2, 6,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "!=",         2, 6,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "&",          2, 5,  {GETS_ZERO,    GETS_ZERO,    NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "^",          2, 4,  {GETS_OPERAND, GETS_OPERAND, NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "|",          2, 3,  {GETS_OPERAND, GETS_OPERAND, GETS_ONE,     GETS_ONE    }},
-    { "&&",         2, 2,  {GETS_ZERO,    GETS_ZERO,    NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "||",         2, 1,  {GETS_OPERAND, GETS_OPERAND, GETS_ONE,     GETS_ONE    }},
+    { "!",      1, 11, GET_ONE  | GET_ONE  <<4 | GET_ZERO <<8 | GET_ZERO <<12 },
+    { "*",      2, 10, GET_ZERO | GET_ZERO <<4 | GET_OPER <<8 | GET_OPER <<12 },
+    { "/",      2, 10, GET_ZERO | ERROR    <<4 | NONE     <<8 | GET_OPER <<12 },
+    { "%",      2, 10, GET_ZERO | GET_OPER <<4 | GET_ONE  <<8 | GET_OPER <<12 },
+    { "+",      2, 9,  GET_OPER | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
+    { "-",      2, 9,  NONE     | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
+    { "<<",     2, 8,  GET_ZERO | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
+    { ">>",     2, 8,  GET_ZERO | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
+    { ">",      2, 7,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { ">=",     2, 7,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "<",      2, 7,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "<=",     2, 7,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "==",     2, 6,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "!=",     2, 6,  NONE     | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "&",      2, 5,  GET_ZERO | GET_ZERO <<4 | NONE     <<8 | NONE     <<12 },
+    { "^",      2, 4,  GET_OPER | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
+    { "|",      2, 3,  GET_OPER | GET_OPER <<4 | GET_ONE  <<8 | GET_ONE  <<12 },
+    { "&&",     2, 2,  GET_ZERO | GET_ZERO <<4 | NONE     <<8 | NONE     <<12 },
+    { "||",     2, 1,  GET_OPER | GET_OPER <<4 | GET_ONE  <<8 | GET_ONE  <<12 },
     // TODO: handle ternary operator
-    { "IFTHEN",     2, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "IFELSE",     2, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
-    { "IFTHENELSE", 3, 0,  {NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE,  NO_OPTIMIZE }},
+    { "IFTHEN",      2, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "IFELSE",      2, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
+    { "IFTHENELSE",  3, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
 };
 
 typedef int func_int32_arity0();
@@ -1105,7 +1104,7 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
 static int check_types_and_lengths(mapper_token_t *stack, int top)
 {
     // TODO: allow precomputation of const-only vectors
-    int i, arity, can_precompute = 1, optimize = NO_OPTIMIZE;
+    int i, arity, can_precompute = 1, optimize = NONE;
     char type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
 
@@ -1158,12 +1157,15 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                     && stack[top].toktype == TOK_OP
                     && depth <= op_table[stack[top].op].arity) {
                     if (const_tok_is_zero(stack[i])) {
-                        optimize = op_table[stack[top].op].optimize_const_operands[depth-1];
+                        // mask and bitshift, depth == 1 or 2
+                        optimize = (op_table[stack[top].op].optimize_const_operands
+                                    >>(depth-1)*4) & 0xF;
                     }
                     else if (const_tok_is_one(stack[i])) {
-                        optimize = op_table[stack[top].op].optimize_const_operands[depth+1];
+                        optimize = (op_table[stack[top].op].optimize_const_operands
+                                    >>(depth+1)*4) & 0xF;
                     }
-                    if (optimize == GETS_OPERAND) {
+                    if (optimize == GET_OPER) {
                         if (i == top-1) {
                             // optimize immediately without moving other operand
                             return top-2;
@@ -1200,12 +1202,15 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 
         if (!can_precompute) {
             switch (optimize) {
-                case GETS_ERROR:
+                case ERROR:
+                {
                     parse_error("Operator '%s' cannot have zero operand.\n",
                                 op_table[stack[top].op].name);
                     return -1;
-                case GETS_ZERO:
-                case GETS_ONE: {
+                }
+                case GET_ZERO:
+                case GET_ONE:
+                {
                     // finish walking down compound arity
                     int _arity = 0;
                     while ((_arity += tok_arity(stack[i])) && i >= 0) {
@@ -1214,13 +1219,13 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                     }
                     stack[i].toktype = TOK_CONST;
                     stack[i].datatype = 'i';
-                    stack[i].i = optimize == GETS_ZERO ? 0 : 1;
+                    stack[i].i = optimize == GET_ZERO ? 0 : 1;
                     stack[i].vector_length = vector_length;
                     stack[i].vector_length_locked = 0;
                     stack[i].casttype = 0;
                     return i;
                 }
-                case GETS_OPERAND:
+                case GET_OPER:
                     // copy tokens for non-zero operand
                     for (; i < operand; i++) {
                         // shunt tokens down stack
