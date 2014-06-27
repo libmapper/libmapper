@@ -44,7 +44,6 @@ static double get_current_time()
 
 typedef struct _variable {
     char *name;
-    int vector_index;
     int vector_length;
     char datatype;
     char casttype;
