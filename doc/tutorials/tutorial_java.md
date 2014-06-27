@@ -78,7 +78,7 @@ how you want your application to behave.  It takes a number of
 milliseconds during which it should do some work, or 0 if it should
 check for any immediate actions and then return without waiting:
 
-    Integer count = dev.poll( Integer block_ms );
+    int count = dev.poll( int block_ms );
 
 An example of calling it with non-blocking behaviour:
 
@@ -177,8 +177,8 @@ no unit, minimum, or maximum information:
 
 An example of a `float` signal where some more information is provided:
 
-    Mapper.Device.Signal sensor1_voltage = dev.addOutput( "/sensor1", 1, 'f',
-                                                          "V", 0.0, 5.0 )
+    Mapper.Device.Signal sensor1_voltage = dev.addOutput( "/sensor1", 1,     'f',
+                                                                      "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -497,7 +497,8 @@ To specify a string property of a signal `sig`:
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are:
 
-    device_name, direction, length, max, min, name, type, unit, user_data
+    device_name, direction, length, max, maximum, min, minimum,
+    name, type, unit, user_data, value
 
 for devices, they are:
 
@@ -511,6 +512,7 @@ any signal property:
 
     props = sig.properties();
     sensingMethod = props.property( "sensingMethod" );
+    minimum = props.property( "min" );
 
 Primarily this is an interface meant for network monitors, but may
 come in useful for an application implementing a device.
