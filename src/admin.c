@@ -1233,6 +1233,39 @@ static int handler_logout(const char *path, const char *types,
                 md->ordinal.suggestion[diff-1] = 0;
             }
         }
+
+        // Check if we have any links to this device, if so remove them
+        mapper_router router =
+            mapper_router_find_by_dest_name(md->routers, name);
+        if (router) {
+            // Call the local link handler if it exists
+            if (md->link_cb)
+                md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+                            md->link_cb_userdata);
+
+            mdev_remove_router(md, router);
+
+            // Inform subscribers
+            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
+            mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                                        mdev_name(md), name);
+        }
+
+        mapper_receiver receiver =
+            mapper_receiver_find_by_src_name(md->receivers, name);
+        if (receiver) {
+            // Call the local link handler if it exists
+            if (md->link_cb)
+                md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,
+                            md->link_cb_userdata);
+
+            mdev_remove_receiver(md, receiver);
+
+            // Inform subscribers
+            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
+            mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                                        name, mdev_name(md));
+        }
     }
 
     return 0;
