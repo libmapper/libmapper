@@ -1972,8 +1972,6 @@ static int handler_device_unlink(const char *path, const char *types,
             md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
                         md->link_cb_userdata);
 
-        mdev_remove_router(md, router);
-
         // Inform destination
         mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
@@ -1983,6 +1981,8 @@ static int handler_device_unlink(const char *path, const char *types,
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
                                                 0, "ss", mdev_name(md), dest_name);
+
+        mdev_remove_router(md, router);
     }
     else {
         trace("<%s> no router for %s found in /unlink handler\n",
