@@ -1461,53 +1461,48 @@ static int handler_device_subscribe(const char *path, const char *types,
     lo_address a  = lo_message_get_source(msg);
     if (!a || !argc) return 0;
 
-    int timeout_seconds;
-    if (types[0] == 'i')
-        timeout_seconds = argv[0]->i;
-    else if (types[0] == 'f')
-        timeout_seconds = (int)argv[0]->f;
-    else if (types[0] == 'd')
-        timeout_seconds = (int)argv[0]->d;
-    else {
-        trace("<%s> error parsing message parameters in /subscribe.\n",
-              mdev_name(md));
-        return 0;
-    }
-
-    int i, flags = 0;
-    if (argc == 1) {
-        // default to subscribing to all items
-        flags = SUB_DEVICE_ALL;
-    }
-    else {
-        for (i = 1; i < argc; i++) {
-            if (types[i] != 's' && types[i] != 'S')
-                break;
-            else if (strcmp(&argv[i]->s, "all")==0)
-                flags = SUB_DEVICE_ALL;
-            else if (strcmp(&argv[i]->s, "device")==0)
-                flags |= SUB_DEVICE;
-            else if (strcmp(&argv[i]->s, "inputs")==0)
-                flags |= SUB_DEVICE_INPUTS;
-            else if (strcmp(&argv[i]->s, "outputs")==0)
-                flags |= SUB_DEVICE_OUTPUTS;
-            else if (strcmp(&argv[i]->s, "links")==0)
-                flags |= SUB_DEVICE_LINKS;
-            else if (strcmp(&argv[i]->s, "links_in")==0)
-                flags |= SUB_DEVICE_LINKS_IN;
-            else if (strcmp(&argv[i]->s, "links_out")==0)
-                flags |= SUB_DEVICE_LINKS_OUT;
-            else if (strcmp(&argv[i]->s, "connections")==0)
-                flags |= SUB_DEVICE_CONNECTIONS;
-            else if (strcmp(&argv[i]->s, "connections_in")==0)
-                flags |= SUB_DEVICE_CONNECTIONS_IN;
-            else if (strcmp(&argv[i]->s, "connections_out")==0)
-                flags |= SUB_DEVICE_CONNECTIONS_OUT;
-            else if (strcmp(&argv[i]->s, "@version")==0) {
-                // next argument is last device version recorded by subscriber
-                ++i;
-                if (i < argc && types[i] == 'i')
-                    version = argv[i]->i;
+    int i, flags = 0, timeout_seconds = 0;
+    for (i = 0; i < argc; i++) {
+        if (types[i] != 's' && types[i] != 'S')
+            break;
+        else if (strcmp(&argv[i]->s, "all")==0)
+            flags = SUB_DEVICE_ALL;
+        else if (strcmp(&argv[i]->s, "device")==0)
+            flags |= SUB_DEVICE;
+        else if (strcmp(&argv[i]->s, "inputs")==0)
+            flags |= SUB_DEVICE_INPUTS;
+        else if (strcmp(&argv[i]->s, "outputs")==0)
+            flags |= SUB_DEVICE_OUTPUTS;
+        else if (strcmp(&argv[i]->s, "links")==0)
+            flags |= SUB_DEVICE_LINKS;
+        else if (strcmp(&argv[i]->s, "links_in")==0)
+            flags |= SUB_DEVICE_LINKS_IN;
+        else if (strcmp(&argv[i]->s, "links_out")==0)
+            flags |= SUB_DEVICE_LINKS_OUT;
+        else if (strcmp(&argv[i]->s, "connections")==0)
+            flags |= SUB_DEVICE_CONNECTIONS;
+        else if (strcmp(&argv[i]->s, "connections_in")==0)
+            flags |= SUB_DEVICE_CONNECTIONS_IN;
+        else if (strcmp(&argv[i]->s, "connections_out")==0)
+            flags |= SUB_DEVICE_CONNECTIONS_OUT;
+        else if (strcmp(&argv[i]->s, "@version")==0) {
+            // next argument is last device version recorded by subscriber
+            ++i;
+            if (i < argc && types[i] == 'i')
+                version = argv[i]->i;
+        }
+        else if (strcmp(&argv[i]->s, "@lease")==0) {
+            // next argument is lease timeout in seconds
+            ++i;
+            if (types[i] == 'i')
+                timeout_seconds = argv[i]->i;
+            else if (types[i] == 'f')
+                timeout_seconds = (int)argv[i]->f;
+            else if (types[i] == 'd')
+                timeout_seconds = (int)argv[i]->d;
+            else {
+                trace("<%s> error parsing @lease property in /subscribe.\n",
+                      mdev_name(md));
             }
         }
     }

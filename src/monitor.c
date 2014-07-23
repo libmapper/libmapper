@@ -135,7 +135,6 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
     mapper_monitor_set_bundle_dest(mon, device_name);
     lo_message m = lo_message_new();
     if (m) {
-        lo_message_add_int32(m, timeout);
         if (subscribe_flags & SUB_DEVICE_ALL)
             lo_message_add_string(m, "all");
         else {
@@ -164,6 +163,8 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
                     lo_message_add_string(m, "connections_out");
             }
         }
+        lo_message_add_string(m, "@lease");
+        lo_message_add_int32(m, timeout);
         lo_bundle_add_message(mon->admin->bundle, cmd, m);
         mapper_admin_send_bundle(mon->admin);
     }
