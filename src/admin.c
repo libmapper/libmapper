@@ -2744,10 +2744,6 @@ static int handler_sync(const char *path,
     mapper_monitor mon = admin->monitor;
     mapper_clock_t *clock = &admin->clock;
 
-    // if I sent this message, ignore it
-    if (md && strcmp(mdev_name(md), &argv[0]->s)==0)
-        return 0;
-
     int device_id = crc32(0L, (const Bytef *)&argv[0]->s, strlen(&argv[0]->s));
     int message_id = argv[2]->i;
 
@@ -2777,7 +2773,10 @@ static int handler_sync(const char *path,
     double diff = mapper_timetag_difference(then, now);
     mapper_clock_adjust(&admin->clock, diff, 1.0);
 
-    if (!md)
+    if (!md || !md->registered)
+        return 0;
+    // if I sent this message, ignore it
+    if (md && strcmp(mdev_name(md), &argv[0]->s)==0)
         return 0;
 
     // look at the second part of the message
