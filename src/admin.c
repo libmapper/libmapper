@@ -99,10 +99,10 @@ static int handler_device(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
 static int handler_logout(const char *, const char *, lo_arg **,
                           int, lo_message, void *);
-static int handler_device_subcribe(const char *, const char *, lo_arg **,
-                                   int, lo_message, void *);
-static int handler_device_unsubcribe(const char *, const char *, lo_arg **,
-                                     int, lo_message, void *);
+static int handler_device_subscribe(const char *, const char *, lo_arg **,
+                                    int, lo_message, void *);
+static int handler_device_unsubscribe(const char *, const char *, lo_arg **,
+                                      int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
 static int handler_input_signal_removed(const char *, const char *, lo_arg **,
@@ -175,8 +175,8 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_LINK_PING,             "si",       handler_device_link_ping},
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
-    {ADM_SUBSCRIBE,             NULL,       handler_device_subcribe},
-    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubcribe},
+    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_CONNECT,               NULL,       handler_signal_connect},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
@@ -188,8 +188,8 @@ const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
 
 static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_SUBSCRIBE,             NULL,       handler_device_subcribe},
-    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubcribe},
+    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
     {ADM_LINK_PING,             "si",       handler_device_link_ping},
 };
@@ -1450,9 +1450,9 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
 }
 
 /*! Respond to /subscribe message by adding or renewing a subscription. */
-static int handler_device_subcribe(const char *path, const char *types,
-                                   lo_arg **argv, int argc, lo_message msg,
-                                   void *user_data)
+static int handler_device_subscribe(const char *path, const char *types,
+                                    lo_arg **argv, int argc, lo_message msg,
+                                    void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
@@ -1519,9 +1519,9 @@ static int handler_device_subcribe(const char *path, const char *types,
 }
 
 /*! Respond to /unsubscribe message by removing a subscription. */
-static int handler_device_unsubcribe(const char *path, const char *types,
-                                     lo_arg **argv, int argc, lo_message msg,
-                                     void *user_data)
+static int handler_device_unsubscribe(const char *path, const char *types,
+                                      lo_arg **argv, int argc, lo_message msg,
+                                      void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
 
@@ -2084,7 +2084,6 @@ static int handler_device_unlink(const char *path, const char *types,
           src_name, dest_name, argc-2);
 
     mapper_message_t params;
-    // add arguments from /unlink if any
     if (mapper_msg_parse_params(&params, path, &types[2],
                                 argc-2, &argv[2]))
     {
