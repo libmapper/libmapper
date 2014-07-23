@@ -69,6 +69,7 @@ const char* admin_msg_strings[] =
     "/link/modify",             /* ADM_LINK_MODIFY */
     "/linkTo",                  /* ADM_LINK_TO */
     "/linked",                  /* ADM_LINKED */
+    "/link/ping",               /* ADM_LINK_PING */
     "/logout",                  /* ADM_LOGOUT */
     "/signal",                  /* ADM_SIGNAL */
     "/input",                   /* ADM_INPUT */
@@ -120,6 +121,8 @@ static int handler_device_linked(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_link_modify(const char *, const char *, lo_arg **, int,
                                       lo_message, void *);
+static int handler_device_link_ping(const char *, const char *, lo_arg **, int,
+                                    lo_message, void *);
 static int handler_device_unlink(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_unlinked(const char *, const char *, lo_arg **,
@@ -169,6 +172,7 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_LINK_TO,               NULL,       handler_device_linkTo},
     {ADM_LINKED,                NULL,       handler_device_linked},
     {ADM_LINK_MODIFY,           NULL,       handler_device_link_modify},
+    {ADM_LINK_PING,             "si",       handler_device_link_ping},
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subcribe},
@@ -752,9 +756,69 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             clock->local[clock->local_index].timetag.frac = clock->now.frac;
             clock->local_index = (clock->local_index + 1) % 10;
             clock->message_id = (clock->message_id + 1) % 10;
-            clock->next_ping = clock->now.sec + 5 + (rand() % 5);
+            clock->next_ping = clock->now.sec + 5 + (rand() % 4);
         }
         lo_bundle_free_messages(b);
+
+        if (!admin->device)
+            return;
+
+        int elapsed;
+        // some housekeeping: periodically check if our links are still active
+        mapper_router router = admin->device->routers;
+        while (router) {
+            elapsed = router->ping_time.sec ? clock->now.sec - router->ping_time.sec : 0;
+            if (elapsed > LINK_TIMEOUT) {
+                trace("<%s> Lost contact with linked destination device %s"
+                      "(%d seconds since sync).\n", mdev_name(admin->device),
+                      router->props.dest_name, elapsed);
+
+                // inform subscribers of link timeout
+                // TODO: add metadata to message specifying link _timeout_
+                mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                                            mdev_name(admin->device),
+                                            router->props.dest_name);
+
+                // remove related data structures
+                mdev_remove_router(admin->device, router);
+            }
+            else {
+                mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
+                mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                                            mdev_name(admin->device),
+                                            router->ping_count + 1);
+            }
+            router = router->next;
+        }
+
+        // some housekeeping: periodically check if our links are still active
+        mapper_receiver receiver = admin->device->receivers;
+        while (receiver) {
+            elapsed = receiver->ping_time.sec ? clock->now.sec - receiver->ping_time.sec : 0;
+            if (elapsed > LINK_TIMEOUT) {
+                trace("<%s> Lost contact with linked source device %s"
+                      "(%d seconds since sync).\n", mdev_name(admin->device),
+                      receiver->props.src_name, elapsed);
+
+                // inform subscribers of link timeout
+                // TODO: add metadata to message specifying link _timeout_
+                mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                                            receiver->props.src_name,
+                                            mdev_name(admin->device));
+
+                // remove related data structures
+                mdev_remove_receiver(admin->device, receiver);
+            }
+            else {
+                mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
+                mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                                            mdev_name(admin->device),
+                                            receiver->ping_count + 1);
+            }
+            receiver = receiver->next;
+        }
     }
 }
 
@@ -2766,6 +2830,40 @@ static int handler_signal_disconnected(const char *path, const char *types,
     /* The connection is removed. */
     if (mapper_receiver_remove_connection(r, c)) {
         return 0;
+    }
+    return 0;
+}
+
+static int handler_device_link_ping(const char *path,
+                                    const char *types,
+                                    lo_arg **argv, int argc,
+                                    lo_message msg, void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+
+    if (!md)
+        return 0;
+
+    printf("<%s> handler_device_link_ping(%s ", mdev_name(md), path);
+    lo_message_pp(msg);
+
+    lo_timetag then = lo_message_get_timestamp(msg);
+
+    mapper_router router = mapper_router_find_by_dest_name(md->routers,
+                                                           &argv[0]->s);
+    if (router) {
+        // update sync status
+        mapper_timetag_cpy(&router->ping_time, then);
+        router->ping_count = argv[1]->i;
+    }
+
+    mapper_receiver receiver =
+        mapper_receiver_find_by_src_name(md->receivers, &argv[0]->s);
+    if (receiver) {
+        // update sync status
+        mapper_timetag_cpy(&receiver->ping_time, then);
+        receiver->ping_count = argv[1]->i;
     }
     return 0;
 }

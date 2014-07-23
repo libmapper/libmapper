@@ -75,6 +75,7 @@ typedef enum {
     ADM_LINK_MODIFY,
     ADM_LINK_TO,
     ADM_LINKED,
+    ADM_LINK_PING,
     ADM_LOGOUT,
     ADM_SIGNAL,
     ADM_INPUT,
@@ -176,6 +177,7 @@ typedef struct _mapper_admin {
 /*! The handle to this device is a pointer. */
 typedef mapper_admin_t *mapper_admin;
 
+#define LINK_TIMEOUT 10     // Links will timeout after 10 seconds without ping
 
 /**** Router ****/
 
@@ -233,6 +235,8 @@ typedef struct _mapper_link {
     int n_connections;              //!< Number of connections in link.
     mapper_queue queues;            /*!< Linked-list of message queues
                                      *   waiting to be sent. */
+    mapper_timetag_t ping_time;     //!< Timestamp of last ping.
+    int ping_count;                 //!< Most recent ping
     struct _mapper_link *next;      //!< Next link in the list.
 } *mapper_link, *mapper_router, *mapper_receiver;
 
