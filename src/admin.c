@@ -146,10 +146,25 @@ struct handler_method_assoc {
     lo_method_handler h;
 };
 
-static struct handler_method_assoc device_bus_handlers[] = {
-    {ADM_WHO,                   NULL,       handler_who},
+// handlers needed by both "devices" and "monitors"
+static struct handler_method_assoc admin_bus_handlers[] = {
     {ADM_LOGOUT,                NULL,       handler_logout},
     {ADM_SYNC,                  "siifiid",  handler_sync},
+};
+const int N_ADMIN_BUS_HANDLERS =
+    sizeof(admin_bus_handlers)/sizeof(admin_bus_handlers[0]);
+
+static struct handler_method_assoc admin_mesh_handlers[] = {
+    {ADM_LINKED,                 NULL,      handler_device_linked},
+    {ADM_UNLINKED,               NULL,      handler_device_unlinked},
+    {ADM_CONNECTED,              NULL,      handler_signal_connected},
+    {ADM_DISCONNECTED,           "ss",      handler_signal_disconnected},
+};
+const int N_ADMIN_MESH_HANDLERS =
+    sizeof(admin_mesh_handlers)/sizeof(admin_mesh_handlers[0]);
+
+static struct handler_method_assoc device_bus_handlers[] = {
+    {ADM_WHO,                   NULL,       handler_who},
     {ADM_LINK,                  NULL,       handler_device_link},
     {ADM_LINK_TO,               NULL,       handler_device_linkTo},
     {ADM_LINKED,                NULL,       handler_device_linked},
@@ -169,21 +184,16 @@ const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
 
 static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_LINKED,                 NULL,      handler_device_linked},
-    {ADM_UNLINKED,               NULL,      handler_device_unlinked},
-    {ADM_SUBSCRIBE,              NULL,      handler_device_subcribe},
-    {ADM_UNSUBSCRIBE,            NULL,      handler_device_unsubcribe},
-    {ADM_CONNECT_TO,             NULL,      handler_signal_connectTo},
-    {ADM_CONNECTED,              NULL,      handler_signal_connected},
-    {ADM_DISCONNECTED,           "ss",      handler_signal_disconnected},
+    {ADM_SUBSCRIBE,             NULL,       handler_device_subcribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubcribe},
+    {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
+    {ADM_LINK_PING,             "si",       handler_device_link_ping},
 };
 const int N_DEVICE_MESH_HANDLERS =
     sizeof(device_mesh_handlers)/sizeof(device_mesh_handlers[0]);
 
 static struct handler_method_assoc monitor_bus_handlers[] = {
     {ADM_DEVICE,                NULL,       handler_device},
-    {ADM_LOGOUT,                NULL,       handler_logout},
-    {ADM_SYNC,                  "siifiid",  handler_sync},
 };
 const int N_MONITOR_BUS_HANDLERS =
     sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
@@ -193,10 +203,6 @@ static struct handler_method_assoc monitor_mesh_handlers[] = {
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_INPUT_REMOVED,         "s",        handler_input_signal_removed},
     {ADM_OUTPUT_REMOVED,        "s",        handler_output_signal_removed},
-    {ADM_LINKED,                NULL,       handler_device_linked},
-    {ADM_UNLINKED,              NULL,       handler_device_unlinked},
-    {ADM_CONNECTED,             NULL,       handler_signal_connected},
-    {ADM_DISCONNECTED,          "ss",       handler_signal_disconnected},
 };
 const int N_MONITOR_MESH_HANDLERS =
     sizeof(monitor_mesh_handlers)/sizeof(monitor_mesh_handlers[0]);
@@ -357,6 +363,33 @@ static void seed_srand()
     srand(s);
 }
 
+static void mapper_admin_add_admin_methods(mapper_admin admin)
+{
+    int i;
+    for (i=0; i < N_ADMIN_BUS_HANDLERS; i++)
+    {
+        lo_server_add_method(admin->bus_server,
+                             admin_msg_strings[admin_bus_handlers[i].str_index],
+                             admin_bus_handlers[i].types,
+                             admin_bus_handlers[i].h,
+                             admin);
+    }
+    for (i=0; i < N_ADMIN_MESH_HANDLERS; i++)
+    {
+        lo_server_add_method(admin->mesh_server,
+                             admin_msg_strings[admin_mesh_handlers[i].str_index],
+                             admin_mesh_handlers[i].types,
+                             admin_mesh_handlers[i].h,
+                             admin);
+        // add them for bus also
+        lo_server_add_method(admin->bus_server,
+                             admin_msg_strings[admin_mesh_handlers[i].str_index],
+                             admin_mesh_handlers[i].types,
+                             admin_mesh_handlers[i].h,
+                             admin);
+    }
+}
+
 static void mapper_admin_add_device_methods(mapper_admin admin,
                                             mapper_device device)
 {
@@ -496,6 +529,9 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     // Disable liblo message queueing.
     lo_server_enable_queue(admin->bus_server, 0, 1);
     lo_server_enable_queue(admin->mesh_server, 0, 1);
+
+    // Add methods required by both devices and monitors
+    mapper_admin_add_admin_methods(admin);
 
     return admin;
 }
