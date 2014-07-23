@@ -774,11 +774,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                       router->props.dest_name, elapsed);
 
                 // inform subscribers of link timeout
-                // TODO: add metadata to message specifying link _timeout_
                 mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
-                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
                                             mdev_name(admin->device),
-                                            router->props.dest_name);
+                                            router->props.dest_name,
+                                            "@status", "timeout");
 
                 // remove related data structures
                 mdev_remove_router(admin->device, router);
@@ -802,11 +802,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                       receiver->props.src_name, elapsed);
 
                 // inform subscribers of link timeout
-                // TODO: add metadata to message specifying link _timeout_
                 mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
-                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
                                             receiver->props.src_name,
-                                            mdev_name(admin->device));
+                                            mdev_name(admin->device),
+                                            "@status", "timeout");
 
                 // remove related data structures
                 mdev_remove_receiver(admin->device, receiver);
@@ -2844,9 +2844,6 @@ static int handler_device_link_ping(const char *path,
 
     if (!md)
         return 0;
-
-    printf("<%s> handler_device_link_ping(%s ", mdev_name(md), path);
-    lo_message_pp(msg);
 
     lo_timetag then = lo_message_get_timestamp(msg);
 
