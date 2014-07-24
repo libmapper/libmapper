@@ -138,6 +138,8 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
         if (subscribe_flags & SUB_DEVICE_ALL)
             lo_message_add_string(m, "all");
         else {
+            if (subscribe_flags & SUB_DEVICE)
+                lo_message_add_string(m, "device");
             if (subscribe_flags & SUB_DEVICE_SIGNALS)
                 lo_message_add_string(m, "signals");
             else {
