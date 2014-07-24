@@ -1405,8 +1405,12 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
             else {
                 // reset timeout
                 (*s)->lease_expiration_sec = clock->now.sec + timeout_seconds;
-                if ((*s)->flags == flags)
-                    return;
+                if ((*s)->flags == flags) {
+                    if (revision)
+                        return;
+                    else
+                        break;
+                }
                 int temp = flags;
                 flags &= ~(*s)->flags;
                 (*s)->flags = temp;
