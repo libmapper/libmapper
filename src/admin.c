@@ -667,17 +667,17 @@ static void mapper_admin_probe_device_name(mapper_admin admin,
 {
     device->ordinal.collision_count = -1;
     device->ordinal.count_time = get_current_time();
-    
+
     /* Note: mdev_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
     char name[256];
     trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
     snprintf(name, 256, "/%s.%d", device->props.identifier, device->ordinal.value);
-    
+
     /* Calculate a hash from the name and store it in id.value */
     device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
-    
+
     /* For the same reason, we can't use mapper_admin_send()
      * here. */
     lo_send(admin->bus_addr, "/name/probe", "si",
@@ -1279,6 +1279,8 @@ static int handler_device(const char *path, const char *types,
                 params.lengths[AT_IP] = 1;
             }
         }
+        else
+            trace("Couldn't retrieve host for device %s.\n", name);
     }
 
     mapper_db_add_or_update_device_params(db, name, &params);
@@ -2656,7 +2658,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_OUT);
         mapper_admin_send_connected(admin, router, c, -1, 1);
-        
+
         // Call local connection handler if it exists
         if (md->connection_cb)
             md->connection_cb(md, &router->props, output,
@@ -2888,8 +2890,11 @@ static int handler_sync(const char *path,
     if (mon) {
         mapper_db_device reg = mapper_db_get_device_by_name(&mon->db,
                                                             &argv[0]->s);
-        if (!reg)
-            mapper_db_add_or_update_device_params(&mon->db, &argv[0]->s, NULL);
+        if (!reg) {
+            // only create device record after requesting more information
+            if (mon->autosubscribe)
+                mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
+        }
         else
             mapper_timetag_cpy(&reg->synced, then);
     }
