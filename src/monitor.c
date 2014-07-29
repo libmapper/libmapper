@@ -85,12 +85,10 @@ void mapper_monitor_free(mapper_monitor mon)
 int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 {
     int admin_count = mapper_admin_poll(mon->admin);
+    mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
     // check if any subscriptions need to be renewed
     mapper_monitor_subscription s = mon->subscriptions;
-    if (s) {
-        mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
-    }
     while (s) {
         if (s->lease_expiration_sec < mon->admin->clock.now.sec) {
             monitor_subscribe_internal(mon, s->name, s->flags,
@@ -113,6 +111,11 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 #endif
         }
     }
+
+    // TODO: do not check every time poll() is called
+    // some housekeeping: check if any devices have timed out
+    mapper_db_check_device_status(&mon->db, mon->admin->clock.now.sec);
+
     return admin_count;
 }
 
@@ -443,4 +446,28 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
 {
     mapper_clock_now(&mon->admin->clock, tt);
+}
+
+void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
+{
+    mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
+
+    // flush expired device records
+    mapper_db_flush(&mon->db, mon->admin->clock.now.sec, timeout_sec, quiet);
+
+    // also need to remove subscriptions
+    mapper_monitor_subscription *s = &mon->subscriptions;
+    while (*s) {
+        if (!mapper_db_get_device_by_name(&mon->db, (*s)->name)) {
+            // don't bother sending '/unsubscribe' since device is unresponsive
+            // remove from subscriber list
+            mapper_monitor_subscription temp = *s;
+            *s = temp->next;
+            if (temp->name)
+                free(temp->name);
+            free(temp);
+        }
+        else
+            s = &(*s)->next;
+    }
 }

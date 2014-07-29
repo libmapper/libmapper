@@ -177,7 +177,7 @@ typedef struct _mapper_admin {
 /*! The handle to this device is a pointer. */
 typedef mapper_admin_t *mapper_admin;
 
-#define LINK_TIMEOUT 10     // Links will timeout after 10 seconds without ping
+#define ADMIN_TIMEOUT_SEC 10        // timeout after 10 seconds without ping
 
 /**** Router ****/
 

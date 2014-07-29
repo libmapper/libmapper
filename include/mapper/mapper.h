@@ -662,6 +662,7 @@ typedef enum {
     MDB_MODIFY,
     MDB_NEW,
     MDB_REMOVE,
+    MDB_UNRESPONSIVE,
 } mapper_db_action_t;
 
 /***** Devices *****/
@@ -1318,6 +1319,13 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms);
 /*! Get the database associated with a monitor. This can be used as
  *  long as the monitor remains alive. */
 mapper_db mapper_monitor_get_db(mapper_monitor mon);
+
+/*! Remove unresponsive devices from the database.
+ *  \param mon         The monitor to use.
+ *  \param timeout_sec The number of seconds a device must have been
+ *                     unresponsive before removal.
+ *  \param quiet       1 to disable callbacks during db flush, 0 otherwise. */
+void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
 
 /*! Request that all devices report in. */
 int mapper_monitor_request_devices(mapper_monitor mon);

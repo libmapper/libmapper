@@ -104,10 +104,10 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mapper_db_add_or_update_device_params(db, "/testdb.1", &msg);
-    mapper_db_add_or_update_device_params(db, "/testdb__.2", &msg);
-    mapper_db_add_or_update_device_params(db, "/testdb.3", &msg);
-    mapper_db_add_or_update_device_params(db, "/testdb__.4", &msg);
+    mapper_db_add_or_update_device_params(db, "/testdb.1", &msg, 0);
+    mapper_db_add_or_update_device_params(db, "/testdb__.2", &msg, 0);
+    mapper_db_add_or_update_device_params(db, "/testdb.3", &msg, 0);
+    mapper_db_add_or_update_device_params(db, "/testdb__.4", &msg, 0);
 
     args[0] = (lo_arg*)"@direction";
     args[1] = (lo_arg*)"input";

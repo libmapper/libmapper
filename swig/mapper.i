@@ -1211,6 +1211,7 @@ typedef enum {
     MDB_MODIFY,
     MDB_NEW,
     MDB_REMOVE,
+    MDB_UNRESPONSIVE,
 } mapper_db_action_t;
 
 typedef enum {
@@ -1845,6 +1846,9 @@ typedef struct _admin {} admin;
         mapper_timetag_t tt;
         mapper_monitor_now((mapper_monitor)$self, &tt);
         return mapper_timetag_get_double(tt);
+    }
+    void flush(int timeout = ADMIN_TIMEOUT_SEC, int quiet = 1) {
+        mapper_monitor_flush_db((mapper_monitor)$self, timeout, quiet);
     }
     %pythoncode {
         db = property(get_db)
