@@ -1320,6 +1320,18 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms);
  *  long as the monitor remains alive. */
 mapper_db mapper_monitor_get_db(mapper_monitor mon);
 
+/*! Set the timeout in seconds after which a monitor will declare a device
+ *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
+ *  \param mon      The monitor to use.
+ *  \param timeout  The timeout in seconds. */
+void mapper_monitor_set_timeout(mapper_monitor mon, int timeout);
+
+/*! Get the timeout in seconds after which a monitor will declare a device
+ *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
+ *  \param mon      The monitor to use.
+ *  \return The current timeout in seconds. */
+int mapper_monitor_get_timeout(mapper_monitor mon);
+
 /*! Remove unresponsive devices from the database.
  *  \param mon         The monitor to use.
  *  \param timeout_sec The number of seconds a device must have been
@@ -1328,7 +1340,7 @@ mapper_db mapper_monitor_get_db(mapper_monitor mon);
 void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
 
 /*! Request that all devices report in. */
-int mapper_monitor_request_devices(mapper_monitor mon);
+void mapper_monitor_request_devices(mapper_monitor mon);
 
 /*! Subscribe to information about a specific device.
  *  \param mon             The monitor to use.

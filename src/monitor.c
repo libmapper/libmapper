@@ -52,6 +52,8 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
         return NULL;
     }
 
+    mon->timeout_sec = ADMIN_TIMEOUT_SEC;
+
     mapper_admin_add_monitor(mon->admin, mon);
     if (autosubscribe_flags)
         mapper_monitor_autosubscribe(mon, autosubscribe_flags);
@@ -114,7 +116,8 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 
     // TODO: do not check every time poll() is called
     // some housekeeping: check if any devices have timed out
-    mapper_db_check_device_status(&mon->db, mon->admin->clock.now.sec);
+    mapper_db_check_device_status(&mon->db,
+                                  mon->admin->clock.now.sec - mon->timeout_sec);
 
     return admin_count;
 }
@@ -254,11 +257,10 @@ void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
     mapper_monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
-int mapper_monitor_request_devices(mapper_monitor mon)
+void mapper_monitor_request_devices(mapper_monitor mon)
 {
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
-    return 0;
 }
 
 void mapper_monitor_link(mapper_monitor mon,
@@ -446,6 +448,18 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
 {
     mapper_clock_now(&mon->admin->clock, tt);
+}
+
+void mapper_monitor_set_timeout(mapper_monitor mon, int timeout_sec)
+{
+    if (timeout_sec < 0)
+        timeout_sec = ADMIN_TIMEOUT_SEC;
+    mon->timeout_sec = timeout_sec;
+}
+
+int mapper_monitor_get_timeout(mapper_monitor mon)
+{
+    return mon->timeout_sec;
 }
 
 void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)

@@ -308,6 +308,9 @@ typedef struct _mapper_monitor {
      *  new device is seen.*/
     int autosubscribe;
 
+    /*! The time after which the monitor will declare devices "unresponsive". */
+    int timeout_sec;
+
     /*! Linked-list of autorenewing device subscriptions. */
     mapper_monitor_subscription subscriptions;
 
