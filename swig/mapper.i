@@ -1805,6 +1805,9 @@ typedef struct _admin {} admin;
     void unsubscribe(const char *name) {
         return mapper_monitor_unsubscribe((mapper_monitor)$self, name);
     }
+    void request_devices() {
+        mapper_monitor_request_devices((mapper_monitor)$self);
+    }
     void link(const char* source_device,
               const char* dest_device,
               mapper_db_link_with_flags_t *properties=0) {
