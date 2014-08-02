@@ -14,6 +14,7 @@
 #include <sstream>
 #include <initializer_list>
 #include <vector>
+#include <iterator>
 
 //#include <lo/lo.h>
 //#include <lo/lo_cpp.h>
@@ -167,6 +168,34 @@ namespace mapper {
                                             &value, &length);
             return Property(name, type, value, length);
         }
+        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Iterator(mapper_db_signal *s)
+                { sig = s; }
+            ~Iterator()
+                { mapper_db_signal_done(sig); }
+            bool operator==(const Iterator& rhs)
+                { return (sig == rhs.sig); }
+            bool operator!=(const Iterator& rhs)
+                { return (sig != rhs.sig); }
+            Iterator& operator++()
+            {
+                if (sig != NULL)
+                    sig = mapper_db_signal_next(sig);
+                return (*this);
+            }
+            Iterator operator++(int)
+                { Iterator tmp(*this); operator++(); return tmp; }
+            SignalProps operator*()
+                { return SignalProps(*sig); }
+            Iterator begin()
+                { return Iterator(sig); }
+            Iterator end()
+                { return Iterator(0); }
+        private:
+            mapper_db_signal *sig;
+        };
     protected:
         mapper_signal signal;
         mapper_db_signal props;
@@ -382,6 +411,30 @@ namespace mapper {
         {
             return SignalProps(msig_properties(signal));
         }
+        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Iterator(mapper_signal *s, int n)
+                { signals = s; size = n; }
+            ~Iterator() {}
+            bool operator==(const Iterator& rhs)
+                { return (signals == rhs.signals && size == rhs.size); }
+            bool operator!=(const Iterator& rhs)
+                { return (signals != rhs.signals || size != rhs.size); }
+            Iterator& operator++()
+                { size++; return (*this); }
+            Iterator operator++(int)
+                { Iterator tmp(*this); size++; return tmp; }
+            Signal operator*()
+                { return Signal(signals[size]); }
+            Iterator begin()
+                { return Iterator(signals, 0); }
+            Iterator end()
+                { return Iterator(signals, size); }
+        private:
+            mapper_signal *signals;
+            int size;
+        };
     protected:
         mapper_signal signal;
         mapper_db_signal props;
@@ -434,6 +487,36 @@ namespace mapper {
                                             &value, &length);
             return Property(name, type, value, length);
         }
+        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Iterator(mapper_db_device *d)
+                { dev = d; }
+            ~Iterator()
+                { mapper_db_device_done(dev); }
+            operator mapper_db_device*() const
+                { return dev; }
+            bool operator==(const Iterator& rhs)
+                { return (dev == rhs.dev); }
+            bool operator!=(const Iterator& rhs)
+                { return (dev != rhs.dev); }
+            Iterator& operator++()
+                {
+                    if (dev != NULL)
+                        dev = mapper_db_device_next(dev);
+                    return (*this);
+                }
+            Iterator operator++(int)
+                { Iterator tmp(*this); operator++(); return tmp; }
+            DeviceProps operator*()
+                { return DeviceProps(*dev); }
+            Iterator begin()
+                { return Iterator(dev); }
+            Iterator end()
+                { return Iterator(0); }
+        private:
+            mapper_db_device *dev;
+        };
     protected:
         mapper_device device;
         mapper_db_device props;
@@ -478,15 +561,23 @@ namespace mapper {
             { return mdev_num_connections_in(device); }
         int num_connections_out() const
             { return mdev_num_connections_out(device); }
-//        Signal *get_inputs
-//        Signal *get_outputs
-        Signal get_input(const string_type &name, int* index=0) const
+        Signal::Iterator inputs() const
+        {
+            return Signal::Iterator(mdev_get_inputs(device),
+                                    mdev_num_inputs(device));
+        }
+        Signal inputs(const string_type &name, int* index=0) const
             { return Signal(mdev_get_input_by_name(device, name, index)); }
-        Signal get_input(int index) const
+        Signal inputs(int index) const
             { return Signal(mdev_get_input_by_index(device, index)); }
-        Signal get_output(const string_type &name, int *index=0) const
+        Signal::Iterator outputs() const
+        {
+            return Signal::Iterator(mdev_get_outputs(device),
+                                    mdev_num_outputs(device));
+        }
+        Signal outputs(const string_type &name, int *index=0) const
             { return Signal(mdev_get_output_by_name(device, name, index)); }
-        Signal get_output(int index) const
+        Signal outputs(int index) const
             { return Signal(mdev_get_output_by_index(device, index)); }
         DeviceProps properties() const
             { return DeviceProps(device); }
@@ -570,6 +661,34 @@ namespace mapper {
                                           &value, &length);
             return Property(name, type, value, length);
         }
+        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Iterator(mapper_db_link *l)
+                { link = l; }
+            ~Iterator()
+                { mapper_db_link_done(link); }
+            bool operator==(const Iterator& rhs)
+                { return (link == rhs.link); }
+            bool operator!=(const Iterator& rhs)
+                { return (link != rhs.link); }
+            Iterator& operator++()
+            {
+                if (link != NULL)
+                    link = mapper_db_link_next(link);
+                return (*this);
+            }
+            Iterator operator++(int)
+                { Iterator tmp(*this); operator++(); return tmp; }
+            LinkProps operator*()
+                { return LinkProps(*link); }
+            Iterator begin()
+                { return Iterator(link); }
+            Iterator end()
+                { return Iterator(0); }
+        private:
+            mapper_db_link *link;
+        };
     protected:
         mapper_db_link props;
         int owned;
@@ -602,6 +721,34 @@ namespace mapper {
                                                 &value, &length);
             return Property(name, type, value, length);
         }
+        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Iterator(mapper_db_connection *c)
+                { con = c; }
+            ~Iterator()
+                { mapper_db_connection_done(con); }
+            bool operator==(const Iterator& rhs)
+                { return (con == rhs.con); }
+            bool operator!=(const Iterator& rhs)
+                { return (con != rhs.con); }
+            Iterator& operator++()
+            {
+                if (con != NULL)
+                    con = mapper_db_connection_next(con);
+                return (*this);
+            }
+            Iterator operator++(int)
+                { Iterator tmp(*this); operator++(); return tmp; }
+            ConnectionProps operator*()
+                { return ConnectionProps(*con); }
+            Iterator begin()
+                { return Iterator(con); }
+            Iterator end()
+                { return Iterator(0); }
+        private:
+            mapper_db_connection *con;
+        };
     protected:
         mapper_db_connection props;
     };
@@ -623,6 +770,8 @@ namespace mapper {
         }
         void flush(int timeout_sec, int quiet=0)
             { mapper_monitor_flush_db(monitor, timeout_sec, quiet); }
+
+        // db_devices
         void add_device_callback(mapper_db_device_handler *handler,
                                  void *user_data)
             { mapper_db_add_device_callback(db, handler, user_data); }
@@ -633,10 +782,15 @@ namespace mapper {
             { return DeviceProps(mapper_db_get_device_by_name(db, name)); }
         DeviceProps get_device(uint32_t hash) const
             { return DeviceProps(mapper_db_get_device_by_name_hash(db, hash)); }
-//        get_all_devices()
-//        device_next()
-//        device_done()
-//        match_devices_by_name()
+        DeviceProps::Iterator devices() const
+            { return DeviceProps::Iterator(mapper_db_get_all_devices(db)); }
+        DeviceProps::Iterator match_devices(const string_type &pattern) const
+        {
+            return DeviceProps::Iterator(
+                mapper_db_match_devices_by_name(db, pattern));
+        }
+
+        // db_signals
         void add_signal_callback(mapper_db_signal_handler *handler,
                                  void *user_data)
             { mapper_db_add_signal_callback(db, handler, user_data); }
@@ -657,25 +811,56 @@ namespace mapper {
                 mapper_db_get_output_by_device_and_signal_names(db, device_name,
                                                                 signal_name));
         }
-//        get_all_inputs
-//        get_all_outputs
-//        // TODO: overload with regexp as input?
-//        get_inputs_by_device_name
-//        get_outputs_by_device_name
-//        match_inputs_by_device_name
-//        match_outputs_by_device_name
-//        signal_next
-//        signal_done
+        SignalProps::Iterator inputs() const
+            { return SignalProps::Iterator(mapper_db_get_all_inputs(db)); }
+        SignalProps::Iterator inputs(const string_type device_name) const
+        {
+            return SignalProps::Iterator(
+                mapper_db_get_inputs_by_device_name(db, device_name));
+        }
+        SignalProps::Iterator match_inputs(const string_type device_name,
+                                           const string_type pattern) const
+        {
+            return SignalProps::Iterator(
+                 mapper_db_match_inputs_by_device_name(db, device_name, pattern));
+        }
+        SignalProps::Iterator outputs() const
+            { return SignalProps::Iterator(mapper_db_get_all_outputs(db)); }
+        SignalProps::Iterator outputs(const string_type device_name) const
+        {
+            return SignalProps::Iterator(
+                 mapper_db_get_outputs_by_device_name(db, device_name));
+        }
+        SignalProps::Iterator match_outputs(const string_type device_name,
+                                            const string_type pattern) const
+        {
+            return SignalProps::Iterator(
+                 mapper_db_match_outputs_by_device_name(db, device_name, pattern));
+        }
+        // db_links
         void add_link_callback(mapper_db_link_handler *handler,
                                void *user_data)
             { mapper_db_add_link_callback(db, handler, user_data); }
         void remove_link_callback(mapper_db_link_handler *handler,
                                   void *user_data)
             { mapper_db_remove_link_callback(db, handler, user_data); }
-//        get_all_links
-//        get_links_by_device_name
-//        get_links_by_src_device_name
-//        get_links_by_dest_device_name
+        LinkProps::Iterator links() const
+            { return LinkProps::Iterator(mapper_db_get_all_links(db)); }
+        LinkProps::Iterator links(const string_type &device_name) const
+        {
+            return LinkProps::Iterator(
+                mapper_db_get_links_by_device_name(db, device_name));
+        }
+        LinkProps::Iterator links_by_src(const string_type &device_name) const
+        {
+            return LinkProps::Iterator(
+                mapper_db_get_links_by_src_device_name(db, device_name));
+        }
+        LinkProps::Iterator links_by_dest(const string_type &device_name) const
+        {
+            return LinkProps::Iterator(
+                mapper_db_get_links_by_dest_device_name(db, device_name));
+        }
         LinkProps get_link(const string_type &source_device,
                            const string_type &dest_device)
         {
@@ -683,9 +868,17 @@ namespace mapper {
                 mapper_db_get_link_by_src_dest_names(db, source_device,
                                                      dest_device));
         }
-//        get_links_by_src_dest_devices()
-//        link_next
-//        link_done
+        LinkProps::Iterator links(DeviceProps::Iterator src_list,
+                                  DeviceProps::Iterator dest_list) const
+        {
+            // TODO: check that this works!
+            return LinkProps::Iterator(
+                mapper_db_get_links_by_src_dest_devices(db,
+                    (mapper_db_device*)(src_list),
+                    (mapper_db_device*)(dest_list)));
+        }
+
+        // db connections
         void add_connection_callback(mapper_db_connection_handler *handler,
                                      void *user_data)
             { mapper_db_add_connection_callback(db, handler, user_data); }

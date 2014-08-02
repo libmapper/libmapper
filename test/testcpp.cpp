@@ -23,6 +23,8 @@ int main(int argc, char ** argv)
     mapper::Signal sig = dev.add_input("in1", 1, 'f', "meters", 0, 0, 0, 0);
     dev.remove_input(sig);
     dev.add_input("in2", 2, 'i', 0, 0, 0, 0, 0);
+    dev.add_input("in3", 2, 'i', 0, 0, 0, 0, 0);
+    dev.add_input("in4", 2, 'i', 0, 0, 0, 0, 0);
 
     sig = dev.add_output("out1", 1, 'f', "na", 0, 0);
     dev.remove_output(sig);
@@ -62,11 +64,31 @@ int main(int argc, char ** argv)
 
     std::cout << "signal " << sig.full_name() << std::endl;
 
+    for (int i = 0; i < dev.num_inputs(); i++) {
+        std::cout << "input: " << dev.inputs(i).full_name() << std::endl;
+    }
+    mapper::Signal::Iterator iter = dev.inputs().begin();
+    for (; iter != dev.inputs().end(); iter++) {
+        std::cout << "input: " << (*iter).full_name() << std::endl;
+    }
+
+    mapper::Monitor mon(SUB_DEVICE_ALL);
+
     std::vector <double> v(3);
     while (i++ < 100) {
         dev.poll(100);
+        mon.poll();
         v[0] = i;
         sig.update(v);
+    }
+
+    // check db records
+    std::cout << "db records:" << std::endl;
+    mapper::DeviceProps::Iterator devices = mon.db().devices().begin();
+    for (; devices != devices.end(); devices++) {
+        std::cout << "  device: ";
+        (*devices).get("name").print();
+        std::cout << std::endl;
     }
 
 //  done:
