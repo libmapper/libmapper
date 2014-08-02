@@ -72,6 +72,12 @@ namespace mapper {
     public:
         Timetag(mapper_timetag_t tt)
             { timetag.sec = tt.sec; timetag.frac = tt.frac; }
+        Timetag(int seconds)
+            { mapper_timetag_set_int(&timetag, seconds); }
+        Timetag(float seconds)
+            { mapper_timetag_set_float(&timetag, seconds); }
+        Timetag(double seconds)
+            { mapper_timetag_set_double(&timetag, seconds); }
         operator mapper_timetag_t*()
             { return &timetag; }
     protected:
