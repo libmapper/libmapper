@@ -207,9 +207,6 @@ typedef struct _mapper_db_signal
     /*! Number of instances. */
     int num_instances;
 
-    /*! Size of the history vector. */
-    int history_size;
-
     /*! The name of this signal, an OSC path.  Must start with '/'. */
     char *name;
 
