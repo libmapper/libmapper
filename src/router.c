@@ -153,11 +153,11 @@ void mapper_router_num_instances_changed(mapper_router r,
     for (i=rs->num_instances; i<size; i++) {
         rs->history[i].type = sig->props.type;
         rs->history[i].length = sig->props.length;
-        rs->history[i].size = sig->props.history_size;
+        rs->history[i].size = rs->history_size;
         rs->history[i].value = calloc(1, msig_vector_bytes(sig)
-                                      * sig->props.history_size);
+                                      * rs->history_size);
         rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                        * sig->props.history_size);
+                                        * rs->history_size);
         rs->history[i].position = -1;
     }
 
@@ -208,9 +208,9 @@ void mapper_router_process_signal(mapper_router r,
     if (!value) {
         rs->history[id].position = -1;
         // reset associated input memory for this instance
-        memset(rs->history[id].value, 0, rs->signal->props.history_size *
+        memset(rs->history[id].value, 0, rs->history_size *
                msig_vector_bytes(rs->signal));
-        memset(rs->history[id].timetag, 0, rs->signal->props.history_size *
+        memset(rs->history[id].timetag, 0, rs->history_size *
                sizeof(mapper_timetag_t));
         c = rs->connections;
         while (c) {

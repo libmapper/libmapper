@@ -449,31 +449,23 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
-                msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->src_min);
-            }
+            msg_add_typed_value(m, con->src_type, con->src_length,
+                                con->src_min);
             break;
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
-                msg_add_typed_value(m, con->src_type, con->src_length,
-                                    con->src_max);
-            }
+            msg_add_typed_value(m, con->src_type, con->src_length,
+                                con->src_max);
             break;
         case AT_DEST_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
-                msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->dest_min);
-            }
+            msg_add_typed_value(m, con->dest_type, con->dest_length,
+                                con->dest_min);
             break;
         case AT_DEST_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
-                msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                    con->dest_max);
-            }
+            msg_add_typed_value(m, con->dest_type, con->dest_length,
+                                con->dest_max);
             break;
         case AT_MUTE:
             i = va_arg(aq, int);

@@ -14,20 +14,21 @@ The current status is summarized here:
   network, responding to incoming signal values, and updating
   registered output signals.
 
-* Routings (called Links) and Mappings can be established, and all
-  required signal conditioning functions have been implemented.
+* Network routing (called Links) and Mappings (called Connections can
+  be established, and all required signal conditioning functions have
+  been implemented, including support for vectors, conditionals.
 
 * A device is able to also monitor the network and store information
   about other devices, signals, links, and mappings, and this
   information can be queried.
 
-* MaxMSP and puredata external object working.
+* MaxMSP and puredata external objects working.
 
 * Python bindings working.
 
 * Java bindings working for end-device functionality.
 
-* Signal queries for implicit mappers working
+* Signal queries and reverse-mode connections for implicit mappers working
 
 * Demos working on Linux, OSX, Windows
 
@@ -65,27 +66,16 @@ The following tasks currently need to be accomplished:
 Lower priority tasks
 ====================
 
-* finish timetag integration (delays, destination interpolation,
-  timetag manipulation, timed filters)
+* finish timetag integration - delays, destination interpolation,
+  timetag manipulation, timed filters. (In progress)
 
-* full vector support in expressions
-
-* conditionals in expressions
-
-* Java bindings for monitor functionality.
+* Java bindings for monitor functionality. (In progress)
 
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered, or devices disappear and reappear. (Depends on
   namespace hashing, save for later.)
 
-* Implement OSC aliasing for signal connections.
-
-* Add a user interaction to "testmonitor", allowing users to create
-  connections in a text-based environment.  Although there will be
-  graphical interfaces, described in the next section, it should be
-  considered useful for the library to come with a simple tool to
-  monitor and possibly control the network, so that a user may test
-  the examples.
+* Implement OSC aliasing for more efficient signal connections.
 
 * Look into usage on embedded platforms. (Works on gumstix!)
 
@@ -98,7 +88,7 @@ Lower priority tasks
 * Check for disallowed OSC characters. Security testing.
     * Add default MAX_CONNECTIONS, MAX_SIGNALS
 
-* TCP transport
+* TCP transport (In progress)
 
 * Shared memory
 
@@ -112,8 +102,6 @@ than being tasks for the library development itself.
 
 * Development of SuperCollider usage, either using library or
   reimplemented in SC to some extent.
-
-* Development of Processing demos
 
 * Modify some of the FAUST architectures (e.g., Jack) to automatically
   create a libmapper interface for input and output signals.
