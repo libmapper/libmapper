@@ -7,8 +7,10 @@ DOX=libmapper.doxyfile
 
 EXTRA_DIST=expression_syntax.md how_to_compile_and_run.md windows.md	\
            tutorials/tutorial_c.md tutorials/tutorial_introduction.md	\
-           tutorials/tutorial_maxmsp_central.md tutorials/tutorial_maxmsp_multiobj.md \
-           tutorials/tutorial_pure_data.md tutorials/tutorial_python.md
+           tutorials/tutorial_maxmsp_central.md                         \
+           tutorials/tutorial_maxmsp_multiobj.md                        \
+           tutorials/tutorial_pure_data.md tutorials/tutorial_python.md \
+           tutorials/tutorial_java.md
 
 INSTIMAGES=html/doxygen.png
 
