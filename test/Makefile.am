@@ -17,7 +17,7 @@ noinst_PROGRAMS = test testadmin testcpp testcustomtransport testdb testexpressi
 test_all_ordered = testparams testprops testdb testparser testadmin testmany \
                    testsend testrecv test testlinear testexpression testqueue \
                    testquery testrate testinstance testreverse testselect \
-                   testvector testcustomtransport testspeed testsync
+                   testvector testcustomtransport testspeed testsync testcpp
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
