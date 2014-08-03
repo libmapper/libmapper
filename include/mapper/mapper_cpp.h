@@ -181,6 +181,8 @@ namespace mapper {
                 { sig = s; }
             ~Iterator()
                 { mapper_db_signal_done(sig); }
+            operator mapper_db_signal*() const
+                { return sig; }
             bool operator==(const Iterator& rhs)
                 { return (sig == rhs.sig); }
             bool operator!=(const Iterator& rhs)
@@ -891,25 +893,72 @@ namespace mapper {
         void remove_connection_callback(mapper_db_connection_handler *handler,
                                         void *user_data)
             { mapper_db_remove_connection_callback(db, handler, user_data); }
-//        get_all_connections()
-//        get_connections_by_device_name
-//        get_connections_by_src_signal_name
-//        get_connections_by_src_device_and_signal_names()
-//        get_connections_by_dest_signal_name
-//        get_connections_by_dest_device_and_signal_names
-//        get_connections_by_device_and_signal_names
-        ConnectionProps get_connection(const string_type &source_name,
-                                       const string_type &dest_name)
+        ConnectionProps::Iterator connections() const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_all_connections(db));
+        }
+        ConnectionProps::Iterator connections(const string_type &src_device,
+                                              const string_type &src_signal,
+                                              const string_type &dest_device,
+                                              const string_type &dest_signal) const
+        {
+            return ConnectionProps::Iterator(
+                mapper_db_get_connections_by_device_and_signal_names(db,
+                     src_device, src_signal, dest_device, dest_signal));
+        }
+        ConnectionProps::Iterator connections(const string_type &device_name) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_device_name(db, device_name));
+        }
+        ConnectionProps::Iterator connections_by_src(const string_type &signal_name) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_src_signal_name(db, signal_name));
+        }
+        ConnectionProps::Iterator connections_by_src(const string_type &device_name,
+                                                     const string_type &signal_name) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_src_device_and_signal_names(db,
+                      device_name, signal_name));
+        }
+        ConnectionProps::Iterator connections_by_dest(const string_type &signal_name) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_dest_signal_name(db, signal_name));
+        }
+        ConnectionProps::Iterator connections_by_dest(const string_type &device_name,
+                                                      const string_type &signal_name) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_dest_device_and_signal_names(db,
+                      device_name, signal_name));
+        }
+        ConnectionProps connection_by_signals(const string_type &source_name,
+                                              const string_type &dest_name) const
         {
             return ConnectionProps(
                 mapper_db_get_connection_by_signal_full_names(db, source_name,
                                                               dest_name));
         }
-//        get_connection_by_signal_full_names
-//        get_connections_by_src_dest_device_names
-//        get_connections_by_signal_queries
-//        connection_next
-//        connection_done
+        ConnectionProps::Iterator connection_by_devices(const string_type &source_name,
+                                                        const string_type &dest_name) const
+        {
+            return ConnectionProps::Iterator(
+                mapper_db_get_connections_by_src_dest_device_names(db,
+                                                                   source_name,
+                                                                   dest_name));
+        }
+        ConnectionProps::Iterator connections(SignalProps::Iterator src_list,
+                                              SignalProps::Iterator dest_list) const
+        {
+            return ConnectionProps::Iterator(
+                 mapper_db_get_connections_by_signal_queries(db,
+                     (mapper_db_signal*)(src_list),
+                     (mapper_db_signal*)(dest_list)));
+        }
     protected:
         mapper_db db;
         mapper_monitor monitor;
