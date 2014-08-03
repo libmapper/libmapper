@@ -88,17 +88,17 @@ namespace mapper {
     {
     public:
         Property(const string_type &_name, int _value)
-        { name = _name; i = _value; length = 1; type = 'i'; }
+            { name = _name; i = _value; length = 1; type = 'i'; }
         Property(const string_type &_name, float _value)
-        { name = _name; f = _value; length = 1; type = 'f'; }
+            { name = _name; f = _value; length = 1; type = 'f'; }
         Property(const string_type &_name, double _value)
-        { name = _name; d = _value; length = 1; type = 'd'; }
+            { name = _name; d = _value; length = 1; type = 'd'; }
         Property(const string_type &_name, int *_value, int _length)
-        { name = _name; pi = _value; length = _length; type = 'i'; }
+            { name = _name; pi = _value; length = _length; type = 'i'; }
         Property(const string_type &_name, float *_value, int _length)
-        { name = _name; pf = _value; length = _length; type = 'f'; }
+            { name = _name; pf = _value; length = _length; type = 'f'; }
         Property(const string_type &_name, double *_value, int _length)
-        { name = _name; pd = _value; length = _length; type = 'd'; }
+            { name = _name; pd = _value; length = _length; type = 'd'; }
         Property(const string_type &_name, char _type,
                  const void *_value, int _length)
         {
@@ -107,15 +107,17 @@ namespace mapper {
             value = _value;
             length = _length;
         }
+        operator const void*() const
+            { return value; }
         void print()
         {
             printf("%s: ", name);
             mapper_prop_pp(type, length, value);
         }
-    protected:
         const char *name;
         char type;
         int length;
+    protected:
         union {
             const void *value;
             int *pi;
@@ -644,11 +646,7 @@ namespace mapper {
                 owned = 1;
             }
         ~LinkProps()
-        {
-            if (owned) {
-//                mapper_db_link_free(props);
-            }
-        }
+            { if (owned && props) free(props); }
         operator mapper_db_link() const
             { return props; }
         Property get(const string_type &name)
@@ -706,10 +704,69 @@ namespace mapper {
     {
     public:
         int found;
+        int flags;
+        char src_type;
+        char dest_type;
+        int src_length;
+        int dest_length;
+        void *src_min;
+        void *src_max;
+        void *dest_min;
+        void *dest_max;
+
         ConnectionProps(mapper_db_connection connection)
-            { props = connection; found = connection ? 1 : 0; }
+            { props = connection; found = connection ? 1 : 0; owned = 0; }
+        ConnectionProps()
+        {
+            props = (mapper_db_connection)calloc(1, sizeof(mapper_db_connection_t));
+            flags = 0;
+            owned = 1;
+        }
+        ~ConnectionProps()
+            { if (owned && props) free(props); }
         operator mapper_db_connection() const
-            { return props; }
+        {
+            return props;
+        }
+        void set_mode(mapper_mode_type mode)
+            { props->mode = mode; flags |= CONNECTION_MODE; }
+        void set_bound_min(mapper_boundary_action bound_min)
+            { props->bound_min = bound_min; flags |= CONNECTION_BOUND_MIN; }
+        void set_bound_max(mapper_boundary_action bound_max)
+            { props->bound_max = bound_max; flags |= CONNECTION_BOUND_MAX; }
+        void set_expression(const string_type &expression)
+        {
+            props->expression = (char*)(const char*)expression;
+            flags |= CONNECTION_EXPRESSION;
+        }
+        void set_src_min(const Property &value)
+        {
+            props->src_min = (void*)(const void*)value;
+            props->src_type = value.type;
+            props->src_length = value.length;
+            flags |= (CONNECTION_RANGE_SRC_MIN | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+        }
+        void set_src_max(Property &value)
+        {
+            props->src_max = (void*)(const void*)value;
+            props->src_type = value.type;
+            props->src_length = value.length;
+            flags |= (CONNECTION_RANGE_SRC_MAX | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+        }
+        void set_dest_min(Property &value)
+        {
+            props->dest_min = (void*)(const void*)value;
+            props->dest_type = value.type;
+            props->dest_length = value.length;
+            flags |= (CONNECTION_RANGE_DEST_MIN | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+        }
+        void set_dest_max(Property &value)
+        {
+            props->dest_min = (void*)(const void*)value;
+            props->dest_type = value.type;
+            props->dest_length = value.length;
+            flags |= (CONNECTION_RANGE_DEST_MAX | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+        }
         Property get(const string_type &name)
         {
             char type;
@@ -759,6 +816,7 @@ namespace mapper {
         };
     protected:
         mapper_db_connection props;
+        int owned;
     };
 
     class Db
@@ -989,22 +1047,32 @@ namespace mapper {
             { mapper_monitor_autosubscribe(monitor, flags); }
         void link(const string_type &source_device, const string_type &dest_device)
             { mapper_monitor_link(monitor, source_device, dest_device, 0, 0); }
-//        link(const string_type &source_device, const string_type &dest_device,
-//             Db::Link properties)
-//            { mapper_monitor_link(monitor, source_device, dest_device,
-//                                  db_props, db_prop_flags); }
+//        void link(const string_type &source_device, const string_type &dest_device,
+//             const LinkProps &properties)
+//        {
+//            mapper_monitor_link(monitor, source_device, dest_device,
+//                                mapper_db_link(properties), properties.flags);
+//        }
         void unlink(const string_type &source_device, const string_type &dest_device)
             { mapper_monitor_unlink(monitor, source_device, dest_device); }
         void connect(const string_type &source_signal, const string_type &dest_signal)
             { mapper_monitor_connect(monitor, source_signal, dest_signal, 0, 0); }
-//        connect(const string_type &source_signal, const string_type &dest_signal,
-//                Db::Connection properties)
-//            { mapper_monitor_connect(monitor, source_signal, dest_signal,
-//                                     db_props, db_prop_flags); }
-//        connection_modify(const string_type &source_signal, const string_type &dest_signal,
-//                          Db::Connection properties)
-//            { mapper_connection_modify(monitor, source_signal, dest_signal,
-//                                       db_props, db_prop_flags); }
+        void connect(const string_type &source_signal,
+                     const string_type &dest_signal,
+                     const ConnectionProps &properties) const
+        {
+            mapper_monitor_connect(monitor, source_signal, dest_signal,
+                                   mapper_db_connection(properties),
+                                   properties.flags);
+        }
+        void connection_modify(const string_type &source_signal,
+                               const string_type &dest_signal,
+                               ConnectionProps &properties) const
+        {
+            mapper_monitor_connection_modify(monitor, source_signal, dest_signal,
+                                             mapper_db_connection(properties),
+                                             properties.flags);
+        }
         void disconnect(const string_type &source_signal, const string_type &dest_signal)
             { mapper_monitor_disconnect(monitor, source_signal, dest_signal); }
     protected:

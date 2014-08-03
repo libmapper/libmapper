@@ -1,12 +1,9 @@
 
-//#include <cstdio.h>
 #include <string.h>
 #include <iostream>
 
 #include <mapper/mapper.h>
 #include <mapper/mapper_cpp.h>
-//#include <lo/lo.h>
-//#include <lo/lo_cpp.h>
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
@@ -73,6 +70,16 @@ int main(int argc, char ** argv)
     }
 
     mapper::Monitor mon(SUB_DEVICE_ALL);
+    mon.link(dev.name(), dev.name());
+    while (dev.num_links_in() <= 0) { dev.poll(100); }
+
+    mapper::ConnectionProps c;
+    c.set_mode(MO_EXPRESSION);
+    c.set_expression("y=x[0:1]+123");
+    double d[3] = {1., 2., 3.};
+    c.set_src_min(mapper::Property(0, d, 3));
+    mon.connect("/mydevice.1/out2", "/mydevice.1/in4", c);
+    while (dev.num_connections_in() <= 0) { dev.poll(100); }
 
     std::vector <double> v(3);
     while (i++ < 100) {
@@ -90,8 +97,35 @@ int main(int argc, char ** argv)
         (*devices).get("name").print();
         std::cout << std::endl;
     }
+    mapper::SignalProps::Iterator signals = mon.db().inputs().begin();
+    for (; signals != signals.end(); signals++) {
+        std::cout << "  input signal: ";
+        (*signals).get("name").print();
+        std::cout << std::endl;
+    }
+    signals = mon.db().outputs().begin();
+    for (; signals != signals.end(); signals++) {
+        std::cout << "  input signal: ";
+        (*signals).get("name").print();
+        std::cout << std::endl;
+    }
+    mapper::LinkProps::Iterator links = mon.db().links().begin();
+    for (; links != links.end(); links++) {
+        std::cout << "  link: ";
+        (*links).get("src_name").print();
+        std::cout << " -> ";
+        (*links).get("dest_name").print();
+        std::cout << std::endl;
+    }
+    mapper::ConnectionProps::Iterator conns = mon.db().connections().begin();
+    for (; conns != conns.end(); conns++) {
+        std::cout << "  connection: ";
+        (*conns).get("src_name").print();
+        std::cout << " -> ";
+        (*conns).get("dest_name").print();
+        std::cout << std::endl;
+    }
 
-//  done:
     printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

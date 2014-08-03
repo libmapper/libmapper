@@ -964,7 +964,8 @@ void _real_mapper_admin_bundle_message(mapper_admin admin,
         switch (t[0]) {
         case 'i': lo_message_add(m, t, va_arg(aq, int)); break;
         case 's': lo_message_add(m, t, va_arg(aq, char*)); break;
-        case 'f': lo_message_add(m, t, va_arg(aq, double)); break;
+        case 'f':
+        case 'd': lo_message_add(m, t, va_arg(aq, double)); break;
         default:
             die_unless(0, "message %s, unknown type '%c'\n",
                        path, t[0]);
