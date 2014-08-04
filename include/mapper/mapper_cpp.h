@@ -19,6 +19,15 @@
 //#include <lo/lo.h>
 //#include <lo/lo_cpp.h>
 
+/* TODO:
+ *      signal update handlers
+ *      instance event handlers
+ *      monitor db handlers
+ *      device link & connection handlers
+ *      LinkProps: set scopes
+ *      Link and COnnection props: set arbitrary properties
+ */
+
 //signal_update_handler(Signal sig, instance_id, value, count, TimeTag)
 //- optional: instance_id, timetag, count
 //
@@ -99,6 +108,12 @@ namespace mapper {
             { name = _name; pf = _value; length = _length; type = 'f'; }
         Property(const string_type &_name, double *_value, int _length)
             { name = _name; pd = _value; length = _length; type = 'd'; }
+        Property(const string_type &_name, std::vector<int> _value)
+            { name = _name; pi = &_value[0]; length = _value.size(); type = 'i'; }
+        Property(const string_type &_name, std::vector<float> _value)
+            { name = _name; pf = &_value[0]; length = _value.size(); type = 'f'; }
+        Property(const string_type &_name, std::vector<double> _value)
+            { name = _name; pd = &_value[0]; length = _value.size(); type = 'd'; }
         Property(const string_type &_name, char _type,
                  const void *_value, int _length)
         {
@@ -156,6 +171,14 @@ namespace mapper {
         void set(const string_type &name, double *value, int length)
             { if (signal) msig_set_property(signal, name, 'd', value, length); }
         // TODO: string array
+        void set(const string_type &name, std::vector<int> value)
+            { if (signal) msig_set_property(signal, name, 'i', &value[0], value.size()); }
+        void set(const string_type &name, std::vector<float> value)
+            { if (signal) msig_set_property(signal, name, 'f', &value[0], value.size()); }
+        void set(const string_type &name, std::vector<double> value)
+            { if (signal) msig_set_property(signal, name, 'd', &value[0], value.size()); }
+//        void set(const string_type &name, std::vector<std::string> value)
+//            { if (signal) msig_set_property(signal, name, 's', &value[0], value.size()); }
         void remove(const string_type &name)
             { if (signal) msig_remove_property(signal, name); }
         Property get(const string_type &name)
@@ -222,6 +245,10 @@ namespace mapper {
             { return signal; }
 
         // TODO: check if data type is correct in update!
+        void update(void *value, int count)
+            { msig_update(signal, value, count, MAPPER_NOW); }
+        void update(void *value, int count, Timetag tt)
+            { msig_update(signal, value, count, *tt); }
         void update(int value)
             { msig_update_int(signal, value); }
         void update(float value)
@@ -303,6 +330,10 @@ namespace mapper {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
         }
+        void update_instance(int instance_id, void *value, int count)
+            { msig_update_instance(signal, instance_id, value, count, MAPPER_NOW); }
+        void update_instance(int instance_id, void *value, int count, Timetag tt)
+            { msig_update_instance(signal, instance_id, value, count, *tt); }
         void update_instance(int instance_id, int value)
             { msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW); }
         void update_instance(int instance_id, float value)
@@ -476,7 +507,14 @@ namespace mapper {
             { if (device) mdev_set_property(device, name, 'f', value, length); }
         void set(const string_type &name, double *value, int length)
             { if (device) mdev_set_property(device, name, 'd', value, length); }
+        void set(const string_type &name, std::vector<int> value)
+            { if (device) mdev_set_property(device, name, 'i', &value[0], value.size()); }
+        void set(const string_type &name, std::vector<float> value)
+            { if (device) mdev_set_property(device, name, 'f', &value[0], value.size()); }
+        void set(const string_type &name, std::vector<double> value)
+            { if (device) mdev_set_property(device, name, 'd', &value[0], value.size()); }
         // TODO: string array
+        // TODO: string vector
         void remove(const string_type &name)
             { if (device) mdev_remove_property(device, name); }
         Property get(const string_type &name)
