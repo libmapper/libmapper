@@ -72,6 +72,8 @@ namespace mapper {
             { if (admin) mapper_admin_free(admin); }
         operator mapper_admin() const
             { return admin; }
+        std::string libversion()
+            { return std::string(mapper_admin_libversion(admin)); }
     protected:
         mapper_admin admin;
     };
@@ -444,10 +446,6 @@ namespace mapper {
             { msig_set_maximum(signal, value); }
         void set_rate(int rate)
             { msig_set_rate(signal, rate); }
-        void set_property(const string_type &name, char type, void *value, int length)
-            { msig_set_property (signal, name, type, value, length); }
-        void remove_property(const string_type &name)
-            { msig_remove_property(signal, name); }
         SignalProps properties() const
         {
             return SignalProps(msig_properties(signal));
@@ -941,6 +939,7 @@ namespace mapper {
             return SignalProps::Iterator(
                  mapper_db_match_outputs_by_device_name(db, device_name, pattern));
         }
+
         // db_links
         void add_link_callback(mapper_db_link_handler *handler,
                                void *user_data)

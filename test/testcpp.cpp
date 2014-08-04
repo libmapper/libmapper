@@ -1,8 +1,8 @@
 
 #include <string.h>
 #include <iostream>
+#include <arpa/inet.h>
 
-#include <mapper/mapper.h>
 #include <mapper/mapper_cpp.h>
 
 #ifdef WIN32
@@ -10,6 +10,42 @@
 #else
 #include <unistd.h>
 #endif
+
+int received = 0;
+
+void insig_handler(mapper_signal sig, mapper_db_signal props,
+                   int instance_id, void *value, int count,
+                   mapper_timetag_t *timetag)
+{
+    if (value) {
+        printf("--> destination got %s", props->name);
+        switch (props->type) {
+            case 'i': {
+                int *v = (int*)value;
+                for (int i = 0; i < props->length; i++) {
+                    printf(" %d", v[i]);
+                }
+                break;
+            }
+            case 'f': {
+                float *v = (float*)value;
+                for (int i = 0; i < props->length; i++) {
+                    printf(" %f", v[i]);
+                }
+            }
+            case 'd': {
+                double *v = (double*)value;
+                for (int i = 0; i < props->length; i++) {
+                    printf(" %f", v[i]);
+                }
+            }
+            default:
+                break;
+        }
+        printf("\n");
+    }
+    received++;
+}
 
 int main(int argc, char ** argv)
 {
@@ -21,7 +57,7 @@ int main(int argc, char ** argv)
     dev.remove_input(sig);
     dev.add_input("in2", 2, 'i', 0, 0, 0, 0, 0);
     dev.add_input("in3", 2, 'i', 0, 0, 0, 0, 0);
-    dev.add_input("in4", 2, 'i', 0, 0, 0, 0, 0);
+    dev.add_input("in4", 2, 'i', 0, 0, 0, insig_handler, 0);
 
     sig = dev.add_output("out1", 1, 'f', "na", 0, 0);
     dev.remove_output(sig);
@@ -35,7 +71,9 @@ int main(int argc, char ** argv)
     std::cout << "  ordinal: " << dev.ordinal() << std::endl;
     std::cout << "  id: " << dev.id() << std::endl;
     std::cout << "  interface: " << dev.interface() << std::endl;
-//    std::cout << "  host: " << dev.host() << std::endl;
+    const struct in_addr* a = dev.ip4();
+    if (a)
+        std::cout << "  host: " << inet_ntoa(*a) << std::endl;
     std::cout << "  port: " << dev.port() << std::endl;
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
 //    std::cout << "  clock_offset: " << dev.clock_offset() << std::endl;
@@ -85,7 +123,7 @@ int main(int argc, char ** argv)
     while (i++ < 100) {
         dev.poll(100);
         mon.poll();
-        v[0] = i;
+        v[i%3] = i;
         sig.update(v);
     }
 

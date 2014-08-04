@@ -2072,4 +2072,7 @@ typedef struct _admin {} admin;
     ~_admin() {
         mapper_admin_free((mapper_admin)$self);
     }
+    const char *libversion() {
+        return mapper_admin_libversion((mapper_admin)$self);
+    }
 }
