@@ -1566,7 +1566,7 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_reserveInstances
     }
     else {
         for (i = 0; i < num; i++) {
-            reserved += msig_reserve_instances(sig, 1, 0, (void **)ref);
+            reserved += msig_reserve_instances(sig, 1, 0, (void **)&ref);
         }
         return reserved;
     }
@@ -2267,6 +2267,37 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Device_mdb_1device_1property_1lookup
     return o;
 }
 
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_mdb_1devices
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db db = (mapper_db)ptr_jlong(p);
+    return jlong_ptr(mapper_db_get_all_devices(db));
+}
+
+/**** Mapper.Db.Device.Iterator ****/
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_DeviceIterator_mdb_1deref
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    void **ptr = (void**)ptr_jlong(p);
+    return jlong_ptr(*ptr);
+}
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_DeviceIterator_mdb_1device_1next
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_device_t **devs = (mapper_db_device_t**)ptr_jlong(p);
+    return jlong_ptr(mapper_db_device_next(devs));
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Db_DeviceIterator_mdb_1device_1done
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_device_t **devs = (mapper_db_device_t**)ptr_jlong(p);
+    if (devs)
+        mapper_db_device_done(devs);
+}
+
 /**** Mapper.Db.Signal ****/
 
 JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_mdb_1signal_1get_1name
@@ -2355,6 +2386,44 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Signal_mdb_1signal_1property_1lookup
     return o;
 }
 
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_mdb_1inputs
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db db = (mapper_db)ptr_jlong(p);
+    return jlong_ptr(mapper_db_get_all_inputs(db));
+}
+
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_mdb_1outputs
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db db = (mapper_db)ptr_jlong(p);
+    return jlong_ptr(mapper_db_get_all_outputs(db));
+}
+
+/**** Mapper.Db.Signal.Iterator ****/
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_SignalIterator_mdb_1deref
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    void **ptr = (void**)ptr_jlong(p);
+    return jlong_ptr(*ptr);
+}
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_SignalIterator_mdb_1signal_1next
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal_t **sigs = (mapper_db_signal_t**)ptr_jlong(p);
+    return jlong_ptr(mapper_db_signal_next(sigs));
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Db_SignalIterator_mdb_1signal_1done
+  (JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_signal_t **sigs = (mapper_db_signal_t**)ptr_jlong(p);
+    if (sigs)
+        mapper_db_signal_done(sigs);
+}
+
 /**** Mapper.Db.Link ****/
 
 JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1src_1name
@@ -2431,6 +2500,30 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mapper_1db_1link_1property_1lookup
 
     (*env)->ReleaseStringUTFChars(env, property, cprop);
     return o;
+}
+
+/**** Mapper.Db.Link.Iterator ****/
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_LinkIterator_mdb_1deref
+(JNIEnv *env, jobject obj, jlong p)
+{
+    void **ptr = (void**)ptr_jlong(p);
+    return jlong_ptr(*ptr);
+}
+
+JNIEXPORT jlong JNICALL Java_Mapper_Db_LinkIterator_mdb_1link_1next
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_link_t **links = (mapper_db_link_t**)ptr_jlong(p);
+    return jlong_ptr(mapper_db_link_next(links));
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Db_LinkIterator_mdb_1link_1done
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_link_t **links = (mapper_db_link_t**)ptr_jlong(p);
+    if (links)
+        mapper_db_link_done(links);
 }
 
 /**** Mapper.Db.Connection ****/

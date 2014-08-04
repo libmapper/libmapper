@@ -2,6 +2,7 @@
 import Mapper.*;
 import Mapper.Device.*;
 import java.util.Arrays;
+import java.util.Iterator;
 
 class test {
     public static void main(String [] args) {
@@ -216,6 +217,20 @@ class test {
             dev.poll(50);
             mon.poll(50);
             i++;
+        }
+
+        // check monitor.db records
+        System.out.println("Db records:");
+
+        Iterator<Mapper.Db.Device> devs = mon.Db.devices().iterator();
+        while (devs.hasNext()) {
+            System.out.println("  device: " + devs.next().name());
+        }
+
+        // another iterator style
+        Mapper.Db.SignalCollection ins = mon.Db.inputs();
+        for (Mapper.Db.Signal s : ins) {
+            System.out.println("  signal: " + s.name());
         }
 
         System.out.println();

@@ -125,6 +125,27 @@ public class Monitor
         }
         private native void mdb_remove_connection_callback(long _d, Mapper.Db.ConnectionListener handler);
 
+        public Mapper.Db.DeviceCollection devices()
+        {
+            long _d = mdb_devices(_db);
+            return (_d == 0) ? null : new Mapper.Db.DeviceCollection(_d);
+        }
+        private native long mdb_devices(long _d);
+
+        public Mapper.Db.SignalCollection inputs()
+        {
+            long _s = mdb_inputs(_db);
+            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+        }
+        private native long mdb_inputs(long _s);
+
+        public Mapper.Db.SignalCollection outputs()
+        {
+            long _s = mdb_outputs(_db);
+            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+        }
+        private native long mdb_outputs(long _s);
+
         private long _db;
         private Monitor _monitor;
 
