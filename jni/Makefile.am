@@ -9,7 +9,8 @@ libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h    \
            Mapper_Db_Device.h Mapper_Db_Link.h Mapper_Db_Connection.h   \
            Mapper_Monitor.h Mapper_Db_DeviceIterator.h                  \
-           Mapper_Db_SignalIterator.h
+           Mapper_Db_SignalIterator.h Mapper_Db_LinkIterator.h          \
+           Mapper_Db_ConnectionIterator.h
 
 JFLAGS = -source 1.5 -target 1.5
 JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
@@ -21,7 +22,10 @@ JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
            Mapper/Db/SignalListener.class Mapper/Db/LinkListener.class      \
            Mapper/Db/ConnectionListener.class                               \
            Mapper/Db/DeviceCollection.class Mapper/Db/DeviceIterator.class  \
-           Mapper/Db/SignalCollection.class Mapper/Db/SignalIterator.class
+           Mapper/Db/SignalCollection.class Mapper/Db/SignalIterator.class  \
+           Mapper/Db/LinkCollection.class Mapper/Db/LinkIterator.class      \
+           Mapper/Db/ConnectionCollection.class                             \
+           Mapper/Db/ConnectionIterator.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
                    Mapper/PropertyValue$$PropertyException.class

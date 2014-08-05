@@ -1212,7 +1212,7 @@ mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
 mapper_db_link mapper_db_get_link_by_src_dest_names(mapper_db db,
     const char *src_device_name, const char *dest_device_name);
 
-/*! Return the list of links for a given source name.
+/*! Return the list of links that touch devices in both src and dest lists.
  *  \param db The database to query.
  *  \param src_device_list  Double-pointer to the first item in a list
  *                          returned from a previous database query.

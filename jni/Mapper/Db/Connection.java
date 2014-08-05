@@ -11,7 +11,7 @@ public class Connection
     public static final int BA_CLAMP = 2;
     public static final int BA_FOLD  = 3;
     public static final int BA_WRAP  = 4;
-    
+
     /*! Describes the connection mode. */
     public static final int MO_UNDEFINED  = 0;
     public static final int MO_BYPASS     = 1;
@@ -19,13 +19,13 @@ public class Connection
     public static final int MO_EXPRESSION = 3;
     public static final int MO_CALIBRATE  = 4;
     public static final int MO_REVERSE    = 5;
-    
+
     /*! Describes the voice-stealing mode for instances. */
     public static final int IN_UNDEFINED    = 0;
     public static final int IN_STEAL_OLDEST = 1;
     public static final int IN_STEAL_NEWEST = 2;
 
-    private Connection(long conprops) {
+    public Connection(long conprops) {
         _conprops = conprops;
 
         srcName = mdb_connection_get_src_name(_conprops);

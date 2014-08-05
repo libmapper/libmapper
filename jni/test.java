@@ -233,6 +233,16 @@ class test {
             System.out.println("  signal: " + s.name());
         }
 
+        Mapper.Db.LinkCollection links = mon.Db.links();
+        for (Mapper.Db.Link l : links) {
+            System.out.println("  link: "+ l.srcName() + " -> " + l.destName());
+        }
+
+        Mapper.Db.ConnectionCollection cons = mon.Db.connections();
+        for (Mapper.Db.Connection cc : cons) {
+            System.out.println("  connection: "+ cc.srcName + " -> " + cc.destName);
+        }
+
         System.out.println();
         System.out.println("Number of connections from "
                            + out1.name() + ": " + out1.numConnections());

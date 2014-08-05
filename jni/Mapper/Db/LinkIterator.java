@@ -4,7 +4,7 @@ package Mapper.Db;
 import java.util.Iterator;
 
 public class LinkIterator implements Iterator<Mapper.Db.Link> {
-    public LinkIterator(long devprops_p) {
+    public LinkIterator(long linkprops_p) {
         _linkprops_p = linkprops_p;
     }
 
