@@ -1755,13 +1755,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                 variable | (assigning ? TOK_ASSIGNMENT : 0);
                 break;
             case TOK_NEGATE:
-                // push '0' to output stack, and '-' to operator stack
+                // push '-1' to output stack, and '*' to operator stack
                 tok.toktype = TOK_CONST;
                 tok.datatype = 'i';
-                tok.i = 0;
+                tok.i = -1;
                 PUSH_TO_OUTPUT(tok);
                 tok.toktype = TOK_OP;
-                tok.op = OP_SUBTRACT;
+                tok.op = OP_MULTIPLY;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = TOK_CONST | TOK_VAR | TOK_FUNC | TOK_VFUNC;
                 break;
