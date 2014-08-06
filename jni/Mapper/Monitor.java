@@ -127,92 +127,42 @@ public class Monitor
         private native void mdb_remove_connection_callback(long db, Mapper.Db.ConnectionListener handler);
 
         // Db.Device
-        public Mapper.Db.DeviceCollection devices()
-        {
-            long _d = mdb_devices(_db);
-            return (_d == 0) ? null : new Mapper.Db.DeviceCollection(_d);
-        }
-        private native long mdb_devices(long db);
-
-        public Mapper.Db.Device get_device(String deviceName)
-        {
-            long _d = mdb_get_device(_db, deviceName);
-            return (_d == 0) ? null : new Mapper.Db.Device(_d);
-        }
-        private native long mdb_get_device(long db, String deviceName);
-
-        public Mapper.Db.DeviceCollection match_devices(String pattern)
-        {
-            long _d = mdb_match_devices(_db, pattern);
-            return (_d == 0) ? null : new Mapper.Db.DeviceCollection(_d);
-        }
-        private native long mdb_match_devices(long db, String pattern);
+        public native Mapper.Db.DeviceCollection devices();
+        public native Mapper.Db.Device get_device(String deviceName);
+        public native Mapper.Db.DeviceCollection match_devices(String pattern);
 
         // Db.Input
-        public Mapper.Db.Signal getInput(String deviceName, String signalName)
-        {
-            long _s = mdb_get_input(_db, deviceName, signalName);
-            return (_s == 0) ? null : new Mapper.Db.Signal(_s);
-        }
-        private native long mdb_get_input(long db, String device, String signal);
-
-        public Mapper.Db.SignalCollection inputs()
-        {
-            long _s = mdb_inputs(_db);
+        public native Mapper.Db.Signal getInput(String deviceName,
+                                                String signalName);
+        private native long mdb_inputs(long db, String deviceName);
+        public Mapper.Db.SignalCollection inputs() {
+            long _s = mdb_inputs(_db, null);
             return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
         }
-        private native long mdb_inputs(long db);
-
-        public Mapper.Db.SignalCollection inputs(String deviceName)
-        {
+        public Mapper.Db.SignalCollection inputs(String deviceName) {
             long _s = mdb_inputs(_db, deviceName);
             return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
         }
-        private native long mdb_inputs(long db, String deviceName);
-
-        public Mapper.Db.SignalCollection matchInputs(String deviceName,
-                                                      String signalPattern)
-        {
-            long _s = mdb_match_inputs(_db, deviceName, signalPattern);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
-        }
-        private native long mdb_match_inputs(long db, String deviceName,
-                                             String signalPattern);
+        public native Mapper.Db.SignalCollection matchInputs(String deviceName,
+                                                             String signalPattern);
 
         // Db.Output
-        public Mapper.Db.Signal getOutput(String deviceName, String signalName)
-        {
-            long _s = mdb_get_output(_db, deviceName, signalName);
-            return (_s == 0) ? null : new Mapper.Db.Signal(_s);
-        }
-        private native long mdb_get_output(long db, String device, String signal);
-
-        public Mapper.Db.SignalCollection outputs()
-        {
-            long _s = mdb_outputs(_db);
+        public native Mapper.Db.Signal getOutput(String deviceName,
+                                                 String signalName);
+        private native long mdb_outputs(long db, String deviceName);
+        public Mapper.Db.SignalCollection outputs() {
+            long _s = mdb_outputs(_db, null);
             return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
         }
-        private native long mdb_outputs(long db);
-
-        public Mapper.Db.SignalCollection outputs(String deviceName)
-        {
+        public Mapper.Db.SignalCollection outputs(String deviceName) {
             long _s = mdb_outputs(_db, deviceName);
             return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
         }
-        private native long mdb_outputs(long db, String deviceName);
-
-        public Mapper.Db.SignalCollection matchOutputs(String deviceName,
-                                                       String signalPattern)
-        {
-            long _s = mdb_match_outputs(_db, deviceName, signalPattern);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
-        }
-        private native long mdb_match_outputs(long db, String deviceName,
-                                              String signalPattern);
+        public native Mapper.Db.SignalCollection matchOutputs(String deviceName,
+                                                              String signalPattern);
 
         // Db.Link
         public native Mapper.Db.Link getLink(String srcName, String destName);
-
         private native Mapper.Db.LinkCollection mdb_links(long db, String deviceName);
         public Mapper.Db.LinkCollection links(String deviceName)
             { return mdb_links(_db, deviceName); }
