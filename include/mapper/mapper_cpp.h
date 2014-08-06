@@ -428,7 +428,7 @@ namespace mapper {
             { msig_set_instance_event_callback(signal, h, flags, user_data); }
         void set_instance_data(int instance_id, void *user_data)
             { msig_set_instance_data(signal, instance_id, user_data); }
-        void *get_instance_data(int instance_id) const
+        void *instance_data(int instance_id) const
             { return msig_get_instance_data(signal, instance_id); }
         void set_callback(mapper_signal_update_handler *handler, void *user_data)
             { msig_set_callback(signal, handler, user_data); }
@@ -631,7 +631,7 @@ namespace mapper {
             { return mdev_poll(device, block_ms); }
         int num_fds() const
             { return mdev_num_fds(device); }
-        int get_fds(int *fds, int num) const
+        int fds(int *fds, int num) const
             { return mdev_get_fds(device, fds, num); }
         void service_fd(int fd)
             { mdev_service_fd(device, fd); }
@@ -880,13 +880,13 @@ namespace mapper {
         void remove_device_callback(mapper_db_device_handler *handler,
                                     void *user_data)
             { mapper_db_remove_device_callback(db, handler, user_data); }
-        DeviceProps get_device(const string_type &name) const
+        DeviceProps device(const string_type &name) const
             { return DeviceProps(mapper_db_get_device_by_name(db, name)); }
-        DeviceProps get_device(uint32_t hash) const
+        DeviceProps device(uint32_t hash) const
             { return DeviceProps(mapper_db_get_device_by_name_hash(db, hash)); }
         DeviceProps::Iterator devices() const
             { return DeviceProps::Iterator(mapper_db_get_all_devices(db)); }
-        DeviceProps::Iterator match_devices(const string_type &pattern) const
+        DeviceProps::Iterator devices(const string_type &pattern) const
         {
             return DeviceProps::Iterator(
                 mapper_db_match_devices_by_name(db, pattern));
@@ -899,15 +899,15 @@ namespace mapper {
         void remove_signal_callback(mapper_db_signal_handler *handler,
                                     void *user_data)
             { mapper_db_remove_signal_callback(db, handler, user_data); }
-        SignalProps get_input(const string_type &device_name,
-                              const string_type &signal_name)
+        SignalProps input(const string_type &device_name,
+                          const string_type &signal_name)
         {
             return SignalProps(
                 mapper_db_get_input_by_device_and_signal_names(db, device_name,
                                                                signal_name));
         }
-        SignalProps get_output(const string_type &device_name,
-                               const string_type &signal_name)
+        SignalProps output(const string_type &device_name,
+                           const string_type &signal_name)
         {
             return SignalProps(
                 mapper_db_get_output_by_device_and_signal_names(db, device_name,
@@ -964,8 +964,8 @@ namespace mapper {
             return LinkProps::Iterator(
                 mapper_db_get_links_by_dest_device_name(db, device_name));
         }
-        LinkProps get_link(const string_type &source_device,
-                           const string_type &dest_device)
+        LinkProps link(const string_type &source_device,
+                       const string_type &dest_device)
         {
             return LinkProps(
                 mapper_db_get_link_by_src_dest_names(db, source_device,
@@ -1038,8 +1038,8 @@ namespace mapper {
                 mapper_db_get_connection_by_signal_full_names(db, source_name,
                                                               dest_name));
         }
-        ConnectionProps::Iterator connection_by_devices(const string_type &source_name,
-                                                        const string_type &dest_name) const
+        ConnectionProps::Iterator connections_by_devices(const string_type &source_name,
+                                                         const string_type &dest_name) const
         {
             return ConnectionProps::Iterator(
                 mapper_db_get_connections_by_src_dest_device_names(db,
