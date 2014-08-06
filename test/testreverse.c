@@ -137,11 +137,19 @@ void wait_local_devices()
 int setup_connections()
 {
     int i = 0;
+
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
     char src_name[1024], dest_name[1024];
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
+
+    while (!destination->receivers) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+        if (i++ > 100)
+            return 1;
+    }
 
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
@@ -150,11 +158,11 @@ int setup_connections()
     mapper_monitor_connect(mon, src_name, dest_name, &props,
                            CONNECTION_MODE);
 
+    i = 0;
     // wait until connection has been established
-    while (!destination->receivers ||
-           !destination->receivers->n_connections) {
-        mdev_poll(source, 1);
-        mdev_poll(destination, 1);
+    while (!destination->receivers->n_connections) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
         if (i++ > 100)
             return 1;
     }

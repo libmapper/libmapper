@@ -1170,15 +1170,15 @@ void reallocate_connection_histories(mapper_connection c,
         input_history_size = 1;
 
     // Reallocate input histories
-    if (input_history_size > sig->props.history_size) {
+    if (input_history_size > c->parent->history_size) {
         int sample_size = msig_vector_bytes(sig);
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->parent->history[i], input_history_size,
                           sample_size, 1);
         }
-        sig->props.history_size = input_history_size;
+        c->parent->history_size = input_history_size;
     }
-    else if (input_history_size < sig->props.history_size) {
+    else if (input_history_size < c->parent->history_size) {
         // Do nothing for now...
         // Find maximum input length needed for connections
         /*mapper_connection temp = c->parent->connections;

@@ -6,13 +6,26 @@ libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERS
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 	$(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
-JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h
+JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h    \
+           Mapper_Db_Device.h Mapper_Db_Link.h Mapper_Db_Connection.h   \
+           Mapper_Monitor.h Mapper_Db_DeviceIterator.h                  \
+           Mapper_Db_SignalIterator.h Mapper_Db_LinkIterator.h          \
+           Mapper_Db_ConnectionIterator.h
 
 JFLAGS = -source 1.5 -target 1.5
-JCLASSES = Mapper/Db/Signal.class Mapper/InputListener.class	\
-           Mapper/PropertyValue.class Mapper/Device.class		\
-           Mapper/NativeLib.class Mapper/TimeTag.class			\
-           Mapper/InstanceEventListener.class
+JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
+           Mapper/PropertyValue.class Mapper/TimeTag.class                  \
+           Mapper/InputListener.class Mapper/InstanceEventListener.class    \
+           Mapper/Monitor.class Mapper/Db/Device.class                      \
+           Mapper/Db/Signal.class Mapper/Db/Link.class                      \
+           Mapper/Db/Connection.class Mapper/Db/DeviceListener.class        \
+           Mapper/Db/SignalListener.class Mapper/Db/LinkListener.class      \
+           Mapper/Db/ConnectionListener.class                               \
+           Mapper/Db/DeviceCollection.class Mapper/Db/DeviceIterator.class  \
+           Mapper/Db/SignalCollection.class Mapper/Db/SignalIterator.class  \
+           Mapper/Db/LinkCollection.class Mapper/Db/LinkIterator.class      \
+           Mapper/Db/ConnectionCollection.class                             \
+           Mapper/Db/ConnectionIterator.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
                    Mapper/PropertyValue$$PropertyException.class
@@ -20,11 +33,11 @@ JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class testquery.class testreverse.class \
-    libmapper-@MAJOR_VERSION@.jar
+    testspeed.class libmapper-@MAJOR_VERSION@.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
 	$(subst $$,\$$,test$$1.class test$$2.class test$$3.class testquery$$1.class \
     testquery$$2.class testquery$$3.class testreverse$$1.class testreverse$$2.class \
-    testreverse$$3.class)
+    testreverse$$3.class testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
 Mapper_%.h: Mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
@@ -46,6 +59,9 @@ testquery.class: testquery.java $(JCLASSES)
 testreverse.class: testreverse.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
+testspeed.class: testspeed.java $(JCLASSES)
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+
 libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 	if mkdir -v TestInstances/code; then \
@@ -54,4 +70,5 @@ libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	  ln -v -s ../../$@; \
 	fi # For processing test sketch
 
-EXTRA_DIST = $(JJAVA) test.java testquery.java testreverse.java $(JHEADERS)
+EXTRA_DIST = $(JJAVA) test.java testquery.java testreverse.java testspeed.java \
+             $(JHEADERS)

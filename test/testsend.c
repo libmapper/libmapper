@@ -36,10 +36,11 @@ int test_controller()
     eprintf("Number of outputs: %d\n", mdev_num_outputs(md));
 
     const char *host = "localhost";
-    int port = 9000;
-    mapper_router rt = mapper_router_new(md, host, port, "DESTINATION");
+    int admin_port = 9000, data_port = 9001;
+    mapper_router rt = mapper_router_new(md, host, admin_port, data_port,
+                                         "DESTINATION");
     mdev_add_router(md, rt);
-    eprintf("Router to %s:%d added.\n", host, port);
+    eprintf("Router to %s:%d added.\n", host, data_port);
 
     mapper_router_add_connection(rt, sig, "/mapped1", 'f', 1);
     mapper_router_add_connection(rt, sig, "/mapped2", 'f', 1);

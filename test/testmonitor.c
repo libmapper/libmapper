@@ -178,7 +178,7 @@ void printconnection(mapper_db_connection con)
 /*! Creation of a local dummy device. */
 int setup_monitor()
 {
-    mon = mapper_monitor_new(0, AUTOREQ_ALL);
+    mon = mapper_monitor_new(0, SUB_DEVICE_ALL);
     if (!mon)
         goto error;
     printf("Monitor created.\n");
@@ -274,6 +274,10 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
     case MDB_REMOVE:
         printf("removed.\n");
         break;
+    case MDB_UNRESPONSIVE:
+        printf("unresponsive.\n");
+        mapper_monitor_flush_db(mon, 10, 0);
+        break;
     }
     dbpause();
     update = 1;
@@ -292,6 +296,9 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     case MDB_REMOVE:
         printf("removed.\n");
         break;
+    case MDB_UNRESPONSIVE:
+        printf("unresponsive.\n");
+        break;
     }
     dbpause();
     update = 1;
@@ -299,7 +306,7 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
 
 void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
 {
-    printf("Connecting %s -> %s ", con->src_name, con->dest_name);
+    printf("Connection %s -> %s ", con->src_name, con->dest_name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
@@ -309,6 +316,9 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
         break;
     case MDB_REMOVE:
         printf("removed.\n");
+        break;
+    case MDB_UNRESPONSIVE:
+        printf("unresponsive.\n");
         break;
     }
     dbpause();
@@ -327,6 +337,9 @@ void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
         break;
     case MDB_REMOVE:
         printf("removed.\n");
+        break;
+    case MDB_UNRESPONSIVE:
+        printf("unresponsive.\n");
         break;
     }
     dbpause();
@@ -380,8 +393,6 @@ int main(int argc, char **argv)
     mapper_db_add_signal_callback(db, on_signal, 0);
     mapper_db_add_connection_callback(db, on_connection, 0);
     mapper_db_add_link_callback(db, on_link, 0);
-
-    mapper_monitor_request_devices(mon);
 
     loop();
 

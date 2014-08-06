@@ -9,6 +9,8 @@
 #include <signal.h>
 
 mapper_device mdev = 0;
+mapper_signal inputs[100];
+mapper_signal outputs[100];
 
 void sig_handler(mapper_signal sig, mapper_db_signal props,
                  int instance_id, void *value, int count,
@@ -40,6 +42,7 @@ int main(int argc, char ** argv)
     printf("Adding signals... ");
     fflush(stdout);
     for (i = 0; i < 100; i++) {
+        mdev_poll(mdev, 100);
         snprintf(signame, 32, "/s%i", i);
         if (!mdev_add_input(mdev, signame, 1, 'f', 0, 0, 0, sig_handler, 0)) {
             result = 1;
@@ -50,15 +53,17 @@ int main(int argc, char ** argv)
             goto done;
         }
     }
-
-    printf("Waiting for 10 seconds... ");
-    fflush(stdout);
-    for (i = 100; i > 0; i--)
+    printf("Removing 200 signals...\n");
+    for (i = 0; i < 100; i++) {
+        snprintf(signame, 32, "/s%i", i);
+        mdev_remove_input(mdev, inputs[i]);
+        mdev_remove_output(mdev, outputs[i]);
         mdev_poll(mdev, 100);
-
-    mdev_free(mdev);
+    }
 
   done:
+    if (mdev)
+        mdev_free(mdev);
     printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

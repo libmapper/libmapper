@@ -11,14 +11,17 @@
 #include <mapper/mapper.h>
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
-                                    int port, const char *name)
+                                    int admin_port, int data_port,
+                                    const char *name)
 {
     char str[16];
     mapper_receiver r = (mapper_receiver) calloc(1, sizeof(struct _mapper_link));
     r->props.src_host = strdup(host);
-    r->props.src_port = port;
-    sprintf(str, "%d", port);
-    r->remote_addr = lo_address_new(host, str);
+    r->props.src_port = data_port;
+    sprintf(str, "%d", data_port);
+    r->data_addr = lo_address_new(host, str);
+    sprintf(str, "%d", admin_port);
+    r->admin_addr = lo_address_new(host, str);
     r->props.src_name = strdup(name);
     r->props.src_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
     r->props.dest_name = strdup(mdev_name(device));
@@ -34,7 +37,7 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
-    if (!r->remote_addr) {
+    if (!r->data_addr) {
         mapper_receiver_free(r);
         return 0;
     }
@@ -50,8 +53,10 @@ void mapper_receiver_free(mapper_receiver r)
             free(r->props.src_name);
         if (r->props.src_host)
             free(r->props.src_host);
-        if (r->remote_addr)
-            lo_address_free(r->remote_addr);
+        if (r->admin_addr)
+            lo_address_free(r->admin_addr);
+        if (r->data_addr)
+            lo_address_free(r->data_addr);
         if (r->props.dest_name)
             free(r->props.dest_name);
         while (r->signals && r->signals->connections) {
@@ -161,7 +166,7 @@ void mapper_receiver_send_update(mapper_receiver r,
         lo_bundle_add_message(b, c->props.query_name, m);
         c = c->next;
     }
-    lo_send_bundle(r->remote_addr, b);
+    lo_send_bundle(r->data_addr, b);
     lo_bundle_free_messages(b);
 }
 
@@ -202,7 +207,7 @@ void mapper_receiver_send_released(mapper_receiver r, mapper_signal sig,
     }
 
     if (lo_bundle_count(b))
-        lo_send_bundle_from(r->remote_addr, r->device->server, b);
+        lo_send_bundle_from(r->data_addr, r->device->server, b);
 
     lo_bundle_free_messages(b);
 }

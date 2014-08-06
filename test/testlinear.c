@@ -108,6 +108,12 @@ int setup_connection()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
+    // Wait until link has been established
+    while (!source->routers) {
+        mdev_poll(source, 10);
+        mdev_poll(destination, 10);
+    }
+
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
 
@@ -128,11 +134,10 @@ int setup_connection()
                            CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
                            CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
 
-    // poll devices for a bit to allow time for connection
-    int i = 0;
-    while (i++ < 10) {
-        mdev_poll(destination, 10);
+    // Wait until connection has been established
+    while (!source->routers->n_connections) {
         mdev_poll(source, 10);
+        mdev_poll(destination, 10);
     }
 
     mapper_monitor_free(mon);

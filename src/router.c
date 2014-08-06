@@ -16,15 +16,18 @@ static void mapper_router_send_or_bundle_message(mapper_router router,
                                                  mapper_timetag_t tt);
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name)
+                                int admin_port, int data_port,
+                                const char *name)
 {
     char str[16];
     mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
     r->props.src_name = strdup(mdev_name(device));
     r->props.dest_host = strdup(host);
-    r->props.dest_port = port;
-    sprintf(str, "%d", port);
-    r->remote_addr = lo_address_new(host, str);
+    r->props.dest_port = data_port;
+    sprintf(str, "%d", data_port);
+    r->data_addr = lo_address_new(host, str);
+    sprintf(str, "%d", admin_port);
+    r->admin_addr = lo_address_new(host, str);
     r->props.dest_name = strdup(name);
     r->props.dest_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
 
@@ -39,7 +42,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
-    if (!r->remote_addr) {
+    if (!r->data_addr) {
         mapper_router_free(r);
         return 0;
     }
@@ -57,8 +60,10 @@ void mapper_router_free(mapper_router r)
             free(r->props.dest_host);
         if (r->props.dest_name)
             free(r->props.dest_name);
-        if (r->remote_addr)
-            lo_address_free(r->remote_addr);
+        if (r->admin_addr)
+            lo_address_free(r->admin_addr);
+        if (r->data_addr)
+            lo_address_free(r->data_addr);
         while (r->signals && r->signals->connections) {
             // router_signal is freed with last child connection
             mapper_router_remove_connection(r, r->signals->connections);
@@ -148,11 +153,11 @@ void mapper_router_num_instances_changed(mapper_router r,
     for (i=rs->num_instances; i<size; i++) {
         rs->history[i].type = sig->props.type;
         rs->history[i].length = sig->props.length;
-        rs->history[i].size = sig->props.history_size;
+        rs->history[i].size = rs->history_size;
         rs->history[i].value = calloc(1, msig_vector_bytes(sig)
-                                      * sig->props.history_size);
+                                      * rs->history_size);
         rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                        * sig->props.history_size);
+                                        * rs->history_size);
         rs->history[i].position = -1;
     }
 
@@ -224,9 +229,9 @@ void mapper_router_process_signal(mapper_router r,
     if (!value) {
         rs->history[id].position = -1;
         // reset associated input memory for this instance
-        memset(rs->history[id].value, 0, rs->signal->props.history_size *
+        memset(rs->history[id].value, 0, rs->history_size *
                msig_vector_bytes(rs->signal));
-        memset(rs->history[id].timetag, 0, rs->signal->props.history_size *
+        memset(rs->history[id].timetag, 0, rs->history_size *
                sizeof(mapper_timetag_t));
         c = rs->connections;
         while (c) {
@@ -431,7 +436,7 @@ void mapper_router_send_or_bundle_message(mapper_router r,
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, m);
-        lo_send_bundle_from(r->remote_addr, r->device->server, b);
+        lo_send_bundle_from(r->data_addr, r->device->server, b);
         lo_bundle_free_messages(b);
     }
 }
@@ -483,7 +488,7 @@ void mapper_router_send_queue(mapper_router r,
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count(q->bundle))
 #endif
-            lo_send_bundle_from(r->remote_addr,
+            lo_send_bundle_from(r->data_addr,
                                 r->device->server, q->bundle);
         lo_bundle_free_messages(q->bundle);
         mapper_router_release_queue(r, q);

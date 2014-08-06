@@ -7,8 +7,8 @@ EXPORTS
     mapper_db_add_signal_callback                             @6
     mapper_db_connection_done                                 @7
     mapper_db_connection_next                                 @8
-	mapper_db_connection_property_index                       @9
-	mapper_db_connection_property_lookup                      @10
+    mapper_db_connection_property_index                       @9
+    mapper_db_connection_property_lookup                      @10
     mapper_db_device_done                                     @11
     mapper_db_device_next                                     @12
     mapper_db_device_property_index                           @13
@@ -50,7 +50,7 @@ EXPORTS
     mapper_db_signal_next                                     @49
     mapper_db_signal_property_index                           @50
     mapper_db_signal_property_lookup                          @51
-    mapper_monitor_autorequest                                @52
+    mapper_monitor_autosubscribe                              @52
     mapper_monitor_connect                                    @53
     mapper_monitor_connection_modify                          @54
     mapper_monitor_disconnect                                 @55
@@ -59,51 +59,49 @@ EXPORTS
     mapper_monitor_link                                       @58
     mapper_monitor_new                                        @59
     mapper_monitor_poll                                       @60
-    mapper_monitor_request_connections_by_name                @61
-    mapper_monitor_request_devices                            @62
-    mapper_monitor_request_links_by_name                      @63
-    mapper_monitor_request_signals_by_name                    @64
-    mapper_monitor_unlink                                     @65
-    mdev_add_input                                            @66
-    mdev_add_output                                           @67
-    mdev_free                                                 @68
-    mdev_get_input_by_index                                   @69
-    mdev_get_input_by_name                                    @70
-    mdev_get_inputs                                           @71
-    mdev_get_lo_server                                        @72
-    mdev_get_output_by_index                                  @73
-    mdev_get_output_by_name                                   @74
-    mdev_get_outputs                                          @75
-    mdev_interface                                            @76
-    mdev_ip4                                                  @77
-    mdev_name                                                 @78
-    mdev_new                                                  @79
-    mdev_num_inputs                                           @80
-    mdev_num_outputs                                          @81
-    mdev_ordinal                                              @82
-    mdev_poll                                                 @83
-    mdev_port                                                 @84
-    mdev_ready                                                @85
-    mdev_remove_input                                         @86
-    mdev_remove_output                                        @87
-    mdev_remove_property                                      @88
-    mdev_set_property                                         @89
-    msig_active_instance_id                                   @90
-    msig_full_name                                            @91
-    msig_num_active_instances                                 @92
-    msig_num_reserved_instances                               @93
-    msig_properties                                           @94
-    msig_query_remotes                                        @95
-    msig_release_instance                                     @96
-    msig_remove_property                                      @97
-    msig_reserve_instances                                    @98
-    msig_set_instance_allocation_mode                         @99
-    msig_set_instance_event_callback                          @100
-    msig_set_maximum                                          @101
-    msig_set_minimum                                          @102
-    msig_set_property                                         @103
-    msig_update                                               @104
-    msig_update_float                                         @105
-    msig_update_instance                                      @106
-    msig_update_int                                           @107
-    msig_value                                                @108
+    mapper_monitor_subscribe                                  @61
+    mapper_monitor_unlink                                     @62
+    mapper_monitor_unsubscribe                                @63
+    mdev_add_input                                            @64
+    mdev_add_output                                           @65
+    mdev_free                                                 @66
+    mdev_get_input_by_index                                   @67
+    mdev_get_input_by_name                                    @68
+    mdev_get_inputs                                           @69
+    mdev_get_lo_server                                        @70
+    mdev_get_output_by_index                                  @71
+    mdev_get_output_by_name                                   @72
+    mdev_get_outputs                                          @73
+    mdev_interface                                            @74
+    mdev_ip4                                                  @75
+    mdev_name                                                 @76
+    mdev_new                                                  @77
+    mdev_num_inputs                                           @78
+    mdev_num_outputs                                          @79
+    mdev_ordinal                                              @80
+    mdev_poll                                                 @81
+    mdev_port                                                 @82
+    mdev_ready                                                @83
+    mdev_remove_input                                         @84
+    mdev_remove_output                                        @85
+    mdev_remove_property                                      @86
+    mdev_set_property                                         @87
+    msig_active_instance_id                                   @88
+    msig_full_name                                            @89
+    msig_num_active_instances                                 @90
+    msig_num_reserved_instances                               @91
+    msig_properties                                           @92
+    msig_query_remotes                                        @93
+    msig_release_instance                                     @94
+    msig_remove_property                                      @95
+    msig_reserve_instances                                    @96
+    msig_set_instance_allocation_mode                         @97
+    msig_set_instance_event_callback                          @98
+    msig_set_maximum                                          @99
+    msig_set_minimum                                          @100
+    msig_set_property                                         @101
+    msig_update                                               @102
+    msig_update_float                                         @103
+    msig_update_instance                                      @104
+    msig_update_int                                           @105
+    msig_value                                                @106

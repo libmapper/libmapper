@@ -154,28 +154,40 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
 
+void mapper_admin_set_bundle_dest_bus(mapper_admin admin);
+
+void mapper_admin_set_bundle_dest_mesh(mapper_admin admin, lo_address address);
+
+void mapper_admin_set_bundle_dest_subscribers(mapper_admin admin, int type);
+
 void mapper_admin_send_bundle(mapper_admin admin);
 
+void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
+                              mapper_signal sig);
+
+void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
+                                      mapper_signal sig);
+
 /*! Macro for calling message-sending function. */
-#define mapper_admin_send(...)                  \
-    _real_mapper_admin_send(__VA_ARGS__, N_AT_PARAMS)
+#define mapper_admin_bundle_message(...)                                    \
+    _real_mapper_admin_bundle_message(__VA_ARGS__, N_AT_PARAMS)
 
 /*! Message-sending function, not to be called directly. */
-void _real_mapper_admin_send(mapper_admin admin,
-                             int msg_index,
-                             const char *path,
-                             const char *types, ...);
+void _real_mapper_admin_bundle_message(mapper_admin admin,
+                                       int msg_index,
+                                       const char *path,
+                                       const char *types, ...);
 
 /*! Message-sending function which appends a parameter list at the end. */
-void _real_mapper_admin_send_with_params(mapper_admin admin,
-                                         mapper_message_t *params,
-                                         mapper_string_table_t *extra,
-                                         int msg_index,
-                                         const char *path,
-                                         const char *types, ...);
+void _real_mapper_admin_bundle_message_with_params(mapper_admin admin,
+                                                   mapper_message_t *params,
+                                                   mapper_string_table_t *extra,
+                                                   int msg_index,
+                                                   const char *path,
+                                                   const char *types, ...);
 
-#define mapper_admin_send_with_params(...)                          \
-    _real_mapper_admin_send_with_params(__VA_ARGS__, N_AT_PARAMS)
+#define mapper_admin_bundle_message_with_params(...)                        \
+    _real_mapper_admin_bundle_message_with_params(__VA_ARGS__, N_AT_PARAMS)
 
 /***** Device *****/
 
@@ -244,7 +256,8 @@ const char *mdev_name(mapper_device md);
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int port, const char *name);
+                                int admin_port, int data_port,
+                                const char *name);
 
 void mapper_router_free(mapper_router router);
 
@@ -307,7 +320,8 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 /***** Receiver *****/
 
 mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
-                                    int port, const char *name);
+                                    int admin_port, int data_port,
+                                    const char *name);
 
 void mapper_receiver_free(mapper_receiver receiver);
 
@@ -490,15 +504,17 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 /*! Add or update an entry in the device database using parsed message
  *  parameters.
- *  \param db          The database to operate on.
- *  \param device_name The name of the device.
- *  \param params      The parsed message parameters containing new device
- *                     information.
- *  \return            Non-zero if device was added to the database, or
- *                     zero if it was already present. */
+ *  \param db           The database to operate on.
+ *  \param device_name  The name of the device.
+ *  \param params       The parsed message parameters containing new device
+ *                      information.
+ *  \param current_time The current time.
+ *  \return             Non-zero if device was added to the database, or
+ *                      zero if it was already present. */
 int mapper_db_add_or_update_device_params(mapper_db db,
                                           const char *device_name,
-                                          mapper_message_t *params);
+                                          mapper_message_t *params,
+                                          mapper_timetag_t *current_time);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
@@ -536,6 +552,14 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 
+/*! Remove a named input signal from the database if it exists. */
+void mapper_db_remove_input_by_name(mapper_db db, const char *dev_name,
+                                    const char *sig_name);
+
+/*! Remove a named output signal from the database if it exists. */
+void mapper_db_remove_output_by_name(mapper_db db, const char *dev_name,
+                                    const char *sig_name);
+
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,
                                       mapper_db_signal_t **s);
@@ -565,6 +589,13 @@ void mapper_db_remove_link(mapper_db db,
 void mapper_db_dump(mapper_db db);
 
 void mapper_db_remove_all_callbacks(mapper_db db);
+
+/*! Check device records for unresponsive devices. */
+void mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
+
+/*! Flush device records for unresponsive devices. */
+int mapper_db_flush(mapper_db db, uint32_t current_time,
+                    uint32_t timeout, int quiet);
 
 /**** Links ****/
 

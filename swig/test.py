@@ -62,7 +62,7 @@ def db_cb(rectype, record, action):
     print '  record:',record
     print '  action:',["MODIFY","NEW","REMOVE"][action]
 
-mon = mapper.monitor()
+mon = mapper.monitor(autosubscribe_flags=mapper.SUB_DEVICE)
 
 mon.db.add_device_callback(lambda x,y:db_cb('device',x,y))
 mon.db.add_signal_callback(lambda x,y:db_cb('signal',x,y))
@@ -74,8 +74,6 @@ mon.db.remove_link_callback(l)
 while not dev.ready():
     dev.poll(10)
     mon.poll()
-
-mon.request_devices()
 
 for i in range(1000):
     dev.poll(10)
