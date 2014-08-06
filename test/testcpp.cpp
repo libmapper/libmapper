@@ -93,6 +93,10 @@ int main(int argc, char ** argv)
     dev.properties().get("foo").print();
     std::cout << std::endl;
 
+    // can also access properties like this
+    dev.property("port").print();
+    std::cout << std::endl;
+
     dev.properties().remove("foo");
     dev.properties().get("foo").print();
     std::cout << std::endl;

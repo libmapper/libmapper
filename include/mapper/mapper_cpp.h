@@ -447,9 +447,9 @@ namespace mapper {
         void set_rate(int rate)
             { msig_set_rate(signal, rate); }
         SignalProps properties() const
-        {
-            return SignalProps(msig_properties(signal));
-        }
+            { return SignalProps(signal); }
+        Property property(const string_type name)
+            { return SignalProps(signal).get(name); }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -627,6 +627,8 @@ namespace mapper {
             { return Signal(mdev_get_output_by_index(device, index)); }
         DeviceProps properties() const
             { return DeviceProps(device); }
+        Property property(const string_type name)
+            { return DeviceProps(device).get(name); }
         int poll(int block_ms=0) const
             { return mdev_poll(device, block_ms); }
         int num_fds() const
