@@ -1,4 +1,6 @@
 
+_CXX =  $(filter-out ccache,$(CXX))
+
 all-local: _mapper.$(PYEXT)
 
 $(builddir)/%_wrap.c %.py: %.i
@@ -7,7 +9,7 @@ $(builddir)/%_wrap.c %.py: %.i
 
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.c
-	env CFLAGS="" python setup.py build_ext
+	env CFLAGS="" CXX="$(_CXX)" python setup.py build_ext
 	cp -v `./copywhich.sh $@` .
 
 clean-local:
