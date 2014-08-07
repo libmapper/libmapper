@@ -97,6 +97,15 @@ int main(int argc, char ** argv)
     dev.property("port").print();
     std::cout << std::endl;
 
+    mapper::Property p("temp", "tempstring");
+    dev.properties().set(p);
+    dev.property("temp").print();
+    std::cout << std::endl;
+
+    dev.property("temp") = 12;
+    dev.property("temp").print();
+    std::cout << std::endl;
+
     dev.properties().remove("foo");
     dev.properties().get("foo").print();
     std::cout << std::endl;

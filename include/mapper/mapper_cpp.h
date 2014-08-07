@@ -44,6 +44,8 @@
 
 namespace mapper {
 
+    class Property;
+
     // Helper classes to allow polymorphism on "const char *",
     // "std::string", and "int".
     class string_type {
@@ -95,58 +97,98 @@ namespace mapper {
         mapper_timetag_t timetag;
     };
 
+    class AbstractProps
+    {
+    public:
+        virtual void set(mapper::Property p) = 0;
+    };
+
     class Property
     {
     public:
-        Property(const string_type &_name, int _value)
-            { name = _name; i = _value; length = 1; type = 'i'; }
-        Property(const string_type &_name, float _value)
-            { name = _name; f = _value; length = 1; type = 'f'; }
-        Property(const string_type &_name, double _value)
-            { name = _name; d = _value; length = 1; type = 'd'; }
-        Property(const string_type &_name, int *_value, int _length)
-            { name = _name; pi = _value; length = _length; type = 'i'; }
-        Property(const string_type &_name, float *_value, int _length)
-            { name = _name; pf = _value; length = _length; type = 'f'; }
-        Property(const string_type &_name, double *_value, int _length)
-            { name = _name; pd = _value; length = _length; type = 'd'; }
-        Property(const string_type &_name, std::vector<int> _value)
-            { name = _name; pi = &_value[0]; length = _value.size(); type = 'i'; }
-        Property(const string_type &_name, std::vector<float> _value)
-            { name = _name; pf = &_value[0]; length = _value.size(); type = 'f'; }
-        Property(const string_type &_name, std::vector<double> _value)
-            { name = _name; pd = &_value[0]; length = _value.size(); type = 'd'; }
-        Property(const string_type &_name, char _type,
-                 const void *_value, int _length)
-        {
-            name = _name;
-            type = _type;
-            value = _value;
-            length = _length;
-        }
+        template <typename T>
+        Property(const string_type &_name, T _value)
+            { name = _name; set(_value); parent = NULL; }
+        template <typename T>
+        Property(const string_type &_name, T& _value, int _length)
+            { name = _name; set(_value, _length); parent = NULL; }
+        template <typename T>
+        Property(const string_type &_name, std::vector<T> _value)
+            { name = _name; set(_value); parent = NULL; }
+        template <typename T>
+        Property(const string_type &_name, char _type, T& _value, int _length)
+            { name = _name; set(_type, _value, _length); parent = NULL; }
+
         operator const void*() const
             { return value; }
+        template <typename T>
+        void operator =(T _value)
+            { set(_value); if (parent) parent->set(*this); }
         void print()
         {
-            printf("%s: ", name);
+            printf("%s: ", name ?: "unknown");
             mapper_prop_pp(type, length, value);
         }
         const char *name;
         char type;
         int length;
+        const void *value;
     protected:
+        friend class DeviceProps;
+        friend class SignalProps;
+        friend class LinkProps;
+        friend class ConnectionProps;
+
+        Property(const string_type &_name, char _type, const void *_value,
+                 int _length, AbstractProps& _parent)
+            { name = _name; set(_type, _value, _length); parent = &_parent; }
+    private:
         union {
-            const void *value;
-            int *pi;
-            float *pf;
-            double *pd;
             int i;
             float f;
             double d;
+            char c;
         };
+        void set(int _value)
+            { i = _value; length = 1; type = 'i'; value = &i; }
+        void set(float _value)
+            { f = _value; length = 1; type = 'f'; value = &f; }
+        void set(double _value)
+            { d = _value; length = 1; type = 'd'; value = &d; }
+        void set(char _value)
+            { c = _value; length = 1; type = 'c'; value = &c; }
+        void set(const char *_value)
+            { value = _value; length = 1; type = 's'; }
+        void set(int *_value, int _length)
+            { value = _value; length = _length; type = 'i'; }
+        void set(float *_value, int _length)
+            { value = _value; length = _length; type = 'f'; }
+        void set(double *_value, int _length)
+            { value = _value; length = _length; type = 'd'; }
+        void set(char *_value, int _length)
+            { value = _value; length = _length; type = 'c'; }
+        void set(char **_value, int _length)
+            { value = _value; length = _length; type = 's'; }
+        void set(std::vector<int> _value)
+            { value = &_value[0]; length = _value.size(); type = 'i'; }
+        void set(std::vector<float> _value)
+            { value = &_value[0]; length = _value.size(); type = 'f'; }
+        void set(std::vector<double> _value)
+            { value = &_value[0]; length = _value.size(); type = 'd'; }
+        void set(std::vector<char> _value)
+            { value = &_value[0]; length = _value.size(); type = 'c'; }
+        void set(std::vector<const string_type> _value)
+            { value = &_value[0]; length = _value.size(); type = 's'; }
+        void set(char _type, const void *_value, int _length)
+        {
+            type = _type;
+            value = _value;
+            length = _length;
+        }
+        AbstractProps *parent;
     };
 
-    class SignalProps
+    class SignalProps : public AbstractProps
     {
         // Reuse class for signal and database
     public:
@@ -157,30 +199,21 @@ namespace mapper {
             { signal = 0; props = sig_db; found = sig_db ? 1 : 0; }
         operator mapper_db_signal() const
             { return props; }
-        void set(const string_type &name, int value)
-            { if (signal) msig_set_property(signal, name, 'i', &value, 1); }
-        void set(const string_type &name, float value)
-            { if (signal) msig_set_property(signal, name, 'f', &value, 1); }
-        void set(const string_type &name, double value)
-            { if (signal) msig_set_property(signal, name, 'd', &value, 1); }
-        void set(const string_type &name, string_type &value)
-            { if (signal) msig_set_property(signal, name, 's',
-                                        (void*)(const char *)value, 1); }
-        void set(const string_type &name, int *value, int length)
-            { if (signal) msig_set_property(signal, name, 'i', value, length); }
-        void set(const string_type &name, float *value, int length)
-            { if (signal) msig_set_property(signal, name, 'f', value, length); }
-        void set(const string_type &name, double *value, int length)
-            { if (signal) msig_set_property(signal, name, 'd', value, length); }
-        // TODO: string array
-        void set(const string_type &name, std::vector<int> value)
-            { if (signal) msig_set_property(signal, name, 'i', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<float> value)
-            { if (signal) msig_set_property(signal, name, 'f', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<double> value)
-            { if (signal) msig_set_property(signal, name, 'd', &value[0], value.size()); }
-//        void set(const string_type &name, std::vector<std::string> value)
-//            { if (signal) msig_set_property(signal, name, 's', &value[0], value.size()); }
+        void set(mapper::Property p)
+            { if (signal) msig_set_property(signal, p.name, p.type,
+                                           (void*)p.value, p.length); }
+        template <typename T>
+        void set(const string_type &_name, T _value)
+            { set(mapper::Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, T& _value, int _length)
+            { set(mapper::Property(_name, _value, _length)); }
+        template <typename T>
+        void set(const string_type &_name, std::vector<T> _value)
+            { set(mapper::Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, char _type, T& _value, int _length)
+            { set(mapper::Property(_name, _type, _value, _length)); }
         void remove(const string_type &name)
             { if (signal) msig_remove_property(signal, name); }
         Property get(const string_type &name)
@@ -189,7 +222,7 @@ namespace mapper {
             const void *value;
             int length;
             mapper_db_signal_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, *this);
         }
         Property get(int index)
         {
@@ -199,7 +232,7 @@ namespace mapper {
             int length;
             mapper_db_signal_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, *this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -479,7 +512,7 @@ namespace mapper {
         mapper_db_signal props;
     };
 
-    class DeviceProps
+    class DeviceProps : public AbstractProps
     {
     // Reuse same class for device and database
     public:
@@ -490,29 +523,25 @@ namespace mapper {
             { device = 0; props = dev_db; found = dev_db ? 1 : 0; }
         operator mapper_db_device() const
             { return props; }
-        void set(const string_type &name, int value)
-            { if (device) mdev_set_property(device, name, 'i', &value, 1); }
-        void set(const string_type &name, float value)
-            { if (device) mdev_set_property(device, name, 'f', &value, 1); }
-        void set(const string_type &name, double value)
-            { if (device) mdev_set_property(device, name, 'd', &value, 1); }
-        void set(const string_type &name, string_type &value)
-            { if (device) mdev_set_property(device, name, 's',
-                                            (void*)(const char *)value, 1); }
-        void set(const string_type &name, int *value, int length)
-            { if (device) mdev_set_property(device, name, 'i', value, length); }
-        void set(const string_type &name, float *value, int length)
-            { if (device) mdev_set_property(device, name, 'f', value, length); }
-        void set(const string_type &name, double *value, int length)
-            { if (device) mdev_set_property(device, name, 'd', value, length); }
-        void set(const string_type &name, std::vector<int> value)
-            { if (device) mdev_set_property(device, name, 'i', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<float> value)
-            { if (device) mdev_set_property(device, name, 'f', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<double> value)
-            { if (device) mdev_set_property(device, name, 'd', &value[0], value.size()); }
-        // TODO: string array
-        // TODO: string vector
+        void set(mapper::Property p)
+        {
+            if (device)
+                mdev_set_property(device, p.name, p.type,
+                                  p.type == 's' ? (void*)&p.value : (void*)p.value,
+                                  p.length);
+        }
+        template <typename T>
+        void set(const string_type &_name, T _value)
+            { set(mapper::Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, T& _value, int _length)
+            { set(mapper::Property(_name, _value, _length)); }
+        template <typename T>
+        void set(const string_type &_name, std::vector<T> _value)
+            { set(mapper::Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, char _type, T& _value, int _length)
+            { set(mapper::Property(_name, _type, _value, _length)); }
         void remove(const string_type &name)
             { if (device) mdev_remove_property(device, name); }
         Property get(const string_type &name)
@@ -521,7 +550,7 @@ namespace mapper {
             const void *value;
             int length;
             mapper_db_device_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, *this);
         }
         Property get(int index)
         {
@@ -531,7 +560,7 @@ namespace mapper {
             int length;
             mapper_db_device_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, *this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
