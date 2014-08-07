@@ -1,7 +1,9 @@
 
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include <arpa/inet.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <mapper/mapper_cpp.h>
 
