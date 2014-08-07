@@ -183,7 +183,7 @@ namespace mapper {
 //            { if (signal) msig_set_property(signal, name, 's', &value[0], value.size()); }
         void remove(const string_type &name)
             { if (signal) msig_remove_property(signal, name); }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
@@ -191,7 +191,7 @@ namespace mapper {
             mapper_db_signal_property_lookup(props, name, &type, &value, &length);
             return Property(name, type, value, length);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
@@ -515,7 +515,7 @@ namespace mapper {
         // TODO: string vector
         void remove(const string_type &name)
             { if (device) mdev_remove_property(device, name); }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
@@ -523,7 +523,7 @@ namespace mapper {
             mapper_db_device_property_lookup(props, name, &type, &value, &length);
             return Property(name, type, value, length);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
@@ -687,7 +687,7 @@ namespace mapper {
             { if (owned && props) free(props); }
         operator mapper_db_link() const
             { return props; }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
@@ -695,7 +695,7 @@ namespace mapper {
             mapper_db_link_property_lookup(props, name, &type, &value, &length);
             return Property(name, type, value, length);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
@@ -805,7 +805,7 @@ namespace mapper {
             props->dest_length = value.length;
             flags |= (CONNECTION_RANGE_DEST_MAX | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
         }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
@@ -814,7 +814,7 @@ namespace mapper {
                                                  &value, &length);
             return Property(name, type, value, length);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
