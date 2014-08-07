@@ -140,8 +140,12 @@ namespace mapper {
         friend class ConnectionProps;
 
         Property(const string_type &_name, char _type, const void *_value,
-                 int _length, AbstractProps& _parent)
-            { name = _name; set(_type, _value, _length); parent = &_parent; }
+                 int _length, const AbstractProps *_parent)
+        {
+            name = _name;
+            set(_type, _value, _length);
+            parent = (AbstractProps*)_parent;
+        }
     private:
         union {
             int i;
@@ -222,7 +226,7 @@ namespace mapper {
             const void *value;
             int length;
             mapper_db_signal_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length, *this);
+            return Property(name, type, value, length, this);
         }
         Property get(int index) const
         {
@@ -232,7 +236,7 @@ namespace mapper {
             int length;
             mapper_db_signal_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length, *this);
+            return Property(name, type, value, length, this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -550,7 +554,7 @@ namespace mapper {
             const void *value;
             int length;
             mapper_db_device_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length, *this);
+            return Property(name, type, value, length, this);
         }
         Property get(int index) const
         {
@@ -560,7 +564,7 @@ namespace mapper {
             int length;
             mapper_db_device_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length, *this);
+            return Property(name, type, value, length, this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
