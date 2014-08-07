@@ -1,7 +1,9 @@
 
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include <arpa/inet.h>
+#include <cstdio>
+#include <cstdlib>
 
 #include <mapper/mapper_cpp.h>
 
@@ -140,40 +142,35 @@ int main(int argc, char ** argv)
         sig.update(v);
     }
 
-    // check db records
+    // check db records 
     std::cout << "db records:" << std::endl;
-    mapper::DeviceProps::Iterator devices = mon.db().devices().begin();
-    for (; devices != devices.end(); devices++) {
+    for (auto const &device : mon.db().devices()) {
         std::cout << "  device: ";
-        (*devices).get("name").print();
+        device.get("name").print();
         std::cout << std::endl;
     }
-    mapper::SignalProps::Iterator signals = mon.db().inputs().begin();
-    for (; signals != signals.end(); signals++) {
+    for (auto const &signal : mon.db().inputs()) {
         std::cout << "  input signal: ";
-        (*signals).get("name").print();
+        signal.get("name").print();
         std::cout << std::endl;
     }
-    signals = mon.db().outputs().begin();
-    for (; signals != signals.end(); signals++) {
-        std::cout << "  input signal: ";
-        (*signals).get("name").print();
+    for (auto const &signal : mon.db().outputs()) {
+        std::cout << "  output signal: ";
+        signal.get("name").print();
         std::cout << std::endl;
     }
-    mapper::LinkProps::Iterator links = mon.db().links().begin();
-    for (; links != links.end(); links++) {
+    for (auto const &link : mon.db().links()) {
         std::cout << "  link: ";
-        (*links).get("src_name").print();
+        link.get("src_name").print();
         std::cout << " -> ";
-        (*links).get("dest_name").print();
+        link.get("dest_name").print();
         std::cout << std::endl;
     }
-    mapper::ConnectionProps::Iterator conns = mon.db().connections().begin();
-    for (; conns != conns.end(); conns++) {
+    for (auto const &conn : mon.db().connections()) {
         std::cout << "  connection: ";
-        (*conns).get("src_name").print();
+        conn.get("src_name").print();
         std::cout << " -> ";
-        (*conns).get("dest_name").print();
+        conn.get("dest_name").print();
         std::cout << std::endl;
     }
 

@@ -1,6 +1,6 @@
 
-TEST_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
-TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CXXFLAGS)
+TEST_CFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
+TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 
 if WINDOWS_DLL
 TEST_LDADD = $(top_builddir)/src/*.lo $(liblo_LIBS)
