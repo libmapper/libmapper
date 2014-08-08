@@ -86,6 +86,7 @@ void mapper_monitor_free(mapper_monitor mon)
 
 int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 {
+    int ping_time = mon->admin->clock.next_ping;
     int admin_count = mapper_admin_poll(mon->admin);
     mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
@@ -114,10 +115,11 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
         }
     }
 
-    // TODO: do not check every time poll() is called
-    // some housekeeping: check if any devices have timed out
-    mapper_db_check_device_status(&mon->db,
-                                  mon->admin->clock.now.sec - mon->timeout_sec);
+    if (ping_time != mon->admin->clock.next_ping) {
+        // some housekeeping: check if any devices have timed out
+        mapper_db_check_device_status(&mon->db,
+                                      mon->admin->clock.now.sec - mon->timeout_sec);
+    }
 
     return admin_count;
 }

@@ -735,113 +735,119 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon)
 static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 {
     mapper_device md = admin->device;
-    if (!md)
-        return;
+    int go = 0;
+
     mapper_clock_t *clock = &admin->clock;
     mapper_clock_now(clock, &clock->now);
     if (force || (clock->now.sec >= clock->next_ping)) {
-        lo_bundle b = lo_bundle_new(clock->now);
-        lo_message m = lo_message_new();
-        if (m) {
-            lo_message_add_string(m, mdev_name(md));
-            lo_message_add_int32(m, md->props.version);
-            lo_message_add_int32(m, clock->message_id);
-            lo_message_add_float(m, clock->confidence);
-            lo_message_add_int32(m, clock->remote.device_id);
-            lo_message_add_int32(m, clock->remote.message_id);
-            lo_message_add_double(m, clock->remote.device_id ?
-                                  mapper_timetag_difference(clock->now,
-                                                            clock->remote.timetag) : 0);
-            lo_bundle_add_message(b, "/sync", m);
-            lo_send_bundle(admin->bus_addr, b);
-            clock->local[clock->local_index].message_id = clock->message_id;
-            clock->local[clock->local_index].timetag.sec = clock->now.sec;
-            clock->local[clock->local_index].timetag.frac = clock->now.frac;
-            clock->local_index = (clock->local_index + 1) % 10;
-            clock->message_id = (clock->message_id + 1) % 10;
-            clock->next_ping = clock->now.sec + 5 + (rand() % 4);
-        }
-        lo_bundle_free_messages(b);
+        go = 1;
+        clock->next_ping = clock->now.sec + 5 + (rand() % 4);
+    }
 
-        int elapsed;
-        // some housekeeping: periodically check if our links are still active
-        mapper_router router = md->routers;
-        while (router) {
-            elapsed = router->ping_time.sec ? clock->now.sec - router->ping_time.sec : 0;
-            if (elapsed > ADMIN_TIMEOUT_SEC) {
-                trace("<%s> Lost contact with linked destination device %s"
-                      "(%d seconds since sync).\n", mdev_name(md),
-                      router->props.dest_name, elapsed);
+    if (!md || !go)
+        return;
 
-                if (router->ping_count > 0) {
-                    // tentatively mark link as expired
-                    router->ping_count = -1;
-                    router->ping_time.sec = clock->now.sec;
-                }
-                else {
-                    // Call the local link handler if it exists
-                    if (md->link_cb)
-                        md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
-                                    md->link_cb_userdata);
+    lo_bundle b = lo_bundle_new(clock->now);
+    lo_message m = lo_message_new();
+    if (m) {
+        lo_message_add_string(m, mdev_name(md));
+        lo_message_add_int32(m, md->props.version);
+        lo_message_add_int32(m, clock->message_id);
+        lo_message_add_float(m, clock->confidence);
+        lo_message_add_int32(m, clock->remote.device_id);
+        lo_message_add_int32(m, clock->remote.message_id);
+        lo_message_add_double(m, clock->remote.device_id ?
+                              mapper_timetag_difference(clock->now,
+                                                        clock->remote.timetag) : 0);
+        lo_bundle_add_message(b, "/sync", m);
+        lo_send_bundle(admin->bus_addr, b);
+        clock->local[clock->local_index].message_id = clock->message_id;
+        clock->local[clock->local_index].timetag.sec = clock->now.sec;
+        clock->local[clock->local_index].timetag.frac = clock->now.frac;
+        clock->local_index = (clock->local_index + 1) % 10;
+        clock->message_id = (clock->message_id + 1) % 10;
+        clock->next_ping = clock->now.sec + 5 + (rand() % 4);
+    }
+    lo_bundle_free_messages(b);
 
-                    // inform subscribers of link timeout
-                    mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
-                    mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
-                                                mdev_name(md),
-                                                router->props.dest_name,
-                                                "@status", "timeout");
+    int elapsed;
+    // some housekeeping: periodically check if our links are still active
+    mapper_router router = md->routers;
+    while (router) {
+        elapsed = router->ping_time.sec ? clock->now.sec - router->ping_time.sec : 0;
+        if (elapsed > ADMIN_TIMEOUT_SEC) {
+            trace("<%s> Lost contact with linked destination device %s"
+                  "(%d seconds since sync).\n", mdev_name(md),
+                  router->props.dest_name, elapsed);
 
-                    // remove related data structures
-                    mdev_remove_router(md, router);
-                }
+            if (router->ping_count > 0) {
+                // tentatively mark link as expired
+                router->ping_count = -1;
+                router->ping_time.sec = clock->now.sec;
             }
             else {
-                mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
-                mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                // Call the local link handler if it exists
+                if (md->link_cb)
+                    md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+                                md->link_cb_userdata);
+
+                // inform subscribers of link timeout
+                mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
                                             mdev_name(md),
-                                            router->ping_count + 1);
+                                            router->props.dest_name,
+                                            "@status", "timeout");
+
+                // remove related data structures
+                mdev_remove_router(md, router);
             }
-            router = router->next;
         }
+        else {
+            mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
+            mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                                        mdev_name(md),
+                                        router->ping_count + 1);
+        }
+        router = router->next;
+    }
 
-        mapper_receiver receiver = md->receivers;
-        while (receiver) {
-            elapsed = receiver->ping_time.sec ? clock->now.sec - receiver->ping_time.sec : 0;
-            if (elapsed > ADMIN_TIMEOUT_SEC) {
-                trace("<%s> Lost contact with linked source device %s"
-                      "(%d seconds since sync).\n", mdev_name(md),
-                      receiver->props.src_name, elapsed);
+    mapper_receiver receiver = md->receivers;
+    while (receiver) {
+        elapsed = receiver->ping_time.sec ? clock->now.sec - receiver->ping_time.sec : 0;
+        if (elapsed > ADMIN_TIMEOUT_SEC) {
+            trace("<%s> Lost contact with linked source device %s"
+                  "(%d seconds since sync).\n", mdev_name(md),
+                  receiver->props.src_name, elapsed);
 
-                if (receiver->ping_count > 0) {
-                    // tentatively mark link as expired
-                    receiver->ping_count = -1;
-                    receiver->ping_time.sec = clock->now.sec;
-                }
-                else {
-                    // Call the local link handler if it exists
-                    if (md->link_cb)
-                        md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,
-                                    md->link_cb_userdata);
-
-                    // inform subscribers of link timeout
-                    mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
-                    mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
-                                                receiver->props.src_name,
-                                                mdev_name(md),
-                                                "@status", "timeout");
-
-                    // remove related data structures
-                    mdev_remove_receiver(md, receiver);
-                }
+            if (receiver->ping_count > 0) {
+                // tentatively mark link as expired
+                receiver->ping_count = -1;
+                receiver->ping_time.sec = clock->now.sec;
             }
             else {
-                mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
-                mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                // Call the local link handler if it exists
+                if (md->link_cb)
+                    md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,
+                                md->link_cb_userdata);
+
+                // inform subscribers of link timeout
+                mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
+                mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
+                                            receiver->props.src_name,
                                             mdev_name(md),
-                                            receiver->ping_count + 1);
+                                            "@status", "timeout");
+
+                // remove related data structures
+                mdev_remove_receiver(md, receiver);
             }
-            receiver = receiver->next;
         }
+        else {
+            mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
+            mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
+                                        mdev_name(md),
+                                        receiver->ping_count + 1);
+        }
+        receiver = receiver->next;
     }
 }
 
@@ -865,8 +871,10 @@ int mapper_admin_poll(mapper_admin admin)
     }
     admin->msgs_recvd += count;
 
-    if (!md)
+    if (!md) {
+        mapper_admin_maybe_send_ping(admin, 0);
         return count;
+    }
 
     /* If the ordinal is not yet locked, process collision timing.
      * Once the ordinal is locked it won't change. */
