@@ -1443,16 +1443,16 @@ typedef struct _admin {} admin;
     int get_num_links_out() { return mdev_num_links_out((mapper_device)$self); }
     int get_num_connections_in() { return mdev_num_connections_in((mapper_device)$self); }
     int get_num_connections_out() { return mdev_num_connections_out((mapper_device)$self); }
-    signal *get_input_by_name(const char *name) {
+    signal *input(const char *name) {
         return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
     }
-    signal *get_output_by_name(const char *name) {
+    signal *output(const char *name) {
         return (signal *)mdev_get_output_by_name((mapper_device)$self, name, 0);
     }
-    signal *get_input_by_index(int index) {
+    signal *input(int index) {
         return (signal *)mdev_get_input_by_index((mapper_device)$self, index);
     }
-    signal *get_output_by_index(int index) {
+    signal *output(int index) {
         return (signal *)mdev_get_output_by_index((mapper_device)$self, index);
     }
     mapper_db_device get_properties() {
@@ -1766,6 +1766,7 @@ typedef struct _admin {} admin;
         length = property(get_length)
         type = property(get_type)
         is_output = property(get_is_output)
+        device_name = property(get_device_name)
         unit = property(get_unit)
         def __propgetter(self):
             signal = self
@@ -1903,40 +1904,38 @@ typedef struct _admin {} admin;
         mapper_db_remove_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
-    mapper_db_device get_device_by_name(const char *device_name) {
+    mapper_db_device device(const char *device_name) {
         return mapper_db_get_device_by_name((mapper_db)$self, device_name);
     }
-    mapper_db_device_t **get_all_devices() {
+    mapper_db_device_t **__get_devices() {
         return mapper_db_get_all_devices((mapper_db)$self);
     }
-    mapper_db_device_t **__match_devices_by_name(const char *device) {
+    mapper_db_device_t **__get_devices(const char *device) {
         return mapper_db_match_devices_by_name((mapper_db)$self, device);
     }
     mapper_db_device_t **device_next(long iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
-    mapper_db_signal_t **get_all_inputs() {
+    mapper_db_signal_t **__get_inputs() {
         return mapper_db_get_all_inputs((mapper_db)$self);
     }
-    mapper_db_signal_t **get_all_outputs() {
-        return mapper_db_get_all_outputs((mapper_db)$self);
-    }
-    mapper_db_signal_t **get_inputs_by_device_name(const char *device_name) {
+    mapper_db_signal_t **__get_inputs(const char *device_name) {
         return mapper_db_get_inputs_by_device_name((mapper_db)$self,
                                                    device_name);
     }
-    mapper_db_signal_t **get_outputs_by_device_name(const char *device_name) {
+    mapper_db_signal_t **__get_outputs() {
+        return mapper_db_get_all_outputs((mapper_db)$self);
+    }
+    mapper_db_signal_t **__get_outputs(const char *device_name) {
         return mapper_db_get_outputs_by_device_name((mapper_db)$self,
                                                     device_name);
     }
-    mapper_db_signal get_input_by_device_and_signal_name(const char *device_name,
-                                                         const char *signal_name) {
+    mapper_db_signal input(const char *device_name, const char *signal_name) {
         return mapper_db_get_input_by_device_and_signal_names((mapper_db)$self,
                                                               device_name,
                                                               signal_name);
     }
-    mapper_db_signal get_output_by_device_and_signal_name(const char *device_name,
-                                                          const char *signal_name) {
+    mapper_db_signal output(const char *device_name, const char *signal_name) {
         return mapper_db_get_output_by_device_and_signal_names((mapper_db)$self,
                                                                device_name,
                                                                signal_name);
@@ -1991,7 +1990,7 @@ typedef struct _admin {} admin;
             (mapper_db)$self, src_device, src_signal,
             dest_device, dest_signal);
     }
-    mapper_db_connection get_connection_by_signal_full_names(
+    mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
         return mapper_db_get_connection_by_signal_full_names(
             (mapper_db)$self, src_name, dest_name);
@@ -2004,10 +2003,10 @@ typedef struct _admin {} admin;
     mapper_db_connection_t **connection_next(long iterator) {
         return mapper_db_connection_next((mapper_db_connection_t**)iterator);
     }
-    mapper_db_link_t **get_all_links() {
+    mapper_db_link_t **__get_links() {
         return mapper_db_get_all_links((mapper_db)$self);
     }
-    mapper_db_link_t **get_links_by_device_name(const char *dev_name) {
+    mapper_db_link_t **__get_links(const char *dev_name) {
         return mapper_db_get_links_by_device_name((mapper_db)$self, dev_name);
     }
     mapper_db_link_t **get_links_by_src_device_name(
@@ -2020,8 +2019,8 @@ typedef struct _admin {} admin;
         return mapper_db_get_links_by_dest_device_name((mapper_db)$self,
                                                        dest_device_name);
     }
-    mapper_db_link get_link_by_src_dest_names(const char *src_device_name,
-                                              const char *dest_device_name) {
+    mapper_db_link link(const char *src_device_name,
+                        const char *dest_device_name) {
         return mapper_db_get_link_by_src_dest_names((mapper_db)$self,
                                                     src_device_name,
                                                     dest_device_name);
@@ -2037,22 +2036,14 @@ typedef struct _admin {} admin;
                     yield d
                     (d, p) = next(self, p)
             return it
-        all_devices = make_iterator(get_all_devices, device_next)
-        match_devices_by_name = make_iterator(__match_devices_by_name,
-                                              device_next)
-        all_inputs = make_iterator(get_all_inputs, signal_next)
-        all_outputs = make_iterator(get_all_outputs, signal_next)
-        inputs_by_device_name = make_iterator(get_inputs_by_device_name,
-                                              signal_next)
-        outputs_by_device_name = make_iterator(get_outputs_by_device_name,
-                                               signal_next)
-        match_inputs_by_device_name = make_iterator(
-            __match_inputs_by_device_name, signal_next)
-        match_outputs_by_device_name = make_iterator(
-            __match_outputs_by_device_name, signal_next)
-        all_connections = make_iterator(get_all_connections, connection_next)
+        devices = make_iterator(__get_devices, device_next)
+        inputs = make_iterator(__get_inputs, signal_next)
+        outputs = make_iterator(__get_outputs, signal_next)
+        match_inputs = make_iterator(__match_inputs_by_device_name, signal_next)
+        match_outputs = make_iterator(__match_outputs_by_device_name, signal_next)
+        connections = make_iterator(get_all_connections, connection_next)
         connections_by_device_name = make_iterator(get_connections_by_device_name,
-                                                connection_next)
+                                                   connection_next)
         connections_by_src_signal_name = make_iterator(get_connections_by_src_signal_name,
                                                        connection_next)
         connections_by_src_device_and_signal_names = make_iterator(
@@ -2065,13 +2056,9 @@ typedef struct _admin {} admin;
             get_connections_by_device_and_signal_names, connection_next)
         connections_by_src_dest_device_names = make_iterator(
             get_connections_by_src_dest_device_names, connection_next)
-        all_links = make_iterator(get_all_links, link_next)
-        links_by_device_name = make_iterator(get_links_by_device_name,
-                                             link_next)
-        links_by_src_device_name = make_iterator(
-            get_links_by_src_device_name, link_next)
-        links_by_dest_device_name = make_iterator(
-            get_links_by_dest_device_name, link_next)
+        links = make_iterator(__get_links, link_next)
+        links_by_src = make_iterator(get_links_by_src_device_name, link_next)
+        links_by_dest = make_iterator(get_links_by_dest_device_name, link_next)
     }
 }
 
