@@ -1355,6 +1355,13 @@ mapper_db_device mdev_properties(mapper_device dev)
 void mdev_set_property(mapper_device dev, const char *property,
                        char type, void *value, int length)
 {
+    if (strcmp(property, "name") == 0 ||
+        strcmp(property, "host") == 0 ||
+        strcmp(property, "port") == 0 ||
+        strcmp(property, "user_data") == 0) {
+        trace("Cannot set locked device property '%s'\n", property);
+        return;
+    }
     mapper_table_add_or_update_typed_value(dev->props.extra, property,
                                            type, value, length);
 }
