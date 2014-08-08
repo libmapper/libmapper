@@ -96,7 +96,8 @@ int main(int argc, char ** argv)
     std::cout << std::endl;
 
     // can also access properties like this
-    dev.property("port").print();
+    dev.property("foo").set("bar");
+    dev.property("foo").print();
     std::cout << std::endl;
 
     mapper::Property p("temp", "tempstring");
@@ -104,8 +105,7 @@ int main(int argc, char ** argv)
     dev.property("temp").print();
     std::cout << std::endl;
 
-    dev.property("temp") = 12;
-    dev.property("temp").print();
+    dev.properties()["temp"].print();
     std::cout << std::endl;
 
     dev.properties().remove("foo");
@@ -126,7 +126,7 @@ int main(int argc, char ** argv)
     mon.link(dev.name(), dev.name());
     while (dev.num_links_in() <= 0) { dev.poll(100); }
 
-    mapper::ConnectionProps c;
+    mapper::Db::Connection c;
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
