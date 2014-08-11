@@ -155,7 +155,7 @@ struct handler_method_assoc {
 
 // handlers needed by both "devices" and "monitors"
 static struct handler_method_assoc admin_bus_handlers[] = {
-    {ADM_LOGOUT,                NULL,       handler_logout},
+    {ADM_LOGOUT,                 NULL,      handler_logout},
 };
 const int N_ADMIN_BUS_HANDLERS =
     sizeof(admin_bus_handlers)/sizeof(admin_bus_handlers[0]);
@@ -175,7 +175,6 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_LINK_TO,               NULL,       handler_device_linkTo},
     {ADM_LINKED,                NULL,       handler_device_linked},
     {ADM_LINK_MODIFY,           NULL,       handler_device_link_modify},
-    {ADM_LINK_PING,             "si",       handler_device_link_ping},
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
@@ -760,6 +759,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_router router = md->routers;
     while (router) {
+        if (router->props.dest_name_hash == md->props.name_hash) {
+            // don't bother sending pings to self
+            router = router->next;
+            continue;
+        }
         mapper_sync_clock sync = &router->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
@@ -815,6 +819,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 
     mapper_receiver receiver = md->receivers;
     while (receiver) {
+        if (receiver->props.src_name_hash == md->props.name_hash) {
+            // don't bother sending pings to self
+            receiver = receiver->next;
+            continue;
+        }
         mapper_sync_clock sync = &receiver->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
@@ -2906,22 +2915,6 @@ static int handler_device_link_ping(const char *path,
     mapper_clock_now(clock, &now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
-    // find link
-    // check timetag exchange
-    // if new clock
-            // set offset to recvd timestamp diff
-            // set latency to calc latency
-            // set jitter to calc latency
-    // else if timetag is in the future
-            // adopt immediately
-            // set latency to 0
-            // adjust jitter
-    // else
-            // update offset
-            // update latency
-            // update jitter
-            // future: update rate?
-
     mapper_router router = mapper_router_find_by_dest_hash(md->routers,
                                                            argv[0]->i);
     if (router) {
@@ -2930,8 +2923,8 @@ static int handler_device_link_ping(const char *path,
             double elapsed = mapper_timetag_difference(now, router->clock.sent.timetag);
             // assume symmetrical latency
             double latency = (elapsed - argv[3]->d) * 0.5;
-            // difference between remote and local clocks (no latency compensation)
-            double offset = mapper_timetag_difference(then, now) + latency;
+            // difference between remote and local clocks (latency compensated)
+            double offset = mapper_timetag_difference(now, then) - latency;
 
             if (latency < 0) {
                 trace("error: latency cannot be < 0");
@@ -2941,10 +2934,11 @@ static int handler_device_link_ping(const char *path,
             if (router->clock.new == 1) {
                 router->clock.offset = offset;
                 router->clock.latency = latency;
-                router->clock.jitter = 0;//latency;
+                router->clock.jitter = 0;
                 router->clock.new = 0;
             }
             else {
+                router->clock.jitter = router->clock.jitter * 0.9 + fabs(router->clock.latency - latency) * 0.1;
                 if (offset > router->clock.offset) {
                     // remote timetag is in the future
                     router->clock.offset = offset;
@@ -2952,9 +2946,8 @@ static int handler_device_link_ping(const char *path,
                 else if (latency < router->clock.latency + router->clock.jitter
                          && latency > router->clock.latency - router->clock.jitter) {
                     router->clock.offset = router->clock.offset * 0.9 + offset * 0.1;
+                    router->clock.latency = router->clock.latency * 0.9 + latency * 0.1;
                 }
-                router->clock.jitter = router->clock.jitter * 0.9 + fabs(router->clock.latency - latency) * 0.1;
-                router->clock.latency = router->clock.latency * 0.9 + latency * 0.1;
             }
         }
 
@@ -2971,8 +2964,8 @@ static int handler_device_link_ping(const char *path,
             double elapsed = mapper_timetag_difference(now, receiver->clock.sent.timetag);
             // assume symmetrical latency
             double latency = (elapsed - argv[3]->d) * 0.5;
-            // difference between remote and local clocks (no latency compensation)
-            double offset = mapper_timetag_difference(then, now) + latency;
+            // difference between remote and local clocks (latency compensated)
+            double offset = mapper_timetag_difference(now, then) - latency;
 
             if (latency < 0) {
                 trace("error: latency cannot be < 0");
@@ -2982,10 +2975,11 @@ static int handler_device_link_ping(const char *path,
             if (receiver->clock.new == 1) {
                 receiver->clock.offset = offset;
                 receiver->clock.latency = latency;
-                receiver->clock.jitter = 0;//latency;
+                receiver->clock.jitter = 0;
                 receiver->clock.new = 0;
             }
             else {
+                receiver->clock.jitter = receiver->clock.jitter * 0.9 + fabs(receiver->clock.latency - latency) * 0.1;
                 if (offset > receiver->clock.offset) {
                     // remote timetag is in the future
                     receiver->clock.offset = offset;
@@ -2993,9 +2987,8 @@ static int handler_device_link_ping(const char *path,
                 else if (latency < receiver->clock.latency + receiver->clock.jitter
                          && latency > receiver->clock.latency - receiver->clock.jitter) {
                     receiver->clock.offset = receiver->clock.offset * 0.9 + offset * 0.1;
+                    receiver->clock.latency = receiver->clock.latency * 0.9 + latency * 0.1;
                 }
-                receiver->clock.jitter = receiver->clock.jitter * 0.9 + fabs(receiver->clock.latency - latency) * 0.1;
-                receiver->clock.latency = receiver->clock.latency * 0.9 + latency * 0.1;
             }
         }
 
