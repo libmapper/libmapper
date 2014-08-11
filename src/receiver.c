@@ -37,6 +37,10 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
+    r->clock.new = 1;
+    r->clock.sent.message_id = 0;
+    r->clock.response.message_id = -1;
+
     if (!r->data_addr) {
         mapper_receiver_free(r);
         return 0;
@@ -620,6 +624,17 @@ mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver r,
 
     while (r) {
         if (strncmp(r->props.src_name, src_name, n)==0)
+            return r;
+        r = r->next;
+    }
+    return 0;
+}
+
+mapper_receiver mapper_receiver_find_by_src_hash(mapper_receiver r,
+                                                 uint32_t name_hash)
+{
+    while (r) {
+        if (name_hash == r->props.src_name_hash)
             return r;
         r = r->next;
     }

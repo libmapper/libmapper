@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <sys/time.h>
 #include <zlib.h>
+#include <math.h>
 
 #ifdef HAVE_GETIFADDRS
  #include <ifaddrs.h>
@@ -28,6 +29,9 @@
 #include "types_internal.h"
 #include "config.h"
 #include <mapper/mapper.h>
+
+#define BUNDLE_DEST_SUBSCRIBERS (void*)-1
+#define BUNDLE_DEST_BUS         0
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -152,7 +156,6 @@ struct handler_method_assoc {
 // handlers needed by both "devices" and "monitors"
 static struct handler_method_assoc admin_bus_handlers[] = {
     {ADM_LOGOUT,                NULL,       handler_logout},
-    {ADM_SYNC,                  "siifiid",  handler_sync},
 };
 const int N_ADMIN_BUS_HANDLERS =
     sizeof(admin_bus_handlers)/sizeof(admin_bus_handlers[0]);
@@ -191,13 +194,15 @@ static struct handler_method_assoc device_mesh_handlers[] = {
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
     {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
-    {ADM_LINK_PING,             "si",       handler_device_link_ping},
+    {ADM_LINK_PING,             "iiid",     handler_device_link_ping},
 };
+
 const int N_DEVICE_MESH_HANDLERS =
     sizeof(device_mesh_handlers)/sizeof(device_mesh_handlers[0]);
 
 static struct handler_method_assoc monitor_bus_handlers[] = {
     {ADM_DEVICE,                NULL,       handler_device},
+    {ADM_SYNC,                  NULL,       handler_sync},
 };
 const int N_MONITOR_BUS_HANDLERS =
     sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
@@ -549,7 +554,7 @@ void mapper_admin_send_bundle(mapper_admin admin)
 {
     if (!admin->bundle)
         return;
-    if (admin->bundle_dest == (void*)-1) {
+    if (admin->bundle_dest == BUNDLE_DEST_SUBSCRIBERS) {
         mapper_admin_subscriber *s = &admin->subscribers;
         if (*s) {
             mapper_clock_now(&admin->clock, &admin->clock.now);
@@ -570,7 +575,7 @@ void mapper_admin_send_bundle(mapper_admin admin)
             s = &(*s)->next;
         }
     }
-    else if (admin->bundle_dest == 0) {
+    else if (admin->bundle_dest == BUNDLE_DEST_BUS) {
         lo_send_bundle_from(admin->bus_addr, admin->mesh_server, admin->bundle);
     }
     else {
@@ -597,7 +602,7 @@ static int mapper_admin_init_bundle(mapper_admin admin)
 
 void mapper_admin_set_bundle_dest_bus(mapper_admin admin)
 {
-    if (admin->bundle && admin->bundle_dest != 0)
+    if (admin->bundle && admin->bundle_dest != BUNDLE_DEST_BUS)
         mapper_admin_send_bundle(admin);
     admin->bundle_dest = 0;
     if (!admin->bundle)
@@ -615,10 +620,10 @@ void mapper_admin_set_bundle_dest_mesh(mapper_admin admin, lo_address address)
 
 void mapper_admin_set_bundle_dest_subscribers(mapper_admin admin, int type)
 {
-    if ((admin->bundle && admin->bundle_dest != (void*)-1) ||
+    if ((admin->bundle && admin->bundle_dest != BUNDLE_DEST_SUBSCRIBERS) ||
         (admin->message_type != type))
         mapper_admin_send_bundle(admin);
-    admin->bundle_dest = (void*)-1;
+    admin->bundle_dest = BUNDLE_DEST_SUBSCRIBERS;
     admin->message_type = type;
     if (!admin->bundle)
         mapper_admin_init_bundle(admin);
@@ -747,43 +752,26 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     if (!md || !go)
         return;
 
-    lo_bundle b = lo_bundle_new(clock->now);
-    lo_message m = lo_message_new();
-    if (m) {
-        lo_message_add_string(m, mdev_name(md));
-        lo_message_add_int32(m, md->props.version);
-        lo_message_add_int32(m, clock->message_id);
-        lo_message_add_float(m, clock->confidence);
-        lo_message_add_int32(m, clock->remote.device_id);
-        lo_message_add_int32(m, clock->remote.message_id);
-        lo_message_add_double(m, clock->remote.device_id ?
-                              mapper_timetag_difference(clock->now,
-                                                        clock->remote.timetag) : 0);
-        lo_bundle_add_message(b, "/sync", m);
-        lo_send_bundle(admin->bus_addr, b);
-        clock->local[clock->local_index].message_id = clock->message_id;
-        clock->local[clock->local_index].timetag.sec = clock->now.sec;
-        clock->local[clock->local_index].timetag.frac = clock->now.frac;
-        clock->local_index = (clock->local_index + 1) % 10;
-        clock->message_id = (clock->message_id + 1) % 10;
-        clock->next_ping = clock->now.sec + 5 + (rand() % 4);
-    }
-    lo_bundle_free_messages(b);
+    mapper_admin_set_bundle_dest_bus(admin);
+    mapper_admin_bundle_message(admin, ADM_SYNC, 0, "si", mdev_name(md),
+                                md->props.version);
 
     int elapsed;
     // some housekeeping: periodically check if our links are still active
     mapper_router router = md->routers;
     while (router) {
-        elapsed = router->ping_time.sec ? clock->now.sec - router->ping_time.sec : 0;
+        mapper_sync_clock sync = &router->clock;
+        elapsed = (sync->response.timetag.sec
+                   ? clock->now.sec - sync->response.timetag.sec : 0);
         if (elapsed > ADMIN_TIMEOUT_SEC) {
             trace("<%s> Lost contact with linked destination device %s"
                   "(%d seconds since sync).\n", mdev_name(md),
                   router->props.dest_name, elapsed);
 
-            if (router->ping_count > 0) {
+            if (sync->response.message_id > 0) {
                 // tentatively mark link as expired
-                router->ping_count = -1;
-                router->ping_time.sec = clock->now.sec;
+                sync->response.message_id = -1;
+                sync->response.timetag.sec = clock->now.sec;
             }
             else {
                 // Call the local link handler if it exists
@@ -803,26 +791,42 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             }
         }
         else {
-            mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
-            mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
-                                        mdev_name(md),
-                                        router->ping_count + 1);
+            lo_bundle b = lo_bundle_new(clock->now);
+            lo_message m = lo_message_new();
+            lo_message_add_int32(m, mdev_id(md));
+            ++sync->sent.message_id;
+            if (sync->sent.message_id < 0)
+                sync->sent.message_id = 0;
+            lo_message_add_int32(m, sync->sent.message_id);
+            lo_message_add_int32(m, sync->response.message_id);
+            if (sync->response.timetag.sec)
+                lo_message_add_double(m, mapper_timetag_difference(clock->now,
+                                                                   sync->response.timetag));
+            else
+                lo_message_add_double(m, 0.);
+            // need to send immediately
+            lo_bundle_add_message(b, admin_msg_strings[ADM_LINK_PING], m);
+            lo_send_bundle_from(router->admin_addr, admin->mesh_server, b);
+            mapper_timetag_cpy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
+            lo_bundle_free_messages(b);
         }
         router = router->next;
     }
 
     mapper_receiver receiver = md->receivers;
     while (receiver) {
-        elapsed = receiver->ping_time.sec ? clock->now.sec - receiver->ping_time.sec : 0;
+        mapper_sync_clock sync = &receiver->clock;
+        elapsed = (sync->response.timetag.sec
+                   ? clock->now.sec - sync->response.timetag.sec : 0);
         if (elapsed > ADMIN_TIMEOUT_SEC) {
             trace("<%s> Lost contact with linked source device %s"
                   "(%d seconds since sync).\n", mdev_name(md),
                   receiver->props.src_name, elapsed);
 
-            if (receiver->ping_count > 0) {
+            if (sync->response.message_id > 0) {
                 // tentatively mark link as expired
-                receiver->ping_count = -1;
-                receiver->ping_time.sec = clock->now.sec;
+                sync->response.message_id = -1;
+                sync->response.timetag.sec = clock->now.sec;
             }
             else {
                 // Call the local link handler if it exists
@@ -842,10 +846,24 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             }
         }
         else {
-            mapper_admin_set_bundle_dest_mesh(admin, receiver->admin_addr);
-            mapper_admin_bundle_message(admin, ADM_LINK_PING, 0, "si",
-                                        mdev_name(md),
-                                        receiver->ping_count + 1);
+            lo_bundle b = lo_bundle_new(clock->now);
+            lo_message m = lo_message_new();
+            lo_message_add_int32(m, mdev_id(md));
+            ++sync->sent.message_id;
+            if (sync->sent.message_id < 0)
+                sync->sent.message_id = 0;
+            lo_message_add_int32(m, sync->sent.message_id);
+            lo_message_add_int32(m, sync->response.message_id);
+            if (sync->response.timetag.sec)
+                lo_message_add_double(m, mapper_timetag_difference(clock->now,
+                                                                   sync->response.timetag));
+            else
+                lo_message_add_double(m, 0.);
+            // need to send immediately
+            lo_bundle_add_message(b, admin_msg_strings[ADM_LINK_PING], m);
+            lo_send_bundle_from(receiver->admin_addr, admin->mesh_server, b);
+            mapper_timetag_cpy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
+            lo_bundle_free_messages(b);
         }
         receiver = receiver->next;
     }
@@ -2875,29 +2893,117 @@ static int handler_device_link_ping(const char *path,
                                     lo_arg **argv, int argc,
                                     lo_message msg, void *user_data)
 {
+    // TODO: use only one ping between devices (bidirectional links?)
+    // message args: remote_device_hash, message_id, last_message_id, elapsed_time
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    mapper_clock_t *clock = &admin->clock;
 
     if (!md)
         return 0;
 
+    mapper_timetag_t now;
+    mapper_clock_now(clock, &now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
-    mapper_router router = mapper_router_find_by_dest_name(md->routers,
-                                                           &argv[0]->s);
+    // find link
+    // check timetag exchange
+    // if new clock
+            // set offset to recvd timestamp diff
+            // set latency to calc latency
+            // set jitter to calc latency
+    // else if timetag is in the future
+            // adopt immediately
+            // set latency to 0
+            // adjust jitter
+    // else
+            // update offset
+            // update latency
+            // update jitter
+            // future: update rate?
+
+    mapper_router router = mapper_router_find_by_dest_hash(md->routers,
+                                                           argv[0]->i);
     if (router) {
+        if (argv[2]->i == router->clock.sent.message_id) {
+            // total elapsed time since ping sent
+            double elapsed = mapper_timetag_difference(now, router->clock.sent.timetag);
+            // assume symmetrical latency
+            double latency = (elapsed - argv[3]->d) * 0.5;
+            // difference between remote and local clocks (no latency compensation)
+            double offset = mapper_timetag_difference(then, now) + latency;
+
+            if (latency < 0) {
+                trace("error: latency cannot be < 0");
+                return 0;
+            }
+
+            if (router->clock.new == 1) {
+                router->clock.offset = offset;
+                router->clock.latency = latency;
+                router->clock.jitter = 0;//latency;
+                router->clock.new = 0;
+            }
+            else {
+                if (offset > router->clock.offset) {
+                    // remote timetag is in the future
+                    router->clock.offset = offset;
+                }
+                else if (latency < router->clock.latency + router->clock.jitter
+                         && latency > router->clock.latency - router->clock.jitter) {
+                    router->clock.offset = router->clock.offset * 0.9 + offset * 0.1;
+                }
+                router->clock.jitter = router->clock.jitter * 0.9 + fabs(router->clock.latency - latency) * 0.1;
+                router->clock.latency = router->clock.latency * 0.9 + latency * 0.1;
+            }
+        }
+
         // update sync status
-        mapper_timetag_cpy(&router->ping_time, then);
-        router->ping_count = argv[1]->i;
+        mapper_timetag_cpy(&router->clock.response.timetag, now);
+        router->clock.response.message_id = argv[1]->i;
     }
 
     mapper_receiver receiver =
-        mapper_receiver_find_by_src_name(md->receivers, &argv[0]->s);
+        mapper_receiver_find_by_src_hash(md->receivers, argv[0]->i);
     if (receiver) {
+        if (argv[2]->i == receiver->clock.sent.message_id) {
+            // total elapsed time since ping sent
+            double elapsed = mapper_timetag_difference(now, receiver->clock.sent.timetag);
+            // assume symmetrical latency
+            double latency = (elapsed - argv[3]->d) * 0.5;
+            // difference between remote and local clocks (no latency compensation)
+            double offset = mapper_timetag_difference(then, now) + latency;
+
+            if (latency < 0) {
+                trace("error: latency cannot be < 0");
+                return 0;
+            }
+
+            if (receiver->clock.new == 1) {
+                receiver->clock.offset = offset;
+                receiver->clock.latency = latency;
+                receiver->clock.jitter = 0;//latency;
+                receiver->clock.new = 0;
+            }
+            else {
+                if (offset > receiver->clock.offset) {
+                    // remote timetag is in the future
+                    receiver->clock.offset = offset;
+                }
+                else if (latency < receiver->clock.latency + receiver->clock.jitter
+                         && latency > receiver->clock.latency - receiver->clock.jitter) {
+                    receiver->clock.offset = receiver->clock.offset * 0.9 + offset * 0.1;
+                }
+                receiver->clock.jitter = receiver->clock.jitter * 0.9 + fabs(receiver->clock.latency - latency) * 0.1;
+                receiver->clock.latency = receiver->clock.latency * 0.9 + latency * 0.1;
+            }
+        }
+
         // update sync status
-        mapper_timetag_cpy(&receiver->ping_time, then);
-        receiver->ping_count = argv[1]->i;
+        mapper_timetag_cpy(&receiver->clock.response.timetag, now);
+        receiver->clock.response.message_id = argv[1]->i;
     }
+
     return 0;
 }
 
@@ -2907,62 +3013,26 @@ static int handler_sync(const char *path,
                         lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
-    mapper_clock_t *clock = &admin->clock;
 
-    int device_id = crc32(0L, (const Bytef *)&argv[0]->s, strlen(&argv[0]->s));
-    int message_id = argv[2]->i;
+    if (!mon || !argc)
+        return 0;
 
-    // get current time
-    mapper_timetag_t now;
-    mapper_clock_now(clock, &now);
+    mapper_db_device reg = 0;
+    if (types[0] == 's' || types[0] == 'S')
+        reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s);
+    else if (types[0] == 'i')
+        reg = mapper_db_get_device_by_name_hash(&mon->db, argv[0]->i);
+    else
+        return 0;
 
-    // store remote timetag
-    clock->remote.device_id = device_id;
-    clock->remote.message_id = message_id;
-    clock->remote.timetag.sec = now.sec;
-    clock->remote.timetag.frac = now.frac;
-
-    lo_timetag then = lo_message_get_timestamp(msg);
-    float confidence = argv[3]->f;
-
-    if (mon) {
-        mapper_db_device reg = mapper_db_get_device_by_name(&mon->db,
-                                                            &argv[0]->s);
-        if (!reg) {
-            // only create device record after requesting more information
-            if (mon->autosubscribe)
-                mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
-        }
-        else
-            mapper_timetag_cpy(&reg->synced, then);
+    if (!reg) {
+        // only create device record after requesting more information
+        if (mon->autosubscribe)
+            mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
     }
-
-    // if remote timetag is in the future, adjust to remote time
-    double diff = mapper_timetag_difference(then, now);
-    mapper_clock_adjust(&admin->clock, diff, 1.0);
-
-    if (!md || !md->registered)
-        return 0;
-    // if I sent this message, ignore it
-    if (md && strcmp(mdev_name(md), &argv[0]->s)==0)
-        return 0;
-
-    // look at the second part of the message
-    device_id = argv[4]->i;
-    if (device_id != mdev_id(md))
-        return 0;
-
-    message_id = argv[5]->i;
-    if (message_id >= 10)
-        return 0;
-
-    // Calculate latency on exchanged /sync messages
-    double latency = (mapper_timetag_difference(now, clock->local[message_id].timetag)
-                      - argv[6]->d) * 0.5;
-    if (latency > 0 && latency < 100)
-        mapper_clock_adjust(&admin->clock, diff + latency, confidence);
+    else
+        mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
 
     return 0;
 }
