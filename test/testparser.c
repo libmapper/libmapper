@@ -375,40 +375,40 @@ int run_tests()
             (double)src_float[2]);
 
     /* Multiple expressions */
-    snprintf(str, 256, "y[0]=x*100-23.5, y[2]=100-x*6.7");
+    snprintf(str, 256, "y[0]=x*100-23.5; y[2]=100-x*6.7");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += parse_and_eval(EXPECT_FAILURE);
     eprintf("Expected: FAILURE\n");
 
     /* Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}, y{-1}=100");
+    snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
     setup_test('i', 1, 1, src_int, 'i', 2, 1, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* Initialize filters + vector index */
-    snprintf(str, 256, "y=x+y{-1}, y[1]{-1}=100");
+    snprintf(str, 256, "y=x+y{-1}; y[1]{-1}=100");
     setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: [%i, %i]\n", src_int[0]*iterations,
             src_int[1]*iterations + 100);
 
     /* Initialize filters + vector index */
-    snprintf(str, 256, "y=x+y{-1}, y{-1}=[100,101]");
+    snprintf(str, 256, "y=x+y{-1}; y{-1}=[100,101]");
     setup_test('i', 1, 2, src_int, 'i', 2, 2, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: [%i, %i]\n", src_int[0]*iterations + 100,
             src_int[1]*iterations + 101);
 
     /* Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}, y[0]{-1}=100, y[2]{-1}=200");
+    snprintf(str, 256, "y=x+y{-1}; y[0]{-1}=100; y[2]{-1}=200");
     setup_test('i', 1, 3, src_int, 'i', 2, 3, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: [%i, %i, %i]\n", src_int[0]*iterations + 100,
             src_int[1]*iterations, src_int[2]*iterations + 200);
 
     /* Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}-y{-2}, y{-1}=[100,101], y{-2}=[100,101]");
+    snprintf(str, 256, "y=x+y{-1}-y{-2}; y{-1}=[100,101]; y{-2}=[100,101]");
     setup_test('i', 1, 2, src_int, 'i', 3, 2, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: [1, 2]\n");
@@ -446,13 +446,13 @@ int run_tests()
     eprintf("Expected: FAILURE\n");
 
     /* Variable declaration */
-    snprintf(str, 256, "var=3.5, y=x+var");
+    snprintf(str, 256, "var=3.5; y=x+var");
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: %g\n", (float)src_int[0] + 3.5);
 
     /* Variable declaration */
-    snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1, y=ema*2, ema{-1}=90");
+    snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: 2\n");
