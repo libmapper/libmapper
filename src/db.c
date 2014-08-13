@@ -545,12 +545,12 @@ static property_table_value_t devdb_values[] = {
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
     { "host",               &devdb_values[0] },
-    { "n_connections_in",   &devdb_values[1] },
-    { "n_connections_out",  &devdb_values[2] },
-    { "n_inputs",           &devdb_values[3] },
-    { "n_links_in",         &devdb_values[4] },
-    { "n_links_out",        &devdb_values[5] },
-    { "n_outputs",          &devdb_values[6] },
+    { "num_connections_in", &devdb_values[1] },
+    { "num_connections_out",&devdb_values[2] },
+    { "num_inputs",         &devdb_values[3] },
+    { "num_links_in",       &devdb_values[4] },
+    { "num_links_out",      &devdb_values[5] },
+    { "num_outputs",        &devdb_values[6] },
     { "name",               &devdb_values[7] },
     { "port",               &devdb_values[8] },
     { "synced",             &devdb_values[9] },
