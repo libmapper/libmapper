@@ -509,11 +509,11 @@ static int replace_expression_string(mapper_connection c,
         expr_str, c->props.src_type, c->props.dest_type,
         c->props.src_length, c->props.dest_length);
 
-    *input_history_size = mapper_expr_input_history_size(expr);
-    *output_history_size = mapper_expr_output_history_size(expr);
-
     if (!expr)
         return 1;
+
+    *input_history_size = mapper_expr_input_history_size(expr);
+    *output_history_size = mapper_expr_output_history_size(expr);
 
     if (c->expr)
         mapper_expr_free(c->expr);
