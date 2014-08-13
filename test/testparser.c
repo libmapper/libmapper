@@ -380,6 +380,12 @@ int run_tests()
     result += parse_and_eval(EXPECT_FAILURE);
     eprintf("Expected: FAILURE\n");
 
+    /* Error check: separating sub-expressions with commas */
+    snprintf(str, 256, "foo=1,  y=y{-1}+foo");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval(EXPECT_FAILURE);
+    eprintf("Expected: FAILURE\n");
+
     /* Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
     setup_test('i', 1, 1, src_int, 'i', 2, 1, dest_int);
@@ -469,8 +475,8 @@ int run_tests()
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: %i\n", 1);
 
-    /* Vector function vmax() and vmin() */
-    snprintf(str, 256, "y=vmax(x)-vmin(x)");
+    /* Overloaded vector functions max() and min() */
+    snprintf(str, 256, "y=max(x)-min(x)");
     setup_test('f', 1, 3, src_float, 'i', 1, 1, dest_int);
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: %i\n",

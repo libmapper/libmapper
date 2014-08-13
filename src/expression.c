@@ -395,8 +395,8 @@ static struct {
     { "any",    1,      anyi,       anyf,       anyd        },
     { "mean",   1,      0,          meanf,      meand       },
     { "sum",    1,      sumi,       sumf,       sumd        },
-    { "vmax",   1,      vmaxi,      vmaxf,      vmaxd       },
-    { "vmin",   1,      vmini,      vminf,      vmind       },
+    { "max",    1,      vmaxi,      vmaxf,      vmaxd       },
+    { "min",    1,      vmini,      vminf,      vmind       },
 };
 
 typedef enum {
@@ -511,7 +511,7 @@ typedef struct _token {
     int vector_length;
     union {
         int vector_index;
-        int vectorizer_arity;
+        int arity;
     };
     char history_index;
     char vector_length_locked;
@@ -595,7 +595,7 @@ static int tok_arity(mapper_token_t tok)
         case TOK_VFUNC:
             return vfunction_table[tok.func].arity;
         case TOK_VECTORIZE:
-            return tok.vectorizer_arity;
+            return tok.arity;
         default:
             return 0;
     }
@@ -920,7 +920,7 @@ void printtoken(mapper_token_t tok)
         case TOK_COMMA:         snprintf(tokstr, 32, ",");      break;
         case TOK_COLON:         snprintf(tokstr, 32, ":");      break;
         case TOK_VECTORIZE:
-            snprintf(tokstr, 32, "VECT(%d)", tok.vectorizer_arity);
+            snprintf(tokstr, 32, "VECT(%d)", tok.arity);
             break;
         case TOK_NEGATE:        snprintf(tokstr, 32, "-");      break;
         case TOK_VFUNC:
@@ -1061,7 +1061,7 @@ static void lock_vector_lengths(mapper_token_t *stack, int top)
         else if (stack[i].toktype == TOK_FUNC)
             arity += function_table[stack[i].func].arity;
         else if (stack[i].toktype == TOK_VECTORIZE)
-            arity += stack[i].vectorizer_arity;
+            arity += stack[i].arity;
         i--;
     }
 }
@@ -1125,7 +1125,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             arity = vfunction_table[stack[top].func].arity;
             break;
         case TOK_VECTORIZE:
-            arity = stack[top].vectorizer_arity;
+            arity = stack[top].arity;
             can_precompute = 0;
             break;
         case TOK_ASSIGNMENT:
@@ -1198,7 +1198,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             else if (stack[i].toktype == TOK_VFUNC)
                 skip += vfunction_table[stack[i].func].arity;
             else if (stack[i].toktype == TOK_VECTORIZE)
-                skip += stack[i].vectorizer_arity;
+                skip += stack[i].arity;
         }
 
         if (depth)
@@ -1246,7 +1246,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
          * and vector lengths */
         i = top;
         if (stack[top].toktype == TOK_VECTORIZE) {
-            skip = stack[top].vectorizer_arity;
+            skip = stack[top].arity;
             depth = 0;
         }
         else if (stack[top].toktype == TOK_VFUNC) {
@@ -1297,7 +1297,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             else if (stack[i].toktype == TOK_VFUNC)
                 skip = 2;
             else if (stack[i].toktype == TOK_VECTORIZE)
-                skip = stack[i].vectorizer_arity + 1;
+                skip = stack[i].arity + 1;
 
             if (skip > 0)
                 skip--;
@@ -1361,7 +1361,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
     // Move assignment expression to beginning of stack
     int j = 0, expr_length = top-i+1;
     if (stack[i].toktype == TOK_VECTORIZE)
-        expr_length += stack[i].vectorizer_arity;
+        expr_length += stack[i].arity;
 
     mapper_token_t temp[expr_length];
     for (i = top-expr_length+1; i <= top; i++)
@@ -1556,6 +1556,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 allow_toktype = TOK_OPEN_PAREN;
                 break;
             case TOK_OPEN_PAREN:
+                tok.arity = 1;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = OBJECT_TOKENS;
                 break;
@@ -1566,15 +1567,28 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 }
                 if (opstack_index < 0)
                     {FAIL("Unmatched parentheses or misplaced comma.");}
+
+                int arity = opstack[opstack_index].arity;
                 // remove left parenthesis from operator stack
-                if (tok.toktype == TOK_CLOSE_PAREN) {
-                    POP_OPERATOR();
-                    if (opstack[opstack_index].toktype == TOK_FUNC ||
-                        opstack[opstack_index].toktype == TOK_VFUNC) {
-                        // if stack[top] is tok_func or tok_vfunc, pop to output
-                        POP_OPERATOR_TO_OUTPUT();
+                POP_OPERATOR();
+
+                // if stack[top] is tok_func or tok_vfunc, pop to output
+                if (opstack[opstack_index].toktype == TOK_FUNC) {
+                    // check for overloaded functions
+                    if (arity == 1) {
+                        if (opstack[opstack_index].func == FUNC_MIN) {
+                            opstack[opstack_index].toktype = TOK_VFUNC;
+                            opstack[opstack_index].vfunc = VFUNC_MIN;
+                        }
+                        else if (opstack[opstack_index].func == FUNC_MAX) {
+                            opstack[opstack_index].toktype = TOK_VFUNC;
+                            opstack[opstack_index].vfunc = VFUNC_MAX;
+                        }
                     }
+                    POP_OPERATOR_TO_OUTPUT();
                 }
+                else if (opstack[opstack_index].toktype == TOK_VFUNC)
+                    POP_OPERATOR_TO_OUTPUT();
                 allow_toktype = (TOK_OP | TOK_COLON | TOK_SEMICOLON | TOK_COMMA
                                  | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE);
                 break;
@@ -1594,6 +1608,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     opstack[opstack_index].vector_length +=
                         outstack[outstack_index].vector_length;
                     lock_vector_lengths(outstack, outstack_index);
+                }
+                else {
+                    // open paren
+                    opstack[opstack_index].arity++;
                 }
                 allow_toktype = OBJECT_TOKENS;
                 break;
@@ -1692,7 +1710,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         {FAIL("Nested (multidimensional) vectors not allowed.");}
                     tok.toktype = TOK_VECTORIZE;
                     tok.vector_length = 0;
-                    tok.vectorizer_arity = 0;
+                    tok.arity = 0;
                     PUSH_TO_OPERATOR(tok);
                     vectorizing = 1;
                     allow_toktype = OBJECT_TOKENS & ~TOK_OPEN_SQUARE;
@@ -1708,7 +1726,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Unmatched brackets or misplaced comma.");}
                 if (opstack[opstack_index].vector_length) {
                     opstack[opstack_index].vector_length_locked = 1;
-                    opstack[opstack_index].vectorizer_arity++;
+                    opstack[opstack_index].arity++;
                     opstack[opstack_index].vector_length +=
                         outstack[outstack_index].vector_length;
                     lock_vector_lengths(outstack, outstack_index);
@@ -2562,22 +2580,22 @@ int mapper_expr_evaluate(mapper_expr expr,
             break;
         case TOK_VECTORIZE:
             // don't need to copy vector elements from first token
-            top -= tok->vectorizer_arity-1;
+            top -= tok->arity-1;
             k = dims[top];
             if (tok->datatype == 'f') {
-                for (i = 1; i < tok->vectorizer_arity; i++) {
+                for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].f = stack[top+i][j].f;
                 }
             }
             else if (tok->datatype == 'i') {
-                for (i = 1; i < tok->vectorizer_arity; i++) {
+                for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].i32 = stack[top+i][j].i32;
                 }
             }
             else if (tok->datatype == 'd') {
-                for (i = 1; i < tok->vectorizer_arity; i++) {
+                for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].d = stack[top+i][j].d;
                 }
