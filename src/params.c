@@ -37,6 +37,7 @@ const char* mapper_msg_param_strings[] =
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
+    "@slot",            /* AT_SLOT */
     "@srcLength",       /* AT_SRC_LENGTH */
     "@srcMax",          /* AT_SRC_MAX */
     "@srcMin",          /* AT_SRC_MIN */
@@ -398,6 +399,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_PORT:
         case AT_REV:
         case AT_SEND_AS_INSTANCE:
+        case AT_SLOT:
         case AT_SRC_LENGTH:
         case AT_SRC_PORT:
             i = va_arg(aq, int);
@@ -597,6 +599,9 @@ void mapper_link_prepare_osc_message(lo_message m,
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SLOT]);
+    lo_message_add_int32(m, con->props.slot);
+
     if (con->props.mode) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[con->props.mode]);
@@ -646,6 +651,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_int32(m, con->props.dest_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, con->props.send_as_instance);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SLOT]);
+    lo_message_add_int32(m, con->props.slot);
 
     mapper_msg_add_value_table(m, con->props.extra);
 }

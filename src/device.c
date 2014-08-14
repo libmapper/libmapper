@@ -65,6 +65,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->id_counter = 0;
     md->props.extra = table_new();
     md->flags = 0;
+    md->signal_slot_counter = -1;
 
 //    md->link_timeout_sec = ADMIN_TIMEOUT_SEC;
     md->link_timeout_sec = 0;
@@ -1309,4 +1310,9 @@ void mdev_set_connection_callback(mapper_device dev,
 {
     dev->connection_cb = h;
     dev->connection_cb_userdata = user;
+}
+
+int mdev_get_signal_slot(mapper_device dev)
+{
+    return ++dev->signal_slot_counter;
 }

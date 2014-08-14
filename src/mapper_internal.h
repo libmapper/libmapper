@@ -73,6 +73,8 @@ struct _mapper_device {
     mapper_router routers;
     mapper_receiver receivers;
 
+    int signal_slot_counter;
+
     /*! Function to call for custom link handling. */
     mapper_device_link_handler *link_cb;
     void *link_cb_userdata;
@@ -255,6 +257,9 @@ mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
 
 const char *mdev_name(mapper_device md);
 
+/* Get an unused signal slot */
+int mdev_get_signal_slot(mapper_device device);
+
 /***** Router *****/
 
 mapper_router mapper_router_new(mapper_device device, const char *host,
@@ -280,9 +285,9 @@ void mapper_router_process_signal(mapper_router r,
                                   int count,
                                   mapper_timetag_t timetag);
 
-lo_message mapper_router_build_message(void *value,
+lo_message mapper_router_build_message(mapper_db_connection props,
+                                       void *value,
                                        int length,
-                                       char type,
                                        char *typestring,
                                        mapper_id_map id_map);
 

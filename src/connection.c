@@ -1022,6 +1022,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         }
         updated++;
     }
+
     /* Instances. */
     int send_as_instance;
     if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
@@ -1029,6 +1030,9 @@ int mapper_connection_set_from_message(mapper_connection c,
         c->props.send_as_instance = send_as_instance;
         updated++;
     }
+
+    /* Destination slot */
+    mapper_msg_get_param_if_int(msg, AT_SLOT, &c->props.slot);
 
     /* Extra properties. */
     updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);

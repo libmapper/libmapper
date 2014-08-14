@@ -242,9 +242,8 @@ void mapper_router_process_signal(mapper_router r,
             c->history[id].position = -1;
             if ((c->props.mode != MO_REVERSE) &&
                 (!c->props.send_as_instance || in_scope)) {
-                m = mapper_router_build_message(0, c->props.dest_length,
-                                                c->props.dest_type, 0,
-                                                c->props.send_as_instance ? map : 0);
+                m = mapper_router_build_message(&c->props, 0, c->props.dest_length,
+                                                0, map);
                 if (m)
                     mapper_router_send_or_bundle_message(r, c->props.dest_name,
                                                          m, tt);
@@ -302,11 +301,10 @@ void mapper_router_process_signal(mapper_router r,
                        c->props.dest_length);
             }
             else {
-                m = mapper_router_build_message(msig_history_value_pointer(c->history[id]),
+                m = mapper_router_build_message(&c->props,
+                                                msig_history_value_pointer(c->history[id]),
                                                 c->props.dest_length,
-                                                c->props.dest_type,
-                                                typestring,
-                                                c->props.send_as_instance ? map : 0);
+                                                typestring, map);
                 if (m)
                     mapper_router_send_or_bundle_message(r, c->props.dest_name, m, tt);
             }
@@ -314,11 +312,9 @@ void mapper_router_process_signal(mapper_router r,
         }
         if (count > 1 && (c->props.mode != MO_REVERSE) &&
             (!c->props.send_as_instance || in_scope)) {
-            m = mapper_router_build_message(out_value_p,
+            m = mapper_router_build_message(&c->props, out_value_p,
                                             c->props.dest_length * j,
-                                            c->props.dest_type,
-                                            typestring,
-                                            c->props.send_as_instance ? map : 0);
+                                            typestring, map);
             if (m)
                 mapper_router_send_or_bundle_message(r, c->props.dest_name,
                                                      m, tt);
@@ -328,8 +324,9 @@ void mapper_router_process_signal(mapper_router r,
 }
 
 /*! Build a value update message for a given connection. */
-lo_message mapper_router_build_message(void *value, int length, char type,
-                                       char *typestring, mapper_id_map id_map)
+lo_message mapper_router_build_message(mapper_db_connection props, void *value,
+                                       int length, char *typestring,
+                                       mapper_id_map id_map)
 {
     int i;
 
@@ -338,7 +335,7 @@ lo_message mapper_router_build_message(void *value, int length, char type,
         return 0;
 
     if (value && typestring) {
-        if (type == 'f') {
+        if (props->dest_type == 'f') {
             float *v = (float*)value;
             for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
@@ -347,7 +344,7 @@ lo_message mapper_router_build_message(void *value, int length, char type,
                     lo_message_add_float(m, v[i]);
             }
         }
-        else if (type == 'i') {
+        else if (props->dest_type == 'i') {
             int *v = (int*)value;
             for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
@@ -356,7 +353,7 @@ lo_message mapper_router_build_message(void *value, int length, char type,
                     lo_message_add_int32(m, v[i]);
             }
         }
-        else if (type == 'd') {
+        else if (props->dest_type == 'd') {
             double *v = (double*)value;
             for (i = 0; i < length; i++) {
                 if (typestring[i] == 'N')
@@ -371,11 +368,16 @@ lo_message mapper_router_build_message(void *value, int length, char type,
             lo_message_add_nil(m);
     }
 
-    if (id_map) {
+    if (props->send_as_instance && id_map) {
         lo_message_add_string(m, "@instance");
         lo_message_add_int32(m, id_map->origin);
         lo_message_add_int32(m, id_map->public);
     }
+
+    // add slot
+    lo_message_add_string(m, "@slot");
+    lo_message_add_int32(m, props->slot);
+
     return m;
 }
 
