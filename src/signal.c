@@ -719,13 +719,8 @@ static void msig_update_internal(mapper_signal sig,
     else
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
 
-    if (sig->props.is_output) {
-        mdev_route_signal(sig->device, sig, instance_index, value,
-                          count, si->timetag);
-    }
-    else {
-        mdev_receive_update(sig->device, sig, instance_index, si->timetag);
-    }
+    mdev_route_signal(sig->device, sig, instance_index, value,
+                      count, si->timetag);
 }
 
 void msig_release_instance(mapper_signal sig, int id,
@@ -1149,22 +1144,21 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
 
 int msig_num_connections(mapper_signal sig)
 {
-    mapper_link l = sig->props.is_output ?
-                    sig->device->routers : sig->device->receivers;
+    mapper_router r = sig->device->routers;
     int count = 0;
-    while (l) {
-        mapper_link_signal ls = l->signals;
-        while (ls) {
-            if (ls->signal == sig) {
-                mapper_connection c = ls->connections;
+    while (r) {
+        mapper_router_signal rs = r->signals;
+        while (rs) {
+            if (rs->signal == sig) {
+                mapper_connection c = rs->connections;
                 while (c) {
                     count++;
                     c = c->next;
                 }
             }
-            ls = ls->next;
+            rs = rs->next;
         }
-        l = l->next;
+        r = r->next;
     }
     return count;
 }

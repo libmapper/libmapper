@@ -112,10 +112,10 @@
                     char *s = PyString_AsString(o);
                     if (strcmp(s, "scope_names")==0) {
                         if (PyString_Check(v)) {
-                            p->props.num_scopes = 1;
+                            p->props.scopes.size = 1;
                             p->flags |= LINK_NUM_SCOPES;
                             char *scope = PyString_AsString(v);
-                            p->props.scope_names = &scope;
+                            p->props.scopes.names = &scope;
                             p->flags |= LINK_SCOPE_NAMES;
                         }
                     }
@@ -130,7 +130,7 @@
                     else if (strcmp(s, "num_scopes")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode))
-                            p->props.num_scopes = k;
+                            p->props.scopes.size = k;
                     }
                     else if (strcmp(s, "src_host")==0) {
                         if (PyString_Check(v))
@@ -1194,15 +1194,13 @@ typedef enum {
 /*! Possible monitor auto-subscribe settings. */
 %constant int SUB_NONE                    = 0x00;
 %constant int SUB_DEVICE                  = 0x01;
-%constant int SUB_DEVICE_INPUTS           = 0x02;
-%constant int SUB_DEVICE_OUTPUTS          = 0x04;
-%constant int SUB_DEVICE_SIGNALS          = 0x06; //!< SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
-%constant int SUB_DEVICE_LINKS_IN         = 0x08;
-%constant int SUB_DEVICE_LINKS_OUT        = 0x10;
-%constant int SUB_DEVICE_LINKS            = 0x18; //!< SUB_DEVICE_LINKS_IN & SUB_DEVICE_LINKS_OUT
-%constant int SUB_DEVICE_CONNECTIONS_IN   = 0x20;
-%constant int SUB_DEVICE_CONNECTIONS_OUT  = 0x40;
-%constant int SUB_DEVICE_CONNECTIONS      = 0x60; //!< SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
+%constant int SUB_DEVICE_INPUTS           = 0x03;
+%constant int SUB_DEVICE_OUTPUTS          = 0x05;
+%constant int SUB_DEVICE_SIGNALS          = 0x07; //!< SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
+%constant int SUB_DEVICE_LINKS            = 0x09;
+%constant int SUB_DEVICE_CONNECTIONS_IN   = 0x21;
+%constant int SUB_DEVICE_CONNECTIONS_OUT  = 0x41;
+%constant int SUB_DEVICE_CONNECTIONS      = 0x61; //!< SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
 %constant int SUB_DEVICE_ALL              = 0xFF;
 
 /*! The set of possible actions on a database record, used
@@ -1439,8 +1437,7 @@ typedef struct _admin {} admin;
     unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
     int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
     int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
-    int get_num_links_in() { return mdev_num_links_in((mapper_device)$self); }
-    int get_num_links_out() { return mdev_num_links_out((mapper_device)$self); }
+    int get_num_links() { return mdev_num_links((mapper_device)$self); }
     int get_num_connections_in() { return mdev_num_connections_in((mapper_device)$self); }
     int get_num_connections_out() { return mdev_num_connections_out((mapper_device)$self); }
     signal *get_input_by_name(const char *name) {
@@ -1513,8 +1510,7 @@ typedef struct _admin {} admin;
         ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
-        num_links_in = property(get_num_links_in)
-        num_links_out = property(get_num_links_out)
+        num_links = property(get_num_links)
         num_connections_in = property(get_num_connections_in)
         num_connections_out = property(get_num_connections_out)
         def __propgetter(self):

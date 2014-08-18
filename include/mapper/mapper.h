@@ -399,11 +399,8 @@ int mdev_num_inputs(mapper_device dev);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
 
-//! Return the number of incoming links.
-int mdev_num_links_in(mapper_device dev);
-
-//! Return the number of outgoing links.
-int mdev_num_links_out(mapper_device dev);
+//! Return the number of links to other devices.
+int mdev_num_links(mapper_device dev);
 
 //! Return the number of incoming connections.
 int mdev_num_connections_in(mapper_device dev);
@@ -1284,13 +1281,12 @@ int mapper_db_link_property_lookup(mapper_db_link link,
 
 /*! Bit flags for coordinating monitor metadata subscriptions. Subsets of
  *  device information must also include SUB_DEVICE. */
+#define SUB_NONE                    0x00
 #define SUB_DEVICE                  0x01
 #define SUB_DEVICE_INPUTS           0x03
 #define SUB_DEVICE_OUTPUTS          0x05
 #define SUB_DEVICE_SIGNALS          0x07 // SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
-#define SUB_DEVICE_LINKS_IN         0x09
-#define SUB_DEVICE_LINKS_OUT        0x11
-#define SUB_DEVICE_LINKS            0x19 // SUB_DEVICE_LINKS_IN & SUB_DEVICE_LINKS_OUT
+#define SUB_DEVICE_LINKS            0x09
 #define SUB_DEVICE_CONNECTIONS_IN   0x21
 #define SUB_DEVICE_CONNECTIONS_OUT  0x41
 #define SUB_DEVICE_CONNECTIONS      0x61 // SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT

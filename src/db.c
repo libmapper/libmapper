@@ -492,7 +492,7 @@ typedef struct {
 #define SIG_LENGTH  (SIGDB_OFFSET(length))
 #define SRC_LENGTH  (CONDB_OFFSET(src_length))
 #define DEST_LENGTH (CONDB_OFFSET(dest_length))
-#define NUM_SCOPES  (LINKDB_OFFSET(num_scopes))
+#define NUM_SCOPES  (LINKDB_OFFSET(scopes.size))
 
 /* Here type 'o', which is not an OSC type, was reserved to mean "same
  * type as the signal's type".  The lookup and index functions will
@@ -534,8 +534,7 @@ static property_table_value_t devdb_values[] = {
     { 'i', {0}, -1, DEVDB_OFFSET(num_connections_in) },
     { 'i', {0}, -1, DEVDB_OFFSET(num_connections_out) },
     { 'i', {0}, -1, DEVDB_OFFSET(num_inputs) },
-    { 'i', {0}, -1, DEVDB_OFFSET(num_links_in) },
-    { 'i', {0}, -1, DEVDB_OFFSET(num_links_out) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_links) },
     { 'i', {0}, -1, DEVDB_OFFSET(num_outputs) },
     { 'i', {0}, -1, DEVDB_OFFSET(port) },
     { 't', {0}, -1, DEVDB_OFFSET(synced) },
@@ -551,25 +550,24 @@ static string_table_node_t devdb_nodes[] = {
     { "num_connections_in",  &devdb_values[3] },
     { "num_connections_out", &devdb_values[4] },
     { "num_inputs",          &devdb_values[5] },
-    { "num_links_in",        &devdb_values[6] },
-    { "num_links_out",       &devdb_values[7] },
-    { "num_outputs",         &devdb_values[8] },
-    { "port",                &devdb_values[9] },
-    { "synced",              &devdb_values[10] },
-    { "user_data",           &devdb_values[11] },
-    { "version",             &devdb_values[12] },
+    { "num_links",           &devdb_values[6] },
+    { "num_outputs",         &devdb_values[7] },
+    { "port",                &devdb_values[8] },
+    { "synced",              &devdb_values[9] },
+    { "user_data",           &devdb_values[10] },
+    { "version",             &devdb_values[11] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 13, 13 };
+  { devdb_nodes, 12, 12 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', {1}, -1,         LINKDB_OFFSET(dest_host) },
     { 's', {1}, -1,         LINKDB_OFFSET(dest_name) },
     { 'i', {0}, -1,         LINKDB_OFFSET(dest_port) },
-    { 'i', {0}, -1,         LINKDB_OFFSET(num_scopes) },
-    { 's', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_names)},
-    { 'i', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_hashes)},
+    { 'i', {0}, -1,         LINKDB_OFFSET(scopes.size) },
+    { 's', {1}, NUM_SCOPES, LINKDB_OFFSET(scopes.names)},
+    { 'i', {1}, NUM_SCOPES, LINKDB_OFFSET(scopes.hashes)},
     { 's', {1}, -1,         LINKDB_OFFSET(src_host) },
     { 's', {1}, -1,         LINKDB_OFFSET(src_name) },
     { 'i', {0}, -1,         LINKDB_OFFSET(src_port) },
@@ -799,9 +797,7 @@ static int update_device_record_params(mapper_db_device reg,
 
     updated += update_int_if_arg(&reg->num_outputs, params, AT_NUM_OUTPUTS);
 
-    updated += update_int_if_arg(&reg->num_links_in, params, AT_NUM_LINKS_IN);
-
-    updated += update_int_if_arg(&reg->num_links_out, params, AT_NUM_LINKS_OUT);
+    updated += update_int_if_arg(&reg->num_links, params, AT_NUM_LINKS);
 
     updated += update_int_if_arg(&reg->num_connections_in, params,
                                  AT_NUM_CONNECTIONS_IN);
@@ -2212,16 +2208,16 @@ int mapper_db_link_add_scope(mapper_db_link link,
         hash = 0;
     else
         hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    for (i=0; i<link->num_scopes; i++)
-        if (link->scope_hashes[i] == hash)
+    for (i=0; i<link->scopes.size; i++)
+        if (link->scopes.hashes[i] == hash)
             return 1;
 
     // not found - add a new scope
-    i = ++link->num_scopes;
-    link->scope_names = realloc(link->scope_names, i * sizeof(char *));
-    link->scope_names[i-1] = strdup(scope);
-    link->scope_hashes = realloc(link->scope_hashes, i * sizeof(uint32_t));
-    link->scope_hashes[i-1] = hash;
+    i = ++link->scopes.size;
+    link->scopes.names = realloc(link->scopes.names, i * sizeof(char *));
+    link->scopes.names[i-1] = strdup(scope);
+    link->scopes.hashes = realloc(link->scopes.hashes, i * sizeof(uint32_t));
+    link->scopes.hashes[i-1] = hash;
     return 0;
 }
 
@@ -2237,18 +2233,18 @@ int mapper_db_link_remove_scope(mapper_db_link link,
         hash = 0;
     else
         hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    for (i=0; i<link->num_scopes; i++) {
-        if (link->scope_hashes[i] == hash) {
-            free(link->scope_names[i]);
-            for (j=i+1; j<link->num_scopes; j++) {
-                link->scope_names[j-1] = link->scope_names[j];
-                link->scope_hashes[j-1] = link->scope_hashes[j];
+    for (i=0; i<link->scopes.size; i++) {
+        if (link->scopes.hashes[i] == hash) {
+            free(link->scopes.names[i]);
+            for (j=i+1; j<link->scopes.size; j++) {
+                link->scopes.names[j-1] = link->scopes.names[j];
+                link->scopes.hashes[j-1] = link->scopes.hashes[j];
             }
-            link->num_scopes--;
-            link->scope_names = realloc(link->scope_names,
-                                        link->num_scopes * sizeof(char *));
-            link->scope_hashes = realloc(link->scope_hashes,
-                                         link->num_scopes * sizeof(uint32_t));
+            link->scopes.size--;
+            link->scopes.names = realloc(link->scopes.names,
+                                         link->scopes.size * sizeof(char *));
+            link->scopes.hashes = realloc(link->scopes.hashes,
+                                          link->scopes.size * sizeof(uint32_t));
             return 0;
         }
     }
@@ -2276,16 +2272,16 @@ static int update_link_record_params(mapper_db_link link,
     num_scopes = mapper_msg_get_length(params, AT_SCOPE);
 
     // First remove old scopes that are missing
-    for (i=0; i<link->num_scopes; i++) {
+    for (i=0; i<link->scopes.size; i++) {
         int found = 0;
         for (j=0; j<num_scopes; j++) {
-            if (strcmp(link->scope_names[i], &a_scopes[j]->s) == 0) {
+            if (strcmp(link->scopes.names[i], &a_scopes[j]->s) == 0) {
                 found = 1;
                 break;
             }
         }
         if (!found) {
-            mapper_db_link_remove_scope(link, link->scope_names[i]);
+            mapper_db_link_remove_scope(link, link->scopes.names[i]);
             updated++;
         }
     }
@@ -2602,11 +2598,11 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         free(link->src_name);
     if (link->dest_name)
         free(link->dest_name);
-    if (link->num_scopes && link->scope_names) {
-        for (i=0; i<link->num_scopes; i++)
-            free(link->scope_names[i]);
-        free(link->scope_names);
-        free(link->scope_hashes);
+    if (link->scopes.size && link->scopes.names) {
+        for (i=0; i<link->scopes.size; i++)
+            free(link->scopes.names[i]);
+        free(link->scopes.names);
+        free(link->scopes.hashes);
     }
     if (link->extra)
         table_free(link->extra, 1);

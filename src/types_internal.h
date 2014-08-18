@@ -190,7 +190,7 @@ typedef mapper_admin_t *mapper_admin;
 typedef struct _mapper_connection {
     mapper_db_connection_t props;           //!< Properties
     struct _mapper_link_signal *parent;     /*!< Parent signal reference
-                                             *   in router or receiver. */
+                                             *   in router. */
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */
@@ -218,7 +218,7 @@ typedef struct _mapper_link_signal {
                                              *   this signal. */
     struct _mapper_link_signal *next;       /*!< The next signal connection
                                              *   in the list. */
-} *mapper_link_signal, *mapper_router_signal, *mapper_receiver_signal;
+} *mapper_link_signal, *mapper_router_signal;
 
 typedef struct _mapper_queue {
     mapper_timetag_t tt;
@@ -236,12 +236,13 @@ typedef struct _mapper_link {
                                      *   this link */
     mapper_link_signal signals;     /*!< The list of connections
                                      *  for each signal. */
-    int num_connections;            //!< Number of connections in link.
+    int num_connections_in;         //!< Number of incoming connections in link.
+    int num_connections_out;        //!< Number of outgoing connections in link.
     mapper_queue queues;            /*!< Linked-list of message queues
                                      *   waiting to be sent. */
     mapper_sync_clock_t clock;
     struct _mapper_link *next;      //!< Next link in the list.
-} *mapper_link, *mapper_router, *mapper_receiver;
+} *mapper_link, *mapper_router;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
@@ -263,12 +264,11 @@ typedef struct _mapper_device *mapper_device;
 #define FLAGS_SENT_DEVICE_INFO              0x01
 #define FLAGS_SENT_DEVICE_INPUTS            0x02
 #define FLAGS_SENT_DEVICE_OUTPUTS           0x04
-#define FLAGS_SENT_DEVICE_LINKS_IN          0x08
-#define FLAGS_SENT_DEVICE_LINKS_OUT         0x10
-#define FLAGS_SENT_DEVICE_CONNECTIONS_IN    0x20
-#define FLAGS_SENT_DEVICE_CONNECTIONS_OUT   0x40
-#define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x7F
-#define FLAGS_DEVICE_ATTRIBS_CHANGED        0x80
+#define FLAGS_SENT_DEVICE_LINKS             0x08
+#define FLAGS_SENT_DEVICE_CONNECTIONS_IN    0x10
+#define FLAGS_SENT_DEVICE_CONNECTIONS_OUT   0x20
+#define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x3F
+#define FLAGS_DEVICE_ATTRIBS_CHANGED        0x40
 
 /**** Monitor ****/
 
@@ -345,8 +345,7 @@ typedef enum {
     AT_NUM_CONNECTIONS_IN,
     AT_NUM_CONNECTIONS_OUT,
     AT_NUM_INPUTS,
-    AT_NUM_LINKS_IN,
-    AT_NUM_LINKS_OUT,
+    AT_NUM_LINKS,
     AT_NUM_OUTPUTS,
     AT_PORT,
     AT_RATE,

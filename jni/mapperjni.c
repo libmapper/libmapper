@@ -731,18 +731,11 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1outputs
     return mdev_num_outputs(dev);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1links_1in
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1links
   (JNIEnv *env, jobject obj, jlong d)
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
-    return mdev_num_links_in(dev);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1links_1out
-  (JNIEnv *env, jobject obj, jlong d)
-{
-    mapper_device dev = (mapper_device)ptr_jlong(d);
-    return mdev_num_links_out(dev);
+    return mdev_num_links(dev);
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1connections_1in
@@ -2259,18 +2252,11 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1outputs
     return props->num_outputs;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1links_1in
+JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1links
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->num_links_in;
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1links_1out
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->num_links_out;
+    return props->num_links;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1connections_1in
@@ -2671,7 +2657,7 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1num_1scopes
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return props->num_scopes;
+    return props->scopes.size;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1scope_1names
@@ -2679,9 +2665,9 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1scope_1names
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
 
-    if (!props->num_scopes)
+    if (!props->scopes.size)
         return 0;
-    return build_PropertyValue(env, 's', props->scope_names, props->num_scopes);
+    return build_PropertyValue(env, 's', props->scopes.names, props->scopes.size);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mapper_1db_1link_1property_1lookup

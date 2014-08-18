@@ -801,10 +801,8 @@ namespace mapper {
             { return mdev_num_inputs(device); }
         int num_outputs() const
             { return mdev_num_outputs(device); }
-        int num_links_in() const
-            { return mdev_num_links_in(device); }
-        int num_links_out() const
-            { return mdev_num_links_out(device); }
+        int num_links() const
+            { return mdev_num_links(device); }
         int num_connections_in() const
             { return mdev_num_connections_in(device); }
         int num_connections_out() const

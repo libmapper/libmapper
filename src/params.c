@@ -29,8 +29,7 @@ const char* mapper_msg_param_strings[] =
     "@numConnectsIn",   /* AT_NUM_CONNECTIONS_IN */
     "@numConnectsOut",  /* AT_NUM_CONNECTIONS_OUT */
     "@numInputs",       /* AT_NUM_INPUTS */
-    "@numLinksIn",      /* AT_NUM_LINKS_IN */
-    "@numLinksOut",     /* AT_NUM_LINKS_OUT */
+    "@numLinks",        /* AT_NUM_LINKS */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
     "@port",            /* AT_PORT */
     "@rate",            /* AT_RATE */
@@ -393,8 +392,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_CONNECTIONS_IN:
         case AT_NUM_CONNECTIONS_OUT:
         case AT_NUM_INPUTS:
-        case AT_NUM_LINKS_IN:
-        case AT_NUM_LINKS_OUT:
+        case AT_NUM_LINKS:
         case AT_NUM_OUTPUTS:
         case AT_PORT:
         case AT_REV:
@@ -587,9 +585,9 @@ void mapper_link_prepare_osc_message(lo_message m,
 
     // Add link scopes
     lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
-    if (link->props.num_scopes) {
-        for (i=0; i<link->props.num_scopes; i++)
-            lo_message_add_string(m, link->props.scope_names[i]);
+    if (link->props.scopes.size) {
+        for (i=0; i<link->props.scopes.size; i++)
+            lo_message_add_string(m, link->props.scopes.names[i]);
     }
     else
         lo_message_add_string(m, "none");

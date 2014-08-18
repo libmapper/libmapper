@@ -71,7 +71,6 @@ struct _mapper_device {
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
     mapper_router routers;
-    mapper_receiver receivers;
 
     int signal_slot_counter;
 
@@ -230,13 +229,6 @@ void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);
 
-void mdev_add_receiver(mapper_device md, mapper_receiver r);
-
-void mdev_remove_receiver(mapper_device md, mapper_receiver r);
-
-void mdev_receive_update(mapper_device md, mapper_signal sig,
-                         int instance_index, mapper_timetag_t tt);
-
 void mdev_release_scope(mapper_device md, const char *scope);
 
 void mdev_start_server(mapper_device mdev, int port);
@@ -311,14 +303,14 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
 
 int mapper_router_in_scope(mapper_router router, uint32_t origin);
 
-/*! Find a router by destination address in a linked list of routers. */
-mapper_router mapper_router_find_by_dest_address(mapper_router routers,
-                                                 const char *host,
-                                                 int port);
+/*! Find a router by remote address in a linked list of routers. */
+mapper_router mapper_router_find_by_remote_address(mapper_router routers,
+                                                   const char *host,
+                                                   int port);
 
-/*! Find a router by destination device name in a linked list of routers. */
-mapper_router mapper_router_find_by_dest_name(mapper_router routers,
-                                              const char *dest_name);
+/*! Find a router by remote device name in a linked list of routers. */
+mapper_router mapper_router_find_by_remote_name(mapper_router routers,
+                                                const char *name);
 
 /*! Find a router by destination device hash in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_hash(mapper_router routers,
@@ -327,61 +319,6 @@ mapper_router mapper_router_find_by_dest_hash(mapper_router routers,
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
 void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
-
-/***** Receiver *****/
-
-mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
-                                    int admin_port, int data_port,
-                                    const char *name);
-
-void mapper_receiver_free(mapper_receiver receiver);
-
-/*! Set a router's properties based on message parameters. */
-int mapper_receiver_set_from_message(mapper_receiver receiver,
-                                     mapper_message_t *msg);
-
-void mapper_receiver_send_update(mapper_receiver r,
-                                 mapper_signal sig,
-                                 int instance_index,
-                                 mapper_timetag_t tt);
-
-void mapper_receiver_send_released(mapper_receiver r,
-                                   mapper_signal sig,
-                                   int instance_index,
-                                   mapper_timetag_t tt);
-
-mapper_connection mapper_receiver_add_connection(mapper_receiver receiver,
-                                                 mapper_signal sig,
-                                                 const char *src_name,
-                                                 char src_type,
-                                                 int src_length);
-
-int mapper_receiver_remove_connection(mapper_receiver receiver,
-                                      mapper_connection connection);
-
-/*! Find a connection in a receiver by source and destination signal names. */
-mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
-                                                           const char* src_name,
-                                                           const char* dest_name);
-
-int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t origin);
-
-/*! Find a receiver by source address in a linked list of receivers. */
-mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
-                                                    const char *host,
-                                                    int port);
-
-/*! Find a receiver by source device name in a linked list of receivers. */
-mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
-                                                 const char *src_name);
-
-/*! Find a receiver by source device hash in a linked list of receivers. */
-mapper_receiver mapper_receiver_find_by_src_hash(mapper_receiver receivers,
-                                                 uint32_t hash);
-
-int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
-
-int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 

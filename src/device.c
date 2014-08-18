@@ -113,11 +113,9 @@ void mdev_free(mapper_device md)
         }
     }
 
-    // Routers and receivers reference parent signals so release them first
+    // Routers reference parent signals so release them first
     while (md->routers)
         mdev_remove_router(md, md->routers);
-    while (md->receivers)
-        mdev_remove_receiver(md, md->receivers);
 
     if (md->outputs) {
         for (i = 0; i < md->props.num_outputs; i++)
@@ -382,10 +380,8 @@ static int handler_signal(const char *path, const char *types,
     }
     if (out_count) {
         sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
-    }
-    // TODO: handle cases where count > 1
-    if (!sig->props.is_output) {
-        mdev_receive_update(md, sig, index, tt);
+        if (!sig->props.is_output)
+            mdev_route_signal(md, sig, index, out_buffer, out_count, tt);
     }
 
     return 0;
@@ -648,10 +644,10 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     snprintf(str1, 1024, "%s/get", sig->props.name);
     lo_server_del_method(md->server, str1, NULL);
 
-    mapper_receiver r = md->receivers;
+    mapper_router r = md->routers;
     msig_full_name(sig, str2, 1024);
     while (r) {
-        mapper_receiver_signal rs = r->signals;
+        mapper_router_signal rs = r->signals;
         while (rs) {
             if (rs->signal == sig) {
                 // need to disconnect?
@@ -664,7 +660,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                     mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
                                                 "ss", str1, str2);
                     mapper_connection temp = c->next;
-                    mapper_receiver_remove_connection(r, c);
+                    mapper_router_remove_connection(r, c);
                     c = temp;
                 }
                 break;
@@ -755,22 +751,17 @@ int mdev_num_outputs(mapper_device md)
     return md->props.num_outputs;
 }
 
-int mdev_num_links_in(mapper_device md)
+int mdev_num_links(mapper_device md)
 {
-    return md->props.num_links_in;
-}
-
-int mdev_num_links_out(mapper_device md)
-{
-    return md->props.num_links_out;
+    return md->props.num_links;
 }
 
 int mdev_num_connections_in(mapper_device md)
 {
-    mapper_receiver r = md->receivers;
+    mapper_router r = md->routers;
     int count = 0;
     while (r) {
-        count += r->num_connections;
+        count += r->num_connections_in;
         r = r->next;
     }
     return count;
@@ -781,7 +772,7 @@ int mdev_num_connections_out(mapper_device md)
     mapper_router r = md->routers;
     int count = 0;
     while (r) {
-        count += r->num_connections;
+        count += r->num_connections_out;
         r = r->next;
     }
     return count;
@@ -958,22 +949,6 @@ void mdev_route_signal(mapper_device md,
     }
 }
 
-void mdev_receive_update(mapper_device md,
-                         mapper_signal sig,
-                         int instance_index,
-                         mapper_timetag_t tt)
-{
-    // pass update to each receiver in turn
-    mapper_receiver r = md->receivers;
-    while (r) {
-        mapper_receiver_send_update(r, sig, instance_index, tt);
-        r = r->next;
-    }
-
-    return;
-}
-
-
 // Function to start a mapper queue
 void mdev_start_queue(mapper_device md, mapper_timetag_t tt)
 {
@@ -1012,16 +987,7 @@ int mdev_route_query(mapper_device md, mapper_signal sig,
 void mdev_route_released(mapper_device md, mapper_signal sig,
                          int instance_index, mapper_timetag_t tt)
 {
-    if (sig->props.is_output)
-        mdev_route_signal(md, sig, instance_index, 0, 0, tt);
-    else {
-        // pass update to each receiver in turn
-        mapper_receiver r = md->receivers;
-        while (r) {
-            mapper_receiver_send_released(r, sig, instance_index, tt);
-            r = r->next;
-        }
-    }
+    mdev_route_signal(md, sig, instance_index, 0, 0, tt);
 }
 
 void mdev_add_router(mapper_device md, mapper_router rt)
@@ -1029,7 +995,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     mapper_router *r = &md->routers;
     rt->next = *r;
     *r = rt;
-    md->props.num_links_out++;
+    md->props.num_links++;
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
@@ -1039,30 +1005,7 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         if (*r == rt) {
             *r = rt->next;
             mapper_router_free(rt);
-            md->props.num_links_out--;
-            break;
-        }
-        r = &(*r)->next;
-    }
-}
-
-void mdev_add_receiver(mapper_device md, mapper_receiver rc)
-{
-    mapper_receiver *r = &md->receivers;
-    rc->next = *r;
-    *r = rc;
-    md->props.num_links_in++;
-}
-
-void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
-{
-    // remove receiver
-    mapper_receiver *r = &md->receivers;
-    while (*r) {
-        if (*r == rc) {
-            *r = rc->next;
-            mapper_receiver_free(rc);
-            md->props.num_links_in--;
+            md->props.num_links--;
             break;
         }
         r = &(*r)->next;

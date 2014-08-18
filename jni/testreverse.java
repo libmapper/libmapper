@@ -52,7 +52,7 @@ class testreverse {
         System.out.println("Device ip4: "+dev.ip4());
 
         mon.link(dev.name(), dev.name(), null);
-        while (dev.numLinksIn() <= 0) { dev.poll(100); }
+        while (dev.numLinks() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         c.mode = Mapper.Db.Connection.MO_REVERSE;

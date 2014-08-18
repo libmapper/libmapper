@@ -43,7 +43,7 @@ class testspeed {
         System.out.println("Device is ready.");
 
         mon.link(dev.name(), dev.name(), null);
-        while (dev.numLinksIn() <= 0) { dev.poll(100); }
+        while (dev.numLinks() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         mon.connect(dev.name()+out.name(), dev.name()+in.name(), null);

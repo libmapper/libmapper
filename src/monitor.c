@@ -162,12 +162,6 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
             }
             if (subscribe_flags & SUB_DEVICE_LINKS)
                 lo_message_add_string(m, "links");
-            else {
-                if (subscribe_flags & SUB_DEVICE_LINKS_IN)
-                    lo_message_add_string(m, "links_in");
-                else if (subscribe_flags & SUB_DEVICE_LINKS_OUT)
-                    lo_message_add_string(m, "links_out");
-            }
             if (subscribe_flags & SUB_DEVICE_CONNECTIONS)
                 lo_message_add_string(m, "connections");
             else {
@@ -273,7 +267,7 @@ void mapper_monitor_link(mapper_monitor mon,
                          mapper_db_link_t *props,
                          unsigned int props_flags)
 {
-    if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes &&
+    if (props && (props_flags & LINK_NUM_SCOPES) && props->scopes.size &&
         ((props_flags & LINK_SCOPE_NAMES) || (props_flags & LINK_SCOPE_HASHES))) {
         lo_message m = lo_message_new();
         if (!m)
@@ -283,13 +277,13 @@ void mapper_monitor_link(mapper_monitor mon,
         lo_message_add_string(m, "@scope");
         int i;
         if (props_flags & LINK_SCOPE_NAMES) {
-            for (i=0; i<props->num_scopes; i++) {
-                lo_message_add_string(m, props->scope_names[i]);
+            for (i=0; i<props->scopes.size; i++) {
+                lo_message_add_string(m, props->scopes.names[i]);
             }
         }
         else if (props_flags & LINK_SCOPE_HASHES) {
-            for (i=0; i<props->num_scopes; i++) {
-                lo_message_add_int32(m, props->scope_hashes[i]);
+            for (i=0; i<props->scopes.size; i++) {
+                lo_message_add_int32(m, props->scopes.hashes[i]);
             }
         }
 

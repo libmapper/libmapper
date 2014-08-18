@@ -143,7 +143,7 @@ int setup_connection()
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
     // wait until connection has been established
-    while (!done && !source->routers->num_connections) {
+    while (!done && !source->routers->num_connections_out) {
         if (count++ > 50)
             goto error;
         mdev_poll(source, 10);

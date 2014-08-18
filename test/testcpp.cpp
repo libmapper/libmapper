@@ -81,8 +81,7 @@ int main(int argc, char ** argv)
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
     std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
     std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
-    std::cout << "  num_links_in: " << dev.num_links_in() << std::endl;
-    std::cout << "  num_links_out: " << dev.num_links_out() << std::endl;
+    std::cout << "  num_links: " << dev.num_links() << std::endl;
     std::cout << "  num_connections_in: " << dev.num_connections_in() << std::endl;
     std::cout << "  num_connections_out: " << dev.num_connections_out() << std::endl;
 
@@ -156,7 +155,7 @@ int main(int argc, char ** argv)
 
     mapper::Monitor mon(SUB_DEVICE_ALL);
     mon.link(dev.name(), dev.name());
-    while (dev.num_links_in() <= 0) { dev.poll(100); }
+    while (dev.num_links() <= 0) { dev.poll(100); }
 
     mapper::Db::Connection c;
     c.set_mode(MO_EXPRESSION);

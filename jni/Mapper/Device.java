@@ -267,14 +267,9 @@ public class Device
         return mdev_num_outputs(_device);
     }
 
-    public int numLinksIn()
+    public int numLinks()
     {
-        return mdev_num_links_in(_device);
-    }
-
-    public int numLinksOut()
-    {
-        return mdev_num_links_out(_device);
+        return mdev_num_links(_device);
     }
 
     public int numConnectionsIn()
@@ -388,8 +383,7 @@ public class Device
     private native void mdev_remove_output(long _d, long _sig);
     private native int mdev_num_inputs(long _d);
     private native int mdev_num_outputs(long _d);
-    private native int mdev_num_links_in(long _d);
-    private native int mdev_num_links_out(long _d);
+    private native int mdev_num_links(long _d);
     private native int mdev_num_connections_in(long _d);
     private native int mdev_num_connections_out(long _d);
     private native long mdev_get_input_by_name(long _d, String name,

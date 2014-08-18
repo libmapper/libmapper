@@ -34,15 +34,14 @@ typedef struct _mapper_db_device {
     int port;                   //!< Device network port.
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
-    int num_links_in;           //!< Number of associated incoming links.
-    int num_links_out;          //!< Number of associated outgoing links.
+    int num_links;              //!< Number of associated links.
     int num_connections_in;     //!< Number of associated incoming connections.
     int num_connections_out;    //!< Number of associated outgoing connections.
     int version;                //!< Reported device state version.
     char *lib_version;          //!< libmapper version of device.
     void* user_data;            //!< User modifiable data.
-    mapper_timetag_t timetag;
 
+    mapper_timetag_t timetag;
     mapper_timetag_t synced; //!< Timestamp of last sync.
 
     /*! Extra properties associated with this device. */
@@ -118,6 +117,10 @@ typedef enum _mapper_instance_allocation_type {
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
+#define DI_UNDEFINED    0
+#define DI_INCOMING     1
+#define DI_OUTGOING     2
+
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {
@@ -155,6 +158,8 @@ typedef struct _mapper_db_connection {
                                  *   expression connection */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
+
+    int direction;              /*! Outgoing or incoming. */
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
@@ -233,6 +238,12 @@ typedef struct _mapper_db_signal
     void *user_data;
 } mapper_db_signal_t, *mapper_db_signal;
 
+typedef struct _mapper_link_scope {
+    int size;               //!< The number of link scopes.
+    uint32_t *hashes;       //!< Array of link scope hashes.
+    char **names;           //!< Array of link scope names.
+} mapper_link_scope_t, *mapper_link_scope;
+
 /*! A record that describes the properties of a link between devices.
  *  @ingroup linkdb */
 typedef struct _mapper_db_link {
@@ -244,12 +255,12 @@ typedef struct _mapper_db_link {
     int src_port;                   //!< Network port of source device.
     char *dest_host;                //!< IP Address of the destination device.
     int dest_port;                  //!< Network port of destination device.
-    int num_scopes;                 //!< The number of instance group scopes.
-    char **scope_names;             //!< Array of instance group scopes.
-    uint32_t *scope_hashes;         //!< Array of CRC-32 scope hashes.
+    struct _mapper_link_scope scopes;
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
+
+    int direction;                  //!< Incoming, outgoing, or both
 } mapper_db_link_t, *mapper_db_link;
 
 typedef struct _mapper_db_batch_request

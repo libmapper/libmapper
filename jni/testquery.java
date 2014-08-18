@@ -52,7 +52,7 @@ class testquery {
         System.out.println("Device ip4: "+dev.ip4());
 
         mon.link(dev.name(), dev.name(), null);
-        while (dev.numLinksIn() <= 0) { dev.poll(100); }
+        while (dev.numLinks() <= 0) { dev.poll(100); }
 
         mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), null);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
