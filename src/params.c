@@ -578,20 +578,20 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_link_prepare_osc_message(lo_message m,
-                                     mapper_link link)
+void mapper_router_prepare_osc_message(lo_message m,
+                                       mapper_router r)
 {
     int i;
 
     // Add link scopes
     lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
-    if (link->props.scopes.size) {
-        for (i=0; i<link->props.scopes.size; i++)
-            lo_message_add_string(m, link->props.scopes.names[i]);
+    if (r->props.scopes.size) {
+        for (i = 0; i < r->props.scopes.size; i++)
+            lo_message_add_string(m, r->props.scopes.names[i]);
     }
     else
         lo_message_add_string(m, "none");
-    mapper_msg_add_value_table(m, link->props.extra);
+    mapper_msg_add_value_table(m, r->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,

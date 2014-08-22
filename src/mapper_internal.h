@@ -438,7 +438,8 @@ int mapper_boundary_perform(mapper_connection connection,
 
 /*! Set a connection's properties based on message parameters. */
 int mapper_connection_set_from_message(mapper_connection connection,
-                                       mapper_message_t *msg);
+                                       mapper_message_t *msg,
+                                       int direction);
 
 void mapper_connection_set_mode_direct(mapper_connection connection);
 
@@ -452,6 +453,8 @@ void mapper_connection_set_mode_calibrate(mapper_connection connection);
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
+
+void mapper_connection_swap_direction(mapper_connection c);
 
 /**** Local device database ****/
 
@@ -691,8 +694,8 @@ void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
-void mapper_link_prepare_osc_message(lo_message m,
-                                     mapper_router router);
+void mapper_router_prepare_osc_message(lo_message m,
+                                       mapper_router router);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,

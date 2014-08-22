@@ -130,8 +130,6 @@ typedef struct _mapper_db_connection {
 
     int src_length;             //!< Source signal length.
     int dest_length;            //!< Destination signal length.
-    int src_history_size;       //!< Source history size.
-    int dest_history_size;      //!< Destination history size.
 
     mapper_boundary_action bound_max; /*!< Operation for exceeded
                                        *   upper boundary. */

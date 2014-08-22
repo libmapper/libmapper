@@ -959,14 +959,50 @@ static int set_range(mapper_connection c,
     return updated;
 }
 
+void mapper_connection_swap_direction(mapper_connection c)
+{
+    // swap names
+    char *stemp = c->props.src_name;
+    c->props.src_name = c->props.dest_name;
+    c->props.dest_name = stemp;
+
+    // swap lengths
+    int itemp = c->props.src_length;
+    c->props.src_length = c->props.dest_length;
+    c->props.dest_length = itemp;
+
+    // swap types
+    char ctemp = c->props.src_type;
+    c->props.src_type = c->props.dest_type;
+    c->props.dest_type = ctemp;
+
+    // swap minima
+    void *ptemp = c->props.src_min;
+    c->props.src_min = c->props.dest_min;
+    c->props.dest_min = ptemp;
+
+    // swap maxima
+    ptemp = c->props.src_max;
+    c->props.src_max = c->props.dest_max;
+    c->props.dest_max = ptemp;
+
+    c->direction = 1 - c->direction;
+}
+
 int mapper_connection_set_from_message(mapper_connection c,
-                                       mapper_message_t *msg)
+                                       mapper_message_t *msg,
+                                       int direction)
 {
     int updated = 0;
     /* First record any provided parameters. */
 
-    /* Destination type. */
+    /* Direction */
+    if (direction != c->direction) {
+        mapper_connection_swap_direction(c);
+        updated++;
+    }
 
+    /* Destination type. */
     const char *dest_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
     if (dest_type && c->props.dest_type != dest_type[0]) {
         // TODO: need to reinitialize connections using this destination signal
@@ -975,7 +1011,6 @@ int mapper_connection_set_from_message(mapper_connection c,
     }
 
     /* Range information. */
-
     updated += set_range(c, msg);
     if (c->props.range_known == CONNECTION_RANGE_KNOWN &&
         c->props.mode == MO_LINEAR) {
@@ -1006,13 +1041,21 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
-        int input_history_size, output_history_size;
-        if (!replace_expression_string(c, expr, &input_history_size,
-                                       &output_history_size)) {
-            if (c->props.mode == MO_EXPRESSION) {
-                reallocate_connection_histories(c, input_history_size,
-                                                output_history_size);
+        if (c->direction == DI_OUTGOING) {
+            int input_history_size, output_history_size;
+            if (!replace_expression_string(c, expr, &input_history_size,
+                                           &output_history_size)) {
+                if (c->props.mode == MO_EXPRESSION) {
+                    reallocate_connection_histories(c, input_history_size,
+                                                    output_history_size);
+                }
             }
+        }
+        else {
+            // just copy the expression string
+            if (c->props.expression)
+                free(c->props.expression);
+            c->props.expression = strdup(expr);
         }
         updated++;
     }
@@ -1145,12 +1188,12 @@ void reallocate_connection_histories(mapper_connection c,
     }
 
     // reallocate output histories
-    if (output_history_size > c->props.dest_history_size) {
+    if (output_history_size > c->output_history_size) {
         int sample_size = mapper_type_size(c->props.dest_type) * c->props.dest_length;
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->history[i], output_history_size, sample_size, 0);
         }
-        c->props.dest_history_size = output_history_size;
+        c->output_history_size = output_history_size;
     }
     else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
         // Do nothing for now...

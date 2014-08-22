@@ -182,32 +182,34 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
     }
 }
 
+static mapper_monitor_subscription get_subscription(mapper_monitor mon,
+                                                    const char *device_name)
+{
+    mapper_monitor_subscription s = mon->subscriptions;
+    while (s) {
+        if (strcmp(device_name, s->name)==0)
+            return s;
+        s = s->next;
+    }
+    return 0;
+}
+
 void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
                               int subscribe_flags, int timeout)
 {
-    mapper_db_device found = 0;
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_monitor_subscription s = mon->subscriptions;
-        while (s) {
-            if (strcmp(device_name, s->name)==0) {
-                s->flags = subscribe_flags;
-                // subscription already exists; check if monitor has device record
-                if ((found = mapper_db_get_device_by_name(&mon->db, device_name)))
-                    return;
-                break;
-            }
-            s = s->next;
-        }
+        mapper_monitor_subscription s = get_subscription(mon, device_name);
+
         if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mapper_monitor_subscription));
             s->name = strdup(device_name);
-            s->flags = subscribe_flags;
             s->next = mon->subscriptions;
             mon->subscriptions = s;
         }
+        s->flags = subscribe_flags;
 
         mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
         // leave 10-second buffer for subscription lease

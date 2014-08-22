@@ -20,7 +20,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
                                 const char *name)
 {
     char str[16];
-    mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_link));
+    mapper_router r = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     r->props.src_name = strdup(mdev_name(device));
     r->props.dest_host = strdup(host);
     r->props.dest_port = data_port;
@@ -46,6 +46,9 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->clock.new = 1;
     r->clock.sent.message_id = 0;
     r->clock.response.message_id = -1;
+
+    if (name == mdev_name(device))
+        r->self_link = 1;
 
     if (!r->data_addr) {
         mapper_router_free(r);
@@ -173,11 +176,11 @@ void mapper_router_num_instances_changed(mapper_router r,
         for (i=rs->num_instances; i<size; i++) {
             c->history[i].type = c->props.dest_type;
             c->history[i].length = c->props.dest_length;
-            c->history[i].size = c->props.dest_history_size;
+            c->history[i].size = c->output_history_size;
             c->history[i].value = calloc(1, mapper_type_size(c->props.dest_type)
-                                         * c->props.dest_history_size);
+                                         * c->output_history_size);
             c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                           * c->props.dest_history_size);
+                                           * c->output_history_size);
             c->history[i].position = -1;
 
             c->expr_vars[i] = malloc(sizeof(struct _mapper_signal_history) *
@@ -248,9 +251,9 @@ void mapper_router_process_signal(mapper_router r,
                                                          m, tt);
             }
             // also need to reset associated output memory
-            memset(c->history[id].value, 0, c->props.dest_history_size *
+            memset(c->history[id].value, 0, c->output_history_size *
                    c->props.dest_length * mapper_type_size(c->props.dest_type));
-            memset(c->history[id].timetag, 0, c->props.dest_history_size *
+            memset(c->history[id].timetag, 0, c->output_history_size *
                    sizeof(mapper_timetag_t));
 
             c = c->next;
@@ -270,7 +273,6 @@ void mapper_router_process_signal(mapper_router r,
             c = c->next;
             continue;
         }
-
         char typestring[c->props.dest_length * count];
         j = 0;
         for (i = 0; i < count; i++) {
@@ -309,8 +311,7 @@ void mapper_router_process_signal(mapper_router r,
             }
             j++;
         }
-        if (count > 1 && (c->props.mode == DI_OUTGOING) &&
-            (!c->props.send_as_instance || in_scope)) {
+        if (count > 1 && (!c->props.send_as_instance || in_scope)) {
             m = mapper_router_build_message(&c->props, out_value_p,
                                             c->props.dest_length * j,
                                             typestring, map);
@@ -516,7 +517,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     // if not found, create a new list entry
     if (!rs) {
         rs = (mapper_router_signal)
-            calloc(1, sizeof(struct _mapper_link_signal));
+            calloc(1, sizeof(struct _mapper_router_signal));
         rs->signal = sig;
         rs->num_instances = sig->props.num_instances;
         rs->history = malloc(sizeof(struct _mapper_signal_history)
@@ -551,6 +552,9 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
+
+    if (direction == DI_INCOMING)
+        mapper_connection_swap_direction(c);
 
     c->props.src_min = 0;
     c->props.src_max = 0;

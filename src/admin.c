@@ -93,8 +93,8 @@ const char* admin_msg_strings[] =
 
 /* Internal functions for sending admin messages. */
 static void mapper_admin_send_device(mapper_admin admin, mapper_device device);
-static void mapper_admin_send_linked(mapper_admin admin, mapper_link link);
-static void mapper_admin_send_connected(mapper_admin admin, mapper_link link,
+static void mapper_admin_send_linked(mapper_admin admin, mapper_router r);
+static void mapper_admin_send_connected(mapper_admin admin, mapper_router r,
                                         mapper_connection c, int index);
 
 /* Internal message handler prototypes. */
@@ -1106,7 +1106,7 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 }
 
 static void mapper_admin_send_linked(mapper_admin admin,
-                                     mapper_link link)
+                                     mapper_router router)
 {
     // Send /linked message
     lo_message m = lo_message_new();
@@ -1115,14 +1115,14 @@ static void mapper_admin_send_linked(mapper_admin admin,
         return;
     }
 
-    lo_message_add_string(m, mdev_name(link->device));
-    lo_message_add_string(m, link->props.dest_name);
+    lo_message_add_string(m, mdev_name(router->device));
+    lo_message_add_string(m, router->props.dest_name);
     lo_message_add_string(m, "@srcPort");
-    lo_message_add_int32(m, link->device->props.port);
+    lo_message_add_int32(m, router->device->props.port);
     lo_message_add_string(m, "@destPort");
-    lo_message_add_int32(m, link->props.dest_port);
+    lo_message_add_int32(m, router->props.dest_port);
 
-    mapper_link_prepare_osc_message(m, link);
+    mapper_router_prepare_osc_message(m, router);
 
     lo_bundle_add_message(admin->bundle, "/linked", m);
 }
@@ -1137,7 +1137,7 @@ static void mapper_admin_send_links(mapper_admin admin, mapper_device md)
 }
 
 static void mapper_admin_send_connected(mapper_admin admin,
-                                        mapper_link link,
+                                        mapper_router router,
                                         mapper_connection c,
                                         int index)
 {
@@ -1150,10 +1150,10 @@ static void mapper_admin_send_connected(mapper_admin admin,
 
     char local_name[1024], remote_name[1024];
 
-    snprintf(local_name, 1024, "%s%s", mdev_name(link->device),
+    snprintf(local_name, 1024, "%s%s", mdev_name(router->device),
              c->parent->signal->props.name);
 
-    snprintf(remote_name, 1024, "%s%s", link->props.dest_name,
+    snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
              c->props.dest_name);
 
     if (c->direction == DI_OUTGOING) {
@@ -1755,6 +1755,7 @@ static int handler_device_link(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    int self_ref = 0;
 
     if (argc < 2)
         return 0;
@@ -1766,11 +1767,15 @@ static int handler_device_link(const char *path, const char *types,
 
     const char *remote_name = NULL;
 
-    if (strcmp(mdev_name(md), &argv[0]->s) == 0)
+    if (strcmp(mdev_name(md), &argv[0]->s) == 0) {
         remote_name = &argv[1]->s;
-    else if (strcmp(mdev_name(md), &argv[1]->s) == 0)
+        self_ref++;
+    }
+    if (strcmp(mdev_name(md), &argv[1]->s) == 0) {
         remote_name = &argv[0]->s;
-    else
+        self_ref++;
+    }
+    if (!self_ref)
         return 0;
 
     trace("<%s> got /link %s %s\n", mdev_name(md),
@@ -1786,17 +1791,57 @@ static int handler_device_link(const char *path, const char *types,
         return 0;
     }
 
-    lo_arg *arg_port = (lo_arg*) &md->props.port;
-    params.values[AT_PORT] = &arg_port;
-    params.types[AT_PORT] = "i";
-    params.lengths[AT_PORT] = 1;
+    // Discover whether the device is already linked.
+    mapper_router router =
+        mapper_router_find_by_remote_name(md->routers, remote_name);
 
-    // TODO: check if src ip and port are available as metadata, send directly
-    char cmd[1024];
-    snprintf(cmd, 1024, "%s/linkTo", remote_name);
-    mapper_admin_set_bundle_dest_bus(admin);
-    mapper_admin_bundle_message_with_params(
-        admin, &params, 0, -1, cmd, "s", mdev_name(md));
+    if (router) {
+        // Already linked, forward to link/modify handler.
+        if (argc > 3)
+            handler_device_link_modify(path, types, argv, argc,
+                                       msg, user_data);
+        return 0;
+    }
+
+    if (self_ref == 2) {
+        // this is a self-link, no need to continue linking protocol
+        // Creation of a new router added to the source.
+        router = mapper_router_new(md, "localhost",
+                                   lo_server_get_port(admin->mesh_server),
+                                   md->props.port, mdev_name(md));
+        if (!router) {
+            trace("can't perform /linkTo, NULL router\n");
+            return 0;
+        }
+        mdev_add_router(md, router);
+
+        if (argc > 2)
+            mapper_router_set_from_message(router, &params);
+
+        // Call local link handler if it exists
+        if (md->link_cb)
+            md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED,
+                        md->link_cb_userdata);
+
+        // Announce the result to subscribers.
+        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
+        mapper_admin_send_linked(admin, router);
+
+        trace("<%s> added new router to self\n", mdev_name(md));
+    }
+    else {
+        lo_arg *arg_port = (lo_arg*) &md->props.port;
+        params.values[AT_PORT] = &arg_port;
+        params.types[AT_PORT] = "i";
+        params.lengths[AT_PORT] = 1;
+
+        // TODO: check if src ip and port are available as metadata, send directly
+        char cmd[1024];
+        snprintf(cmd, 1024, "%s/linkTo", remote_name);
+        mapper_admin_set_bundle_dest_bus(admin);
+        mapper_admin_bundle_message_with_params(
+            admin, &params, 0, -1, cmd, "s", mdev_name(md));
+    }
 
     return 0;
 }
@@ -1840,7 +1885,8 @@ static int handler_device_linkTo(const char *path, const char *types,
 
     if (router) {
         // Already linked, forward to link/modify handler.
-        handler_device_link_modify(path, types, argv, argc, msg, user_data);
+        if (argc > 3)
+            handler_device_link_modify(path, types, argv, argc, msg, user_data);
         return 0;
     }
 
@@ -2137,7 +2183,7 @@ static int handler_signal_connect(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_signal signal;
+    mapper_signal s1, s2;
     int downstream = 1, skip_arg = 0;
 
     const char *local_signal_name, *local_name;
@@ -2179,8 +2225,8 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
-    signal = mdev_get_signal_by_name(md, local_signal_name, 0);
-    if (!signal) {
+    s1 = mdev_get_signal_by_name(md, local_signal_name, 0);
+    if (!s1) {
         trace("<%s> no matching signal found for '%s' in /connect\n",
               mdev_name(md), local_signal_name);
         return 0;
@@ -2219,7 +2265,7 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     mapper_connection c =
-        mapper_router_find_connection(router, signal, remote_signal_name);
+        mapper_router_find_connection(router, s1, remote_signal_name);
 
     /* If a connection connection already exists between these two signals,
      * forward the message to handler_signal_connection_modify() and stop. */
@@ -2229,18 +2275,86 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
+    if (router->self_link) {
+        // no need to continue with connection protocol
+        s2 = mdev_get_signal_by_name(md, remote_signal_name, 0);
+        if (!s2) {
+            trace("<%s> no matching signal found for '%s' in /connect\n",
+                  mdev_name(md), remote_signal_name);
+            return 0;
+        }
+        /* Add flavourless connections */
+        // TODO: allow single connection structure to be shared between signals?
+        mapper_connection c2;
+        c = mapper_router_add_connection(router, s1, s2->props.name,
+                                         s2->props.type, s2->props.length,
+                                         downstream ? DI_OUTGOING : DI_INCOMING);
+        c2 = mapper_router_add_connection(router, s2, s1->props.name,
+                                          s1->props.type, s1->props.length,
+                                          downstream ? DI_INCOMING : DI_OUTGOING);
+        if (!c || !c2) {
+            trace("couldn't create mapper_connection "
+                  "in handler_signal_connectTo\n");
+            return 0;
+        }
+        c->complement = c2;
+        c2->complement = c;
+
+        if (argc > 2) {
+            /* If send_as_instance property is not set, make connection
+             * default to passing updates as instances if either source
+             * or destination signals have multiple instances. */
+            if (!params.values[AT_SEND_AS_INSTANCE]) {
+                int remote_instances = 0;
+                mapper_msg_get_param_if_int(&params, AT_INSTANCES,
+                                            &remote_instances);
+                if (s1->props.num_instances > 1 || s2->props.num_instances > 1) {
+                    c->props.send_as_instance = 1;
+                    c2->props.send_as_instance = 1;
+                }
+                else {
+                    c->props.send_as_instance = 0;
+                    c2->props.send_as_instance = 0;
+                }
+            }
+
+            /* Set its properties. */
+            mapper_connection_set_from_message(
+                c, &params, downstream ? DI_OUTGOING : DI_INCOMING);
+            mapper_connection_set_from_message(
+                c2, &params, downstream ? DI_INCOMING : DI_OUTGOING);
+        }
+
+        // Inform subscribers
+        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS);
+        mapper_admin_send_connected(admin, router, c, -1);
+        mapper_admin_send_connected(admin, router, c2, -1);
+
+        // Call local connection handler if it exists
+        if (md->connection_cb) {
+            md->connection_cb(md, &router->props, s1,
+                              &c->props, MDEV_LOCAL_ESTABLISHED,
+                              md->connection_cb_userdata);
+            md->connection_cb(md, &router->props, s2,
+                              &c2->props, MDEV_LOCAL_ESTABLISHED,
+                              md->connection_cb_userdata);
+        }
+        c->new = 0;
+        return 0;
+    }
+
     // substitute some missing parameters with known properties
-    lo_arg *arg_type = (lo_arg*) &signal->props.type;
+    lo_arg *arg_type = (lo_arg*) &s1->props.type;
     params.values[AT_TYPE] = &arg_type;
     params.types[AT_TYPE] = "c";
     params.lengths[AT_TYPE] = 1;
 
-    lo_arg *arg_length = (lo_arg*) &signal->props.length;
+    lo_arg *arg_length = (lo_arg*) &s1->props.length;
     params.values[AT_LENGTH] = &arg_length;
     params.types[AT_LENGTH] = "i";
     params.lengths[AT_LENGTH] = 1;
 
-    lo_arg *arg_num_instances = (lo_arg*) &signal->props.num_instances;
+    lo_arg *arg_num_instances = (lo_arg*) &s1->props.num_instances;
     params.values[AT_INSTANCES] = &arg_num_instances;
     params.types[AT_INSTANCES] = "i";
     params.lengths[AT_INSTANCES] = 1;
@@ -2254,10 +2368,10 @@ static int handler_signal_connect(const char *path, const char *types,
 
     mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
     mapper_admin_bundle_message_with_params(
-        admin, &params, signal->props.extra,
+        admin, &params, s1->props.extra,
         ADM_CONNECT_TO, 0, "sss", remote_name, downstream ? "->" : "<-", local_name,
-        (!params.values[AT_MIN] && signal->props.minimum) ? AT_MIN : -1, signal,
-        (!params.values[AT_MAX] && signal->props.maximum) ? AT_MAX : -1, signal);
+        (!params.values[AT_MIN] && s1->props.minimum) ? AT_MIN : -1, s1,
+        (!params.values[AT_MAX] && s1->props.maximum) ? AT_MAX : -1, s1);
 
     return 0;
 }
@@ -2396,7 +2510,8 @@ static int handler_signal_connectTo(const char *path, const char *types,
         }
 
         /* Set its properties. */
-        mapper_connection_set_from_message(c, &params);
+        mapper_connection_set_from_message(
+            c, &params, downstream ? DI_OUTGOING : DI_INCOMING);
     }
 
     if (c->direction == DI_OUTGOING) {
@@ -2502,7 +2617,7 @@ static int handler_signal_connected(const char *path, const char *types,
         if (argc <= (2+skip_arg))
             return 0;
         // connection already exists, add metadata
-        int updated = mapper_connection_set_from_message(c, &params);
+        int updated = mapper_connection_set_from_message(c, &params, DI_INCOMING);
         if (updated || c->new) {
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
@@ -2607,7 +2722,8 @@ static int handler_signal_connection_modify(const char *path, const char *types,
               "continuing anyway.\n", mdev_name(md));
     }
 
-    int updated = mapper_connection_set_from_message(c, &params);
+    // TODO: invert params if necessary
+    int updated = mapper_connection_set_from_message(c, &params, DI_OUTGOING);
     if (updated) {
         // Inform destination device
         mapper_admin_set_bundle_dest_mesh(admin, r->admin_addr);
