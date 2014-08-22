@@ -1,9 +1,7 @@
 
 package Mapper;
 
-import Mapper.NativeLib;
-import Mapper.PropertyValue;
-import Mapper.TimeTag;
+import Mapper.*;
 import Mapper.Db.*;
 
 public class Monitor
@@ -220,32 +218,55 @@ public class Monitor
         mmon_unsubscribe(_monitor, deviceName);
     }
 
-    public void link(String sourceDevice, String destDevice,
+    public void link(Mapper.Device sourceDevice, Mapper.Device destDevice,
+                     Mapper.Db.Link props)
+    {
+        mmon_link(_monitor, sourceDevice, destDevice, props);
+    }
+    public void link(Mapper.Db.Device sourceDevice, Mapper.Db.Device destDevice,
                      Mapper.Db.Link props)
     {
         mmon_link(_monitor, sourceDevice, destDevice, props);
     }
 
-    public void unlink(String sourceDevice, String destDevice)
+    public void unlink(Mapper.Device source, Mapper.Device dest)
     {
-        mmon_unlink(_monitor, sourceDevice, destDevice);
+        mmon_unlink(_monitor, source, dest);
+    }
+    public void unlink(Mapper.Db.Device source, Mapper.Db.Device dest)
+    {
+        mmon_unlink(_monitor, source, dest);
     }
 
-    public void connect(String sourceSignal, String destSignal,
+    public void connect(Mapper.Device.Signal source, Mapper.Device.Signal dest,
                         Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod(_monitor, sourceSignal, destSignal, props, 0);
+        mmon_connect_or_mod(_monitor, source, dest, props, 0);
     }
-
-    public void disconnect(String sourceSignal, String destSignal)
+    public void connect(Mapper.Db.Signal source, Mapper.Db.Signal dest,
+                        Mapper.Db.Connection props)
     {
-        mmon_disconnect(_monitor, sourceSignal, destSignal);
+        mmon_connect_or_mod(_monitor, source, dest, props, 0);
     }
 
-    public void modifyConnection(String sourceSignal, String destSignal,
+    public void disconnect(Mapper.Device.Signal source, Mapper.Device.Signal dest)
+    {
+        mmon_disconnect(_monitor, source, dest);
+    }
+    public void disconnect(Mapper.Db.Signal source, Mapper.Db.Signal dest)
+    {
+        mmon_disconnect(_monitor, source, dest);
+    }
+
+    public void modifyConnection(Mapper.Device.Signal source, Mapper.Device.Signal dest,
                                  Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod(_monitor, sourceSignal, destSignal, props, 1);
+        mmon_connect_or_mod(_monitor, source, dest, props, 1);
+    }
+    public void modifyConnection(Mapper.Db.Signal source, Mapper.Db.Signal dest,
+                                 Mapper.Db.Connection props)
+    {
+        mmon_connect_or_mod(_monitor, source, dest, props, 1);
     }
 
     public void autosubscribe(int autosubscribeFlags)
@@ -275,16 +296,26 @@ public class Monitor
     private native void mmon_subscribe(long db, String device_name,
                                        int subscribe_flags, int timeout);
     private native void mmon_unsubscribe(long db, String device_name);
-    private native void mmon_link(long db, String source_device,
-                                  String dest_device, Mapper.Db.Link props);
-    private native void mmon_unlink(long db, String source_device,
-                                    String dest_device);
-    private native void mmon_connect_or_mod(long db, String source_signal,
-                                            String dest_signal,
+    private native void mmon_link(long db, Mapper.Device source,
+                                  Mapper.Device dest, Mapper.Db.Link props);
+    private native void mmon_link(long db, Mapper.Db.Device source,
+                                  Mapper.Db.Device dest, Mapper.Db.Link props);
+    private native void mmon_unlink(long db, Mapper.Device source,
+                                    Mapper.Device dest);
+    private native void mmon_unlink(long db, Mapper.Db.Device source,
+                                    Mapper.Db.Device dest);
+    private native void mmon_connect_or_mod(long db, Mapper.Device.Signal source,
+                                            Mapper.Device.Signal dest,
                                             Mapper.Db.Connection props,
                                             int modify);
-    private native void mmon_disconnect(long db, String source_signal,
-                                        String dest_signal);
+    private native void mmon_connect_or_mod(long db, Mapper.Db.Signal source,
+                                            Mapper.Db.Signal dest,
+                                            Mapper.Db.Connection props,
+                                            int modify);
+    private native void mmon_disconnect(long db, Mapper.Device.Signal source,
+                                        Mapper.Device.Signal dest);
+    private native void mmon_disconnect(long db, Mapper.Db.Signal source,
+                                        Mapper.Db.Signal dest);
     private native void mmon_autosubscribe(long db, int autosubscribe_flags);
     private native TimeTag mmon_now(long db);
 

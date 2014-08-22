@@ -51,10 +51,10 @@ class testquery {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.link(dev.name(), dev.name(), null);
+        mon.link(dev, dev, null);
         while (dev.numLinksIn() <= 0) { dev.poll(100); }
 
-        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), null);
+        mon.connect(out1, inp1, null);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 100;

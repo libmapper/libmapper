@@ -51,12 +51,12 @@ class testreverse {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.link(dev.name(), dev.name(), null);
+        mon.link(dev, dev, null);
         while (dev.numLinksIn() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         c.mode = Mapper.Db.Connection.MO_REVERSE;
-        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
+        mon.connect(out1, inp1, c);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 100;

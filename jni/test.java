@@ -109,7 +109,7 @@ class test {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.link(dev.name(), dev.name(), null);
+        mon.link(dev, dev, null);
         while (dev.numLinksIn() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
@@ -119,7 +119,7 @@ class test {
         c.srcMax = new PropertyValue(-15);
         c.destMax = new PropertyValue(1000);
         c.destMin = new PropertyValue(-2000);
-        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
+        mon.connect(out1, inp1, c);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 0;
@@ -209,9 +209,7 @@ class test {
                 Mapper.Db.Connection mod = new Mapper.Db.Connection();
                 mod.expression = "y=x*-100";
                 System.out.println("Should be connecting "+dev.name()+out1.name()+" -> "+dev.name()+inp1.name());
-                mon.modifyConnection(dev.name()+out1.name(),
-                                     dev.name()+inp1.name(),
-                                     mod);
+                mon.modifyConnection(out1, inp1, mod);
             }
 
             dev.poll(50);

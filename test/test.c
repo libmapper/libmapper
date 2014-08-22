@@ -165,29 +165,18 @@ void loop()
     if (autoconnect) {
         mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-        char src_name[1024], dest_name[1024];
-        mapper_monitor_link(mon, mdev_name(source),
-                            mdev_name(destination), 0, 0);
+        mapper_monitor_link(mon, &source->props,
+                            &destination->props, 0, 0);
 
-        while (!source->routers) {
+        while (!done && !source->routers) {
             mdev_poll(source, 10);
             mdev_poll(destination, 10);
         }
 
-        msig_full_name(sendsig_1, src_name, 1024);
-        msig_full_name(recvsig_1, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-        msig_full_name(sendsig_2, src_name, 1024);
-        msig_full_name(recvsig_2, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-        msig_full_name(sendsig_3, src_name, 1024);
-        msig_full_name(recvsig_3, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-        msig_full_name(recvsig_4, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+        mapper_monitor_connect(mon, &sendsig_1->props, &recvsig_1->props, 0, 0);
+        mapper_monitor_connect(mon, &sendsig_2->props, &recvsig_2->props, 0, 0);
+        mapper_monitor_connect(mon, &sendsig_3->props, &recvsig_3->props, 0, 0);
+        mapper_monitor_connect(mon, &sendsig_3->props, &recvsig_4->props, 0, 0);
 
         // wait until connection has been established
         while (!done && !source->routers->num_connections) {

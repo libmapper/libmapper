@@ -118,22 +118,16 @@ int create_connections()
 {
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mapper_monitor_link(mon, &source->props,
+                        &destination->props, 0, 0);
 
     while (!done && !source->routers) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
 
-    msig_full_name(sendsig, src_name, 1024);
-    msig_full_name(recvsig, dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-    msig_full_name(sendsig1, src_name, 1024);
-    msig_full_name(recvsig1, dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    mapper_monitor_connect(mon, &sendsig->props, &recvsig->props, 0, 0);
+    mapper_monitor_connect(mon, &sendsig1->props, &recvsig1->props, 0, 0);
 
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {

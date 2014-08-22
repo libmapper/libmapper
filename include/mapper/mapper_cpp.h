@@ -765,6 +765,8 @@ namespace mapper {
             { device = mdev_new(name_prefix, 0, 0); }
         ~Device()
             { if (device) mdev_free(device); }
+        operator mapper_device() const
+            { return device; }
         Signal add_input(const string_type &name, int length, char type,
                          const string_type &unit, void *minimum,
                          void *maximum, mapper_signal_update_handler handler,
@@ -1320,37 +1322,77 @@ namespace mapper {
             { mapper_monitor_unsubscribe(monitor, device_name); }
         void autosubscribe(int flags) const
             { mapper_monitor_autosubscribe(monitor, flags); }
-        void link(const string_type &source_device, const string_type &dest_device)
-            { mapper_monitor_link(monitor, source_device, dest_device, 0, 0); }
-//        void link(const string_type &source_device, const string_type &dest_device,
-//             const LinkProps &properties)
-//        {
-//            mapper_monitor_link(monitor, source_device, dest_device,
-//                                mapper_db_link(properties), properties.flags);
-//        }
-        void unlink(const string_type &source_device, const string_type &dest_device)
-            { mapper_monitor_unlink(monitor, source_device, dest_device); }
-        void connect(const string_type &source_signal, const string_type &dest_signal)
-            { mapper_monitor_connect(monitor, source_signal, dest_signal, 0, 0); }
-        void connect(const string_type &source_signal,
-                     const string_type &dest_signal,
-                     const Db::Connection &properties) const
+        void link(const mapper::Device &source, const mapper::Device &dest) const
         {
-            mapper_monitor_connect(monitor, source_signal, dest_signal,
-                                   mapper_db_connection(properties),
-                                   properties.flags);
+            mapper_monitor_link(monitor, mdev_properties((mapper_device)source),
+                                mdev_properties((mapper_device)dest), 0, 0);
         }
-        void connection_modify(const string_type &source_signal,
-                               const string_type &dest_signal,
-                               Db::Connection &properties) const
+        void link(const mapper::Db::Device &source,
+                  const mapper::Db::Device &dest) const
         {
-            mapper_monitor_connection_modify(monitor, source_signal, dest_signal,
-                                             mapper_db_connection(properties),
-                                             properties.flags);
+            mapper_monitor_link(monitor, (mapper_db_device)source,
+                                (mapper_db_device)dest, 0, 0);
         }
-        void disconnect(const string_type &source_signal, const string_type &dest_signal)
-            { mapper_monitor_disconnect(monitor, source_signal, dest_signal); }
-    private:
+        void unlink(const mapper::Device &source, const mapper::Device &dest) const
+        {
+            mapper_monitor_unlink(monitor, mdev_properties((mapper_device)source),
+                                  mdev_properties((mapper_device)dest));
+        }
+        void unlink(const mapper::Db::Device &source,
+                    const mapper::Db::Device &dest) const
+        {
+            mapper_monitor_unlink(monitor, (mapper_db_device)source,
+                                  (mapper_db_device)dest);
+        }
+        void connect(const mapper::Signal &source, const mapper::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_monitor_connect(monitor, msig_properties((mapper_signal)source),
+                                   msig_properties((mapper_signal)dest),
+                                   props ? (mapper_db_connection)props : 0,
+                                   props ? props.flags : 0);
+        }
+        void connect(const mapper::Db::Signal &source,
+                     const mapper::Db::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_monitor_connect(monitor, (mapper_db_signal)source,
+                                   (mapper_db_signal)dest,
+                                   props ? (mapper_db_connection)props : 0,
+                                   props ? props.flags : 0);
+        }
+        void connection_modify(const mapper::Signal &source,
+                               const mapper::Signal &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            mapper_monitor_connection_modify(monitor,
+                                             msig_properties((mapper_signal)source),
+                                             msig_properties((mapper_signal)dest),
+                                             (mapper_db_connection)props,
+                                             props.flags);
+        }
+        void connection_modify(const mapper::Db::Signal &source,
+                               const mapper::Db::Signal &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            mapper_monitor_connection_modify(monitor, (mapper_db_signal)source,
+                                             (mapper_db_signal)dest,
+                                             mapper_db_connection(props),
+                                             props.flags);
+        }
+        void disconnect(const mapper::Signal &source,
+                        const mapper::Signal &dest) const
+        {
+            mapper_monitor_disconnect(monitor, msig_properties((mapper_signal)source),
+                                      msig_properties((mapper_signal)dest));
+        }
+        void disconnect(const mapper::Db::Signal &source,
+                        const mapper::Db::Signal &dest) const
+        {
+            mapper_monitor_disconnect(monitor, (mapper_db_signal)source,
+                                      (mapper_db_signal)dest);
+        }
+    protected:
         mapper_monitor monitor;
     };
 };

@@ -151,9 +151,8 @@ int setup_connections()
     int i;
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mapper_monitor_link(mon, &source->props,
+                        &destination->props, 0, 0);
 
     i = 0;
     while (!done && !source->routers) {
@@ -164,18 +163,12 @@ int setup_connections()
     }
 
     for (int i = 0; i < 4; i++) {
-        msig_full_name(sendsig[i], src_name, 1024);
-        msig_full_name(recvsig[i], dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+        mapper_monitor_connect(mon, &sendsig[i]->props, &recvsig[i]->props, 0, 0);
     }
 
     // swap the last two signals to mix up signal vector lengths
-    msig_full_name(sendsig[2], src_name, 1024);
-    msig_full_name(recvsig[3], dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-    msig_full_name(sendsig[3], src_name, 1024);
-    msig_full_name(recvsig[2], dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    mapper_monitor_connect(mon, &sendsig[2]->props, &recvsig[3]->props, 0, 0);
+    mapper_monitor_connect(mon, &sendsig[3]->props, &recvsig[2]->props, 0, 0);
 
     i = 0;
     // wait until connection has been established

@@ -104,18 +104,14 @@ int setup_connection()
 
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mapper_monitor_link(mon, &source->props,
+                        &destination->props, 0, 0);
 
     // Wait until link has been established
     while (!done && !source->routers) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-
-    msig_full_name(sendsig, src_name, 1024);
-    msig_full_name(recvsig, dest_name, 1024);
 
     mapper_db_connection_t props;
     props.src_min = &src_min;
@@ -129,7 +125,7 @@ int setup_connection()
     props.dest_type = 'f';
     props.mode = MO_LINEAR;
 
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
+    mapper_monitor_connect(mon, &sendsig->props, &recvsig->props, &props,
                            CONNECTION_RANGE_KNOWN | CONNECTION_MODE |
                            CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
                            CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);

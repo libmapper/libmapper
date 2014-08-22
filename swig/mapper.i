@@ -1819,42 +1819,62 @@ typedef struct _admin {} admin;
     void request_devices() {
         mapper_monitor_request_devices((mapper_monitor)$self);
     }
-    void link(const char* source_device,
-              const char* dest_device,
+    void link(device *source, device *dest,
               mapper_db_link_with_flags_t *properties=0) {
+        if (!source || !dest)
+            return;
         if (properties) {
-            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device,
+            mapper_monitor_link((mapper_monitor)$self,
+                                mdev_properties((mapper_device)source),
+                                mdev_properties((mapper_device)dest),
                                 &properties->props, properties->flags);
         }
         else
-            mapper_monitor_link((mapper_monitor)$self, source_device, dest_device, 0, 0);
+            mapper_monitor_link((mapper_monitor)$self,
+                                mdev_properties((mapper_device)source),
+                                mdev_properties((mapper_device)dest), 0, 0);
     }
-    void unlink(const char* source_device, const char* dest_device) {
-        mapper_monitor_unlink((mapper_monitor)$self, source_device, dest_device);
+    void unlink(device *source, device *dest) {
+        if (!source || !dest)
+            return;
+        mapper_monitor_unlink((mapper_monitor)$self,
+                              mdev_properties((mapper_device)source),
+                              mdev_properties((mapper_device)dest));
     }
-    void modify_connection(const char* source_signal,
-                           const char* dest_signal,
+    void modify_connection(signal *source, signal *dest,
                            mapper_db_connection_with_flags_t *properties) {
+        if (!source || !dest)
+            return;
         if (properties)
         {
-            mapper_monitor_connection_modify((mapper_monitor)$self, source_signal,
-                                             dest_signal, &properties->props,
+            mapper_monitor_connection_modify((mapper_monitor)$self,
+                                             msig_properties((mapper_signal)source),
+                                             msig_properties((mapper_signal)dest),
+                                             &properties->props,
                                              properties->flags);
         }
     }
-    void connect(const char* source_signal,
-                 const char* dest_signal,
+    void connect(signal *source, signal *dest,
                  mapper_db_connection_with_flags_t *properties=0) {
+        if (!source || !dest)
+            return;
         if (properties) {
-            mapper_monitor_connect((mapper_monitor)$self, source_signal, dest_signal,
+            mapper_monitor_connect((mapper_monitor)$self,
+                                   msig_properties((mapper_signal)source),
+                                   msig_properties((mapper_signal)dest),
                                    &properties->props, properties->flags);
         }
         else
-            mapper_monitor_connect((mapper_monitor)$self, source_signal, dest_signal, 0, 0);
+            mapper_monitor_connect((mapper_monitor)$self,
+                                   msig_properties((mapper_signal)source),
+                                   msig_properties((mapper_signal)dest), 0, 0);
     }
-    void disconnect(const char* source_signal, 
-                    const char* dest_signal) {
-        mapper_monitor_disconnect((mapper_monitor)$self, source_signal, dest_signal);
+    void disconnect(signal *source, signal *dest) {
+        if (!source || !dest)
+            return;
+        mapper_monitor_disconnect((mapper_monitor)$self,
+                                  msig_properties((mapper_signal)source),
+                                  msig_properties((mapper_signal)dest));
     }
     double now() {
         mapper_timetag_t tt;

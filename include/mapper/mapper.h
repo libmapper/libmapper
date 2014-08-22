@@ -1371,8 +1371,8 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
 
 /*! Interface to add a link between two devices.
  *  \param mon            The monitor to use for sending the message.
- *  \param source_device  Source device name.
- *  \param dest_device    Destination device name.
+ *  \param source         Source device data structure.
+ *  \param dest           Destination device data structure.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this link.
  *  \param property_flags Bit flags indicating which properties in the
@@ -1380,23 +1380,23 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
  *                        applied to the new link. See the flags
  *                        prefixed by LINK_ in mapper_db.h. */
 void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device,
-                         const char* dest_device,
+                         mapper_db_device_t *source,
+                         mapper_db_device_t *dest,
                          mapper_db_link_t *properties,
                          unsigned int property_flags);
 
 /*! Interface to remove a link between two devices.
  *  \param mon           The monitor to use for sending the message.
- *  \param source_device Source device name.
- *  \param dest_device   Destination device name. */
+ *  \param source        Source device data structure.
+ *  \param dest          Destination device data structure. */
 void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device,
-                           const char* dest_device);
+                           mapper_db_device_t *source,
+                           mapper_db_device_t *dest);
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
+ *  \param source         Source signal data structure.
+ *  \param dest           Destination signal structure.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
@@ -1404,15 +1404,15 @@ void mapper_monitor_unlink(mapper_monitor mon,
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mapper_monitor_connection_modify(mapper_monitor mon,
-                                      const char *source_signal,
-                                      const char *dest_signal,
+                                      mapper_db_signal_t *source,
+                                      mapper_db_signal_t *dest,
                                       mapper_db_connection_t *properties,
                                       unsigned int property_flags);
 
 /*! Interface to add a connection between two signals.
  *  \param mon The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
+ *  \param source         Source signal data structure.
+ *  \param dest           Destination signal data structure.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
@@ -1420,18 +1420,26 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mapper_monitor_connect(mapper_monitor mon,
-                            const char* source_signal,
-                            const char* dest_signal,
+                            mapper_db_signal_t *source,
+                            mapper_db_signal_t *dest,
                             mapper_db_connection_t *properties,
                             unsigned int property_flags);
 
 /*! Interface to remove a connection between two signals.
- *  \param mon           The monitor to use for sending the message.
- *  \param source_signal Source signal name.
- *  \param dest_signal   Destination signal name. */
+ *  \param mon      The monitor to use for sending the message.
+ *  \param source   Source signal data structure.
+ *  \param dest     Destination signal data structure. */
 void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal,
-                               const char* dest_signal);
+                               mapper_db_signal_t *source,
+                               mapper_db_signal_t *dest);
+
+/*! Interface to send an arbitrary OSC message to the administrative bus.
+ *  \param mon      The monitor to use for sending the message.
+ *  \param path     The path for the OSC message.
+ *  \param types    A string specifying the types of subsequent arguments.
+ *  \param ...      A list of arguments. */
+void mapper_monitor_send(mapper_monitor mon, const char *path,
+                         const char *types, ...);
 
 /* @} */
 
