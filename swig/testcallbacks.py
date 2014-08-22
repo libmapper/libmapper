@@ -42,7 +42,7 @@ while not src.num_links_out:
     dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
-                {'mode': mapper.MO_REVERSE})
+                {'mode': mapper.MO_CALIBRATE})
 monitor.poll()
 
 for i in range(10):

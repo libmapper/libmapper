@@ -597,9 +597,6 @@ void mapper_link_prepare_osc_message(lo_message m,
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
-    lo_message_add_string(m, mapper_msg_param_strings[AT_SLOT]);
-    lo_message_add_int32(m, con->props.slot);
-
     if (con->props.mode) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[con->props.mode]);
@@ -655,7 +652,7 @@ void mapper_connection_prepare_osc_message(lo_message m,
     mapper_msg_add_value_table(m, con->props.extra);
 }
 
-mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg)
+mapper_mode_type mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
     if (!a || !*a)
@@ -685,8 +682,6 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return MO_EXPRESSION;
     else if (strcmp(&(*a)->s, "calibrate") == 0)
         return MO_CALIBRATE;
-    else if (strcmp(&(*a)->s, "reverse") == 0)
-        return MO_REVERSE;
     else
         return -1;
 

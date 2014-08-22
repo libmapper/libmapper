@@ -55,8 +55,7 @@ class testreverse {
         while (dev.numLinks() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
-        c.mode = Mapper.Db.Connection.MO_REVERSE;
-        mon.connect(dev.name()+out1.name(), dev.name()+inp1.name(), c);
+        mon.connect(dev.name()+inp1.name(), dev.name()+out1.name(), c);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 100;

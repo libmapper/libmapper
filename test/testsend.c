@@ -42,8 +42,8 @@ int test_controller()
     mdev_add_router(md, rt);
     eprintf("Router to %s:%d added.\n", host, data_port);
 
-    mapper_router_add_connection(rt, sig, "/mapped1", 'f', 1);
-    mapper_router_add_connection(rt, sig, "/mapped2", 'f', 1);
+    mapper_router_add_connection(rt, sig, "/mapped1", 'f', 1, DI_OUTGOING);
+    mapper_router_add_connection(rt, sig, "/mapped2", 'f', 1, DI_OUTGOING);
 
     eprintf("Polling device..\n");
     int i = 0;

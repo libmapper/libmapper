@@ -182,6 +182,9 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
+#define DI_OUTGOING 0
+#define DI_INCOMING 1
+
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
@@ -191,6 +194,8 @@ typedef struct _mapper_connection {
     mapper_db_connection_t props;           //!< Properties
     struct _mapper_link_signal *parent;     /*!< Parent signal reference
                                              *   in router. */
+    int new;                                //!< 1 if hasn't been announced locally
+    int direction;                          //!< DI_OUTGOING or DI_INCOMING
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */

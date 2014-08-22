@@ -1170,7 +1170,7 @@ static int update_signal_record_params(mapper_db_signal sig,
         }
     }
 
-    int is_output = mapper_msg_get_direction(params);
+    int is_output = mapper_msg_get_signal_direction(params);
     if (is_output != -1 && is_output != sig->is_output) {
         sig->is_output = is_output;
         updated++;
@@ -1192,7 +1192,7 @@ int mapper_db_add_or_update_signal_params(mapper_db db,
     int rc = 0, updated = 0;
 
     //need to find out if signal is output from params
-    int is_output = mapper_msg_get_direction(params);
+    int is_output = mapper_msg_get_signal_direction(params);
     if (is_output == 1)
         sig = mapper_db_get_output_by_device_and_signal_names(db, device_name, name);
     else if (is_output == 0)

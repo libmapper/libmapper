@@ -104,7 +104,6 @@ typedef enum _mapper_mode_type {
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
     MO_CALIBRATE,    //!< Calibrate to source signal
-    MO_REVERSE,      //!< Update source on dest change
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
@@ -116,10 +115,6 @@ typedef enum _mapper_instance_allocation_type {
     IN_STEAL_NEWEST, //!< Steal the newest instance
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
-
-#define DI_UNDEFINED    0
-#define DI_INCOMING     1
-#define DI_OUTGOING     2
 
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
@@ -158,8 +153,6 @@ typedef struct _mapper_db_connection {
                                  *   expression connection */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
-
-    int direction;              /*! Outgoing or incoming. */
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
@@ -259,8 +252,6 @@ typedef struct _mapper_db_link {
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
-
-    int direction;                  //!< Incoming, outgoing, or both
 } mapper_db_link_t, *mapper_db_link;
 
 typedef struct _mapper_db_batch_request

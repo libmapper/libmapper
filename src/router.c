@@ -92,9 +92,10 @@ void mapper_router_free(mapper_router r)
 
 int mapper_router_set_from_message(mapper_router r, mapper_message_t *msg)
 {
-    int i, j, num_scopes, updated = 0;
+    int updated = mapper_msg_add_or_update_extra_params(r->props.extra, msg);
+
     lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
-    num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
+    int i, j, num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
 
     if (a_scopes && *a_scopes) {
         if (num_scopes == 1 && strcmp(&a_scopes[0]->s, "none")==0)
@@ -124,10 +125,6 @@ int mapper_router_set_from_message(mapper_router r, mapper_message_t *msg)
             r->props.scopes.size = num_scopes;
         }
     }
-    if (updated)
-        updated = 1;
-
-    updated += mapper_msg_add_or_update_extra_params(r->props.extra, msg);
     return updated;
 }
 
@@ -242,8 +239,8 @@ void mapper_router_process_signal(mapper_router r,
         c = rs->connections;
         while (c) {
             c->history[id].position = -1;
-            if ((c->props.mode != MO_REVERSE) &&
-                (!c->props.send_as_instance || in_scope)) {
+            if ((c->direction == DI_OUTGOING)
+                || (!c->props.send_as_instance || in_scope)) {
                 m = mapper_router_build_message(&c->props, 0, c->props.dest_length,
                                                 0, map);
                 if (m)
@@ -268,8 +265,8 @@ void mapper_router_process_signal(mapper_router r,
     int i, j;
     c = rs->connections;
     while (c) {
-        if ((c->props.mode == MO_REVERSE)
-            || (c->props.send_as_instance && !in_scope)) {
+        if ((c->direction == DI_OUTGOING)
+            && (c->props.send_as_instance && !in_scope)) {
             c = c->next;
             continue;
         }
@@ -312,7 +309,7 @@ void mapper_router_process_signal(mapper_router r,
             }
             j++;
         }
-        if (count > 1 && (c->props.mode != MO_REVERSE) &&
+        if (count > 1 && (c->props.mode == DI_OUTGOING) &&
             (!c->props.send_as_instance || in_scope)) {
             m = mapper_router_build_message(&c->props, out_value_p,
                                             c->props.dest_length * j,
@@ -508,7 +505,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                                                mapper_signal sig,
                                                const char *dest_name,
                                                char dest_type,
-                                               int dest_length)
+                                               int dest_length,
+                                               int direction)
 {
     // find signal in router_signal list
     mapper_router_signal rs = r->signals;
@@ -538,6 +536,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     mapper_connection c = (mapper_connection)
         calloc(1, sizeof(struct _mapper_connection));
+    c->new = 1;
+    c->direction = direction;
 
     c->props.src_name = strdup(sig->props.name);
     c->props.src_type = sig->props.type;
@@ -551,7 +551,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
-    c->props.direction = DI_UNDEFINED;
 
     c->props.src_min = 0;
     c->props.src_max = 0;
@@ -563,10 +562,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     int len = strlen(dest_name) + 5;
     c->props.query_name = malloc(len);
+    // TODO: handle queries in regular signal handler?
     snprintf(c->props.query_name, len, "%s%s", dest_name, "/get");
-
-    // From receiver.c
-//    snprintf(c->props.query_name, len, "%s%s", src_name, "/got");
 
     c->history = malloc(sizeof(struct _mapper_signal_history)
                         * rs->num_instances);
@@ -588,10 +585,11 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->next = rs->connections;
     rs->connections = c;
     c->parent = rs;
-    if (sig->props.is_output)
+    if (direction == DI_OUTGOING)
         r->num_connections_out++;
     else
         r->num_connections_in++;
+
     return c;
 }
 
@@ -688,20 +686,20 @@ int mapper_router_remove_connection(mapper_router r,
     return !found;
 }
 
-mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
-                                                         const char* src_name,
-                                                         const char* dest_name)
+mapper_connection mapper_router_find_connection(mapper_router router,
+                                                mapper_signal signal,
+                                                const char* remote_signal_name)
 {
     // find associated router_signal
-    mapper_router_signal rs = rt->signals;
-    while (rs && strcmp(rs->signal->props.name, src_name) != 0)
+    mapper_router_signal rs = router->signals;
+    while (rs && rs->signal != signal)
         rs = rs->next;
     if (!rs)
         return NULL;
 
     // find associated connection
     mapper_connection c = rs->connections;
-    while (c && strcmp(c->props.dest_name, dest_name) != 0)
+    while (c && strcmp(c->props.dest_name, remote_signal_name) != 0)
         c = c->next;
     if (!c)
         return NULL;

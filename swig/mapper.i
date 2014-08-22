@@ -1169,7 +1169,6 @@ typedef enum _mapper_mode_type {
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
     MO_CALIBRATE,    //!< Calibrate to source signal
-    MO_REVERSE,      //!< Update source on dest change
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 

@@ -153,10 +153,7 @@ int setup_connections()
 
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
-    mapper_db_connection_t props;
-    props.mode = MO_REVERSE;
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_MODE);
+    mapper_monitor_connect(mon, dest_name, src_name, 0, 0);
 
     i = 0;
     // wait until connection has been established

@@ -18,7 +18,6 @@ public class Connection
     public static final int MO_LINEAR     = 2;
     public static final int MO_EXPRESSION = 3;
     public static final int MO_CALIBRATE  = 4;
-    public static final int MO_REVERSE    = 5;
 
     /*! Describes the voice-stealing mode for instances. */
     public static final int IN_UNDEFINED    = 0;

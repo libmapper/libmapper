@@ -422,6 +422,17 @@ mapper_signal *mdev_get_inputs(mapper_device dev);
  */
 mapper_signal *mdev_get_outputs(mapper_device dev);
 
+/*! Get a signal with a given name.
+ *  \param dev   Device to search in.
+ *  \param name  Name of the signal to search for. It may optionally
+ *               begin with a '/' character.
+ *  \param index Optional place to receive the index of the matching signal.
+ *  \return Pointer to the mapper_signal describing the signal, or zero
+ *          if not found.
+ */
+mapper_signal mdev_get_signal_by_name(mapper_device dev, const char *name,
+                                      int *index);
+
 /*! Get an input signal with a given name.
  *  \param dev   Device to search in.
  *  \param name  Name of input signal to search for. It may optionally

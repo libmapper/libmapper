@@ -490,7 +490,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              mapper_signal_update_handler *handler,
                              void *user_data)
 {
-    if (mdev_get_input_by_name(md, name, 0))
+    if (mdev_get_signal_by_name(md, name, 0))
         return 0;
     char *signal_get = 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum,
@@ -531,7 +531,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               char type, const char *unit, void *minimum, void *maximum)
 {
-    if (mdev_get_output_by_name(md, name, 0))
+    if (mdev_get_signal_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
                                  maximum, 0, 0);
@@ -561,21 +561,19 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
     // TODO: handle adding and removing input signal methods also?
     if (!sig->props.is_output)
         return;
-    char *type = 0, *path = 0;
-    int len;
 
-    len = (int) strlen(sig->props.name) + 5;
-    path = (char*) realloc(path, len);
-    snprintf(path, len, "%s%s", sig->props.name, "/got");
-    type = (char*) realloc(type, sig->props.length + 3);
-    type[0] = type[1] = 'i';
-    memset(type + 2, sig->props.type, sig->props.length);
-    type[sig->props.length + 2] = 0;
-    lo_server_add_method(md->server, path, NULL,
-                         handler_signal, (void *)sig);
+    char *signal_get = 0;
+    lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
+                         (void *) (sig));
+
+    int len = strlen(sig->props.name) + 5;
+    signal_get = (char*) realloc(signal_get, len);
+    snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+    lo_server_add_method(md->server, signal_get, NULL,
+                         handler_query, (void *) (sig));
+
+    free(signal_get);
     md->n_output_callbacks ++;
-    free(path);
-    free(type);
 }
 
 void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
@@ -786,6 +784,16 @@ mapper_signal *mdev_get_inputs(mapper_device md)
 mapper_signal *mdev_get_outputs(mapper_device md)
 {
     return md->outputs;
+}
+
+mapper_signal mdev_get_signal_by_name(mapper_device md, const char *name,
+                                      int *index)
+{
+    mapper_signal sig = mdev_get_input_by_name(md, name, index);
+    if (sig)
+        return sig;
+    sig = mdev_get_output_by_name(md, name, index);
+    return sig;
 }
 
 mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,

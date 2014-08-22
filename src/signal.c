@@ -957,7 +957,7 @@ void *msig_get_instance_data(mapper_signal sig,
     return 0;
 }
 
-/**** Queries and reverse connections ****/
+/**** Queries ****/
 
 void msig_set_callback(mapper_signal sig,
                        mapper_signal_update_handler *handler,

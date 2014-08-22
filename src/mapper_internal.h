@@ -291,15 +291,16 @@ mapper_connection mapper_router_add_connection(mapper_router router,
                                                mapper_signal sig,
                                                const char *dest_name,
                                                char dest_type,
-                                               int dest_length);
+                                               int dest_length,
+                                               int direction);
 
 int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
-/*! Find a connection in a router by source and destination signal names. */
-mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
-                                                         const char* src_name,
-                                                         const char* dest_name);
+/*! Find a connection in a router by local signal and remote signal name. */
+mapper_connection mapper_router_find_connection(mapper_router router,
+                                                mapper_signal signal,
+                                                const char* remote_signal_name);
 
 int mapper_router_in_scope(mapper_router router, uint32_t origin);
 
@@ -662,7 +663,7 @@ mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
 /*! Helper to return the signal direction from a message parameter.
  *  \param msg Structure containing parameter info.
  *  \return 0 for input, 1 for output, or -1 if not found. */
-mapper_mode_type mapper_msg_get_direction(mapper_message_t *msg);
+mapper_mode_type mapper_msg_get_signal_direction(mapper_message_t *msg);
 
 /*! Helper to return the mode type from a message parameter.
  *  \param msg Structure containing parameter info.

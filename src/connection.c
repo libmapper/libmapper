@@ -29,7 +29,6 @@ const char* mapper_mode_type_strings[] =
     "linear",      /* MO_LINEAR */
     "expression",  /* MO_EXPRESSION */
     "calibrate",   /* MO_CALIBRATE */
-    "reverse",     /* MO_REVERSE */
 };
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
@@ -684,11 +683,6 @@ void mapper_connection_set_mode_expression(mapper_connection c,
     }
 }
 
-void mapper_connection_set_mode_reverse(mapper_connection c)
-{
-    c->props.mode = MO_REVERSE;
-}
-
 void mapper_connection_set_mode_calibrate(mapper_connection c)
 {
     c->props.mode = MO_CALIBRATE;
@@ -938,10 +932,10 @@ static int set_range(mapper_connection c,
     mapper_signal sig = c->parent->signal;
 
     /* If parent signal is an output it must be the "source" of this connection,
-     * if it is an input it must be the "destination". According to the protocol
-     * for negotiating new connections, we will only fill-in ranges for the
-     * "source" signal.*/
-    if (!sig || !sig->props.is_output)
+     * if it is an input it can be either "source" or "destination".
+     * According to the protocol for negotiating new connections, we will only
+     * fill-in ranges for the "source" signal.*/
+    if (!sig || c->direction != DI_OUTGOING)
         return updated;
 
     if (!c->props.src_min && sig->props.minimum)
@@ -1099,9 +1093,6 @@ int mapper_connection_set_from_message(mapper_connection c,
             }
             mapper_connection_set_mode_expression(c, c->props.expression);
         }
-        break;
-    case MO_REVERSE:
-        mapper_connection_set_mode_reverse(c);
         break;
     default:
         trace("unknown result from mapper_msg_get_mode()\n");
