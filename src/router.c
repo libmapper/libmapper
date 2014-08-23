@@ -214,7 +214,6 @@ void mapper_router_process_signal(mapper_router r,
                                   int count,
                                   mapper_timetag_t tt)
 {
-    // TODO: handle "input" signal updates for reverse connection and input->input conections
     mapper_id_map map = sig->id_maps[instance_index].map;
     int in_scope = mapper_router_in_scope(r, map->origin);
     lo_message m;
@@ -538,7 +537,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     mapper_connection c = (mapper_connection)
         calloc(1, sizeof(struct _mapper_connection));
     c->new = 1;
-    c->direction = direction;
+    c->direction = DI_OUTGOING;
 
     c->props.src_name = strdup(sig->props.name);
     c->props.src_type = sig->props.type;
