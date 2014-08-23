@@ -477,7 +477,7 @@ static int handler_query(const char *path, const char *types,
             lo_bundle_add_message(b, response_path, m);
         }
     }
-    // TODO: do we need to free the lo_address here?
+
     lo_send_bundle(lo_message_get_source(msg), b);
     lo_bundle_free_messages(b);
     return 0;
@@ -562,17 +562,20 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
     if (!sig->props.is_output)
         return;
 
-    char *signal_get = 0;
+    char *path = 0;
     lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
                          (void *) (sig));
 
     int len = strlen(sig->props.name) + 5;
-    signal_get = (char*) realloc(signal_get, len);
-    snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
-    lo_server_add_method(md->server, signal_get, NULL,
+    path = (char*) realloc(path, len);
+    snprintf(path, len, "%s%s", sig->props.name, "/get");
+    lo_server_add_method(md->server, path, NULL,
                          handler_query, (void *) (sig));
+    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    lo_server_add_method(md->server, path, NULL, handler_signal,
+                         (void *) (sig));
 
-    free(signal_get);
+    free(path);
     md->n_output_callbacks ++;
 }
 

@@ -981,15 +981,19 @@ void msig_set_callback(mapper_signal sig,
 
 int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 {
-    // TODO: process queries on inputs also
-    if (!sig->props.is_output)
-        return -1;
     if (!sig->handler) {
         // no handler defined so we cannot process query responses
         return -1;
     }
 
-    return mdev_route_query(sig->device, sig, tt);
+    mapper_timetag_t *ttp;
+    if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
+        ttp = &sig->device->admin->clock.now;
+        mdev_now(sig->device, ttp);
+    }
+    else
+        ttp = &tt;
+    return mdev_route_query(sig->device, sig, *ttp);
 }
 
 /**** Signal Properties ****/
