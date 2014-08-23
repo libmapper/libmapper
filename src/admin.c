@@ -1151,15 +1151,16 @@ static void mapper_admin_send_connected(mapper_admin admin,
     snprintf(local_name, 1024, "%s%s", mdev_name(router->device),
              c->parent->signal->props.name);
 
-    snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
-             c->props.dest_name);
-
     if (c->direction == DI_OUTGOING) {
         lo_message_add_string(m, local_name);
         lo_message_add_string(m, "->");
+        snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
+                 c->props.dest_name);
         lo_message_add_string(m, remote_name);
     }
     else {
+        snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
+                 c->props.src_name);
         lo_message_add_string(m, remote_name);
         lo_message_add_string(m, "->");
         lo_message_add_string(m, local_name);
@@ -2640,7 +2641,7 @@ static int handler_signal_connected(const char *path, const char *types,
         return 0;
     }
     else {
-        trace("<%s> received /connected from unconnected signal %s\n",
+        trace("<%s> warning: received /connected from unconnected signal %s\n",
               mdev_name(md), remote_name);
     }
 
