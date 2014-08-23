@@ -603,10 +603,6 @@ static void mapper_router_free_connection(mapper_router r,
     if (r && c) {
         if (c->props.src_name)
             free(c->props.src_name);
-        if (c->parent->signal->props.is_output)
-            r->num_connections_out--;
-        else
-            r->num_connections_in--;
         if (c->props.dest_name)
             free(c->props.dest_name);
         if (c->props.query_name)
@@ -652,7 +648,7 @@ int mapper_router_remove_connection(mapper_router r,
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
-            if (rs->signal->props.is_output)
+            if (c->direction == DI_OUTGOING)
                 r->num_connections_out--;
             else
                 r->num_connections_in--;
