@@ -131,7 +131,7 @@ int setup_connection()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
-    while (!source->routers) {
+    while (!done && !source->routers) {
         if (count++ > 50)
             goto error;
         mdev_poll(source, 10);
@@ -143,7 +143,7 @@ int setup_connection()
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
     // wait until connection has been established
-    while (!source->routers->n_connections) {
+    while (!done && !source->routers->num_connections) {
         if (count++ > 50)
             goto error;
         mdev_poll(source, 10);
@@ -161,7 +161,7 @@ int setup_connection()
 
 void wait_local_devices()
 {
-    while (!(mdev_ready(source) && mdev_ready(destination))) {
+    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
 

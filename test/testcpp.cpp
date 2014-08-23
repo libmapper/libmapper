@@ -70,7 +70,7 @@ int main(int argc, char ** argv)
         dev.poll(100);
     }
 
-    std::cout << "device " << dev.name() << "ready..." << std::endl;
+    std::cout << "device " << dev.name() << " ready..." << std::endl;
     std::cout << "  ordinal: " << dev.ordinal() << std::endl;
     std::cout << "  id: " << dev.id() << std::endl;
     std::cout << "  interface: " << dev.interface() << std::endl;
@@ -79,7 +79,6 @@ int main(int argc, char ** argv)
         std::cout << "  host: " << inet_ntoa(*a) << std::endl;
     std::cout << "  port: " << dev.port() << std::endl;
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
-//    std::cout << "  clock_offset: " << dev.clock_offset() << std::endl;
     std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
     std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
     std::cout << "  num_links_in: " << dev.num_links_in() << std::endl;

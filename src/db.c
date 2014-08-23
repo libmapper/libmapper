@@ -529,13 +529,13 @@ static mapper_string_table_t sigdb_table =
 
 static property_table_value_t devdb_values[] = {
     { 's', {1}, -1, DEVDB_OFFSET(host) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_connections_in) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_connections_out) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_inputs) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_links_in) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_links_out) },
-    { 'i', {0}, -1, DEVDB_OFFSET(n_outputs) },
     { 's', {1}, -1, DEVDB_OFFSET(name) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_connections_in) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_connections_out) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_inputs) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_links_in) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_links_out) },
+    { 'i', {0}, -1, DEVDB_OFFSET(num_outputs) },
     { 'i', {0}, -1, DEVDB_OFFSET(port) },
     { 't', {0}, -1, DEVDB_OFFSET(synced) },
     { 'i', {0},  0, DEVDB_OFFSET(user_data) },
@@ -544,18 +544,18 @@ static property_table_value_t devdb_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
-    { "host",               &devdb_values[0] },
-    { "num_connections_in", &devdb_values[1] },
-    { "num_connections_out",&devdb_values[2] },
-    { "num_inputs",         &devdb_values[3] },
-    { "num_links_in",       &devdb_values[4] },
-    { "num_links_out",      &devdb_values[5] },
-    { "num_outputs",        &devdb_values[6] },
-    { "name",               &devdb_values[7] },
-    { "port",               &devdb_values[8] },
-    { "synced",             &devdb_values[9] },
-    { "user_data",          &devdb_values[10] },
-    { "version",            &devdb_values[11] },
+    { "host",                &devdb_values[0] },
+    { "name",                &devdb_values[1] },
+    { "num_connections_in",  &devdb_values[2] },
+    { "num_connections_out", &devdb_values[3] },
+    { "num_inputs",          &devdb_values[4] },
+    { "num_links_in",        &devdb_values[5] },
+    { "num_links_out",       &devdb_values[6] },
+    { "num_outputs",         &devdb_values[7] },
+    { "port",                &devdb_values[8] },
+    { "synced",              &devdb_values[9] },
+    { "user_data",           &devdb_values[10] },
+    { "version",             &devdb_values[11] },
 };
 
 static mapper_string_table_t devdb_table =
@@ -791,17 +791,19 @@ static int update_device_record_params(mapper_db_device reg,
 
     updated += update_int_if_arg(&reg->port, params, AT_PORT);
 
-    updated += update_int_if_arg(&reg->n_inputs, params, AT_NUM_INPUTS);
+    updated += update_int_if_arg(&reg->num_inputs, params, AT_NUM_INPUTS);
 
-    updated += update_int_if_arg(&reg->n_outputs, params, AT_NUM_OUTPUTS);
+    updated += update_int_if_arg(&reg->num_outputs, params, AT_NUM_OUTPUTS);
 
-    updated += update_int_if_arg(&reg->n_links_in, params, AT_NUM_LINKS_IN);
+    updated += update_int_if_arg(&reg->num_links_in, params, AT_NUM_LINKS_IN);
 
-    updated += update_int_if_arg(&reg->n_links_out, params, AT_NUM_LINKS_OUT);
+    updated += update_int_if_arg(&reg->num_links_out, params, AT_NUM_LINKS_OUT);
 
-    updated += update_int_if_arg(&reg->n_connections_in, params, AT_NUM_CONNECTIONS_IN);
+    updated += update_int_if_arg(&reg->num_connections_in, params,
+                                 AT_NUM_CONNECTIONS_IN);
 
-    updated += update_int_if_arg(&reg->n_connections_out, params, AT_NUM_CONNECTIONS_OUT);
+    updated += update_int_if_arg(&reg->num_connections_out, params,
+                                 AT_NUM_CONNECTIONS_OUT);
 
     updated += update_int_if_arg(&reg->version, params, AT_REV);
 

@@ -88,7 +88,7 @@ void mdev_free(mapper_device md)
     mapper_signal sig;
     if (md->outputs) {
         // release all active output instances
-        for (i = 0; i < md->props.n_outputs; i++) {
+        for (i = 0; i < md->props.num_outputs; i++) {
             sig = md->outputs[i];
             for (j = 0; j < sig->id_map_length; j++) {
                 if (sig->id_maps[j].instance) {
@@ -99,7 +99,7 @@ void mdev_free(mapper_device md)
     }
     if (md->inputs) {
         // release all active input instances
-        for (i = 0; i < md->props.n_inputs; i++) {
+        for (i = 0; i < md->props.num_inputs; i++) {
             sig = md->inputs[i];
             for (j = 0; j < sig->id_map_length; j++) {
                 if (sig->id_maps[j].instance) {
@@ -116,12 +116,12 @@ void mdev_free(mapper_device md)
         mdev_remove_receiver(md, md->receivers);
 
     if (md->outputs) {
-        for (i = 0; i < md->props.n_outputs; i++)
+        for (i = 0; i < md->props.num_outputs; i++)
             msig_free(md->outputs[i]);
         free(md->outputs);
     }
     if (md->inputs) {
-        for (i = 0; i < md->props.n_inputs; i++) {
+        for (i = 0; i < md->props.num_inputs; i++) {
             msig_free(md->inputs[i]);
         }
         free(md->inputs);
@@ -165,7 +165,7 @@ void mdev_registered(mapper_device md)
     md->registered = 1;
     /* Add device name to signals. Also add device name hash to
      * locally-activated signal instances. */
-    for (i = 0; i < md->props.n_inputs; i++) {
+    for (i = 0; i < md->props.num_inputs; i++) {
         md->inputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->inputs[i]->id_map_length; j++) {
             if (md->inputs[i]->id_maps[j].map &&
@@ -173,7 +173,7 @@ void mdev_registered(mapper_device md)
                 md->inputs[i]->id_maps[j].map->origin = md->props.name_hash;
         }
     }
-    for (i = 0; i < md->props.n_outputs; i++) {
+    for (i = 0; i < md->props.num_outputs; i++) {
         md->outputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->outputs[i]->id_map_length; j++) {
             if (md->outputs[i]->id_maps[j].map &&
@@ -482,13 +482,13 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                                  maximum, handler, user_data);
     if (!sig)
         return 0;
-    md->props.n_inputs++;
-    grow_ptr_array((void **) &md->inputs, md->props.n_inputs,
+    md->props.num_inputs++;
+    grow_ptr_array((void **) &md->inputs, md->props.num_inputs,
                    &md->n_alloc_inputs);
 
     mdev_increment_version(md);
 
-    md->inputs[md->props.n_inputs - 1] = sig;
+    md->inputs[md->props.num_inputs - 1] = sig;
     sig->device = md;
 
     type_string = (char*) realloc(type_string, sig->props.length + 3);
@@ -549,13 +549,13 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                                  maximum, 0, 0);
     if (!sig)
         return 0;
-    md->props.n_outputs++;
-    grow_ptr_array((void **) &md->outputs, md->props.n_outputs,
+    md->props.num_outputs++;
+    grow_ptr_array((void **) &md->outputs, md->props.num_outputs,
                    &md->n_alloc_outputs);
 
     mdev_increment_version(md);
 
-    md->outputs[md->props.n_outputs - 1] = sig;
+    md->outputs[md->props.num_outputs - 1] = sig;
     sig->device = md;
 
     if (md->registered) {
@@ -610,11 +610,11 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
     int len, i;
     if (!md || !sig)
         return;
-    for (i=0; i<md->props.n_outputs; i++) {
+    for (i=0; i<md->props.num_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
     }
-    if (i==md->props.n_outputs)
+    if (i==md->props.num_outputs)
         return;
     type = (char*) realloc(type, sig->props.length + 3);
     type[0] = type[1] = 'i';
@@ -648,11 +648,11 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     int i;
     if (!md || !sig)
         return;
-    for (i=0; i<md->props.n_outputs; i++) {
+    for (i=0; i<md->props.num_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
     }
-    if (i==md->props.n_outputs)
+    if (i==md->props.num_outputs)
         return;
     lo_server_del_method(md->server, sig->props.name, "iiF");
     md->n_output_callbacks --;
@@ -662,14 +662,14 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 {
     int i, n;
     char str1[1024], str2[1024];
-    for (i=0; i<md->props.n_inputs; i++) {
+    for (i=0; i<md->props.num_inputs; i++) {
         if (md->inputs[i] == sig)
             break;
     }
-    if (i==md->props.n_inputs)
+    if (i==md->props.num_inputs)
         return;
 
-    for (n=i; n<(md->props.n_inputs-1); n++) {
+    for (n=i; n<(md->props.num_inputs-1); n++) {
         md->inputs[n] = md->inputs[n+1];
     }
 
@@ -718,7 +718,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         mapper_admin_send_signal_removed(md->admin, md, sig);
     }
 
-    md->props.n_inputs --;
+    md->props.num_inputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
@@ -727,14 +727,14 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 {
     int i, n;
     char str1[1024], str2[1024];
-    for (i=0; i<md->props.n_outputs; i++) {
+    for (i=0; i<md->props.num_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
     }
-    if (i==md->props.n_outputs)
+    if (i==md->props.num_outputs)
         return;
 
-    for (n=i; n<(md->props.n_outputs-1); n++) {
+    for (n=i; n<(md->props.num_outputs-1); n++) {
         md->outputs[n] = md->outputs[n+1];
     }
     if (sig->handler) {
@@ -778,29 +778,29 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         mapper_admin_send_signal_removed(md->admin, md, sig);
     }
 
-    md->props.n_outputs --;
+    md->props.num_outputs --;
     mdev_increment_version(md);
     msig_free(sig);
 }
 
 int mdev_num_inputs(mapper_device md)
 {
-    return md->props.n_inputs;
+    return md->props.num_inputs;
 }
 
 int mdev_num_outputs(mapper_device md)
 {
-    return md->props.n_outputs;
+    return md->props.num_outputs;
 }
 
 int mdev_num_links_in(mapper_device md)
 {
-    return md->props.n_links_in;
+    return md->props.num_links_in;
 }
 
 int mdev_num_links_out(mapper_device md)
 {
-    return md->props.n_links_out;
+    return md->props.num_links_out;
 }
 
 int mdev_num_connections_in(mapper_device md)
@@ -808,7 +808,7 @@ int mdev_num_connections_in(mapper_device md)
     mapper_receiver r = md->receivers;
     int count = 0;
     while (r) {
-        count += r->n_connections;
+        count += r->num_connections;
         r = r->next;
     }
     return count;
@@ -819,7 +819,7 @@ int mdev_num_connections_out(mapper_device md)
     mapper_router r = md->routers;
     int count = 0;
     while (r) {
-        count += r->n_connections;
+        count += r->num_connections;
         r = r->next;
     }
     return count;
@@ -843,7 +843,7 @@ mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
         return 0;
 
     slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->props.n_inputs; i++)
+    for (i=0; i<md->props.num_inputs; i++)
     {
         if (strcmp(md->inputs[i]->props.name + 1,
                    name + slash)==0)
@@ -864,7 +864,7 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
         return 0;
 
     slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->props.n_outputs; i++)
+    for (i=0; i<md->props.num_outputs; i++)
     {
         if (strcmp(md->outputs[i]->props.name + 1,
                    name + slash)==0)
@@ -879,14 +879,14 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
 
 mapper_signal mdev_get_input_by_index(mapper_device md, int index)
 {
-    if (index >= 0 && index < md->props.n_inputs)
+    if (index >= 0 && index < md->props.num_inputs)
         return md->inputs[index];
     return 0;
 }
 
 mapper_signal mdev_get_output_by_index(mapper_device md, int index)
 {
-    if (index >= 0 && index < md->props.n_outputs)
+    if (index >= 0 && index < md->props.num_outputs)
         return md->outputs[index];
     return 0;
 }
@@ -919,7 +919,7 @@ int mdev_poll(mapper_device md, int block_ms)
          * no point.  Perhaps if this is supported in the future it
          * can be a heuristic based on a recent number of messages per
          * channel per poll. */
-        while (count < (md->props.n_inputs + md->n_output_callbacks)*1
+        while (count < (md->props.num_inputs + md->n_output_callbacks)*1
                && lo_server_recv_noblock(md->server, 0))
             count++;
     }
@@ -1067,7 +1067,7 @@ void mdev_add_router(mapper_device md, mapper_router rt)
     mapper_router *r = &md->routers;
     rt->next = *r;
     *r = rt;
-    md->props.n_links_out++;
+    md->props.num_links_out++;
 }
 
 void mdev_remove_router(mapper_device md, mapper_router rt)
@@ -1077,7 +1077,7 @@ void mdev_remove_router(mapper_device md, mapper_router rt)
         if (*r == rt) {
             *r = rt->next;
             mapper_router_free(rt);
-            md->props.n_links_out--;
+            md->props.num_links_out--;
             break;
         }
         r = &(*r)->next;
@@ -1089,7 +1089,7 @@ void mdev_add_receiver(mapper_device md, mapper_receiver rc)
     mapper_receiver *r = &md->receivers;
     rc->next = *r;
     *r = rc;
-    md->props.n_links_in++;
+    md->props.num_links_in++;
 }
 
 void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
@@ -1100,7 +1100,7 @@ void mdev_remove_receiver(mapper_device md, mapper_receiver rc)
         if (*r == rc) {
             *r = rc->next;
             mapper_receiver_free(rc);
-            md->props.n_links_in--;
+            md->props.num_links_in--;
             break;
         }
         r = &(*r)->next;
@@ -1207,7 +1207,7 @@ void mdev_start_server(mapper_device md, int starting_port)
         md->props.port = lo_server_get_port(md->server);
         trace("bound to port %i\n", md->props.port);
 
-        for (i = 0; i < md->props.n_inputs; i++) {
+        for (i = 0; i < md->props.num_inputs; i++) {
             type = (char*) realloc(type, md->inputs[i]->props.length + 3);
             type[0] = type[1] = 'i';
             memset(type + 2, md->inputs[i]->props.type,
@@ -1245,7 +1245,7 @@ void mdev_start_server(mapper_device md, int starting_port)
                                  "s",
                                  handler_query, (void *) (md->inputs[i]));
         }
-        for (i = 0; i < md->props.n_outputs; i++) {
+        for (i = 0; i < md->props.num_outputs; i++) {
             if (md->outputs[i]->handler) {
                 type = (char*) realloc(type, md->outputs[i]->props.length + 3);
                 type[0] = type[1] = 'i';

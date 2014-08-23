@@ -40,7 +40,7 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->props.extra = table_new();
     r->device = device;
     r->signals = 0;
-    r->n_connections = 0;
+    r->num_connections = 0;
 
     r->clock.new = 1;
     r->clock.sent.message_id = 0;
@@ -540,7 +540,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->next = rs->connections;
     rs->connections = c;
     c->parent = rs;
-    r->n_connections++;
+    r->num_connections++;
 
     return c;
 }
@@ -591,7 +591,7 @@ int mapper_router_remove_connection(mapper_router r,
         if (*temp == c) {
             *temp = c->next;
             mapper_router_free_connection(r, c);
-            r->n_connections--;
+            r->num_connections--;
             found = 1;
             break;
         }

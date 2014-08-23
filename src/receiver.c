@@ -35,7 +35,7 @@ mapper_receiver mapper_receiver_new(mapper_device device, const char *host,
     r->props.extra = table_new();
     r->device = device;
     r->signals = 0;
-    r->n_connections = 0;
+    r->num_connections = 0;
 
     r->clock.new = 1;
     r->clock.sent.message_id = 0;
@@ -347,7 +347,7 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     c->next = rs->connections;
     rs->connections = c;
     c->parent = rs;
-    r->n_connections++;
+    r->num_connections++;
 
     return c;
 }
@@ -384,7 +384,7 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
         if (c->blob)
             free(c->blob);
         free(c);
-        r->n_connections--;
+        r->num_connections--;
         return;
     }
 }
@@ -481,7 +481,7 @@ int mapper_receiver_remove_connection(mapper_receiver r,
         if (*temp == c) {
             *temp = c->next;
             mapper_receiver_free_connection(r, c);
-            r->n_connections--;
+            r->num_connections--;
             found = 1;
             break;
         }

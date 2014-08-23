@@ -2249,42 +2249,42 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1inputs
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_inputs;
+    return props->num_inputs;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1outputs
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_outputs;
+    return props->num_outputs;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1links_1in
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_links_in;
+    return props->num_links_in;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1links_1out
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_links_out;
+    return props->num_links_out;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1connections_1in
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_connections_in;
+    return props->num_connections_in;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1connections_1out
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->n_connections_out;
+    return props->num_connections_out;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1version

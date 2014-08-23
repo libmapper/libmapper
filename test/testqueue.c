@@ -122,7 +122,7 @@ int create_connections()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
-    while (!source->routers) {
+    while (!done && !source->routers) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -136,7 +136,7 @@ int create_connections()
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
     // wait until connection has been established
-    while (!source->routers->n_connections) {
+    while (!done && !source->routers->num_connections) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -148,7 +148,7 @@ int create_connections()
 
 void wait_ready()
 {
-    while (!(mdev_ready(source) && mdev_ready(destination))) {
+    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
         usleep(500 * 1000);

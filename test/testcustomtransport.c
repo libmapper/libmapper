@@ -249,7 +249,7 @@ void cleanup_destination()
 
 void wait_local_devices()
 {
-    while (!(mdev_ready(source) && mdev_ready(destination))) {
+    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
 

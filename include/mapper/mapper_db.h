@@ -23,23 +23,23 @@ typedef lo_timetag mapper_timetag_t;
 /*! A record that keeps information about a device on the network.
  *  @ingroup devicedb */
 typedef struct _mapper_db_device {
-    char *identifier;       /*!< The identifier (prefix) for
-                             *   this device. */
-    char *name;             /*!< The full name for this
-                             *   device, or zero. */
+    char *identifier;           /*!< The identifier (prefix) for
+                                 *   this device. */
+    char *name;                 /*!< The full name for this
+                                 *   device, or zero. */
     int ordinal;
-    uint32_t name_hash;     /*!< CRC-32 hash of full device name
-                             *   in the form <name>.<ordinal> */
-    char *host;             //!< Device network host name.
-    int port;               //!< Device network port.
-    int n_inputs;           //!< Number of associated input signals.
-    int n_outputs;          //!< Number of associated output signals.
-    int n_links_in;         //!< Number of associated incoming links.
-    int n_links_out;        //!< Number of associated outgoing links.
-    int n_connections_in;   //!< Number of associated incoming connections.
-    int n_connections_out;  //!< Number of associated outgoing connections.
-    int version;            //!< Reported device state version.
-    void* user_data;        //!< User modifiable data.
+    uint32_t name_hash;         /*!< CRC-32 hash of full device name
+                                 *   in the form <name>.<ordinal> */
+    char *host;                 //!< Device network host name.
+    int port;                   //!< Device network port.
+    int num_inputs;             //!< Number of associated input signals.
+    int num_outputs;            //!< Number of associated output signals.
+    int num_links_in;           //!< Number of associated incoming links.
+    int num_links_out;          //!< Number of associated outgoing links.
+    int num_connections_in;     //!< Number of associated incoming connections.
+    int num_connections_out;    //!< Number of associated outgoing connections.
+    int version;                //!< Reported device state version.
+    void* user_data;            //!< User modifiable data.
     mapper_timetag_t timetag;
 
     mapper_timetag_t synced; //!< Timestamp of last sync.

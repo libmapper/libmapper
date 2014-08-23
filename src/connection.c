@@ -1136,7 +1136,7 @@ mapper_connection mapper_connection_find_by_names(mapper_device md,
 
     src_name = strchr(src_name+1, '/');
 
-    while (i < md->props.n_outputs) {
+    while (i < md->props.num_outputs) {
         // Check if device outputs includes src_name
         if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
             while (router != NULL) {

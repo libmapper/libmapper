@@ -162,7 +162,7 @@ void cleanup_destination()
 
 void wait_local_devices()
 {
-    while (!(mdev_ready(source) && mdev_ready(destination))) {
+    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
 
@@ -179,7 +179,7 @@ int setup_connections()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
-    while (!source->routers) {
+    while (!done && !source->routers) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
@@ -192,7 +192,7 @@ int setup_connections()
 
     i = 0;
     // wait until connection has been established
-    while (!source->routers->n_connections) {
+    while (!done && !source->routers->num_connections) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)

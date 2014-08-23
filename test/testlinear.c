@@ -109,7 +109,7 @@ int setup_connection()
                         mdev_name(destination), 0, 0);
 
     // Wait until link has been established
-    while (!source->routers) {
+    while (!done && !source->routers) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -135,7 +135,7 @@ int setup_connection()
                            CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
 
     // Wait until connection has been established
-    while (!source->routers->n_connections) {
+    while (!done && !source->routers->num_connections) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -147,7 +147,7 @@ int setup_connection()
 
 void wait_ready()
 {
-    while (!(mdev_ready(source) && mdev_ready(destination))) {
+    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
         usleep(500 * 1000);

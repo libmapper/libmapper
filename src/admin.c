@@ -1126,10 +1126,10 @@ static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
 {
     if (min < 0)
         min = 0;
-    else if (min > md->props.n_inputs)
+    else if (min > md->props.num_inputs)
         return;
-    if (max < 0 || max > md->props.n_inputs)
-        max = md->props.n_inputs-1;
+    if (max < 0 || max > md->props.num_inputs)
+        max = md->props.num_inputs-1;
 
     int i = min;
     for (; i <= max; i++)
@@ -1141,10 +1141,10 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 {
     if (min < 0)
         min = 0;
-    else if (min > md->props.n_outputs)
+    else if (min > md->props.num_outputs)
         return;
-    if (max < 0 || max > md->props.n_outputs)
-        max = md->props.n_outputs-1;
+    if (max < 0 || max > md->props.num_outputs)
+        max = md->props.num_outputs-1;
 
     int i = min;
     for (; i <= max; i++)

@@ -234,7 +234,7 @@ typedef struct _mapper_link {
                                      *   this link */
     mapper_link_signal signals;     /*!< The list of connections
                                      *  for each signal. */
-    int n_connections;              //!< Number of connections in link.
+    int num_connections;            //!< Number of connections in link.
     mapper_queue queues;            /*!< Linked-list of message queues
                                      *   waiting to be sent. */
     mapper_sync_clock_t clock;
