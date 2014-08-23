@@ -1106,51 +1106,6 @@ int mapper_connection_set_from_message(mapper_connection c,
     return updated;
 }
 
-mapper_connection mapper_connection_find_by_names(mapper_device md,
-                                                  const char* src_name,
-                                                  const char* dest_name)
-{
-    mapper_router router = md->routers;
-    int i = 0;
-    int n = strlen(dest_name);
-    const char *slash = strchr(dest_name+1, '/');
-    if (slash)
-        n = n - strlen(slash);
-
-    src_name = strchr(src_name+1, '/');
-
-    while (i < md->props.num_outputs) {
-        // Check if device outputs includes src_name
-        if (strcmp(md->outputs[i]->props.name, src_name) == 0) {
-            while (router != NULL) {
-                // find associated router
-                if (strncmp(router->props.dest_name, dest_name, n) == 0) {
-                    // find associated connection
-                    mapper_router_signal rs = router->signals;
-                    while (rs && rs->signal != md->outputs[i])
-                        rs = rs->next;
-                    if (!rs)
-                        return NULL;
-                    mapper_connection c = rs->connections;
-                    while (c && strcmp(c->props.dest_name,
-                                       (dest_name + n)) != 0)
-                        c = c->next;
-                    if (!c)
-                        return NULL;
-                    else
-                        return c;
-                }
-                else {
-                    router = router->next;
-                }
-            }
-            return NULL;
-        }
-        i++;
-    }
-    return NULL;
-}
-
 void reallocate_connection_histories(mapper_connection c,
                                      int input_history_size,
                                      int output_history_size)
