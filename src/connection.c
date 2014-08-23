@@ -998,6 +998,12 @@ int mapper_connection_set_from_message(mapper_connection c,
 
     /* Direction */
     if (direction != c->direction) {
+        // check if we can swap direction
+        if (direction == DI_INCOMING && !c->parent->signal->handler) {
+            trace("error: signal '%s' cannot accept incoming connection.",
+                  c->props.src_name);
+            return 0;
+        }
         mapper_connection_swap_direction(c);
         updated++;
     }
