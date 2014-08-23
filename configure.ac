@@ -78,6 +78,44 @@ AM_PROG_LIBTOOL
 LT_LIB_M
 LIBS="$LIBS $LIBM"
 
+# Check for C++11 features
+_CXXFLAGS="$CXXFLAGS"
+AC_LANG_PUSH([C++])
+
+AC_MSG_CHECKING([whether C++11 lambdas are supported])
+CXXFLAGS="$_CXXFLAGS -std=c++11"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM([#include <functional>],[[[]](std::function<void()> f){f();}([[]](){0;});])],
+    [AC_MSG_RESULT([yes])
+     HAVE_LAMBDA=yes],
+    [
+CXXFLAGS="$_CXXFLAGS -std=c++0x"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM([#include <functional>],[[[]](std::function<void()> f){f();}([[]](){0;});])],
+    [AC_MSG_RESULT([yes])
+     HAVE_LAMBDA=yes],
+    [
+CXXFLAGS="$_CXXFLAGS -std=c++11 -stdlib=libc++"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM([#include <functional>],[[[]](std::function<void()> f){f();}([[]](){0;});])],
+    [AC_MSG_RESULT([yes])
+     HAVE_LAMBDA=yes],
+    [AC_MSG_RESULT([no])
+     CXXFLAGS="$_CXXFLAGS"])])])
+AM_CONDITIONAL([HAVE_LAMBDA],[test x$HAVE_LAMBDA = xyes])
+
+# If we can add -Qunused-arguments, add it.
+# This error occurs when ccache and clang are used together.
+AC_MSG_CHECKING([whether to add -Qunused-arguments (C++)])
+_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$_CXXFLAGS -Qunused-arguments"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM([],[])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   CXXFLAGS="$_CXXFLAGS"])
+AC_LANG_POP([C++])
+
 # Check options
 AC_ARG_ENABLE(debug,
    [AS_HELP_STRING([--enable-debug],[compile with debug flags])],

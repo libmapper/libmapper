@@ -1,7 +1,10 @@
 
-#include <string.h>
+#include <cstring>
 #include <iostream>
 #include <arpa/inet.h>
+#include <cstdio>
+#include <cstdlib>
+#include <array>
 
 #include <mapper/mapper_cpp.h>
 
@@ -93,6 +96,51 @@ int main(int argc, char ** argv)
     dev.properties().get("foo").print();
     std::cout << std::endl;
 
+    // can also access properties like this
+    dev.property("name").print();
+    std::cout << std::endl;
+
+    // test std::array<std::string>
+    std::array<std::string, 3> array1 = {{"one", "two", "three"}};
+    dev.property("foo").set(array1);
+    dev.property("foo").print();
+    std::cout << std::endl;
+
+    // test std::array<const char*>
+    std::array<const char*, 3> array2 = {{"four", "five", "six"}};
+    dev.property("foo").set(array2);
+    dev.property("foo").print();
+    std::cout << std::endl;
+
+    // test plain array of const char*
+    const char* array3[3] = {"seven", "eight", "nine"};
+    dev.property("foo").set(array3, 3);
+    dev.property("foo").print();
+    std::cout << std::endl;
+
+    // test std::vector<const char*>
+    const char *array4[3] = {"ten", "eleven", "twelve"};
+    std::vector<const char*> vector1(array4, std::end(array4));
+    dev.property("foo").set(vector1);
+    dev.property("foo").print();
+    std::cout << std::endl;
+
+    // test std::vector<std::string>
+    const char *array5[3] = {"thirteen", "14", "15"};
+    std::vector<std::string> vector2(array5, std::end(array5));
+    dev.property("foo").set(vector2);
+    dev.property("foo").print();
+    std::cout << std::endl;
+
+    mapper::Property p("temp", "tempstring");
+    dev.properties().set(p);
+    dev.property("temp").print();
+    std::cout << std::endl;
+
+    // access property using overloaded index operator
+    dev.properties()["temp"].print();
+    std::cout << std::endl;
+
     dev.properties().remove("foo");
     dev.properties().get("foo").print();
     std::cout << std::endl;
@@ -111,7 +159,7 @@ int main(int argc, char ** argv)
     mon.link(dev.name(), dev.name());
     while (dev.num_links_in() <= 0) { dev.poll(100); }
 
-    mapper::ConnectionProps c;
+    mapper::Db::Connection c;
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
@@ -127,40 +175,35 @@ int main(int argc, char ** argv)
         sig.update(v);
     }
 
-    // check db records
+    // check db records 
     std::cout << "db records:" << std::endl;
-    mapper::DeviceProps::Iterator devices = mon.db().devices().begin();
-    for (; devices != devices.end(); devices++) {
+    for (auto const &device : mon.db().devices()) {
         std::cout << "  device: ";
-        (*devices).get("name").print();
+        device.get("name").print();
         std::cout << std::endl;
     }
-    mapper::SignalProps::Iterator signals = mon.db().inputs().begin();
-    for (; signals != signals.end(); signals++) {
+    for (auto const &signal : mon.db().inputs()) {
         std::cout << "  input signal: ";
-        (*signals).get("name").print();
+        signal.get("name").print();
         std::cout << std::endl;
     }
-    signals = mon.db().outputs().begin();
-    for (; signals != signals.end(); signals++) {
-        std::cout << "  input signal: ";
-        (*signals).get("name").print();
+    for (auto const &signal : mon.db().outputs()) {
+        std::cout << "  output signal: ";
+        signal.get("name").print();
         std::cout << std::endl;
     }
-    mapper::LinkProps::Iterator links = mon.db().links().begin();
-    for (; links != links.end(); links++) {
+    for (auto const &link : mon.db().links()) {
         std::cout << "  link: ";
-        (*links).get("src_name").print();
+        link.get("src_name").print();
         std::cout << " -> ";
-        (*links).get("dest_name").print();
+        link.get("dest_name").print();
         std::cout << std::endl;
     }
-    mapper::ConnectionProps::Iterator conns = mon.db().connections().begin();
-    for (; conns != conns.end(); conns++) {
+    for (auto const &conn : mon.db().connections()) {
         std::cout << "  connection: ";
-        (*conns).get("src_name").print();
+        conn.get("src_name").print();
         std::cout << " -> ";
-        (*conns).get("dest_name").print();
+        conn.get("dest_name").print();
         std::cout << std::endl;
     }
 

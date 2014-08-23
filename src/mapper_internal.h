@@ -313,6 +313,10 @@ mapper_router mapper_router_find_by_dest_address(mapper_router routers,
 mapper_router mapper_router_find_by_dest_name(mapper_router routers,
                                               const char *dest_name);
 
+/*! Find a router by destination device hash in a linked list of routers. */
+mapper_router mapper_router_find_by_dest_hash(mapper_router routers,
+                                              uint32_t hash);
+
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
 void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
@@ -363,6 +367,10 @@ mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
 /*! Find a receiver by source device name in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
                                                  const char *src_name);
+
+/*! Find a receiver by source device hash in a linked list of receivers. */
+mapper_receiver mapper_receiver_find_by_src_hash(mapper_receiver receivers,
+                                                 uint32_t hash);
 
 int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
 
@@ -859,11 +867,6 @@ void mapper_msg_add_value_table(lo_message m, table t);
 
 /*! Initialize a mapper_clock. */
 void mapper_clock_init(mapper_clock clock);
-
-/*! Adjust the internal clock synchonization. */
-void mapper_clock_adjust(mapper_clock clock,
-                         double difference,
-                         float confidence);
 
 /*! Get the current time from a mapper_clock. */
 void mapper_clock_now(mapper_clock clock, mapper_timetag_t *timetag);

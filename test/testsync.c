@@ -92,7 +92,7 @@ void loop()
                     printf("\nSYSTEM TIME *****  |  OFFSETS *****\n");
                     for (i=0; i<5; i++) {
                         // Give each device clock a random starting offset
-                        devices[i]->admin->clock.offset = (rand() % 100) - 50;
+//                        devices[i]->admin->clock.offset = (rand() % 100) - 50;
                     }
                     ready = 1;
                 }

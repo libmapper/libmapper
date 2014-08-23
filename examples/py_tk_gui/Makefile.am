@@ -1,4 +1,6 @@
 
+_CXX =  $(filter-out ccache,$(CXX))
+
 all-local: _pwm.$(PYEXT) $(top_builddir)/examples/pwm_synth/libpwm.la
 
 $(builddir)/%_wrap.cxx $(buildir)/%.py: %.i
@@ -8,7 +10,7 @@ $(builddir)/%_wrap.cxx $(buildir)/%.py: %.i
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.cxx
 	pwd
-	cd $(builddir) && env CFLAGS="" python setup.py build_ext
+	cd $(builddir) && env CFLAGS="" CXX="$(_CXX)" python setup.py build_ext
 	-@mv -v build/lib.*/$@ .
 	-@rm -rf build
 

@@ -42,6 +42,10 @@ mapper_router mapper_router_new(mapper_device device, const char *host,
     r->signals = 0;
     r->n_connections = 0;
 
+    r->clock.new = 1;
+    r->clock.sent.message_id = 0;
+    r->clock.response.message_id = -1;
+
     if (!r->data_addr) {
         mapper_router_free(r);
         return 0;
@@ -718,6 +722,17 @@ mapper_router mapper_router_find_by_dest_name(mapper_router router,
 
     while (router) {
         if (strncmp(router->props.dest_name, dest_name, n)==0)
+            return router;
+        router = router->next;
+    }
+    return 0;
+}
+
+mapper_router mapper_router_find_by_dest_hash(mapper_router router,
+                                              uint32_t name_hash)
+{
+    while (router) {
+        if (name_hash == router->props.dest_name_hash)
             return router;
         router = router->next;
     }

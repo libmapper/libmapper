@@ -15,41 +15,14 @@ static double multiplier = 1.0/((double)(1LL<<32));
 
 void mapper_clock_init(mapper_clock clock)
 {
-    clock->rate = 1.0;
-    clock->offset = 0.0;
-    clock->confidence = 0.001;
-
     mapper_clock_now(clock, &clock->now);
     clock->next_ping = clock->now.sec;
-}
-
-void mapper_clock_adjust(mapper_clock clock,
-                         double difference,
-                         float confidence)
-{
-    double weight = 1.0 - clock->confidence;
-    double new_offset = clock->offset + difference * weight;
-
-    // try inserting pull from system clock
-    //new_offset *= 0.9999;
-
-    double adjustment = new_offset - clock->offset;
-
-    // adjust stored timetag
-    clock->confidence *= adjustment < 0.001 ? 1.1 : 0.99;
-    if (clock->confidence > 0.9) {
-        clock->confidence = 0.9;
-    }
-    //clock->offset = new_offset;
 }
 
 void mapper_clock_now(mapper_clock clock,
                       mapper_timetag_t *timetag)
 {
-    // first get current time from system clock
-    // adjust using rate and offset from mapping network sync
     lo_timetag_now((lo_timetag*)timetag);
-    mapper_timetag_add_seconds(timetag, clock->offset);
 }
 
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)

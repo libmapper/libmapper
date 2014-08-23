@@ -542,6 +542,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     free(signal_get);
 
     if (md->registered) {
+        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
@@ -570,6 +571,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     sig->device = md;
 
     if (md->registered) {
+        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
@@ -1289,6 +1291,13 @@ mapper_db_device mdev_properties(mapper_device dev)
 void mdev_set_property(mapper_device dev, const char *property,
                        char type, void *value, int length)
 {
+    if (strcmp(property, "name") == 0 ||
+        strcmp(property, "host") == 0 ||
+        strcmp(property, "port") == 0 ||
+        strcmp(property, "user_data") == 0) {
+        trace("Cannot set locked device property '%s'\n", property);
+        return;
+    }
     mapper_table_add_or_update_typed_value(dev->props.extra, property,
                                            type, value, length);
 }

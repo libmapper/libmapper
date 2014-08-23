@@ -44,6 +44,9 @@
 
 namespace mapper {
 
+    class Property;
+    class AbstractObjectProps;
+
     // Helper classes to allow polymorphism on "const char *",
     // "std::string", and "int".
     class string_type {
@@ -52,15 +55,6 @@ namespace mapper {
         string_type(const std::string &s) { _s = s.c_str(); }
         operator const char*() const { return _s; }
         const char *_s;
-    };
-
-    class num_string_type : public string_type {
-    public:
-        num_string_type(const char *s) : string_type(s) {}
-        num_string_type(const std::string &s) : string_type(s) {}
-        num_string_type(int n) { std::ostringstream ss; ss << n;
-            _p.reset(new std::string(ss.str())); _s = _p->c_str(); }
-        std::unique_ptr<std::string> _p;
     };
 
     class Admin
@@ -74,7 +68,7 @@ namespace mapper {
             { return admin; }
         std::string libversion()
             { return std::string(mapper_admin_libversion(admin)); }
-    protected:
+    private:
         mapper_admin admin;
     };
 
@@ -91,107 +85,292 @@ namespace mapper {
             { mapper_timetag_set_double(&timetag, seconds); }
         operator mapper_timetag_t*()
             { return &timetag; }
-    protected:
+    private:
         mapper_timetag_t timetag;
+    };
+
+    class AbstractProps
+    {
+    protected:
+        friend class Property;
+        virtual void set(mapper::Property *p) = 0;
+    public:
+        virtual void set(mapper::Property p) = 0;
+        virtual void remove(const string_type &name) = 0;
     };
 
     class Property
     {
     public:
-        Property(const string_type &_name, int _value)
-            { name = _name; i = _value; length = 1; type = 'i'; }
-        Property(const string_type &_name, float _value)
-            { name = _name; f = _value; length = 1; type = 'f'; }
-        Property(const string_type &_name, double _value)
-            { name = _name; d = _value; length = 1; type = 'd'; }
-        Property(const string_type &_name, int *_value, int _length)
-            { name = _name; pi = _value; length = _length; type = 'i'; }
-        Property(const string_type &_name, float *_value, int _length)
-            { name = _name; pf = _value; length = _length; type = 'f'; }
-        Property(const string_type &_name, double *_value, int _length)
-            { name = _name; pd = _value; length = _length; type = 'd'; }
-        Property(const string_type &_name, std::vector<int> _value)
-            { name = _name; pi = &_value[0]; length = _value.size(); type = 'i'; }
-        Property(const string_type &_name, std::vector<float> _value)
-            { name = _name; pf = &_value[0]; length = _value.size(); type = 'f'; }
-        Property(const string_type &_name, std::vector<double> _value)
-            { name = _name; pd = &_value[0]; length = _value.size(); type = 'd'; }
-        Property(const string_type &_name, char _type,
-                 const void *_value, int _length)
-        {
-            name = _name;
-            type = _type;
-            value = _value;
-            length = _length;
-        }
+        template <typename T>
+        Property(const string_type &_name, T _value)
+            { name = _name; _set(_value); parent = NULL; owned = 0; }
+        template <typename T>
+        Property(const string_type &_name, T& _value, int _length)
+            { name = _name; _set(_value, _length); parent = NULL; owned = 0; }
+        template <typename T>
+        Property(const string_type &_name, std::vector<T> _value)
+            { name = _name; _set(_value); parent = NULL; owned = 0; }
+        template <typename T>
+        Property(const string_type &_name, char _type, T& _value, int _length)
+            { name = _name; _set(_type, _value, _length); parent = NULL; owned = 0; }
+
+        ~Property()
+            { maybe_free(); }
+
+        template <typename T>
+        void set(T _value)
+            { maybe_free(); _set(_value); if (parent) parent->set(this); }
+        template <typename T>
+        void set(T& _value, int _length)
+            { maybe_free(); _set(_value, _length); if (parent) parent->set(this); }
+        template <typename T>
+        void set(std::vector<T> _value)
+            { maybe_free(); _set(_value); if (parent) parent->set(this); }
+
         operator const void*() const
             { return value; }
         void print()
         {
-            printf("%s: ", name);
+            printf("%s: ", name ?: "unknown");
             mapper_prop_pp(type, length, value);
         }
         const char *name;
         char type;
         int length;
+        const void *value;
     protected:
+        friend class AbstractDeviceProps;
+        friend class AbstractSignalProps;
+        Property(const string_type &_name, char _type, const void *_value,
+                 int _length, const AbstractObjectProps *_parent)
+        {
+            name = _name;
+            _set(_type, _value, _length);
+            parent = (AbstractProps*)_parent;
+            owned = 0;
+        }
+    private:
         union {
-            const void *value;
-            int *pi;
-            float *pf;
-            double *pd;
-            int i;
-            float f;
             double d;
+            float f;
+            int i;
+            char c;
         };
+        int owned;
+
+        void maybe_free()
+            { if (owned && value) free((void*)value); owned = 0; }
+        void _set(int _value)
+            { i = _value; length = 1; type = 'i'; value = &i; }
+        void _set(float _value)
+            { f = _value; length = 1; type = 'f'; value = &f; }
+        void _set(double _value)
+            { d = _value; length = 1; type = 'd'; value = &d; }
+        void _set(char _value)
+            { c = _value; length = 1; type = 'c'; value = &c; }
+        void _set(const string_type &_value)
+            { value = _value; length = 1; type = 's'; }
+        void _set(int _value[], int _length)
+            { value = _value; length = _length; type = 'i'; }
+        void _set(float _value[], int _length)
+            { value = _value; length = _length; type = 'f'; }
+        void _set(double _value[], int _length)
+            { value = _value; length = _length; type = 'd'; }
+        void _set(char _value[], int _length)
+            { value = _value; length = _length; type = 'c'; }
+        void _set(const char *_value[], int _length)
+            { value = _value; length = _length; type = 's'; }
+        template <size_t N>
+        void _set(std::array<int, N>& _value)
+        {
+            if (!_value.empty()) {
+                value = _value.data();
+                length = N;
+                type = 'i';
+            }
+            else
+                length = 0;
+        }
+        template <size_t N>
+        void _set(std::array<float, N>& _value)
+        {
+            if (!_value.empty()) {
+                value = _value.data();
+                length = N;
+                type = 'f';
+            }
+            else
+                length = 0;
+        }
+        template <size_t N>
+        void _set(std::array<double, N>& _value)
+        {
+            if (!_value.empty()) {
+                value = _value.data();
+                length = N;
+                type = 'd';
+            }
+            else
+                length = 0;
+        }
+        template <size_t N>
+        void _set(std::array<char, N>& _value)
+        {
+            if (!_value.empty()) {
+                value = _value.data();
+                length = N;
+                type = 'c';
+            }
+            else
+                length = 0;
+        }
+        template <size_t N>
+        void _set(std::array<const char*, N>& _value)
+        {
+            if (!_value.empty()) {
+                value = _value.data();
+                length = N;
+                type = 's';
+            }
+            else
+                length = 0;
+        }
+        template <size_t N>
+        void _set(std::array<std::string, N>& _values)
+        {
+            length = N;
+            type = 's';
+            if (length == 1) {
+                value = _values[0].c_str();
+            }
+            else if (length > 1) {
+                // need to copy string array
+                char **temp = (char**)malloc(sizeof(char*) * length);
+                for (i = 0; i < length; i++) {
+                    temp[i] = (char*)_values[i].c_str();
+                }
+                value = temp;
+                owned = 1;
+            }
+        }
+        void _set(std::string _values[], int _length)
+        {
+            length = _length;
+            type = 's';
+            if (length == 1) {
+                value = _values[0].c_str();
+            }
+            else if (length > 1) {
+                // need to copy string array
+                value = malloc(sizeof(char*) * length);
+                for (i = 0; i < length; i++) {
+                    ((char**)value)[i] = (char*)_values[i].c_str();
+                }
+                owned = 1;
+            }
+        }
+        void _set(std::vector<int> _value)
+            { value = _value.data(); length = _value.size(); type = 'i'; }
+        void _set(std::vector<float> _value)
+            { value = _value.data(); length = _value.size(); type = 'f'; }
+        void _set(std::vector<double> _value)
+            { value = _value.data(); length = _value.size(); type = 'd'; }
+        void _set(std::vector<char> _value)
+            { value = _value.data(); length = _value.size(); type = 'c'; }
+        void _set(std::vector<const char*>& _value)
+            { value = _value.data(); length = _value.size(); type = 's'; }
+        void _set(std::vector<std::string>& _value)
+        {
+            length = _value.size();
+            type = 's';
+            if (length == 1) {
+                value = _value[0].c_str();
+            }
+            else if (length > 1) {
+                // need to copy string array
+                value = malloc(sizeof(char*) * length);
+                for (i = 0; i < length; i++) {
+                    ((char**)value)[i] = (char*)_value[i].c_str();
+                }
+                owned = 1;
+            }
+        }
+        void _set(char _type, const void *_value, int _length)
+        {
+            type = _type;
+            value = _value;
+            length = _length;
+        }
+        AbstractProps *parent;
     };
 
-    class SignalProps
+    class AbstractObjectProps : public AbstractProps
     {
-        // Reuse class for signal and database
+    protected:
+        virtual void set(mapper::Property *p) = 0;
+    public:
+        virtual void set(mapper::Property p) = 0;
+        virtual Property get(const string_type &name) const = 0;
+
+        Property operator [] (const string_type key)
+            { return get(key); }
+
+        template <typename T>
+        void set(const string_type &_name, T _value)
+            { set(Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, T& _value, int _length)
+            { set(Property(_name, _value, _length)); }
+        template <typename T>
+        void set(const string_type &_name, std::vector<T> _value)
+            { set(Property(_name, _value)); }
+        template <typename T>
+        void set(const string_type &_name, char _type, T& _value, int _length)
+            { set(Property(_name, _type, _value, _length)); }
+    };
+
+    class AbstractSignalProps : public AbstractObjectProps
+    {
+    // Reuse class for signal and database
+    protected:
+        friend class Property;
+
+        AbstractSignalProps(mapper_signal sig)
+            { signal = sig; props = msig_properties(signal); found = 1; }
+        AbstractSignalProps(mapper_db_signal sig_db)
+            { signal = 0; props = sig_db; found = sig_db ? 1 : 0; }
+        void set(mapper::Property *p)
+        {
+            if (signal)
+                msig_set_property(signal, p->name, p->type,
+                                  p->type == 's' && p->length == 1
+                                  ? (void*)&p->value : (void*)p->value,
+                                  p->length);
+        }
+
+    private:
+        mapper_signal signal;
+        mapper_db_signal props;
+
     public:
         int found;
-        SignalProps(mapper_signal sig)
-            { signal = sig; props = msig_properties(signal); found = 1; }
-        SignalProps(mapper_db_signal sig_db)
-            { signal = 0; props = sig_db; found = sig_db ? 1 : 0; }
         operator mapper_db_signal() const
             { return props; }
-        void set(const string_type &name, int value)
-            { if (signal) msig_set_property(signal, name, 'i', &value, 1); }
-        void set(const string_type &name, float value)
-            { if (signal) msig_set_property(signal, name, 'f', &value, 1); }
-        void set(const string_type &name, double value)
-            { if (signal) msig_set_property(signal, name, 'd', &value, 1); }
-        void set(const string_type &name, string_type &value)
-            { if (signal) msig_set_property(signal, name, 's',
-                                        (void*)(const char *)value, 1); }
-        void set(const string_type &name, int *value, int length)
-            { if (signal) msig_set_property(signal, name, 'i', value, length); }
-        void set(const string_type &name, float *value, int length)
-            { if (signal) msig_set_property(signal, name, 'f', value, length); }
-        void set(const string_type &name, double *value, int length)
-            { if (signal) msig_set_property(signal, name, 'd', value, length); }
-        // TODO: string array
-        void set(const string_type &name, std::vector<int> value)
-            { if (signal) msig_set_property(signal, name, 'i', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<float> value)
-            { if (signal) msig_set_property(signal, name, 'f', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<double> value)
-            { if (signal) msig_set_property(signal, name, 'd', &value[0], value.size()); }
-//        void set(const string_type &name, std::vector<std::string> value)
-//            { if (signal) msig_set_property(signal, name, 's', &value[0], value.size()); }
+        using AbstractObjectProps::set;
+        void set(mapper::Property p)
+            { set(&p); }
         void remove(const string_type &name)
             { if (signal) msig_remove_property(signal, name); }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
             int length;
             mapper_db_signal_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, this);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
@@ -199,7 +378,7 @@ namespace mapper {
             int length;
             mapper_db_signal_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -222,8 +401,8 @@ namespace mapper {
             }
             Iterator operator++(int)
                 { Iterator tmp(*this); operator++(); return tmp; }
-            SignalProps operator*()
-                { return SignalProps(*sig); }
+            AbstractSignalProps operator*()
+                { return AbstractSignalProps(*sig); }
             Iterator begin()
                 { return Iterator(sig); }
             Iterator end()
@@ -231,9 +410,6 @@ namespace mapper {
         private:
             mapper_db_signal *sig;
         };
-    protected:
-        mapper_signal signal;
-        mapper_db_signal props;
     };
 
     class Signal
@@ -446,10 +622,15 @@ namespace mapper {
             { msig_set_maximum(signal, value); }
         void set_rate(int rate)
             { msig_set_rate(signal, rate); }
-        SignalProps properties() const
+        class Props : public AbstractSignalProps
         {
-            return SignalProps(msig_properties(signal));
-        }
+        public:
+            Props(mapper_signal s) : AbstractSignalProps(s) {}
+        };
+        Props properties() const
+            { return Props(signal); }
+        Property property(const string_type name)
+            { return Props(signal).get(name); }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -474,56 +655,52 @@ namespace mapper {
             mapper_signal *signals;
             int size;
         };
-    protected:
+    private:
         mapper_signal signal;
         mapper_db_signal props;
     };
 
-    class DeviceProps
+    class AbstractDeviceProps : public AbstractObjectProps
     {
     // Reuse same class for device and database
+    protected:
+        friend class Property;
+
+        AbstractDeviceProps(mapper_device dev) : AbstractObjectProps()
+            { device = dev; props = mdev_properties(device); found = 1; }
+        AbstractDeviceProps(mapper_db_device dev_db)
+            { device = 0; props = dev_db; found = dev_db ? 1 : 0; }
+        void set(mapper::Property* p)
+        {
+            if (device)
+                mdev_set_property(device, p->name, p->type,
+                                  p->type == 's' && p->length == 1 ?
+                                  (void*)&p->value : (void*)p->value,
+                                  p->length);
+        }
+
+    private:
+        mapper_device device;
+        mapper_db_device props;
+
     public:
         int found;
-        DeviceProps(mapper_device dev)
-            { device = dev; props = mdev_properties(device); found = 1; }
-        DeviceProps(mapper_db_device dev_db)
-            { device = 0; props = dev_db; found = dev_db ? 1 : 0; }
         operator mapper_db_device() const
             { return props; }
-        void set(const string_type &name, int value)
-            { if (device) mdev_set_property(device, name, 'i', &value, 1); }
-        void set(const string_type &name, float value)
-            { if (device) mdev_set_property(device, name, 'f', &value, 1); }
-        void set(const string_type &name, double value)
-            { if (device) mdev_set_property(device, name, 'd', &value, 1); }
-        void set(const string_type &name, string_type &value)
-            { if (device) mdev_set_property(device, name, 's',
-                                            (void*)(const char *)value, 1); }
-        void set(const string_type &name, int *value, int length)
-            { if (device) mdev_set_property(device, name, 'i', value, length); }
-        void set(const string_type &name, float *value, int length)
-            { if (device) mdev_set_property(device, name, 'f', value, length); }
-        void set(const string_type &name, double *value, int length)
-            { if (device) mdev_set_property(device, name, 'd', value, length); }
-        void set(const string_type &name, std::vector<int> value)
-            { if (device) mdev_set_property(device, name, 'i', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<float> value)
-            { if (device) mdev_set_property(device, name, 'f', &value[0], value.size()); }
-        void set(const string_type &name, std::vector<double> value)
-            { if (device) mdev_set_property(device, name, 'd', &value[0], value.size()); }
-        // TODO: string array
-        // TODO: string vector
+        using AbstractObjectProps::set;
+        void set(mapper::Property p)
+            { set(&p); }
         void remove(const string_type &name)
             { if (device) mdev_remove_property(device, name); }
-        Property get(const string_type &name)
+        Property get(const string_type &name) const
         {
             char type;
             const void *value;
             int length;
             mapper_db_device_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, this);
         }
-        Property get(int index)
+        Property get(int index) const
         {
             const char *name;
             char type;
@@ -531,7 +708,7 @@ namespace mapper {
             int length;
             mapper_db_device_property_index(props, index, &name, &type,
                                             &value, &length);
-            return Property(name, type, value, length);
+            return Property(name, type, value, length, this);
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -554,8 +731,8 @@ namespace mapper {
                 }
             Iterator operator++(int)
                 { Iterator tmp(*this); operator++(); return tmp; }
-            DeviceProps operator*()
-                { return DeviceProps(*dev); }
+            AbstractDeviceProps operator*()
+                { return AbstractDeviceProps(*dev); }
             Iterator begin()
                 { return Iterator(dev); }
             Iterator end()
@@ -563,9 +740,6 @@ namespace mapper {
         private:
             mapper_db_device *dev;
         };
-    protected:
-        mapper_device device;
-        mapper_db_device props;
     };
 
     class Device
@@ -625,8 +799,15 @@ namespace mapper {
             { return Signal(mdev_get_output_by_name(device, name, index)); }
         Signal outputs(int index) const
             { return Signal(mdev_get_output_by_index(device, index)); }
-        DeviceProps properties() const
-            { return DeviceProps(device); }
+        class Props : public AbstractDeviceProps
+        {
+        public:
+            Props(mapper_device d) : AbstractDeviceProps(d) {}
+        };
+        Props properties() const
+            { return Props(device); }
+        Property property(const string_type name)
+            { return Props(device).get(name); }
         int poll(int block_ms=0) const
             { return mdev_poll(device, block_ms); }
         int num_fds() const
@@ -666,193 +847,8 @@ namespace mapper {
             mdev_now(device, &tt);
             return Timetag(tt);
         }
-    protected:
+    private:
         mapper_device device;
-    };
-
-    class LinkProps
-    {
-    public:
-        int found;
-        LinkProps(mapper_db_link link)
-            { props = link; found = link ? 1 : 0; owned = 0; }
-        LinkProps()
-            {
-                props = (mapper_db_link)calloc(1, sizeof(mapper_db_link_t));
-                owned = 1;
-            }
-        ~LinkProps()
-            { if (owned && props) free(props); }
-        operator mapper_db_link() const
-            { return props; }
-        Property get(const string_type &name)
-        {
-            char type;
-            const void *value;
-            int length;
-            mapper_db_link_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length);
-        }
-        Property get(int index)
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            mapper_db_link_property_index(props, index, &name, &type,
-                                          &value, &length);
-            return Property(name, type, value, length);
-        }
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
-        {
-        public:
-            Iterator(mapper_db_link *l)
-                { link = l; }
-            ~Iterator()
-                { mapper_db_link_done(link); }
-            bool operator==(const Iterator& rhs)
-                { return (link == rhs.link); }
-            bool operator!=(const Iterator& rhs)
-                { return (link != rhs.link); }
-            Iterator& operator++()
-            {
-                if (link != NULL)
-                    link = mapper_db_link_next(link);
-                return (*this);
-            }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
-            LinkProps operator*()
-                { return LinkProps(*link); }
-            Iterator begin()
-                { return Iterator(link); }
-            Iterator end()
-                { return Iterator(0); }
-        private:
-            mapper_db_link *link;
-        };
-    protected:
-        mapper_db_link props;
-        int owned;
-    };
-
-    class ConnectionProps
-    {
-    public:
-        int found;
-        int flags;
-        char src_type;
-        char dest_type;
-        int src_length;
-        int dest_length;
-        void *src_min;
-        void *src_max;
-        void *dest_min;
-        void *dest_max;
-
-        ConnectionProps(mapper_db_connection connection)
-            { props = connection; found = connection ? 1 : 0; owned = 0; }
-        ConnectionProps()
-        {
-            props = (mapper_db_connection)calloc(1, sizeof(mapper_db_connection_t));
-            flags = 0;
-            owned = 1;
-        }
-        ~ConnectionProps()
-            { if (owned && props) free(props); }
-        operator mapper_db_connection() const
-        {
-            return props;
-        }
-        void set_mode(mapper_mode_type mode)
-            { props->mode = mode; flags |= CONNECTION_MODE; }
-        void set_bound_min(mapper_boundary_action bound_min)
-            { props->bound_min = bound_min; flags |= CONNECTION_BOUND_MIN; }
-        void set_bound_max(mapper_boundary_action bound_max)
-            { props->bound_max = bound_max; flags |= CONNECTION_BOUND_MAX; }
-        void set_expression(const string_type &expression)
-        {
-            props->expression = (char*)(const char*)expression;
-            flags |= CONNECTION_EXPRESSION;
-        }
-        void set_src_min(const Property &value)
-        {
-            props->src_min = (void*)(const void*)value;
-            props->src_type = value.type;
-            props->src_length = value.length;
-            flags |= (CONNECTION_RANGE_SRC_MIN | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
-        }
-        void set_src_max(Property &value)
-        {
-            props->src_max = (void*)(const void*)value;
-            props->src_type = value.type;
-            props->src_length = value.length;
-            flags |= (CONNECTION_RANGE_SRC_MAX | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
-        }
-        void set_dest_min(Property &value)
-        {
-            props->dest_min = (void*)(const void*)value;
-            props->dest_type = value.type;
-            props->dest_length = value.length;
-            flags |= (CONNECTION_RANGE_DEST_MIN | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
-        }
-        void set_dest_max(Property &value)
-        {
-            props->dest_min = (void*)(const void*)value;
-            props->dest_type = value.type;
-            props->dest_length = value.length;
-            flags |= (CONNECTION_RANGE_DEST_MAX | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
-        }
-        Property get(const string_type &name)
-        {
-            char type;
-            const void *value;
-            int length;
-            mapper_db_connection_property_lookup(props, name, &type,
-                                                 &value, &length);
-            return Property(name, type, value, length);
-        }
-        Property get(int index)
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            mapper_db_connection_property_index(props, index, &name, &type,
-                                                &value, &length);
-            return Property(name, type, value, length);
-        }
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
-        {
-        public:
-            Iterator(mapper_db_connection *c)
-                { con = c; }
-            ~Iterator()
-                { mapper_db_connection_done(con); }
-            bool operator==(const Iterator& rhs)
-                { return (con == rhs.con); }
-            bool operator!=(const Iterator& rhs)
-                { return (con != rhs.con); }
-            Iterator& operator++()
-            {
-                if (con != NULL)
-                    con = mapper_db_connection_next(con);
-                return (*this);
-            }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
-            ConnectionProps operator*()
-                { return ConnectionProps(*con); }
-            Iterator begin()
-                { return Iterator(con); }
-            Iterator end()
-                { return Iterator(0); }
-        private:
-            mapper_db_connection *con;
-        };
-    protected:
-        mapper_db_connection props;
-        int owned;
     };
 
     class Db
@@ -880,15 +876,22 @@ namespace mapper {
         void remove_device_callback(mapper_db_device_handler *handler,
                                     void *user_data)
             { mapper_db_remove_device_callback(db, handler, user_data); }
-        DeviceProps device(const string_type &name) const
-            { return DeviceProps(mapper_db_get_device_by_name(db, name)); }
-        DeviceProps device(uint32_t hash) const
-            { return DeviceProps(mapper_db_get_device_by_name_hash(db, hash)); }
-        DeviceProps::Iterator devices() const
-            { return DeviceProps::Iterator(mapper_db_get_all_devices(db)); }
-        DeviceProps::Iterator devices(const string_type &pattern) const
+
+        class Device : public AbstractDeviceProps
         {
-            return DeviceProps::Iterator(
+        public:
+            Device(mapper_db_device d) : AbstractDeviceProps(d) {}
+        };
+
+        Device device(const string_type &name) const
+            { return Device(mapper_db_get_device_by_name(db, name)); }
+        Device device(uint32_t hash) const
+            { return Device(mapper_db_get_device_by_name_hash(db, hash)); }
+        Device::Iterator devices() const
+            { return Device::Iterator(mapper_db_get_all_devices(db)); }
+        Device::Iterator devices(const string_type &pattern) const
+        {
+            return Device::Iterator(
                 mapper_db_match_devices_by_name(db, pattern));
         }
 
@@ -899,44 +902,51 @@ namespace mapper {
         void remove_signal_callback(mapper_db_signal_handler *handler,
                                     void *user_data)
             { mapper_db_remove_signal_callback(db, handler, user_data); }
-        SignalProps input(const string_type &device_name,
-                          const string_type &signal_name)
+
+        class Signal : public AbstractSignalProps
         {
-            return SignalProps(
+        public:
+            Signal(mapper_db_signal s) : AbstractSignalProps(s) {}
+        };
+
+        Signal input(const string_type &device_name,
+                     const string_type &signal_name)
+        {
+            return Signal(
                 mapper_db_get_input_by_device_and_signal_names(db, device_name,
                                                                signal_name));
         }
-        SignalProps output(const string_type &device_name,
-                           const string_type &signal_name)
+        Signal output(const string_type &device_name,
+                      const string_type &signal_name)
         {
-            return SignalProps(
+            return Signal(
                 mapper_db_get_output_by_device_and_signal_names(db, device_name,
                                                                 signal_name));
         }
-        SignalProps::Iterator inputs() const
-            { return SignalProps::Iterator(mapper_db_get_all_inputs(db)); }
-        SignalProps::Iterator inputs(const string_type device_name) const
+        Signal::Iterator inputs() const
+            { return Signal::Iterator(mapper_db_get_all_inputs(db)); }
+        Signal::Iterator inputs(const string_type device_name) const
         {
-            return SignalProps::Iterator(
+            return Signal::Iterator(
                 mapper_db_get_inputs_by_device_name(db, device_name));
         }
-        SignalProps::Iterator match_inputs(const string_type device_name,
-                                           const string_type pattern) const
+        Signal::Iterator match_inputs(const string_type device_name,
+                                      const string_type pattern) const
         {
-            return SignalProps::Iterator(
+            return Signal::Iterator(
                  mapper_db_match_inputs_by_device_name(db, device_name, pattern));
         }
-        SignalProps::Iterator outputs() const
-            { return SignalProps::Iterator(mapper_db_get_all_outputs(db)); }
-        SignalProps::Iterator outputs(const string_type device_name) const
+        Signal::Iterator outputs() const
+            { return Signal::Iterator(mapper_db_get_all_outputs(db)); }
+        Signal::Iterator outputs(const string_type device_name) const
         {
-            return SignalProps::Iterator(
+            return Signal::Iterator(
                  mapper_db_get_outputs_by_device_name(db, device_name));
         }
-        SignalProps::Iterator match_outputs(const string_type device_name,
-                                            const string_type pattern) const
+        Signal::Iterator match_outputs(const string_type device_name,
+                                       const string_type pattern) const
         {
-            return SignalProps::Iterator(
+            return Signal::Iterator(
                  mapper_db_match_outputs_by_device_name(db, device_name, pattern));
         }
 
@@ -947,35 +957,104 @@ namespace mapper {
         void remove_link_callback(mapper_db_link_handler *handler,
                                   void *user_data)
             { mapper_db_remove_link_callback(db, handler, user_data); }
-        LinkProps::Iterator links() const
-            { return LinkProps::Iterator(mapper_db_get_all_links(db)); }
-        LinkProps::Iterator links(const string_type &device_name) const
+        class Link : AbstractObjectProps
         {
-            return LinkProps::Iterator(
+        public:
+            int found;
+            Link(mapper_db_link link)
+                { props = link; found = link ? 1 : 0; owned = 0; }
+            Link()
+            {
+                props = (mapper_db_link)calloc(1, sizeof(mapper_db_link_t));
+                owned = 1;
+            }
+            ~Link()
+                { if (owned && props) free(props); }
+            operator mapper_db_link() const
+                { return props; }
+            void set(Property p) {}
+            void remove(const string_type &name) {}
+            Property get(const string_type &name) const
+            {
+                char type;
+                const void *value;
+                int length;
+                mapper_db_link_property_lookup(props, name, &type, &value, &length);
+                return Property(name, type, value, length);
+            }
+            Property get(int index) const
+            {
+                const char *name;
+                char type;
+                const void *value;
+                int length;
+                mapper_db_link_property_index(props, index, &name, &type,
+                                              &value, &length);
+                return Property(name, type, value, length);
+            }
+            class Iterator : public std::iterator<std::input_iterator_tag, int>
+            {
+            public:
+                Iterator(mapper_db_link *l)
+                    { link = l; }
+                ~Iterator()
+                    { mapper_db_link_done(link); }
+                bool operator==(const Iterator& rhs)
+                    { return (link == rhs.link); }
+                bool operator!=(const Iterator& rhs)
+                    { return (link != rhs.link); }
+                Iterator& operator++()
+                {
+                    if (link != NULL)
+                        link = mapper_db_link_next(link);
+                    return (*this);
+                }
+                Iterator operator++(int)
+                    { Iterator tmp(*this); operator++(); return tmp; }
+                Link operator*()
+                    { return Link(*link); }
+                Iterator begin()
+                    { return Iterator(link); }
+                Iterator end()
+                    { return Iterator(0); }
+            private:
+                mapper_db_link *link;
+            };
+        protected:
+            void set(Property *p) {}
+        private:
+            mapper_db_link props;
+            int owned;
+        };
+        Link::Iterator links() const
+            { return Link::Iterator(mapper_db_get_all_links(db)); }
+        Link::Iterator links(const string_type &device_name) const
+        {
+            return Link::Iterator(
                 mapper_db_get_links_by_device_name(db, device_name));
         }
-        LinkProps::Iterator links_by_src(const string_type &device_name) const
+        Link::Iterator links_by_src(const string_type &device_name) const
         {
-            return LinkProps::Iterator(
+            return Link::Iterator(
                 mapper_db_get_links_by_src_device_name(db, device_name));
         }
-        LinkProps::Iterator links_by_dest(const string_type &device_name) const
+        Link::Iterator links_by_dest(const string_type &device_name) const
         {
-            return LinkProps::Iterator(
+            return Link::Iterator(
                 mapper_db_get_links_by_dest_device_name(db, device_name));
         }
-        LinkProps link(const string_type &source_device,
-                       const string_type &dest_device)
+        Link link(const string_type &source_device,
+                  const string_type &dest_device)
         {
-            return LinkProps(
+            return Link(
                 mapper_db_get_link_by_src_dest_names(db, source_device,
                                                      dest_device));
         }
-        LinkProps::Iterator links(DeviceProps::Iterator src_list,
-                                  DeviceProps::Iterator dest_list) const
+        Link::Iterator links(Device::Iterator src_list,
+                             Device::Iterator dest_list) const
         {
             // TODO: check that this works!
-            return LinkProps::Iterator(
+            return Link::Iterator(
                 mapper_db_get_links_by_src_dest_devices(db,
                     (mapper_db_device*)(src_list),
                     (mapper_db_device*)(dest_list)));
@@ -988,73 +1067,195 @@ namespace mapper {
         void remove_connection_callback(mapper_db_connection_handler *handler,
                                         void *user_data)
             { mapper_db_remove_connection_callback(db, handler, user_data); }
-        ConnectionProps::Iterator connections() const
+        class Connection : AbstractObjectProps
         {
-            return ConnectionProps::Iterator(
+        public:
+            int found;
+            int flags;
+            char src_type;
+            char dest_type;
+            int src_length;
+            int dest_length;
+            void *src_min;
+            void *src_max;
+            void *dest_min;
+            void *dest_max;
+
+            Connection(mapper_db_connection connection)
+                { props = connection; found = connection ? 1 : 0; owned = 0; }
+            Connection()
+            {
+                props = (mapper_db_connection)calloc(1, sizeof(mapper_db_connection_t));
+                flags = 0;
+                owned = 1;
+            }
+            ~Connection()
+                { if (owned && props) free(props); }
+            operator mapper_db_connection() const
+            {
+                return props;
+            }
+            void set(Property p) {}
+            void remove(const string_type &name) {}
+            void set_mode(mapper_mode_type mode)
+                { props->mode = mode; flags |= CONNECTION_MODE; }
+            void set_bound_min(mapper_boundary_action bound_min)
+                { props->bound_min = bound_min; flags |= CONNECTION_BOUND_MIN; }
+            void set_bound_max(mapper_boundary_action bound_max)
+                { props->bound_max = bound_max; flags |= CONNECTION_BOUND_MAX; }
+            void set_expression(const string_type &expression)
+            {
+                props->expression = (char*)(const char*)expression;
+                flags |= CONNECTION_EXPRESSION;
+            }
+            void set_src_min(const Property &value)
+            {
+                props->src_min = (void*)(const void*)value;
+                props->src_type = value.type;
+                props->src_length = value.length;
+                flags |= (CONNECTION_RANGE_SRC_MIN | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+            }
+            void set_src_max(Property &value)
+            {
+                props->src_max = (void*)(const void*)value;
+                props->src_type = value.type;
+                props->src_length = value.length;
+                flags |= (CONNECTION_RANGE_SRC_MAX | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+            }
+            void set_dest_min(Property &value)
+            {
+                props->dest_min = (void*)(const void*)value;
+                props->dest_type = value.type;
+                props->dest_length = value.length;
+                flags |= (CONNECTION_RANGE_DEST_MIN | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+            }
+            void set_dest_max(Property &value)
+            {
+                props->dest_min = (void*)(const void*)value;
+                props->dest_type = value.type;
+                props->dest_length = value.length;
+                flags |= (CONNECTION_RANGE_DEST_MAX | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+            }
+            Property get(const string_type &name) const
+            {
+                char type;
+                const void *value;
+                int length;
+                mapper_db_connection_property_lookup(props, name, &type,
+                                                     &value, &length);
+                return Property(name, type, value, length);
+            }
+            Property get(int index) const
+            {
+                const char *name;
+                char type;
+                const void *value;
+                int length;
+                mapper_db_connection_property_index(props, index, &name, &type,
+                                                    &value, &length);
+                return Property(name, type, value, length);
+            }
+            class Iterator : public std::iterator<std::input_iterator_tag, int>
+            {
+            public:
+                Iterator(mapper_db_connection *c)
+                    { con = c; }
+                ~Iterator()
+                    { mapper_db_connection_done(con); }
+                bool operator==(const Iterator& rhs)
+                    { return (con == rhs.con); }
+                bool operator!=(const Iterator& rhs)
+                    { return (con != rhs.con); }
+                Iterator& operator++()
+                {
+                    if (con != NULL)
+                        con = mapper_db_connection_next(con);
+                    return (*this);
+                }
+                Iterator operator++(int)
+                    { Iterator tmp(*this); operator++(); return tmp; }
+                Connection operator*()
+                    { return Connection(*con); }
+                Iterator begin()
+                    { return Iterator(con); }
+                Iterator end()
+                    { return Iterator(0); }
+            private:
+                mapper_db_connection *con;
+            };
+        protected:
+            void set(mapper::Property *p) {}
+        private:
+            mapper_db_connection props;
+            int owned;
+        };
+        Connection::Iterator connections() const
+        {
+            return Connection::Iterator(
                  mapper_db_get_all_connections(db));
         }
-        ConnectionProps::Iterator connections(const string_type &src_device,
-                                              const string_type &src_signal,
-                                              const string_type &dest_device,
-                                              const string_type &dest_signal) const
+        Connection::Iterator connections(const string_type &src_device,
+                                         const string_type &src_signal,
+                                         const string_type &dest_device,
+                                         const string_type &dest_signal) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                 mapper_db_get_connections_by_device_and_signal_names(db,
                      src_device, src_signal, dest_device, dest_signal));
         }
-        ConnectionProps::Iterator connections(const string_type &device_name) const
+        Connection::Iterator connections(const string_type &device_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_device_name(db, device_name));
         }
-        ConnectionProps::Iterator connections_by_src(const string_type &signal_name) const
+        Connection::Iterator connections_by_src(const string_type &signal_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_src_signal_name(db, signal_name));
         }
-        ConnectionProps::Iterator connections_by_src(const string_type &device_name,
-                                                     const string_type &signal_name) const
+        Connection::Iterator connections_by_src(const string_type &device_name,
+                                                const string_type &signal_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_src_device_and_signal_names(db,
                       device_name, signal_name));
         }
-        ConnectionProps::Iterator connections_by_dest(const string_type &signal_name) const
+        Connection::Iterator connections_by_dest(const string_type &signal_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_dest_signal_name(db, signal_name));
         }
-        ConnectionProps::Iterator connections_by_dest(const string_type &device_name,
-                                                      const string_type &signal_name) const
+        Connection::Iterator connections_by_dest(const string_type &device_name,
+                                                 const string_type &signal_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_dest_device_and_signal_names(db,
                       device_name, signal_name));
         }
-        ConnectionProps connection_by_signals(const string_type &source_name,
-                                              const string_type &dest_name) const
+        Connection connection_by_signals(const string_type &source_name,
+                                         const string_type &dest_name) const
         {
-            return ConnectionProps(
+            return Connection(
                 mapper_db_get_connection_by_signal_full_names(db, source_name,
                                                               dest_name));
         }
-        ConnectionProps::Iterator connections_by_devices(const string_type &source_name,
-                                                         const string_type &dest_name) const
+        Connection::Iterator connections_by_devices(const string_type &source_name,
+                                                    const string_type &dest_name) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                 mapper_db_get_connections_by_src_dest_device_names(db,
                                                                    source_name,
                                                                    dest_name));
         }
-        ConnectionProps::Iterator connections(SignalProps::Iterator src_list,
-                                              SignalProps::Iterator dest_list) const
+        Connection::Iterator connections(Signal::Iterator src_list,
+                                         Signal::Iterator dest_list) const
         {
-            return ConnectionProps::Iterator(
+            return Connection::Iterator(
                  mapper_db_get_connections_by_signal_queries(db,
                      (mapper_db_signal*)(src_list),
                      (mapper_db_signal*)(dest_list)));
         }
-    protected:
+    private:
         mapper_db db;
         mapper_monitor monitor;
     };
@@ -1096,7 +1297,7 @@ namespace mapper {
             { mapper_monitor_connect(monitor, source_signal, dest_signal, 0, 0); }
         void connect(const string_type &source_signal,
                      const string_type &dest_signal,
-                     const ConnectionProps &properties) const
+                     const Db::Connection &properties) const
         {
             mapper_monitor_connect(monitor, source_signal, dest_signal,
                                    mapper_db_connection(properties),
@@ -1104,7 +1305,7 @@ namespace mapper {
         }
         void connection_modify(const string_type &source_signal,
                                const string_type &dest_signal,
-                               ConnectionProps &properties) const
+                               Db::Connection &properties) const
         {
             mapper_monitor_connection_modify(monitor, source_signal, dest_signal,
                                              mapper_db_connection(properties),
@@ -1112,7 +1313,7 @@ namespace mapper {
         }
         void disconnect(const string_type &source_signal, const string_type &dest_signal)
             { mapper_monitor_disconnect(monitor, source_signal, dest_signal); }
-    protected:
+    private:
         mapper_monitor monitor;
     };
 };

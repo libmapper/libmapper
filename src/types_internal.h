@@ -120,23 +120,24 @@ typedef struct _mapper_admin_allocated_t {
 
 /*! Clock and timing information. */
 typedef struct _mapper_sync_timetag_t {
-    int device_id;
     int message_id;
     lo_timetag timetag;
 } mapper_sync_timetag_t;
 
 typedef struct _mapper_clock_t {
-    int wait_time;
-    double rate;
-    double offset;
-    float confidence;
     mapper_timetag_t now;
     uint32_t next_ping;
-    int message_id;
-    int local_index;
-    mapper_sync_timetag_t local[10];
-    mapper_sync_timetag_t remote;
 } mapper_clock_t, *mapper_clock;
+
+typedef struct _mapper_sync_clock_t {
+    double rate;
+    double offset;
+    double latency;
+    double jitter;
+    mapper_sync_timetag_t sent;
+    mapper_sync_timetag_t response;
+    int new;
+} mapper_sync_clock_t, *mapper_sync_clock;
 
 typedef struct _mapper_admin_subscriber {
     lo_address                      address;
@@ -238,8 +239,7 @@ typedef struct _mapper_link {
     int n_connections;              //!< Number of connections in link.
     mapper_queue queues;            /*!< Linked-list of message queues
                                      *   waiting to be sent. */
-    mapper_timetag_t ping_time;     //!< Timestamp of last ping.
-    int ping_count;                 //!< Most recent ping
+    mapper_sync_clock_t clock;
     struct _mapper_link *next;      //!< Next link in the list.
 } *mapper_link, *mapper_router, *mapper_receiver;
 

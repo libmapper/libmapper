@@ -1057,10 +1057,15 @@ mapper_db_signal msig_properties(mapper_signal sig)
 void msig_set_property(mapper_signal sig, const char *property,
                        char type, void *value, int length)
 {
-    if (strcmp(property, "name") == 0 ||
+    if (strcmp(property, "device_name") == 0 ||
+        strcmp(property, "name") == 0 ||
         strcmp(property, "type") == 0 ||
-        strcmp(property, "length") == 0)
+        strcmp(property, "length") == 0 ||
+        strcmp(property, "direction") == 0 ||
+        strcmp(property, "user_data") == 0) {
+        trace("Cannot set locked signal property '%s'\n", property);
         return;
+    }
 
     if (strcmp(property, "min") == 0 ||
         strcmp(property, "minimum") == 0) {

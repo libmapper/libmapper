@@ -1469,10 +1469,12 @@ typedef struct _admin {} admin;
         mdev_now((mapper_device)$self, &tt);
         return mapper_timetag_get_double(tt);
     }
-    void start_queue(double timetag) {
-        mapper_timetag_t tt;
-        mapper_timetag_set_double(&tt, timetag);
+    double start_queue(double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mdev_start_queue((mapper_device)$self, tt);
+        return mapper_timetag_get_double(tt);
     }
     void send_queue(double timetag) {
         mapper_timetag_t tt;
