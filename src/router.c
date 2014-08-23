@@ -267,8 +267,8 @@ void mapper_router_process_signal(mapper_router r,
     int i, j;
     c = rs->connections;
     while (c) {
-        if ((c->direction == DI_OUTGOING)
-            && (c->props.send_as_instance && !in_scope)) {
+        if ((c->direction == DI_INCOMING)
+            || (c->props.send_as_instance && !in_scope)) {
             c = c->next;
             continue;
         }
