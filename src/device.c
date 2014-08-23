@@ -530,6 +530,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     free(signal_get);
 
     if (md->registered) {
+        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
@@ -558,6 +559,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     sig->device = md;
 
     if (md->registered) {
+        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
