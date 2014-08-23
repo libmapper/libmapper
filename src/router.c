@@ -702,12 +702,14 @@ mapper_connection mapper_router_find_connection(mapper_router router,
 
     // find associated connection
     mapper_connection c = rs->connections;
-    while (c && strcmp(c->props.dest_name, remote_signal_name) != 0)
+    while (c) {
+        const char *compare = (c->direction == DI_OUTGOING
+                               ? c->props.dest_name : c->props.src_name);
+        if (strcmp(compare, remote_signal_name) == 0)
+            break;
         c = c->next;
-    if (!c)
-        return NULL;
-    else
-        return c;
+    }
+    return c;
 }
 
 int mapper_router_in_scope(mapper_router router, uint32_t name_hash)
