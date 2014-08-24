@@ -1439,6 +1439,10 @@ typedef struct _admin {} admin;
     unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
     int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
     int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
+    int get_num_links_in() { return mdev_num_links_in((mapper_device)$self); }
+    int get_num_links_out() { return mdev_num_links_out((mapper_device)$self); }
+    int get_num_connections_in() { return mdev_num_connections_in((mapper_device)$self); }
+    int get_num_connections_out() { return mdev_num_connections_out((mapper_device)$self); }
     signal *get_input_by_name(const char *name) {
         return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
     }
@@ -1509,6 +1513,10 @@ typedef struct _admin {} admin;
         ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
+        num_links_in = property(get_num_links_in)
+        num_links_out = property(get_num_links_out)
+        num_connections_in = property(get_num_connections_in)
+        num_connections_out = property(get_num_connections_out)
         def __propgetter(self):
             device = self
             props = self.get_properties()

@@ -23,6 +23,9 @@ while not src.ready() or not dest.ready():
 monitor = mapper.monitor()
 
 monitor.link('%s' %src.name, '%s' %dest.name)
+while not src.num_links_out:
+    src.poll()
+    dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_REVERSE})
