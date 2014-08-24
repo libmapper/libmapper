@@ -351,13 +351,12 @@ static int handler_signal(const char *path, const char *types,
                         sig->instance_event_handler(sig, &sig->props, map->local,
                                                     IN_UPSTREAM_RELEASE, &tt);
                     }
-                    else if (sig->handler)
-                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
                 }
-                else {
-                    // call handler with null value
+                // call handler with null value
+                if (sig->handler)
                     sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
-                }
+                if (!sig->props.is_output)
+                    mdev_route_signal(md, sig, map->local, 0, 1, tt);
             }
             return 0;
         }
@@ -369,13 +368,18 @@ static int handler_signal(const char *path, const char *types,
                        si->value, size);
                 out_count++;
             }
-            else
+            else {
                 sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
+                if (!sig->props.is_output)
+                    mdev_route_signal(md, sig, map->local, si->value, 1, tt);
+            }
             si->has_value = 1;
         }
         else {
             // Call handler with NULL value
             sig->handler(sig, &sig->props, map->local, 0, 0, &tt);
+            if (!sig->props.is_output)
+                mdev_route_signal(md, sig, map->local, 0, 0, tt);
         }
     }
     if (out_count) {

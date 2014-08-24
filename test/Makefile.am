@@ -8,16 +8,17 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testcpp testcustomtransport testdb testexpression \
-                  testinstance testlinear testmany testmonitor testparams \
-                  testparser testprops testqueue testquery testrate testrecv \
-                  testreverse testselect testsend testsignals testspeed testsync \
-                  testvector
+noinst_PROGRAMS = test testadmin testcpp testcustomtransport testdb \
+                  testexpression testinstance testlinear testmany testmapinput \
+                  testmonitor testparams testparser testprops testqueue \
+                  testquery testrate testrecv testreverse testselect testsend \
+                  testsignals testspeed testsync testvector
 
 test_all_ordered = testparams testprops testdb testparser testadmin testmany \
                    testsend testrecv test testlinear testexpression testqueue \
                    testquery testrate testinstance testreverse testselect \
-                   testvector testcustomtransport testspeed testsync testcpp
+                   testvector testcustomtransport testspeed testsync testcpp \
+                   testmapinput
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -54,6 +55,10 @@ testlinear_LDADD = $(TEST_LDADD)
 testmany_CFLAGS = $(TEST_CFLAGS)
 testmany_SOURCES = testmany.c
 testmany_LDADD = $(TEST_LDADD)
+
+testmapinput_CFLAGS = $(TEST_CFLAGS)
+testmapinput_SOURCES = testmapinput.c
+testmapinput_LDADD = $(TEST_LDADD)
 
 testmonitor_CFLAGS = $(TEST_CFLAGS)
 testmonitor_SOURCES = testmonitor.c
