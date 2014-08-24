@@ -15,6 +15,7 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
     else                                        \
         fprintf(stdout, ".");                   \
+    fflush(stdout);                             \
 } while(0)
 
 int verbose = 1;

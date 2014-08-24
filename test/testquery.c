@@ -33,8 +33,12 @@ void query_response_handler(mapper_signal sig, mapper_db_signal props,
                             int instance_id, void *value, int count,
                             mapper_timetag_t *timetag)
 {
+    int i;
     if (value) {
-        eprintf("--> source got query response: %s %i\n", props->name, (*(int*)value));
+        eprintf("--> source got query response: %s ", props->name);
+        for (i = 0; i < props->length * count; i++)
+            eprintf("%i ", ((int*)value)[i]);
+        eprintf("\n");
     }
     else {
         eprintf("--> source got empty query response: %s\n", props->name);
@@ -52,12 +56,13 @@ int setup_source()
         goto error;
     eprintf("source created.\n");
 
-    int mn=0, mx=10;
+    int mn[]={0,0,0,0}, mx[]={10,10,10,10};
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, 1, 'i', 0, &mn, &mx);
+        sendsig[i] = mdev_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
         msig_set_callback(sendsig[i], query_response_handler, 0);
+        msig_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
 
     eprintf("Output signals registered.\n");
@@ -104,12 +109,12 @@ int setup_destination()
         goto error;
     eprintf("destination created.\n");
 
-    float mn=0, mx=1;
+    float mn[]={0,0,0,0}, mx[]={1,1,1,1};
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mdev_add_input(destination, sig_name, 1,
-                                    'f', 0, &mn, &mx, insig_handler, 0);
+        recvsig[i] = mdev_add_input(destination, sig_name, i+1,
+                                    'f', 0, mn, mx, insig_handler, 0);
     }
 
     eprintf("Input signal /insig registered.\n");
@@ -164,6 +169,14 @@ int setup_connections()
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
     }
 
+    // swap the last two signals to mix up signal vector lengths
+    msig_full_name(sendsig[2], src_name, 1024);
+    msig_full_name(recvsig[3], dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    msig_full_name(sendsig[3], src_name, 1024);
+    msig_full_name(recvsig[2], dest_name, 1024);
+    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+
     i = 0;
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {
@@ -180,17 +193,19 @@ int setup_connections()
 void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0, j = 0, count;
+    int i = 10, j = 0, count;
+    float value[] = {0., 0., 0., 0.};
 
     while ((!terminate || i < 50) && !done) {
-        for (j = 0; j < 2; j++) {
-            msig_update_float(recvsig[j], ((i % 10) * 1.0f));
+        for (j = 0; j < 4; j++)
+            value[j] = (i % 10) * 1.0f;
+        for (j = 0; j < 4; j++) {
+            msig_update(recvsig[j], value, 0, MAPPER_NOW);
         }
         eprintf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
-            count = msig_query_remotes(sendsig[j], MAPPER_NOW);
+            sent += count = msig_query_remotes(sendsig[j], MAPPER_NOW);
             eprintf("Sent %i queries for sendsig[%i]\n", count, j);
-            sent += count;
         }
         mdev_poll(destination, 50);
         mdev_poll(source, 50);
@@ -263,8 +278,8 @@ int main(int argc, char **argv)
     loop();
 
     if (sent != received) {
-        eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s, but received %d of them.\n",
+        eprintf("Not all sent queries received responses.\n");
+        eprintf("Queried %d time%s, but received %d responses.\n",
                 sent, sent == 1 ? "" : "s", received);
         result = 1;
     }

@@ -33,17 +33,29 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
+    int i;
     if (value) {
-        if (props->type == 'f')
-            eprintf("--> %s got %f\n", props->is_output ?
-                    "source" : "destination", (*(float*)value));
-        else if (props->type == 'i')
-            eprintf("--> %s got %i\n", props->is_output ?
-                    "source" : "destination", (*(int*)value));
+        if (props->type == 'f') {
+            eprintf("--> %s got ", props->is_output ?
+                    "source" : "destination");
+            for (i = 0; i < props->length * count; i++)
+                eprintf("%f ", ((float*)value)[i]);
+            eprintf("\n");
+        }
+        else if (props->type == 'i') {
+            eprintf("--> %s got ", props->is_output ?
+                    "source" : "destination");
+            for (i = 0; i < props->length * count; i++)
+                eprintf("%i ", ((int*)value)[i]);
+            eprintf("\n");
+        }
     }
     else {
-        eprintf("--> %s got NIL\n", props->is_output ?
+        eprintf("--> %s got ", props->is_output ?
                 "source" : "destination");
+        for (i = 0; i < props->length * count; i++)
+            eprintf("NIL ");
+        eprintf("\n");
     }
     received++;
 }
@@ -56,9 +68,9 @@ int setup_source()
         goto error;
     eprintf("source created.\n");
 
-    int mn=0, mx=10;
+    float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
+    sendsig = mdev_add_output(source, "/outsig", 2, 'f', 0, mn, mx);
     msig_set_callback(sendsig, insig_handler, 0);
 
     eprintf("Output signals registered.\n");
@@ -163,6 +175,9 @@ void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
+    float val[] = {0, 0};
+    msig_update(sendsig, val, 1, MAPPER_NOW);
+
     while ((!terminate || i < 50) && !done) {
         msig_update_float(recvsig, ((i % 10) * 1.0f));
         sent++;

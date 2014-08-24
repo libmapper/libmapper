@@ -183,8 +183,6 @@ typedef struct _mapper_signal_history
 
     /*! Timetag for each sample of stored history. */
     mapper_timetag_t *timetag;
-
-    struct _mapper_signal_history *next;
 } mapper_signal_history_t;
 
 /*! A record that describes properties of a signal.

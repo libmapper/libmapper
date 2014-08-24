@@ -171,14 +171,17 @@ void connect_signals()
 
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    mapper_db_connection_t props;
+    props.expression = "foo=1,  y=y{-1}+foo";
+    props.mode = MO_BYPASS;
+    mapper_monitor_connect(mon, src_name, dest_name, &props,
+                           CONNECTION_MODE | CONNECTION_EXPRESSION);
 
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-
     mapper_monitor_free(mon);
 }
 

@@ -86,11 +86,6 @@ int test_recv()
         sent++;
         mdev_poll(md, 100);
         i++;
-
-        if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
-            fflush(stdout);
-        }
     }
 
     if (sent != received) {
@@ -159,6 +154,6 @@ int main(int argc, char **argv)
     }
 
 done:
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("               Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

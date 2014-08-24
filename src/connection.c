@@ -13,11 +13,6 @@ static void reallocate_connection_histories(mapper_connection c,
                                             int input_history_size,
                                             int output_history_size);
 
-static void mhist_realloc(mapper_signal_history_t *history,
-                          int history_size,
-                          int sample_size,
-                          int is_output);
-
 const char* mapper_boundary_action_strings[] =
 {
     "none",        /* BA_NONE */
@@ -57,7 +52,9 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
 
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from,
-                              mapper_signal_history_t *to)
+                              mapper_signal_history_t **expr_vars,
+                              mapper_signal_history_t *to,
+                              char *typestring)
 {
     int changed = 0, i;
     int vector_length = from->length < to->length ? from->length : to->length;
@@ -156,7 +153,8 @@ int mapper_connection_perform(mapper_connection connection,
              || connection->props.mode == MO_LINEAR)
     {
         die_unless(connection->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(connection->expr, from, to));
+        return (mapper_expr_evaluate(connection->expr, from, expr_vars,
+                                     to, typestring));
     }
 
     else if (connection->props.mode == MO_CALIBRATE)
@@ -261,7 +259,8 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (connection->expr)
-            return (mapper_expr_evaluate(connection->expr, from, to));
+            return (mapper_expr_evaluate(connection->expr, from, expr_vars,
+                                         to, typestring));
         else
             return 0;
     }
@@ -508,11 +507,13 @@ static int replace_expression_string(mapper_connection c,
 {
     mapper_expr expr = mapper_expr_new_from_string(
         expr_str, c->props.src_type, c->props.dest_type,
-        c->props.src_length, c->props.dest_length,
-        input_history_size, output_history_size);
+        c->props.src_length, c->props.dest_length);
 
     if (!expr)
         return 1;
+
+    *input_history_size = mapper_expr_input_history_size(expr);
+    *output_history_size = mapper_expr_output_history_size(expr);
 
     if (c->expr)
         mapper_expr_free(c->expr);
@@ -542,82 +543,49 @@ void mapper_connection_set_mode_direct(mapper_connection c)
 
 void mapper_connection_set_mode_linear(mapper_connection c)
 {
-    int i;
+    int i, len;
     char expr[256] = "";
     const char *e = expr;
 
     if (c->props.range_known != CONNECTION_RANGE_KNOWN)
         return;
 
-    if (c->props.dest_length == 1) {
-        if (memcmp(c->props.src_min, c->props.src_max,
-                   mapper_type_size(c->props.src_type))==0) {
-            // set value to constant to avoid division by zero
-            if (c->props.src_type == 'f') {
-                float *temp = (float*)c->props.dest_min;
-                snprintf(expr, 256, "y=%g", temp[0]);
-            }
-            else if (c->props.src_type == 'i') {
-                int *temp = (int*)c->props.dest_min;
-                snprintf(expr, 256, "y=%i", temp[0]);
-            }
-            else if (c->props.src_type == 'd') {
-                double *temp = (double*)c->props.dest_min;
-                snprintf(expr, 256, "y=%g", temp[0]);
-            }
-        }
-        else {
-            double src_min, src_max, dest_min, dest_max;
-            if (c->props.src_length > 1)
-                snprintf(expr, 256, "y=x[0]");
-            else
-                snprintf(expr, 256, "y=x");
+    int min_length = c->props.src_length < c->props.dest_length ?
+                     c->props.src_length : c->props.dest_length;
+    double src_min, src_max, dest_min, dest_max;
 
-            src_min = propval_get_double(c->props.src_min, c->props.src_type, 0);
-            src_max = propval_get_double(c->props.src_max, c->props.src_type, 0);
-            dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, 0);
-            dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, 0);
-
-            if ((src_min != dest_min) || (src_max != dest_max)) {
-                double scale = ((dest_min - dest_max) / (src_min - src_max));
-                double offset = ((dest_max * src_min - dest_min * src_max)
-                                 / (src_min - src_max));
-                snprintf(expr+strlen(expr), 256, "*(%g)+(%g)", scale, offset);
-            }
-        }
+    if (c->props.dest_length == c->props.src_length)
+        snprintf(expr, 256, "y=x*");
+    else if (c->props.dest_length > c->props.src_length) {
+        if (min_length == 1)
+            snprintf(expr, 256, "y[0]=x*");
+        else
+            snprintf(expr, 256, "y[0:%i]=x*", min_length-1);
     }
     else {
-        int len, diff;
-        int min_length = c->props.src_length < c->props.dest_length ?
-                         c->props.src_length : c->props.dest_length;
-        double src_min, src_max, dest_min, dest_max;
+        if (min_length == 1)
+            snprintf(expr, 256, "y=x[0]*");
+        else
+            snprintf(expr, 256, "y=x[0:%i]*", min_length-1);
+    }
 
-        if (c->props.src_length == c->props.dest_length)
-            snprintf(expr, 256, "y=x*[");
-        else if (c->props.src_length > c->props.dest_length)
-            snprintf(expr, 256, "y=x[0:%i]*[", c->props.dest_length-1);
+    if (min_length > 1) {
+        len = strlen(expr);
+        snprintf(expr+len, 256-len, "[");
+    }
+
+    for (i = 0; i < min_length; i++) {
+        // get multiplier
+        src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
+        src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+
+        len = strlen(expr);
+        if (src_min == src_max)
+            snprintf(expr+len, 256-len, "0,");
         else {
-            diff = c->props.dest_length - c->props.src_length;
-            snprintf(expr, 256, "y=[x,");
-            while (diff--) {
-                len = strlen(expr);
-                snprintf(expr+len, 256-len, "0,");
-            }
-            len = strlen(expr);
-            snprintf(expr+len-1, 256-len+1, "]*[");
-        }
-
-        // add scale
-        for (i=0; i<min_length; i++) {
-            src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
-            src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
             dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, i);
-
-            len = strlen(expr);
-            if (src_min == src_max)
-                snprintf(expr+len, 256-len, "0,");
-            else if ((src_min == dest_min) && (src_max == dest_max)) {
+            if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "1,");
             }
             else {
@@ -625,25 +593,25 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                 snprintf(expr+len, 256-len, "%g,", scale);
             }
         }
-        diff = c->props.dest_length - c->props.src_length;
-        while (diff--) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "0,");
-        }
-        len = strlen(expr);
+    }
+    len = strlen(expr);
+    if (min_length > 1)
         snprintf(expr+len-1, 256-len+1, "]+[");
+    else
+        snprintf(expr+len-1, 256-len+1, "+");
 
-        // add offset
-        for (i=0; i<min_length; i++) {
-            src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
-            src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+    // add offset
+    for (i=0; i<min_length; i++) {
+        src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
+        src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+
+        len = strlen(expr);
+        if (src_min == src_max)
+            snprintf(expr+len, 256-len, "%g,", dest_min);
+        else {
             dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, i);
-
-            len = strlen(expr);
-            if (src_min == src_max)
-                snprintf(expr+len, 256-len, "%g,", dest_min);
-            else if ((src_min == dest_min) && (src_max == dest_max)) {
+            if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "0,");
             }
             else {
@@ -652,14 +620,12 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                 snprintf(expr+len, 256-len, "%g,", offset);
             }
         }
-        diff = c->props.dest_length - c->props.src_length;
-        while (diff--) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "0,");
-        }
-        len = strlen(expr);
-        snprintf(expr+len-1, 256-len+1, "]");
     }
+    len = strlen(expr);
+    if (min_length > 1)
+        snprintf(expr+len-1, 256-len+1, "]");
+    else
+        expr[len-1] = '\0';
 
     // If everything is successful, replace the connection's expression.
     if (e) {
@@ -688,7 +654,8 @@ void mapper_connection_set_mode_expression(mapper_connection c,
     /* TODO: should call handler for all instances updated
      * through this connection. */
     mapper_signal sig = c->parent->signal;
-    if (!sig->props.is_output && mapper_expr_constant_output(c->expr)) {
+    if (!sig->props.is_output && mapper_expr_constant_output(c->expr)
+        && !c->props.send_as_instance) {
         int index = 0;
         mapper_timetag_t now;
         mapper_clock_now(&sig->device->admin->clock, &now);
@@ -705,7 +672,9 @@ void mapper_connection_set_mode_expression(mapper_connection c,
         h.position = -1;
         h.length = sig->props.length;
         h.size = 1;
-        mapper_expr_evaluate(c->expr, 0, &h);
+        char typestring[h.length];
+        mapper_expr_evaluate(c->expr, 0, &c->expr_vars[si->index],
+                             &h, typestring);
 
         // call handler if it exists
         if (sig->handler)
@@ -727,27 +696,38 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
 
     char expr[256];
     int i, len;
+    int min_length = c->props.src_length < c->props.dest_length ?
+                     c->props.src_length : c->props.dest_length;
 
-    if (c->props.dest_length > 1)
-        snprintf(expr, 256, "y=[");
+    if (c->props.dest_length > c->props.src_length) {
+        if (min_length == 1)
+            snprintf(expr, 256, "y[0]=");
+        else
+            snprintf(expr, 256, "y[0:%i]=", min_length-1);
+    }
     else
         snprintf(expr, 256, "y=");
 
-    if (c->props.src_type == 'f') {
+    if (c->props.dest_length > 1) {
+        len = strlen(expr);
+        snprintf(expr+len, 256-len, "[");
+    }
+
+    if (c->props.dest_type == 'f') {
         float *temp = (float*)c->props.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%g,", temp[i]);
         }
     }
-    else if (c->props.src_type == 'i') {
+    else if (c->props.dest_type == 'i') {
         int *temp = (int*)c->props.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%i,", temp[i]);
         }
     }
-    else if (c->props.src_type == 'd') {
+    else if (c->props.dest_type == 'd') {
         double *temp = (double*)c->props.dest_min;
         for (i=0; i<c->props.dest_length; i++) {
             len = strlen(expr);
@@ -1033,13 +1013,13 @@ int mapper_connection_set_from_message(mapper_connection c,
         int input_history_size, output_history_size;
         if (!replace_expression_string(c, expr, &input_history_size,
                                        &output_history_size)) {
-            if (c->props.mode == MO_EXPRESSION)
+            if (c->props.mode == MO_EXPRESSION) {
                 reallocate_connection_histories(c, input_history_size,
                                                 output_history_size);
+            }
         }
         updated++;
     }
-
     /* Instances. */
     int send_as_instance;
     if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
@@ -1093,18 +1073,20 @@ int mapper_connection_set_from_message(mapper_connection c,
                 else {
                     char expr[256] = "";
                     if (c->props.src_length > c->props.dest_length) {
-                        // truncate
-                        snprintf(expr, 256, "y=x[0:%i]", c->props.dest_length-1);
+                        // truncate source
+                        if (c->props.dest_length == 1)
+                            snprintf(expr, 256, "y=x[0]");
+                        else
+                            snprintf(expr, 256, "y=x[0:%i]",
+                                     c->props.dest_length-1);
                     }
                     else {
-                        // zero-pad
-                        int diff = c->props.dest_length - c->props.src_length;
-                        snprintf(expr, 256, "y=[x,");
-                        while (diff--) {
-                            int len = strlen(expr);
-                            snprintf(expr+len, 256-len, "0,");
-                        }
-                        expr[strlen(expr)-1] = ']';
+                        // truncate destination
+                        if (c->props.src_length == 1)
+                            snprintf(expr, 256, "y[0]=x");
+                        else
+                            snprintf(expr, 256, "y[0:%i]=x",
+                                     c->props.src_length);
                     }
                     c->props.expression = strdup(expr);
                 }
@@ -1119,7 +1101,6 @@ int mapper_connection_set_from_message(mapper_connection c,
         trace("unknown result from mapper_msg_get_mode()\n");
         break;
     }
-
     return updated;
 }
 
@@ -1173,11 +1154,12 @@ void reallocate_connection_histories(mapper_connection c,
                                      int output_history_size)
 {
     mapper_signal sig = c->parent->signal;
-    int i;
+    int i, j;
 
     // At least for now, exit if this is an input signal
-    if (!sig->props.is_output)
+    if (!sig->props.is_output) {
         return;
+    }
 
     // If there is no expression, then no memory needs to be
     // reallocated.
@@ -1187,11 +1169,12 @@ void reallocate_connection_histories(mapper_connection c,
     if (input_history_size < 1)
         input_history_size = 1;
 
+    // Reallocate input histories
     if (input_history_size > c->parent->history_size) {
         int sample_size = msig_vector_bytes(sig);
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->parent->history[i], input_history_size,
-                          sample_size, 0);
+                          sample_size, 1);
         }
         c->parent->history_size = input_history_size;
     }
@@ -1208,32 +1191,67 @@ void reallocate_connection_histories(mapper_connection c,
             c = c->next;
         }*/
     }
+
+    // reallocate output histories
     if (output_history_size > c->props.dest_history_size) {
         int sample_size = mapper_type_size(c->props.dest_type) * c->props.dest_length;
         for (i=0; i<sig->props.num_instances; i++) {
-            mhist_realloc(&c->history[i], output_history_size, sample_size, 1);
+            mhist_realloc(&c->history[i], output_history_size, sample_size, 0);
         }
         c->props.dest_history_size = output_history_size;
     }
     else if (output_history_size < mapper_expr_output_history_size(c->expr)) {
         // Do nothing for now...
     }
+
+    // reallocate user variable histories
+    int new_num_vars = mapper_expr_num_variables(c->expr);
+    if (new_num_vars > c->num_expr_vars) {
+        for (i=0; i<sig->props.num_instances; i++) {
+            c->expr_vars[i] = realloc(c->expr_vars[i], new_num_vars *
+                                      sizeof(struct _mapper_signal_history));
+            // initialize new variables...
+            for (j=c->num_expr_vars; j<new_num_vars; j++) {
+                (c->expr_vars[i]+j)->type = 'd';
+                (c->expr_vars[i]+j)->length = 0;
+                (c->expr_vars[i]+j)->size = 0;
+                (c->expr_vars[i]+j)->value = 0;
+                (c->expr_vars[i]+j)->timetag = 0;
+                (c->expr_vars[i]+j)->position = -1;
+            }
+        }
+        c->num_expr_vars = new_num_vars;
+    }
+    else if (new_num_vars < c->num_expr_vars) {
+        // Do nothing for now...
+    }
+    for (i=0; i<sig->props.num_instances; i++) {
+        for (j=0; j<new_num_vars; j++) {
+            int history_size = mapper_expr_variable_history_size(c->expr, j);
+            int vector_length = mapper_expr_variable_vector_length(c->expr, j);
+            mhist_realloc(c->expr_vars[i]+j, history_size,
+                          vector_length * sizeof(double), 0);
+            (c->expr_vars[i]+j)->length = vector_length;
+            (c->expr_vars[i]+j)->size = history_size;
+            (c->expr_vars[i]+j)->position = -1;
+        }
+    }
 }
 
 void mhist_realloc(mapper_signal_history_t *history,
                    int history_size,
                    int sample_size,
-                   int is_output)
+                   int is_input)
 {
     if (!history || !history_size || !sample_size)
         return;
     if (history_size == history->size)
         return;
-    if (is_output || (history_size > history->size) || (history->position == 0)) {
+    if (!is_input || (history_size > history->size) || (history->position == 0)) {
         // realloc in place
         history->value = realloc(history->value, history_size * sample_size);
         history->timetag = realloc(history->timetag, history_size * sizeof(mapper_timetag_t));
-        if (is_output) {
+        if (!is_input) {
             // Initialize entire history to 0
             memset(history->value, 0, history_size * sample_size);
             history->position = -1;
