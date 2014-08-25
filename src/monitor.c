@@ -442,10 +442,14 @@ static void on_device_autosubscribe(mapper_db_device dev,
 void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 {
     // TODO: remove autorenewing subscription record if necessary
-    if (autosubscribe_flags)
+    if (!mon->autosubscribe && autosubscribe_flags)
         mapper_db_add_device_callback(&mon->db, on_device_autosubscribe, mon);
-    else
+    else if (mon->autosubscribe && !autosubscribe_flags) {
         mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
+        while (mon->subscriptions) {
+            mapper_monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
+        }
+    }
     mon->autosubscribe = autosubscribe_flags;
 }
 
