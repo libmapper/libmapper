@@ -2028,7 +2028,7 @@ static int handler_device_linked(const char *path, const char *types,
         return 0;
     if (mon)
         mapper_db_add_or_update_link_params(db, src_name, dest_name, &params);
-    if (!md || strcmp(mdev_name(md), dest_name))
+    if (!md || !mdev_name(md) || strcmp(mdev_name(md), dest_name))
         return 0;
 
     // Add a receiver data structure
@@ -2257,7 +2257,7 @@ static int handler_device_unlinked(const char *path, const char *types,
             mapper_db_get_link_by_src_dest_names(db, src_name, dest_name));
     }
 
-    if (md) {
+    if (md && mdev_name(md)) {
         trace("<%s> got /unlinked %s %s + %i arguments\n",
               mdev_name(md), src_name, dest_name, argc-2);
 
@@ -2596,8 +2596,8 @@ static int handler_signal_connected(const char *path, const char *types,
                                                   dest_name, &params);
     }
 
-    if (!md || prefix_cmp(dest_name, mdev_name(md),
-                          &dest_signal_name))
+    if (!md || !mdev_name(md) || prefix_cmp(dest_name, mdev_name(md),
+                                            &dest_signal_name))
         return 0;
 
     trace("<%s> got /connected %s %s + %d arguments\n",
@@ -2874,8 +2874,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
                                                           dest_name));
     }
 
-    if (!md || prefix_cmp(dest_name, mdev_name(md),
-                          &dest_signal_name))
+    if (!md || !mdev_name(md) || prefix_cmp(dest_name, mdev_name(md),
+                                            &dest_signal_name))
         return 0;
 
     src_signal_name = strchr(src_name+1, '/');
