@@ -3031,20 +3031,18 @@ static int handler_sync(const char *path,
         return 0;
 
     mapper_db_device reg = 0;
-    if (types[0] == 's' || types[0] == 'S')
-        reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s);
-    else if (types[0] == 'i')
-        reg = mapper_db_get_device_by_name_hash(&mon->db, argv[0]->i);
-    else
-        return 0;
-
-    if (!reg) {
-        // only create device record after requesting more information
-        if (mon->autosubscribe)
+    if (types[0] == 's' || types[0] == 'S') {
+        if ((reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s)))
+            mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
+        else if (mon->autosubscribe) {
+            // only create device record after requesting more information
             mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
+        }
     }
-    else
-        mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
+    else if (types[0] == 'i') {
+        if ((reg = mapper_db_get_device_by_name_hash(&mon->db, argv[0]->i)))
+            mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
+    }
 
     return 0;
 }
