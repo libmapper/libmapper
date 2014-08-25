@@ -30,6 +30,9 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
+// set to 1 to force mesh comms to use admin bus instead for debugging
+#define FORCE_ADMIN_TO_BUS      0
+
 #define BUNDLE_DEST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DEST_BUS         0
 
@@ -553,6 +556,9 @@ void mapper_admin_send_bundle(mapper_admin admin)
 {
     if (!admin->bundle)
         return;
+#ifdef FORCE_ADMIN_TO_BUS
+    lo_send_bundle_from(admin->bus_addr, admin->mesh_server, admin->bundle);
+#else
     if (admin->bundle_dest == BUNDLE_DEST_SUBSCRIBERS) {
         mapper_admin_subscriber *s = &admin->subscribers;
         if (*s) {
@@ -580,6 +586,7 @@ void mapper_admin_send_bundle(mapper_admin admin)
     else {
         lo_send_bundle_from(admin->bundle_dest, admin->mesh_server, admin->bundle);
     }
+#endif
     lo_bundle_free_messages(admin->bundle);
     admin->bundle = 0;
 }
@@ -810,7 +817,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                 lo_message_add_double(m, 0.);
             // need to send immediately
             lo_bundle_add_message(b, admin_msg_strings[ADM_LINK_PING], m);
+#ifdef FORCE_ADMIN_TO_BUS
+            lo_send_bundle_from(admin->bus_addr, admin->mesh_server, b);
+#else
             lo_send_bundle_from(router->admin_addr, admin->mesh_server, b);
+#endif
             mapper_timetag_cpy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
             lo_bundle_free_messages(b);
         }
@@ -870,7 +881,11 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                 lo_message_add_double(m, 0.);
             // need to send immediately
             lo_bundle_add_message(b, admin_msg_strings[ADM_LINK_PING], m);
+#ifdef FORCE_ADMIN_TO_BUS
+            lo_send_bundle_from(admin->bus_addr, admin->mesh_server, b);
+#else
             lo_send_bundle_from(receiver->admin_addr, admin->mesh_server, b);
+#endif
             mapper_timetag_cpy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
             lo_bundle_free_messages(b);
         }
