@@ -39,6 +39,7 @@ typedef struct _mapper_db_device {
     int num_connections_in;     //!< Number of associated incoming connections.
     int num_connections_out;    //!< Number of associated outgoing connections.
     int version;                //!< Reported device state version.
+    char *lib_version;          //!< libmapper version of device.
     void* user_data;            //!< User modifiable data.
     mapper_timetag_t timetag;
 

@@ -529,6 +529,7 @@ static mapper_string_table_t sigdb_table =
 
 static property_table_value_t devdb_values[] = {
     { 's', {1}, -1, DEVDB_OFFSET(host) },
+    { 's', {1}, -1, DEVDB_OFFSET(lib_version) },
     { 's', {1}, -1, DEVDB_OFFSET(name) },
     { 'i', {0}, -1, DEVDB_OFFSET(num_connections_in) },
     { 'i', {0}, -1, DEVDB_OFFSET(num_connections_out) },
@@ -545,21 +546,22 @@ static property_table_value_t devdb_values[] = {
 /* This table must remain in alphabetical order. */
 static string_table_node_t devdb_nodes[] = {
     { "host",                &devdb_values[0] },
-    { "name",                &devdb_values[1] },
-    { "num_connections_in",  &devdb_values[2] },
-    { "num_connections_out", &devdb_values[3] },
-    { "num_inputs",          &devdb_values[4] },
-    { "num_links_in",        &devdb_values[5] },
-    { "num_links_out",       &devdb_values[6] },
-    { "num_outputs",         &devdb_values[7] },
-    { "port",                &devdb_values[8] },
-    { "synced",              &devdb_values[9] },
-    { "user_data",           &devdb_values[10] },
-    { "version",             &devdb_values[11] },
+    { "lib_version",         &devdb_values[1] },
+    { "name",                &devdb_values[2] },
+    { "num_connections_in",  &devdb_values[3] },
+    { "num_connections_out", &devdb_values[4] },
+    { "num_inputs",          &devdb_values[5] },
+    { "num_links_in",        &devdb_values[6] },
+    { "num_links_out",       &devdb_values[7] },
+    { "num_outputs",         &devdb_values[8] },
+    { "port",                &devdb_values[9] },
+    { "synced",              &devdb_values[10] },
+    { "user_data",           &devdb_values[11] },
+    { "version",             &devdb_values[12] },
 };
 
 static mapper_string_table_t devdb_table =
-  { devdb_nodes, 12, 12 };
+  { devdb_nodes, 13, 13 };
 
 static property_table_value_t linkdb_values[] = {
     { 's', {1}, -1,         LINKDB_OFFSET(dest_host) },
@@ -788,6 +790,8 @@ static int update_device_record_params(mapper_db_device reg,
         return updated;
 
     updated += update_string_if_arg(&reg->host, params, AT_IP);
+
+    updated += update_string_if_arg(&reg->lib_version, params, AT_LIB_VERSION);
 
     updated += update_int_if_arg(&reg->port, params, AT_PORT);
 
