@@ -66,6 +66,9 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->props.extra = table_new();
     md->flags = 0;
 
+//    md->link_timeout_sec = ADMIN_TIMEOUT_SEC;
+    md->link_timeout_sec = 0;
+
     mapper_admin_add_device(md->admin, md);
 
     return md;

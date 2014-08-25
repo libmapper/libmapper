@@ -774,17 +774,19 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
         mapper_sync_clock sync = &router->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
-        if (elapsed > ADMIN_TIMEOUT_SEC) {
-            trace("<%s> Lost contact with linked destination device %s"
-                  "(%d seconds since sync).\n", mdev_name(md),
-                  router->props.dest_name, elapsed);
-
+        if (md->link_timeout_sec && elapsed > md->link_timeout_sec) {
             if (sync->response.message_id > 0) {
+                trace("<%s> Lost contact with linked device %s "
+                      "(%d seconds since sync).\n", mdev_name(md),
+                      router->props.dest_name, elapsed);
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
             }
             else {
+                trace("<%s> Removing link to unresponsive device %s "
+                      "(%d seconds since warning).\n", mdev_name(md),
+                      router->props.dest_name, elapsed);
                 // Call the local link handler if it exists
                 if (md->link_cb)
                     md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
@@ -838,17 +840,19 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
         mapper_sync_clock sync = &receiver->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
-        if (elapsed > ADMIN_TIMEOUT_SEC) {
-            trace("<%s> Lost contact with linked source device %s"
-                  "(%d seconds since sync).\n", mdev_name(md),
-                  receiver->props.src_name, elapsed);
-
+        if (md->link_timeout_sec && elapsed > md->link_timeout_sec) {
             if (sync->response.message_id > 0) {
+                trace("<%s> Lost contact with linked device %s "
+                      "(%d seconds since sync).\n", mdev_name(md),
+                      receiver->props.src_name, elapsed);
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
             }
             else {
+                trace("<%s> Removing link from unresponsive device %s "
+                      "(%d seconds since warning).\n", mdev_name(md),
+                      receiver->props.dest_name, elapsed);
                 // Call the local link handler if it exists
                 if (md->link_cb)
                     md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,

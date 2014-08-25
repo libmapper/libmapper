@@ -88,6 +88,8 @@ struct _mapper_device {
     struct _mapper_id_map *reserve_id_map;
 
     uint32_t id_counter;
+    int link_timeout_sec;   /* Number of seconds after which unresponsive
+                             * links will be removed, or 0 for never. */
 
     /*! Server used to handle incoming messages. */
     lo_server server;
