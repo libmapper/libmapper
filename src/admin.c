@@ -1342,6 +1342,8 @@ static int handler_device(const char *path, const char *types,
 
     const char *name = &argv[0]->s;
 
+    trace("<monitor> got /device %s + %i arguments\n", name, argc-1);
+
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
@@ -1387,7 +1389,8 @@ static int handler_logout(const char *path, const char *types,
 
     char *name = &argv[0]->s;
 
-    trace("got /logout %s\n", name);
+    trace("<%s> got /logout %s\n",
+          (md && md->ordinal.locked) ? mdev_name(md) : "monitor", name);
 
     if (mon) {
         mapper_db_remove_device_by_name(db, name);
@@ -1398,26 +1401,6 @@ static int handler_logout(const char *path, const char *types,
 
     // If device exists and is registered
     if (md && md->ordinal.locked) {
-        /* Parse the ordinal from the complete name which is in the
-         * format: /<name>.<n> */
-        s = name;
-        if (*s++ != '/')
-            return 0;
-        while (*s != '.' && *s++) {
-        }
-        ordinal = atoi(++s);
-
-        // If device name matches
-        strtok(name, ".");
-        name++;
-        if (strcmp(name, md->props.identifier) == 0) {
-            // if registered ordinal is within my block, free it
-            diff = ordinal - md->ordinal.value;
-            if (diff > 0 && diff < 9) {
-                md->ordinal.suggestion[diff-1] = 0;
-            }
-        }
-
         // Check if we have any links to this device, if so remove them
         mapper_router router =
             mapper_router_find_by_dest_name(md->routers, name);
@@ -1426,6 +1409,9 @@ static int handler_logout(const char *path, const char *types,
             if (md->link_cb)
                 md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
                             md->link_cb_userdata);
+
+            trace("<%s> Removing link to expired device %s.\n",
+                  mdev_name(md), router->props.dest_name);
 
             mdev_remove_router(md, router);
 
@@ -1443,12 +1429,34 @@ static int handler_logout(const char *path, const char *types,
                 md->link_cb(md, &receiver->props, MDEV_LOCAL_DESTROYED,
                             md->link_cb_userdata);
 
+            trace("<%s> Removing link from expired device %s.\n",
+                  mdev_name(md), receiver->props.dest_name);
+
             mdev_remove_receiver(md, receiver);
 
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_IN);
             mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ss",
                                         name, mdev_name(md));
+        }
+
+        /* Parse the ordinal from the complete name which is in the
+         * format: /<name>.<n> */
+        s = name;
+        if (*s++ != '/')
+            return 0;
+        while (*s != '.' && *s++) {}
+        ordinal = atoi(++s);
+
+        // If device name matches
+        strtok(name, ".");
+        name++;
+        if (strcmp(name, md->props.identifier) == 0) {
+            // if registered ordinal is within my block, free it
+            diff = ordinal - md->ordinal.value;
+            if (diff > 0 && diff < 9) {
+                md->ordinal.suggestion[diff-1] = 0;
+            }
         }
     }
 
