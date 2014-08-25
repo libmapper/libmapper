@@ -55,8 +55,10 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
     mon->timeout_sec = ADMIN_TIMEOUT_SEC;
 
     mapper_admin_add_monitor(mon->admin, mon);
-    if (autosubscribe_flags)
+    if (autosubscribe_flags) {
         mapper_monitor_autosubscribe(mon, autosubscribe_flags);
+        mapper_monitor_request_devices(mon);
+    }
     return mon;
 }
 
