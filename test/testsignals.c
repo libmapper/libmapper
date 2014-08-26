@@ -38,17 +38,21 @@ int main(int argc, char ** argv)
         result = 1;
         goto done;
     }
+    while (!mdev_ready(mdev)) {
+        mdev_poll(mdev, 100);
+    }
 
-    printf("Adding signals... ");
+    printf("Adding 200 signals... ");
     fflush(stdout);
     for (i = 0; i < 100; i++) {
         mdev_poll(mdev, 100);
-        snprintf(signame, 32, "/s%i", i);
+        snprintf(signame, 32, "/in%i", i);
         if (!(inputs[i] = mdev_add_input(mdev, signame, 1, 'f', 0, 0,
                                          0, sig_handler, 0))) {
             result = 1;
             goto done;
         }
+        snprintf(signame, 32, "/out%i", i);
         if (!(outputs[i] = mdev_add_output(mdev, signame, 1, 'f', 0, 0, 0))) {
             result = 1;
             goto done;
