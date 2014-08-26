@@ -79,10 +79,7 @@ const char* admin_msg_strings[] =
     "/link/ping",               /* ADM_LINK_PING */
     "/logout",                  /* ADM_LOGOUT */
     "/signal",                  /* ADM_SIGNAL */
-    "/input",                   /* ADM_INPUT */
-    "/output",                  /* ADM_OUTPUT */
-    "/input/removed",           /* ADM_INPUT_SIGNAL_REMOVED */
-    "/output/removed",          /* ADM_OUTPUT_SIGNAL_REMOVED */
+    "/signal/removed",          /* ADM_SIGNAL_REMOVED */
     "%s/subscribe",             /* ADM_SUBSCRIBE */
     "%s/unsubscribe",           /* ADM_UNSUBSCRIBE */
     "/sync",                    /* ADM_SYNC */
@@ -110,10 +107,8 @@ static int handler_device_unsubscribe(const char *, const char *, lo_arg **,
                                       int, lo_message, void *);
 static int handler_signal_info(const char *, const char *, lo_arg **,
                                int, lo_message, void *);
-static int handler_input_signal_removed(const char *, const char *, lo_arg **,
-                                        int, lo_message, void *);
-static int handler_output_signal_removed(const char *, const char *, lo_arg **,
-                                         int, lo_message, void *);
+static int handler_signal_removed(const char *, const char *, lo_arg **,
+                                  int, lo_message, void *);
 static int handler_device_name_probe(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_device_name_registered(const char *, const char *, lo_arg **,
@@ -208,8 +203,7 @@ static struct handler_method_assoc monitor_mesh_handlers[] = {
     {ADM_LINKED,                NULL,       handler_device_linked},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
-    {ADM_INPUT_REMOVED,         "s",        handler_input_signal_removed},
-    {ADM_OUTPUT_REMOVED,        "s",        handler_output_signal_removed},
+    {ADM_SIGNAL_REMOVED,        "s",        handler_signal_removed},
     {ADM_DISCONNECTED,          "ss",       handler_signal_disconnected},
 };
 const int N_MONITOR_MESH_HANDLERS =
@@ -1068,9 +1062,7 @@ void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
 {
     char sig_name[1024];
     msig_full_name(sig, sig_name, 1024);
-    mapper_admin_bundle_message(admin, sig->props.is_output ?
-                                ADM_OUTPUT_REMOVED : ADM_INPUT_REMOVED,
-                                0, "s", sig_name);
+    mapper_admin_bundle_message(admin, ADM_SIGNAL_REMOVED, 0, "s", sig_name);
 }
 
 static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
@@ -1550,20 +1542,17 @@ static int handler_signal_info(const char *path, const char *types,
     devname[devnamelen]=0;
 
     mapper_message_t params;
-    mapper_msg_parse_params(&params, path, &types[1],
-                            argc-1, &argv[1]);
+    mapper_msg_parse_params(&params, path, &types[1], argc-1, &argv[1]);
 
-    mapper_db_add_or_update_signal_params( db, sig_name,
-                                          devname,
-                                          &params );
+    mapper_db_add_or_update_signal_params(db, sig_name, devname, &params);
 
     return 0;
 }
 
-/*! Unregister information about a removed input signal. */
-static int handler_input_signal_removed(const char *path, const char *types,
-                                        lo_arg **argv, int argc, lo_message m,
-                                        void *user_data)
+/*! Unregister information about a removed signal. */
+static int handler_signal_removed(const char *path, const char *types,
+                                  lo_arg **argv, int argc, lo_message m,
+                                  void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
@@ -1588,40 +1577,7 @@ static int handler_input_signal_removed(const char *path, const char *types,
     strncpy(dev_name, full_sig_name, dev_name_len);
     dev_name[dev_name_len]=0;
 
-    mapper_db_remove_input_by_name(db, dev_name, sig_name);
-
-    return 0;
-}
-
-/*! Unregister information about a removed input signal. */
-static int handler_output_signal_removed(const char *path, const char *types,
-                                         lo_arg **argv, int argc, lo_message m,
-                                         void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
-
-    if (argc < 1)
-        return 1;
-
-    if (types[0] != 's' && types[0] != 'S')
-        return 1;
-
-    const char *full_sig_name = &argv[0]->s;
-    const char *sig_name = strchr(full_sig_name+1, '/');
-    if (!sig_name)
-        return 1;
-
-    int dev_name_len = sig_name-full_sig_name;
-    if (dev_name_len >= 1024)
-        return 0;
-
-    char dev_name[1024];
-    strncpy(dev_name, full_sig_name, dev_name_len);
-    dev_name[dev_name_len]=0;
-
-    mapper_db_remove_output_by_name(db, dev_name, sig_name);
+    mapper_db_remove_signal_by_name(db, dev_name, sig_name);
 
     return 0;
 }

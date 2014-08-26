@@ -1450,8 +1450,7 @@ void mapper_db_signal_done(mapper_db_signal_t **s)
         lh->query_context->query_free(lh);
 }
 
-static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig,
-                                    int is_output)
+static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
 {
     fptr_list cb = db->signal_callbacks;
     while (cb) {
@@ -1472,10 +1471,42 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig,
         free(sig->maximum);
     if (sig->extra)
         table_free(sig->extra, 1);
-    if (is_output)
+    if (sig->is_output)
         list_remove_item(sig, (void**)&db->registered_outputs);
     else
         list_remove_item(sig, (void**)&db->registered_inputs);
+}
+
+void mapper_db_remove_signal_by_name(mapper_db db, const char *device_name,
+                                     const char *signal_name)
+{
+    mapper_db_signal sig;
+    sig = mapper_db_get_output_by_device_and_signal_names(db, device_name,
+                                                          signal_name);
+
+    if (!sig) {
+        sig = mapper_db_get_input_by_device_and_signal_names(db, device_name,
+                                                             signal_name);
+    }
+    if (!sig)
+        return;
+
+    mapper_db_remove_connections_by_query(db,
+        mapper_db_get_connections_by_device_and_signal_name(db, device_name,
+                                                            signal_name));
+
+    mapper_db_remove_signal(db, sig);
+}
+
+void mapper_db_remove_signals_by_query(mapper_db db,
+                                       mapper_db_signal_t **s)
+{
+    while (s) {
+        mapper_db_signal sig = *s;
+        s = mapper_db_signal_next(s);
+
+        mapper_db_remove_signal(db, sig);
+    }
 }
 
 void mapper_db_remove_input_by_name(mapper_db db, const char *device_name,
@@ -1493,7 +1524,7 @@ void mapper_db_remove_input_by_name(mapper_db db, const char *device_name,
                                                                   device_name,
                                                                   signal_name));
 
-    mapper_db_remove_signal(db, sig, 0);
+    mapper_db_remove_signal(db, sig);
 }
 
 void mapper_db_remove_inputs_by_query(mapper_db db,
@@ -1503,7 +1534,7 @@ void mapper_db_remove_inputs_by_query(mapper_db db,
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        mapper_db_remove_signal(db, sig, 0);
+        mapper_db_remove_signal(db, sig);
     }
 }
 
@@ -1522,7 +1553,7 @@ void mapper_db_remove_output_by_name(mapper_db db, const char *device_name,
                                                                  device_name,
                                                                  signal_name));
 
-    mapper_db_remove_signal(db, sig, 1);
+    mapper_db_remove_signal(db, sig);
 }
 
 void mapper_db_remove_outputs_by_query(mapper_db db,
@@ -1532,7 +1563,7 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
         mapper_db_signal sig = *s;
         s = mapper_db_signal_next(s);
 
-        mapper_db_remove_signal(db, sig, 1);
+        mapper_db_remove_signal(db, sig);
     }
 }
 
@@ -2003,6 +2034,16 @@ mapper_db_connection mapper_db_get_connection_by_signal_full_names(
     return 0;
 }
 
+static int cmp_query_get_connections_by_device_and_signal_name(
+    void *context_data, mapper_db_connection con)
+{
+    const char *fullname = (const char*) context_data;
+    if (strcmp(con->src_name, fullname)==0)
+        return 1;
+    else
+        return strcmp(con->dest_name, fullname)==0;
+}
+
 static int cmp_query_get_connections_by_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
@@ -2011,6 +2052,32 @@ static int cmp_query_get_connections_by_device_and_signal_names(
         return 0;
     const char *dest_name = src_name + strlen(src_name) + 1;
     return strcmp(con->dest_name, dest_name)==0;
+}
+
+mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
+    mapper_db db, const char *device_name,  const char *signal_name)
+{
+    mapper_db_connection connection = db->registered_connections;
+    if (!connection)
+        return 0;
+
+    char fullname[1024];
+    snprintf(fullname, 1024, "/%s/%s",
+             device_name[0]=='/' ? device_name+1 : device_name,
+             signal_name[0]=='/' ? signal_name+1 : signal_name);
+
+    // query skips first '/' in both names if it is provided
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_connections_by_device_and_signal_name,
+        fullname, 0);
+
+    lh->self = connection;
+
+    if (cmp_query_get_connections_by_device_and_signal_name(
+            &lh->query_context->data, connection))
+        return (mapper_db_connection*)&lh->self;
+
+    return (mapper_db_connection*)dynamic_query_continuation(lh);
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(

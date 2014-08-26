@@ -508,6 +508,10 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 
+/*! Remove a named signal from the database if it exists. */
+void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
+                                     const char *sig_name);
+
 /*! Remove a named input signal from the database if it exists. */
 void mapper_db_remove_input_by_name(mapper_db db, const char *dev_name,
                                     const char *sig_name);
