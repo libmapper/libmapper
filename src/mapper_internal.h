@@ -666,7 +666,7 @@ mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
 /*! Helper to return the signal direction from a message parameter.
  *  \param msg Structure containing parameter info.
  *  \return 0 for input, 1 for output, or -1 if not found. */
-mapper_mode_type mapper_msg_get_signal_direction(mapper_message_t *msg);
+int mapper_msg_get_signal_direction(mapper_message_t *msg);
 
 /*! Helper to return the mode type from a message parameter.
  *  \param msg Structure containing parameter info.

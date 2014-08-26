@@ -652,20 +652,16 @@ void mapper_connection_prepare_osc_message(lo_message m,
     mapper_msg_add_value_table(m, con->props.extra);
 }
 
-mapper_mode_type mapper_msg_get_signal_direction(mapper_message_t *msg)
+int mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
     if (!a || !*a)
         return -1;
-
-    if (strcmp(&(*a)->s, "input") == 0)
-        return 0;
-    else if (strcmp(&(*a)->s, "output") == 0)
+    const char *str = &(*a)->s;
+    if ((strcmp(str, "output") == 0) || (strlen(str) == 2 && str[1] == 'O'))
         return 1;
-    else
-        return -1;
 
-    return -1;
+    return 0;
 }
 
 mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
