@@ -2002,7 +2002,7 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, mapper_db_signal src
     }
 
     if (modify)
-        mapper_monitor_connection_modify(mon, src, dest,
+        mapper_monitor_modify_connection(mon, src, dest,
                                          &cprops, props_flags);
     else
         mapper_monitor_connect(mon, src, dest, &cprops, props_flags);

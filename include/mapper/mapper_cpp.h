@@ -1333,6 +1333,10 @@ namespace mapper {
             mapper_monitor_link(monitor, (mapper_db_device)source,
                                 (mapper_db_device)dest, 0, 0);
         }
+        void link(const string_type &source, const string_type &dest) const
+        {
+            mapper_monitor_link_by_names(monitor, source, dest, 0, 0);
+        }
         void unlink(const mapper::Device &source, const mapper::Device &dest) const
         {
             mapper_monitor_unlink(monitor, mdev_properties((mapper_device)source),
@@ -1343,6 +1347,10 @@ namespace mapper {
         {
             mapper_monitor_unlink(monitor, (mapper_db_device)source,
                                   (mapper_db_device)dest);
+        }
+        void unlink(const string_type &source, const string_type &dest) const
+        {
+            mapper_monitor_unlink_by_names(monitor, source, dest);
         }
         void connect(const mapper::Signal &source, const mapper::Signal &dest,
                      const mapper::Db::Connection &props=0) const
@@ -1361,24 +1369,39 @@ namespace mapper {
                                    props ? (mapper_db_connection)props : 0,
                                    props ? props.flags : 0);
         }
-        void connection_modify(const mapper::Signal &source,
+        void connect(const string_type &source, const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_monitor_connect_by_names(monitor, source, dest,
+                                            props ? (mapper_db_connection)props : 0,
+                                            props ? props.flags : 0);
+        }
+        void modify_connection(const mapper::Signal &source,
                                const mapper::Signal &dest,
                                const mapper::Db::Connection &props) const
         {
-            mapper_monitor_connection_modify(monitor,
+            mapper_monitor_modify_connection(monitor,
                                              msig_properties((mapper_signal)source),
                                              msig_properties((mapper_signal)dest),
                                              (mapper_db_connection)props,
                                              props.flags);
         }
-        void connection_modify(const mapper::Db::Signal &source,
-                               const mapper::Db::Signal &dest,
+        void modify_connection(const mapper::AbstractSignalProps &source,
+                               const mapper::AbstractSignalProps &dest,
                                const mapper::Db::Connection &props) const
         {
-            mapper_monitor_connection_modify(monitor, (mapper_db_signal)source,
+            mapper_monitor_modify_connection(monitor, (mapper_db_signal)source,
                                              (mapper_db_signal)dest,
                                              mapper_db_connection(props),
                                              props.flags);
+        }
+        void modify_connection(const string_type &source,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            mapper_monitor_modify_connection_by_names(monitor, source, dest,
+                                                      (mapper_db_connection)props,
+                                                      props.flags);
         }
         void disconnect(const mapper::Signal &source,
                         const mapper::Signal &dest) const
@@ -1392,7 +1415,12 @@ namespace mapper {
             mapper_monitor_disconnect(monitor, (mapper_db_signal)source,
                                       (mapper_db_signal)dest);
         }
-    protected:
+        void disconnect(const string_type &source,
+                        const string_type &dest) const
+        {
+            mapper_monitor_disconnect_by_names(monitor, source, dest);
+        }
+    private:
         mapper_monitor monitor;
     };
 };

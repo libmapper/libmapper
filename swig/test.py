@@ -78,18 +78,18 @@ for i in range(1000):
     dev.poll(10)
     mon.poll()
     if i==250:
-        mon.link(dev, dev)
+        mon.link('%s' %dev.name, '%s' %dev.name)
     if i==500:
-        mon.connect(dev.get_output_by_name("/outsig"),
-                    dev.get_input_by_name("/insig"),
+        mon.connect('%s%s' %(dev.name, "/outsig"),
+                    '%s%s' %(dev.name, "/insig"),
                     {'mode': mapper.MO_EXPRESSION,
                      'expression': 'y=x',
                      'src_min': [1,2,3,4],
                      'bound_min': mapper.BA_WRAP,
                      'bound_max': mapper.BA_CLAMP})
     if i==750:
-        mon.modify_connection(dev.get_output_by_name("/outsig"),
-                              dev.get_input_by_name("/insig"),
+        mon.modify_connection('%s%s' %(dev.name, "/outsig"),
+                              '%s%s' %(dev.name, "/insig"),
                               {'src_min':[10,11,12,13],
                                'muted':True,
                                'mode': mapper.MO_LINEAR})

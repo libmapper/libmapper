@@ -1360,6 +1360,18 @@ mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
     return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
+mapper_db_signal mapper_db_get_signal_by_device_and_signal_names(
+    mapper_db db, const char *device_name, const char *signal_name)
+{
+    mapper_db_signal sig =
+        mapper_db_get_input_by_device_and_signal_names(db, device_name,
+                                                       signal_name);
+    if (!sig)
+        sig = mapper_db_get_output_by_device_and_signal_names(db, device_name,
+                                                              signal_name);
+    return sig;
+}
+
 mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
     mapper_db db, const char *device_name, const char *signal_name)
 {
