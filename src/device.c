@@ -999,12 +999,6 @@ int mdev_route_query(mapper_device md, mapper_signal sig,
     return count;
 }
 
-void mdev_route_released(mapper_device md, mapper_signal sig,
-                         int instance_index, mapper_timetag_t tt)
-{
-    mdev_route_signal(md, sig, instance_index, 0, 0, tt);
-}
-
 void mdev_add_router(mapper_device md, mapper_router rt)
 {
     mapper_router *r = &md->routers;

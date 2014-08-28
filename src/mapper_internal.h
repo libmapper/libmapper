@@ -220,11 +220,6 @@ void mdev_route_signal(mapper_device md,
 int mdev_route_query(mapper_device md, mapper_signal sig,
                      mapper_timetag_t tt);
 
-void mdev_route_released(mapper_device md,
-                         mapper_signal sig,
-                         int instance_index,
-                         mapper_timetag_t tt);
-
 void mdev_add_router(mapper_device md, mapper_router rt);
 
 void mdev_remove_router(mapper_device md, mapper_router rt);

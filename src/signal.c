@@ -750,7 +750,7 @@ void msig_release_instance_internal(mapper_signal sig,
         ttp = &tt;
 
     if (!(smap->status & IN_RELEASED_REMOTELY)) {
-        mdev_route_released(sig->device, sig, instance_index, *ttp);
+        mdev_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
     }
 
     smap->map->refcount_local--;
