@@ -11,6 +11,7 @@ Makefile.in
 Makefile
 .deps
 .libs
+.DS_Store
 ChangeLog
 README
 aclocal.m4
