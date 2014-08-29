@@ -985,81 +985,73 @@ void mapper_db_device_done(mapper_db_device_t **d)
 
 void mapper_db_dump(mapper_db db)
 {
+#ifdef DEBUG
     mapper_db_device reg = db->registered_devices;
-    trace("Registered devices:\n");
+    printf("Registered devices:\n");
     while (reg) {
-        trace("  name=%s, host=%s, port=%d\n",
-              reg->name, reg->host, reg->port);
+        printf("  name=%s, host=%s, port=%d\n", reg->name, reg->host, reg->port);
         reg = list_get_next(reg);
     }
 
     mapper_db_signal sig = db->registered_inputs;
-    trace("Registered inputs:\n");
+    printf("Registered inputs:\n");
     while (sig) {
-        trace("  name=%s%s\n",
-              sig->device_name, sig->name);
+        printf("  name=%s%s\n", sig->device_name, sig->name);
         sig = list_get_next(sig);
     }
 
     sig = db->registered_outputs;
-    trace("Registered outputs:\n");
+    printf("Registered outputs:\n");
     while (sig) {
-        trace("  name=%s%s\n",
-              sig->device_name, sig->name);
+        printf("  name=%s%s\n", sig->device_name, sig->name);
         sig = list_get_next(sig);
     }
 
-    mapper_db_connection con = db->registered_connections;
-    trace("Registered connections:\n");
-    while (con) {
-        char r[1024] = "(";
-        if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
-            mapper_prop_pp(con->src_type, con->src_length, con->src_min);
-            sprintf(r+strlen(r), ", ");
-        }
-        else
-            strcat(r, "-, ");
-        if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
-            mapper_prop_pp(con->src_type, con->src_length, con->src_max);
-            sprintf(r+strlen(r), ", ");
-        }
-        else
-            strcat(r, "-, ");
-        if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
-            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_min);
-            sprintf(r+strlen(r), ", ");
-        }
-        else
-            strcat(r, "-, ");
-        if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
-            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_max);
-        }
-        else
-            strcat(r, "-");
-        strcat(r, ")");
-        trace("  src_name=%s, dest_name=%s,\n"
-              "      src_type=%c, dest_type=%c,\n"
-              "      src_length=%d, dest_length=%d,\n"
-              "      bound_max=%s, bound_min=%s,\n"
-              "      range=%s,\n"
-              "      expression=%s, mode=%s, muted=%d\n",
-              con->src_name, con->dest_name, con->src_type,
-              con->dest_type, con->src_length, con->dest_length,
-              mapper_get_boundary_action_string(con->bound_max),
-              mapper_get_boundary_action_string(con->bound_min),
-              r, con->expression,
-              mapper_get_mode_type_string(con->mode),
-              con->muted);
-        con = list_get_next(con);
-    }
-
     mapper_db_link link = db->registered_links;
-    trace("Registered links:\n");
+    printf("Registered links:\n");
     while (link) {
-        trace("  source=%s, dest=%s\n",
-              link->src_name, link->dest_name);
+        printf("  source=%s, dest=%s\n", link->src_name, link->dest_name);
         link = list_get_next(link);
     }
+
+    mapper_db_connection con = db->registered_connections;
+    printf("Registered connections:\n");
+    while (con) {
+        printf("  src_name=%s, dest_name=%s,\n"
+               "      src_type=%c, dest_type=%c,\n"
+               "      src_length=%d, dest_length=%d,\n"
+               "      bound_max=%s, bound_min=%s,\n"
+               "      expression=%s, mode=%s, muted=%d\n",
+               con->src_name, con->dest_name, con->src_type,
+               con->dest_type, con->src_length, con->dest_length,
+               mapper_get_boundary_action_string(con->bound_max),
+               mapper_get_boundary_action_string(con->bound_min),
+               con->expression,
+               mapper_get_mode_type_string(con->mode),
+               con->muted);
+        if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
+            printf("      src_min=");
+            mapper_prop_pp(con->src_type, con->src_length, con->src_min);
+            printf("\n");
+        }
+        if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
+            printf("      src_max=");
+            mapper_prop_pp(con->src_type, con->src_length, con->src_max);
+            printf("\n");
+        }
+        if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
+            printf("      dest_min=");
+            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_min);
+            printf("\n");
+        }
+        if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
+            printf("      dest_max=");
+            mapper_prop_pp(con->dest_type, con->dest_length, con->dest_max);
+            printf("\n");
+        }
+        con = list_get_next(con);
+    }
+#endif
 }
 
 void mapper_db_add_device_callback(mapper_db db,
