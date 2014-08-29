@@ -1115,6 +1115,9 @@ static int update_signal_record_params(mapper_db_signal sig,
     updated += update_string_if_different((char**)&sig->name, name);
     updated += update_string_if_different((char**)&sig->device_name, device_name);
 
+    if (!params)
+        return updated;
+
     updated += update_int_if_arg(&sig->id, params, AT_ID);
 
     updated += update_char_if_arg(&sig->type, params, AT_TYPE);
@@ -1550,6 +1553,10 @@ static int update_connection_record_params(mapper_db_connection con,
 
     updated += update_string_if_different(&con->src_name, src_name);
     updated += update_string_if_different(&con->dest_name, dest_name);
+
+    if (!params)
+        return updated;
+
     updated += update_char_if_arg(&con->src_type, params, AT_SRC_TYPE);
     updated += update_char_if_arg(&con->dest_type, params, AT_DEST_TYPE);
     updated += update_int_if_arg(&con->src_length, params, AT_SRC_LENGTH);
@@ -1701,7 +1708,7 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
                                               mapper_message_t *params)
 {
     mapper_db_connection con;
-    int rc = 0, updated = 0;
+    int rc = 0, updated = 0, i;
 
     con = mapper_db_get_connection_by_signal_full_names(db, src_name,
                                                         dest_name);
@@ -1713,6 +1720,17 @@ int mapper_db_add_or_update_connection_params(mapper_db db,
         con->src_max = 0;
         con->extra = table_new();
         rc = 1;
+
+        // also add devices if necessary
+        char devname[128]= "/";
+        for (i = 1; i < 127 && src_name[i] != '/' ; i++)
+            devname[i] = src_name[i];
+        devname[i] = '\0';
+        mapper_db_add_or_update_device_params(db, devname, 0, 0);
+        for (i = 1; i < 127 && dest_name[i] != '/' ; i++)
+            devname[i] = dest_name[i];
+        devname[i] = '\0';
+        mapper_db_add_or_update_device_params(db, devname, 0, 0);
     }
 
     if (con) {
@@ -2245,6 +2263,10 @@ static int update_link_record_params(mapper_db_link link,
     int i, j, num_scopes = 0, updated = 0;
     updated += update_string_if_different(&link->src_name, src_name);
     updated += update_string_if_different(&link->dest_name, dest_name);
+
+    if (!params)
+        return updated;
+
     updated += update_int_if_arg(&link->src_port, params, AT_SRC_PORT);
     updated += update_int_if_arg(&link->dest_port, params, AT_DEST_PORT);
 
@@ -2292,6 +2314,10 @@ int mapper_db_add_or_update_link_params(mapper_db db,
         link = (mapper_db_link) list_new_item(sizeof(mapper_db_link_t));
         link->extra = table_new();
         rc = 1;
+
+        // also add devices if neccesary
+        mapper_db_add_or_update_device_params(db, src_name, 0, 0);
+        mapper_db_add_or_update_device_params(db, dest_name, 0, 0);
     }
 
     if (link) {
