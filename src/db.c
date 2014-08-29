@@ -2291,11 +2291,6 @@ static int update_link_record_params(mapper_db_link link,
     for (i=0; i<num_scopes; i++)
         updated += (1 - mapper_db_link_add_scope(link, &a_scopes[i]->s));
 
-    if (num_scopes != link->num_scopes) {
-        link->num_scopes = num_scopes;
-        updated++;
-    }
-
     updated += mapper_msg_add_or_update_extra_params(link->extra, params);
     return updated;
 }
