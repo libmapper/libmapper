@@ -556,7 +556,7 @@ void mapper_admin_send_bundle(mapper_admin admin)
 {
     if (!admin->bundle)
         return;
-#ifdef FORCE_ADMIN_TO_BUS
+#if FORCE_ADMIN_TO_BUS
     lo_send_bundle_from(admin->bus_addr, admin->mesh_server, admin->bundle);
 #else
     if (admin->bundle_dest == BUNDLE_DEST_SUBSCRIBERS) {
@@ -819,7 +819,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                 lo_message_add_double(m, 0.);
             // need to send immediately
             lo_bundle_add_message(b, admin_msg_strings[ADM_LINK_PING], m);
-#ifdef FORCE_ADMIN_TO_BUS
+#if FORCE_ADMIN_TO_BUS
             lo_send_bundle_from(admin->bus_addr, admin->mesh_server, b);
 #else
             lo_send_bundle_from(router->admin_addr, admin->mesh_server, b);
