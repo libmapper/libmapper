@@ -46,6 +46,7 @@ namespace mapper {
 
     class Property;
     class AbstractObjectProps;
+    class Db;
 
     // Helper classes to allow polymorphism on "const char *",
     // "std::string", and "int".
@@ -142,6 +143,7 @@ namespace mapper {
     protected:
         friend class AbstractDeviceProps;
         friend class AbstractSignalProps;
+        friend class Db;
         Property(const string_type &_name, char _type, const void *_value,
                  int _length, const AbstractObjectProps *_parent)
         {
@@ -150,6 +152,8 @@ namespace mapper {
             parent = (AbstractProps*)_parent;
             owned = 0;
         }
+        Property()
+            { name = 0; type = 0; length = 0; owned = 0; }
     private:
         union {
             double d;
@@ -367,8 +371,11 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            mapper_db_signal_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length, this);
+            if (!mapper_db_signal_property_lookup(props, name, &type,
+                                                  &value, &length))
+                return Property(name, type, value, length, this);
+            else
+                return Property();
         }
         Property get(int index) const
         {
@@ -376,9 +383,11 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            mapper_db_signal_property_index(props, index, &name, &type,
-                                            &value, &length);
-            return Property(name, type, value, length, this);
+            if (!mapper_db_signal_property_index(props, index, &name, &type,
+                                                 &value, &length))
+                return Property(name, type, value, length, this);
+            else
+                return Property();
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -697,8 +706,11 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            mapper_db_device_property_lookup(props, name, &type, &value, &length);
-            return Property(name, type, value, length, this);
+            if (!mapper_db_device_property_lookup(props, name, &type,
+                                                  &value, &length))
+                return Property(name, type, value, length, this);
+            else
+                return Property();
         }
         Property get(int index) const
         {
@@ -706,9 +718,11 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            mapper_db_device_property_index(props, index, &name, &type,
-                                            &value, &length);
-            return Property(name, type, value, length, this);
+            if (!mapper_db_device_property_index(props, index, &name, &type,
+                                                 &value, &length))
+                return Property(name, type, value, length, this);
+            else
+                return Property();
         }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
@@ -979,8 +993,11 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                mapper_db_link_property_lookup(props, name, &type, &value, &length);
-                return Property(name, type, value, length);
+                if (!mapper_db_link_property_lookup(props, name, &type,
+                                                    &value, &length))
+                    return Property(name, type, value, length);
+                else
+                    return Property();
             }
             Property get(int index) const
             {
@@ -988,9 +1005,11 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                mapper_db_link_property_index(props, index, &name, &type,
-                                              &value, &length);
-                return Property(name, type, value, length);
+                if (!mapper_db_link_property_index(props, index, &name, &type,
+                                                   &value, &length))
+                    return Property(name, type, value, length);
+                else
+                    return Property();
             }
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
@@ -1141,9 +1160,11 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                mapper_db_connection_property_lookup(props, name, &type,
-                                                     &value, &length);
-                return Property(name, type, value, length);
+                if (!mapper_db_connection_property_lookup(props, name, &type,
+                                                          &value, &length))
+                    return Property(name, type, value, length);
+                else
+                    return Property();
             }
             Property get(int index) const
             {
@@ -1151,9 +1172,11 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                mapper_db_connection_property_index(props, index, &name, &type,
-                                                    &value, &length);
-                return Property(name, type, value, length);
+                if (!mapper_db_connection_property_index(props, index, &name,
+                                                         &type, &value, &length))
+                    return Property(name, type, value, length);
+                else
+                    return Property();
             }
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
