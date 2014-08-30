@@ -172,7 +172,7 @@ void connect_signals()
     msig_full_name(sendsig, src_name, 1024);
     msig_full_name(recvsig, dest_name, 1024);
     mapper_db_connection_t props;
-    props.expression = "foo=1,  y=y{-1}+foo";
+    props.expression = "foo=1;  y=y{-1}+foo";
     props.mode = MO_BYPASS;
     mapper_monitor_connect(mon, src_name, dest_name, &props,
                            CONNECTION_MODE | CONNECTION_EXPRESSION);
