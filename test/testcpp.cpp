@@ -62,9 +62,9 @@ int main(int argc, char ** argv)
     dev.add_input("in3", 2, 'i', 0, 0, 0, 0, 0);
     dev.add_input("in4", 2, 'i', 0, 0, 0, insig_handler, 0);
 
-    sig = dev.add_output("out1", 1, 'f', "na", 0, 0);
-    dev.remove_output(sig);
-    dev.add_output("out2", 3, 'd', "meters", 0, 0);
+    dev.add_output("out1", 1, 'f', "na", 0, 0);
+    dev.remove_output("out1");
+    sig = dev.add_output("out2", 3, 'd', "meters", 0, 0);
 
     while (!dev.ready()) {
         dev.poll(100);
@@ -168,7 +168,7 @@ int main(int argc, char ** argv)
 
     std::vector <double> v(3);
     while (i++ < 100) {
-        dev.poll(100);
+        dev.poll(10);
         mon.poll();
         v[i%3] = i;
         sig.update(v);

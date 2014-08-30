@@ -781,8 +781,22 @@ namespace mapper {
         }
         void remove_input(Signal input)
             { if (input) mdev_remove_input(device, input); }
+        void remove_input(const string_type &name)
+        {
+            if (!name)
+                return;
+            mapper_signal input = mdev_get_input_by_name(device, name, 0);
+            mdev_remove_input(device, input);
+        }
         void remove_output(Signal output)
             { if (output) mdev_remove_output(device, output); }
+        void remove_output(const string_type &name)
+        {
+            if (!name)
+                return;
+            mapper_signal output = mdev_get_output_by_name(device, name, 0);
+            mdev_remove_output(device, output);
+        }
         int num_inputs() const
             { return mdev_num_inputs(device); }
         int num_outputs() const
