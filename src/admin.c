@@ -174,7 +174,7 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
     {ADM_CONNECTION_MODIFY,     NULL,       handler_signal_connection_modify},
-    {ADM_DISCONNECT,            "ss",       handler_signal_disconnect},
+    {ADM_DISCONNECT,            NULL,       handler_signal_disconnect},
 };
 const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
@@ -191,8 +191,8 @@ const int N_DEVICE_MESH_HANDLERS =
 
 static struct handler_method_assoc monitor_bus_handlers[] = {
     {ADM_DEVICE,                NULL,       handler_device},
+    {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
     {ADM_SYNC,                  NULL,       handler_sync},
-    {ADM_DISCONNECTED,          "ss",       handler_signal_disconnected},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
 };
 const int N_MONITOR_BUS_HANDLERS =
@@ -204,7 +204,7 @@ static struct handler_method_assoc monitor_mesh_handlers[] = {
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_SIGNAL_REMOVED,        "s",        handler_signal_removed},
-    {ADM_DISCONNECTED,          "ss",       handler_signal_disconnected},
+    {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
 };
 const int N_MONITOR_MESH_HANDLERS =
     sizeof(monitor_mesh_handlers)/sizeof(monitor_mesh_handlers[0]);

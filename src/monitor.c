@@ -389,8 +389,8 @@ void mapper_monitor_connect(mapper_monitor mon,
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
     if (props) {
-        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "ss",
-                                    source_signal, dest_signal,
+        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
+                                    source_signal, "->", dest_signal,
                                     (props_flags & CONNECTION_BOUND_MIN)
                                     ? AT_BOUND_MIN : -1, props->bound_min,
                                     (props_flags & CONNECTION_BOUND_MAX)
@@ -422,8 +422,55 @@ void mapper_monitor_connect(mapper_monitor mon,
                                     props->send_as_instance );
     }
     else
-        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "ss",
-                                    source_signal, dest_signal);
+        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
+                                    source_signal, "->", dest_signal);
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
+}
+
+void mapper_monitor_modify_connection(mapper_monitor mon,
+                                      const char *source_signal,
+                                      const char *dest_signal,
+                                      mapper_db_connection_t *props,
+                                      unsigned int props_flags)
+{
+    if (!mon || !source_signal || !dest_signal || !props)
+        return;
+
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_CONNECTION_MODIFY, 0, "sss",
+                                source_signal, "->", dest_signal,
+                                (props_flags & CONNECTION_BOUND_MIN)
+                                ? AT_BOUND_MIN : -1, props->bound_min,
+                                (props_flags & CONNECTION_BOUND_MAX)
+                                ? AT_BOUND_MAX : -1, props->bound_max,
+                                ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
+                                 (props_flags & CONNECTION_SRC_TYPE) &&
+                                 (props_flags & CONNECTION_SRC_LENGTH))
+                                ? AT_SRC_MIN : -1, props,
+                                ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
+                                 (props_flags & CONNECTION_SRC_TYPE) &&
+                                 (props_flags & CONNECTION_SRC_LENGTH))
+                                ? AT_SRC_MAX : -1, props,
+                                ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
+                                 (props_flags & CONNECTION_DEST_TYPE) &&
+                                 (props_flags & CONNECTION_DEST_LENGTH))
+                                ? AT_DEST_MIN : -1, props,
+                                ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
+                                 (props_flags & CONNECTION_DEST_TYPE) &&
+                                 (props_flags & CONNECTION_DEST_LENGTH))
+                                ? AT_DEST_MAX : -1, props,
+                                (props_flags & CONNECTION_EXPRESSION)
+                                ? AT_EXPRESSION : -1, props->expression,
+                                (props_flags & CONNECTION_MODE)
+                                ? AT_MODE : -1, props->mode,
+                                (props_flags & CONNECTION_MUTED)
+                                ? AT_MUTE : -1, props->muted,
+                                (props_flags & CONNECTION_SEND_AS_INSTANCE)
+                                ? AT_SEND_AS_INSTANCE : -1,
+                                props->send_as_instance);
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
