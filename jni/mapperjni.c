@@ -2019,9 +2019,8 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, mapper_db_signal src
         release_PropertyValue_elements(env, dest_max_field, cprops.dest_max);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod__JLMapper_Device_Signal_2LMapper_Device_Signal_2LMapper_Db_Connection_2I
-(JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest,
- jobject props, jint modify)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props, jint modify)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     mapper_signal srcsig = get_signal_from_jobject(env, src);
@@ -2032,9 +2031,8 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod__JLMapper_Devi
                    props, modify);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod__JLMapper_Db_Signal_2LMapper_Db_Signal_2LMapper_Db_Connection_2I
-(JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest,
- jobject props, jint modify)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1db_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props, jint modify)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     mapper_db_signal srcsig = get_db_signal_from_jobject(env, src);
@@ -2044,7 +2042,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod__JLMapper_Db_S
     connect_or_mod(env, mon, srcsig, destsig, props, modify);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect__JLMapper_Device_Signal_2LMapper_Device_Signal_2
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
@@ -2055,7 +2053,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect__JLMapper_Device_Sig
     mapper_monitor_disconnect(mon, msig_properties(srcsig), msig_properties(destsig));
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect__JLMapper_Db_Signal_2LMapper_Db_Signal_2
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1db_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
