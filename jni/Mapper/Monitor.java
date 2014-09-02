@@ -9,16 +9,15 @@ import Mapper.Db.*;
 public class Monitor
 {
     /*! Bit flags for coordinating monitor metadata subscriptions. */
+    public static final int SUB_NONE                    = 0x00;
     public static final int SUB_DEVICE                  = 0x01;
-    public static final int SUB_DEVICE_INPUTS           = 0x02;
-    public static final int SUB_DEVICE_OUTPUTS          = 0x04;
-    public static final int SUB_DEVICE_SIGNALS          = 0x06;
-    public static final int SUB_DEVICE_LINKS_IN         = 0x08;
-    public static final int SUB_DEVICE_LINKS_OUT        = 0x10;
-    public static final int SUB_DEVICE_LINKS            = 0x18;
-    public static final int SUB_DEVICE_CONNECTIONS_IN   = 0x20;
-    public static final int SUB_DEVICE_CONNECTIONS_OUT  = 0x40;
-    public static final int SUB_DEVICE_CONNECTIONS      = 0x60;
+    public static final int SUB_DEVICE_INPUTS           = 0x03;
+    public static final int SUB_DEVICE_OUTPUTS          = 0x05;
+    public static final int SUB_DEVICE_SIGNALS          = 0x07;
+    public static final int SUB_DEVICE_LINKS            = 0x09;
+    public static final int SUB_DEVICE_CONNECTIONS_IN   = 0x21;
+    public static final int SUB_DEVICE_CONNECTIONS_OUT  = 0x41;
+    public static final int SUB_DEVICE_CONNECTIONS      = 0x61;
     public static final int SUB_DEVICE_ALL              = 0xFF;
 
     public Monitor(int autosubscribeFlags) {
