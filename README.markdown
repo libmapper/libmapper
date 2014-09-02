@@ -7,14 +7,14 @@ a network and allowing arbitrary "mappings" to be dynamically created
 between them.
 
 A "mapping", or "connection" associated with relational properties,
-consists of an Open Sound Control stream being established between a
-source and a destination signal--the source is translated to the
-destination's expected format, with some mathematical expression used
-to condition the transmitted values as desired.  This can be used for
-example to connect a set of sensors to a synthesizer's input
-parameters.
+consists of an [Open Sound Control](http://opensoundcontrol.org/)
+stream being established between a source and a destination signal – the
+source is translated to the destination's expected format, with some
+mathematical expression used to condition the transmitted values as
+desired.  This can be used for example to connect a set of sensors to
+a synthesizer's input parameters.
 
-To get started quickly with libmapper, be sure to read the tutorial,
+To get started quickly with libmapper, be sure to read the tutorials,
 found in the "doc" folder in this distribution.
 
 History of the mapper project
@@ -32,10 +32,10 @@ protocol in C; hence, libmapper.
 
 We were already using [Open Sound Control](http://opensoundcontrol.org/)
 for this purpose, but needed a way to dynamically change the
-mappings--not only to modify the destinations of OSC messages, but
+mappings – not only to modify the destinations of OSC messages, but
 also to change scaling, or to introduce derivatives, integration,
 frequency filtering, smoothing, etc.  Eventually this grew into the
-use of a multicast bus to publish signal metadata and administrate
+use of a multicast bus to publish signal metadata and to administrate
 peer-to-peer connections between machines on a local subnet, with the
 ability to specify arbitrary mathematical expressions that can be used
 to perform signal conditioning.
@@ -46,7 +46,7 @@ responsible for arbitrating connections or republishing data, and we
 also wanted to avoid needing to keep a central database of serial
 numbers or other unique identifiers for devices produced in the lab.
 Instead, common communication is performed on a multicast UDP port,
-that all nodes listen on, and this is used to implement a
+which all nodes listen on, and this is used to implement a
 collision-handling protocol that can assign a unique ID to each device
 that appears.  Actual signal data is sent directly from a sender
 device to the receiver's IP and UDP port.
@@ -75,25 +75,25 @@ products such as Camille Troillard's [Osculator](http://www.osculator.net/)
 and STEIM's [Junxion](http://www.steim.org/steim/junxion_v4.html),
 albeit certainly more "barebones" for the moment.
 
-In addition to passing signal data through mapping connections, libmapper
-provides the ability to query the state of the inputs on a destination device.
+In addition to passing signal data through mapping connections,
+libmapper provides the ability to query or stream the state of the inputs
+on a destination device.
 This permits the use of intermediate devices that use supervised machine
 learning techniques to "learn" mappings automatically.
 
 A major difference in libmapper's approach to handling devices is the
 idea that each "driver" can be a separate process, on the same or
 different machines in the network.  By creating a C library with a
-basic interface and by providing SWIG bindings, we hope to enable a
-very wide variety of programming language bindings, to allow any
-choice of development strategy.^[At this time, the SWIG bindings only
-work for Python.  Support for more languages, particularly Java, is in
-the works.]  Another advantage of a C library is portability: we have
-demonstrated libmapper working on a Gumstix device, an
-ethernet-enabled ARM-based microcomputer running Linux that can be
-easily embedded directly into an instrument.
+basic interface and by providing SWIG and Java bindings, we hope to
+enable a very wide variety of programming language bindings.^[At this time,
+the SWIG bindings only work for Python.]
+Another advantage of a C library is portability: we have demonstrated
+libmapper working on a Gumstix device, an ethernet-enabled ARM-based
+microcomputer running Linux that can be easily embedded directly into
+an instrument.
 
-We also provide an "external" Max/MSP and [PureData](http://puredata.info)
-object, to help integrate libmapper support into programs created in
+We also provide "external" Max/MSP and [PureData](http://puredata.info)
+objects, to help integrate libmapper support into programs created in
 these popular dataflow languages.
 
 Known limitations
@@ -116,20 +116,19 @@ data-oriented processes don't fit directly into the "connection"
 paradigm used here.  Of course, many of these techniques can easily be
 implemented as "intermediate" devices that sit between a sender and
 receiver.  Another category of mappings that can currently only be
-solved this way include many-to-one mappings--libmapper currently has
+solved this way include many-to-one mappings – libmapper currently has
 no special handling of multiple devices sending to one receiver, and
 the values are simply interleaved, whereas what is intended is
 probably some combining function such as addition, multiplication, or
-thresholding.  It will be possible to solve this latter issue by using
-some form of receiver-side routers which can handle expressions
-containing multiple input variables (See future plans below).
+thresholding.  We are working towards solving this latter issue by using
+receiver-side routers which can handle expressions containing multiple
+input variables (See future plans below).
 Many-to-one mapping functionality was not an immediate priority, since
 we feel that in practise it is actually quite rare to have a case
 where such a combining function should be arbitrarily modifiable by a
 user.  In the real world, dependencies between signals often have a
 semantic significance which would be better handled internally to the
-sender or the receiver rather than in the mapper layer.  Nonetheless,
-we hope to tackle this problem eventually.
+sender or the receiver rather than in the mapper layer.
 
 One impact of peer-to-peer messaging is that it may suffer from
 redundancy.  In general it may be more efficient to send all data once
@@ -144,7 +143,7 @@ non-trivial work--for example, in libmapper the concept of a "router"
 is actually an independent node that a device sends messages to, which
 then translates and rebroadcasts; it just happens that the router is
 embedded in the sender because that was the most efficient place to
-have it in our scenario.  Optimizing of message-passing efficiency/network	
+have it in our scenario.  Optimizing of message-passing efficiency/network
 topology is not a near-term goal, but in the meantime it is entirely
 possible to use libmapper to explicitly create a centralized network
 if desired; this will simply imply more overhead in managing connections.
@@ -164,18 +163,6 @@ similar.  In addition, on embedded devices, it might make sense to
 memory, while still allowing the use of the libmapper admin protocol
 and GUIs to dynamically experiment with mapping.
 
-Although we provide a basic cross-platform GUI using
-[Qt](http://qt.nokia.com/), the most advanced user interface is still
-the Max/MSP implementation.  Although this works extremely well, it is
-limited to platforms supported by Max/MSP.  (In other words, not
-Linux.)  There are currently plans to create a web-based front-end
-that will be cross-platform.  Better ways of visualizing and
-interacting with the network are also an active research topic.
-
-Currently the only supported data types are 32-bit integers and 32-bit
-floating point.  This covers most of our use cases, but we hope to
-expand this catalogue eventually.
-
 In the syntax for mathematical expressions, we include a method for
 indexing previous values to allow basic filter construction.  This is
 done by index, but we also implemented a syntax for accessing previous
@@ -183,11 +170,13 @@ state according to time in seconds.  This feature is not yet useable,
 but in the future interpolation will be performed to allow referencing
 of time-accurate values.
 
-Currently any "filter" implemented by an expression may suffer
-somewhat from jitter due to irregular timing in the sender, network
-delay, etc.  We plan to tackle this problem by allowing timestamped
-signals using OSC bundles, which will likely require some changes to
-liblo, the OSC implementation used by libmapper.
+The explicit use of timing information may also be useful for certain
+mapping scenarios, such as "debouncing" signal updates or adding adaptive
+delays.  We are gradually working towards such functionality, developing
+a syntax for referring to timing data when configuring connection properties
+and implementing a lighweight synchronization scheme between linked devices
+that will permit jitter mitigation and correct handling of delays when
+devices are running on separate computers.
 
 As mentioned above, the ability to design many-to-one mapping connections 
 will also be explored in future development of libmapper.
@@ -207,9 +196,9 @@ or from the libmapper page on the IDMIL website,
 Building and using libmapper
 ----------------------------
 
-Please see the separate documentation for building libmapper, a
-tutorial on using its API, and doxygen-generated API documentation, in
-the "doc" directory.
+Please see the separate documentation for building libmapper, tutorials
+on using its API in C, C++, Python, Java, MaxMSP and Pure Data, and
+doxygen-generated API documentation, in the "doc" directory.
 
 License
 -------
