@@ -14,7 +14,7 @@ outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
 outsig.set_callback(h)
 
 dest = mapper.device("dest")
-insig = dest.add_input("/insig", 1, 'f', None, 0, 1)
+insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
 
 while not src.ready() or not dest.ready():
     src.poll()
