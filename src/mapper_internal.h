@@ -257,7 +257,7 @@ void mapper_router_free(mapper_router router);
 
 /*! Set a router's properties based on message parameters. */
 int mapper_router_set_from_message(mapper_router router,
-                                   mapper_message_t *msg);
+                                   mapper_message_t *msg, int swap);
 
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
@@ -297,7 +297,8 @@ mapper_connection mapper_router_find_connection(mapper_router router,
                                                 mapper_signal signal,
                                                 const char* remote_signal_name);
 
-int mapper_router_in_scope(mapper_router router, uint32_t origin);
+int mapper_router_in_incoming_scope(mapper_router router, uint32_t origin);
+int mapper_router_in_outgoing_scope(mapper_router router, uint32_t origin);
 
 /*! Find a router by remote address in a linked list of routers. */
 mapper_router mapper_router_find_by_remote_address(mapper_router routers,
@@ -568,13 +569,9 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         const char *dest_name,
                                         mapper_message_t *params);
 
-/*! Add a scope identifier to a given link record. */
-int mapper_db_link_add_scope(mapper_db_link link,
-                             const char *scope);
-
-/*! Remove a scope identifier from a given link record. */
-int mapper_db_link_remove_scope(mapper_db_link link,
-                                const char *scope);
+/*! Update a scope identifiers to a given link record. */
+int mapper_db_link_update_scopes(mapper_link_scope scopes,
+                                 lo_arg **scope_list, int num);
 
 /**** Connections ****/
 
@@ -694,7 +691,7 @@ void mapper_msg_prepare_params(lo_message m,
 
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_router_prepare_osc_message(lo_message m,
-                                       mapper_router router);
+                                       mapper_router router, int swap);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,

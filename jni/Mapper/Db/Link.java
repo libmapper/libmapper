@@ -16,8 +16,10 @@ public class Link
         _dest_host = mdb_link_get_dest_host(_linkprops);
         _dest_port = mdb_link_get_dest_port(_linkprops);
 
-        _num_scopes = mdb_link_get_num_scopes(_linkprops);
-        _scope_names = mdb_link_get_scope_names(_linkprops);
+        _num_src_scopes = mdb_link_get_num_scopes(_linkprops, 0);
+        _src_scope_names = mdb_link_get_scope_names(_linkprops, 0);
+        _num_dest_scopes = mdb_link_get_num_scopes(_linkprops, 1);
+        _dest_scope_names = mdb_link_get_scope_names(_linkprops, 1);
     }
 
     private String _src_name;
@@ -44,16 +46,23 @@ public class Link
     public int destPort() { return _dest_port; }
     private native int mdb_link_get_dest_port(long p);
 
-    int _num_scopes;
-    public int numScopes() { return _num_scopes; }
-    private native int mdb_link_get_num_scopes(long p);
+    int _num_src_scopes;
+    public int numSrcScopes() { return _num_src_scopes; }
+    int _num_dest_scopes;
+    public int numDestScopes() { return _num_dest_scopes; }
+    private native int mdb_link_get_num_scopes(long p, int direction);
 
-    PropertyValue _scope_names;
-    public PropertyValue scopeNames() {
-        _scope_names = mdb_link_get_scope_names(_linkprops);
-        return _scope_names;
+    PropertyValue _src_scope_names;
+    public PropertyValue srcScopeNames() {
+        _src_scope_names = mdb_link_get_scope_names(_linkprops, 0);
+        return _src_scope_names;
     }
-    private native PropertyValue mdb_link_get_scope_names(long p);
+    PropertyValue _dest_scope_names;
+    public PropertyValue destScopeNames() {
+        _dest_scope_names = mdb_link_get_scope_names(_linkprops, 1);
+        return _src_scope_names;
+    }
+    private native PropertyValue mdb_link_get_scope_names(long p, int direction);
 
     public PropertyValue property(String property) {
         return mapper_db_link_property_lookup(_linkprops, property);

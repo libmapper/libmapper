@@ -269,29 +269,49 @@ void mapper_monitor_link(mapper_monitor mon,
                          mapper_db_link_t *props,
                          unsigned int props_flags)
 {
-    if (props && (props_flags & LINK_NUM_SCOPES) && props->scopes.size &&
-        ((props_flags & LINK_SCOPE_NAMES) || (props_flags & LINK_SCOPE_HASHES))) {
+    if (props) {
         lo_message m = lo_message_new();
         if (!m)
             return;
+
         lo_message_add_string(m, source_device);
         lo_message_add_string(m, dest_device);
-        lo_message_add_string(m, "@scope");
-        int i;
-        if (props_flags & LINK_SCOPE_NAMES) {
-            for (i=0; i<props->scopes.size; i++) {
-                lo_message_add_string(m, props->scopes.names[i]);
+
+        if ((props_flags & LINK_NUM_SRC_SCOPES) && props->src_scopes.size
+            && ((props_flags & LINK_SRC_SCOPE_NAMES)
+                || (props_flags & LINK_SRC_SCOPE_HASHES))) {
+            lo_message_add_string(m, "@srcScope");
+            int i;
+            if (props_flags & LINK_SRC_SCOPE_NAMES) {
+                for (i=0; i<props->src_scopes.size; i++) {
+                    lo_message_add_string(m, props->src_scopes.names[i]);
+                }
+            }
+            else if (props_flags & LINK_SRC_SCOPE_HASHES) {
+                for (i=0; i<props->src_scopes.size; i++) {
+                    lo_message_add_int32(m, props->src_scopes.hashes[i]);
+                }
             }
         }
-        else if (props_flags & LINK_SCOPE_HASHES) {
-            for (i=0; i<props->scopes.size; i++) {
-                lo_message_add_int32(m, props->scopes.hashes[i]);
+        if ((props_flags & LINK_NUM_DEST_SCOPES) && props->dest_scopes.size
+            && ((props_flags & LINK_DEST_SCOPE_NAMES)
+                || (props_flags & LINK_DEST_SCOPE_HASHES))) {
+                lo_message_add_string(m, "@destScope");
+            int i;
+            if (props_flags & LINK_DEST_SCOPE_NAMES) {
+                for (i=0; i<props->dest_scopes.size; i++) {
+                    lo_message_add_string(m, props->dest_scopes.names[i]);
+                }
+            }
+            else if (props_flags & LINK_DEST_SCOPE_HASHES) {
+                for (i=0; i<props->dest_scopes.size; i++) {
+                    lo_message_add_int32(m, props->dest_scopes.hashes[i]);
+                }
             }
         }
 
         mapper_monitor_set_bundle_dest(mon, dest_device);
 
-        // TODO: switch scopes to regular props
         lo_send_message(mon->admin->bus_addr, "/link", m);
         free(m);
     }

@@ -110,13 +110,22 @@
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "scope_names")==0) {
+                    if (strcmp(s, "src_scope_names")==0) {
                         if (PyString_Check(v)) {
-                            p->props.scopes.size = 1;
-                            p->flags |= LINK_NUM_SCOPES;
+                            p->props.src_scopes.size = 1;
+                            p->flags |= LINK_NUM_SRC_SCOPES;
                             char *scope = PyString_AsString(v);
-                            p->props.scopes.names = &scope;
-                            p->flags |= LINK_SCOPE_NAMES;
+                            p->props.src_scopes.names = &scope;
+                            p->flags |= LINK_SRC_SCOPE_NAMES;
+                        }
+                    }
+                    else if (strcmp(s, "dest_scope_names")==0) {
+                        if (PyString_Check(v)) {
+                            p->props.dest_scopes.size = 1;
+                            p->flags |= LINK_NUM_DEST_SCOPES;
+                            char *scope = PyString_AsString(v);
+                            p->props.dest_scopes.names = &scope;
+                            p->flags |= LINK_DEST_SCOPE_NAMES;
                         }
                     }
                     else if (strcmp(s, "src_name")==0) {
@@ -127,10 +136,15 @@
                         if (PyString_Check(v))
                             p->props.dest_name = PyString_AsString(v);
                     }
-                    else if (strcmp(s, "num_scopes")==0) {
+                    else if (strcmp(s, "num_src_scopes")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode))
-                            p->props.scopes.size = k;
+                            p->props.src_scopes.size = k;
+                    }
+                    else if (strcmp(s, "num_dest_scopes")==0) {
+                        int ecode = SWIG_AsVal_int(v, &k);
+                        if (SWIG_IsOK(ecode))
+                            p->props.dest_scopes.size = k;
                     }
                     else if (strcmp(s, "src_host")==0) {
                         if (PyString_Check(v))
@@ -2005,21 +2019,11 @@ typedef struct _admin {} admin;
     mapper_db_link_t **get_links_by_device_name(const char *dev_name) {
         return mapper_db_get_links_by_device_name((mapper_db)$self, dev_name);
     }
-    mapper_db_link_t **get_links_by_src_device_name(
-        const char *src_device_name) {
-        return mapper_db_get_links_by_src_device_name((mapper_db)$self,
-                                                      src_device_name);
-    }
-    mapper_db_link_t **get_links_by_dest_device_name(
-        const char *dest_device_name) {
-        return mapper_db_get_links_by_dest_device_name((mapper_db)$self,
-                                                       dest_device_name);
-    }
-    mapper_db_link get_link_by_src_dest_names(const char *src_device_name,
-                                              const char *dest_device_name) {
-        return mapper_db_get_link_by_src_dest_names((mapper_db)$self,
-                                                    src_device_name,
-                                                    dest_device_name);
+    mapper_db_link get_link_by_device_names(const char *src_device_name,
+                                            const char *dest_device_name) {
+        return mapper_db_get_link_by_device_names((mapper_db)$self,
+                                                  src_device_name,
+                                                  dest_device_name);
     }
     mapper_db_link_t **link_next(long iterator) {
         return mapper_db_link_next((mapper_db_link_t**)iterator);
@@ -2063,10 +2067,6 @@ typedef struct _admin {} admin;
         all_links = make_iterator(get_all_links, link_next)
         links_by_device_name = make_iterator(get_links_by_device_name,
                                              link_next)
-        links_by_src_device_name = make_iterator(
-            get_links_by_src_device_name, link_next)
-        links_by_dest_device_name = make_iterator(
-            get_links_by_dest_device_name, link_next)
     }
 }
 

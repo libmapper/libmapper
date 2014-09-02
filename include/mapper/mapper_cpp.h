@@ -1064,31 +1064,12 @@ namespace mapper {
             return Link::Iterator(
                 mapper_db_get_links_by_device_name(db, device_name));
         }
-        Link::Iterator links_by_src(const string_type &device_name) const
-        {
-            return Link::Iterator(
-                mapper_db_get_links_by_src_device_name(db, device_name));
-        }
-        Link::Iterator links_by_dest(const string_type &device_name) const
-        {
-            return Link::Iterator(
-                mapper_db_get_links_by_dest_device_name(db, device_name));
-        }
         Link link(const string_type &source_device,
                   const string_type &dest_device)
         {
             return Link(
-                mapper_db_get_link_by_src_dest_names(db, source_device,
-                                                     dest_device));
-        }
-        Link::Iterator links(Device::Iterator src_list,
-                             Device::Iterator dest_list) const
-        {
-            // TODO: check that this works!
-            return Link::Iterator(
-                mapper_db_get_links_by_src_dest_devices(db,
-                    (mapper_db_device*)(src_list),
-                    (mapper_db_device*)(dest_list)));
+                mapper_db_get_link_by_device_names(db, source_device,
+                                                   dest_device));
         }
 
         // db connections

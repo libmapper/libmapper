@@ -650,7 +650,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     lo_server_del_method(md->server, str1, NULL);
 
     mapper_router r = md->routers;
-    msig_full_name(sig, str2, 1024);
+    msig_full_name(sig, str1, 1024);
     while (r) {
         mapper_router_signal rs = r->signals;
         while (rs) {
@@ -659,9 +659,9 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                 mapper_admin_set_bundle_dest_mesh(md->admin, r->admin_addr);
                 mapper_connection c = rs->connections;
                 while (c) {
-                    snprintf(str1, 1024, "%s%s", r->props.src_name,
-                             c->props.src_name);
-                    // TODO: send directly to source device?
+                    snprintf(str2, 1024, "%s%s", r->props.dest_name,
+                             c->direction == DI_INCOMING ? c->props.src_name
+                             : c->props.dest_name);
                     mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
                                                 "ss", str1, str2);
                     mapper_connection temp = c->next;
@@ -720,9 +720,9 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
                 mapper_connection c = rs->connections;
                 while (c) {
                     snprintf(str2, 1024, "%s%s", r->props.dest_name,
-                             c->props.dest_name);
-                    // TODO: send directly to source device?
-                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECTED, 0,
+                             c->direction == DI_INCOMING ? c->props.src_name
+                             : c->props.dest_name);
+                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
                                                 "ss", str1, str2);
                     mapper_connection temp = c->next;
                     mapper_router_remove_connection(r, c);

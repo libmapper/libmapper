@@ -723,19 +723,19 @@ int main(int argc, char **argv)
 
     eprintf("\n--- Links ---\n");
 
-    eprintf("\nFind matching links with source '/testdb__.2':\n");
+    eprintf("\nFind matching links with endpoint '/testdb__.2':\n");
 
     mapper_db_link* plink =
-        mapper_db_get_links_by_src_device_name(db, "/testdb__.2");
+        mapper_db_get_links_by_device_name(db, "/testdb__.2");
 
     count=0;
     if (!plink) {
-        eprintf("mapper_db_get_links_by_src_device_name() returned 0.\n");
+        eprintf("mapper_db_get_links_by_device_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*plink) {
-        eprintf("mapper_db_get_links_by_src_device_name() returned something "
+        eprintf("mapper_db_get_links_by_device_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -748,26 +748,26 @@ int main(int argc, char **argv)
         plink = mapper_db_link_next(plink);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 3) {
+        eprintf("Expected 3 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
 
     /*********/
 
-    eprintf("\nFind matching links with destination '/testdb__.4':\n");
+    eprintf("\nFind matching links with endpoint '/testdb__.4':\n");
 
-    plink = mapper_db_get_links_by_dest_device_name(db, "/testdb__.4");
+    plink = mapper_db_get_links_by_device_name(db, "/testdb__.4");
 
     count=0;
     if (!plink) {
-        eprintf("mapper_db_get_links_by_dest_device_name() returned 0.\n");
+        eprintf("mapper_db_get_links_by_device_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*plink) {
-        eprintf("mapper_db_get_links_by_dest_device_name() returned something "
+        eprintf("mapper_db_get_links_by_device_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -782,103 +782,6 @@ int main(int argc, char **argv)
 
     if (count != 1) {
         eprintf("Expected 1 record, but counted %d.\n", count);
-        result = 1;
-        goto done;
-    }
-
-    /*********/
-
-    eprintf("\nFind links with source matching 'db' and "
-            "destination matching '__':\n");
-
-    pdev = mapper_db_match_devices_by_name(db, "db");
-
-    if (!pdev) {
-        eprintf("mapper_db_match_device_by_name() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    mapper_db_device_t **pdev2 = mapper_db_match_devices_by_name(db, "__");
-
-    if (!pdev2) {
-        eprintf("mapper_db_match_device_by_name() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    plink = mapper_db_get_links_by_src_dest_devices(db, pdev, pdev2);
-
-    count=0;
-    if (!plink) {
-        eprintf("mapper_db_get_links_by_src_dest_devices() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-    if (!*plink) {
-        eprintf("mapper_db_get_links_by_src_dest_devices() "
-                "returned something which pointed to 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    while (plink) {
-        count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*plink)->src_name, (*plink)->dest_name);
-        plink = mapper_db_link_next(plink);
-    }
-
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
-        result = 1;
-        goto done;
-    }
-
-    /*********/
-
-    eprintf("\nFind any links with source matching '2':\n");
-
-    pdev = mapper_db_match_devices_by_name(db, "2");
-
-    if (!pdev) {
-        eprintf("mapper_db_match_device_by_name() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    pdev2 = mapper_db_get_all_devices(db);
-
-    if (!pdev2) {
-        eprintf("mapper_db_get_all_devices() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    plink = mapper_db_get_links_by_src_dest_devices(db, pdev, pdev2);
-
-    count=0;
-    if (!plink) {
-        eprintf("mapper_db_get_links_by_src_dest_devices() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-    if (!*plink) {
-        eprintf("mapper_db_get_links_by_src_dest_devices() "
-                "returned something which pointed to 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    while (plink) {
-        count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*plink)->src_name, (*plink)->dest_name);
-        plink = mapper_db_link_next(plink);
-    }
-
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }

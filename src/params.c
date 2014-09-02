@@ -14,6 +14,7 @@ const char* mapper_msg_param_strings[] =
     "@destMax",         /* AT_DEST_MAX */
     "@destMin",         /* AT_DEST_MIN */
     "@destPort",        /* AT_DEST_PORT */
+    "@destScope",       /* AT_DEST_SCOPE */
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
@@ -41,6 +42,7 @@ const char* mapper_msg_param_strings[] =
     "@srcMax",          /* AT_SRC_MAX */
     "@srcMin",          /* AT_SRC_MIN */
     "@srcPort",         /* AT_SRC_PORT */
+    "@srcScope",        /* AT_SRC_SCOPE */
     "@srcType",         /* AT_SRC_TYPE */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
@@ -578,19 +580,27 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_router_prepare_osc_message(lo_message m,
-                                       mapper_router r)
+void mapper_router_prepare_osc_message(lo_message m, mapper_router r, int swap)
 {
     int i;
 
     // Add link scopes
-    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
-    if (r->props.scopes.size) {
-        for (i = 0; i < r->props.scopes.size; i++)
-            lo_message_add_string(m, r->props.scopes.names[i]);
+    lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_DEST_SCOPE : AT_SRC_SCOPE]);
+    if (r->props.outgoing_scopes.size) {
+        for (i = 0; i < r->props.outgoing_scopes.size; i++)
+            lo_message_add_string(m, r->props.outgoing_scopes.names[i]);
     }
     else
         lo_message_add_string(m, "none");
+
+    lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_SRC_SCOPE : AT_DEST_SCOPE]);
+    if (r->props.incoming_scopes.size) {
+        for (i = 0; i < r->props.incoming_scopes.size; i++)
+            lo_message_add_string(m, r->props.incoming_scopes.names[i]);
+    }
+    else
+        lo_message_add_string(m, "none");
+
     mapper_msg_add_value_table(m, r->props.extra);
 }
 

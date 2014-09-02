@@ -52,18 +52,21 @@ typedef struct _mapper_db_device {
  * structure are valid.  This is only used when specifying link
  * properties via the mapper_monitor_link() or
  * mapper_monitor_link_modify() functions. */
-#define LINK_NUM_SCOPES         0x01
-#define LINK_SCOPE_NAMES        0x02
-#define LINK_SCOPE_HASHES       0x04
+#define LINK_NUM_SRC_SCOPES         0x01
+#define LINK_SRC_SCOPE_NAMES        0x02
+#define LINK_SRC_SCOPE_HASHES       0x04
+#define LINK_NUM_DEST_SCOPES        0x08
+#define LINK_DEST_SCOPE_NAMES       0x0F
+#define LINK_DEST_SCOPE_HASHES      0x10
 
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
-#define CONNECTION_RANGE_SRC_MIN  0x01
-#define CONNECTION_RANGE_SRC_MAX  0x02
-#define CONNECTION_RANGE_DEST_MIN 0x04
-#define CONNECTION_RANGE_DEST_MAX 0x08
-#define CONNECTION_RANGE_KNOWN    0x0F
+#define CONNECTION_RANGE_SRC_MIN    0x01
+#define CONNECTION_RANGE_SRC_MAX    0x02
+#define CONNECTION_RANGE_DEST_MIN   0x04
+#define CONNECTION_RANGE_DEST_MAX   0x08
+#define CONNECTION_RANGE_KNOWN      0x0F
 
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
@@ -238,15 +241,46 @@ typedef struct _mapper_link_scope {
 /*! A record that describes the properties of a link between devices.
  *  @ingroup linkdb */
 typedef struct _mapper_db_link {
-    char *src_name;                 //!< Source device name (OSC path).
-    uint32_t src_name_hash;         //!< CRC-32 hash of src device name.
-    char *dest_name;                //!< Destination device name (OSC path).
-    uint32_t dest_name_hash;        //!< CRC-32 hash of dest device name.
-    char *src_host;                 //!< IP Address of the source device.
-    int src_port;                   //!< Network port of source device.
-    char *dest_host;                //!< IP Address of the destination device.
-    int dest_port;                  //!< Network port of destination device.
-    struct _mapper_link_scope scopes;
+    union {
+        char *src_name;                 //!< Source device name (OSC path).
+        char *local_name;
+    };
+    union {
+        uint32_t src_name_hash;         //!< CRC-32 hash of src device name.
+        uint32_t local_name_hash;
+    };
+    union {
+        char *dest_name;                //!< Destination device name (OSC path).
+        char *remote_name;
+    };
+    union {
+        uint32_t dest_name_hash;        //!< CRC-32 hash of dest device name.
+        uint32_t remote_name_hash;
+    };
+    union {
+        char *src_host;                 //!< IP Address of the source device.
+        char *local_host;
+    };
+    union {
+        int src_port;                   //!< Network port of source device.
+        int local_port;
+    };
+    union {
+        char *dest_host;                //!< IP Address of the destination device.
+        char *remote_host;
+    };
+    union {
+        int dest_port;                  //!< Network port of destination device.
+        int remote_port;
+    };
+    union {
+        struct _mapper_link_scope src_scopes;
+        struct _mapper_link_scope incoming_scopes;
+    };
+    union {
+        struct _mapper_link_scope dest_scopes;
+        struct _mapper_link_scope outgoing_scopes;
+    };
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;

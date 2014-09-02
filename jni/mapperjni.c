@@ -164,20 +164,6 @@ static jobject get_jobject_from_timetag(JNIEnv *env, mapper_timetag_t *tt)
     return objtt;
 }
 
-static mapper_db_device* get_db_device_ptr_from_jobject(JNIEnv *env, jobject obj)
-{
-    jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID val = (*env)->GetFieldID(env, cls, "_devprops_p", "J");
-        if (val) {
-            jlong s = (*env)->GetLongField(env, obj, val);
-            return (mapper_db_device*)ptr_jlong(s);
-        }
-    }
-    throwIllegalArgument(env, "Couldn't retrieve mapper_db_device* ptr.");
-    return 0;
-}
-
 static mapper_db_signal* get_db_signal_ptr_from_jobject(JNIEnv *env, jobject obj)
 {
     jclass cls = (*env)->GetObjectClass(env, obj);
@@ -2654,20 +2640,21 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1dest_1port
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1num_1scopes
-  (JNIEnv *env, jobject obj, jlong p)
+  (JNIEnv *env, jobject obj, jlong p, jint direction)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return props->scopes.size;
+    return direction ? props->src_scopes.size : props->dest_scopes.size;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1scope_1names
-  (JNIEnv *env, jobject obj, jlong p)
+  (JNIEnv *env, jobject obj, jlong p, jint direction)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-
-    if (!props->scopes.size)
+    int size = direction ? props->dest_scopes.size : props->src_scopes.size;
+    if (!size)
         return 0;
-    return build_PropertyValue(env, 's', props->scopes.names, props->scopes.size);
+    return build_PropertyValue(env, 's', direction ? props->dest_scopes.names
+                               : props->src_scopes.names, size);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mapper_1db_1link_1property_1lookup
@@ -2696,7 +2683,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_getLink
 
     const char *src_name = (*env)->GetStringUTFChars(env, s1, 0);
     const char *dest_name = (*env)->GetStringUTFChars(env, s2, 0);
-    mapper_db_link link = mapper_db_get_link_by_src_dest_names(db, src_name, dest_name);
+    mapper_db_link link = mapper_db_get_link_by_device_names(db, src_name,
+                                                             dest_name);
     if (link) {;
         jclass cls = (*env)->FindClass(env, "Mapper/Db/Link");
         if (cls) {
@@ -2724,71 +2712,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1links
     else {
         links = mapper_db_get_all_links(db);
     }
-
-    if (!links) return 0;
-
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/LinkCollection");
-    if (!cls) return 0;
-
-    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
-    jobject linksobj = (*env)->NewObject(env, cls, mid, jlong_ptr(links));
-    return linksobj;
-}
-
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_links
-  (JNIEnv *env, jobject obj, jobject srcobj, jobject destobj)
-{
-    mapper_db_link *links;
-    mapper_db db = get_db_from_jobject(env, obj);
-    if (!db) return 0;
-
-    // retrieve mapper_db_device* ptrs from DeviceCollection objects
-    mapper_db_device *src = get_db_device_ptr_from_jobject(env, srcobj);
-    mapper_db_device *dest = get_db_device_ptr_from_jobject(env, destobj);
-    if (!src || !dest) return 0;
-
-    links = mapper_db_get_links_by_src_dest_devices(db, src, dest);
-    if (!links) return 0;
-
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/LinkCollection");
-    if (!cls) return 0;
-
-    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
-    jobject linksobj = (*env)->NewObject(env, cls, mid, jlong_ptr(links));
-    return linksobj;
-}
-
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_linksBySrc
-  (JNIEnv *env, jobject obj, jstring s)
-{
-    mapper_db_link *links;
-    mapper_db db = get_db_from_jobject(env, obj);
-    if (!db) return 0;
-
-    const char *name = (*env)->GetStringUTFChars(env, s, 0);
-    links = mapper_db_get_links_by_src_device_name(db, name);
-    (*env)->ReleaseStringUTFChars(env, s, name);
-
-    if (!links) return 0;
-
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/LinkCollection");
-    if (!cls) return 0;
-
-    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
-    jobject linksobj = (*env)->NewObject(env, cls, mid, jlong_ptr(links));
-    return linksobj;
-}
-
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_linksByDest
-  (JNIEnv *env, jobject obj, jstring s)
-{
-    mapper_db_link *links;
-    mapper_db db = get_db_from_jobject(env, obj);
-    if (!db) return 0;
-
-    const char *name = (*env)->GetStringUTFChars(env, s, 0);
-    links = mapper_db_get_links_by_dest_device_name(db, name);
-    (*env)->ReleaseStringUTFChars(env, s, name);
 
     if (!links) return 0;
 

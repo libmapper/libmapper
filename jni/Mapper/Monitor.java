@@ -167,10 +167,6 @@ public class Monitor
             { return mdb_links(_db, deviceName); }
         public Mapper.Db.LinkCollection links()
             { return mdb_links(_db, null); }
-        public native Mapper.Db.LinkCollection links(Mapper.Db.DeviceCollection src,
-                                                     Mapper.Db.DeviceCollection dest);
-        public native Mapper.Db.LinkCollection linksBySrc(String deviceName);
-        public native Mapper.Db.LinkCollection linksByDest(String deviceName);
 
         // Db.Connection
         private native Mapper.Db.ConnectionCollection mdb_connections(

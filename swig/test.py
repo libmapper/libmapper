@@ -94,13 +94,13 @@ for i in range(1000):
         for i in mon.db.match_outputs_by_device_name('/testsend.1', '3'):
             print i
         print 'links for device "/testsend.1":'
-        for i in mon.db.links_by_src_device_name('/testsend.1'):
+        for i in mon.db.links_by_device_name('/testsend.1'):
             print i
         print 'link for /testsend.1, /testrecv.1:'
-        print mon.db.get_link_by_src_dest_names("/testsend.1", "/testrecv.1")
+        print mon.db.get_link_by_device_names("/testsend.1", "/testrecv.1")
         print 'not found link:'
         print mon.db.get_link_by_src_dest_names("/foo", "/bar")
-        mon.link("/test.1", "/test.1")
+        mon.link('%s' %dev.name, '%s' %dev.name)
 
     if i==500:
         mon.connect("/test.1/outsig", "/test.1/insig",

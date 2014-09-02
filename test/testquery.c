@@ -163,7 +163,7 @@ int setup_connections()
             return 1;
     }
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 2; i++) {
         msig_full_name(sendsig[i], src_name, 1024);
         msig_full_name(recvsig[i], dest_name, 1024);
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);

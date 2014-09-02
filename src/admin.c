@@ -1096,7 +1096,7 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 }
 
 static void mapper_admin_send_linked(mapper_admin admin,
-                                     mapper_router router)
+                                     mapper_router r)
 {
     // Send /linked message
     lo_message m = lo_message_new();
@@ -1105,14 +1105,18 @@ static void mapper_admin_send_linked(mapper_admin admin,
         return;
     }
 
-    lo_message_add_string(m, mdev_name(router->device));
-    lo_message_add_string(m, router->props.dest_name);
-    lo_message_add_string(m, "@srcPort");
-    lo_message_add_int32(m, router->device->props.port);
-    lo_message_add_string(m, "@destPort");
-    lo_message_add_int32(m, router->props.dest_port);
+    /* Since links are bidirectional, use alphabetical ordering of device
+     * names to avoid confusing monitors. */
+    int swap = strcmp(mdev_name(r->device), r->props.remote_name) > 0;
 
-    mapper_router_prepare_osc_message(m, router);
+    lo_message_add_string(m, swap ? r->props.dest_name : mdev_name(r->device));
+    lo_message_add_string(m, swap ? mdev_name(r->device) : r->props.dest_name);
+    lo_message_add_string(m, "@srcPort");
+    lo_message_add_int32(m, swap ? r->props.remote_port : r->device->props.port);
+    lo_message_add_string(m, "@destPort");
+    lo_message_add_int32(m, swap ? r->device->props.port : r->props.remote_port);
+
+    mapper_router_prepare_osc_message(m, r, swap);
 
     lo_bundle_add_message(admin->bundle, "/linked", m);
 }
@@ -1769,7 +1773,7 @@ static int handler_device_link(const char *path, const char *types,
         mdev_add_router(md, router);
 
         if (argc > 2)
-            mapper_router_set_from_message(router, &params);
+            mapper_router_set_from_message(router, &params, 0);
 
         // Call local link handler if it exists
         if (md->link_cb)
@@ -1871,7 +1875,7 @@ static int handler_device_linkTo(const char *path, const char *types,
     mdev_add_router(md, router);
 
     if (argc > 2)
-        mapper_router_set_from_message(router, &params);
+        mapper_router_set_from_message(router, &params, 0);
 
     // Call local link handler if it exists
     if (md->link_cb)
@@ -1933,7 +1937,7 @@ static int handler_device_link_modify(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
 
-    int updated;
+    int updated, swap = 0;
     mapper_message_t params;
 
     if (argc < 2)
@@ -1945,11 +1949,11 @@ static int handler_device_link_modify(const char *path, const char *types,
 
     const char *remote_name = NULL;
 
-    // TODO: handle direction properties such as "scope"
     if (strcmp(&argv[0]->s, mdev_name(md)) == 0)
         remote_name = &argv[1]->s;
     else if (strcmp(&argv[1]->s, mdev_name(md)) == 0) {
         remote_name = &argv[0]->s;
+        swap = 1;
     }
     else {
         trace("<%s> ignoring /link/modify %s %s\n",
@@ -1974,7 +1978,7 @@ static int handler_device_link_modify(const char *path, const char *types,
         return 0;
     }
 
-    updated = mapper_router_set_from_message(router, &params);
+    updated = mapper_router_set_from_message(router, &params, swap);
 
     if (updated) {
         // increment device version
@@ -2094,7 +2098,7 @@ static int handler_device_unlinked(const char *path, const char *types,
         mapper_db_get_connections_by_src_dest_device_names(db, src_name,
                                                            dest_name));
     mapper_db_remove_link(db,
-        mapper_db_get_link_by_src_dest_names(db, src_name, dest_name));
+        mapper_db_get_link_by_device_names(db, src_name, dest_name));
 
     return 0;
 }
