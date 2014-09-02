@@ -74,7 +74,7 @@ const char* admin_msg_strings[] =
     "/disconnected",            /* ADM_DISCONNECTED */
     "/link",                    /* ADM_LINK */
     "/link/modify",             /* ADM_LINK_MODIFY */
-    "%s/linkTo",                /* ADM_LINK_TO */
+    "/linkTo",                  /* ADM_LINK_TO */
     "/linked",                  /* ADM_LINKED */
     "/link/ping",               /* ADM_LINK_PING */
     "/logout",                  /* ADM_LOGOUT */
@@ -1792,7 +1792,7 @@ static int handler_device_link(const char *path, const char *types,
         snprintf(cmd, 1024, "%s/linkTo", remote_name);
         mapper_admin_set_bundle_dest_bus(admin);
         mapper_admin_bundle_message_with_params(
-            admin, &params, 0, -1, cmd, "s", mdev_name(md));
+            admin, &params, 0, ADM_LINK_TO, 0, "ss", remote_name, mdev_name(md));
     }
 
     return 0;
@@ -1806,19 +1806,24 @@ static int handler_device_linkTo(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
 
-    const char *remote_name, *host=0, *admin_port;
-    int data_port;
+    const char *remote_name = NULL, *host = NULL, *admin_port;
     mapper_message_t params;
     lo_address a = NULL;
+    int data_port;
 
     if (argc < 2)
         return 0;
 
+    // Need at least 2 devices to link
     if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
         && types[1] != 'S')
         return 0;
 
-    remote_name = &argv[0]->s;
+    // Return if we are not the "src"
+    if (strcmp(mdev_name(md), &argv[0]->s) == 0)
+        remote_name = &argv[1]->s;
+    else
+        return 0;
 
     trace("<%s> got /linkTo %s\n", mdev_name(md), remote_name);
 
