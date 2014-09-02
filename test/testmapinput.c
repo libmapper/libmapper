@@ -119,7 +119,7 @@ void loop()
         mapper_monitor_link(mon, &devices[0]->props,
                             &devices[1]->props, 0, 0);
 
-        while (!done && !devices[0]->routers) {
+        while (!done && (devices[0]->props.num_links < 2)) {
             mdev_poll(devices[0], 10);
             mdev_poll(devices[1], 10);
         }
