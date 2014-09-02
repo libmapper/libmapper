@@ -6,10 +6,10 @@ libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERS
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 	$(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
-JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h    \
-           Mapper_Db_Device.h Mapper_Db_Link.h Mapper_Db_Connection.h   \
-           Mapper_Monitor.h Mapper_Db_DeviceIterator.h                  \
-           Mapper_Db_SignalIterator.h Mapper_Db_LinkIterator.h          \
+JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h        \
+           Mapper_Db_Device.h Mapper_Db_Link.h Mapper_Db_Connection.h       \
+           Mapper_Monitor.h Mapper_Monitor_Db.h Mapper_Db_DeviceIterator.h  \
+           Mapper_Db_SignalIterator.h Mapper_Db_LinkIterator.h              \
            Mapper_Db_ConnectionIterator.h
 
 JFLAGS = -source 1.5 -target 1.5
