@@ -2004,9 +2004,9 @@ static int handler_device_unlink(const char *path, const char *types,
                                  lo_arg **argv, int argc, lo_message msg,
                                  void *user_data)
 {
-    const char *src_name, *dest_name;
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    const char *remote_name;
 
     if (argc < 2)
         return 0;
@@ -2015,11 +2015,16 @@ static int handler_device_unlink(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    src_name = &argv[0]->s;
-    dest_name = &argv[1]->s;
+    if (strcmp(&argv[0]->s, mdev_name(md)) == 0)
+        remote_name = &argv[1]->s;
+    else if (strcmp(&argv[1]->s, mdev_name(md)) == 0) {
+        remote_name = &argv[0]->s;
+    }
+    else
+        return 0;
 
     trace("<%s> got /unlink %s %s + %i arguments\n", mdev_name(md),
-          src_name, dest_name, argc-2);
+          &argv[0]->s, &argv[1]->s, argc-2);
 
     mapper_message_t params;
     if (mapper_msg_parse_params(&params, path, &types[2],
@@ -2030,33 +2035,25 @@ static int handler_device_unlink(const char *path, const char *types,
         return 0;
     }
 
-    if (strcmp(mdev_name(md), src_name))
-        return 0;
-
     /* Remove the router for the destination. */
     mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, dest_name);
+        mapper_router_find_by_remote_name(md->routers, remote_name);
     if (router) {
         // Call the local link handler if it exists
         if (md->link_cb)
             md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
                         md->link_cb_userdata);
 
-        // Inform destination
-        mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
-        mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
-                                                0, "ss", mdev_name(md), dest_name);
-
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
-                                                0, "ss", mdev_name(md), dest_name);
+                                                0, "ss", mdev_name(md), remote_name);
 
         mdev_remove_router(md, router);
     }
     else {
         trace("<%s> no router for %s found in /unlink handler\n",
-              mdev_name(md), dest_name);
+              mdev_name(md), remote_name);
     }
     return 0;
 }
