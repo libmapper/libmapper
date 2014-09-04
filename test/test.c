@@ -169,9 +169,9 @@ void loop()
         mapper_monitor_link(mon, mdev_name(source),
                             mdev_name(destination), 0, 0);
 
-        while (!source->routers) {
-            mdev_poll(source, 10);
-            mdev_poll(destination, 10);
+        while (!done && !source->router->links) {
+            mdev_poll(source, 100);
+            mdev_poll(destination, 100);
         }
 
         msig_full_name(sendsig_1, src_name, 1024);
@@ -190,7 +190,7 @@ void loop()
         mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
         // wait until connection has been established
-        while (!done && !source->routers->num_connections_out) {
+        while (!done && !source->router->links->num_connections_out) {
             mdev_poll(source, 10);
             mdev_poll(destination, 10);
         }

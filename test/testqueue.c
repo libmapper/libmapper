@@ -24,7 +24,6 @@ int done = 0;
 
 mapper_device source = 0;
 mapper_device destination = 0;
-mapper_router router = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
 mapper_signal sendsig1 = 0;
@@ -59,12 +58,6 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        if (router) {
-            eprintf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, router);
-            eprintf("ok\n");
-        }
         eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
@@ -122,7 +115,7 @@ int create_connections()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
-    while (!done && !source->routers) {
+    while (!done && !source->router->links) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -136,7 +129,7 @@ int create_connections()
     mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
 
     // wait until connection has been established
-    while (!done && !source->routers->num_connections_out) {
+    while (!done && !source->router->links->num_connections_out) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }

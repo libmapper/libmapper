@@ -37,13 +37,14 @@ int test_controller()
 
     const char *host = "localhost";
     int admin_port = 9000, data_port = 9001;
-    mapper_router rt = mapper_router_new(md, host, admin_port, data_port,
-                                         "DESTINATION");
-    mdev_add_router(md, rt);
-    eprintf("Router to %s:%d added.\n", host, data_port);
+    mapper_link l = mapper_router_add_link(md->router, host, admin_port,
+                                           data_port, "DESTINATION");
+    eprintf("Link to %s:%d added.\n", host, data_port);
 
-    mapper_router_add_connection(rt, sig, "/mapped1", 'f', 1, DI_OUTGOING);
-    mapper_router_add_connection(rt, sig, "/mapped2", 'f', 1, DI_OUTGOING);
+    mapper_router_add_connection(md->router, l, sig, "/mapped1",
+                                 'f', 1, DI_OUTGOING);
+    mapper_router_add_connection(md->router, l, sig, "/mapped2",
+                                 'f', 1, DI_OUTGOING);
 
     eprintf("Polling device..\n");
     int i = 0;
@@ -60,8 +61,8 @@ int test_controller()
         }
     }
 
-    mdev_remove_router(md, rt);
-    eprintf("Router removed.\n");
+    mapper_router_remove_link(md->router, l);
+    eprintf("Link removed.\n");
 
     mdev_free(md);
     return 0;

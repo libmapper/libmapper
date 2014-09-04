@@ -90,8 +90,9 @@ const char* admin_msg_strings[] =
 
 /* Internal functions for sending admin messages. */
 static void mapper_admin_send_device(mapper_admin admin, mapper_device device);
-static void mapper_admin_send_linked(mapper_admin admin, mapper_router r);
-static void mapper_admin_send_connected(mapper_admin admin, mapper_router r,
+static void mapper_admin_send_linked(mapper_admin admin, mapper_device device,
+                                     mapper_link link);
+static void mapper_admin_send_connected(mapper_admin admin, mapper_device md,
                                         mapper_connection c, int index);
 
 /* Internal message handler prototypes. */
@@ -753,22 +754,21 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 
     int elapsed;
     // some housekeeping: periodically check if our links are still active
-    mapper_router router = md->routers;
-    while (router) {
-        if (router->props.dest_name_hash == md->props.name_hash) {
+    mapper_link link = md->router->links;
+    while (link) {
+        if (link->props.dest_name_hash == md->props.name_hash) {
             // don't bother sending pings to self
-            router = router->next;
+            link = link->next;
             continue;
         }
-        mapper_sync_clock sync = &router->clock;
+        mapper_sync_clock sync = &link->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
         if (md->link_timeout_sec && elapsed > md->link_timeout_sec) {
             if (sync->response.message_id > 0) {
                 trace("<%s> Lost contact with linked device %s "
                       "(%d seconds since sync).\n", mdev_name(md),
-                      router->props.dest_name, elapsed);
-
+                      link->props.dest_name, elapsed);
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
@@ -776,21 +776,21 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             else {
                 trace("<%s> Removing link to unresponsive device %s "
                       "(%d seconds since warning).\n", mdev_name(md),
-                      router->props.dest_name, elapsed);
+                      link->props.dest_name, elapsed);
                 // Call the local link handler if it exists
                 if (md->link_cb)
-                    md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+                    md->link_cb(md, &link->props, MDEV_LOCAL_DESTROYED,
                                 md->link_cb_userdata);
 
                 // inform subscribers of link timeout
                 mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
                 mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
                                             mdev_name(md),
-                                            router->props.dest_name,
+                                            link->props.dest_name,
                                             "@status", "timeout");
 
                 // remove related data structures
-                mdev_remove_router(md, router);
+                mapper_router_remove_link(md->router, link);
             }
         }
         else {
@@ -812,12 +812,12 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 #if FORCE_ADMIN_TO_BUS
             lo_send_bundle_from(admin->bus_addr, admin->mesh_server, b);
 #else
-            lo_send_bundle_from(router->admin_addr, admin->mesh_server, b);
+            lo_send_bundle_from(link->admin_addr, admin->mesh_server, b);
 #endif
             mapper_timetag_cpy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
             lo_bundle_free_messages(b);
         }
-        router = router->next;
+        link = link->next;
     }
 }
 
@@ -1096,7 +1096,8 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 }
 
 static void mapper_admin_send_linked(mapper_admin admin,
-                                     mapper_router r)
+                                     mapper_device device,
+                                     mapper_link link)
 {
     // Send /linked message
     lo_message m = lo_message_new();
@@ -1107,33 +1108,31 @@ static void mapper_admin_send_linked(mapper_admin admin,
 
     /* Since links are bidirectional, use alphabetical ordering of device
      * names to avoid confusing monitors. */
-    int swap = strcmp(mdev_name(r->device), r->props.remote_name) > 0;
+    int swap = strcmp(mdev_name(device), link->props.remote_name) > 0;
 
-    lo_message_add_string(m, swap ? r->props.dest_name : mdev_name(r->device));
-    lo_message_add_string(m, swap ? mdev_name(r->device) : r->props.dest_name);
+    lo_message_add_string(m, swap ? link->props.dest_name : mdev_name(device));
+    lo_message_add_string(m, swap ? mdev_name(device) : link->props.dest_name);
     lo_message_add_string(m, "@srcPort");
-    lo_message_add_int32(m, swap ? r->props.remote_port : r->device->props.port);
+    lo_message_add_int32(m, swap ? link->props.remote_port : device->props.port);
     lo_message_add_string(m, "@destPort");
-    lo_message_add_int32(m, swap ? r->device->props.port : r->props.remote_port);
+    lo_message_add_int32(m, swap ? device->props.port : link->props.remote_port);
 
-    mapper_router_prepare_osc_message(m, r, swap);
+    mapper_link_prepare_osc_message(m, link, swap);
 
     lo_bundle_add_message(admin->bundle, "/linked", m);
 }
 
 static void mapper_admin_send_links(mapper_admin admin, mapper_device md)
 {
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_admin_send_linked(admin, r);
-        r = r->next;
+    mapper_link l = md->router->links;
+    while (l) {
+        mapper_admin_send_linked(admin, md, l);
+        l = l->next;
     }
 }
 
-static void mapper_admin_send_connected(mapper_admin admin,
-                                        mapper_router router,
-                                        mapper_connection c,
-                                        int index)
+static void mapper_admin_send_connected(mapper_admin admin, mapper_device md,
+                                        mapper_connection c, int index)
 {
     // Send /connected message
     lo_message m = lo_message_new();
@@ -1144,18 +1143,18 @@ static void mapper_admin_send_connected(mapper_admin admin,
 
     char local_name[1024], remote_name[1024];
 
-    snprintf(local_name, 1024, "%s%s", mdev_name(router->device),
+    snprintf(local_name, 1024, "%s%s", mdev_name(md),
              c->parent->signal->props.name);
 
     if (c->direction == DI_OUTGOING) {
         lo_message_add_string(m, local_name);
         lo_message_add_string(m, "->");
-        snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
+        snprintf(remote_name, 1024, "%s%s", c->link->props.dest_name,
                  c->props.dest_name);
         lo_message_add_string(m, remote_name);
     }
     else {
-        snprintf(remote_name, 1024, "%s%s", router->props.dest_name,
+        snprintf(remote_name, 1024, "%s%s", c->link->props.dest_name,
                  c->props.src_name);
         lo_message_add_string(m, remote_name);
         lo_message_add_string(m, "->");
@@ -1177,25 +1176,21 @@ static void mapper_admin_send_connections_in(mapper_admin admin,
                                              int min, int max)
 {
     int i = 0;
-    mapper_router rc = md->routers;
-    while (rc) {
-        mapper_router_signal rs = rc->signals;
-        while (rs) {
-            if (!rs->signal->props.is_output) {
-                mapper_connection c = rs->connections;
-                while (c) {
-                    if (max > 0 && i > max)
-                        break;
-                    if (i >= min) {
-                        mapper_admin_send_connected(admin, rc, c, i);
-                    }
-                    c = c->next;
-                    i++;
+    mapper_router_signal rs = md->router->signals;
+    while (rs) {
+        if (!rs->signal->props.is_output) {
+            mapper_connection c = rs->connections;
+            while (c) {
+                if (max > 0 && i > max)
+                    break;
+                if (i >= min) {
+                    mapper_admin_send_connected(admin, md, c, i);
                 }
+                c = c->next;
+                i++;
             }
-            rs = rs->next;
         }
-        rc = rc->next;
+        rs = rs->next;
     }
 }
 
@@ -1204,25 +1199,21 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
                                               int min, int max)
 {
     int i = 0;
-    mapper_router rt = md->routers;
-    while (rt) {
-        mapper_router_signal rs = rt->signals;
-        while (rs) {
-            if (rs->signal->props.is_output) {
-                mapper_connection c = rs->connections;
-                while (c) {
-                    if (max > 0 && i > max)
-                        break;
-                    if (i >= min) {
-                        mapper_admin_send_connected(admin, rt, c, i);
-                    }
-                    c = c->next;
-                    i++;
+    mapper_router_signal rs = md->router->signals;
+    while (rs) {
+        if (rs->signal->props.is_output) {
+            mapper_connection c = rs->connections;
+            while (c) {
+                if (max > 0 && i > max)
+                    break;
+                if (i >= min) {
+                    mapper_admin_send_connected(admin, md, c, i);
                 }
+                c = c->next;
+                i++;
             }
-            rs = rs->next;
         }
-        rt = rt->next;
+        rs = rs->next;
     }
 }
 
@@ -1319,18 +1310,18 @@ static int handler_logout(const char *path, const char *types,
     // If device exists and is registered
     if (md && md->ordinal.locked) {
         // Check if we have any links to this device, if so remove them
-        mapper_router router =
-            mapper_router_find_by_remote_name(md->routers, name);
-        if (router) {
+        mapper_link link =
+            mapper_router_find_link_by_remote_name(md->router, name);
+        if (link) {
             // Call the local link handler if it exists
             if (md->link_cb)
-                md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+                md->link_cb(md, &link->props, MDEV_LOCAL_DESTROYED,
                             md->link_cb_userdata);
 
             trace("<%s> Removing link to expired device %s.\n",
-                  mdev_name(md), router->props.dest_name);
+                  mdev_name(md), link->props.dest_name);
 
-            mdev_remove_router(md, router);
+            mapper_router_remove_link(md->router, link);
 
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
@@ -1749,10 +1740,10 @@ static int handler_device_link(const char *path, const char *types,
     }
 
     // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
 
-    if (router) {
+    if (link) {
         // Already linked, forward to link/modify handler.
         if (argc > 3)
             handler_device_link_modify(path, types, argv, argc,
@@ -1763,26 +1754,25 @@ static int handler_device_link(const char *path, const char *types,
     if (self_ref == 2) {
         // this is a self-link, no need to continue linking protocol
         // Creation of a new router added to the source.
-        router = mapper_router_new(md, "localhost",
-                                   lo_server_get_port(admin->mesh_server),
-                                   md->props.port, mdev_name(md));
-        if (!router) {
-            trace("can't perform /linkTo, NULL router\n");
+        link = mapper_router_add_link(md->router, "localhost",
+                                      lo_server_get_port(admin->mesh_server),
+                                      md->props.port, mdev_name(md));
+        if (!link) {
+            trace("can't perform /linkTo, NULL link\n");
             return 0;
         }
-        mdev_add_router(md, router);
 
         if (argc > 2)
-            mapper_router_set_from_message(router, &params, 0);
+            mapper_router_set_link_from_message(md->router, link, &params, 0);
 
         // Call local link handler if it exists
         if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED,
+            md->link_cb(md, &link->props, MDEV_LOCAL_ESTABLISHED,
                         md->link_cb_userdata);
 
         // Announce the result to subscribers.
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
-        mapper_admin_send_linked(admin, router);
+        mapper_admin_send_linked(admin, md, link);
 
         trace("<%s> added new router to self\n", mdev_name(md));
     }
@@ -1841,10 +1831,10 @@ static int handler_device_linkTo(const char *path, const char *types,
     }
 
     // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
 
-    if (router) {
+    if (link) {
         // Already linked, forward to link/modify handler.
         if (argc > 3)
             handler_device_link_modify(path, types, argv, argc, msg, user_data);
@@ -1867,19 +1857,19 @@ static int handler_device_linkTo(const char *path, const char *types,
     }
 
     // Creation of a new router added to the source.
-    router = mapper_router_new(md, host, atoi(admin_port), data_port, remote_name);
-    if (!router) {
-        trace("can't perform /linkTo, NULL router\n");
+    link = mapper_router_add_link(md->router, host, atoi(admin_port),
+                                  data_port, remote_name);
+    if (!link) {
+        trace("can't perform /linkTo, NULL link\n");
         return 0;
     }
-    mdev_add_router(md, router);
 
     if (argc > 2)
-        mapper_router_set_from_message(router, &params, 0);
+        mapper_router_set_link_from_message(md->router, link, &params, 0);
 
     // Call local link handler if it exists
     if (md->link_cb)
-        md->link_cb(md, &router->props, MDEV_LOCAL_ESTABLISHED,
+        md->link_cb(md, &link->props, MDEV_LOCAL_ESTABLISHED,
                     md->link_cb_userdata);
 
     // Announce the result to destination and subscribers.
@@ -1887,9 +1877,9 @@ static int handler_device_linkTo(const char *path, const char *types,
         mapper_admin_set_bundle_dest_bus(admin);
     else
         mapper_admin_set_bundle_dest_mesh(admin, a);
-    mapper_admin_send_linked(admin, router);
+    mapper_admin_send_linked(admin, md, link);
     mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
-    mapper_admin_send_linked(admin, router);
+    mapper_admin_send_linked(admin, md, link);
 
     trace("<%s> added new router to %s -> host: %s, port: %d\n",
           mdev_name(md), remote_name, host, data_port);
@@ -1965,11 +1955,13 @@ static int handler_device_link_modify(const char *path, const char *types,
           &argv[0]->s, &argv[1]->s);
 
     // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
 
-    if (!router)
+    if (!link) {
+        trace("can't perform /link/modify, link not found.\n");
         return 0;
+    }
 
     // Parse the message.
     if (mapper_msg_parse_params(&params, path, &types[2], argc-2, &argv[2])) {
@@ -1978,7 +1970,7 @@ static int handler_device_link_modify(const char *path, const char *types,
         return 0;
     }
 
-    updated = mapper_router_set_from_message(router, &params, swap);
+    updated = mapper_router_set_link_from_message(md->router, link, &params, swap);
 
     if (updated) {
         // increment device version
@@ -1986,11 +1978,11 @@ static int handler_device_link_modify(const char *path, const char *types,
 
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
-        mapper_admin_send_linked(admin, router);
+        mapper_admin_send_linked(admin, md, link);
 
         // Call local link handler if it exists
         if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_MODIFIED,
+            md->link_cb(md, &link->props, MDEV_LOCAL_MODIFIED,
                         md->link_cb_userdata);
 
         trace("<%s> modified link to %s\n", mdev_name(md), remote_name);
@@ -2035,13 +2027,13 @@ static int handler_device_unlink(const char *path, const char *types,
         return 0;
     }
 
-    /* Remove the router for the destination. */
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
-    if (router) {
+    /* Remove the link for the destination. */
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
+    if (link) {
         // Call the local link handler if it exists
         if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_DESTROYED,
+            md->link_cb(md, &link->props, MDEV_LOCAL_DESTROYED,
                         md->link_cb_userdata);
 
         // Inform subscribers
@@ -2049,7 +2041,7 @@ static int handler_device_unlink(const char *path, const char *types,
         mapper_admin_bundle_message_with_params(admin, &params, 0, ADM_UNLINKED,
                                                 0, "ss", mdev_name(md), remote_name);
 
-        mdev_remove_router(md, router);
+        mapper_router_remove_link(md->router, link);
     }
     else {
         trace("<%s> no router for %s found in /unlink handler\n",
@@ -2213,21 +2205,21 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
 
     /* If no link found, we simply stop here. The idea was floated
      * that we could automatically create links, but it was agreed
      * that this kind of logic would be best left up to client
      * applications. */
-    if (!router) {
+    if (!link) {
         trace("<%s> not linked to '%s' on /connect.\n",
               mdev_name(md), remote_name);
         return 0;
     }
 
     mapper_connection c =
-        mapper_router_find_connection(router, s1, remote_signal_name);
+        mapper_router_find_connection(md->router, s1, remote_signal_name);
 
     /* If a connection connection already exists between these two signals,
      * forward the message to handler_signal_connection_modify() and stop. */
@@ -2237,7 +2229,7 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
-    if (router->self_link) {
+    if (link->self_link) {
         // no need to continue with connection protocol
         s2 = mdev_get_signal_by_name(md, remote_signal_name, 0);
         if (!s2) {
@@ -2253,10 +2245,10 @@ static int handler_signal_connect(const char *path, const char *types,
         /* Add flavourless connections */
         // TODO: allow single connection structure to be shared between signals?
         mapper_connection c2;
-        c = mapper_router_add_connection(router, s1, s2->props.name,
+        c = mapper_router_add_connection(md->router, link, s1, s2->props.name,
                                          s2->props.type, s2->props.length,
                                          outgoing ? DI_OUTGOING : DI_INCOMING);
-        c2 = mapper_router_add_connection(router, s2, s1->props.name,
+        c2 = mapper_router_add_connection(md->router, link, s2, s1->props.name,
                                           s1->props.type, s1->props.length,
                                           outgoing ? DI_INCOMING : DI_OUTGOING);
         if (!c || !c2) {
@@ -2294,15 +2286,15 @@ static int handler_signal_connect(const char *path, const char *types,
 
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS);
-        mapper_admin_send_connected(admin, router, c, -1);
-        mapper_admin_send_connected(admin, router, c2, -1);
+        mapper_admin_send_connected(admin, md, c, -1);
+        mapper_admin_send_connected(admin, md, c2, -1);
 
         // Call local connection handler if it exists
         if (md->connection_cb) {
-            md->connection_cb(md, &router->props, s1,
+            md->connection_cb(md, &link->props, s1,
                               &c->props, MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
-            md->connection_cb(md, &router->props, s2,
+            md->connection_cb(md, &link->props, s2,
                               &c2->props, MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
         }
@@ -2333,7 +2325,7 @@ static int handler_signal_connect(const char *path, const char *types,
     params.types[AT_SLOT] = "i";
     params.lengths[AT_SLOT] = 1;
 
-    mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
+    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
     mapper_admin_bundle_message_with_params(
         admin, &params, s1->props.extra,
         ADM_CONNECT_TO, 0, "sss", remote_name, outgoing ? "<-" : "->", local_name,
@@ -2412,21 +2404,21 @@ static int handler_signal_connectTo(const char *path, const char *types,
               "continuing anyway.\n", mdev_name(md));
     }
 
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
 
     /* If no link found, we simply stop here. The idea was floated
      * that we could automatically create links, but it was agreed
      * that this kind of logic would be best left up to client
      * applications. */
-    if (!router) {
+    if (!link) {
         trace("<%s> not linked to '%s' on /connectTo.\n",
               mdev_name(md), remote_name);
         return 0;
     }
 
     mapper_connection c =
-        mapper_router_find_connection(router, signal, remote_signal_name);
+        mapper_router_find_connection(md->router, signal, remote_signal_name);
 
     /* If a connection connection already exists between these two signals,
      * forward the message to handler_signal_connection_modify() and stop. */
@@ -2455,7 +2447,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
         return 0;
 
     /* Add a flavourless connection */
-    c = mapper_router_add_connection(router, signal, remote_signal_name,
+    c = mapper_router_add_connection(md->router, link, signal, remote_signal_name,
                                      remote_type, remote_length,
                                      outgoing ? DI_OUTGOING : DI_INCOMING);
     if (!c) {
@@ -2486,16 +2478,16 @@ static int handler_signal_connectTo(const char *path, const char *types,
 
     if (c->direction == DI_OUTGOING) {
         // Inform remote device
-        mapper_admin_set_bundle_dest_mesh(admin, router->admin_addr);
-        mapper_admin_send_connected(admin, router, c, -1);
+        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+        mapper_admin_send_connected(admin, md, c, -1);
 
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_OUT);
-        mapper_admin_send_connected(admin, router, c, -1);
+        mapper_admin_send_connected(admin, md, c, -1);
 
         // Call local connection handler if it exists
         if (md->connection_cb)
-            md->connection_cb(md, &router->props, signal,
+            md->connection_cb(md, &link->props, signal,
                               &c->props, MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
         c->new = 0;
@@ -2569,20 +2561,20 @@ static int handler_signal_connected(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router router =
-        mapper_router_find_by_remote_name(md->routers, remote_name);
-    if (!router) {
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, remote_name);
+    if (!link) {
         trace("<%s> not linked from '%s' on /connected.\n",
               mdev_name(md), remote_name);
         return 0;
     }
-    else if (router->self_link) {
+    else if (link->self_link) {
         // no further action necessary
         return 0;
     }
 
     mapper_connection c =
-        mapper_router_find_connection(router, signal, remote_signal_name);
+        mapper_router_find_connection(md->router, signal, remote_signal_name);
     if (c) {
         if (argc <= (2+skip_arg))
             return 0;
@@ -2591,11 +2583,11 @@ static int handler_signal_connected(const char *path, const char *types,
         if (updated || c->new) {
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
-            mapper_admin_send_connected(admin, router, c, -1);
+            mapper_admin_send_connected(admin, md, c, -1);
 
             // Call local connection handler if it exists
             if (md->connection_cb)
-                md->connection_cb(md, &router->props, signal, &c->props,
+                md->connection_cb(md, &link->props, signal, &c->props,
                                   c->new ? MDEV_LOCAL_ESTABLISHED : MDEV_LOCAL_MODIFIED,
                                   md->connection_cb_userdata);
             c->new = 0;
@@ -2673,15 +2665,16 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router r = mapper_router_find_by_remote_name(md->routers, remote_name);
-    if (!r) {
-        trace("<%s> ignoring /connection/modify, no router found for '%s'\n",
+    mapper_link link = mapper_router_find_link_by_remote_name(md->router,
+                                                              remote_name);
+    if (!link) {
+        trace("<%s> ignoring /connection/modify, no link found for '%s'\n",
               mdev_name(md), remote_name);
         return 0;
     }
 
     mapper_connection c =
-        mapper_router_find_connection(r, sig, remote_signal_name);
+        mapper_router_find_connection(md->router, sig, remote_signal_name);
     if (!c) {
         trace("<%s> ignoring /connection/modify, no connection found "
               "for '%s' %s '%s'\n", mdev_name(md), &argv[0]->s,
@@ -2699,37 +2692,37 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     int updated = mapper_connection_set_from_message(c, &params, outgoing
                                                      ? DI_OUTGOING : DI_INCOMING);
     if (updated) {
-        if (r->self_link) {
+        if (link->self_link) {
             // also update the complementary connection structures
             mapper_connection_set_from_message(c->complement, &params, outgoing
                                                ? DI_INCOMING : DI_OUTGOING);
         }
         else {
             // Inform remote device
-            mapper_admin_set_bundle_dest_mesh(admin, r->admin_addr);
-            mapper_admin_send_connected(admin, r, c, -1);
+            mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+            mapper_admin_send_connected(admin, md, c, -1);
         }
 
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin,
             outgoing ? SUB_DEVICE_CONNECTIONS_OUT : SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connected(admin, r, c, -1);
+        mapper_admin_send_connected(admin, md, c, -1);
 
         // Call local connection handler if it exists
         if (md->connection_cb)
-            md->connection_cb(md, &r->props, sig,
+            md->connection_cb(md, &link->props, sig,
                               &c->props, MDEV_LOCAL_MODIFIED,
                               md->connection_cb_userdata);
 
-        if (r->self_link) {
+        if (link->self_link) {
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin,
                 outgoing ? SUB_DEVICE_CONNECTIONS_IN : SUB_DEVICE_CONNECTIONS_OUT);
-            mapper_admin_send_connected(admin, r, c->complement, -1);
+            mapper_admin_send_connected(admin, md, c->complement, -1);
 
             // Call local connection handler if it exists
             if (md->connection_cb)
-                md->connection_cb(md, &r->props, c->complement->parent->signal,
+                md->connection_cb(md, &link->props, c->complement->parent->signal,
                                   &c->complement->props, MDEV_LOCAL_MODIFIED,
                                   md->connection_cb_userdata);
         }
@@ -2792,46 +2785,47 @@ static int handler_signal_disconnect(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router r = mapper_router_find_by_remote_name(md->routers, remote_name);
-    if (!r) {
-        trace("<%s> ignoring /disconnect, no router found for '%s'\n",
+    mapper_link link = mapper_router_find_link_by_remote_name(md->router,
+                                                              remote_name);
+    if (!link) {
+        trace("<%s> ignoring /disconnect, no link found for '%s'\n",
               mdev_name(md), remote_name);
         return 0;
     }
 
     mapper_connection c =
-        mapper_router_find_connection(r, sig, remote_signal_name);
+        mapper_router_find_connection(md->router, sig, remote_signal_name);
     if (!c) {
         trace("<%s> ignoring /disconnect, "
               "no connection found for '%s' -> '%s'\n",
               mdev_name(md), &argv[0]->s, &argv[1+skip_arg]->s);
         return 0;
     }
-    if (r->self_link) {
+    if (link->self_link) {
         // Call local connection handler if it exists
         if (md->connection_cb)
-            md->connection_cb(md, &r->props, sig, &c->complement->props,
+            md->connection_cb(md, &link->props, sig, &c->complement->props,
                               MDEV_LOCAL_DESTROYED, md->connection_cb_userdata);
 
         /* The connection is removed. */
-        if (mapper_router_remove_connection(r, c->complement)) {
+        if (mapper_router_remove_connection(md->router, c->complement)) {
             return 0;
         }
     }
 
     // Call local connection handler if it exists
     if (md->connection_cb)
-        md->connection_cb(md, &r->props, sig, &c->props, MDEV_LOCAL_DESTROYED,
+        md->connection_cb(md, &link->props, sig, &c->props, MDEV_LOCAL_DESTROYED,
                           md->connection_cb_userdata);
 
     /* The connection is removed. */
-    if (mapper_router_remove_connection(r, c)) {
+    if (mapper_router_remove_connection(md->router, c)) {
         return 0;
     }
 
-    if (!r->self_link) {
+    if (!link->self_link) {
         // Inform remote device
-        mapper_admin_set_bundle_dest_mesh(admin, r->admin_addr);
+        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
         mapper_admin_bundle_message(admin, ADM_DISCONNECTED, 0, "sss",
                                     &argv[0]->s, "->", &argv[1+skip_arg]->s);
     }
@@ -2894,12 +2888,12 @@ static int handler_device_link_ping(const char *path,
     mapper_clock_now(clock, &now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
-    mapper_router router = mapper_router_find_by_dest_hash(md->routers,
-                                                           argv[0]->i);
-    if (router) {
-        if (argv[2]->i == router->clock.sent.message_id) {
+    mapper_link link = mapper_router_find_link_by_remote_hash(md->router,
+                                                              argv[0]->i);
+    if (link) {
+        if (argv[2]->i == link->clock.sent.message_id) {
             // total elapsed time since ping sent
-            double elapsed = mapper_timetag_difference(now, router->clock.sent.timetag);
+            double elapsed = mapper_timetag_difference(now, link->clock.sent.timetag);
             // assume symmetrical latency
             double latency = (elapsed - argv[3]->d) * 0.5;
             // difference between remote and local clocks (latency compensated)
@@ -2910,29 +2904,30 @@ static int handler_device_link_ping(const char *path,
                 return 0;
             }
 
-            if (router->clock.new == 1) {
-                router->clock.offset = offset;
-                router->clock.latency = latency;
-                router->clock.jitter = 0;
-                router->clock.new = 0;
+            if (link->clock.new == 1) {
+                link->clock.offset = offset;
+                link->clock.latency = latency;
+                link->clock.jitter = 0;
+                link->clock.new = 0;
             }
             else {
-                router->clock.jitter = router->clock.jitter * 0.9 + fabs(router->clock.latency - latency) * 0.1;
-                if (offset > router->clock.offset) {
+                link->clock.jitter = (link->clock.jitter * 0.9
+                                      + fabs(link->clock.latency - latency) * 0.1);
+                if (offset > link->clock.offset) {
                     // remote timetag is in the future
-                    router->clock.offset = offset;
+                    link->clock.offset = offset;
                 }
-                else if (latency < router->clock.latency + router->clock.jitter
-                         && latency > router->clock.latency - router->clock.jitter) {
-                    router->clock.offset = router->clock.offset * 0.9 + offset * 0.1;
-                    router->clock.latency = router->clock.latency * 0.9 + latency * 0.1;
+                else if (latency < link->clock.latency + link->clock.jitter
+                         && latency > link->clock.latency - link->clock.jitter) {
+                    link->clock.offset = link->clock.offset * 0.9 + offset * 0.1;
+                    link->clock.latency = link->clock.latency * 0.9 + latency * 0.1;
                 }
             }
         }
 
         // update sync status
-        mapper_timetag_cpy(&router->clock.response.timetag, now);
-        router->clock.response.message_id = argv[1]->i;
+        mapper_timetag_cpy(&link->clock.response.timetag, now);
+        link->clock.response.message_id = argv[1]->i;
     }
     return 0;
 }

@@ -182,6 +182,29 @@ typedef mapper_admin_t *mapper_admin;
 #define DI_OUTGOING 0
 #define DI_INCOMING 1
 
+typedef struct _mapper_queue {
+    mapper_timetag_t tt;
+    lo_bundle bundle;
+    struct _mapper_queue *next;
+} *mapper_queue;
+
+/*! The link structure is a linked list of links each associated
+ *  with a destination address that belong to a controller device. */
+typedef struct _mapper_link {
+    int self_link;                  //!< 1 if this is a router to self.
+    lo_address admin_addr;          //!< Network address of remote endpoint
+    lo_address data_addr;           //!< Network address of remote endpoint
+    mapper_db_link_t props;         //!< Properties.
+    struct _mapper_device *device;  /*!< The device associated with
+                                     *   this link */
+    int num_connections_in;         //!< Number of incoming connections in link.
+    int num_connections_out;        //!< Number of outgoing connections in link.
+    mapper_queue queues;            /*!< Linked-list of message queues
+                                     *   waiting to be sent. */
+    mapper_sync_clock_t clock;
+    struct _mapper_link *next;      //!< Next link in the list.
+} *mapper_link;
+
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple
  *  outputs. This structure only contains state information used for
@@ -191,6 +214,7 @@ typedef struct _mapper_connection {
     mapper_db_connection_t props;           //!< Properties
     struct _mapper_router_signal *parent;   /*!< Parent signal reference
                                              *   in router. */
+    mapper_link link;
     int new;                                //!< 1 if hasn't been announced locally
     int direction;                          //!< DI_OUTGOING or DI_INCOMING
     int calibrating;                        /*!< 1 if the source range is
@@ -225,29 +249,14 @@ typedef struct _mapper_router_signal {
                                              *   in the list. */
 } *mapper_router_signal;
 
-typedef struct _mapper_queue {
-    mapper_timetag_t tt;
-    lo_bundle bundle;
-    struct _mapper_queue *next;
-} *mapper_queue;
-
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_router {
-    int self_link;                  //!< 1 if this is a router to self.
-    lo_address admin_addr;          //!< Network address of remote endpoint
-    lo_address data_addr;           //!< Network address of remote endpoint
-    mapper_db_link_t props;         //!< Properties.
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */
     mapper_router_signal signals;   /*!< The list of connections
-                                     *  for each signal. */
-    int num_connections_in;         //!< Number of incoming connections in link.
-    int num_connections_out;        //!< Number of outgoing connections in link.
-    mapper_queue queues;            /*!< Linked-list of message queues
-                                     *   waiting to be sent. */
-    mapper_sync_clock_t clock;
-    struct _mapper_router *next;    //!< Next link in the list.
+                                     *   for each signal. */
+    mapper_link links;              //!< The list of links to other devices.
 } *mapper_router;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating

@@ -580,28 +580,28 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_router_prepare_osc_message(lo_message m, mapper_router r, int swap)
+void mapper_link_prepare_osc_message(lo_message m, mapper_link l, int swap)
 {
     int i;
 
     // Add link scopes
     lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_DEST_SCOPE : AT_SRC_SCOPE]);
-    if (r->props.outgoing_scopes.size) {
-        for (i = 0; i < r->props.outgoing_scopes.size; i++)
-            lo_message_add_string(m, r->props.outgoing_scopes.names[i]);
+    if (l->props.outgoing_scopes.size) {
+        for (i = 0; i < l->props.outgoing_scopes.size; i++)
+            lo_message_add_string(m, l->props.outgoing_scopes.names[i]);
     }
     else
         lo_message_add_string(m, "none");
 
     lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_SRC_SCOPE : AT_DEST_SCOPE]);
-    if (r->props.incoming_scopes.size) {
-        for (i = 0; i < r->props.incoming_scopes.size; i++)
-            lo_message_add_string(m, r->props.incoming_scopes.names[i]);
+    if (l->props.incoming_scopes.size) {
+        for (i = 0; i < l->props.incoming_scopes.size; i++)
+            lo_message_add_string(m, l->props.incoming_scopes.names[i]);
     }
     else
         lo_message_add_string(m, "none");
 
-    mapper_msg_add_value_table(m, r->props.extra);
+    mapper_msg_add_value_table(m, l->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,

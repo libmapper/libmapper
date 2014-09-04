@@ -144,7 +144,7 @@ int setup_connections()
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
-    while (!done && !destination->routers) {
+    while (!done && !destination->router->links) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
@@ -157,7 +157,7 @@ int setup_connections()
 
     i = 0;
     // wait until connection has been established
-    while (!done && !destination->routers->num_connections_out) {
+    while (!done && !destination->router->links->num_connections_out) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)

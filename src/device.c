@@ -59,13 +59,15 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->ordinal.value = 1;
     md->ordinal.locked = 0;
     md->registered = 0;
-    md->routers = 0;
     md->active_id_map = 0;
     md->reserve_id_map = 0;
     md->id_counter = 0;
     md->props.extra = table_new();
     md->flags = 0;
     md->signal_slot_counter = -1;
+
+    md->router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
+    md->router->device = md;
 
 //    md->link_timeout_sec = ADMIN_TIMEOUT_SEC;
     md->link_timeout_sec = 0;
@@ -113,9 +115,9 @@ void mdev_free(mapper_device md)
         }
     }
 
-    // Routers reference parent signals so release them first
-    while (md->routers)
-        mdev_remove_router(md, md->routers);
+    // Links reference parent signals so release them first
+    while (md->router->links)
+        mapper_router_remove_link(md->router, md->router->links);
 
     if (md->outputs) {
         for (i = 0; i < md->props.num_outputs; i++)
@@ -142,6 +144,8 @@ void mdev_free(mapper_device md)
         free(map);
     }
 
+    if (md->router)
+        free(md->router);
     if (md->props.extra)
         table_free(md->props.extra, 1);
     if (md->props.identifier)
@@ -649,30 +653,26 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     snprintf(str1, 1024, "%s/get", sig->props.name);
     lo_server_del_method(md->server, str1, NULL);
 
-    mapper_router r = md->routers;
     msig_full_name(sig, str1, 1024);
-    while (r) {
-        mapper_router_signal rs = r->signals;
-        while (rs) {
-            if (rs->signal == sig) {
-                // need to disconnect?
-                mapper_admin_set_bundle_dest_mesh(md->admin, r->admin_addr);
-                mapper_connection c = rs->connections;
-                while (c) {
-                    snprintf(str2, 1024, "%s%s", r->props.dest_name,
-                             c->direction == DI_INCOMING ? c->props.src_name
-                             : c->props.dest_name);
-                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                "ss", str1, str2);
-                    mapper_connection temp = c->next;
-                    mapper_router_remove_connection(r, c);
-                    c = temp;
-                }
-                break;
+    mapper_router_signal rs = md->router->signals;
+    while (rs) {
+        if (rs->signal == sig) {
+            // need to disconnect?
+            mapper_connection c = rs->connections;
+            mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
+            while (c) {
+                snprintf(str2, 1024, "%s%s", c->link->props.dest_name,
+                         c->direction == DI_INCOMING ? c->props.src_name
+                         : c->props.dest_name);
+                mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                            "ss", str1, str2);
+                mapper_connection temp = c->next;
+                mapper_router_remove_connection(md->router, c);
+                c = temp;
             }
-            rs = rs->next;
+            break;
         }
-        r = r->next;
+        rs = rs->next;
     }
 
     if (md->registered) {
@@ -709,30 +709,26 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
 
-    mapper_router r = md->routers;
     msig_full_name(sig, str1, 1024);
-    while (r) {
-        mapper_router_signal rs = r->signals;
-        while (rs) {
-            if (rs->signal == sig) {
-                // need to disconnect?
-                mapper_admin_set_bundle_dest_mesh(md->admin, r->admin_addr);
-                mapper_connection c = rs->connections;
-                while (c) {
-                    snprintf(str2, 1024, "%s%s", r->props.dest_name,
-                             c->direction == DI_INCOMING ? c->props.src_name
-                             : c->props.dest_name);
-                    mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                "ss", str1, str2);
-                    mapper_connection temp = c->next;
-                    mapper_router_remove_connection(r, c);
-                    c = temp;
-                }
-                break;
+    mapper_router_signal rs = md->router->signals;
+    while (rs) {
+        if (rs->signal == sig) {
+            // need to disconnect?
+            mapper_connection c = rs->connections;
+            mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
+            while (c) {
+                snprintf(str2, 1024, "%s%s", c->link->props.dest_name,
+                         c->direction == DI_INCOMING ? c->props.src_name
+                         : c->props.dest_name);
+                mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                            "ss", str1, str2);
+                mapper_connection temp = c->next;
+                mapper_router_remove_connection(md->router, c);
+                c = temp;
             }
-            rs = rs->next;
+            break;
         }
-        r = r->next;
+        rs = rs->next;
     }
 
     if (md->registered) {
@@ -763,22 +759,22 @@ int mdev_num_links(mapper_device md)
 
 int mdev_num_connections_in(mapper_device md)
 {
-    mapper_router r = md->routers;
+    mapper_link l = md->router->links;
     int count = 0;
-    while (r) {
-        count += r->num_connections_in;
-        r = r->next;
+    while (l) {
+        count += l->num_connections_in;
+        l = l->next;
     }
     return count;
 }
 
 int mdev_num_connections_out(mapper_device md)
 {
-    mapper_router r = md->routers;
+    mapper_link l = md->router->links;
     int count = 0;
-    while (r) {
-        count += r->num_connections_out;
-        r = r->next;
+    while (l) {
+        count += l->num_connections_out;
+        l = l->next;
     }
     return count;
 }
@@ -940,12 +936,7 @@ void mdev_num_instances_changed(mapper_device md,
 {
     if (!md)
         return;
-
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_num_instances_changed(r, sig, size);
-        r = r->next;
-    }
+    mapper_router_num_instances_changed(md->router, sig, size);
 }
 
 void mdev_route_signal(mapper_device md,
@@ -955,13 +946,8 @@ void mdev_route_signal(mapper_device md,
                        int count,
                        mapper_timetag_t timetag)
 {
-    // pass update to each router in turn
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_process_signal(r, sig, instance_index,
-                                     value, count, timetag);
-        r = r->next;
-    }
+    mapper_router_process_signal(md->router, sig, instance_index,
+                                 value, count, timetag);
 }
 
 // Function to start a mapper queue
@@ -969,56 +955,20 @@ void mdev_start_queue(mapper_device md, mapper_timetag_t tt)
 {
     if (!md)
         return;
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_start_queue(r, tt);
-        r = r->next;
-    }
+    mapper_router_start_queue(md->router, tt);
 }
 
 void mdev_send_queue(mapper_device md, mapper_timetag_t tt)
 {
     if (!md)
         return;
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_send_queue(r, tt);
-        r = r->next;
-    }
+    mapper_router_send_queue(md->router, tt);
 }
 
 int mdev_route_query(mapper_device md, mapper_signal sig,
                      mapper_timetag_t tt)
 {
-    int count = 0;
-    mapper_router r = md->routers;
-    while (r) {
-        count += mapper_router_send_query(r, sig, tt);
-        r = r->next;
-    }
-    return count;
-}
-
-void mdev_add_router(mapper_device md, mapper_router rt)
-{
-    mapper_router *r = &md->routers;
-    rt->next = *r;
-    *r = rt;
-    md->props.num_links++;
-}
-
-void mdev_remove_router(mapper_device md, mapper_router rt)
-{
-    mapper_router *r = &md->routers;
-    while (*r) {
-        if (*r == rt) {
-            *r = rt->next;
-            mapper_router_free(rt);
-            md->props.num_links--;
-            break;
-        }
-        r = &(*r)->next;
-    }
+    return mapper_router_send_query(md->router, sig, tt);
 }
 
 void mdev_reserve_instance_id_map(mapper_device dev)

@@ -130,7 +130,7 @@ void loop()
         mapper_monitor_connect(mon, &inputs[1]->props, &inputs[2]->props, 0, 0);
 
         // wait until connection has been established
-        while (!done && !devices[0]->routers->num_connections_out) {
+        while (!done && !devices[0]->router->links->num_connections_out) {
             mdev_poll(devices[0], 10);
             mdev_poll(devices[1], 10);
         }

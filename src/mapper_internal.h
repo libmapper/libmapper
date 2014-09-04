@@ -70,7 +70,7 @@ struct _mapper_device {
     int version;
     int flags;    /*!< Bitflags indicating if information has already been
                    *   sent in a given polling step. */
-    mapper_router routers;
+    mapper_router router;
 
     int signal_slot_counter;
 
@@ -220,10 +220,6 @@ void mdev_route_signal(mapper_device md,
 int mdev_route_query(mapper_device md, mapper_signal sig,
                      mapper_timetag_t tt);
 
-void mdev_add_router(mapper_device md, mapper_router rt);
-
-void mdev_remove_router(mapper_device md, mapper_router rt);
-
 void mdev_release_scope(mapper_device md, const char *scope);
 
 void mdev_start_server(mapper_device mdev, int port);
@@ -249,15 +245,15 @@ int mdev_get_signal_slot(mapper_device device);
 
 /***** Router *****/
 
-mapper_router mapper_router_new(mapper_device device, const char *host,
-                                int admin_port, int data_port,
-                                const char *name);
+mapper_link mapper_router_add_link(mapper_router router, const char *host,
+                                   int admin_port, int data_port,
+                                   const char *name);
 
-void mapper_router_free(mapper_router router);
+void mapper_router_remove_link(mapper_router router, mapper_link link);
 
 /*! Set a router's properties based on message parameters. */
-int mapper_router_set_from_message(mapper_router router,
-                                   mapper_message_t *msg, int swap);
+int mapper_router_set_link_from_message(mapper_router router, mapper_link link,
+                                        mapper_message_t *msg, int swap);
 
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
@@ -283,6 +279,7 @@ int mapper_router_send_query(mapper_router router,
                              mapper_timetag_t tt);
 
 mapper_connection mapper_router_add_connection(mapper_router router,
+                                               mapper_link link,
                                                mapper_signal sig,
                                                const char *dest_name,
                                                char dest_type,
@@ -297,21 +294,18 @@ mapper_connection mapper_router_find_connection(mapper_router router,
                                                 mapper_signal signal,
                                                 const char* remote_signal_name);
 
-int mapper_router_in_incoming_scope(mapper_router router, uint32_t origin);
-int mapper_router_in_outgoing_scope(mapper_router router, uint32_t origin);
+/*! Find a link by remote address in a linked list of links. */
+mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
+                                                      const char *host,
+                                                      int port);
 
-/*! Find a router by remote address in a linked list of routers. */
-mapper_router mapper_router_find_by_remote_address(mapper_router routers,
-                                                   const char *host,
-                                                   int port);
-
-/*! Find a router by remote device name in a linked list of routers. */
-mapper_router mapper_router_find_by_remote_name(mapper_router routers,
+/*! Find a link by remote device name in a linked list of links. */
+mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
                                                 const char *name);
 
-/*! Find a router by destination device hash in a linked list of routers. */
-mapper_router mapper_router_find_by_dest_hash(mapper_router routers,
-                                              uint32_t hash);
+/*! Find a link by remote device hash in a linked list of links. */
+mapper_link mapper_router_find_link_by_remote_hash(mapper_router router,
+                                                   uint32_t hash);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -689,9 +683,9 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq);
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
-/*! Prepare a lo_message for sending based on a connection struct. */
-void mapper_router_prepare_osc_message(lo_message m,
-                                       mapper_router router, int swap);
+/*! Prepare a lo_message for sending based on a link struct. */
+void mapper_link_prepare_osc_message(lo_message m,
+                                     mapper_link link, int swap);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,

@@ -109,7 +109,7 @@ int setup_connection()
                         mdev_name(destination), 0, 0);
 
     // Wait until link has been established
-    while (!done && !source->routers) {
+    while (!done && !source->router->links) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -135,7 +135,7 @@ int setup_connection()
                            CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
 
     // Wait until connection has been established
-    while (!done && !source->routers->num_connections_out) {
+    while (!done && !source->router->links->num_connections_out) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -226,7 +226,7 @@ int main(int argc, char **argv)
     wait_ready();
 
     if (autoconnect && setup_connection()) {
-        eprintf("Error initializing router.\n");
+        eprintf("Error initializing connections.\n");
         result = 1;
         goto done;
     }

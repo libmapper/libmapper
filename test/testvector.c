@@ -107,7 +107,7 @@ int setup_connections()
                         mdev_name(destination), 0, 0);
 
     // wait until link has been established
-    while (!done && !source->routers) {
+    while (!done && !source->router->links) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
@@ -120,7 +120,7 @@ int setup_connections()
 
     // wait until connection has been established
     i = 0;
-    while (!done && !source->routers->num_connections_out) {
+    while (!done && !source->router->links->num_connections_out) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
