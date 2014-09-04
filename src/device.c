@@ -144,8 +144,14 @@ void mdev_free(mapper_device md)
         free(map);
     }
 
-    if (md->router)
+    if (md->router) {
+        while (md->router->signals) {
+            mapper_router_signal rs = md->router->signals;
+            md->router->signals = md->router->signals->next;
+            free(rs);
+        }
         free(md->router);
+    }
     if (md->props.extra)
         table_free(md->props.extra, 1);
     if (md->props.identifier)
