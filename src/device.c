@@ -231,6 +231,7 @@ static int handler_signal(const char *path, const char *types,
     int i = 0, j, k, count = 1, nulls = 0;
     int index = 0, is_instance_update = 0, origin, public_id;
     mapper_id_map map;
+    int slot = -1;
 
     if (!sig || !sig->handler || !(md = sig->device)) {
         trace("error, cannot retrieve user_data\n");
@@ -260,17 +261,33 @@ static int handler_signal(const char *path, const char *types,
     }
     count = value_len / sig->props.length;
 
-    if (argc >= value_len + 3) {
-        // could be update of specific instance
-        if (types[value_len] != 's' && types[value_len] != 'S')
+    int argnum = value_len;
+    while (argnum < argc) {
+        // Parse any attached properties (instance ids, slot number)
+        if (types[argnum] != 's' && types[argnum] != 'S') {
+            trace("error in signal handler.\n");
             return 0;
-        if (strcmp(&argv[value_len]->s, "@instance") != 0)
+        }
+        if (strcmp(&argv[argnum]->s, "@instance") == 0
+            && argc >= argnum + 3) {
+            if (types[argnum+1] != 'i' || types[argnum+2] != 'i')
+                return 0;
+            is_instance_update = 1;
+            origin = argv[argnum+1]->i32;
+            public_id = argv[argnum+2]->i32;
+            argnum += 3;
+        }
+        else if (strcmp(&argv[argnum]->s, "@slot") == 0
+                 && argc >= argnum + 2) {
+            if (types[argnum+1] != 'i')
+                return 0;
+            slot = argv[argnum+1]->i32;
+            argnum += 2;
+        }
+        else {
+            trace("error parsing signal update properties.\n");
             return 0;
-        if (types[value_len+1] != 'i' || types[value_len+2] != 'i')
-            return 0;
-        is_instance_update = 1;
-        origin = argv[value_len+1]->i32;
-        public_id = argv[value_len+2]->i32;
+        }
     }
 
     // TODO: optionally discard out-of-order messages
@@ -1222,5 +1239,8 @@ void mdev_set_connection_callback(mapper_device dev,
 
 int mdev_get_signal_slot(mapper_device dev)
 {
-    return ++dev->signal_slot_counter;
+    ++dev->signal_slot_counter;
+    if (dev->signal_slot_counter < 0)
+        dev->signal_slot_counter = 0;
+    return dev->signal_slot_counter;
 }
