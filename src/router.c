@@ -127,12 +127,31 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     return l;
 }
 
+static void remove_link_signals(mapper_router router, mapper_link link)
+{
+    mapper_router_signal rs = router->signals;
+    while (rs) {
+        mapper_connection c = rs->connections;
+        rs = rs->next;
+        while (c) {
+            if (c->link == link) {
+                mapper_connection temp = c;
+                c = c->next;
+                mapper_router_remove_connection(router, temp);
+            }
+            else
+                c = c->next;
+        }
+    }
+}
+
 void mapper_router_remove_link(mapper_router router, mapper_link link)
 {
     mapper_link *links = &router->links;
     while (*links) {
         if (*links == link) {
             *links = link->next;
+            remove_link_signals(router, link);
             mapper_link_free(link);
             router->device->props.num_links--;
             break;
