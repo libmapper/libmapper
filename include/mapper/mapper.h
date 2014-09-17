@@ -9,6 +9,8 @@ extern "C" {
 #include <mapper/mapper_types.h>
 
 #define MAPPER_NOW ((mapper_timetag_t){0L,1L})
+#define DI_OUTGOING 0
+#define DI_INCOMING 1
 
 /*! \mainpage libmapper
 
@@ -18,6 +20,9 @@ information, and be sure to consult the tutorial to get started with
 libmapper concepts.
 
  */
+
+typedef mapper_db_device mapper_device_props;
+typedef mapper_db_signal mapper_signal_props;
 
 /*** Signals ***/
 
@@ -316,6 +321,19 @@ mapper_db_signal msig_properties(mapper_signal sig);
 void msig_set_property(mapper_signal sig, const char *property,
                        char type, void *value, int length);
 
+/*! Look up a device property by name.
+ *  \param sig      The signal to look at.
+ *  \param property The name of the property to retrieve.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int msig_property_lookup(mapper_signal sig, const char *property,
+                         char *type, const void **value, int *length);
+
 /*! Remove a property of a signal.
  *  \param sig       The signal to operate on.
  *  \param property  The name of the property to remove. */
@@ -472,7 +490,7 @@ mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
 /*! Get a device's property structure.
  *  \param dev  The device to operate on.
  *  \return     A structure containing the device's properties. */
-mapper_db_device mdev_properties(mapper_device dev);
+mapper_device_props mdev_properties(mapper_device dev);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
@@ -483,6 +501,19 @@ mapper_db_device mdev_properties(mapper_device dev);
  *  \param length    The length of value array. */
 void mdev_set_property(mapper_device dev, const char *property,
                        char type, void *value, int length);
+
+/*! Look up a device property by name.
+ *  \param dev      The device to look at.
+ *  \param property The name of the property to retrieve.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mdev_property_lookup(mapper_device dev, const char *property,
+                         char *type, const void **value, int *length);
 
 /*! Remove a property of a device.
  *  \param dev       The device to operate on.
@@ -597,16 +628,16 @@ typedef enum {
 /*! Function to call when a local device link is established or
  *  destroyed. */
 typedef void mapper_device_link_handler(mapper_device dev,
-                                        mapper_db_link link,
+                                        mapper_link_props link,
                                         mapper_device_local_action_t action,
                                         void *user);
 
 /*! Function to call when a local device connection is established or
  *  destroyed. */
 typedef void mapper_device_connection_handler(mapper_device dev,
-                                              mapper_db_link link,
+                                              mapper_link_props link,
                                               mapper_signal sig,
-                                              mapper_db_connection connection,
+                                              mapper_connection_props connection,
                                               mapper_device_local_action_t action,
                                               void *user);
 
@@ -623,6 +654,33 @@ void mdev_set_link_callback(mapper_device dev,
 void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user);
+
+/*! Look up a link property by name.
+ *  \param link     The link to look at.
+ *  \param property The name of the property to retrive.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_link_property_lookup(mapper_link_props link, const char *property,
+                                char *type, const void **value, int *length);
+
+/*! Look up a connection property by name.
+ *  \param connection   The link to look at.
+ *  \param property     The name of the property to retrive.
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_connection_property_lookup(mapper_connection_props connection,
+                                      const char *property, char *type,
+                                      const void **value, int *length);
 
 /* @} */
 
@@ -664,6 +722,11 @@ const char *mapper_admin_libversion(mapper_admin admin);
 
 /**** Device database ****/
 
+/*! @defgroup devicedb Device database
+
+    @{ A monitor may query information about devices on the network
+       through this interface. */
+
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
 typedef enum {
@@ -672,13 +735,6 @@ typedef enum {
     MDB_REMOVE,
     MDB_UNRESPONSIVE,
 } mapper_db_action_t;
-
-/***** Devices *****/
-
-/*! @defgroup devicedb Device database
-
-    @{ A monitor may query information about devices on the network
-       through this interface. */
 
 /*! A callback function prototype for when a device record is added or
  *  updated in the database. Such a function is passed in to
@@ -772,7 +828,7 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
 
 /*! Look up a device property by name.
  *  \param dev      The device to look at.
- *  \param property The name of the property to retrive.
+ *  \param property The name of the property to retrieve.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
@@ -1420,7 +1476,7 @@ void mapper_monitor_disconnect(mapper_monitor mon,
 /***** Time *****/
 
 /*! @defgroup time Time
- 
+
  @{ libmapper primarily uses NTP timetags for communication and
     synchronization. */
 

@@ -122,7 +122,6 @@ int setup_connection()
     props.src_max = &src_max;
     props.dest_min = &dest_min;
     props.dest_max = &dest_max;
-    props.range_known = CONNECTION_RANGE_KNOWN;
     props.src_length = 1;
     props.dest_length = 1;
     props.src_type = 'f';

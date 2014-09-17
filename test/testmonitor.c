@@ -118,7 +118,7 @@ void printsignal(mapper_db_signal sig)
 
 void printlink(mapper_db_link link)
 {
-    printf("  %s -> %s", link->src_name, link->dest_name);
+    printf("  %s -> %s", link->name1, link->name2);
 
     int i=0;
     const char *key;
@@ -131,8 +131,8 @@ void printlink(mapper_db_link link)
         die_unless(val!=0, "returned zero value\n");
 
         // already printed these
-        if (strcmp(key, "src_name")==0
-            || strcmp(key, "dest_name")==0)
+        if (strcmp(key, "name1")==0
+            || strcmp(key, "name2")==0)
             continue;
 
         if (length) {
@@ -325,9 +325,9 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
     update = 1;
 }
 
-void on_link(mapper_db_link lnk, mapper_db_action_t a, void *user)
+void on_link(mapper_db_link link, mapper_db_action_t a, void *user)
 {
-    printf("Link %s -> %s ", lnk->src_name, lnk->dest_name);
+    printf("Link %s -> %s ", link->name1, link->name2);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");

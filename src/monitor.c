@@ -277,35 +277,35 @@ void mapper_monitor_link(mapper_monitor mon,
         lo_message_add_string(m, source_device);
         lo_message_add_string(m, dest_device);
 
-        if ((props_flags & LINK_NUM_SRC_SCOPES) && props->src_scopes.size
-            && ((props_flags & LINK_SRC_SCOPE_NAMES)
-                || (props_flags & LINK_SRC_SCOPE_HASHES))) {
-            lo_message_add_string(m, "@srcScope");
+        if ((props_flags & LINK_NUM_SCOPES1) && props->scopes1.size
+            && ((props_flags & LINK_SCOPE1_NAMES)
+                || (props_flags & LINK_SCOPE1_HASHES))) {
+            lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE_LR]);
             int i;
-            if (props_flags & LINK_SRC_SCOPE_NAMES) {
-                for (i=0; i<props->src_scopes.size; i++) {
-                    lo_message_add_string(m, props->src_scopes.names[i]);
+            if (props_flags & LINK_SCOPE1_NAMES) {
+                for (i=0; i<props->scopes1.size; i++) {
+                    lo_message_add_string(m, props->scopes1.names[i]);
                 }
             }
-            else if (props_flags & LINK_SRC_SCOPE_HASHES) {
-                for (i=0; i<props->src_scopes.size; i++) {
-                    lo_message_add_int32(m, props->src_scopes.hashes[i]);
+            else if (props_flags & LINK_SCOPE1_HASHES) {
+                for (i=0; i<props->scopes1.size; i++) {
+                    lo_message_add_int32(m, props->scopes1.hashes[i]);
                 }
             }
         }
-        if ((props_flags & LINK_NUM_DEST_SCOPES) && props->dest_scopes.size
-            && ((props_flags & LINK_DEST_SCOPE_NAMES)
-                || (props_flags & LINK_DEST_SCOPE_HASHES))) {
-                lo_message_add_string(m, "@destScope");
+        if ((props_flags & LINK_NUM_SCOPES2) && props->scopes2.size
+            && ((props_flags & LINK_SCOPE2_NAMES)
+                || (props_flags & LINK_SCOPE2_HASHES))) {
+                lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE_RL]);
             int i;
-            if (props_flags & LINK_DEST_SCOPE_NAMES) {
-                for (i=0; i<props->dest_scopes.size; i++) {
-                    lo_message_add_string(m, props->dest_scopes.names[i]);
+            if (props_flags & LINK_SCOPE2_NAMES) {
+                for (i=0; i<props->scopes2.size; i++) {
+                    lo_message_add_string(m, props->scopes2.names[i]);
                 }
             }
-            else if (props_flags & LINK_DEST_SCOPE_HASHES) {
-                for (i=0; i<props->dest_scopes.size; i++) {
-                    lo_message_add_int32(m, props->dest_scopes.hashes[i]);
+            else if (props_flags & LINK_SCOPE2_HASHES) {
+                for (i=0; i<props->scopes2.size; i++) {
+                    lo_message_add_int32(m, props->scopes2.hashes[i]);
                 }
             }
         }

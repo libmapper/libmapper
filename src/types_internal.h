@@ -26,6 +26,8 @@
 struct _mapper_signal;
 struct _mapper_admin;
 typedef struct _mapper_expr *mapper_expr;
+struct _mapper_link_props;
+struct _mapper_connection_props;
 
 /* Forward declarations for this file. */
 
@@ -179,9 +181,6 @@ typedef mapper_admin_t *mapper_admin;
 
 /**** Router ****/
 
-#define DI_OUTGOING 0
-#define DI_INCOMING 1
-
 typedef struct _mapper_queue {
     mapper_timetag_t tt;
     lo_bundle bundle;
@@ -191,18 +190,18 @@ typedef struct _mapper_queue {
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_link {
-    int self_link;                  //!< 1 if this is a router to self.
-    lo_address admin_addr;          //!< Network address of remote endpoint
-    lo_address data_addr;           //!< Network address of remote endpoint
-    mapper_db_link_t props;         //!< Properties.
-    struct _mapper_device *device;  /*!< The device associated with
-                                     *   this link */
-    int num_connections_in;         //!< Number of incoming connections in link.
-    int num_connections_out;        //!< Number of outgoing connections in link.
-    mapper_queue queues;            /*!< Linked-list of message queues
-                                     *   waiting to be sent. */
+    int self_link;                      //!< 1 if this is a router to self.
+    lo_address admin_addr;              //!< Network address of remote endpoint
+    lo_address data_addr;               //!< Network address of remote endpoint
+    struct _mapper_link_props props;    //!< Properties.
+    struct _mapper_device *device;      /*!< The device associated with
+                                         *   this link */
+    int num_connections_in;             //!< Number of incoming connections in link.
+    int num_connections_out;            //!< Number of outgoing connections in link.
+    mapper_queue queues;                /*!< Linked-list of message queues
+                                         *   waiting to be sent. */
     mapper_sync_clock_t clock;
-    struct _mapper_link *next;      //!< Next link in the list.
+    struct _mapper_link *next;          //!< Next link in the list.
 } *mapper_link;
 
 /*! The router_connection structure is a linked list of connections for a
@@ -211,12 +210,11 @@ typedef struct _mapper_link {
  *  performing mapping, the connection properties are publically
  *  defined in mapper_db.h. */
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;           //!< Properties
+    struct _mapper_connection_props props;  //!< Properties
     struct _mapper_router_signal *parent;   /*!< Parent signal reference
                                              *   in router. */
     mapper_link link;
     int new;                                //!< 1 if hasn't been announced locally
-    int direction;                          //!< DI_OUTGOING or DI_INCOMING
     int calibrating;                        /*!< 1 if the source range is
                                              *   currently being calibrated,
                                              *   0 otherwise. */
@@ -344,8 +342,6 @@ typedef enum {
     AT_DEST_LENGTH,
     AT_DEST_MAX,
     AT_DEST_MIN,
-    AT_DEST_PORT,
-    AT_DEST_SCOPE,
     AT_DEST_TYPE,
     AT_DIRECTION,
     AT_EXPRESSION,
@@ -367,13 +363,13 @@ typedef enum {
     AT_RATE,
     AT_REV,
     AT_SCOPE,
+    AT_SCOPE_LR,
+    AT_SCOPE_RL,
     AT_SEND_AS_INSTANCE,
     AT_SLOT,
     AT_SRC_LENGTH,
     AT_SRC_MAX,
     AT_SRC_MIN,
-    AT_SRC_PORT,
-    AT_SRC_SCOPE,
     AT_SRC_TYPE,
     AT_TYPE,
     AT_UNITS,

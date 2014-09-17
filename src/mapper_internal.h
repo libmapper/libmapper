@@ -268,12 +268,6 @@ void mapper_router_process_signal(mapper_router r,
                                   int count,
                                   mapper_timetag_t timetag);
 
-lo_message mapper_router_build_message(mapper_db_connection props,
-                                       void *value,
-                                       int length,
-                                       char *typestring,
-                                       mapper_id_map id_map);
-
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
                              mapper_timetag_t tt);
@@ -409,7 +403,30 @@ void msig_release_instance_internal(mapper_signal sig,
                                     int instance_index,
                                     mapper_timetag_t timetag);
 
-/**** connections ****/
+/**** Links ****/
+
+/*! Add or update an entry in the link database using parsed message
+ *  parameters.
+ *  \param db     The database to operate on.
+ *  \param src_name  The name of the source device.
+ *  \param dest_name The name of the destination device.
+ *  \param params The parsed message parameters containing new link
+ *                information.
+ *  \return       Non-zero if link was added to the database, or
+ *                zero if it was already present. */
+int mapper_db_add_or_update_link_params(mapper_db db,
+                                        const char *src_name,
+                                        const char *dest_name,
+                                        mapper_message_t *params);
+
+/*! Update a scope identifiers to a given link record. */
+int mapper_db_link_update_scopes(mapper_link_scope scopes,
+                                 lo_arg **scope_list, int num);
+
+/**** Connections ****/
+
+void mhist_realloc(mapper_signal_history_t *history, int history_size,
+                   int sample_size, int is_output);
 
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
@@ -426,19 +443,21 @@ int mapper_connection_perform(mapper_connection connection,
 int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
+lo_message mapper_connection_build_message(mapper_connection c, void *value,
+                                           int length, char *typestring,
+                                           mapper_id_map id_map);
+
 /*! Set a connection's properties based on message parameters. */
 int mapper_connection_set_from_message(mapper_connection connection,
                                        mapper_message_t *msg,
                                        int direction);
 
-void mapper_connection_set_mode_direct(mapper_connection connection);
+const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
-void mapper_connection_set_mode_linear(mapper_connection connection);
+const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 void mapper_connection_set_mode_expression(mapper_connection connection,
                                            const char *expr);
-
-void mapper_connection_set_mode_calibrate(mapper_connection connection);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
@@ -546,31 +565,6 @@ void mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
 /*! Flush device records for unresponsive devices. */
 int mapper_db_flush(mapper_db db, uint32_t current_time,
                     uint32_t timeout, int quiet);
-
-/**** Links ****/
-
-/*! Add or update an entry in the link database using parsed message
- *  parameters.
- *  \param db     The database to operate on.
- *  \param src_name  The name of the source device.
- *  \param dest_name The name of the destination device.
- *  \param params The parsed message parameters containing new link
- *                information.
- *  \return       Non-zero if link was added to the database, or
- *                zero if it was already present. */
-int mapper_db_add_or_update_link_params(mapper_db db,
-                                        const char *src_name,
-                                        const char *dest_name,
-                                        mapper_message_t *params);
-
-/*! Update a scope identifiers to a given link record. */
-int mapper_db_link_update_scopes(mapper_link_scope scopes,
-                                 lo_arg **scope_list, int num);
-
-/**** Connections ****/
-
-void mhist_realloc(mapper_signal_history_t *history, int history_size,
-                   int sample_size, int is_output);
 
 /**** Messages ****/
 
@@ -694,6 +688,12 @@ void mapper_connection_prepare_osc_message(lo_message m,
 // Helper for setting property value from different lo_arg types
 int propval_set_from_lo_arg(void *dest, const char dest_type,
                             lo_arg *src, const char src_type, int index);
+
+/*! Helper for setting property value from different double type. */
+void propval_set_double(void *to, const char type, int index, double from);
+
+/*! Helper for getting a double from different property value types. */
+double propval_get_double(void *value, const char type, int index);
 
 /**** Expression parser/evaluator ****/
 

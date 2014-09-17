@@ -12,6 +12,7 @@
 static void reallocate_connection_histories(mapper_connection c,
                                             int input_history_size,
                                             int output_history_size);
+static int mapper_connection_set_mode_linear(mapper_connection c);
 
 const char* mapper_boundary_action_strings[] =
 {
@@ -49,7 +50,7 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
     return mapper_mode_type_strings[mode];
 }
 
-int mapper_connection_perform(mapper_connection connection,
+int mapper_connection_perform(mapper_connection c,
                               mapper_signal_history_t *from,
                               mapper_signal_history_t **expr_vars,
                               mapper_signal_history_t *to,
@@ -58,24 +59,24 @@ int mapper_connection_perform(mapper_connection connection,
     int changed = 0, i;
     int vector_length = from->length < to->length ? from->length : to->length;
 
-    if (connection->props.muted)
+    if (c->props.muted)
         return 0;
 
     /* If the destination type is unknown, we can't do anything
      * intelligent here -- even bypass mode might screw up if we
      * assume the types work out. */
-    if (connection->props.dest_type != 'f'
-        && connection->props.dest_type != 'i'
-        && connection->props.dest_type != 'd')
+    if (c->props.remote_type != 'f'
+        && c->props.remote_type != 'i'
+        && c->props.remote_type != 'd')
     {
         return 0;
     }
 
-    if (!connection->props.mode || connection->props.mode == MO_BYPASS)
+    if (!c->props.mode || c->props.mode == MO_BYPASS)
     {
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
-        if (connection->props.src_type == connection->props.dest_type) {
+        if (c->props.local_type == c->props.remote_type) {
             memcpy(msig_history_value_pointer(*to),
                    msig_history_value_pointer(*from),
                    mapper_type_size(to->type) * vector_length);
@@ -83,9 +84,9 @@ int mapper_connection_perform(mapper_connection connection,
                    mapper_type_size(to->type) * vector_length, 0,
                    (to->length - vector_length) * mapper_type_size(to->type));
         }
-        else if (connection->props.src_type == 'f') {
+        else if (c->props.local_type == 'f') {
             float *vfrom = msig_history_value_pointer(*from);
-            if (connection->props.dest_type == 'i') {
+            if (c->props.remote_type == 'i') {
                 int *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (int)vfrom[i];
@@ -94,7 +95,7 @@ int mapper_connection_perform(mapper_connection connection,
                     vto[i] = 0;
                 }
             }
-            else if (connection->props.dest_type == 'd') {
+            else if (c->props.remote_type == 'd') {
                 double *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (double)vfrom[i];
@@ -104,9 +105,9 @@ int mapper_connection_perform(mapper_connection connection,
                 }
             }
         }
-        else if (connection->props.src_type == 'i') {
+        else if (c->props.local_type == 'i') {
             int *vfrom = msig_history_value_pointer(*from);
-            if (connection->props.dest_type == 'f') {
+            if (c->props.remote_type == 'f') {
                 float *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (float)vfrom[i];
@@ -115,7 +116,7 @@ int mapper_connection_perform(mapper_connection connection,
                     vto[i] = 0;
                 }
             }
-            else if (connection->props.dest_type == 'd') {
+            else if (c->props.remote_type == 'd') {
                 double *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (double)vfrom[i];
@@ -125,9 +126,9 @@ int mapper_connection_perform(mapper_connection connection,
                 }
             }
         }
-        else if (connection->props.src_type == 'd') {
+        else if (c->props.local_type == 'd') {
             double *vfrom = msig_history_value_pointer(*from);
-            if (connection->props.dest_type == 'i') {
+            if (c->props.remote_type == 'i') {
                 int *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (int)vfrom[i];
@@ -136,7 +137,7 @@ int mapper_connection_perform(mapper_connection connection,
                     vto[i] = 0;
                 }
             }
-            else if (connection->props.dest_type == 'f') {
+            else if (c->props.remote_type == 'f') {
                 float *vto = msig_history_value_pointer(*to);
                 for (i = 0; i < vector_length; i++) {
                     vto[i] = (float)vfrom[i];
@@ -151,41 +152,40 @@ int mapper_connection_perform(mapper_connection connection,
         }
         return 1;
     }
-    else if (connection->props.mode == MO_EXPRESSION
-             || connection->props.mode == MO_LINEAR)
+    else if (c->props.mode == MO_EXPRESSION
+             || c->props.mode == MO_LINEAR)
     {
-        die_unless(connection->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(connection->expr, from, expr_vars,
-                                     to, typestring));
+        die_unless(c->expr!=0, "Missing expression.\n");
+        return (mapper_expr_evaluate(c->expr, from, expr_vars, to, typestring));
     }
-    else if (connection->props.mode == MO_CALIBRATE)
+    else if (c->props.mode == MO_CALIBRATE)
     {
         /* Increment index position of output data structure. */
         to->position = (to->position + 1) % to->size;
 
-        if (!connection->props.src_min) {
-            connection->props.src_min =
-                malloc(connection->props.src_length *
-                       mapper_type_size(connection->props.src_type));
+        if (!c->props.local_min) {
+            c->props.local_min =
+                malloc(c->props.local_length *
+                       mapper_type_size(c->props.local_type));
         }
-        if (!connection->props.src_max) {
-            connection->props.src_max =
-                malloc(connection->props.src_length *
-                       mapper_type_size(connection->props.src_type));
+        if (!c->props.local_max) {
+            c->props.local_max =
+                malloc(c->props.local_length *
+                       mapper_type_size(c->props.local_type));
         }
 
         /* If calibration mode has just taken effect, first data
          * sample sets source min and max */
-        if (connection->props.src_type == 'f') {
+        if (c->props.local_type == 'f') {
             float *v = msig_history_value_pointer(*from);
-            float *src_min = (float*)connection->props.src_min;
-            float *src_max = (float*)connection->props.src_max;
-            if (!connection->calibrating) {
+            float *src_min = (float*)c->props.local_min;
+            float *src_max = (float*)c->props.local_max;
+            if (!c->calibrating) {
                 for (i = 0; i < from->length; i++) {
                     src_min[i] = v[i];
                     src_max[i] = v[i];
                 }
-                connection->calibrating = 1;
+                c->calibrating = 1;
                 changed = 1;
             }
             else {
@@ -201,16 +201,16 @@ int mapper_connection_perform(mapper_connection connection,
                 }
             }
         }
-        else if (connection->props.src_type == 'i') {
+        else if (c->props.local_type == 'i') {
             int *v = msig_history_value_pointer(*from);
-            int *src_min = (int*)connection->props.src_min;
-            int *src_max = (int*)connection->props.src_max;
-            if (!connection->calibrating) {
+            int *src_min = (int*)c->props.local_min;
+            int *src_max = (int*)c->props.local_max;
+            if (!c->calibrating) {
                 for (i = 0; i < from->length; i++) {
                     src_min[i] = v[i];
                     src_max[i] = v[i];
                 }
-                connection->calibrating = 1;
+                c->calibrating = 1;
                 changed = 1;
             }
             else {
@@ -226,16 +226,16 @@ int mapper_connection_perform(mapper_connection connection,
                 }
             }
         }
-        else if (connection->props.src_type == 'd') {
+        else if (c->props.local_type == 'd') {
             double *v = msig_history_value_pointer(*from);
-            double *src_min = (double*)connection->props.src_min;
-            double *src_max = (double*)connection->props.src_max;
-            if (!connection->calibrating) {
+            double *src_min = (double*)c->props.local_min;
+            double *src_max = (double*)c->props.local_max;
+            if (!c->calibrating) {
                 for (i = 0; i < from->length; i++) {
                     src_min[i] = v[i];
                     src_max[i] = v[i];
                 }
-                connection->calibrating = 1;
+                c->calibrating = 1;
                 changed = 1;
             }
             else {
@@ -253,14 +253,14 @@ int mapper_connection_perform(mapper_connection connection,
         }
 
         if (changed) {
-            mapper_connection_set_mode_linear(connection);
+            mapper_connection_set_mode_linear(c);
 
             /* Stay in calibrate mode. */
-            connection->props.mode = MO_CALIBRATE;
+            c->props.mode = MO_CALIBRATE;
         }
 
-        if (connection->expr)
-            return (mapper_expr_evaluate(connection->expr, from, expr_vars,
+        if (c->expr)
+            return (mapper_expr_evaluate(c->expr, from, expr_vars,
                                          to, typestring));
         else
             return 0;
@@ -268,62 +268,7 @@ int mapper_connection_perform(mapper_connection connection,
     return 1;
 }
 
-static double propval_get_double(void *value, const char type, int index)
-{
-    switch (type) {
-        case 'f':
-        {
-            float *temp = (float*)value;
-            return (double)temp[index];
-            break;
-        }
-        case 'i':
-        {
-            int *temp = (int*)value;
-            return (double)temp[index];
-            break;
-        }
-        case 'd':
-        {
-            double *temp = (double*)value;
-            return temp[index];
-            break;
-        }
-        default:
-            return 0;
-            break;
-    }
-}
-
-static void propval_set_double(void *to, const char type,
-                               int index, double from)
-{
-    switch (type) {
-        case 'f':
-        {
-            float *temp = (float*)to;
-            temp[index] = (float)from;
-            break;
-        }
-        case 'i':
-        {
-            int *temp = (int*)to;
-            temp[index] = (int)from;
-            break;
-        }
-        case 'd':
-        {
-            double *temp = (double*)to;
-            temp[index] = from;
-            break;
-        default:
-            return;
-            break;
-        }
-    }
-}
-
-int mapper_boundary_perform(mapper_connection connection,
+int mapper_boundary_perform(mapper_connection c,
                             mapper_signal_history_t *history)
 {
     /* TODO: We are currently saving the processed values to output history.
@@ -335,36 +280,34 @@ int mapper_boundary_perform(mapper_connection connection,
     double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
-    if (connection->props.bound_min == BA_NONE
-        && connection->props.bound_max == BA_NONE)
+    if (c->props.bound_min == BA_NONE
+        && c->props.bound_max == BA_NONE)
     {
         return 1;
     }
-    if (!(connection->props.range_known & CONNECTION_RANGE_DEST_MIN)
-        && (connection->props.bound_min != BA_NONE ||
-            connection->props.bound_max == BA_WRAP)) {
+    if (!c->props.remote_min
+        && (c->props.bound_min != BA_NONE || c->props.bound_max == BA_WRAP)) {
         return 1;
     }
-    if (!(connection->props.range_known & CONNECTION_RANGE_DEST_MAX)
-        && (connection->props.bound_max != BA_NONE ||
-            connection->props.bound_min == BA_WRAP)) {
+    if (!c->props.remote_max
+        && (c->props.bound_max != BA_NONE || c->props.bound_min == BA_WRAP)) {
         return 1;
     }
 
     for (i = 0; i < history->length; i++) {
         value = propval_get_double(msig_history_value_pointer(*history),
-                                   connection->props.dest_type, i);
-        dest_min = propval_get_double(connection->props.dest_min,
-                                      connection->props.dest_type, i);
-        dest_max = propval_get_double(connection->props.dest_max,
-                                      connection->props.dest_type, i);
+                                   c->props.remote_type, i);
+        dest_min = propval_get_double(c->props.remote_min,
+                                      c->props.remote_type, i);
+        dest_max = propval_get_double(c->props.remote_max,
+                                      c->props.remote_type, i);
         if (dest_min < dest_max) {
-            bound_min = connection->props.bound_min;
-            bound_max = connection->props.bound_max;
+            bound_min = c->props.bound_min;
+            bound_max = c->props.bound_max;
         }
         else {
-            bound_min = connection->props.bound_max;
-            bound_max = connection->props.bound_min;
+            bound_min = c->props.bound_max;
+            bound_max = c->props.bound_min;
             swap = dest_max;
             dest_max = dest_min;
             dest_min = swap;
@@ -494,9 +437,68 @@ int mapper_boundary_perform(mapper_connection connection,
             }
         }
         propval_set_double(msig_history_value_pointer(*history),
-                           connection->props.dest_type, i, value);
+                           c->props.remote_type, i, value);
     }
     return !muted;
+}
+
+/*! Build a value update message for a given connection. */
+lo_message mapper_connection_build_message(mapper_connection c, void *value,
+                                           int count, char *typestring,
+                                           mapper_id_map id_map)
+{
+    mapper_connection_props props = &c->props;
+    int i, length = props->remote_length * count;
+
+    lo_message m = lo_message_new();
+    if (!m)
+        return 0;
+
+    if (value && typestring) {
+        if (props->remote_type == 'f') {
+            float *v = (float*)value;
+            for (i = 0; i < length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_float(m, v[i]);
+            }
+        }
+        else if (props->remote_type == 'i') {
+            int *v = (int*)value;
+            for (i = 0; i < length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_int32(m, v[i]);
+            }
+        }
+        else if (props->remote_type == 'd') {
+            double *v = (double*)value;
+            for (i = 0; i < length; i++) {
+                if (typestring[i] == 'N')
+                    lo_message_add_nil(m);
+                else
+                    lo_message_add_double(m, v[i]);
+            }
+        }
+    }
+    else if (id_map) {
+        for (i = 0; i < length; i++)
+            lo_message_add_nil(m);
+    }
+
+    if (props->send_as_instance && id_map) {
+        lo_message_add_string(m, "@instance");
+        lo_message_add_int32(m, id_map->origin);
+        lo_message_add_int32(m, id_map->public);
+    }
+
+    // add slot
+    lo_message_add_string(m, "@slot");
+    lo_message_add_int32(m, props->slot);
+
+    return m;
 }
 
 /* Helper to replace a connection's expression only if the given string
@@ -507,8 +509,8 @@ static int replace_expression_string(mapper_connection c,
                                      int *output_history_size)
 {
     mapper_expr expr = mapper_expr_new_from_string(
-        expr_str, c->props.src_type, c->props.dest_type,
-        c->props.src_length, c->props.dest_length);
+        expr_str, c->props.local_type, c->props.remote_type,
+        c->props.local_length, c->props.remote_length);
 
     if (!expr)
         return 1;
@@ -542,22 +544,23 @@ void mapper_connection_set_mode_direct(mapper_connection c)
     reallocate_connection_histories(c, 1, 1);
 }
 
-void mapper_connection_set_mode_linear(mapper_connection c)
+static int mapper_connection_set_mode_linear(mapper_connection c)
 {
     int i, len;
     char expr[256] = "";
     const char *e = expr;
 
-    if (c->props.range_known != CONNECTION_RANGE_KNOWN)
-        return;
+    if (   !c->props.local_min  || !c->props.local_max
+        || !c->props.remote_min || !c->props.remote_max)
+        return 1;
 
-    int min_length = c->props.src_length < c->props.dest_length ?
-                     c->props.src_length : c->props.dest_length;
+    int min_length = c->props.local_length < c->props.remote_length ?
+                     c->props.local_length : c->props.remote_length;
     double src_min, src_max, dest_min, dest_max;
 
-    if (c->props.dest_length == c->props.src_length)
+    if (c->props.remote_length == c->props.local_length)
         snprintf(expr, 256, "y=x*");
-    else if (c->props.dest_length > c->props.src_length) {
+    else if (c->props.remote_length > c->props.local_length) {
         if (min_length == 1)
             snprintf(expr, 256, "y[0]=x*");
         else
@@ -577,15 +580,19 @@ void mapper_connection_set_mode_linear(mapper_connection c)
 
     for (i = 0; i < min_length; i++) {
         // get multiplier
-        src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
-        src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+        src_min = propval_get_double(c->props.local_min,
+                                     c->props.local_type, i);
+        src_max = propval_get_double(c->props.local_max,
+                                     c->props.local_type, i);
 
         len = strlen(expr);
         if (src_min == src_max)
             snprintf(expr+len, 256-len, "0,");
         else {
-            dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
-            dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, i);
+            dest_min = propval_get_double(c->props.remote_min,
+                                          c->props.remote_type, i);
+            dest_max = propval_get_double(c->props.remote_max,
+                                          c->props.remote_type, i);
             if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "1,");
             }
@@ -603,15 +610,19 @@ void mapper_connection_set_mode_linear(mapper_connection c)
 
     // add offset
     for (i=0; i<min_length; i++) {
-        src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
-        src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+        src_min = propval_get_double(c->props.local_min,
+                                     c->props.local_type, i);
+        src_max = propval_get_double(c->props.local_max,
+                                     c->props.local_type, i);
 
         len = strlen(expr);
         if (src_min == src_max)
             snprintf(expr+len, 256-len, "%g,", dest_min);
         else {
-            dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
-            dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, i);
+            dest_min = propval_get_double(c->props.remote_min,
+                                          c->props.remote_type, i);
+            dest_max = propval_get_double(c->props.remote_max,
+                                          c->props.remote_type, i);
             if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "0,");
             }
@@ -635,8 +646,10 @@ void mapper_connection_set_mode_linear(mapper_connection c)
                                        &output_history_size)) {
             reallocate_connection_histories(c, 1, 1);
             c->props.mode = MO_LINEAR;
+            return 0;
         }
     }
+    return 1;
 }
 
 void mapper_connection_set_mode_expression(mapper_connection c,
@@ -683,8 +696,12 @@ void mapper_connection_set_mode_expression(mapper_connection c,
     }
 }
 
-void mapper_connection_set_mode_calibrate(mapper_connection c)
+static void mapper_connection_set_mode_calibrate(mapper_connection c)
 {
+    /* Need destination extrema to calibrate. */
+    if (!c->props.remote_min || !c->props.remote_max)
+        return;
+
     c->props.mode = MO_CALIBRATE;
 
     if (c->props.expression)
@@ -692,10 +709,10 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
 
     char expr[256];
     int i, len;
-    int min_length = c->props.src_length < c->props.dest_length ?
-                     c->props.src_length : c->props.dest_length;
+    int min_length = c->props.local_length < c->props.remote_length ?
+                     c->props.local_length : c->props.remote_length;
 
-    if (c->props.dest_length > c->props.src_length) {
+    if (c->props.remote_length > c->props.local_length) {
         if (min_length == 1)
             snprintf(expr, 256, "y[0]=");
         else
@@ -704,35 +721,35 @@ void mapper_connection_set_mode_calibrate(mapper_connection c)
     else
         snprintf(expr, 256, "y=");
 
-    if (c->props.dest_length > 1) {
+    if (c->props.remote_length > 1) {
         len = strlen(expr);
         snprintf(expr+len, 256-len, "[");
     }
 
-    if (c->props.dest_type == 'f') {
-        float *temp = (float*)c->props.dest_min;
-        for (i=0; i<c->props.dest_length; i++) {
+    if (c->props.remote_type == 'f') {
+        float *temp = (float*)c->props.remote_min;
+        for (i=0; i<c->props.remote_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%g,", temp[i]);
         }
     }
-    else if (c->props.dest_type == 'i') {
-        int *temp = (int*)c->props.dest_min;
-        for (i=0; i<c->props.dest_length; i++) {
+    else if (c->props.remote_type == 'i') {
+        int *temp = (int*)c->props.remote_min;
+        for (i=0; i<c->props.remote_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%i,", temp[i]);
         }
     }
-    else if (c->props.dest_type == 'd') {
-        double *temp = (double*)c->props.dest_min;
-        for (i=0; i<c->props.dest_length; i++) {
+    else if (c->props.remote_type == 'd') {
+        double *temp = (double*)c->props.remote_min;
+        for (i=0; i<c->props.remote_length; i++) {
             len = strlen(expr);
             snprintf(expr+len, 256-len, "%g,", temp[i]);
         }
     }
 
     len = strlen(expr);
-    if (c->props.dest_length > 1)
+    if (c->props.remote_length > 1)
         snprintf(expr+len-1, 256-len+1, "]");
     else
         expr[len-1] = '\0';
@@ -754,9 +771,8 @@ static int is_number_type(const char type)
 }
 
 /* Helper to fill in the range (src_min, src_max, dest_min, dest_max)
- * based on message parameters and known connection and signal
- * properties; return flags to indicate which parts of the range were
- * found. */
+ * based on message parameters and known connection and signal properties;
+ * return flags to indicate which parts of the range were found. */
 static int set_range(mapper_connection c,
                      mapper_message_t *msg)
 {
@@ -773,158 +789,136 @@ static int set_range(mapper_connection c,
      * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
-    /* @srcMax */
-    args = mapper_msg_get_param(msg, AT_SRC_MAX);
-    types = mapper_msg_get_type(msg, AT_SRC_MAX);
-    length = mapper_msg_get_length(msg, AT_SRC_MAX);
+    int out = (c->props.direction == DI_OUTGOING);
+
+    /* local_max */
+    args = mapper_msg_get_param(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
+    types = mapper_msg_get_type(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
+    length = mapper_msg_get_length(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
     if (args && types && is_number_type(types[0])) {
-        if (length == c->props.src_length) {
-            if (!c->props.src_max)
-                c->props.src_max = calloc(1, length * c->props.src_type);
-            c->props.range_known |= CONNECTION_RANGE_SRC_MAX;
+        if (length == c->props.local_length) {
+            if (!c->props.local_max)
+                c->props.local_max = calloc(1, length * c->props.local_type);
             for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.src_max,
-                                                 c->props.src_type,
+                result = propval_set_from_lo_arg(c->props.local_max,
+                                                 c->props.local_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_SRC_MAX;
     }
 
-    /* @srcMin */
-    args = mapper_msg_get_param(msg, AT_SRC_MIN);
-    types = mapper_msg_get_type(msg, AT_SRC_MIN);
-    length = mapper_msg_get_length(msg, AT_SRC_MIN);
+    /* local_min */
+    args = mapper_msg_get_param(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
+    types = mapper_msg_get_type(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
+    length = mapper_msg_get_length(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
     if (args && types && is_number_type(types[0])) {
-        if (length == c->props.src_length) {
-            if (!c->props.src_min)
-                c->props.src_min = calloc(1, length * c->props.src_type);
-            c->props.range_known |= CONNECTION_RANGE_SRC_MIN;
+        if (length == c->props.local_length) {
+            if (!c->props.local_min)
+                c->props.local_min = calloc(1, length * c->props.local_type);
             for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.src_min,
-                                                 c->props.src_type,
+                result = propval_set_from_lo_arg(c->props.local_min,
+                                                 c->props.local_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_SRC_MIN;
     }
 
-    /* @destMax */
-    args = mapper_msg_get_param(msg, AT_DEST_MAX);
-    types = mapper_msg_get_type(msg, AT_DEST_MAX);
-    length = mapper_msg_get_length(msg, AT_DEST_MAX);
+    /* remote_max */
+    args = mapper_msg_get_param(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
+    types = mapper_msg_get_type(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
+    length = mapper_msg_get_length(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
     if (args && types && is_number_type(types[0])) {
-        if (length == c->props.dest_length) {
-            if (!c->props.dest_max)
-                c->props.dest_max = calloc(1, length * c->props.dest_type);
-            c->props.range_known |= CONNECTION_RANGE_DEST_MAX;
+        if (length == c->props.remote_length) {
+            if (!c->props.remote_max)
+                c->props.remote_max = calloc(1, length * c->props.remote_type);
             for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.dest_max,
-                                                 c->props.dest_type,
+                result = propval_set_from_lo_arg(c->props.remote_max,
+                                                 c->props.remote_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
     }
 
-    /* @destMin */
-    args = mapper_msg_get_param(msg, AT_DEST_MIN);
-    types = mapper_msg_get_type(msg, AT_DEST_MIN);
-    length = mapper_msg_get_length(msg, AT_DEST_MIN);
+    /* remote_min */
+    args = mapper_msg_get_param(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
+    types = mapper_msg_get_type(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
+    length = mapper_msg_get_length(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
     if (args && types && is_number_type(types[0])) {
-        if (length == c->props.dest_length) {
-            if (!c->props.dest_min)
-                c->props.dest_min = calloc(1, length * c->props.dest_type);
-            c->props.range_known |= CONNECTION_RANGE_DEST_MIN;
+        if (length == c->props.remote_length) {
+            if (!c->props.remote_min)
+                c->props.remote_min = calloc(1, length * c->props.remote_type);
             for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.dest_min,
-                                                 c->props.dest_type,
+                result = propval_set_from_lo_arg(c->props.remote_min,
+                                                 c->props.remote_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
     /* @min, @max */
-    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MIN)) {
+    if (!c->props.remote_min) {
         args = mapper_msg_get_param(msg, AT_MIN);
         types = mapper_msg_get_type(msg, AT_MIN);
         length = mapper_msg_get_length(msg, AT_MIN);
         if (args && types && is_number_type(types[0]))
         {
-            if (length == c->props.dest_length) {
-                if (!c->props.dest_min)
-                    c->props.dest_min = calloc(1, length * c->props.dest_type);
-                c->props.range_known |= CONNECTION_RANGE_DEST_MIN;
+            if (length == c->props.remote_length) {
+                if (!c->props.remote_min)
+                    c->props.remote_min = calloc(1, length * c->props.remote_type);
                 for (i=0; i<length; i++) {
-                    result = propval_set_from_lo_arg(c->props.dest_min,
-                                                     c->props.dest_type,
+                    result = propval_set_from_lo_arg(c->props.remote_min,
+                                                     c->props.remote_type,
                                                      args[i], types[i], i);
                     if (result == -1) {
-                        c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
                         break;
                     }
                     else
                         updated += result;
                 }
             }
-            else
-                c->props.range_known &= ~CONNECTION_RANGE_DEST_MIN;
         }
     }
 
-    if (!(c->props.range_known & CONNECTION_RANGE_DEST_MAX)) {
+    if (!c->props.remote_max) {
         args = mapper_msg_get_param(msg, AT_MAX);
         types = mapper_msg_get_type(msg, AT_MAX);
         length = mapper_msg_get_length(msg, AT_MAX);
         if (args && types && is_number_type(types[0]))
         {
-            if (length == c->props.dest_length) {
-                if (!c->props.dest_max)
-                    c->props.dest_max = calloc(1, length * c->props.dest_type);
-                c->props.range_known |= CONNECTION_RANGE_DEST_MAX;
+            if (length == c->props.remote_length) {
+                if (!c->props.remote_max)
+                    c->props.remote_max = calloc(1, length * c->props.remote_type);
                 for (i=0; i<length; i++) {
-                    result = propval_set_from_lo_arg(c->props.dest_max,
-                                                     c->props.dest_type,
+                    result = propval_set_from_lo_arg(c->props.remote_max,
+                                                     c->props.remote_type,
                                                      args[i], types[i], i);
                     if (result == -1) {
-                        c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
                         break;
                     }
                     else
                         updated += result;
                 }
             }
-            else
-                c->props.range_known &= ~CONNECTION_RANGE_DEST_MAX;
         }
     }
 
@@ -935,58 +929,26 @@ static int set_range(mapper_connection c,
      * if it is an input it can be either "source" or "destination".
      * According to the protocol for negotiating new connections, we will only
      * fill-in ranges for the "source" signal.*/
-    if (!sig || c->direction != DI_OUTGOING)
+    if (!sig || c->props.direction != DI_OUTGOING)
         return updated;
 
-    if (!c->props.src_min && sig->props.minimum)
+    if (!c->props.local_min && sig->props.minimum)
     {
-        c->props.src_min = malloc(msig_vector_bytes(sig));
-        memcpy(c->props.src_min, sig->props.minimum,
+        c->props.local_min = malloc(msig_vector_bytes(sig));
+        memcpy(c->props.local_min, sig->props.minimum,
                msig_vector_bytes(sig));
-        c->props.range_known |= CONNECTION_RANGE_SRC_MIN;
         updated++;
     }
 
-    if (!c->props.src_max && sig->props.maximum)
+    if (!c->props.local_max && sig->props.maximum)
     {
-        c->props.src_max = malloc(msig_vector_bytes(sig));
-        memcpy(c->props.src_max, sig->props.maximum,
+        c->props.local_max = malloc(msig_vector_bytes(sig));
+        memcpy(c->props.local_max, sig->props.maximum,
                msig_vector_bytes(sig));
-        c->props.range_known |= CONNECTION_RANGE_SRC_MAX;
         updated++;
     }
 
     return updated;
-}
-
-void mapper_connection_swap_direction(mapper_connection c)
-{
-    // swap names
-    char *stemp = c->props.src_name;
-    c->props.src_name = c->props.dest_name;
-    c->props.dest_name = stemp;
-
-    // swap lengths
-    int itemp = c->props.src_length;
-    c->props.src_length = c->props.dest_length;
-    c->props.dest_length = itemp;
-
-    // swap types
-    char ctemp = c->props.src_type;
-    c->props.src_type = c->props.dest_type;
-    c->props.dest_type = ctemp;
-
-    // swap minima
-    void *ptemp = c->props.src_min;
-    c->props.src_min = c->props.dest_min;
-    c->props.dest_min = ptemp;
-
-    // swap maxima
-    ptemp = c->props.src_max;
-    c->props.src_max = c->props.dest_max;
-    c->props.dest_max = ptemp;
-
-    c->direction = 1 - c->direction;
 }
 
 int mapper_connection_set_from_message(mapper_connection c,
@@ -997,29 +959,28 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* First record any provided parameters. */
 
     /* Direction */
-    if (direction != c->direction) {
+    if (direction != c->props.direction) {
         // check if we can swap direction
         if (direction == DI_INCOMING && !c->parent->signal->handler) {
             trace("error: signal '%s' cannot accept incoming connection.",
-                  c->props.src_name);
+                  c->props.local_name);
             return 0;
         }
-        mapper_connection_swap_direction(c);
+        c->props.direction = direction;
         updated++;
     }
 
-    /* Destination type. */
-    const char *dest_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
-    if (dest_type && c->props.dest_type != dest_type[0]) {
+    /* Remote type. */
+    const char *remote_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
+    if (remote_type && c->props.remote_type != remote_type[0]) {
         // TODO: need to reinitialize connections using this destination signal
-        c->props.dest_type = dest_type[0];
+        c->props.remote_type = remote_type[0];
         updated++;
     }
 
     /* Range information. */
     updated += set_range(c, msg);
-    if (c->props.range_known == CONNECTION_RANGE_KNOWN &&
-        c->props.mode == MO_LINEAR) {
+    if (c->props.mode == MO_LINEAR) {
         mapper_connection_set_mode_linear(c);
     }
 
@@ -1047,7 +1008,7 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
-        if (c->direction == DI_OUTGOING) {
+        if (c->props.direction == DI_OUTGOING) {
             int input_history_size, output_history_size;
             if (!replace_expression_string(c, expr, &input_history_size,
                                            &output_history_size)) {
@@ -1093,49 +1054,44 @@ int mapper_connection_set_from_message(mapper_connection c,
         /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
             if (c->props.mode == MO_UNDEFINED) {
-                if (c->props.range_known == CONNECTION_RANGE_KNOWN) {
-                    /* We have enough information for a linear connection. */
-                    mapper_connection_set_mode_linear(c);
-                } else
-                    /* No range, default to direct connection. */
+                /* Try to use linear connection .*/
+                if (mapper_connection_set_mode_linear(c)) {
+                    /* Unsuccessful, default to direct connection. */
                     mapper_connection_set_mode_direct(c);
+                }
             }
         break;
     case MO_BYPASS:
         mapper_connection_set_mode_direct(c);
         break;
     case MO_LINEAR:
-        if (c->props.range_known == CONNECTION_RANGE_KNOWN) {
-            mapper_connection_set_mode_linear(c);
-        }
+        mapper_connection_set_mode_linear(c);
         break;
     case MO_CALIBRATE:
-        if (c->props.range_known & (CONNECTION_RANGE_DEST_MIN
-                                    | CONNECTION_RANGE_DEST_MAX))
-            mapper_connection_set_mode_calibrate(c);
+        mapper_connection_set_mode_calibrate(c);
         break;
     case MO_EXPRESSION:
         {
             if (!c->props.expression) {
-                if (c->props.src_length == c->props.dest_length)
+                if (c->props.local_length == c->props.remote_length)
                     c->props.expression = strdup("y=x");
                 else {
                     char expr[256] = "";
-                    if (c->props.src_length > c->props.dest_length) {
+                    if (c->props.local_length > c->props.remote_length) {
                         // truncate source
-                        if (c->props.dest_length == 1)
+                        if (c->props.remote_length == 1)
                             snprintf(expr, 256, "y=x[0]");
                         else
                             snprintf(expr, 256, "y=x[0:%i]",
-                                     c->props.dest_length-1);
+                                     c->props.remote_length-1);
                     }
                     else {
                         // truncate destination
-                        if (c->props.src_length == 1)
+                        if (c->props.local_length == 1)
                             snprintf(expr, 256, "y[0]=x");
                         else
                             snprintf(expr, 256, "y[0:%i]=x",
-                                     c->props.src_length);
+                                     c->props.local_length);
                     }
                     c->props.expression = strdup(expr);
                 }
@@ -1195,7 +1151,7 @@ void reallocate_connection_histories(mapper_connection c,
 
     // reallocate output histories
     if (output_history_size > c->output_history_size) {
-        int sample_size = mapper_type_size(c->props.dest_type) * c->props.dest_length;
+        int sample_size = mapper_type_size(c->props.remote_type) * c->props.remote_length;
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->history[i], output_history_size, sample_size, 0);
         }

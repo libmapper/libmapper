@@ -484,16 +484,27 @@ typedef struct {
 #define DEVDB_OFFSET(x) offsetof(mapper_db_device_t, x)
 #define LINKDB_OFFSET(x) offsetof(mapper_db_link_t, x)
 #define CONDB_OFFSET(x) offsetof(mapper_db_connection_t, x)
+#define LINK_OFFSET(x) offsetof(mapper_link_props_t, x)
+#define CON_OFFSET(x) offsetof(mapper_connection_props_t, x)
 
 #define SIG_TYPE        (SIGDB_OFFSET(type))
-#define SRC_TYPE        (CONDB_OFFSET(src_type))
-#define DEST_TYPE       (CONDB_OFFSET(dest_type))
-
 #define SIG_LENGTH      (SIGDB_OFFSET(length))
-#define SRC_LENGTH      (CONDB_OFFSET(src_length))
-#define DEST_LENGTH     (CONDB_OFFSET(dest_length))
-#define NUM_SRC_SCOPES  (LINKDB_OFFSET(src_scopes.size))
-#define NUM_DEST_SCOPES (LINKDB_OFFSET(dest_scopes.size))
+
+#define DB_SRC_TYPE     (CONDB_OFFSET(src_type))
+#define DB_DEST_TYPE    (CONDB_OFFSET(dest_type))
+#define DB_SRC_LENGTH   (CONDB_OFFSET(src_length))
+#define DB_DEST_LENGTH  (CONDB_OFFSET(dest_length))
+
+#define NUM_SCOPES1     (LINKDB_OFFSET(scopes1.size))
+#define NUM_SCOPES2     (LINKDB_OFFSET(scopes2.size))
+
+#define LOCAL_TYPE        (CON_OFFSET(local_type))
+#define REMOTE_TYPE       (CON_OFFSET(remote_type))
+#define LOCAL_LENGTH      (CON_OFFSET(local_length))
+#define REMOTE_LENGTH     (CON_OFFSET(remote_length))
+
+#define NUM_INCOMING_SCOPES (LINK_OFFSET(incoming_scopes.size))
+#define NUM_OUTGOING_SCOPES (LINK_OFFSET(outgoing_scopes.size))
 
 /* Here type 'o', which is not an OSC type, was reserved to mean "same
  * type as the signal's type".  The lookup and index functions will
@@ -563,78 +574,155 @@ static mapper_string_table_t devdb_table =
   { devdb_nodes, 12, 12 };
 
 static property_table_value_t linkdb_values[] = {
-    { 's', {1}, -1,              LINKDB_OFFSET(dest_host) },
-    { 's', {1}, -1,              LINKDB_OFFSET(dest_name) },
-    { 'i', {0}, -1,              LINKDB_OFFSET(dest_port) },
-    { 'i', {1}, NUM_DEST_SCOPES, LINKDB_OFFSET(dest_scopes.hashes)},
-    { 's', {1}, NUM_DEST_SCOPES, LINKDB_OFFSET(dest_scopes.names)},
-    { 'i', {0}, -1,              LINKDB_OFFSET(dest_scopes.size) },
-    { 'i', {0}, -1,              LINKDB_OFFSET(src_scopes.size) },
-    { 's', {1}, -1,              LINKDB_OFFSET(src_host) },
-    { 's', {1}, -1,              LINKDB_OFFSET(src_name) },
-    { 'i', {0}, -1,              LINKDB_OFFSET(src_port) },
-    { 'i', {1}, NUM_SRC_SCOPES,  LINKDB_OFFSET(src_scopes.hashes)},
-    { 's', {1}, NUM_SRC_SCOPES,  LINKDB_OFFSET(src_scopes.names)},
+    { 's', {1}, -1,             LINKDB_OFFSET(host1) },
+    { 's', {1}, -1,             LINKDB_OFFSET(host2) },
+    { 's', {1}, -1,             LINKDB_OFFSET(name1) },
+    { 's', {1}, -1,             LINKDB_OFFSET(name2) },
+    { 'i', {0}, -1,             LINKDB_OFFSET(scopes1.size) },
+    { 'i', {0}, -1,             LINKDB_OFFSET(scopes2.size) },
+    { 'i', {0}, -1,             LINKDB_OFFSET(port1) },
+    { 'i', {0}, -1,             LINKDB_OFFSET(port2) },
+    { 'i', {1}, NUM_SCOPES1,    LINKDB_OFFSET(scopes1.hashes)},
+    { 's', {1}, NUM_SCOPES1,    LINKDB_OFFSET(scopes1.names)},
+    { 'i', {1}, NUM_SCOPES2,    LINKDB_OFFSET(scopes2.hashes)},
+    { 's', {1}, NUM_SCOPES2,    LINKDB_OFFSET(scopes2.names)},
 };
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t linkdb_nodes[] = {
-    { "dest_host",         &linkdb_values[0] },
-    { "dest_name",         &linkdb_values[1] },
-    { "dest_port",         &linkdb_values[2] },
-    { "dest_scope_hashes", &linkdb_values[3] },
-    { "dest_scope_names",  &linkdb_values[4] },
-    { "num_dest_scopes",   &linkdb_values[5] },
-    { "num_src_scopes",    &linkdb_values[6] },
-    { "src_host",          &linkdb_values[7] },
-    { "src_name",          &linkdb_values[8] },
-    { "src_port",          &linkdb_values[9] },
-    { "src_scope_hashes",  &linkdb_values[10] },
-    { "src_scope_names",   &linkdb_values[11] },
+    { "host1",                  &linkdb_values[0] },
+    { "host2",                  &linkdb_values[1] },
+    { "name1",                  &linkdb_values[2] },
+    { "name2",                  &linkdb_values[3] },
+    { "num_scopes1",            &linkdb_values[4] },
+    { "num_scopes2",            &linkdb_values[5] },
+    { "port1",                  &linkdb_values[6] },
+    { "port2",                  &linkdb_values[7] },
+    { "scope1_hashes",          &linkdb_values[8] },
+    { "scope1_names",           &linkdb_values[9] },
+    { "scope2_hashes",          &linkdb_values[10] },
+    { "scope2_names",           &linkdb_values[11] },
 };
 
 static mapper_string_table_t linkdb_table =
 { linkdb_nodes, 12, 12 };
 
+static property_table_value_t link_values[] = {
+    { 'i', {1}, NUM_INCOMING_SCOPES,    LINK_OFFSET(incoming_scopes.hashes)},
+    { 's', {1}, NUM_INCOMING_SCOPES,    LINK_OFFSET(incoming_scopes.names)},
+    { 'i', {0}, -1,                     LINK_OFFSET(incoming_scopes.size) },
+    { 'i', {0}, -1,                     LINK_OFFSET(outgoing_scopes.size) },
+    { 'i', {1}, NUM_OUTGOING_SCOPES,    LINK_OFFSET(outgoing_scopes.hashes)},
+    { 's', {1}, NUM_OUTGOING_SCOPES,    LINK_OFFSET(outgoing_scopes.names)},
+    { 's', {1}, -1,                     LINK_OFFSET(remote_host) },
+    { 's', {1}, -1,                     LINK_OFFSET(remote_name) },
+    { 'i', {0}, -1,                     LINK_OFFSET(remote_port) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t link_nodes[] = {
+    { "incoming_scope_hashes",  &link_values[0] },
+    { "incoming_scope_names",   &link_values[1] },
+    { "num_outgoing_scopes",    &link_values[2] },
+    { "num_incoming_scopes",    &link_values[3] },
+    { "outgoing_scope_hashes",  &link_values[4] },
+    { "outgoing_scope_names",   &link_values[5] },
+    { "remote_host",            &link_values[6] },
+    { "remote_name",            &link_values[7] },
+    { "remote_port",            &link_values[8] },
+};
+
+static mapper_string_table_t link_table =
+{ link_nodes, 9, 9 };
+
 static property_table_value_t condb_values[] = {
-    { 'i', {0},         -1,          CONDB_OFFSET(bound_min) },
-    { 'i', {0},         -1,          CONDB_OFFSET(bound_max) },
-    { 'i', {0},         -1,          CONDB_OFFSET(dest_length) },
-    { 'o', {DEST_TYPE}, DEST_LENGTH, CONDB_OFFSET(dest_max) },
-    { 'o', {DEST_TYPE}, DEST_LENGTH, CONDB_OFFSET(dest_min) },
-    { 's', {1},         -1,          CONDB_OFFSET(dest_name) },
-    { 'c', {0},         -1,          CONDB_OFFSET(dest_type) },
-    { 's', {1},         -1,          CONDB_OFFSET(expression) },
-    { 'i', {0},         -1,          CONDB_OFFSET(mode) },
-    { 'i', {0},         -1,          CONDB_OFFSET(muted) },
-    { 'i', {0},         -1,          CONDB_OFFSET(src_length) },
-    { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_max) },
-    { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_min) },
-    { 's', {1},         -1,          CONDB_OFFSET(src_name) },
-    { 'c', {0},         -1,          CONDB_OFFSET(src_type) },
+    { 'i', {0},             -1,             CONDB_OFFSET(bound_min) },
+    { 'i', {0},             -1,             CONDB_OFFSET(bound_max) },
+    { 'i', {0},             -1,             CONDB_OFFSET(dest_length) },
+    { 'o', {DB_DEST_TYPE},  DB_DEST_LENGTH, CONDB_OFFSET(dest_max) },
+    { 'o', {DB_DEST_TYPE},  DB_DEST_LENGTH, CONDB_OFFSET(dest_min) },
+    { 's', {1},             -1,             CONDB_OFFSET(dest_name) },
+    { 'c', {0},             -1,             CONDB_OFFSET(dest_type) },
+    { 's', {1},             -1,             CONDB_OFFSET(expression) },
+    { 'i', {0},             -1,             CONDB_OFFSET(mode) },
+    { 'i', {0},             -1,             CONDB_OFFSET(muted) },
+    { 'i', {0},             -1,             CONDB_OFFSET(send_as_instance) },
+    { 'i', {0},             -1,             CONDB_OFFSET(slot) },
+    { 'i', {0},             -1,             CONDB_OFFSET(src_length) },
+    { 'o', {DB_SRC_TYPE},   DB_SRC_LENGTH,  CONDB_OFFSET(src_max) },
+    { 'o', {DB_SRC_TYPE},   DB_SRC_LENGTH,  CONDB_OFFSET(src_min) },
+    { 's', {1},             -1,             CONDB_OFFSET(src_name) },
+    { 'c', {0},             -1,             CONDB_OFFSET(src_type) },
 };
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t condb_nodes[] = {
-    { "bound_min",   &condb_values[0] },
-    { "bound_max",   &condb_values[1] },
-    { "dest_length", &condb_values[2] },
-    { "dest_max",    &condb_values[3] },
-    { "dest_min",    &condb_values[4] },
-    { "dest_name",   &condb_values[5] },
-    { "dest_type",   &condb_values[6] },
-    { "expression",  &condb_values[7] },
-    { "mode",        &condb_values[8] },
-    { "muted",       &condb_values[9] },
-    { "src_length",  &condb_values[10] },
-    { "src_max",     &condb_values[11] },
-    { "src_min",     &condb_values[12] },
-    { "src_name",    &condb_values[13] },
-    { "src_type",    &condb_values[14] },
+    { "bound_min",          &condb_values[0] },
+    { "bound_max",          &condb_values[1] },
+    { "dest_length",        &condb_values[2] },
+    { "dest_max",           &condb_values[3] },
+    { "dest_min",           &condb_values[4] },
+    { "dest_name",          &condb_values[5] },
+    { "dest_type",          &condb_values[6] },
+    { "expression",         &condb_values[7] },
+    { "mode",               &condb_values[8] },
+    { "muted",              &condb_values[9] },
+    { "send_as_instance",   &condb_values[10] },
+    { "slot",               &condb_values[11] },
+    { "src_length",         &condb_values[12] },
+    { "src_max",            &condb_values[13] },
+    { "src_min",            &condb_values[14] },
+    { "src_name",           &condb_values[15] },
+    { "src_type",           &condb_values[16] },
 };
 
 static mapper_string_table_t condb_table =
-{ condb_nodes, 15, 15 };
+{ condb_nodes, 17, 17 };
+
+static property_table_value_t con_values[] = {
+    { 'i', {0},             -1,             CON_OFFSET(bound_min) },
+    { 'i', {0},             -1,             CON_OFFSET(bound_max) },
+    { 'i', {0},             -1,             CON_OFFSET(direction) },
+    { 's', {1},             -1,             CON_OFFSET(expression) },
+    { 'i', {0},             -1,             CON_OFFSET(local_length) },
+    { 'o', {LOCAL_TYPE},    LOCAL_LENGTH,   CON_OFFSET(local_max) },
+    { 'o', {LOCAL_TYPE},    LOCAL_LENGTH,   CON_OFFSET(local_min) },
+    { 'c', {0},             -1,             CON_OFFSET(local_type) },
+    { 'i', {0},             -1,             CON_OFFSET(mode) },
+    { 'i', {0},             -1,             CON_OFFSET(muted) },
+    { 'i', {0},             -1,             CON_OFFSET(remote_length) },
+    { 'o', {REMOTE_TYPE},   REMOTE_LENGTH,  CON_OFFSET(remote_max) },
+    { 'o', {REMOTE_TYPE},   REMOTE_LENGTH,  CON_OFFSET(remote_min) },
+    { 's', {1},             -1,             CON_OFFSET(remote_name) },
+    { 'c', {0},             -1,             CON_OFFSET(remote_type) },
+    { 'i', {0},             -1,             CON_OFFSET(send_as_instance) },
+    { 'i', {0},             -1,             CON_OFFSET(slot) },
+};
+
+/* This table must remain in alphabetical order. */
+static string_table_node_t con_nodes[] = {
+    { "bound_min",          &con_values[0] },
+    { "bound_max",          &con_values[1] },
+    { "direction",          &con_values[2] },
+    { "expression",         &con_values[3] },
+    { "local_length",       &con_values[4] },
+    { "local_max",          &con_values[5] },
+    { "local_min",          &con_values[6] },
+    { "local_name",         &con_values[7] },
+    { "local_type",         &con_values[8] },
+    { "mode",               &con_values[9] },
+    { "muted",              &con_values[10] },
+    { "remote_length",      &con_values[11] },
+    { "remote_max",         &con_values[12] },
+    { "remote_min",         &con_values[13] },
+    { "remote_name",        &con_values[14] },
+    { "remote_type",        &con_values[15] },
+    { "send_as_instance",   &con_values[16] },
+    { "slot",               &con_values[17] },
+};
+
+static mapper_string_table_t con_table =
+{ con_nodes, 18, 18 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -1015,7 +1103,7 @@ void mapper_db_dump(mapper_db db)
     mapper_db_link link = db->registered_links;
     printf("Registered links:\n");
     while (link) {
-        printf("  source=%s, dest=%s\n", link->src_name, link->dest_name);
+        printf("  source=%s, dest=%s\n", link->name1, link->name2);
         link = list_get_next(link);
     }
 
@@ -1034,22 +1122,22 @@ void mapper_db_dump(mapper_db db)
                con->expression,
                mapper_get_mode_type_string(con->mode),
                con->muted);
-        if (con->range_known & CONNECTION_RANGE_SRC_MIN) {
+        if (con->src_min) {
             printf("      src_min=");
             mapper_prop_pp(con->src_type, con->src_length, con->src_min);
             printf("\n");
         }
-        if (con->range_known & CONNECTION_RANGE_SRC_MAX) {
+        if (con->src_max) {
             printf("      src_max=");
             mapper_prop_pp(con->src_type, con->src_length, con->src_max);
             printf("\n");
         }
-        if (con->range_known & CONNECTION_RANGE_DEST_MIN) {
+        if (con->dest_min) {
             printf("      dest_min=");
             mapper_prop_pp(con->dest_type, con->dest_length, con->dest_min);
             printf("\n");
         }
-        if (con->range_known & CONNECTION_RANGE_DEST_MAX) {
+        if (con->dest_max) {
             printf("      dest_max=");
             mapper_prop_pp(con->dest_type, con->dest_length, con->dest_max);
             printf("\n");
@@ -1620,22 +1708,18 @@ static int update_connection_record_params(mapper_db_connection con,
             if (!con->src_max)
                 con->src_max = calloc(1, length *
                                             mapper_type_size(con->src_type));
-            con->range_known |= CONNECTION_RANGE_SRC_MAX;
             int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(con->src_max,
                                                  con->src_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    con->range_known &= ~CONNECTION_RANGE_SRC_MAX;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            con->range_known &= ~CONNECTION_RANGE_SRC_MAX;
     }
 
     /* @srcMin */
@@ -1647,22 +1731,18 @@ static int update_connection_record_params(mapper_db_connection con,
             if (!con->src_min)
                 con->src_min = calloc(1, length *
                                             mapper_type_size(con->src_type));
-            con->range_known |= CONNECTION_RANGE_SRC_MIN;
             int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(con->src_min,
                                                  con->src_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    con->range_known &= ~CONNECTION_RANGE_SRC_MIN;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            con->range_known &= ~CONNECTION_RANGE_SRC_MIN;
     }
 
     /* @destMax */
@@ -1674,22 +1754,18 @@ static int update_connection_record_params(mapper_db_connection con,
             if (!con->dest_max)
                 con->dest_max = calloc(1, length *
                                              mapper_type_size(con->dest_type));
-            con->range_known |= CONNECTION_RANGE_DEST_MAX;
             int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(con->dest_max,
                                                  con->dest_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    con->range_known &= ~CONNECTION_RANGE_DEST_MAX;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            con->range_known &= ~CONNECTION_RANGE_DEST_MAX;
     }
 
     /* @destMin */
@@ -1701,22 +1777,18 @@ static int update_connection_record_params(mapper_db_connection con,
             if (!con->dest_min)
                 con->dest_min = calloc(1, length *
                                              mapper_type_size(con->dest_type));
-            con->range_known |= CONNECTION_RANGE_DEST_MIN;
             int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(con->dest_min,
                                                  con->dest_type,
                                                  args[i], types[i], i);
                 if (result == -1) {
-                    con->range_known &= ~CONNECTION_RANGE_DEST_MIN;
                     break;
                 }
                 else
                     updated += result;
             }
         }
-        else
-            con->range_known &= ~CONNECTION_RANGE_DEST_MIN;
     }
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
@@ -1803,6 +1875,14 @@ int mapper_db_connection_property_lookup(mapper_db_connection con,
 {
     return mapper_db_property_lookup(con, con->extra, property, type,
                                      value, length, &condb_table);
+}
+
+int mapper_connection_property_lookup(mapper_connection_props con,
+                                      const char *property, char *type,
+                                      const void **value, int *length)
+{
+    return mapper_db_property_lookup(con, con->extra, property, type,
+                                     value, length, &con_table);
 }
 
 mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db)
@@ -2350,31 +2430,25 @@ static int update_link_record_params(mapper_db_link link,
                                      int swap)
 {
     int updated = 0;
-    updated += update_string_if_different(&link->src_name, swap ? name2 : name1);
-    updated += update_string_if_different(&link->dest_name, swap ? name1 : name2);
+    updated += update_string_if_different(&link->name1, swap ? name2 : name1);
+    updated += update_string_if_different(&link->name2, swap ? name1 : name2);
 
     if (!params)
         return updated;
 
-    // TODO: "src" and "dest" are not appropriate names for link endpoints?
-    updated += update_int_if_arg(&link->src_port, params,
-                                 swap ? AT_DEST_PORT : AT_SRC_PORT);
-    updated += update_int_if_arg(&link->dest_port, params,
-                                 swap ? AT_SRC_PORT : AT_DEST_PORT);
-
     lo_arg **a_scopes = mapper_msg_get_param(params, AT_SCOPE);
     int num_scopes = mapper_msg_get_length(params, AT_SCOPE);
-    mapper_db_link_update_scopes(swap ? &link->dest_scopes : &link->src_scopes,
+    mapper_db_link_update_scopes(swap ? &link->scopes2 : &link->scopes1,
                                  a_scopes, num_scopes);
 
-    a_scopes = mapper_msg_get_param(params, AT_SRC_SCOPE);
-    num_scopes = mapper_msg_get_length(params, AT_SRC_SCOPE);
-    mapper_db_link_update_scopes(swap ? &link->dest_scopes : &link->src_scopes,
+    a_scopes = mapper_msg_get_param(params, AT_SCOPE_LR);
+    num_scopes = mapper_msg_get_length(params, AT_SCOPE_LR);
+    mapper_db_link_update_scopes(swap ? &link->scopes2 : &link->scopes1,
                                  a_scopes, num_scopes);
 
-    a_scopes = mapper_msg_get_param(params, AT_DEST_SCOPE);
-    num_scopes = mapper_msg_get_length(params, AT_DEST_SCOPE);
-    mapper_db_link_update_scopes(swap ? &link->src_scopes : &link->dest_scopes,
+    a_scopes = mapper_msg_get_param(params, AT_SCOPE_RL);
+    num_scopes = mapper_msg_get_length(params, AT_SCOPE_RL);
+    mapper_db_link_update_scopes(swap ? &link->scopes1 : &link->scopes2,
                                  a_scopes, num_scopes);
 
     updated += mapper_msg_add_or_update_extra_params(link->extra, params);
@@ -2442,6 +2516,13 @@ int mapper_db_link_property_lookup(mapper_db_link link, const char *property,
                                      value, length, &linkdb_table);
 }
 
+int mapper_link_property_lookup(mapper_link_props link, const char *property,
+                                char *type, const void **value, int *length)
+{
+    return mapper_db_property_lookup(link, link->extra, property, type,
+                                     value, length, &link_table);
+}
+
 void mapper_db_add_link_callback(mapper_db db,
                                  mapper_db_link_handler *h, void *user)
 {
@@ -2483,8 +2564,8 @@ mapper_db_link mapper_db_get_link_by_device_names(mapper_db db,
 
     mapper_db_link link = db->registered_links;
     while (link) {
-        if (strcmp(link->src_name, n1)==0
-            && strcmp(link->dest_name, n2)==0)
+        if (strcmp(link->name1, n1)==0
+            && strcmp(link->name2, n2)==0)
             break;
         link = list_get_next(link);
     }
@@ -2495,8 +2576,8 @@ static int cmp_query_get_links_by_device_name(void *context_data,
                                               mapper_db_link link)
 {
     const char *devname = (const char*)context_data;
-    return (   strcmp(link->src_name+1, devname)==0
-            || strcmp(link->dest_name+1, devname)==0 );
+    return (   strcmp(link->name1+1, devname)==0
+            || strcmp(link->name2+1, devname)==0 );
 }
 
 mapper_db_link_t **mapper_db_get_links_by_device_name(
@@ -2555,21 +2636,21 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         cb = cb->next;
     }
 
-    if (link->src_name)
-        free(link->src_name);
-    if (link->dest_name)
-        free(link->dest_name);
-    if (link->src_scopes.size && link->src_scopes.names) {
-        for (i=0; i<link->src_scopes.size; i++)
-            free(link->src_scopes.names[i]);
-        free(link->src_scopes.names);
-        free(link->src_scopes.hashes);
+    if (link->name1)
+        free(link->name1);
+    if (link->name2)
+        free(link->name2);
+    if (link->scopes1.size && link->scopes1.names) {
+        for (i=0; i<link->scopes1.size; i++)
+            free(link->scopes1.names[i]);
+        free(link->scopes1.names);
+        free(link->scopes1.hashes);
     }
-    if (link->dest_scopes.size && link->dest_scopes.names) {
-        for (i=0; i<link->dest_scopes.size; i++)
-            free(link->dest_scopes.names[i]);
-        free(link->dest_scopes.names);
-        free(link->dest_scopes.hashes);
+    if (link->scopes2.size && link->scopes2.names) {
+        for (i=0; i<link->scopes2.size; i++)
+            free(link->scopes2.names[i]);
+        free(link->scopes2.names);
+        free(link->scopes2.hashes);
     }
     if (link->extra)
         table_free(link->extra, 1);

@@ -1048,7 +1048,7 @@ void msig_set_rate(mapper_signal sig, float rate)
     sig->props.rate = rate;
 }
 
-mapper_db_signal msig_properties(mapper_signal sig)
+mapper_signal_props msig_properties(mapper_signal sig)
 {
     return &sig->props;
 }

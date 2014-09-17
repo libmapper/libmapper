@@ -744,7 +744,7 @@ int main(int argc, char **argv)
     while (plink) {
         count ++;
         eprintf("  source=%s, dest=%s\n",
-                (*plink)->src_name, (*plink)->dest_name);
+                (*plink)->name1, (*plink)->name2);
         plink = mapper_db_link_next(plink);
     }
 
@@ -776,7 +776,7 @@ int main(int argc, char **argv)
     while (plink) {
         count ++;
         eprintf("  source=%s, dest=%s\n",
-                (*plink)->src_name, (*plink)->dest_name);
+                (*plink)->name1, (*plink)->name2);
         plink = mapper_db_link_next(plink);
     }
 

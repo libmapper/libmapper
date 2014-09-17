@@ -682,13 +682,18 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         if (rs->signal == sig) {
             // need to disconnect?
             mapper_connection c = rs->connections;
-            mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
             while (c) {
-                snprintf(str2, 1024, "%s%s", c->link->props.dest_name,
-                         c->direction == DI_INCOMING ? c->props.src_name
-                         : c->props.dest_name);
-                mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                            "ss", str1, str2);
+                if (!c->link->self_link) {
+                    mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
+                    snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
+                             c->props.remote_name);
+                    if (c->props.direction == DI_OUTGOING)
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                                    "ss", str1, str2);
+                    else
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                                    "ss", str2, str1);
+                }
                 mapper_connection temp = c->next;
                 mapper_router_remove_connection(md->router, c);
                 c = temp;
@@ -738,13 +743,18 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         if (rs->signal == sig) {
             // need to disconnect?
             mapper_connection c = rs->connections;
-            mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
             while (c) {
-                snprintf(str2, 1024, "%s%s", c->link->props.dest_name,
-                         c->direction == DI_INCOMING ? c->props.src_name
-                         : c->props.dest_name);
-                mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                            "ss", str1, str2);
+                mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
+                if (!c->link->self_link) {
+                    snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
+                             c->props.remote_name);
+                    if (c->props.direction == DI_OUTGOING)
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
+                                                    0, "ss", str1, str2);
+                    else
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
+                                                    0, "ss", str2, str1);
+                }
                 mapper_connection temp = c->next;
                 mapper_router_remove_connection(md->router, c);
                 c = temp;
@@ -1188,7 +1198,7 @@ int mdev_ready(mapper_device device)
     return device->registered;
 }
 
-mapper_db_device mdev_properties(mapper_device dev)
+mapper_device_props mdev_properties(mapper_device dev)
 {
     return &dev->props;
 }
@@ -1205,6 +1215,13 @@ void mdev_set_property(mapper_device dev, const char *property,
     }
     mapper_table_add_or_update_typed_value(dev->props.extra, property,
                                            type, value, length);
+}
+
+int mdev_property_lookup(mapper_device dev, const char *property,
+                         char *type, const void **value, int *length)
+{
+    return mapper_db_device_property_lookup(&dev->props, property,
+                                            type, value, length);
 }
 
 void mdev_remove_property(mapper_device dev, const char *property)

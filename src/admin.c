@@ -756,7 +756,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->props.dest_name_hash == md->props.name_hash) {
+        if (link->props.remote_name_hash == md->props.name_hash) {
             // don't bother sending pings to self
             link = link->next;
             continue;
@@ -768,7 +768,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             if (sync->response.message_id > 0) {
                 trace("<%s> Lost contact with linked device %s "
                       "(%d seconds since sync).\n", mdev_name(md),
-                      link->props.dest_name, elapsed);
+                      link->props.remote_name, elapsed);
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
@@ -776,7 +776,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             else {
                 trace("<%s> Removing link to unresponsive device %s "
                       "(%d seconds since warning).\n", mdev_name(md),
-                      link->props.dest_name, elapsed);
+                      link->props.remote_name, elapsed);
                 // Call the local link handler if it exists
                 if (md->link_cb)
                     md->link_cb(md, &link->props, MDEV_LOCAL_DESTROYED,
@@ -786,7 +786,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                 mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS);
                 mapper_admin_bundle_message(admin, ADM_UNLINKED, 0, "ssss",
                                             mdev_name(md),
-                                            link->props.dest_name,
+                                            link->props.remote_name,
                                             "@status", "timeout");
 
                 // remove related data structures
@@ -1110,12 +1110,8 @@ static void mapper_admin_send_linked(mapper_admin admin,
      * names to avoid confusing monitors. */
     int swap = strcmp(mdev_name(device), link->props.remote_name) > 0;
 
-    lo_message_add_string(m, swap ? link->props.dest_name : mdev_name(device));
-    lo_message_add_string(m, swap ? mdev_name(device) : link->props.dest_name);
-    lo_message_add_string(m, "@srcPort");
-    lo_message_add_int32(m, swap ? link->props.remote_port : device->props.port);
-    lo_message_add_string(m, "@destPort");
-    lo_message_add_int32(m, swap ? device->props.port : link->props.remote_port);
+    lo_message_add_string(m, swap ? link->props.remote_name : mdev_name(device));
+    lo_message_add_string(m, swap ? mdev_name(device) : link->props.remote_name);
 
     mapper_link_prepare_osc_message(m, link, swap);
 
@@ -1145,17 +1141,15 @@ static void mapper_admin_send_connected(mapper_admin admin, mapper_device md,
 
     snprintf(local_name, 1024, "%s%s", mdev_name(md),
              c->parent->signal->props.name);
+    snprintf(remote_name, 1024, "%s%s", c->link->props.remote_name,
+             c->props.remote_name);
 
-    if (c->direction == DI_OUTGOING) {
+    if (c->props.direction == DI_OUTGOING) {
         lo_message_add_string(m, local_name);
         lo_message_add_string(m, "->");
-        snprintf(remote_name, 1024, "%s%s", c->link->props.dest_name,
-                 c->props.dest_name);
         lo_message_add_string(m, remote_name);
     }
     else {
-        snprintf(remote_name, 1024, "%s%s", c->link->props.dest_name,
-                 c->props.src_name);
         lo_message_add_string(m, remote_name);
         lo_message_add_string(m, "->");
         lo_message_add_string(m, local_name);
@@ -1319,7 +1313,7 @@ static int handler_logout(const char *path, const char *types,
                             md->link_cb_userdata);
 
             trace("<%s> Removing link to expired device %s.\n",
-                  mdev_name(md), link->props.dest_name);
+                  mdev_name(md), link->props.remote_name);
 
             mapper_router_remove_link(md->router, link);
 
@@ -2476,7 +2470,7 @@ static int handler_signal_connectTo(const char *path, const char *types,
             c, &params, outgoing ? DI_OUTGOING : DI_INCOMING);
     }
 
-    if (c->direction == DI_OUTGOING) {
+    if (c->props.direction == DI_OUTGOING) {
         // Inform remote device
         mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
         mapper_admin_send_connected(admin, md, c, -1);

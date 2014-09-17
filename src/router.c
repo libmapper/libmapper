@@ -41,8 +41,6 @@ static void mapper_link_free(mapper_link l)
     int i;
 
     if (l) {
-        if (l->props.local_name)
-            free(l->props.local_name);
         if (l->props.remote_host)
             free(l->props.remote_host);
         if (l->props.remote_name)
@@ -79,7 +77,6 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
 {
     char str[16];
     mapper_link l = (mapper_link) calloc(1, sizeof(struct _mapper_link));
-    l->props.local_name = strdup(mdev_name(router->device));
     l->props.remote_host = strdup(host);
     l->props.remote_port = data_port;
     sprintf(str, "%d", data_port);
@@ -101,7 +98,7 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     l->props.incoming_scopes.names = (char **) malloc(sizeof(char *));
     l->props.incoming_scopes.names[0] = strdup(name);
     l->props.incoming_scopes.hashes = (uint32_t *) malloc(sizeof(uint32_t));
-    l->props.incoming_scopes.hashes[0] = l->props.dest_name_hash;
+    l->props.incoming_scopes.hashes[0] = l->props.remote_name_hash;
 
     l->props.extra = table_new();
     l->device = router->device;
@@ -167,17 +164,20 @@ int mapper_router_set_link_from_message(mapper_router r, mapper_link l,
 
     lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
     int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
-    mapper_db_link_update_scopes(swap ? &l->props.dest_scopes : &l->props.src_scopes,
+    mapper_db_link_update_scopes(swap ? &l->props.incoming_scopes
+                                 : &l->props.outgoing_scopes,
                                  a_scopes, num_scopes);
 
-    a_scopes = mapper_msg_get_param(msg, AT_SRC_SCOPE);
-    num_scopes = mapper_msg_get_length(msg, AT_SRC_SCOPE);
-    mapper_db_link_update_scopes(swap ? &l->props.dest_scopes : &l->props.src_scopes,
+    a_scopes = mapper_msg_get_param(msg, AT_SCOPE_LR);
+    num_scopes = mapper_msg_get_length(msg, AT_SCOPE_LR);
+    mapper_db_link_update_scopes(swap ? &l->props.incoming_scopes
+                                 : &l->props.outgoing_scopes,
                                  a_scopes, num_scopes);
 
-    a_scopes = mapper_msg_get_param(msg, AT_DEST_SCOPE);
-    num_scopes = mapper_msg_get_length(msg, AT_DEST_SCOPE);
-    mapper_db_link_update_scopes(swap ? &l->props.src_scopes : &l->props.dest_scopes,
+    a_scopes = mapper_msg_get_param(msg, AT_SCOPE_RL);
+    num_scopes = mapper_msg_get_length(msg, AT_SCOPE_RL);
+    mapper_db_link_update_scopes(swap ? &l->props.outgoing_scopes
+                                 : &l->props.incoming_scopes,
                                  a_scopes, num_scopes);
 
     return updated;
@@ -226,10 +226,10 @@ void mapper_router_num_instances_changed(mapper_router r,
         c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
                                * size);
         for (i=rs->num_instances; i<size; i++) {
-            c->history[i].type = c->props.dest_type;
-            c->history[i].length = c->props.dest_length;
+            c->history[i].type = c->props.remote_type;
+            c->history[i].length = c->props.remote_length;
             c->history[i].size = c->output_history_size;
-            c->history[i].value = calloc(1, mapper_type_size(c->props.dest_type)
+            c->history[i].value = calloc(1, mapper_type_size(c->props.remote_type)
                                          * c->output_history_size);
             c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
                                            * c->output_history_size);
@@ -292,16 +292,15 @@ void mapper_router_process_signal(mapper_router r,
         c = rs->connections;
         while (c) {
             c->history[id].position = -1;
-            if (c->direction == DI_OUTGOING) {
+            if (c->props.direction == DI_OUTGOING) {
                 if (!c->props.send_as_instance
                     || in_outgoing_link_scope(c->link, map->origin)) {
-                    m = mapper_router_build_message(&c->props, 0, c->props.dest_length,
-                                                    0, map);
+                    m = mapper_connection_build_message(c, 0, 1, 0, map);
                     if (m)
-                        send_or_bundle_message(c->link, c->props.dest_name, m, tt);
+                        send_or_bundle_message(c->link, c->props.remote_name, m, tt);
                     // also need to reset associated output memory
                     memset(c->history[id].value, 0, c->output_history_size *
-                           c->props.dest_length * mapper_type_size(c->props.dest_type));
+                           c->props.remote_length * mapper_type_size(c->props.remote_type));
                     memset(c->history[id].timetag, 0, c->output_history_size *
                            sizeof(mapper_timetag_t));
                 }
@@ -309,14 +308,13 @@ void mapper_router_process_signal(mapper_router r,
             else if (c->props.send_as_instance
                      && in_incoming_link_scope(c->link, map->origin)) {
                 // send release to upstream
-                m = mapper_router_build_message(&c->props, 0, c->props.dest_length,
-                                                0, map);
+                m = mapper_connection_build_message(c, 0, 1, 0, map);
                 if (m)
-                    send_or_bundle_message(c->link, c->props.dest_name, m, tt);
+                    send_or_bundle_message(c->link, c->props.remote_name, m, tt);
             }
             // also need to reset associated output memory
             memset(c->history[id].value, 0, c->output_history_size *
-                   c->props.dest_length * mapper_type_size(c->props.dest_type));
+                   c->props.remote_length * mapper_type_size(c->props.remote_type));
             memset(c->history[id].timetag, 0, c->output_history_size *
                    sizeof(mapper_timetag_t));
 
@@ -333,12 +331,12 @@ void mapper_router_process_signal(mapper_router r,
     c = rs->connections;
     while (c) {
         int out_scope = in_outgoing_link_scope(c->link, map->origin);
-        if ((c->direction == DI_INCOMING)
+        if ((c->props.direction == DI_INCOMING)
             || (c->props.send_as_instance && !out_scope)) {
             c = c->next;
             continue;
         }
-        char typestring[c->props.dest_length * count];
+        char typestring[c->props.remote_length * count];
         j = 0;
         for (i = 0; i < count; i++) {
             // copy input history
@@ -353,96 +351,37 @@ void mapper_router_process_signal(mapper_router r,
             // handle cases in which part of count update does not cause output
             if (!(mapper_connection_perform(c, &rs->history[id],
                                             &c->expr_vars[id],
-                                            &c->history[id],
-                                            typestring+c->props.dest_length*j)))
+                                            &c->history[id], typestring
+                                            + c->props.remote_length*j)))
                 continue;
             if (!(mapper_boundary_perform(c, &c->history[id])))
                 continue;
 
             if (count > 1) {
-                memcpy((char*)out_value_p + mapper_type_size(c->props.dest_type) *
-                       c->props.dest_length * i,
+                memcpy((char*)out_value_p + mapper_type_size(c->props.remote_type) *
+                       c->props.remote_length * i,
                        msig_history_value_pointer(c->history[id]),
-                       mapper_type_size(c->props.dest_type) *
-                       c->props.dest_length);
+                       mapper_type_size(c->props.remote_type) *
+                       c->props.remote_length);
             }
             else {
-                m = mapper_router_build_message(&c->props,
-                                                msig_history_value_pointer(c->history[id]),
-                                                c->props.dest_length,
-                                                typestring, map);
+                m = mapper_connection_build_message(c,
+                                                    msig_history_value_pointer(c->history[id]),
+                                                    1,
+                                                    typestring, map);
                 if (m)
-                    send_or_bundle_message(c->link, c->props.dest_name, m, tt);
+                    send_or_bundle_message(c->link, c->props.remote_name, m, tt);
             }
             j++;
         }
         if (count > 1 && (!c->props.send_as_instance || out_scope)) {
-            m = mapper_router_build_message(&c->props, out_value_p,
-                                            c->props.dest_length * j,
-                                            typestring, map);
+            m = mapper_connection_build_message(c, out_value_p, j,
+                                                typestring, map);
             if (m)
-                send_or_bundle_message(c->link, c->props.dest_name, m, tt);
+                send_or_bundle_message(c->link, c->props.remote_name, m, tt);
         }
         c = c->next;
     }
-}
-
-/*! Build a value update message for a given connection. */
-lo_message mapper_router_build_message(mapper_db_connection props, void *value,
-                                       int length, char *typestring,
-                                       mapper_id_map id_map)
-{
-    int i;
-
-    lo_message m = lo_message_new();
-    if (!m)
-        return 0;
-
-    if (value && typestring) {
-        if (props->dest_type == 'f') {
-            float *v = (float*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
-                    lo_message_add_nil(m);
-                else
-                    lo_message_add_float(m, v[i]);
-            }
-        }
-        else if (props->dest_type == 'i') {
-            int *v = (int*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
-                    lo_message_add_nil(m);
-                else
-                    lo_message_add_int32(m, v[i]);
-            }
-        }
-        else if (props->dest_type == 'd') {
-            double *v = (double*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
-                    lo_message_add_nil(m);
-                else
-                    lo_message_add_double(m, v[i]);
-            }
-        }
-    }
-    else if (id_map) {
-        for (i = 0; i < length; i++)
-            lo_message_add_nil(m);
-    }
-
-    if (props->send_as_instance && id_map) {
-        lo_message_add_string(m, "@instance");
-        lo_message_add_int32(m, id_map->origin);
-        lo_message_add_int32(m, id_map->public);
-    }
-
-    // add slot
-    lo_message_add_string(m, "@slot");
-    lo_message_add_int32(m, props->slot);
-
-    return m;
 }
 
 int mapper_router_send_query(mapper_router r,
@@ -563,9 +502,9 @@ void mapper_router_send_queue(mapper_router r,
 mapper_connection mapper_router_add_connection(mapper_router r,
                                                mapper_link link,
                                                mapper_signal sig,
-                                               const char *dest_name,
-                                               char dest_type,
-                                               int dest_length,
+                                               const char *remote_name,
+                                               char remote_type,
+                                               int remote_length,
                                                int direction)
 {
     // find signal in router_signal list
@@ -597,15 +536,15 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     mapper_connection c = (mapper_connection)
         calloc(1, sizeof(struct _mapper_connection));
     c->new = 1;
-    c->direction = DI_OUTGOING;
+    c->props.direction = direction;
     c->link = link;
 
-    c->props.src_name = strdup(sig->props.name);
-    c->props.src_type = sig->props.type;
-    c->props.src_length = sig->props.length;
-    c->props.dest_name = strdup(dest_name);
-    c->props.dest_type = dest_type;
-    c->props.dest_length = dest_length;
+    c->props.local_name = sig->props.name;
+    c->props.remote_name = strdup(remote_name);
+    c->props.local_type = sig->props.type;
+    c->props.local_length = sig->props.length;
+    c->props.remote_type = remote_type;
+    c->props.remote_length = remote_length;
     c->props.mode = MO_UNDEFINED;
     c->props.expression = 0;
     c->props.bound_min = BA_NONE;
@@ -613,21 +552,17 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
 
-    if (direction == DI_INCOMING)
-        mapper_connection_swap_direction(c);
-
-    c->props.src_min = 0;
-    c->props.src_max = 0;
-    c->props.dest_min = 0;
-    c->props.dest_max = 0;
-    c->props.range_known = 0;
+    c->props.local_min = 0;
+    c->props.local_max = 0;
+    c->props.remote_min = 0;
+    c->props.remote_max = 0;
 
     c->props.extra = table_new();
 
-    int len = strlen(dest_name) + 5;
+    int len = strlen(remote_name) + 5;
     c->props.query_name = malloc(len);
     // TODO: handle queries in regular signal handler?
-    snprintf(c->props.query_name, len, "%s%s", dest_name, "/get");
+    snprintf(c->props.query_name, len, "%s%s", remote_name, "/get");
 
     c->history = malloc(sizeof(struct _mapper_signal_history)
                         * rs->num_instances);
@@ -636,11 +571,11 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     int i;
     for (i=0; i<rs->num_instances; i++) {
         // allocate history vectors
-        c->history[i].type = dest_type;
-        c->history[i].length = dest_length;
+        c->history[i].type = remote_type;
+        c->history[i].length = remote_length;
         c->history[i].size = 1;
-        c->history[i].value = calloc(1, mapper_type_size(c->props.dest_type) *
-                                     c->props.dest_length);
+        c->history[i].value = calloc(1, mapper_type_size(c->props.remote_type) *
+                                     c->props.remote_length);
         c->history[i].timetag = calloc(1, sizeof(mapper_timetag_t));
         c->history[i].position = -1;
     }
@@ -661,20 +596,17 @@ static void free_connection(mapper_connection c)
 {
     int i, j;
     if (c) {
-        if (c->props.src_name)
-            free(c->props.src_name);
-        if (c->props.dest_name)
-            free(c->props.dest_name);
-        if (c->props.query_name)
-            free(c->props.query_name);
-        if (c->props.src_min)
-            free(c->props.src_min);
-        if (c->props.src_max)
-            free(c->props.src_max);
-        if (c->props.dest_min)
-            free(c->props.dest_min);
-        if (c->props.dest_max)
-            free(c->props.dest_max);
+        // do not free local_name since it points to signal's copy
+        if (c->props.remote_name)
+            free(c->props.remote_name);
+        if (c->props.local_min)
+            free(c->props.local_min);
+        if (c->props.local_max)
+            free(c->props.local_max);
+        if (c->props.remote_min)
+            free(c->props.remote_min);
+        if (c->props.remote_max)
+            free(c->props.remote_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
             free(c->history[i].value);
@@ -708,7 +640,7 @@ int mapper_router_remove_connection(mapper_router r,
     while (*temp) {
         if (*temp == c) {
             *temp = c->next;
-            if (c->direction == DI_OUTGOING)
+            if (c->props.direction == DI_OUTGOING)
                 c->link->num_connections_out--;
             else
                 c->link->num_connections_in--;
@@ -759,9 +691,7 @@ mapper_connection mapper_router_find_connection(mapper_router router,
     // find associated connection
     mapper_connection c = rs->connections;
     while (c) {
-        const char *compare = (c->direction == DI_OUTGOING
-                               ? c->props.dest_name : c->props.src_name);
-        if (strcmp(compare, remote_signal_name) == 0)
+        if (strcmp(c->props.remote_name, remote_signal_name) == 0)
             break;
         c = c->next;
     }
@@ -774,7 +704,7 @@ mapper_link mapper_router_find_link_by_remote_address(mapper_router r,
 {
     mapper_link l = r->links;
     while (l) {
-        if (l->props.dest_port == port && (strcmp(l->props.dest_host, host)==0))
+        if (l->props.remote_port == port && (strcmp(l->props.remote_host, host)==0))
             return l;
         l = l->next;
     }
@@ -791,7 +721,7 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
 
     mapper_link l = router->links;
     while (l) {
-        if (strncmp(l->props.dest_name, name, n)==0)
+        if (strncmp(l->props.remote_name, name, n)==0)
             return l;
         l = l->next;
     }
@@ -803,7 +733,7 @@ mapper_link mapper_router_find_link_by_remote_hash(mapper_router router,
 {
     mapper_link l = router->links;
     while (l) {
-        if (name_hash == l->props.dest_name_hash)
+        if (name_hash == l->props.remote_name_hash)
             return l;
         l = l->next;
     }
