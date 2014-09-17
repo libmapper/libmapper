@@ -158,10 +158,10 @@ void print_instance_ids(mapper_signal sig)
 
 void connect_signals()
 {
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_monitor_link(mon, &source->props,
-                        &destination->props, 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source),
+                              mdev_name(destination), 0, 0);
 
     while (!done && !source->routers) {
         mdev_poll(source, 10);
@@ -171,15 +171,16 @@ void connect_signals()
     mapper_db_connection_t props;
     props.expression = "foo=1;  y=y{-1}+foo";
     props.mode = MO_BYPASS;
-    mapper_monitor_connect(mon, &sendsig->props, &recvsig->props, &props,
-                           CONNECTION_MODE | CONNECTION_EXPRESSION);
+    mmon_connect_signals_by_db_record(mon, &sendsig->props,
+                                      &recvsig->props, &props,
+                                      CONNECTION_MODE | CONNECTION_EXPRESSION);
 
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 }
 
 void loop()

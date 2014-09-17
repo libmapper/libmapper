@@ -1791,135 +1791,134 @@ typedef struct _admin {} admin;
 
 %extend _monitor {
     _monitor(admin *DISOWN=0, int autosubscribe_flags=0x00) {
-        return (monitor *)mapper_monitor_new((mapper_admin) DISOWN,
-                                             autosubscribe_flags);
+        return (monitor *)mmon_new((mapper_admin) DISOWN, autosubscribe_flags);
     }
     ~_monitor() {
-        mapper_monitor_free((mapper_monitor)$self);
+        mmon_free((mapper_monitor)$self);
     }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
-        int rc = mapper_monitor_poll((mapper_monitor)$self, timeout);
+        int rc = mmon_poll((mapper_monitor)$self, timeout);
         PyEval_RestoreThread(_save);
         return rc;
     }
     db *get_db() {
-        return (db *)mapper_monitor_get_db((mapper_monitor)$self);
+        return (db *)mmon_get_db((mapper_monitor)$self);
     }
     void autosubscribe(int autosubscribe_flags) {
-        mapper_monitor_autosubscribe((mapper_monitor)$self, autosubscribe_flags);
+        mmon_autosubscribe((mapper_monitor)$self, autosubscribe_flags);
     }
     void subscribe(const char *name, int subscribe_flags=0, int timeout=0) {
-        return mapper_monitor_subscribe((mapper_monitor)$self, name,
-                                        subscribe_flags, timeout);
+        return mmon_subscribe((mapper_monitor)$self, name,
+                              subscribe_flags, timeout);
     }
     void unsubscribe(const char *name) {
-        return mapper_monitor_unsubscribe((mapper_monitor)$self, name);
+        return mmon_unsubscribe((mapper_monitor)$self, name);
     }
     void request_devices() {
-        mapper_monitor_request_devices((mapper_monitor)$self);
+        mmon_request_devices((mapper_monitor)$self);
     }
     void link(const char *source, const char *dest,
               mapper_db_link_with_flags_t *properties=0) {
         if (!source || !dest)
             return;
         if (properties) {
-            mapper_monitor_link_by_names((mapper_monitor)$self, source, dest,
-                                         &properties->props, properties->flags);
+            mmon_link_devices_by_name((mapper_monitor)$self, source, dest,
+                                      &properties->props, properties->flags);
         }
         else
-            mapper_monitor_link_by_names((mapper_monitor)$self, source, dest, 0, 0);
+            mmon_link_devices_by_name((mapper_monitor)$self, source, dest, 0, 0);
     }
 //    void link(device *source, device *dest,
 //              mapper_db_link_with_flags_t *properties=0) {
 //        if (!source || !dest)
 //            return;
 //        if (properties) {
-//            mapper_monitor_link((mapper_monitor)$self,
-//                                mdev_properties((mapper_device)source),
-//                                mdev_properties((mapper_device)dest),
-//                                &properties->props, properties->flags);
+//            mmon_link_devices_by_db_record((mapper_monitor)$self,
+//                                           mdev_properties((mapper_device)source),
+//                                           mdev_properties((mapper_device)dest),
+//                                           &properties->props, properties->flags);
 //        }
 //        else
-//            mapper_monitor_link((mapper_monitor)$self,
-//                                mdev_properties((mapper_device)source),
-//                                mdev_properties((mapper_device)dest), 0, 0);
+//            mmon_link_devices_by_db_record((mapper_monitor)$self,
+//                                           mdev_properties((mapper_device)source),
+//                                           mdev_properties((mapper_device)dest), 0, 0);
 //    }
     void unlink(const char *source, const char *dest) {
         if (!source || !dest)
             return;
-        mapper_monitor_unlink_by_names((mapper_monitor)$self, source, dest);
+        mmon_unlink_devices_by_name((mapper_monitor)$self, source, dest);
     }
 //    void unlink(device *source, device *dest) {
 //        if (!source || !dest)
 //            return;
-//        mapper_monitor_unlink((mapper_monitor)$self,
-//                              mdev_properties((mapper_device)source),
-//                              mdev_properties((mapper_device)dest));
+//        mmon_unlink_devices_by_db_record((mapper_monitor)$self,
+//                                         mdev_properties((mapper_device)source),
+//                                         mdev_properties((mapper_device)dest));
 //    }
     void connect(const char *source, const char *dest,
                  mapper_db_connection_with_flags_t *properties=0) {
         if (!source || !dest)
             return;
         if (properties) {
-            mapper_monitor_connect_by_names((mapper_monitor)$self, source, dest,
-                                   &properties->props, properties->flags);
+            mmon_connect_signals_by_name((mapper_monitor)$self, source, dest,
+                                         &properties->props, properties->flags);
         }
         else
-            mapper_monitor_connect_by_names((mapper_monitor)$self,
-                                            source, dest, 0, 0);
+            mmon_connect_signals_by_name((mapper_monitor)$self,
+                                         source, dest, 0, 0);
     }
 //    void connect(signal *source, signal *dest,
 //                 mapper_db_connection_with_flags_t *properties=0) {
 //        if (!source || !dest)
 //            return;
 //        if (properties) {
-//            mapper_monitor_connect((mapper_monitor)$self,
-//                                   msig_properties((mapper_signal)source),
-//                                   msig_properties((mapper_signal)dest),
-//                                   &properties->props, properties->flags);
+//            mmon_connect_signals_by_db_record((mapper_monitor)$self,
+//                                              msig_properties((mapper_signal)source),
+//                                              msig_properties((mapper_signal)dest),
+//                                              &properties->props, properties->flags);
 //        }
 //        else
-//            mapper_monitor_connect((mapper_monitor)$self,
-//                                   msig_properties((mapper_signal)source),
-//                                   msig_properties((mapper_signal)dest), 0, 0);
+//            mmon_connect_signals_by_db_record((mapper_monitor)$self,
+//                                              msig_properties((mapper_signal)source),
+//                                              msig_properties((mapper_signal)dest), 0, 0);
 //    }
     void modify_connection(const char *source, const char *dest,
                            mapper_db_connection_with_flags_t *properties) {
         if (!source || !dest || !properties)
             return;
-        mapper_monitor_modify_connection_by_names((mapper_monitor)$self, source,
-                                                  dest, &properties->props,
-                                                  properties->flags);
+        mmon_modify_connection_by_signal_names((mapper_monitor)$self, source,
+                                               dest, &properties->props,
+                                               properties->flags);
     }
 //    void modify_connection(signal *source, signal *dest,
 //                           mapper_db_connection_with_flags_t *properties) {
 //        if (!source || !dest || !properties)
 //            return;
-//        mapper_monitor_modify_connection((mapper_monitor)$self,
-//                                         msig_properties((mapper_signal)source),
-//                                         msig_properties((mapper_signal)dest),
-//                                         &properties->props, properties->flags);
+//        mmon_modify_connection_by_db_signals((mapper_monitor)$self,
+//                                             msig_properties((mapper_signal)source),
+//                                             msig_properties((mapper_signal)dest),
+//                                             &properties->props, properties->flags);
 //    }
     void disconnect(const char *source, const char *dest) {
         if (!source || !dest)
             return;
-        mapper_monitor_disconnect_by_names((mapper_monitor)$self, source, dest);
+        mmon_disconnect_signals_by_name((mapper_monitor)$self, source, dest);
     }
 //    void disconnect(signal *source, signal *dest) {
 //        if (!source || !dest)
 //            return;
-//        mapper_monitor_disconnect((mapper_monitor)$self,
-//                                  msig_properties((mapper_signal)source),
-//                                  msig_properties((mapper_signal)dest));
+//        mmon_disconnect_signals_by_db_record((mapper_monitor)$self,
+//                                             msig_properties((mapper_signal)source),
+//                                             msig_properties((mapper_signal)dest));
 //    }
     double now() {
         mapper_timetag_t tt;
-        mapper_monitor_now((mapper_monitor)$self, &tt);
+        mmon_now((mapper_monitor)$self, &tt);
         return mapper_timetag_get_double(tt);
     }
     void flush(int timeout = ADMIN_TIMEOUT_SEC, int quiet = 1) {
-        mapper_monitor_flush_db((mapper_monitor)$self, timeout, quiet);
+        mmon_flush_db((mapper_monitor)$self, timeout, quiet);
     }
     %pythoncode {
         db = property(get_db)

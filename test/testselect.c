@@ -123,12 +123,12 @@ int setup_connection()
 {
     int count = 0;
 
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
     if (!mon)
         goto error;
 
-    mapper_monitor_link(mon, &source->props,
-                        &destination->props, 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source),
+                              mdev_name(destination), 0, 0);
 
     while (!done && !source->routers) {
         if (count++ > 50)
@@ -137,7 +137,8 @@ int setup_connection()
         mdev_poll(destination, 10);
     }
 
-    mapper_monitor_connect(mon, &sendsig->props, &recvsig->props, 0, 0);
+    mmon_connect_signals_by_db_record(mon, &sendsig->props,
+                                      &recvsig->props, 0, 0);
 
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {
@@ -148,7 +149,7 @@ int setup_connection()
     }
     eprintf("Connection established.\n");
 
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 
     return 0;
 

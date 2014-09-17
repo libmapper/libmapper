@@ -149,10 +149,10 @@ void wait_local_devices()
 int setup_connections()
 {
     int i;
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_monitor_link(mon, &source->props,
-                        &destination->props, 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source),
+                              mdev_name(destination), 0, 0);
 
     i = 0;
     while (!done && !source->routers) {
@@ -162,13 +162,16 @@ int setup_connections()
             return 1;
     }
 
-    for (int i = 0; i < 4; i++) {
-        mapper_monitor_connect(mon, &sendsig[i]->props, &recvsig[i]->props, 0, 0);
+    for (int i = 0; i < 2; i++) {
+        mmon_connect_signals_by_db_record(mon, &sendsig[i]->props,
+                                          &recvsig[i]->props, 0, 0);
     }
 
     // swap the last two signals to mix up signal vector lengths
-    mapper_monitor_connect(mon, &sendsig[2]->props, &recvsig[3]->props, 0, 0);
-    mapper_monitor_connect(mon, &sendsig[3]->props, &recvsig[2]->props, 0, 0);
+    mmon_connect_signals_by_db_record(mon, &sendsig[2]->props,
+                                      &recvsig[3]->props, 0, 0);
+    mmon_connect_signals_by_db_record(mon, &sendsig[3]->props,
+                                      &recvsig[2]->props, 0, 0);
 
     i = 0;
     // wait until connection has been established
@@ -179,7 +182,7 @@ int setup_connections()
             return 1;
     }
 
-    mapper_monitor_free(mon);
+    mmon_free(mon);
     return 0;
 }
 

@@ -23,7 +23,8 @@ static double get_current_time()
 }
 
 // function prototypes
-static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon,
+                                       const char *device_name,
                                        int subscribe_flags, int timeout,
                                        int version);
 
@@ -33,7 +34,7 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
+mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
@@ -48,7 +49,7 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
     }
 
     if (!mon->admin) {
-        mapper_monitor_free(mon);
+        mmon_free(mon);
         return NULL;
     }
 
@@ -56,13 +57,13 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
 
     mapper_admin_add_monitor(mon->admin, mon);
     if (autosubscribe_flags) {
-        mapper_monitor_autosubscribe(mon, autosubscribe_flags);
-        mapper_monitor_request_devices(mon);
+        mmon_autosubscribe(mon, autosubscribe_flags);
+        mmon_request_devices(mon);
     }
     return mon;
 }
 
-void mapper_monitor_free(mapper_monitor mon)
+void mmon_free(mapper_monitor mon)
 {
     if (!mon)
         return;
@@ -72,7 +73,7 @@ void mapper_monitor_free(mapper_monitor mon)
 
     // unsubscribe from and remove any autorenewing subscriptions
     while (mon->subscriptions) {
-        mapper_monitor_unsubscribe(mon, mon->subscriptions->name);
+        mmon_unsubscribe(mon, mon->subscriptions->name);
     }
 
     while (mon->db.registered_devices)
@@ -86,7 +87,7 @@ void mapper_monitor_free(mapper_monitor mon)
     free(mon);
 }
 
-int mapper_monitor_poll(mapper_monitor mon, int block_ms)
+int mmon_poll(mapper_monitor mon, int block_ms)
 {
     int ping_time = mon->admin->clock.next_ping;
     int admin_count = mapper_admin_poll(mon->admin);
@@ -126,25 +127,26 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
     return admin_count;
 }
 
-mapper_db mapper_monitor_get_db(mapper_monitor mon)
+mapper_db mmon_get_db(mapper_monitor mon)
 {
     return &mon->db;
 }
 
-static void mapper_monitor_set_bundle_dest(mapper_monitor mon, const char *name)
+static void monitor_set_bundle_dest(mapper_monitor mon, const char *name)
 {
     // TODO: look up device info, maybe send directly
     mapper_admin_set_bundle_dest_bus(mon->admin);
 }
 
-static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon,
+                                       const char *device_name,
                                        int subscribe_flags, int timeout,
                                        int version)
 {
     char cmd[1024];
     snprintf(cmd, 1024, "%s/subscribe", device_name);
 
-    mapper_monitor_set_bundle_dest(mon, device_name);
+    monitor_set_bundle_dest(mon, device_name);
     lo_message m = lo_message_new();
     if (m) {
         if (subscribe_flags & SUB_DEVICE_ALL)
@@ -188,8 +190,8 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
     }
 }
 
-void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
-                              int subscribe_flags, int timeout)
+void mmon_subscribe(mapper_monitor mon, const char *device_name,
+                    int subscribe_flags, int timeout)
 {
     mapper_db_device found = 0;
     if (timeout == -1) {
@@ -226,9 +228,9 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout, 0);
 }
 
-static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
-                                                const char *device_name,
-                                                int send_message)
+static void monitor_unsubscribe_internal(mapper_monitor mon,
+                                         const char *device_name,
+                                         int send_message)
 {
     char cmd[1024];
     // check if autorenewing subscription exists
@@ -237,7 +239,7 @@ static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
         if (strcmp((*s)->name, device_name)==0) {
             if (send_message) {
                 snprintf(cmd, 1024, "%s/unsubscribe", device_name);
-                mapper_monitor_set_bundle_dest(mon, device_name);
+                monitor_set_bundle_dest(mon, device_name);
                 lo_message m = lo_message_new();
                 if (!m)
                     break;
@@ -256,20 +258,20 @@ static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
     }
 }
 
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+void mmon_unsubscribe(mapper_monitor mon, const char *device_name)
 {
-    mapper_monitor_unsubscribe_internal(mon, device_name, 1);
+    monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
-void mapper_monitor_request_devices(mapper_monitor mon)
+void mmon_request_devices(mapper_monitor mon)
 {
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
 }
 
-void mapper_monitor_link_by_names(mapper_monitor mon, const char *source,
-                                  const char *dest, mapper_db_link_t *props,
-                                  unsigned int props_flags)
+void mmon_link_devices_by_name(mapper_monitor mon, const char *source,
+                               const char *dest, mapper_db_link_t *props,
+                               unsigned int props_flags)
 {
     if (props && (props_flags & LINK_NUM_SCOPES) && props->num_scopes &&
         ((props_flags & LINK_SCOPE_NAMES) || (props_flags & LINK_SCOPE_HASHES))) {
@@ -291,7 +293,7 @@ void mapper_monitor_link_by_names(mapper_monitor mon, const char *source,
             }
         }
 
-        mapper_monitor_set_bundle_dest(mon, dest);
+        monitor_set_bundle_dest(mon, dest);
 
         // TODO: switch scopes to regular props
         lo_send_message(mon->admin->bus_addr, "/link", m);
@@ -307,39 +309,52 @@ void mapper_monitor_link_by_names(mapper_monitor mon, const char *source,
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_link(mapper_monitor mon,
-                         mapper_db_device_t *source,
-                         mapper_db_device_t *dest,
-                         mapper_db_link_t *props,
-                         unsigned int props_flags)
+void mmon_link_devices_by_db_record(mapper_monitor mon,
+                                    mapper_db_device_t *source,
+                                    mapper_db_device_t *dest,
+                                    mapper_db_link_t *props,
+                                    unsigned int props_flags)
 {
-    mapper_monitor_link_by_names(mon, source->name, dest->name,
-                                 props, props_flags);
+    if (!source || !dest)
+        return;
+    mmon_link_devices_by_name(mon, source->name, dest->name, props, props_flags);
 }
 
-void mapper_monitor_unlink_by_names(mapper_monitor mon,
-                                    const char *source,
-                                    const char *dest)
+void mmon_unlink_devices_by_name(mapper_monitor mon, const char *source,
+                                 const char *dest)
 {
-    mapper_monitor_set_bundle_dest(mon, source);
+    if (!source || !dest)
+        return;
+    mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
                                 source, dest);
 }
 
-void mapper_monitor_unlink(mapper_monitor mon,
-                           mapper_db_device_t *source,
-                           mapper_db_device_t *dest)
+void mmon_unlink_devices_by_db_record(mapper_monitor mon,
+                                      mapper_db_device_t *source,
+                                      mapper_db_device_t *dest)
 {
-    mapper_monitor_set_bundle_dest(mon, source->name);
+    if (!source || !dest)
+        return;
+    mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
                                 source->name, dest->name);
 }
 
-void mapper_monitor_connect_by_names(mapper_monitor mon,
-                                     const char *source,
-                                     const char *dest,
-                                     mapper_db_connection_t *props,
-                                     unsigned int props_flags)
+void mmon_remove_link(mapper_monitor mon, mapper_db_link_t *link)
+{
+    if (!link || !link->src_name || !link->dest_name)
+        return;
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
+                                link->src_name, link->dest_name);
+}
+
+void mmon_connect_signals_by_name(mapper_monitor mon,
+                                  const char *source,
+                                  const char *dest,
+                                  mapper_db_connection_t *props,
+                                  unsigned int props_flags)
 {
     if (!mon || !source || !dest)
         return;
@@ -387,11 +402,11 @@ void mapper_monitor_connect_by_names(mapper_monitor mon,
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_connect(mapper_monitor mon,
-                            mapper_db_signal_t *source,
-                            mapper_db_signal_t *dest,
-                            mapper_db_connection_t *props,
-                            unsigned int props_flags)
+void mmon_connect_signals_by_db_record(mapper_monitor mon,
+                                       mapper_db_signal_t *source,
+                                       mapper_db_signal_t *dest,
+                                       mapper_db_connection_t *props,
+                                       unsigned int props_flags)
 {
     if (!mon || !source || !dest)
         return;
@@ -400,15 +415,14 @@ void mapper_monitor_connect(mapper_monitor mon,
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
 
-    mapper_monitor_connect_by_names(mon, src_name, dest_name,
-                                    props, props_flags);
+    mmon_connect_signals_by_name(mon, src_name, dest_name, props, props_flags);
 }
 
-void mapper_monitor_modify_connection_by_names(mapper_monitor mon,
-                                               const char *source,
-                                               const char *dest,
-                                               mapper_db_connection_t *props,
-                                               unsigned int props_flags)
+void mmon_modify_connection_by_signal_names(mapper_monitor mon,
+                                            const char *source,
+                                            const char *dest,
+                                            mapper_db_connection_t *props,
+                                            unsigned int props_flags)
 {
     if (!mon || !source || !dest || !props)
         return;
@@ -451,27 +465,33 @@ void mapper_monitor_modify_connection_by_names(mapper_monitor mon,
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_modify_connection(mapper_monitor mon,
-                                      mapper_db_signal_t *source,
-                                      mapper_db_signal_t *dest,
-                                      mapper_db_connection_t *props,
-                                      unsigned int props_flags)
+void mmon_modify_connection_by_db_signals(mapper_monitor mon,
+                                          mapper_db_signal_t *dev1,
+                                          mapper_db_signal_t *dev2,
+                                          mapper_db_connection_t *props,
+                                          unsigned int props_flags)
 {
-    if (!mon || !source || !dest || !props)
+    if (!mon || !dev1 || !dev2 || !props || !props_flags)
         return;
 
-    char src_name[256];
-    snprintf(src_name, 256, "%s%s", source->device_name, source->name);
-    char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
-
-    mapper_monitor_modify_connection_by_names(mon, src_name, dest_name,
-                                              props, props_flags);
+    mmon_modify_connection_by_signal_names(mon, dev1->name, dev2->name,
+                                           props, props_flags);
 }
 
-void mapper_monitor_disconnect_by_names(mapper_monitor mon,
-                                        const char *source,
-                                        const char *dest)
+void mmon_modify_connection(mapper_monitor mon,
+                            mapper_db_connection_t *props,
+                            unsigned int props_flags)
+{
+    if (!mon || !props || !props->src_name || !props->dest_name)
+        return;
+
+    mmon_modify_connection_by_signal_names(mon, props->src_name,
+                                           props->dest_name,
+                                           props, props_flags);
+}
+
+void mmon_disconnect_signals_by_name(mapper_monitor mon, const char *source,
+                                     const char *dest)
 {
     if (!mon || !source || !dest)
         return;
@@ -482,9 +502,9 @@ void mapper_monitor_disconnect_by_names(mapper_monitor mon,
                                 source, dest);
 }
 
-void mapper_monitor_disconnect(mapper_monitor mon,
-                               mapper_db_signal_t *source,
-                               mapper_db_signal_t *dest)
+void mmon_disconnect_signals_by_db_record(mapper_monitor mon,
+                                          mapper_db_signal_t *source,
+                                          mapper_db_signal_t *dest)
 {
     if (!mon || !source || !dest)
         return;
@@ -498,6 +518,17 @@ void mapper_monitor_disconnect(mapper_monitor mon,
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_DISCONNECT, 0, "ss",
                                 source, dest);
+}
+
+void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
+{
+    if (!mon || !c || !c->src_name || !c->dest_name)
+        return;
+
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_DISCONNECT, 0, "ss",
+                                c->src_name, c->dest_name);
 }
 
 static void on_device_autosubscribe(mapper_db_device dev,
@@ -509,14 +540,14 @@ static void on_device_autosubscribe(mapper_db_device dev,
     if (a == MDB_NEW) {
         // Subscribe to signals, links, and/or connections for new devices.
         if (mon->autosubscribe)
-            mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
+            mmon_subscribe(mon, dev->name, mon->autosubscribe, -1);
     }
     else if (a == MDB_REMOVE) {
-        mapper_monitor_unsubscribe_internal(mon, dev->name, 0);
+        monitor_unsubscribe_internal(mon, dev->name, 0);
     }
 }
 
-void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
+void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 {
     // TODO: remove autorenewing subscription record if necessary
     if (!mon->autosubscribe && autosubscribe_flags)
@@ -524,30 +555,30 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
     else if (mon->autosubscribe && !autosubscribe_flags) {
         mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
         while (mon->subscriptions) {
-            mapper_monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
+            monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
         }
     }
     mon->autosubscribe = autosubscribe_flags;
 }
 
-void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
+void mmon_now(mapper_monitor mon, mapper_timetag_t *tt)
 {
     mapper_clock_now(&mon->admin->clock, tt);
 }
 
-void mapper_monitor_set_timeout(mapper_monitor mon, int timeout_sec)
+void mmon_set_timeout(mapper_monitor mon, int timeout_sec)
 {
     if (timeout_sec < 0)
         timeout_sec = ADMIN_TIMEOUT_SEC;
     mon->timeout_sec = timeout_sec;
 }
 
-int mapper_monitor_get_timeout(mapper_monitor mon)
+int mmon_get_timeout(mapper_monitor mon)
 {
     return mon->timeout_sec;
 }
 
-void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
+void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
 {
     mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
@@ -572,8 +603,7 @@ void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
 }
 
 // Forward a message to the admin bus
-void mapper_monitor_send(mapper_monitor mon, const char *path,
-                         const char *types, ...)
+void mmon_send(mapper_monitor mon, const char *path, const char *types, ...)
 {
     if (!mon || !path || !types)
         return;

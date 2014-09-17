@@ -105,10 +105,10 @@ void cleanup_destination()
 
 int setup_connection()
 {
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_monitor_link(mon, &source->props,
-                        &destination->props, 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source),
+                              mdev_name(destination), 0, 0);
 
     while (!done && !source->routers) {
         mdev_poll(source, 10);
@@ -118,8 +118,9 @@ int setup_connection()
     mapper_db_connection_t props;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x*10";
-    mapper_monitor_connect(mon, &sendsig->props, &recvsig->props, &props,
-                           CONNECTION_MODE | CONNECTION_EXPRESSION);
+    mmon_connect_signals_by_db_record(mon, &sendsig->props,
+                                      &recvsig->props, &props,
+                                      CONNECTION_MODE | CONNECTION_EXPRESSION);
 
     // wait until connection has been established
     while (!done && !source->routers->num_connections) {
@@ -127,7 +128,7 @@ int setup_connection()
         mdev_poll(destination, 10);
     }
 
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 
     return 0;
 }

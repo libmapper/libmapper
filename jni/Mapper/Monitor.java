@@ -249,6 +249,10 @@ public class Monitor
         mmon_connect_or_mod_db_sigs(_monitor, source, dest, props, 0);
     }
 
+    public void disconnect(Mapper.Db.Connection connection)
+    {
+        mmon_disconnect(_monitor, connection);
+    }
     public void disconnect(Mapper.Device.Signal source, Mapper.Device.Signal dest)
     {
         mmon_disconnect_sigs(_monitor, source, dest);
@@ -258,6 +262,10 @@ public class Monitor
         mmon_disconnect_db_sigs(_monitor, source, dest);
     }
 
+    public void modifyConnection(Mapper.Db.Connection connection)
+    {
+        mmon_modify_connection(_monitor, connection);
+    }
     public void modifyConnection(Mapper.Device.Signal source, Mapper.Device.Signal dest,
                                  Mapper.Db.Connection props)
     {
@@ -314,6 +322,10 @@ public class Monitor
                                                     Mapper.Db.Signal dest,
                                                     Mapper.Db.Connection props,
                                                     int modify);
+    private native void mmon_modify_connection(long mon,
+                                               Mapper.Db.Connection connection);
+    private native void mmon_disconnect(long mon,
+                                        Mapper.Db.Connection connection);
     private native void mmon_disconnect_sigs(long mon,
                                              Mapper.Device.Signal source,
                                              Mapper.Device.Signal dest);

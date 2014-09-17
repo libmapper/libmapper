@@ -163,20 +163,24 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+        mapper_monitor mon = mmon_new(source->admin, 0);
 
-        mapper_monitor_link(mon, &source->props,
-                            &destination->props, 0, 0);
+        mmon_link_devices_by_name(mon, mdev_name(source),
+                                  mdev_name(destination), 0, 0);
 
         while (!done && !source->routers) {
             mdev_poll(source, 10);
             mdev_poll(destination, 10);
         }
 
-        mapper_monitor_connect(mon, &sendsig_1->props, &recvsig_1->props, 0, 0);
-        mapper_monitor_connect(mon, &sendsig_2->props, &recvsig_2->props, 0, 0);
-        mapper_monitor_connect(mon, &sendsig_3->props, &recvsig_3->props, 0, 0);
-        mapper_monitor_connect(mon, &sendsig_3->props, &recvsig_4->props, 0, 0);
+        mmon_connect_signals_by_db_record(mon, &sendsig_1->props,
+                                          &recvsig_1->props, 0, 0);
+        mmon_connect_signals_by_db_record(mon, &sendsig_2->props,
+                                          &recvsig_2->props, 0, 0);
+        mmon_connect_signals_by_db_record(mon, &sendsig_3->props,
+                                          &recvsig_3->props, 0, 0);
+        mmon_connect_signals_by_db_record(mon, &sendsig_3->props,
+                                          &recvsig_4->props, 0, 0);
 
         // wait until connection has been established
         while (!done && !source->routers->num_connections) {
@@ -184,7 +188,7 @@ void loop()
             mdev_poll(destination, 10);
         }
 
-        mapper_monitor_free(mon);
+        mmon_free(mon);
     }
 
     i = 0;

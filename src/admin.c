@@ -1332,7 +1332,7 @@ static int handler_device(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 1)
         return 0;
@@ -1377,7 +1377,7 @@ static int handler_logout(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
     int diff, ordinal;
     char *s;
 
@@ -1396,7 +1396,7 @@ static int handler_logout(const char *path, const char *types,
         mapper_db_remove_device_by_name(db, name);
 
         // remove subscriptions
-        mapper_monitor_unsubscribe(mon, name);
+        mmon_unsubscribe(mon, name);
     }
 
     // If device exists and is registered
@@ -1632,7 +1632,7 @@ static int handler_signal_info(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 2)
         return 1;
@@ -1671,7 +1671,7 @@ static int handler_input_signal_removed(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 1)
         return 1;
@@ -1704,7 +1704,7 @@ static int handler_output_signal_removed(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 1)
         return 1;
@@ -2005,7 +2005,7 @@ static int handler_device_linked(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     const char *src_name, *dest_name, *host=0, *admin_port;
     int data_port = -1;
@@ -2248,7 +2248,7 @@ static int handler_device_unlinked(const char *path, const char *types,
         trace("<monitor> got /unlinked %s %s + %i arguments\n",
               src_name, dest_name, argc-2);
 
-        mapper_db db = mapper_monitor_get_db(mon);
+        mapper_db db = mmon_get_db(mon);
 
         mapper_db_remove_connections_by_query(db,
             mapper_db_get_connections_by_src_dest_device_names(db, src_name,
@@ -2588,7 +2588,7 @@ static int handler_signal_connected(const char *path, const char *types,
     }
 
     if (mon) {
-        mapper_db db = mapper_monitor_get_db(mon);
+        mapper_db db = mmon_get_db(mon);
 
         trace("<monitor> got /connected %s %s\n", src_name, dest_name);
 
@@ -2864,7 +2864,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
     dest_name = &argv[1]->s;
 
     if (mon) {
-        mapper_db db = mapper_monitor_get_db(mon);
+        mapper_db db = mmon_get_db(mon);
 
         trace("<monitor> got /disconnected %s %s\n",
               src_name, dest_name);
@@ -3044,7 +3044,7 @@ static int handler_sync(const char *path,
             mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
         else if (mon->autosubscribe) {
             // only create device record after requesting more information
-            mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
+            mmon_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
         }
     }
     else if (types[0] == 'i') {
