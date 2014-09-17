@@ -2597,64 +2597,43 @@ JNIEXPORT void JNICALL Java_Mapper_Db_SignalIterator_mdb_1signal_1done
 
 /**** Mapper.Db.Link ****/
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1src_1name
-  (JNIEnv *env, jobject obj, jlong p)
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1device_1name
+  (JNIEnv *env, jobject obj, jlong p, jint first)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->src_name);
+    return (*env)->NewStringUTF(env, first ? props->name1 : props->name2);
 }
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1dest_1name
-  (JNIEnv *env, jobject obj, jlong p)
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1device_1host
+  (JNIEnv *env, jobject obj, jlong p, jint first)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->dest_name);
+    return (*env)->NewStringUTF(env, first ? props->host1 : props->host2);
 }
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1src_1host
-  (JNIEnv *env, jobject obj, jlong p)
+JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1device_1port
+  (JNIEnv *env, jobject obj, jlong p, jint first)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->src_host);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1src_1port
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return props->src_port;
-}
-
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1dest_1host
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->dest_host);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1dest_1port
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return props->dest_port;
+    return first ? props->port1 : props->port2;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1num_1scopes
-  (JNIEnv *env, jobject obj, jlong p, jint direction)
+  (JNIEnv *env, jobject obj, jlong p, jint first)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return direction ? props->src_scopes.size : props->dest_scopes.size;
+    return first ? props->scopes1.size : props->scopes2.size;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1scope_1names
-  (JNIEnv *env, jobject obj, jlong p, jint direction)
+  (JNIEnv *env, jobject obj, jlong p, jint first)
 {
     mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    int size = direction ? props->dest_scopes.size : props->src_scopes.size;
+    int size = first ? props->scopes1.size : props->scopes2.size;
     if (!size)
         return 0;
-    return build_PropertyValue(env, 's', direction ? props->dest_scopes.names
-                               : props->src_scopes.names, size);
+    return build_PropertyValue(env, 's', first ? props->scopes1.names
+                               : props->scopes2.names, size);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mapper_1db_1link_1property_1lookup
@@ -2681,10 +2660,9 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_getLink
     mapper_db db = get_db_from_jobject(env, obj);
     if (!db) return 0;
 
-    const char *src_name = (*env)->GetStringUTFChars(env, s1, 0);
-    const char *dest_name = (*env)->GetStringUTFChars(env, s2, 0);
-    mapper_db_link link = mapper_db_get_link_by_device_names(db, src_name,
-                                                             dest_name);
+    const char *name1 = (*env)->GetStringUTFChars(env, s1, 0);
+    const char *name2 = (*env)->GetStringUTFChars(env, s2, 0);
+    mapper_db_link link = mapper_db_get_link_by_device_names(db, name1, name2);
     if (link) {;
         jclass cls = (*env)->FindClass(env, "Mapper/Db/Link");
         if (cls) {
@@ -2692,8 +2670,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_getLink
             linkobj = (*env)->NewObject(env, cls, mid, jlong_ptr(link));
         }
     }
-    (*env)->ReleaseStringUTFChars(env, s1, src_name);
-    (*env)->ReleaseStringUTFChars(env, s2, dest_name);
+    (*env)->ReleaseStringUTFChars(env, s1, name1);
+    (*env)->ReleaseStringUTFChars(env, s2, name2);
     return linkobj;
 }
 

@@ -34,7 +34,7 @@ class test {
         mon.Db.addLinkCallback(new Mapper.Db.LinkListener() {
             public void onEvent(Mapper.Db.Link l, int event) {
                 System.out.println("db onEvent() for link "
-                                   +l.srcName()+" -> "+l.destName());
+                                   +l.name1()+" -> "+l.name2());
             }});
 
         mon.Db.addConnectionCallback(new Mapper.Db.ConnectionListener() {
@@ -235,7 +235,7 @@ class test {
 
         Mapper.Db.LinkCollection links = mon.Db.links();
         for (Mapper.Db.Link l : links) {
-            System.out.println("  link: "+ l.srcName() + " -> " + l.destName());
+            System.out.println("  link: "+ l.name1() + " -> " + l.name2());
         }
 
         Mapper.Db.ConnectionCollection cons = mon.Db.connections();
