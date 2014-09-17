@@ -683,16 +683,16 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
             // need to disconnect?
             mapper_connection c = rs->connections;
             while (c) {
+                mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
                 if (!c->link->self_link) {
-                    mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
                     snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
                              c->props.remote_name);
                     if (c->props.direction == DI_OUTGOING)
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                    "ss", str1, str2);
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
+                                                    0, "ss", str1, str2);
                     else
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                    "ss", str2, str1);
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
+                                                    0, "ss", str2, str1);
                 }
                 mapper_connection temp = c->next;
                 mapper_router_remove_connection(md->router, c);
@@ -744,16 +744,16 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
             // need to disconnect?
             mapper_connection c = rs->connections;
             while (c) {
-                mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
                 if (!c->link->self_link) {
+                    mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
                     snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
                              c->props.remote_name);
                     if (c->props.direction == DI_OUTGOING)
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
-                                                    0, "ss", str1, str2);
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                                    "ss", str1, str2);
                     else
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
-                                                    0, "ss", str2, str1);
+                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
+                                                    "ss", str2, str1);
                 }
                 mapper_connection temp = c->next;
                 mapper_router_remove_connection(md->router, c);
