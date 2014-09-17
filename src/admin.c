@@ -65,6 +65,8 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
 
 const char* admin_msg_strings[] =
 {
+    "/combine",                 /* ADM_COMBINE */
+    "/combined",                /* ADM_COMBINED */
     "/connect",                 /* ADM_CONNECT */
     "/connectTo",               /* ADM_CONNECT_TO */
     "/connected",               /* ADM_CONNECTED */
@@ -140,8 +142,12 @@ static int handler_signal_disconnect(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_signal_disconnected(const char *, const char *, lo_arg **,
                                        int, lo_message, void *);
-static int handler_sync(const char *, const char *,
-                        lo_arg **, int, lo_message, void *);
+static int handler_sync(const char *, const char *, lo_arg **,
+                        int, lo_message, void *);
+static int handler_signal_combine(const char *, const char *, lo_arg **,
+                                  int, lo_message, void *);
+static int handler_signal_combined(const char *, const char *, lo_arg **,
+                                   int, lo_message, void *);
 
 /* Handler <-> Message relationships */
 struct handler_method_assoc {
@@ -164,27 +170,28 @@ const int N_ADMIN_MESH_HANDLERS =
     sizeof(admin_mesh_handlers)/sizeof(admin_mesh_handlers[0]);
 
 static struct handler_method_assoc device_bus_handlers[] = {
-    {ADM_WHO,                   NULL,       handler_who},
+    {ADM_COMBINE,               NULL,       handler_signal_combine},
+    {ADM_CONNECT,               NULL,       handler_signal_connect},
+    {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
+    {ADM_CONNECTED,             NULL,       handler_signal_connected},
+    {ADM_CONNECTION_MODIFY,     NULL,       handler_signal_connection_modify},
+    {ADM_DISCONNECT,            NULL,       handler_signal_disconnect},
     {ADM_LINK,                  NULL,       handler_device_link},
     {ADM_LINK_TO,               NULL,       handler_device_linkTo},
     {ADM_LINK_MODIFY,           NULL,       handler_device_link_modify},
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
     {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
-    {ADM_CONNECT,               NULL,       handler_signal_connect},
-    {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
-    {ADM_CONNECTED,             NULL,       handler_signal_connected},
-    {ADM_CONNECTION_MODIFY,     NULL,       handler_signal_connection_modify},
-    {ADM_DISCONNECT,            NULL,       handler_signal_disconnect},
+    {ADM_WHO,                   NULL,       handler_who},
 };
 const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
 
 static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
-    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connectTo},
     {ADM_LINK_PING,             "iiid",     handler_device_link_ping},
+    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
 };
 
 const int N_DEVICE_MESH_HANDLERS =
@@ -200,12 +207,13 @@ const int N_MONITOR_BUS_HANDLERS =
     sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
 
 static struct handler_method_assoc monitor_mesh_handlers[] = {
+    {ADM_COMBINED,              NULL,       handler_signal_combined},
     {ADM_DEVICE,                NULL,       handler_device},
+    {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
     {ADM_LINKED,                NULL,       handler_device_linked},
-    {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_SIGNAL_REMOVED,        "s",        handler_signal_removed},
-    {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
+    {ADM_UNLINKED,              NULL,       handler_device_unlinked},
 };
 const int N_MONITOR_MESH_HANDLERS =
     sizeof(monitor_mesh_handlers)/sizeof(monitor_mesh_handlers[0]);
@@ -1209,6 +1217,26 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
         }
         rs = rs->next;
     }
+}
+
+static void mapper_admin_send_combined(mapper_admin admin, mapper_device md,
+                                       mapper_combiner c)
+{
+    // Send /combined message
+    lo_message m = lo_message_new();
+    if (!m) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+
+    char signal_name[1024];
+
+    snprintf(signal_name, 1024, "%s%s", mdev_name(md),
+             c->parent->signal->props.name);
+
+    mapper_combiner_prepare_osc_message(m, c);
+
+    lo_bundle_add_message(admin->bundle, "/combined", m);
 }
 
 /**********************************/
@@ -2862,6 +2890,93 @@ static int handler_signal_disconnected(const char *path, const char *types,
 
     mapper_db_remove_connection(db,
         mapper_db_get_connection_by_signal_full_names(db, src_name, dest_name));
+
+    return 0;
+}
+
+/*! When the /combine message is received by the destination device,
+ *  construct or modify the signal's combiner. */
+static int handler_signal_combine(const char *path, const char *types,
+                                  lo_arg **argv, int argc, lo_message msg,
+                                  void *user_data)
+{
+    mapper_admin admin = (mapper_admin) user_data;
+    mapper_device md = admin->device;
+    mapper_signal sig;
+    const char *signal_name;
+
+    if (argc < 3)
+        return 0;
+
+    if (types[0] != 's' && types[0] != 'S')
+        return 0;
+
+    if (!prefix_cmp(&argv[0]->s, mdev_name(md), &signal_name) == 0) {
+        trace("<%s> ignoring /combine %s\n", mdev_name(md), &argv[0]->s);
+        return 0;
+    }
+
+    sig = mdev_get_signal_by_name(md, signal_name, 0);
+    if (!sig) {
+        trace("<%s> no matching signal found for '%s' in /combine\n",
+              mdev_name(md), signal_name);
+        return 0;
+    }
+
+    mapper_message_t params;
+    // extract arguments from /combine if any
+    if (mapper_msg_parse_params(&params, path, &types[1],
+                                argc-1, &argv[1])) {
+        trace("<%s> error parsing message parameters in /combine.\n",
+              mdev_name(md));
+        return 0;
+    }
+
+    mapper_combiner c = mapper_router_find_combiner(md->router, sig);
+    if (!c)
+        c = mapper_router_add_combiner(md->router, sig);
+    if (mapper_combiner_set_from_message(c, &params)) {
+        // Inform subscribers
+        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+        mapper_admin_send_combined(admin, md, c);
+    }
+
+    return 0;
+}
+
+/*! Respond to /combined by adding combiner to database. */
+static int handler_signal_combined(const char *path, const char *types,
+                                   lo_arg **argv, int argc,
+                                   lo_message msg, void *user_data)
+{
+//    mapper_admin admin = (mapper_admin) user_data;
+//    mapper_monitor mon = admin->monitor;
+
+    if (!argc)
+        return 0;
+
+    if (types[0] != 's' && types[0] != 'S')
+        return 0;
+
+    const char *sig_name = &argv[0]->s;
+
+//    mapper_db db = mapper_monitor_get_db(mon);
+
+    trace("<monitor> got /combined %s + %i arguments.\n", sig_name, argc-1);
+
+    if (argc == 1) {
+//        mapper_db_remove_combiner(db, sig_name);
+    }
+    else {
+        mapper_message_t params;
+        // extract arguments from /combine if any
+        if (mapper_msg_parse_params(&params, path, &types[1],
+                                    argc-1, &argv[1])) {
+            trace("<monitor> error parsing message parameters in /combined.\n");
+            return 0;
+        }
+//        mapper_db_add_or_update_combiner_params(db, sig_name, &params);
+    }
 
     return 0;
 }

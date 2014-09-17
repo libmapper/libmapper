@@ -66,6 +66,8 @@ typedef struct _mapper_string_table {
 /*! Some useful strings for sending admin messages. */
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
+    ADM_COMBINE,
+    ADM_COMBINED,
     ADM_CONNECT,
     ADM_CONNECT_TO,
     ADM_CONNECTED,
@@ -229,6 +231,24 @@ typedef struct _mapper_connection {
     struct _mapper_connection *next;        //!< Next connection in the list.
 } *mapper_connection;
 
+typedef struct _mapper_combiner_slot {
+    int id;                                 //!< Slot id.
+    mapper_connection connection;           //!< Incoming connection.
+    int cause_update;                       //!< Whether slot causes computation.
+} mapper_combiner_slot_t, *mapper_combiner_slot;
+
+typedef struct _mapper_combiner {
+    struct _mapper_router_signal *parent;   /*!< Parent signal reference
+                                             *   in router. */
+    int mode;
+    char *expression;
+    mapper_expr expr;                       //!< The mapping expression.
+    mapper_signal_history_t **expr_vars;    //!< User variables values.
+    int num_expr_vars;                      //!< Number of user variables.
+    mapper_combiner_slot *slots;
+    int num_slots;
+} *mapper_combiner;
+
 /*! The link_signal is a linked list containing a signal and a
  *  list of connections.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
@@ -243,6 +263,7 @@ typedef struct _mapper_router_signal {
     int history_size;                       /*! Size of the history vector. */
     mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
+    mapper_combiner combiner;
     struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */
 } *mapper_router_signal;

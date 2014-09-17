@@ -655,6 +655,21 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     mapper_msg_add_value_table(m, props->extra);
 }
 
+void mapper_combiner_prepare_osc_message(lo_message m,
+                                         mapper_combiner c)
+{
+//    if (c->mode) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
+        lo_message_add_string(m, mapper_mode_type_strings[MO_EXPRESSION]);
+//    }
+    if (c->expression) {
+        lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
+        lo_message_add_string(m, c->expression);
+    }
+
+//    mapper_msg_add_value_table(m, c->extra);
+}
+
 int mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);

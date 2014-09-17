@@ -156,7 +156,8 @@ int mapper_connection_perform(mapper_connection c,
              || c->props.mode == MO_LINEAR)
     {
         die_unless(c->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(c->expr, from, expr_vars, to, typestring));
+        return (mapper_expr_evaluate(c->expr, from, expr_vars,
+                                     to, typestring, 0, 0));
     }
     else if (c->props.mode == MO_CALIBRATE)
     {
@@ -261,7 +262,7 @@ int mapper_connection_perform(mapper_connection c,
 
         if (c->expr)
             return (mapper_expr_evaluate(c->expr, from, expr_vars,
-                                         to, typestring));
+                                         to, typestring, 0, 0));
         else
             return 0;
     }
@@ -510,7 +511,7 @@ static int replace_expression_string(mapper_connection c,
 {
     mapper_expr expr = mapper_expr_new_from_string(
         expr_str, c->props.local_type, c->props.remote_type,
-        c->props.local_length, c->props.remote_length);
+        c->props.local_length, c->props.remote_length, 0);
 
     if (!expr)
         return 1;
@@ -688,7 +689,7 @@ void mapper_connection_set_mode_expression(mapper_connection c,
         h.size = 1;
         char typestring[h.length];
         mapper_expr_evaluate(c->expr, 0, &c->expr_vars[si->index],
-                             &h, typestring);
+                             &h, typestring, 0, 0);
 
         // call handler if it exists
         if (sig->handler)

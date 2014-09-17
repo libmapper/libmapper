@@ -1082,7 +1082,7 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
     h.length = 1;
     h.size = 1;
 
-    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0))
+    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0, 0, 0))
         return 0;
 
     switch (stack[length-1].datatype) {
@@ -1416,7 +1416,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
                                         char output_type,
                                         int input_vector_size,
-                                        int output_vector_size)
+                                        int output_vector_size,
+                                        mapper_combiner combiner)
 {
     if (!str) return 0;
     if (input_type != 'i' && input_type != 'f' && input_type != 'd') return 0;
@@ -1470,8 +1471,16 @@ mapper_expr mapper_expr_new_from_string(const char *str,
             case TOK_VAR:
                 // set datatype
                 if (tok.var >= VAR_X) {
-                    tok.datatype = input_type;
-                    tok.vector_length = input_vector_size;
+                    if (combiner) {
+                        if (mapper_combiner_get_var_info(combiner, tok.var,
+                                                         &tok.datatype,
+                                                         &tok.vector_length))
+                            {FAIL("Input variable reference not found.");}
+                    }
+                    else {
+                        tok.datatype = input_type;
+                        tok.vector_length = input_vector_size;
+                    }
                     tok.vector_length_locked = 1;
                     constant_output = 0;
                 }
@@ -2008,7 +2017,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *from,
                          mapper_signal_history_t **expr_vars,
                          mapper_signal_history_t *to,
-                         char *typestring)
+                         char *typestring, mapper_combiner combiner,
+                         int instance)
 {
     mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
@@ -2049,64 +2059,73 @@ int mapper_expr_evaluate(mapper_expr expr,
                     stack[top][i].i32 = tok->i;
             }
             break;
-        case TOK_VAR:
-            {
-                int idx;
-                if (tok->var >= VAR_X) {
-                    ++top;
-                    dims[top] = tok->vector_length;
-                    idx = ((tok->history_index + from->position
-                            + from->size) % from->size);
-                    if (from->type == 'd') {
-                        double *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].d = v[i+tok->vector_index];
-                    }
-                    else if (from->type == 'f') {
-                        float *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].f = v[i+tok->vector_index];
-                    }
-                    else if (from->type == 'i') {
-                        int *v = from->value + idx * from->length * mapper_type_size(from->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].i32 = v[i+tok->vector_index];
-                    }
-                }
-                else if (tok->var == VAR_Y) {
-                    ++top;
-                    dims[top] = tok->vector_length;
-                    idx = ((tok->history_index + to->position
-                            + to->size) % to->size);
-                    if (to->type == 'd') {
-                        double *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].d = v[i+tok->vector_index];
-                    }
-                    else if (to->type == 'f') {
-                        float *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].f = v[i+tok->vector_index];
-                    }
-                    else if (to->type == 'i') {
-                        int *v = to->value + idx * to->length * mapper_type_size(to->type);
-                        for (i = 0; i < tok->vector_length; i++)
-                            stack[top][i].i32 = v[i+tok->vector_index];
-                    }
-                }
-                else {
-                    // TODO: allow other data types?
-                    ++top;
-                    dims[top] = tok->vector_length;
-                    mapper_variable var = &expr->variables[tok->var];
-                    mapper_signal_history_t *h = *expr_vars + (tok->var);
-                    idx = ((tok->history_index + h->position
-                            + var->history_size) % var->history_size);
-                    double *v = h->value + idx * var->vector_length * mapper_type_size(var->datatype);
+        case TOK_VAR: {
+            int idx;
+#if TRACING
+            printf("loading variable '%c'", tok->var >= VAR_X ? 'x' : 'y');
+            if (tok->var > VAR_X)
+                printf("[%d]\n", tok->var - VAR_X);
+            else
+                printf("\n");
+#endif
+            if (tok->var >= VAR_X) {
+                ++top;
+                dims[top] = tok->vector_length;
+                mapper_signal_history_t *h;
+                if (tok->var > VAR_X && combiner)
+                    h = &combiner->slots[tok->var - VAR_X]->connection->history[instance];
+                else
+                    h = from;
+                idx = ((tok->history_index + h->position + h->size) % h->size);
+                if (h->type == 'd') {
+                    double *v = h->value + idx * h->length * mapper_type_size(h->type);
                     for (i = 0; i < tok->vector_length; i++)
                         stack[top][i].d = v[i+tok->vector_index];
                 }
+                else if (h->type == 'f') {
+                    float *v = h->value + idx * h->length * mapper_type_size(h->type);
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].f = v[i+tok->vector_index];
+                }
+                else if (h->type == 'i') {
+                    int *v = h->value + idx * h->length * mapper_type_size(h->type);
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].i32 = v[i+tok->vector_index];
+                }
             }
+            else if (tok->var == VAR_Y) {
+                ++top;
+                dims[top] = tok->vector_length;
+                idx = ((tok->history_index + to->position
+                        + to->size) % to->size);
+                if (to->type == 'd') {
+                    double *v = to->value + idx * to->length * mapper_type_size(to->type);
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].d = v[i+tok->vector_index];
+                }
+                else if (to->type == 'f') {
+                    float *v = to->value + idx * to->length * mapper_type_size(to->type);
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].f = v[i+tok->vector_index];
+                }
+                else if (to->type == 'i') {
+                    int *v = to->value + idx * to->length * mapper_type_size(to->type);
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].i32 = v[i+tok->vector_index];
+                }
+            }
+            else {
+                // TODO: allow other data types?
+                ++top;
+                dims[top] = tok->vector_length;
+                mapper_variable var = &expr->variables[tok->var];
+                mapper_signal_history_t *h = *expr_vars + (tok->var);
+                idx = ((tok->history_index + h->position
+                        + var->history_size) % var->history_size);
+                double *v = h->value + idx * var->vector_length * mapper_type_size(var->datatype);
+                for (i = 0; i < tok->vector_length; i++)
+                    stack[top][i].d = v[i+tok->vector_index];
+            }}
             break;
         case TOK_OP:
             top -= op_table[tok->op].arity-1;

@@ -605,6 +605,9 @@ int mapper_router_remove_connection(mapper_router r,
         }
         temp = &(*temp)->next;
     }
+    if (rs->combiner)
+        return !found;
+
     // Count remaining connections
     temp = &rs->connections;
     while (*temp) {
@@ -651,6 +654,49 @@ mapper_connection mapper_router_find_connection(mapper_router router,
         c = c->next;
     }
     return c;
+}
+
+mapper_combiner mapper_router_find_combiner(mapper_router router,
+                                            mapper_signal signal)
+{
+    if (signal->props.is_output)
+        return NULL;
+
+    mapper_router_signal rs = router->signals;
+    while (rs && rs->signal != signal)
+        rs = rs->next;
+    if (!rs)
+        return NULL;
+    else
+        return rs->combiner;
+}
+
+mapper_combiner mapper_router_add_combiner(mapper_router router,
+                                           mapper_signal signal)
+{
+    mapper_router_signal rs = router->signals;
+    while (rs && rs->signal != signal)
+        rs = rs->next;
+    if (!rs) {
+        rs = (mapper_router_signal)
+        calloc(1, sizeof(struct _mapper_router_signal));
+        rs->signal = signal;
+        rs->num_instances = signal->props.num_instances;
+        rs->history = malloc(sizeof(struct _mapper_signal_history)
+                             * rs->num_instances);
+        int i;
+        for (i=0; i<rs->num_instances; i++) {
+            rs->history[i].type = signal->props.type;
+            rs->history[i].length = signal->props.length;
+            rs->history[i].size = 1;
+            rs->history[i].value = calloc(1, msig_vector_bytes(signal));
+            rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t));
+            rs->history[i].position = -1;
+        }
+        rs->next = router->signals;
+        router->signals = rs;
+    }
+    return rs->combiner;
 }
 
 mapper_link mapper_router_find_link_by_remote_address(mapper_router r,

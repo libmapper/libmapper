@@ -149,7 +149,7 @@ int parse_and_eval(int expectation)
     eprintf("**********************************\n");
     eprintf("Parsing string '%s'\n", str);
     if (!(e = mapper_expr_new_from_string(str, inh.type, outh.type,
-                                          inh.length, outh.length))) {
+                                          inh.length, outh.length, 0))) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
@@ -180,7 +180,7 @@ int parse_and_eval(int expectation)
     token_count += e->length;
 
     eprintf("Try evaluation once...\n");
-    if (!mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring)) {
+    if (!mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring, 0, 0)) {
         eprintf("Evaluation FAILED.\n");
         goto fail;
     }
@@ -189,7 +189,7 @@ int parse_and_eval(int expectation)
     eprintf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
-        mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring);
+        mapper_expr_evaluate(e, &inh, &user_vars_p, &outh, typestring, 0, 0);
     }
     now = get_current_time();
     eprintf("%g seconds.\n", now-then);
@@ -503,6 +503,12 @@ int run_tests()
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += parse_and_eval(EXPECT_FAILURE);
     eprintf("Expected: FAILURE\n");
+
+    /* Multiple Inputs */
+    snprintf(str, 256, "y=x+x1+x2");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval(EXPECT_SUCCESS);
+    eprintf("Expected: 3\n");
 
     return result;
 }

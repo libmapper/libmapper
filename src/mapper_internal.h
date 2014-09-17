@@ -288,6 +288,12 @@ mapper_connection mapper_router_find_connection(mapper_router router,
                                                 mapper_signal signal,
                                                 const char* remote_signal_name);
 
+mapper_combiner mapper_router_find_combiner(mapper_router router,
+                                            mapper_signal sig);
+
+mapper_combiner mapper_router_add_combiner(mapper_router router,
+                                           mapper_signal sig);
+
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
                                                       const char *host,
@@ -452,14 +458,19 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
-void mapper_connection_set_mode_expression(mapper_connection connection,
-                                           const char *expr);
+/**** Combiners ****/
 
-const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
+int mapper_combiner_get_var_info(mapper_combiner combiner, int slot,
+                                 char *datatype, int *vector_length);
 
-const char *mapper_get_mode_type_string(mapper_mode_type mode);
+int mapper_combiner_set_from_message(mapper_combiner c,
+                                     mapper_message_t *msg);
 
-void mapper_connection_swap_direction(mapper_connection c);
+mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner c, int slot_id);
+
+void mapper_combiner_free(mapper_combiner c);
+
+int mapper_combiner_perform(mapper_combiner c, int instance);
 
 /*! Update a scope identifiers to a given connection record. */
 int mapper_db_connection_update_scope(mapper_connection_scope scope,
@@ -685,7 +696,11 @@ void mapper_link_prepare_osc_message(lo_message m,
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
 
-// Helper for setting property value from different lo_arg types
+/*! Prepare a lo_message for sending based on a combiner struct. */
+void mapper_combiner_prepare_osc_message(lo_message m,
+                                         mapper_combiner c);
+
+/*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,
                             lo_arg *src, const char src_type, int index);
 
@@ -701,7 +716,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         char input_type,
                                         char output_type,
                                         int input_vector_size,
-                                        int output_vector_size);
+                                        int output_vector_size,
+                                        mapper_combiner combiner);
 
 int mapper_expr_input_history_size(mapper_expr expr);
 
@@ -721,7 +737,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *from_value,
                          mapper_signal_history_t **expr_vars,
                          mapper_signal_history_t *to_value,
-                         char *typestring);
+                         char *typestring,
+                         mapper_combiner combiner, int instance);
 
 int mapper_expr_constant_output(mapper_expr expr);
 
