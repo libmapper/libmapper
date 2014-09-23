@@ -206,7 +206,7 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
             }
             s = s->next;
         }
-        if (!found) {
+        if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mapper_monitor_subscription));
             s->name = strdup(device_name);
@@ -250,7 +250,7 @@ static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
             if (temp->name)
                 free(temp->name);
             free(temp);
-            continue;
+            return;
         }
         s = &(*s)->next;
     }
