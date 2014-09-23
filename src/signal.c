@@ -604,7 +604,7 @@ int msig_reserve_instances(mapper_signal sig, int num, int *ids, void **user_dat
         count++;
     }
     if (highest != -1)
-        mdev_num_instances_changed(sig->device, sig, highest);
+        mdev_num_instances_changed(sig->device, sig, highest + 1);
     return count;
 }
 

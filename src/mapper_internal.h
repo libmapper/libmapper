@@ -919,7 +919,7 @@ inline static int mapper_type_size(char type)
 }
 
 /*! Helper to find the size in bytes of a signal's full vector. */
-inline static int msig_vector_bytes(mapper_signal sig)
+inline static size_t msig_vector_bytes(mapper_signal sig)
 {
     return mapper_type_size(sig->props.type) * sig->props.length;
 }

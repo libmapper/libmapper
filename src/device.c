@@ -281,7 +281,7 @@ static int handler_signal(const char *path, const char *types,
             // otherwise try to init reserved/stolen instance with device map
             index = msig_get_instance_with_remote_ids(sig, origin, public_id, 0, &tt);
             if (index < 0) {
-                trace("no instances available for origin=%ld, public_id=%ld\n",
+                trace("no local instances available for remote instance %ld:%ld\n",
                       (long)origin, (long)public_id);
                 return 0;
             }

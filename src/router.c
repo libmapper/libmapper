@@ -171,7 +171,7 @@ void mapper_router_num_instances_changed(mapper_router r,
         c->history = realloc(c->history, sizeof(struct _mapper_signal_history)
                              * size);
         c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
-                              * size);
+                               * size);
         for (i=rs->num_instances; i<size; i++) {
             c->history[i].type = c->props.dest_type;
             c->history[i].length = c->props.dest_length;
@@ -294,12 +294,13 @@ void mapper_router_process_signal(mapper_router r,
             if (!(mapper_boundary_perform(c, &c->history[id])))
                 continue;
 
-            if (count > 1)
+            if (count > 1) {
                 memcpy((char*)out_value_p + mapper_type_size(c->props.dest_type) *
                        c->props.dest_length * i,
                        msig_history_value_pointer(c->history[id]),
                        mapper_type_size(c->props.dest_type) *
                        c->props.dest_length);
+            }
             else {
                 m = mapper_router_build_message(msig_history_value_pointer(c->history[id]),
                                                 c->props.dest_length,
@@ -336,7 +337,7 @@ lo_message mapper_router_build_message(void *value, int length, char type,
     if (!m)
         return 0;
 
-    if (value) {
+    if (value && typestring) {
         if (type == 'f') {
             float *v = (float*)value;
             for (i = 0; i < length; i++) {
@@ -611,8 +612,8 @@ static void mapper_router_free_connection(mapper_router r,
                     free(c->expr_vars[i][j].value);
                     free(c->expr_vars[i][j].timetag);
                 }
-                free(c->expr_vars[i]);
             }
+            free(c->expr_vars[i]);
         }
         if (c->expr_vars)
             free(c->expr_vars);

@@ -147,6 +147,9 @@ int mapper_connection_perform(mapper_connection connection,
                 }
             }
         }
+        for (i = 0; i < vector_length; i++) {
+            typestring[i] = to->type;
+        }
         return 1;
     }
     else if (connection->props.mode == MO_EXPRESSION
@@ -156,7 +159,6 @@ int mapper_connection_perform(mapper_connection connection,
         return (mapper_expr_evaluate(connection->expr, from, expr_vars,
                                      to, typestring));
     }
-
     else if (connection->props.mode == MO_CALIBRATE)
     {
         /* Increment index position of output data structure. */
@@ -1171,7 +1173,7 @@ void reallocate_connection_histories(mapper_connection c,
 
     // Reallocate input histories
     if (input_history_size > c->parent->history_size) {
-        int sample_size = msig_vector_bytes(sig);
+        size_t sample_size = msig_vector_bytes(sig);
         for (i=0; i<sig->props.num_instances; i++) {
             mhist_realloc(&c->parent->history[i], input_history_size,
                           sample_size, 1);
@@ -1212,12 +1214,12 @@ void reallocate_connection_histories(mapper_connection c,
                                       sizeof(struct _mapper_signal_history));
             // initialize new variables...
             for (j=c->num_expr_vars; j<new_num_vars; j++) {
-                (c->expr_vars[i]+j)->type = 'd';
-                (c->expr_vars[i]+j)->length = 0;
-                (c->expr_vars[i]+j)->size = 0;
-                (c->expr_vars[i]+j)->value = 0;
-                (c->expr_vars[i]+j)->timetag = 0;
-                (c->expr_vars[i]+j)->position = -1;
+                c->expr_vars[i][j].type = 'd';
+                c->expr_vars[i][j].length = 0;
+                c->expr_vars[i][j].size = 0;
+                c->expr_vars[i][j].value = 0;
+                c->expr_vars[i][j].timetag = 0;
+                c->expr_vars[i][j].position = -1;
             }
         }
         c->num_expr_vars = new_num_vars;
