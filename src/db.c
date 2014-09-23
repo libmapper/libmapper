@@ -894,6 +894,8 @@ static void db_remove_device_internal(mapper_db db, mapper_db_device dev,
         free(dev->name);
     if (dev->host)
         free(dev->host);
+    if (dev->lib_version)
+        free(dev->lib_version);
     if (dev->extra)
         table_free(dev->extra, 1);
     list_remove_item(dev, (void**)&db->registered_devices);
