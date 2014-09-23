@@ -520,11 +520,17 @@ int main(int argc, char **argv)
                     case 'h':
                         eprintf("testparser.c: possible arguments "
                                 "-q quiet (suppress output), "
-                                "-h help\n");
+                                "-h help, "
+                                "--num_iterations <int>\n");
                         return 1;
                         break;
                     case 'q':
                         verbose = 0;
+                        break;
+                    case '-':
+                        if (++j < len && strcmp(argv[i]+j, "num_iterations")==0)
+                            if (++i < argc)
+                                iterations = atoi(argv[i]);
                         break;
                     default:
                         break;
