@@ -223,7 +223,7 @@ static int handler_signal(const char *path, const char *types,
     int index = 0, is_instance_update = 0, origin, public_id;
     mapper_id_map map;
 
-    if (!sig || !(md = sig->device)) {
+    if (!sig || !sig->handler || !(md = sig->device)) {
         trace("error, cannot retrieve user_data\n");
         return 0;
     }
@@ -320,11 +320,12 @@ static int handler_signal(const char *path, const char *types,
     si->timetag.sec = tt.sec;
     si->timetag.frac = tt.frac;
 
-    int had_value = si->has_value;
     int size = mapper_type_size(sig->props.type);
     void *out_buffer = count == 1 ? 0 : alloca(count * sig->props.length * size);
     int vals, out_count = 0;
 
+    /* As currently implemented, instance release messages cannot be embedded in
+     * multi-count messages. */
     for (i = 0, k = 0; i < count; i++) {
         // check if each update will result in a handler call
         // all nulls -> release instance, sig has no value, break "count"
@@ -336,75 +337,50 @@ static int handler_signal(const char *path, const char *types,
             si->has_value_flags[j / 8] |= 1 << (j % 8);
             vals++;
         }
+
         if (vals == 0) {
             // protocol: update with all nulls sets signal has_value to 0
-            if (had_value) {
-                if (count > 1 && out_count) {
-                    sig->handler(sig, &sig->props, map->local,
-                                 out_buffer, out_count, &tt);
-                    out_count = 0;
-                }
+            if (si->has_value) {
                 si->has_value = 0;
                 memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
                 if (is_instance_update) {
                     // TODO: handle multiple upstream devices
-                    if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
-                        /* map was already released locally,
-                         * we can clear signal's reference to map. */
-                        map = sig->id_maps[index].map;
-                        sig->id_maps[index].map = 0;
-                        map->refcount_remote--;
-                        if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
-                            mdev_remove_instance_id_map(md, map);
-                        }
+                    sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
+                    map->refcount_remote--;
+                    if (sig->instance_event_handler
+                        && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+                        sig->instance_event_handler(sig, &sig->props, map->local,
+                                                    IN_UPSTREAM_RELEASE, &tt);
                     }
-                    else {
-                        sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
-                        map->refcount_remote--;
-                        if (sig->instance_event_handler
-                            && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                            sig->instance_event_handler(sig, &sig->props, map->local,
-                                                        IN_UPSTREAM_RELEASE, &tt);
-                        }
-                        else if (sig->handler)
-                            sig->handler(sig, &sig->props,
-                                         sig->id_maps[index].map->local,
-                                         0, 1, &tt);
-                    }
-                    continue;
+                    else if (sig->handler)
+                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
                 }
-                // call handler with null value
-                if (sig->handler)
-                    sig->handler(sig, &sig->props,
-                                 sig->id_maps[index].map->local,
-                                 0, 1, &tt);
-                // TODO: call instance event handler if it exists
-                had_value = 0;
+                else {
+                    // call handler with null value
+                    sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+                }
             }
+            return 0;
         }
-        else if (!sig->handler)
-            continue;
-        else if (si->has_value
-                 || memcmp(si->has_value_flags, sig->has_complete_value,
-                           sig->props.length / 8 + 1)==0) {
+
+        if (si->has_value || memcmp(si->has_value_flags, sig->has_complete_value,
+                                    sig->props.length / 8 + 1)==0) {
             if (count > 1) {
                 memcpy(out_buffer + out_count * sig->props.length * size,
                        si->value, size);
                 out_count++;
             }
             else
-                sig->handler(sig, &sig->props, map->local,
-                             si->value, 1, &tt);
-            had_value = si->has_value = 1;
+                sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
+            si->has_value = 1;
         }
         else {
             // Call handler with NULL value
             sig->handler(sig, &sig->props, map->local, 0, 0, &tt);
         }
     }
-    if (out_count && sig->handler) {
-        sig->handler(sig, &sig->props, map->local,
-                     out_buffer, out_count, &tt);
+    if (out_count) {
+        sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
     }
     // TODO: handle cases where count > 1
     if (!sig->props.is_output) {
