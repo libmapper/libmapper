@@ -239,8 +239,8 @@ int main(int argc, char **argv)
         pdev = mapper_db_device_next(pdev);
     }
 
-    if (count != 6) {
-        eprintf("Expected 6 records, but counted %d.\n", count);
+    if (count != 4) {
+        eprintf("Expected 4 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -297,8 +297,8 @@ int main(int argc, char **argv)
         pdev = mapper_db_device_next(pdev);
     }
 
-    if (count != 3) {
-        eprintf("Expected 3 records, but counted %d.\n", count);
+    if (count != 2) {
+        eprintf("Expected 2 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
