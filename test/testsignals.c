@@ -44,18 +44,18 @@ int main(int argc, char ** argv)
     for (i = 0; i < 100; i++) {
         mdev_poll(mdev, 100);
         snprintf(signame, 32, "/s%i", i);
-        if (!mdev_add_input(mdev, signame, 1, 'f', 0, 0, 0, sig_handler, 0)) {
+        if (!(inputs[i] = mdev_add_input(mdev, signame, 1, 'f', 0, 0,
+                                         0, sig_handler, 0))) {
             result = 1;
             goto done;
         }
-        if (!mdev_add_output(mdev, signame, 1, 'f', 0, 0, 0)) {
+        if (!(outputs[i] = mdev_add_output(mdev, signame, 1, 'f', 0, 0, 0))) {
             result = 1;
             goto done;
         }
     }
     printf("Removing 200 signals...\n");
     for (i = 0; i < 100; i++) {
-        snprintf(signame, 32, "/s%i", i);
         mdev_remove_input(mdev, inputs[i]);
         mdev_remove_output(mdev, outputs[i]);
         mdev_poll(mdev, 100);
