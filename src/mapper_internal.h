@@ -419,10 +419,6 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         const char *dest_name,
                                         mapper_message_t *params);
 
-/*! Update a scope identifiers to a given link record. */
-int mapper_db_link_update_scopes(mapper_link_scope scopes,
-                                 lo_arg **scope_list, int num);
-
 /**** Connections ****/
 
 void mhist_realloc(mapper_signal_history_t *history, int history_size,
@@ -464,6 +460,10 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 void mapper_connection_swap_direction(mapper_connection c);
+
+/*! Update a scope identifiers to a given connection record. */
+int mapper_db_connection_update_scope(mapper_connection_scope scope,
+                                      lo_arg **scope_list, int num);
 
 /**** Local device database ****/
 

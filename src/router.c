@@ -13,33 +13,19 @@
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message m, mapper_timetag_t tt);
 
-static int in_incoming_link_scope(mapper_link link, uint32_t name_hash)
+static int in_connection_scope(mapper_connection c, uint32_t name_hash)
 {
     int i;
-    for (i=0; i<link->props.incoming_scopes.size; i++) {
-        if (link->props.incoming_scopes.hashes[i] == name_hash ||
-            link->props.incoming_scopes.hashes[i] == 0)
+    for (i=0; i<c->props.scope.size; i++) {
+        if (c->props.scope.hashes[i] == name_hash ||
+            c->props.scope.hashes[i] == 0)
             return 1;
     }
     return 0;
 }
-
-static int in_outgoing_link_scope(mapper_link link, uint32_t name_hash)
-{
-    int i;
-    for (i=0; i<link->props.outgoing_scopes.size; i++) {
-        if (link->props.outgoing_scopes.hashes[i] == name_hash ||
-            link->props.outgoing_scopes.hashes[i] == 0)
-            return 1;
-    }
-    return 0;
-}
-
 
 static void mapper_link_free(mapper_link l)
 {
-    int i;
-
     if (l) {
         if (l->props.remote_host)
             free(l->props.remote_host);
@@ -55,16 +41,6 @@ static void mapper_link_free(mapper_link l)
             l->queues = q->next;
             free(q);
         }
-        for (i=0; i<l->props.outgoing_scopes.size; i++) {
-            free(l->props.outgoing_scopes.names[i]);
-        }
-        free(l->props.outgoing_scopes.names);
-        free(l->props.outgoing_scopes.hashes);
-        for (i=0; i<l->props.incoming_scopes.size; i++) {
-            free(l->props.incoming_scopes.names[i]);
-        }
-        free(l->props.incoming_scopes.names);
-        free(l->props.incoming_scopes.hashes);
         if (l->props.extra)
             table_free(l->props.extra, 1);
         free(l);
@@ -85,20 +61,6 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     l->admin_addr = lo_address_new(host, str);
     l->props.remote_name = strdup(name);
     l->props.remote_name_hash = crc32(0L, (const Bytef *)name, strlen(name));
-
-    // outgoing scopes
-    l->props.outgoing_scopes.size = 1;
-    l->props.outgoing_scopes.names = (char **) malloc(sizeof(char *));
-    l->props.outgoing_scopes.names[0] = strdup(mdev_name(router->device));
-    l->props.outgoing_scopes.hashes = (uint32_t *) malloc(sizeof(uint32_t));
-    l->props.outgoing_scopes.hashes[0] = mdev_id(router->device);
-
-    // incoming scopes
-    l->props.incoming_scopes.size = 1;
-    l->props.incoming_scopes.names = (char **) malloc(sizeof(char *));
-    l->props.incoming_scopes.names[0] = strdup(name);
-    l->props.incoming_scopes.hashes = (uint32_t *) malloc(sizeof(uint32_t));
-    l->props.incoming_scopes.hashes[0] = l->props.remote_name_hash;
 
     l->props.extra = table_new();
     l->device = router->device;
@@ -160,27 +122,7 @@ void mapper_router_remove_link(mapper_router router, mapper_link link)
 int mapper_router_set_link_from_message(mapper_router r, mapper_link l,
                                         mapper_message_t *msg, int swap)
 {
-    int updated = mapper_msg_add_or_update_extra_params(l->props.extra, msg);
-
-    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
-    int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
-    mapper_db_link_update_scopes(swap ? &l->props.incoming_scopes
-                                 : &l->props.outgoing_scopes,
-                                 a_scopes, num_scopes);
-
-    a_scopes = mapper_msg_get_param(msg, AT_SCOPE_LR);
-    num_scopes = mapper_msg_get_length(msg, AT_SCOPE_LR);
-    mapper_db_link_update_scopes(swap ? &l->props.incoming_scopes
-                                 : &l->props.outgoing_scopes,
-                                 a_scopes, num_scopes);
-
-    a_scopes = mapper_msg_get_param(msg, AT_SCOPE_RL);
-    num_scopes = mapper_msg_get_length(msg, AT_SCOPE_RL);
-    mapper_db_link_update_scopes(swap ? &l->props.outgoing_scopes
-                                 : &l->props.incoming_scopes,
-                                 a_scopes, num_scopes);
-
-    return updated;
+    return mapper_msg_add_or_update_extra_params(l->props.extra, msg);
 }
 
 void mapper_router_num_instances_changed(mapper_router r,
@@ -294,7 +236,7 @@ void mapper_router_process_signal(mapper_router r,
             c->history[id].position = -1;
             if (c->props.direction == DI_OUTGOING) {
                 if (!c->props.send_as_instance
-                    || in_outgoing_link_scope(c->link, map->origin)) {
+                    || in_connection_scope(c, map->origin)) {
                     m = mapper_connection_build_message(c, 0, 1, 0, map);
                     if (m)
                         send_or_bundle_message(c->link, c->props.remote_name, m, tt);
@@ -306,7 +248,7 @@ void mapper_router_process_signal(mapper_router r,
                 }
             }
             else if (c->props.send_as_instance
-                     && in_incoming_link_scope(c->link, map->origin)) {
+                     && in_connection_scope(c, map->origin)) {
                 // send release to upstream
                 m = mapper_connection_build_message(c, 0, 1, 0, map);
                 if (m)
@@ -330,9 +272,9 @@ void mapper_router_process_signal(mapper_router r,
     int i, j;
     c = rs->connections;
     while (c) {
-        int out_scope = in_outgoing_link_scope(c->link, map->origin);
+        int in_scope = in_connection_scope(c, map->origin);
         if ((c->props.direction == DI_INCOMING)
-            || (c->props.send_as_instance && !out_scope)) {
+            || (c->props.send_as_instance && !in_scope)) {
             c = c->next;
             continue;
         }
@@ -374,7 +316,7 @@ void mapper_router_process_signal(mapper_router r,
             }
             j++;
         }
-        if (count > 1 && (!c->props.send_as_instance || out_scope)) {
+        if (count > 1 && (!c->props.send_as_instance || in_scope)) {
             m = mapper_connection_build_message(c, out_value_p, j,
                                                 typestring, map);
             if (m)
@@ -557,6 +499,13 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.remote_min = 0;
     c->props.remote_max = 0;
 
+    // scopes
+    c->props.scope.size = 1;
+    c->props.scope.names = (char **) malloc(sizeof(char *));
+    c->props.scope.names[0] = strdup(mdev_name(r->device));
+    c->props.scope.hashes = (uint32_t *) malloc(sizeof(uint32_t));
+    c->props.scope.hashes[0] = mdev_id(r->device);
+
     c->props.extra = table_new();
 
     int len = strlen(remote_name) + 5;
@@ -627,6 +576,12 @@ static void free_connection(mapper_connection c)
             mapper_expr_free(c->expr);
         if (c->props.expression)
             free(c->props.expression);
+        for (i=0; i<c->props.scope.size; i++) {
+            free(c->props.scope.names[i]);
+        }
+        free(c->props.scope.names);
+        free(c->props.scope.hashes);
+
         free(c);
     }
 }

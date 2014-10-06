@@ -1038,6 +1038,11 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Destination slot */
     mapper_msg_get_param_if_int(msg, AT_SLOT, &c->props.slot);
 
+    /* Scopes */
+    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
+    int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
+    mapper_db_connection_update_scope(&c->props.scope, a_scopes, num_scopes);
+
     /* Extra properties. */
     updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 

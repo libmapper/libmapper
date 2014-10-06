@@ -2618,24 +2618,6 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1device_1port
     return first ? props->port1 : props->port2;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1num_1scopes
-  (JNIEnv *env, jobject obj, jlong p, jint first)
-{
-    mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    return first ? props->scopes1.size : props->scopes2.size;
-}
-
-JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1link_1get_1scope_1names
-  (JNIEnv *env, jobject obj, jlong p, jint first)
-{
-    mapper_db_link props = (mapper_db_link)ptr_jlong(p);
-    int size = first ? props->scopes1.size : props->scopes2.size;
-    if (!size)
-        return 0;
-    return build_PropertyValue(env, 's', first ? props->scopes1.names
-                               : props->scopes2.names, size);
-}
-
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mapper_1db_1link_1property_1lookup
   (JNIEnv *env, jobject obj, jlong p, jstring property)
 {
@@ -2837,6 +2819,30 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1expres
     if (props->expression)
         return (*env)->NewStringUTF(env, props->expression);
     return 0;
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1send_1as_1instance
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    return props->send_as_instance;
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Db_Link_mdb_1connection_1get_1num_1scopes
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    return props->scope.size;
+}
+
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Link_mdb_1connection_1get_1scope_1names
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    int size = props->scope.size;
+    if (!size)
+        return 0;
+    return build_PropertyValue(env, 's', props->scope.names, size);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mapper_1db_1connection_1property_1lookup

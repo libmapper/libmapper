@@ -264,61 +264,28 @@ void mapper_monitor_request_devices(mapper_monitor mon)
 }
 
 void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device,
-                         const char* dest_device,
+                         const char* device1,
+                         const char* device2,
                          mapper_db_link_t *props,
                          unsigned int props_flags)
 {
+    mapper_admin_set_bundle_dest_bus(mon->admin);
     if (props) {
         lo_message m = lo_message_new();
         if (!m)
             return;
 
-        lo_message_add_string(m, source_device);
-        lo_message_add_string(m, dest_device);
+        lo_message_add_string(m, device1);
+        lo_message_add_string(m, device2);
 
-        if ((props_flags & LINK_NUM_SCOPES1) && props->scopes1.size
-            && ((props_flags & LINK_SCOPE1_NAMES)
-                || (props_flags & LINK_SCOPE1_HASHES))) {
-            lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE_LR]);
-            int i;
-            if (props_flags & LINK_SCOPE1_NAMES) {
-                for (i=0; i<props->scopes1.size; i++) {
-                    lo_message_add_string(m, props->scopes1.names[i]);
-                }
-            }
-            else if (props_flags & LINK_SCOPE1_HASHES) {
-                for (i=0; i<props->scopes1.size; i++) {
-                    lo_message_add_int32(m, props->scopes1.hashes[i]);
-                }
-            }
-        }
-        if ((props_flags & LINK_NUM_SCOPES2) && props->scopes2.size
-            && ((props_flags & LINK_SCOPE2_NAMES)
-                || (props_flags & LINK_SCOPE2_HASHES))) {
-                lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE_RL]);
-            int i;
-            if (props_flags & LINK_SCOPE2_NAMES) {
-                for (i=0; i<props->scopes2.size; i++) {
-                    lo_message_add_string(m, props->scopes2.names[i]);
-                }
-            }
-            else if (props_flags & LINK_SCOPE2_HASHES) {
-                for (i=0; i<props->scopes2.size; i++) {
-                    lo_message_add_int32(m, props->scopes2.hashes[i]);
-                }
-            }
-        }
-
-        mapper_monitor_set_bundle_dest(mon, dest_device);
+//      TODO: add extra props
 
         lo_send_message(mon->admin->bus_addr, "/link", m);
         free(m);
     }
     else {
-        mapper_admin_set_bundle_dest_bus(mon->admin);
-        mapper_admin_bundle_message( mon->admin, ADM_LINK, 0, "ss",
-                                    source_device, dest_device );
+        mapper_admin_bundle_message(mon->admin, ADM_LINK, 0, "ss",
+                                    device1, device2);
     }
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
@@ -334,143 +301,75 @@ void mapper_monitor_unlink(mapper_monitor mon,
                                 src_device, dest_device);
 }
 
-void mapper_monitor_connection_modify(mapper_monitor mon,
-                                      const char *source_signal,
-                                      const char *dest_signal,
-                                      mapper_db_connection_t *props,
-                                      unsigned int props_flags)
-{
-    if (props) {
-        // TODO: lookup device ip/ports, send directly?
-        mapper_admin_set_bundle_dest_bus(mon->admin);
-        mapper_admin_bundle_message(mon->admin, ADM_CONNECTION_MODIFY, 0, "ss",
-                                    source_signal, dest_signal,
-                                    (props_flags & CONNECTION_BOUND_MIN)
-                                    ? AT_BOUND_MIN : -1, props->bound_min,
-                                    (props_flags & CONNECTION_BOUND_MAX)
-                                    ? AT_BOUND_MAX : -1, props->bound_max,
-                                    ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
-                                     (props_flags & CONNECTION_SRC_TYPE) &&
-                                     (props_flags & CONNECTION_SRC_LENGTH))
-                                    ? AT_SRC_MIN : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
-                                     (props_flags & CONNECTION_SRC_TYPE) &&
-                                     (props_flags & CONNECTION_SRC_LENGTH))
-                                    ? AT_SRC_MAX : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
-                                     (props_flags & CONNECTION_DEST_TYPE) &&
-                                     (props_flags & CONNECTION_DEST_LENGTH))
-                                    ? AT_DEST_MIN : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
-                                     (props_flags & CONNECTION_DEST_TYPE) &&
-                                     (props_flags & CONNECTION_DEST_LENGTH))
-                                    ? AT_DEST_MAX : -1, props,
-                                    (props_flags & CONNECTION_EXPRESSION)
-                                    ? AT_EXPRESSION : -1, props->expression,
-                                    (props_flags & CONNECTION_MODE)
-                                    ? AT_MODE : -1, props->mode,
-                                    (props_flags & CONNECTION_MUTED)
-                                    ? AT_MUTE : -1, props->muted,
-                                    (props_flags & CONNECTION_SEND_AS_INSTANCE)
-                                    ? AT_SEND_AS_INSTANCE : -1,
-                                    props->send_as_instance);
-        /* We cannot depend on string arguments sticking around for liblo to
-         * serialize later: trigger immediate dispatch. */
-        mapper_admin_send_bundle(mon->admin);
-    }
-}
-
 void mapper_monitor_connect(mapper_monitor mon,
                             const char* source_signal,
                             const char* dest_signal,
                             mapper_db_connection_t *props,
-                            unsigned int props_flags)
+                            unsigned int flags)
 {
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
     if (props) {
-        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
-                                    source_signal, "->", dest_signal,
-                                    (props_flags & CONNECTION_BOUND_MIN)
-                                    ? AT_BOUND_MIN : -1, props->bound_min,
-                                    (props_flags & CONNECTION_BOUND_MAX)
-                                    ? AT_BOUND_MAX : -1, props->bound_max,
-                                    ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
-                                     (props_flags & CONNECTION_SRC_TYPE) &&
-                                     (props_flags & CONNECTION_SRC_LENGTH))
-                                    ? AT_SRC_MIN : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
-                                     (props_flags & CONNECTION_SRC_TYPE) &&
-                                     (props_flags & CONNECTION_SRC_LENGTH))
-                                    ? AT_SRC_MAX : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
-                                     (props_flags & CONNECTION_DEST_TYPE) &&
-                                     (props_flags & CONNECTION_DEST_LENGTH))
-                                    ? AT_DEST_MIN : -1, props,
-                                    ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
-                                     (props_flags & CONNECTION_DEST_TYPE) &&
-                                     (props_flags & CONNECTION_DEST_LENGTH))
-                                    ? AT_DEST_MAX : -1, props,
-                                    (props_flags & CONNECTION_EXPRESSION)
-                                    ? AT_EXPRESSION : -1, props->expression,
-                                    (props_flags & CONNECTION_MODE)
-                                    ? AT_MODE : -1, props->mode,
-                                    (props_flags & CONNECTION_MUTED)
-                                    ? AT_MUTE : -1, props->muted,
-                                    (props_flags & CONNECTION_SEND_AS_INSTANCE)
-                                    ? AT_SEND_AS_INSTANCE : -1,
-                                    props->send_as_instance );
+        mapper_admin_bundle_message(
+            mon->admin, ADM_CONNECT, 0, "sss", source_signal, "->", dest_signal,
+            (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
+            (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
+            ((flags & CONNECTION_RANGE_SRC_MIN) && (flags & CONNECTION_SRC_TYPE)
+             && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MIN : -1, props,
+            ((flags & CONNECTION_RANGE_SRC_MAX) && (flags & CONNECTION_SRC_TYPE)
+             && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MAX : -1, props,
+            ((flags & CONNECTION_RANGE_DEST_MIN) && (flags & CONNECTION_DEST_TYPE)
+             && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MIN : -1, props,
+            ((flags & CONNECTION_RANGE_DEST_MAX) && (flags & CONNECTION_DEST_TYPE)
+             && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MAX : -1, props,
+            (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
+            (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+            (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+            (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
+             props->send_as_instance,
+            ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
+             ? AT_SCOPE : -1, props->scope.names);
     }
     else
         mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
                                     source_signal, "->", dest_signal);
+
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_modify_connection(mapper_monitor mon,
+void mapper_monitor_connection_modify(mapper_monitor mon,
                                       const char *source_signal,
                                       const char *dest_signal,
                                       mapper_db_connection_t *props,
-                                      unsigned int props_flags)
+                                      unsigned int flags)
 {
     if (!mon || !source_signal || !dest_signal || !props)
         return;
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    mapper_admin_bundle_message(mon->admin, ADM_CONNECTION_MODIFY, 0, "sss",
-                                source_signal, "->", dest_signal,
-                                (props_flags & CONNECTION_BOUND_MIN)
-                                ? AT_BOUND_MIN : -1, props->bound_min,
-                                (props_flags & CONNECTION_BOUND_MAX)
-                                ? AT_BOUND_MAX : -1, props->bound_max,
-                                ((props_flags & CONNECTION_RANGE_SRC_MIN) &&
-                                 (props_flags & CONNECTION_SRC_TYPE) &&
-                                 (props_flags & CONNECTION_SRC_LENGTH))
-                                ? AT_SRC_MIN : -1, props,
-                                ((props_flags & CONNECTION_RANGE_SRC_MAX) &&
-                                 (props_flags & CONNECTION_SRC_TYPE) &&
-                                 (props_flags & CONNECTION_SRC_LENGTH))
-                                ? AT_SRC_MAX : -1, props,
-                                ((props_flags & CONNECTION_RANGE_DEST_MIN) &&
-                                 (props_flags & CONNECTION_DEST_TYPE) &&
-                                 (props_flags & CONNECTION_DEST_LENGTH))
-                                ? AT_DEST_MIN : -1, props,
-                                ((props_flags & CONNECTION_RANGE_DEST_MAX) &&
-                                 (props_flags & CONNECTION_DEST_TYPE) &&
-                                 (props_flags & CONNECTION_DEST_LENGTH))
-                                ? AT_DEST_MAX : -1, props,
-                                (props_flags & CONNECTION_EXPRESSION)
-                                ? AT_EXPRESSION : -1, props->expression,
-                                (props_flags & CONNECTION_MODE)
-                                ? AT_MODE : -1, props->mode,
-                                (props_flags & CONNECTION_MUTED)
-                                ? AT_MUTE : -1, props->muted,
-                                (props_flags & CONNECTION_SEND_AS_INSTANCE)
-                                ? AT_SEND_AS_INSTANCE : -1,
-                                props->send_as_instance);
+    mapper_admin_bundle_message(
+        mon->admin, ADM_CONNECTION_MODIFY, 0, "ss", source_signal, dest_signal,
+        (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
+        (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
+        ((flags & CONNECTION_RANGE_SRC_MIN) && (flags & CONNECTION_SRC_TYPE)
+         && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MIN : -1, props,
+        ((flags & CONNECTION_RANGE_SRC_MAX) && (flags & CONNECTION_SRC_TYPE)
+         && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MAX : -1, props,
+        ((flags & CONNECTION_RANGE_DEST_MIN) && (flags & CONNECTION_DEST_TYPE)
+         && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MIN : -1, props,
+        ((flags & CONNECTION_RANGE_DEST_MAX) && (flags & CONNECTION_DEST_TYPE)
+         && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MAX : -1, props,
+        (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
+        (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+        (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+        (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
+         props->send_as_instance,
+        ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1,
+         props->scope.names);
+
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);

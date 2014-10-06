@@ -378,12 +378,15 @@ static int handler_signal(const char *path, const char *types,
                         sig->instance_event_handler(sig, &sig->props, map->local,
                                                     IN_UPSTREAM_RELEASE, &tt);
                     }
+                    else
+                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
                 }
-                // call handler with null value
-                if (sig->handler)
+                else {
+                    // call handler with null value
                     sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
-                if (!sig->props.is_output)
-                    mdev_route_signal(md, sig, map->local, 0, 1, tt);
+                }
+                /* Do not call mdev_route_signal() here, since we don't know if
+                 * the local signal instance will actually be released. */
             }
             return 0;
         }
@@ -398,15 +401,9 @@ static int handler_signal(const char *path, const char *types,
             else {
                 sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
                 if (!sig->props.is_output)
-                    mdev_route_signal(md, sig, map->local, si->value, 1, tt);
+                    mdev_route_signal(md, sig, index, si->value, 1, tt);
             }
             si->has_value = 1;
-        }
-        else {
-            // Call handler with NULL value
-            sig->handler(sig, &sig->props, map->local, 0, 0, &tt);
-            if (!sig->props.is_output)
-                mdev_route_signal(md, sig, map->local, 0, 0, tt);
         }
     }
     if (out_count) {

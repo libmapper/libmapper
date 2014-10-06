@@ -48,17 +48,6 @@ typedef struct _mapper_db_device {
     struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which fields in a mapper_db_link
- * structure are valid.  This is only used when specifying link
- * properties via the mapper_monitor_link() or
- * mapper_monitor_link_modify() functions. */
-#define LINK_NUM_SCOPES1            0x01
-#define LINK_SCOPE1_NAMES           0x02
-#define LINK_SCOPE1_HASHES          0x04
-#define LINK_NUM_SCOPES2            0x08
-#define LINK_SCOPE2_NAMES           0x0F
-#define LINK_SCOPE2_HASHES          0x10
-
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
@@ -66,7 +55,6 @@ typedef struct _mapper_db_device {
 #define CONNECTION_RANGE_SRC_MAX    0x02
 #define CONNECTION_RANGE_DEST_MIN   0x04
 #define CONNECTION_RANGE_DEST_MAX   0x08
-#define CONNECTION_RANGE_KNOWN      0x0F
 
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
@@ -83,7 +71,28 @@ typedef struct _mapper_db_device {
 #define CONNECTION_DEST_TYPE        0x0800
 #define CONNECTION_SRC_LENGTH       0x1000
 #define CONNECTION_DEST_LENGTH      0x2000
-#define CONNECTION_ALL              0xFFFF
+#define CONNECTION_NUM_SCOPES       0x4000
+#define CONNECTION_SCOPE_NAMES      0xC000  // need to know num_scopes also
+#define CONNECTION_SCOPE_HASHES     0x14000 // need to know num_scopes also
+#define CONNECTION_ALL              0xFFFFF
+
+// For range info to be known we also need to know data types and lengths
+#define CONNECTION_RANGE_SRC_MIN_KNOWN  (  CONNECTION_RANGE_SRC_MIN     \
+                                         | CONNECTION_SRC_TYPE          \
+                                         | CONNECTION_SRC_LENGTH )
+#define CONNECTION_RANGE_SRC_MAX_KNOWN  (  CONNECTION_RANGE_SRC_MAX     \
+                                         | CONNECTION_SRC_TYPE          \
+                                         | CONNECTION_SRC_LENGTH )
+#define CONNECTION_RANGE_DEST_MIN_KNOWN (  CONNECTION_RANGE_DEST_MIN   \
+                                         | CONNECTION_DEST_TYPE        \
+                                         | CONNECTION_DEST_LENGTH )
+#define CONNECTION_RANGE_DEST_MAX_KNOWN (  CONNECTION_RANGE_DEST_MAX   \
+                                         | CONNECTION_DEST_TYPE        \
+                                         | CONNECTION_DEST_LENGTH )
+#define CONNECTION_RANGE_KNOWN          (  CONNECTION_RANGE_SRC_MIN_KNOWN   \
+                                         | CONNECTION_RANGE_SRC_MAX_KNOWN   \
+                                         | CONNECTION_RANGE_DEST_MIN_KNOWN  \
+                                         | CONNECTION_RANGE_DEST_MAX_KNOWN )
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
@@ -119,6 +128,12 @@ typedef enum _mapper_instance_allocation_type {
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
+typedef struct _mapper_connection_scope {
+    int size;                           //!< The number of connection scopes.
+    uint32_t *hashes;                   //!< Array of connection scope hashes.
+    char **names;                       //!< Array of connection scope names.
+} mapper_connection_scope_t, *mapper_connection_scope;
+
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {
@@ -152,6 +167,8 @@ typedef struct _mapper_db_connection {
                                      *   expression connection */
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
+
+    struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
@@ -188,6 +205,8 @@ typedef struct _mapper_connection_props {
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
     int direction;                  //!< DI_INCOMING or DI_OUTGOING
+
+    struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
@@ -266,12 +285,6 @@ typedef struct _mapper_db_signal
     void *user_data;
 } mapper_db_signal_t, *mapper_db_signal;
 
-typedef struct _mapper_link_scope {
-    int size;                           //!< The number of link scopes.
-    uint32_t *hashes;                   //!< Array of link scope hashes.
-    char **names;                       //!< Array of link scope names.
-} mapper_link_scope_t, *mapper_link_scope;
-
 /*! A record that describes the properties of a link between devices.
  *  @ingroup linkdb */
 typedef struct _mapper_db_link {
@@ -284,10 +297,6 @@ typedef struct _mapper_db_link {
     char *host2;                        //!< IP Address of the 2nd device.
     int port2;                          //!< Network port of 2nd device.
 
-    // TODO: need better names for scope property variables
-    struct _mapper_link_scope scopes1;
-    struct _mapper_link_scope scopes2;
-
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;
 } mapper_db_link_t, *mapper_db_link;
@@ -298,8 +307,6 @@ typedef struct _mapper_link_props {
     uint32_t remote_name_hash;          //!< CRC-32 hash of remote device name.
     char *remote_host;                  //!< IP Address of the destination device.
     int remote_port;                    //!< Network port of remote device.
-    struct _mapper_link_scope incoming_scopes;
-    struct _mapper_link_scope outgoing_scopes;
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;

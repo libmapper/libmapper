@@ -34,8 +34,6 @@ const char* mapper_msg_param_strings[] =
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
-    "@scopeLR",         /* AT_SCOPE_LR */
-    "@scopeRL",         /* AT_SCOPE_RL */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@slot",            /* AT_SLOT */
     "@srcLength",       /* AT_SRC_LENGTH */
@@ -481,6 +479,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
+        case AT_SCOPE:
+            con = va_arg(aq, mapper_db_connection_t*);
+            msg_add_typed_value(m, 's', con->scope.size,
+                                con->scope.names);
+            break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
             i = 0;
@@ -578,30 +581,12 @@ void mapper_msg_prepare_params(lo_message m,
 
 void mapper_link_prepare_osc_message(lo_message m, mapper_link l, int swap)
 {
-    int i;
-
-    // Add link scopes
-    lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_SCOPE_LR : AT_SCOPE_RL]);
-    if (l->props.outgoing_scopes.size) {
-        for (i = 0; i < l->props.outgoing_scopes.size; i++)
-            lo_message_add_string(m, l->props.outgoing_scopes.names[i]);
-    }
-    else
-        lo_message_add_string(m, "none");
-
-    lo_message_add_string(m, mapper_msg_param_strings[swap ? AT_SCOPE_RL : AT_SCOPE_LR]);
-    if (l->props.incoming_scopes.size) {
-        for (i = 0; i < l->props.incoming_scopes.size; i++)
-            lo_message_add_string(m, l->props.incoming_scopes.names[i]);
-    }
-    else
-        lo_message_add_string(m, "none");
-
     mapper_msg_add_value_table(m, l->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
 {
+    int i;
     mapper_connection_props props = &c->props;
     int out = props->direction == DI_OUTGOING;
 
@@ -657,6 +642,15 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     lo_message_add_int32(m, props->send_as_instance);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SLOT]);
     lo_message_add_int32(m, props->slot);
+
+    // Add connection scopes
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
+    if (props->scope.size) {
+        for (i = 0; i < props->scope.size; i++)
+            lo_message_add_string(m, props->scope.names[i]);
+    }
+    else
+        lo_message_add_string(m, "none");
 
     mapper_msg_add_value_table(m, props->extra);
 }

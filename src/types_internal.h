@@ -363,8 +363,6 @@ typedef enum {
     AT_RATE,
     AT_REV,
     AT_SCOPE,
-    AT_SCOPE_LR,
-    AT_SCOPE_RL,
     AT_SEND_AS_INSTANCE,
     AT_SLOT,
     AT_SRC_LENGTH,

@@ -46,6 +46,10 @@ public class Connection
 
         mode = mdb_connection_get_mode(_conprops);
         expression = mdb_connection_get_expression(_conprops);
+        sendAsInstance = mdb_connection_get_send_as_instance(_conprops);
+
+        numScopes = mdb_connection_get_num_scopes(_conprops);
+        scopeNames = mdb_connection_get_scope_names(_conprops);
     }
 
     public Connection(String _srcName, String _destName) {
@@ -63,6 +67,9 @@ public class Connection
         destMax = null;
         mode = -1;
         expression = null;
+        sendAsInstance = 0;
+        numScopes = 0;
+        scopeNames = null;
     }
 
     public Connection() {
@@ -110,6 +117,15 @@ public class Connection
 
     public String expression;
     private native String mdb_connection_get_expression(long p);
+
+    public int sendAsInstance;
+    private native int mdb_connection_get_send_as_instance(long p);
+
+    public int numScopes;
+    private native int mdb_connection_get_num_scopes(long p);
+
+    public PropertyValue scopeNames;
+    private native PropertyValue mdb_connection_get_scope_names(long p);
 
     public PropertyValue property(String property) {
         return mapper_db_connection_property_lookup(_conprops, property);
