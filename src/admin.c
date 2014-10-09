@@ -2340,13 +2340,6 @@ static int handler_signal_connect(const char *path, const char *types,
     params.types[AT_INSTANCES] = "i";
     params.lengths[AT_INSTANCES] = 1;
 
-    // find an unused slot
-    int slot = mdev_get_signal_slot(md);
-    lo_arg *arg_slot = (lo_arg*) &slot;
-    params.values[AT_SLOT] = &arg_slot;
-    params.types[AT_SLOT] = "i";
-    params.lengths[AT_SLOT] = 1;
-
     mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
     mapper_admin_bundle_message_with_params(
         admin, &params, s1->props.extra,
@@ -2922,6 +2915,9 @@ static int handler_signal_combine(const char *path, const char *types,
               mdev_name(md), signal_name);
         return 0;
     }
+
+    trace("<%s> found matching signal '%s' in /combine\n",
+          mdev_name(md), signal_name);
 
     mapper_message_t params;
     // extract arguments from /combine if any

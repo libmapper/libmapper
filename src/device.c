@@ -307,9 +307,14 @@ static int handler_signal(const char *path, const char *types,
     if (slot >= 0) {
         // check if we have a combiner for this signal
         cb = mapper_router_find_combiner(md->router, sig);
-        if (cb && (s = mapper_combiner_get_slot(cb, slot))) {
-            count = check_types(types, value_len, s->connection->props.remote_type,
-                                s->connection->props.remote_length);
+        if (cb) {
+            s = mapper_combiner_get_slot(cb, slot);
+            if (s && s->connection)
+                count = check_types(types, value_len,
+                                    s->connection->props.remote_type,
+                                    s->connection->props.remote_length);
+            else
+                s = 0;
         }
     }
     else
@@ -398,7 +403,7 @@ static int handler_signal(const char *path, const char *types,
                 memcpy(c->history[index].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (s->cause_update
+            if (s->connection->props.cause_update
                 && (vals = mapper_combiner_perform(cb, index))) {
                 memcpy(si->value,
                        msig_history_value_pointer(c->parent->history[index]),
@@ -442,9 +447,8 @@ static int handler_signal(const char *path, const char *types,
         }
 
         if (s) {
-            if (s->cause_update) {
+            if (s->connection->props.cause_update) {
                 if (count > 1) {
-                    // TODO: need to use combiner here instead
                     memcpy(out_buffer + out_count * sig->props.length * size,
                            si->value, size);
                     out_count++;
@@ -459,7 +463,6 @@ static int handler_signal(const char *path, const char *types,
         }
         else if (si->has_value) {
             if (count > 1) {
-                // TODO: need to use combiner here instead
                 memcpy(out_buffer + out_count * sig->props.length * size,
                        si->value, size);
                 out_count++;
@@ -743,7 +746,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     mapper_router_signal rs = md->router->signals;
     while (rs) {
         if (rs->signal == sig) {
-            // need to disconnect?
+            // need to disconnect
             mapper_connection c = rs->connections;
             while (c) {
                 mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
@@ -804,7 +807,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     mapper_router_signal rs = md->router->signals;
     while (rs) {
         if (rs->signal == sig) {
-            // need to disconnect?
+            // need to disconnect
             mapper_connection c = rs->connections;
             while (c) {
                 if (!c->link->self_link) {

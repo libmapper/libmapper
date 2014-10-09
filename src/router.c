@@ -493,6 +493,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
+    c->props.slot = -1;
+    c->props.cause_update = 1;
 
     c->props.local_min = 0;
     c->props.local_max = 0;
@@ -678,8 +680,7 @@ mapper_combiner mapper_router_add_combiner(mapper_router router,
     while (rs && rs->signal != signal)
         rs = rs->next;
     if (!rs) {
-        rs = (mapper_router_signal)
-        calloc(1, sizeof(struct _mapper_router_signal));
+        rs = (mapper_router_signal) calloc(1, sizeof(struct _mapper_router_signal));
         rs->signal = signal;
         rs->num_instances = signal->props.num_instances;
         rs->history = malloc(sizeof(struct _mapper_signal_history)
@@ -695,6 +696,10 @@ mapper_combiner mapper_router_add_combiner(mapper_router router,
         }
         rs->next = router->signals;
         router->signals = rs;
+    }
+    if (!rs->combiner) {
+        rs->combiner = (mapper_combiner) calloc(1, sizeof(struct _mapper_combiner));
+        rs->combiner->parent = rs;
     }
     return rs->combiner;
 }

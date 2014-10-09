@@ -495,9 +495,11 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
         lo_message_add_int32(m, id_map->public);
     }
 
-    // add slot
-    lo_message_add_string(m, "@slot");
-    lo_message_add_int32(m, props->slot);
+    if (props->slot >= 0) {
+        // add slot
+        lo_message_add_string(m, "@slot");
+        lo_message_add_int32(m, props->slot);
+    }
 
     return m;
 }
@@ -1037,7 +1039,20 @@ int mapper_connection_set_from_message(mapper_connection c,
     }
 
     /* Destination slot */
-    mapper_msg_get_param_if_int(msg, AT_SLOT, &c->props.slot);
+    int slot;
+    if (!mapper_msg_get_param_if_int(msg, AT_SLOT, &slot)
+        && c->props.slot != slot) {
+        c->props.slot = slot;
+        updated++;
+    }
+
+    /* Cause update */
+    int cause_update;
+    if (!mapper_msg_get_param_if_int(msg, AT_CAUSE_UPDATE, &cause_update)
+        && c->props.cause_update != cause_update) {
+        c->props.cause_update = cause_update;
+        updated++;
+    }
 
     /* Scopes */
     lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);

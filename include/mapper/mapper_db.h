@@ -74,6 +74,8 @@ typedef struct _mapper_db_device {
 #define CONNECTION_NUM_SCOPES       0x4000
 #define CONNECTION_SCOPE_NAMES      0xC000  // need to know num_scopes also
 #define CONNECTION_SCOPE_HASHES     0x14000 // need to know num_scopes also
+#define CONNECTION_SLOT             0x20000
+#define CONNECTION_CAUSE_UPDATE     0x40000
 #define CONNECTION_ALL              0xFFFFF
 
 // For range info to be known we also need to know data types and lengths
@@ -93,6 +95,14 @@ typedef struct _mapper_db_device {
                                          | CONNECTION_RANGE_SRC_MAX_KNOWN   \
                                          | CONNECTION_RANGE_DEST_MIN_KNOWN  \
                                          | CONNECTION_RANGE_DEST_MAX_KNOWN )
+
+/* Bit flags to identify which fields in a mapper_db_combiner
+ * structure are valid.  This is only used when specifying combiner
+ * properties via the mapper_monitor_set_signal_combiner() function. */
+#define COMBINER_EXPRESSION         0x1
+#define COMBINER_MODE               0x2
+#define COMBINER_NUM_SLOTS          0x4
+#define COMBINER_ALL                0xF
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
@@ -168,6 +178,9 @@ typedef struct _mapper_db_connection {
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
 
+    int cause_update;               /*!< Whether or not source update should
+                                     *   result in destination output*/
+
     struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
@@ -198,19 +211,27 @@ typedef struct _mapper_connection_props {
     void *remote_min;               //!< Array of remote minima.
     void *remote_max;               //!< Array of remote maxima.
 
-    char *expression;
+    char *expression;               //!< Expression string
 
     mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
                                      *   expression connection */
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
     int direction;                  //!< DI_INCOMING or DI_OUTGOING
+    int cause_update;               /*!< Whether or not source update should
+                                     *   result in destination output*/
 
     struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
 } mapper_connection_props_t, *mapper_connection_props;
+
+typedef struct _mapper_db_combiner {
+    int num_slots;                  //!< Number of incoming slots.
+    mapper_mode_type mode;          //!< Expression only for now.
+    char *expression;               //!< Expression string.
+} mapper_db_combiner_t, *mapper_db_combiner;
 
 /*! A structure that stores the current and historical values and timetags
  *  of a signal. The size of the history arrays is determined by the needs

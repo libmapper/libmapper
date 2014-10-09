@@ -328,7 +328,9 @@ void mapper_monitor_connect(mapper_monitor mon,
             (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
              props->send_as_instance,
             ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-             ? AT_SCOPE : -1, props->scope.names);
+             ? AT_SCOPE : -1, props->scope.names,
+            (flags & CONNECTION_SLOT) ? AT_SLOT : -1, props->slot,
+            (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props->cause_update);
     }
     else
         mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
@@ -368,7 +370,9 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
         (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
          props->send_as_instance,
         ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1,
-         props->scope.names);
+         props->scope.names,
+        (flags & CONNECTION_SLOT) ? AT_SLOT: -1, props->slot,
+        (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props->cause_update);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
@@ -383,6 +387,27 @@ void mapper_monitor_disconnect(mapper_monitor mon,
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_DISCONNECT, 0, "ss",
                                 source_signal, dest_signal);
+}
+
+void mapper_monitor_set_signal_combiner(mapper_monitor mon, const char *sig_name,
+                                        mapper_db_combiner_t *props,
+                                        unsigned int flags)
+{
+    if (!mon || !sig_name)
+        return;
+
+    if ((flags & COMBINER_MODE) && (props->mode != MO_EXPRESSION)) {
+        trace("Only 'expression' mode is currently supported for combiners.");
+        return;
+    }
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_COMBINE, 0, "s", sig_name,
+                                (flags & COMBINER_NUM_SLOTS) ? AT_NUM_SLOTS : -1, props->num_slots,
+                                (flags & COMBINER_MODE) ? AT_MODE : -1, props->mode,
+                                (flags & COMBINER_EXPRESSION) ? AT_EXPRESSION : -1, props->expression);
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
 }
 
 static void on_device_autosubscribe(mapper_db_device dev,

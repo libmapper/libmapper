@@ -234,19 +234,16 @@ typedef struct _mapper_connection {
 typedef struct _mapper_combiner_slot {
     int id;                                 //!< Slot id.
     mapper_connection connection;           //!< Incoming connection.
-    int cause_update;                       //!< Whether slot causes computation.
 } mapper_combiner_slot_t, *mapper_combiner_slot;
 
 typedef struct _mapper_combiner {
+    struct _mapper_db_combiner props;       //!< Properties
     struct _mapper_router_signal *parent;   /*!< Parent signal reference
                                              *   in router. */
-    int mode;
-    char *expression;
     mapper_expr expr;                       //!< The mapping expression.
     mapper_signal_history_t **expr_vars;    //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
-    mapper_combiner_slot *slots;
-    int num_slots;
+    mapper_combiner_slot_t *slots;
 } *mapper_combiner;
 
 /*! The link_signal is a linked list containing a signal and a
@@ -360,6 +357,7 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_BOUND_MAX,
     AT_BOUND_MIN,
+    AT_CAUSE_UPDATE,
     AT_DEST_LENGTH,
     AT_DEST_MAX,
     AT_DEST_MIN,
@@ -380,6 +378,7 @@ typedef enum {
     AT_NUM_INPUTS,
     AT_NUM_LINKS,
     AT_NUM_OUTPUTS,
+    AT_NUM_SLOTS,
     AT_PORT,
     AT_RATE,
     AT_REV,

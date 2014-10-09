@@ -1464,12 +1464,26 @@ void mapper_monitor_connect(mapper_monitor mon,
                             unsigned int property_flags);
 
 /*! Interface to remove a connection between two signals.
- *  \param mon           The monitor to use for sending the message.
- *  \param source_signal Source signal name.
- *  \param dest_signal   Destination signal name. */
+ *  \param mon            The monitor to use for sending the message.
+ *  \param source_signal  Source signal name.
+ *  \param dest_signal    Destination signal name. */
 void mapper_monitor_disconnect(mapper_monitor mon,
                                const char* source_signal,
                                const char* dest_signal);
+
+/*! Interface to comfigure a signal combiner.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param signal_name    Signal name.
+ *  \param properties     An optional data structure specifying the
+ *                        requested properties of this combiner.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_combiner_t should be
+ *                        applied to the combiner. See the flags
+ *                        prefixed by COMBINER_ in mapper_db.h. */
+void mapper_monitor_set_signal_combiner(mapper_monitor mon,
+                                        const char* signal_name,
+                                        mapper_db_combiner_t *properties,
+                                        unsigned int property_flags);
 
 /* @} */
 

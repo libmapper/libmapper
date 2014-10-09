@@ -721,6 +721,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
 int mapper_expr_input_history_size(mapper_expr expr);
 
+int mapper_expr_combiner_input_history_size(mapper_expr expr, int index);
+
 int mapper_expr_output_history_size(mapper_expr expr);
 
 int mapper_expr_num_variables(mapper_expr expr);
@@ -741,6 +743,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_combiner combiner, int instance);
 
 int mapper_expr_constant_output(mapper_expr expr);
+
+int mapper_expr_num_input_slots(mapper_expr expr);
 
 void mapper_expr_free(mapper_expr expr);
 

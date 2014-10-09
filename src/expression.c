@@ -449,7 +449,7 @@ static struct {
     { "|",      2, 3,  GET_OPER | GET_OPER <<4 | GET_ONE  <<8 | GET_ONE  <<12 },
     { "&&",     2, 2,  GET_ZERO | GET_ZERO <<4 | NONE     <<8 | NONE     <<12 },
     { "||",     2, 1,  GET_OPER | GET_OPER <<4 | GET_ONE  <<8 | GET_ONE  <<12 },
-    // TODO: handle ternary operator
+    // TODO: handle optimization of ternary operator
     { "IFTHEN",      2, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
     { "IFELSE",      2, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
     { "IFTHENELSE",  3, 0, NONE | NONE     <<4 | NONE     <<8 | NONE     <<12 },
@@ -544,13 +544,14 @@ static expr_vfunc_t vfunction_lookup(const char *s, int len)
 
 static expr_var_t variable_lookup(const char *s, int len)
 {
+    // TODO: allow more than 10 incoming connections
     if (*s == 'y' && len == 1)
         return VAR_Y;
     if (*s == 'x') {
         if (len == 1)
             return VAR_X;
         if (len == 2 && isdigit(*(s+1)))
-            return VAR_X + atoi(s+1);
+            return VAR_X + atoi(s+1) + 1;
     }
     return VAR_UNKNOWN;
 }
@@ -906,8 +907,11 @@ void printtoken(mapper_token_t tok)
             if (tok.var == VAR_Y)
                 snprintf(tokstr, 32, "y{%d}[%d]", tok.history_index,
                          tok.vector_index);
-            else if (tok.var >= VAR_X)
-                snprintf(tokstr, 32, "x%d{%d}[%d]", tok.var - VAR_X,
+            else if (tok.var == VAR_X)
+                snprintf(tokstr, 32, "x{%d}[%d]", tok.history_index,
+                         tok.vector_index);
+            else if (tok.var > VAR_X)
+                snprintf(tokstr, 32, "x%d{%d}[%d]", tok.var - VAR_X - 1,
                          tok.history_index, tok.vector_index);
             else
                 snprintf(tokstr, 32, "var%d{%d}[%d]", tok.var,
@@ -1420,7 +1424,8 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         mapper_combiner combiner)
 {
     if (!str) return 0;
-    if (input_type != 'i' && input_type != 'f' && input_type != 'd') return 0;
+    if (!combiner && (input_type != 'i' && input_type != 'f' && input_type != 'd'))
+        return 0;
     if (output_type != 'i' && output_type != 'f' && output_type != 'd') return 0;
 
     mapper_token_t outstack[STACK_SIZE];
@@ -1470,17 +1475,19 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
             case TOK_VAR:
                 // set datatype
-                if (tok.var >= VAR_X) {
-                    if (combiner) {
-                        if (mapper_combiner_get_var_info(combiner, tok.var,
-                                                         &tok.datatype,
-                                                         &tok.vector_length))
-                            {FAIL("Input variable reference not found.");}
-                    }
-                    else {
-                        tok.datatype = input_type;
-                        tok.vector_length = input_vector_size;
-                    }
+                if (tok.var == VAR_X) {
+                    tok.datatype = input_type;
+                    tok.vector_length = input_vector_size;
+                    tok.vector_length_locked = 1;
+                    constant_output = 0;
+                }
+                else if (tok.var > VAR_X) {
+                    if (!combiner)
+                        {FAIL("Cannot reference multiple inputs without combiner.");}
+                    if (mapper_combiner_get_var_info(combiner, tok.var-VAR_X-1,
+                                                     &tok.datatype,
+                                                     &tok.vector_length))
+                        {FAIL("Input variable reference not found.");}
                     tok.vector_length_locked = 1;
                     constant_output = 0;
                 }
@@ -1773,7 +1780,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Input history index cannot be < -100.");}
                 }
 
-                if (outstack[outstack_index].var >= VAR_X
+                if (outstack[outstack_index].var == VAR_X
                     && outstack[outstack_index].history_index < oldest_input)
                     oldest_input = outstack[outstack_index].history_index;
                 else if (outstack[outstack_index].var == VAR_Y
@@ -1983,6 +1990,32 @@ int mapper_expr_constant_output(mapper_expr expr)
     return 0;
 }
 
+int mapper_expr_num_input_slots(mapper_expr expr)
+{
+    // actually need to return highest numbered input slot
+    int i, count = VAR_X;
+    mapper_token_t *tok = expr->tokens;
+    for (i = 0; i < expr->length; i++) {
+        if (tok[i].toktype == TOK_VAR && tok[i].var > count) {
+            count = tok[i].var;
+        }
+    }
+    return count - VAR_X + 1;
+}
+
+int mapper_expr_combiner_input_history_size(mapper_expr expr, int index)
+{
+    int i, size = -1, var = index + VAR_X + 1;
+    mapper_token_t *tok = expr->tokens;
+    for (i = 0; i < expr->length; i++) {
+        if (tok[i].toktype == TOK_VAR && tok[i].var == var) {
+            if (tok[i].history_index > size)
+                size = tok[i].history_index;
+        }
+    }
+    return size;
+}
+
 #if TRACING
 static void print_stack_vector(mapper_signal_value_t *stack, char type,
                                int vector_length)
@@ -2064,7 +2097,7 @@ int mapper_expr_evaluate(mapper_expr expr,
 #if TRACING
             printf("loading variable '%c'", tok->var >= VAR_X ? 'x' : 'y');
             if (tok->var > VAR_X)
-                printf("[%d]\n", tok->var - VAR_X);
+                printf(" (slot %d)\n", tok->var-VAR_X-1);
             else
                 printf("\n");
 #endif
@@ -2073,7 +2106,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                 dims[top] = tok->vector_length;
                 mapper_signal_history_t *h;
                 if (tok->var > VAR_X && combiner)
-                    h = &combiner->slots[tok->var - VAR_X]->connection->history[instance];
+                    h = &combiner->slots[tok->var-VAR_X-1].connection->history[instance];
                 else
                     h = from;
                 idx = ((tok->history_index + h->position + h->size) % h->size);

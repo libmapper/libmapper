@@ -10,6 +10,7 @@ const char* mapper_msg_param_strings[] =
 {
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
+    "@causeUpdate",     /* AT_CAUSE_UPDATE */
     "@destLength",      /* AT_DEST_LENGTH */
     "@destMax",         /* AT_DEST_MAX */
     "@destMin",         /* AT_DEST_MIN */
@@ -30,6 +31,7 @@ const char* mapper_msg_param_strings[] =
     "@numInputs",       /* AT_NUM_INPUTS */
     "@numLinks",        /* AT_NUM_LINKS */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
+    "@numSlots",        /* AT_NUM_SLOTS */
     "@port",            /* AT_PORT */
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
@@ -383,6 +385,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
+        case AT_CAUSE_UPDATE:
         case AT_DEST_LENGTH:
         case AT_ID:
         case AT_LENGTH:
@@ -391,6 +394,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_INPUTS:
         case AT_NUM_LINKS:
         case AT_NUM_OUTPUTS:
+        case AT_NUM_SLOTS:
         case AT_PORT:
         case AT_REV:
         case AT_SEND_AS_INSTANCE:
@@ -662,9 +666,9 @@ void mapper_combiner_prepare_osc_message(lo_message m,
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[MO_EXPRESSION]);
 //    }
-    if (c->expression) {
+    if (c->props.expression) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_EXPRESSION]);
-        lo_message_add_string(m, c->expression);
+        lo_message_add_string(m, c->props.expression);
     }
 
 //    mapper_msg_add_value_table(m, c->extra);
