@@ -692,7 +692,9 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
     if (!a || !*a)
         return -1;
 
-    if (strcmp(&(*a)->s, "bypass") == 0)
+    if (strcmp(&(*a)->s, "raw") == 0)
+        return MO_RAW;
+    else if (strcmp(&(*a)->s, "bypass") == 0)
         return MO_BYPASS;
     else if (strcmp(&(*a)->s, "linear") == 0)
         return MO_LINEAR;

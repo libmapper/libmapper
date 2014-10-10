@@ -122,7 +122,8 @@ typedef enum _mapper_boundary_action {
  *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
-    MO_BYPASS,       //!< Direct throughput
+    MO_RAW,          //!< No type coercion
+    MO_BYPASS,       //!< Direct throughput with automatic type coercion
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
     MO_CALIBRATE,    //!< Calibrate to source signal

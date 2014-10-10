@@ -26,6 +26,7 @@ const char* mapper_boundary_action_strings[] =
 const char* mapper_mode_type_strings[] =
 {
     NULL,          /* MO_UNDEFINED */
+    "raw",         /* MO_RAW */
     "bypass",      /* MO_BYPASS */
     "linear",      /* MO_LINEAR */
     "expression",  /* MO_EXPRESSION */
@@ -150,6 +151,12 @@ int mapper_connection_perform(mapper_connection c,
         for (i = 0; i < vector_length; i++) {
             typestring[i] = to->type;
         }
+        return 1;
+    }
+    else if (c->props.mode == MO_RAW) {
+        // No type coercion
+        for (i = 0; i < vector_length; i++)
+            typestring[i] = c->props.local_type;
         return 1;
     }
     else if (c->props.mode == MO_EXPRESSION
@@ -456,31 +463,22 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
         return 0;
 
     if (value && typestring) {
-        if (props->remote_type == 'f') {
-            float *v = (float*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
+        for (i = 0; i < length; i++) {
+            switch (typestring[i]) {
+                case 'i':
+                    lo_message_add_int32(m, ((int*)value)[i]);
+                    break;
+                case 'f':
+                    lo_message_add_float(m, ((float*)value)[i]);
+                    break;
+                case 'd':
+                    lo_message_add_double(m, ((double*)value)[i]);
+                    break;
+                case 'N':
                     lo_message_add_nil(m);
-                else
-                    lo_message_add_float(m, v[i]);
-            }
-        }
-        else if (props->remote_type == 'i') {
-            int *v = (int*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
-                    lo_message_add_nil(m);
-                else
-                    lo_message_add_int32(m, v[i]);
-            }
-        }
-        else if (props->remote_type == 'd') {
-            double *v = (double*)value;
-            for (i = 0; i < length; i++) {
-                if (typestring[i] == 'N')
-                    lo_message_add_nil(m);
-                else
-                    lo_message_add_double(m, v[i]);
+                    break;
+                default:
+                    break;
             }
         }
     }
@@ -539,6 +537,12 @@ static int replace_expression_string(mapper_connection c,
     c->props.expression[len] = '\0';
 
     return 0;
+}
+
+void mapper_connection_set_mode_raw(mapper_connection c)
+{
+    c->props.mode = MO_RAW;
+    reallocate_connection_histories(c, 1, 1);
 }
 
 void mapper_connection_set_mode_direct(mapper_connection c)
@@ -1081,6 +1085,9 @@ int mapper_connection_set_from_message(mapper_connection c,
                     mapper_connection_set_mode_direct(c);
                 }
             }
+        break;
+    case MO_RAW:
+        mapper_connection_set_mode_raw(c);
         break;
     case MO_BYPASS:
         mapper_connection_set_mode_direct(c);

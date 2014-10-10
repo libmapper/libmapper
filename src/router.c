@@ -278,6 +278,10 @@ void mapper_router_process_signal(mapper_router r,
             c = c->next;
             continue;
         }
+
+        int to_size = ((c->props.mode == MO_RAW)
+                       ? mapper_type_size(c->props.local_type) * c->props.local_length
+                       : mapper_type_size(c->props.remote_type) * c->props.remote_length);
         char typestring[c->props.remote_length * count];
         j = 0;
         for (i = 0; i < count; i++) {
@@ -290,6 +294,10 @@ void mapper_router_process_signal(mapper_router r,
             memcpy(msig_history_tt_pointer(rs->history[id]),
                    &tt, sizeof(mapper_timetag_t));
 
+            void *from_ptr = msig_history_value_pointer((c->props.mode == MO_RAW)
+                                                        ? c->parent->history[id]
+                                                        : c->history[id]);
+
             // handle cases in which part of count update does not cause output
             if (!(mapper_connection_perform(c, &rs->history[id],
                                             &c->expr_vars[id],
@@ -300,16 +308,10 @@ void mapper_router_process_signal(mapper_router r,
                 continue;
 
             if (count > 1) {
-                memcpy((char*)out_value_p + mapper_type_size(c->props.remote_type) *
-                       c->props.remote_length * i,
-                       msig_history_value_pointer(c->history[id]),
-                       mapper_type_size(c->props.remote_type) *
-                       c->props.remote_length);
+                memcpy((char*)out_value_p + to_size * i, from_ptr, to_size);
             }
             else {
-                m = mapper_connection_build_message(c,
-                                                    msig_history_value_pointer(c->history[id]),
-                                                    1,
+                m = mapper_connection_build_message(c, from_ptr, 1,
                                                     typestring, map);
                 if (m)
                     send_or_bundle_message(c->link, c->props.remote_name, m, tt);

@@ -36,9 +36,10 @@ int setup_source()
         goto error;
     eprintf("source created.\n");
 
-    float mn=0, mx=1;
-    sendsig[0] = mdev_add_output(source, "/outsig0", 1, 'f', 0, &mn, &mx);
-    sendsig[1] = mdev_add_output(source, "/outsig1", 1, 'f', 0, &mn, &mx);
+    int mni=0, mxi=1;
+    float mnf=0, mxf=1;
+    sendsig[0] = mdev_add_output(source, "/outsig0", 1, 'i', 0, &mni, &mxi);
+    sendsig[1] = mdev_add_output(source, "/outsig1", 1, 'f', 0, &mnf, &mxf);
 
     eprintf("Output signals registered.\n");
     eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -64,6 +65,9 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
+    }
+    else {
+        eprintf("handler: Got NULL\n");
     }
     received++;
 }
@@ -112,18 +116,20 @@ int setup_connection()
     }
 
     msig_full_name(recvsig, dest_name, 1024);
-    
+    msig_full_name(sendsig[0], src_name, 1024);
     mapper_db_connection_t props;
-    props.mode = MO_BYPASS;
-//    props.cause_update = 1;
+    props.mode = MO_RAW;
+    props.slot= 0;
+    props.cause_update = 0;
+    mapper_monitor_connect(mon, src_name, dest_name, &props,
+                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
 
-    for (int i = 0; i < 2; i++) {
-        msig_full_name(sendsig[i], src_name, 1024);
-        props.slot = i;
-        props.cause_update = i;
-        mapper_monitor_connect(mon, src_name, dest_name, &props,
-                               CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
-    }
+    msig_full_name(sendsig[1], src_name, 1024);
+    props.mode = MO_BYPASS;
+    props.slot= 1;
+    props.cause_update = 1;
+    mapper_monitor_connect(mon, src_name, dest_name, &props,
+                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
 
     // wait until connections have been established
     while (!done && !source->router->links->num_connections_out) {
@@ -160,18 +166,19 @@ void loop()
     float value = 0.;
     mapper_timetag_t timetag;
     while ((!terminate || i < 5) && !done) {
-        value = i;
         mdev_poll(source, 0);
-        eprintf("Updating signals: %s = %f, %s = %f\n",
-                sendsig[0]->props.name, value,
-                sendsig[1]->props.name, value * 2.f);
+
+        eprintf("Updating signals: %s = %i, %s = %f\n",
+                sendsig[0]->props.name, i,
+                sendsig[1]->props.name, i * 2.f);
         mdev_now(source, &timetag);
         mdev_start_queue(source, timetag);
-        msig_update(sendsig[0], &value, 1, timetag);
-        value *= 2;
+        msig_update(sendsig[0], &i, 1, timetag);
+        value = i * 2;
         msig_update(sendsig[1], &value, 1, timetag);
         mdev_send_queue(source, timetag);
-        sent++;
+
+        sent += 2;
         mdev_poll(destination, 100);
         i++;
 

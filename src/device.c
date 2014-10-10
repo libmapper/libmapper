@@ -421,29 +421,29 @@ static int handler_signal(const char *path, const char *types,
             if (memcmp(si->has_value_flags, sig->has_complete_value,
                        sig->props.length / 8 + 1)==0)
                 si->has_value = 1;
-        }
 
-        if (vals == 0 && si->has_value) {
-            // protocol: update with all nulls sets signal has_value to 0
-            si->has_value = 0;
-            // TODO: need to use combiner here instead
-            memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
-            if (is_instance_update) {
-                // TODO: handle multiple upstream devices
-                sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
-                map->refcount_remote--;
-                if (sig->instance_event_handler
-                    && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                    sig->instance_event_handler(sig, &sig->props, map->local,
-                                                IN_UPSTREAM_RELEASE, &tt);
+            if (vals == 0 && si->has_value) {
+                // protocol: update with all nulls sets signal has_value to 0
+                si->has_value = 0;
+                // TODO: need to use combiner here instead
+                memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
+                if (is_instance_update) {
+                    // TODO: handle multiple upstream devices
+                    sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
+                    map->refcount_remote--;
+                    if (sig->instance_event_handler
+                        && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+                        sig->instance_event_handler(sig, &sig->props, map->local,
+                                                    IN_UPSTREAM_RELEASE, &tt);
+                    }
+                    else
+                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
                 }
                 else
                     sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+                /* Do not call mdev_route_signal() here, since we don't know if
+                 * the local signal instance will actually be released. */
             }
-            else
-                sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
-            /* Do not call mdev_route_signal() here, since we don't know if
-             * the local signal instance will actually be released. */
         }
 
         if (s) {
