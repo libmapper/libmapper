@@ -393,12 +393,13 @@ int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
  *  \param unit The unit of the signal, or 0 for none.
  *  \param minimum Pointer to a minimum value, or 0 for none.
  *  \param maximum Pointer to a maximum value, or 0 for none.
+ *  \param number of signal instances.
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
-                       void *minimum, void *maximum,
+                       void *minimum, void *maximum, int num_instances,
                        mapper_signal_update_handler *handler,
                        void *user_data);
 

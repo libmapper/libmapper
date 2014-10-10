@@ -486,18 +486,18 @@ static int handler_query(const char *path, const char *types,
     return 0;
 }
 
-// Add an input signal to a mapper device.
-mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
-                             char type, const char *unit,
-                             void *minimum, void *maximum,
-                             mapper_signal_update_handler *handler,
-                             void *user_data)
+static mapper_signal add_input_internal(mapper_device md, const char *name,
+                                        int length, char type, const char *unit,
+                                        void *minimum, void *maximum,
+                                        int num_instances,
+                                        mapper_signal_update_handler *handler,
+                                        void *user_data)
 {
     if (mdev_get_input_by_name(md, name, 0))
         return 0;
     char *signal_get = 0;
     mapper_signal sig = msig_new(name, length, type, 0, unit, minimum,
-                                 maximum, handler, user_data);
+                                 maximum, num_instances, handler, user_data);
     if (!sig)
         return 0;
     md->props.num_inputs++;
@@ -530,14 +530,41 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     return sig;
 }
 
+// Add an input signal to a mapper device.
+mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
+                             char type, const char *unit,
+                             void *minimum, void *maximum,
+                             mapper_signal_update_handler *handler,
+                             void *user_data)
+{
+    return add_input_internal(md, name, length, type, unit, minimum, maximum,
+                              -1, handler, user_data);
+}
+
+// Add an input signal with multiple instances to a mapper device.
+mapper_signal mdev_add_poly_input(mapper_device md, const char *name, int length,
+                                  char type, const char *unit,
+                                  void *minimum, void *maximum,
+                                  int num_instances,
+                                  mapper_signal_update_handler *handler,
+                                  void *user_data)
+{
+    if (num_instances < 0)
+        num_instances = 0;
+    return add_input_internal(md, name, length, type, unit, minimum, maximum,
+                              num_instances, handler, user_data);
+}
+
 // Add an output signal to a mapper device.
-mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
-                              char type, const char *unit, void *minimum, void *maximum)
+static mapper_signal add_output_internal(mapper_device md, const char *name,
+                                         int length, char type, const char *unit,
+                                         void *minimum, void *maximum,
+                                         int num_instances)
 {
     if (mdev_get_output_by_name(md, name, 0))
         return 0;
     mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
-                                 maximum, 0, 0);
+                                 maximum, num_instances, 0, 0);
     if (!sig)
         return 0;
     md->props.num_outputs++;
@@ -557,6 +584,27 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     }
 
     return sig;
+}
+
+// Add an output signal to a mapper device.
+mapper_signal mdev_add_output(mapper_device md, const char *name,
+                              int length, char type, const char *unit,
+                              void *minimum, void *maximum)
+{
+    return add_output_internal(md, name, length, type, unit,
+                               minimum, maximum, -1);
+}
+
+// Add an output signal with multiple instances to a mapper device.
+mapper_signal mdev_add_poly_output(mapper_device md, const char *name,
+                                   int length, char type, const char *unit,
+                                   void *minimum, void *maximum,
+                                   int num_instances)
+{
+    if (num_instances < 0)
+        num_instances = 0;
+    return add_output_internal(md, name, length, type, unit,
+                               minimum, maximum, num_instances);
 }
 
 void mdev_add_signal_methods(mapper_device md, mapper_signal sig)

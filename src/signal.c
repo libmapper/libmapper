@@ -48,7 +48,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig, int instanc
 
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
-                       void *minimum, void *maximum,
+                       void *minimum, void *maximum, int num_instances,
                        mapper_signal_update_handler *handler,
                        void *user_data)
 {
@@ -63,7 +63,6 @@ mapper_signal msig_new(const char *name, int length, char type,
 
     mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
     sig->handler = handler;
-    sig->props.num_instances = 0;
     sig->has_complete_value = calloc(1, length / 8 + 1);
     for (i = 0; i < length; i++) {
         sig->has_complete_value[i/8] |= 1 << (i % 8);
@@ -72,8 +71,16 @@ mapper_signal msig_new(const char *name, int length, char type,
     msig_set_minimum(sig, minimum);
     msig_set_maximum(sig, maximum);
 
-    // Reserve one instance to start
-    msig_reserve_instances(sig, 1, 0, 0);
+    if (num_instances < 0) {
+        // this is a single-instance signal
+        sig->props.num_instances = 0;
+
+        // Reserve one instance to start
+        msig_reserve_instances(sig, 1, 0, 0);
+    }
+    else {
+        sig->props.num_instances = msig_reserve_instances(sig, num_instances, 0, 0);
+    }
 
     // Reserve one instance id map
     sig->id_map_length = 1;

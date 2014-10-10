@@ -38,17 +38,16 @@ int setup_source()
     source = mdev_new("testInstanceSend", 0, 0);
     if (!source)
         goto error;
-    eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    sendsig = mdev_add_poly_output(source, "/outsig", 1, 'f', 0, &mn, &mx, 10);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 9, 0, 0);
 
-    eprintf("Output signal registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal added with %i instances.\n",
+              msig_num_active_instances(sendsig)
+            + msig_num_reserved_instances(sendsig));
 
     return 0;
 
@@ -102,23 +101,23 @@ int setup_destination()
     destination = mdev_new("testInstanceRecv", 0, 0);
     if (!destination)
         goto error;
-    eprintf("destination created.\n");
 
     float mn=0;//, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, 0, insig_handler, 0);
+    // Specify 0 instances since we wich to use specific ids
+    recvsig = mdev_add_poly_input(destination, "/insig", 1, 'f',
+                                  0, &mn, 0, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
 
-    // remove the default instance "0"
-    msig_remove_instance(recvsig, 0);
     int i;
     for (i=100; i<104; i++) {
         msig_reserve_instances(recvsig, 1, &i, 0);
     }
 
-    eprintf("Input signal registered.\n");
+    eprintf("Input signal added with %i instances.\n",
+              msig_num_active_instances(recvsig)
+            + msig_num_reserved_instances(recvsig));
     eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
 
     return 0;

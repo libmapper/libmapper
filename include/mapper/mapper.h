@@ -368,8 +368,30 @@ mapper_signal mdev_add_input(mapper_device dev, const char *name,
                              mapper_signal_update_handler *handler,
                              void *user_data);
 
+/*! Add an input signal with multiple instances to a mapper device.
+ *  Values and strings pointed to by this call (except user_data) will be copied.
+ *  For minimum and maximum, actual type must correspond to 'type'.
+ *  If type='i', then int*; if type='f', then float*.
+ *  \param dev           The device to add a signal to.
+ *  \param name          The name of the signal.
+ *  \param length        The length of the signal vector, or 1 for a scalar.
+ *  \param type          The type fo the signal value.
+ *  \param unit          The unit of the signal, or 0 for none.
+ *  \param minimum       Pointer to a minimum value, or 0 for none.
+ *  \param maximum       Pointer to a maximum value, or 0 for none.
+ *  \param num_instances Number of instances to reserve.
+ *  \param handler       Function to be called when the value of the
+ *                       signal is updated.
+ *  \param user_data     User context pointer to be passed to handler. */
+mapper_signal mdev_add_poly_input(mapper_device dev, const char *name,
+                                  int length, char type, const char *unit,
+                                  void *minimum, void *maximum,
+                                  int num_instances,
+                                  mapper_signal_update_handler *handler,
+                                  void *user_data);
+
 /*! Add an output signal to a mapper device.  Values and strings
- *  pointed to by this call will be copied.
+ *  pointed to by this call (except user_data) will be copied.
  *  For minimum and maximum, actual type must correspond to 'type'.
  *  If type='i', then int*; if type='f', then float*.
  *  \param dev     The device to add a signal to.
@@ -382,6 +404,23 @@ mapper_signal mdev_add_input(mapper_device dev, const char *name,
 mapper_signal mdev_add_output(mapper_device dev, const char *name,
                               int length, char type, const char *unit,
                               void *minimum, void *maximum);
+
+/*! Add an output signal with multiple instances to a mapper device.
+ *  Values and strings pointed to by this call (except user_data) will be copied.
+ *  For minimum and maximum, actual type must correspond to 'type'.
+ *  If type='i', then int*; if type='f', then float*.
+ *  \param dev     The device to add a signal to.
+ *  \param name    The name of the signal.
+ *  \param length  The length of the signal vector, or 1 for a scalar.
+ *  \param type    The type fo the signal value.
+ *  \param unit    The unit of the signal, or 0 for none.
+ *  \param num_instances Number of instances to reserve.
+ *  \param minimum Pointer to a minimum value, or 0 for none.
+ *  \param maximum Pointer to a maximum value, or 0 for none. */
+mapper_signal mdev_add_poly_output(mapper_device dev, const char *name,
+                                   int length, char type, const char *unit,
+                                   void *minimum, void *maximum,
+                                   int num_instances);
 
 /* Remove a device's input signal.
  * \param dev The device to remove a signal from.
