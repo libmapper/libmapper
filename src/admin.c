@@ -2259,6 +2259,11 @@ static int handler_signal_connect(const char *path, const char *types,
                   mdev_name(md), remote_signal_name);
             return 0;
         }
+        else if (s1 == s2) {
+            trace("<%s> connections from signal to self are not allowed\n",
+                  mdev_name(md));
+            return 0;
+        }
         else if (outgoing && !s2->handler) {
             trace("<%s> matching signal %s has no input handler\n",
                   mdev_name(md), remote_signal_name);
