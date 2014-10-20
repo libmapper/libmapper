@@ -88,7 +88,8 @@ typedef enum {
     ADM_SYNC,
     ADM_UNLINK,
     ADM_UNLINKED,
-    ADM_WHO
+    ADM_WHO,
+    N_ADM_STRINGS
 } admin_msg_t;
 
 /*! Function to call when an allocated resource is locked. */
@@ -181,6 +182,25 @@ typedef mapper_admin_t *mapper_admin;
 
 #define ADMIN_TIMEOUT_SEC 10        // timeout after 10 seconds without ping
 
+/**** Signal ****/
+
+/*! A structure that stores the current and historical values and timetags
+ *  of a signal. The size of the history arrays is determined by the needs
+ *  of connection expressions.
+ *  @ingroup signals */
+
+typedef struct _mapper_signal_history
+{
+    char type;                      /*!< The type of this signal, specified as
+                                     *   an OSC type character. */
+    int position;                   /*!< Current position in the circular buffer. */
+    int size;                       /*!< History size of the buffer. */
+    int length;                     /*!< Vector length. */
+    void *value;                    /*!< Value of the signal for each sample of
+                                     *   stored history. */
+    mapper_timetag_t *timetag;      /*!< Timetag for each sample of stored history. */
+} mapper_signal_history_t;
+
 /**** Router ****/
 
 typedef struct _mapper_queue {
@@ -232,6 +252,7 @@ typedef struct _mapper_connection {
 } *mapper_connection;
 
 typedef struct _mapper_combiner_slot {
+    char *name;                             //!< Name of remote signal
     int id;                                 //!< Slot id.
     mapper_connection connection;           //!< Incoming connection.
 } mapper_combiner_slot_t, *mapper_combiner_slot;

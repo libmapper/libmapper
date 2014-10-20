@@ -105,7 +105,7 @@ int setup_connection()
 {
     mapper_monitor mon = mapper_monitor_new(source->admin, 0);
 
-    char src_name[1024], dest_name[1024];
+//    char src_name[1024], dest_name[1024];
     mapper_monitor_link(mon, mdev_name(source),
                         mdev_name(destination), 0, 0);
 
@@ -115,35 +115,48 @@ int setup_connection()
         mdev_poll(destination, 10);
     }
 
-    msig_full_name(recvsig, dest_name, 1024);
-    msig_full_name(sendsig[0], src_name, 1024);
-    mapper_db_connection_t props;
-    props.mode = MO_RAW;
-    props.slot= 0;
-    props.cause_update = 0;
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
+//    msig_full_name(recvsig, dest_name, 1024);
+//    msig_full_name(sendsig[0], src_name, 1024);
+//    mapper_db_connection_t props;
+//    props.mode = MO_RAW;
+//    props.slot= 0;
+//    props.cause_update = 0;
+//    mapper_monitor_connect(mon, src_name, dest_name, &props,
+//                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
+//
+//    msig_full_name(sendsig[1], src_name, 1024);
+//    props.mode = MO_BYPASS;
+//    props.slot= 1;
+//    props.cause_update = 1;
+//    mapper_monitor_connect(mon, src_name, dest_name, &props,
+//                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
+//
+//    // add combiner
+//    mapper_db_combiner_t combiner;
+//    combiner.num_slots = 2;
+//    combiner.mode = MO_EXPRESSION;
+//    combiner.expression = "y=x0+x1";
+//    int flags = COMBINER_MODE | COMBINER_NUM_SLOTS | COMBINER_EXPRESSION;
+//    mapper_monitor_set_signal_combiner(mon, dest_name, &combiner, flags);
 
-    msig_full_name(sendsig[1], src_name, 1024);
-    props.mode = MO_BYPASS;
-    props.slot= 1;
-    props.cause_update = 1;
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_MODE | CONNECTION_SLOT | CONNECTION_CAUSE_UPDATE);
+    char src1_name[512], src2_name[512], dest_name[512];
+    msig_full_name(sendsig[0], src1_name, 512);
+    msig_full_name(sendsig[1], src2_name, 512);
+    msig_full_name(recvsig, dest_name, 512);
+    const char *all_sources[2] = {src1_name, src2_name};
+
+    mapper_db_connection_t props;
+    props.mode = MO_EXPRESSION;
+    props.expression = "y=x0+x1";
+    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+
+    mapper_monitor_multiconnect(mon, 2, all_sources, dest_name, &props, flags);
 
     // wait until connections have been established
     while (!done && !source->router->links->num_connections_out) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-
-    // add combiner
-    mapper_db_combiner_t combiner;
-    combiner.num_slots = 2;
-    combiner.mode = MO_EXPRESSION;
-    combiner.expression = "y=x0+x1";
-    int flags = COMBINER_MODE | COMBINER_NUM_SLOTS | COMBINER_EXPRESSION;
-    mapper_monitor_set_signal_combiner(mon, dest_name, &combiner, flags);
 
     mapper_monitor_free(mon);
 

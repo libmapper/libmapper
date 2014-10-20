@@ -1431,6 +1431,39 @@ void mapper_monitor_unlink(mapper_monitor mon,
                            const char* source_device,
                            const char* dest_device);
 
+/*! Interface to add a connection between two signals.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param source_signal  Source signal name.
+ *  \param dest_signal    Destination signal name.
+ *  \param properties     An optional data structure specifying the
+ *                        requested properties of this connection.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_connection_t should be
+ *                        applied to the new connection. See the flags
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
+void mapper_monitor_connect(mapper_monitor mon,
+                            const char* source_signal,
+                            const char* dest_signal,
+                            mapper_db_connection_t *properties,
+                            unsigned int property_flags);
+
+/*! Interface to add a connection between two signals.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param num_sources    Number of source signals involved in this multiconnection.
+ *  \param source_names   Array of source signal names.
+ *  \param dest_name      Destination signal name.
+ *  \param properties     An optional data structure specifying the
+ *                        requested properties of this connection.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_connection_t should be
+ *                        applied to the new connection. See the flags
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
+void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
+                                 const char** source_names,
+                                 const char* dest_name,
+                                 mapper_db_connection_t *properties,
+                                 unsigned int property_flags);
+
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
  *  \param source_signal  Source signal name.
@@ -1446,22 +1479,6 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
                                       const char *dest_signal,
                                       mapper_db_connection_t *properties,
                                       unsigned int property_flags);
-
-/*! Interface to add a connection between two signals.
- *  \param mon The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_connect(mapper_monitor mon,
-                            const char* source_signal,
-                            const char* dest_signal,
-                            mapper_db_connection_t *properties,
-                            unsigned int property_flags);
 
 /*! Interface to remove a connection between two signals.
  *  \param mon            The monitor to use for sending the message.

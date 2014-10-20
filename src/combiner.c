@@ -168,7 +168,8 @@ static int replace_expression_string(mapper_combiner c,
     return 0;
 }
 
-void mapper_combiner_set_mode_expression(mapper_combiner c, const char *expr)
+static void mapper_combiner_set_mode_expression(mapper_combiner c,
+                                                const char *expr)
 {
     // if input index included in expression > num connections, use zero instead as placeholder
     // we will allow declaring combiner expression with arbitrary number of inputs
@@ -211,6 +212,12 @@ void mapper_combiner_set_mode_expression(mapper_combiner c, const char *expr)
 //                                  output_history_size);
 }
 
+static void mapper_combiner_set_mode_none(mapper_combiner c)
+{
+    // need to remove combiner
+    c->props.mode = MO_NONE;
+}
+
 int mapper_combiner_set_from_message(mapper_combiner c,
                                      mapper_message_t *msg)
 {
@@ -239,18 +246,32 @@ int mapper_combiner_set_from_message(mapper_combiner c,
             c->props.mode = MO_EXPRESSION;
             // continue
         case MO_EXPRESSION:
-            {
-                if (!c->props.expression) {
-                    c->props.expression = strdup("y=x");
-                }
-                mapper_combiner_set_mode_expression(c, c->props.expression);
+        {
+            if (!c->props.expression) {
+                c->props.expression = strdup("y=x");
             }
+            mapper_combiner_set_mode_expression(c, c->props.expression);
+        }
+            break;
+        case MO_NONE:
+        {
+            mapper_combiner_set_mode_none(c);
+        }
             break;
         default:
             trace("unknown result from mapper_msg_get_mode()\n");
             break;
     }
     return updated;
+}
+
+void mapper_combiner_new_connection(mapper_combiner cb, mapper_connection cn)
+{
+    // check if connection slot matches any of our combiner inputs
+//    int i;
+//    for (i = 0; i < cb->props.num_slots; i++) {
+//        
+//    }
 }
 
 mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner combiner, int id)

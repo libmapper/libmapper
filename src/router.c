@@ -542,6 +542,10 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     else
         link->num_connections_in++;
 
+    // check if we need to update combiner
+    if (rs->combiner && rs->combiner->props.mode != MO_NONE)
+        mapper_combiner_new_connection(rs->combiner, c);
+
     return c;
 }
 
@@ -669,14 +673,15 @@ mapper_combiner mapper_router_find_combiner(mapper_router router,
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != signal)
         rs = rs->next;
-    if (!rs)
+    if (!rs || rs->combiner->props.mode == MO_NONE)
         return NULL;
     else
         return rs->combiner;
 }
 
 mapper_combiner mapper_router_add_combiner(mapper_router router,
-                                           mapper_signal signal)
+                                           mapper_signal signal,
+                                           int num_slots)
 {
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != signal)
@@ -699,9 +704,20 @@ mapper_combiner mapper_router_add_combiner(mapper_router router,
         rs->next = router->signals;
         router->signals = rs;
     }
-    if (!rs->combiner) {
+    if (rs->combiner) {
+        // may need need to reallocate slots
+    }
+    else {
         rs->combiner = (mapper_combiner) calloc(1, sizeof(struct _mapper_combiner));
         rs->combiner->parent = rs;
+        if (num_slots) {
+            rs->combiner->slots = ((mapper_combiner_slot)
+                                   calloc(1, num_slots
+                                          * sizeof(struct _mapper_combiner_slot)));
+            int i;
+            for (i = 0; i < num_slots; i++)
+                rs->combiner->slots[i].id = i;
+        }
     }
     return rs->combiner;
 }

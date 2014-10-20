@@ -26,6 +26,7 @@ const char* mapper_boundary_action_strings[] =
 const char* mapper_mode_type_strings[] =
 {
     NULL,          /* MO_UNDEFINED */
+    "none",        /* MO_NONE */
     "raw",         /* MO_RAW */
     "bypass",      /* MO_BYPASS */
     "linear",      /* MO_LINEAR */

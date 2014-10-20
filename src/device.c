@@ -148,6 +148,11 @@ void mdev_free(mapper_device md)
         while (md->router->signals) {
             mapper_router_signal rs = md->router->signals;
             md->router->signals = md->router->signals->next;
+            if (rs->combiner) {
+                if (rs->combiner->props.expression)
+                    free(rs->combiner->props.expression);
+                free(rs->combiner);
+            }
             free(rs);
         }
         free(md->router);

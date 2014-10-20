@@ -118,10 +118,11 @@ typedef enum _mapper_boundary_action {
     N_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
-/*! Describes the connection mode.
+/*! Describes the connection and combiner modes.
  *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
+    MO_NONE,         //!< No mode
     MO_RAW,          //!< No type coercion
     MO_BYPASS,       //!< Direct throughput with automatic type coercion
     MO_LINEAR,       //!< Linear scaling
@@ -233,33 +234,6 @@ typedef struct _mapper_db_combiner {
     mapper_mode_type mode;          //!< Expression only for now.
     char *expression;               //!< Expression string.
 } mapper_db_combiner_t, *mapper_db_combiner;
-
-/*! A structure that stores the current and historical values and timetags
- *  of a signal. The size of the history arrays is determined by the needs
- *  of connection expressions.
- *  @ingroup signals */
-
-typedef struct _mapper_signal_history
-{
-    /*! The type of this signal, specified as an OSC type
-     *  character. */
-    char type;
-
-    /*! Current position in the circular buffer. */
-    int position;
-
-    /*! History size of the buffer. */
-    int size;
-
-    /*! Vector length. */
-    int length;
-
-    /*! Value of the signal for each sample of stored history. */
-    void *value;
-
-    /*! Timetag for each sample of stored history. */
-    mapper_timetag_t *timetag;
-} mapper_signal_history_t;
 
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */

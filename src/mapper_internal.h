@@ -292,7 +292,11 @@ mapper_combiner mapper_router_find_combiner(mapper_router router,
                                             mapper_signal sig);
 
 mapper_combiner mapper_router_add_combiner(mapper_router router,
-                                           mapper_signal sig);
+                                           mapper_signal sig, int num_slots);
+
+void mapper_combiner_new_connection(mapper_combiner combiner,
+                                    mapper_connection connection);
+
 
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
@@ -585,7 +589,7 @@ int mapper_db_flush(mapper_db db, uint32_t current_time,
  *  \param types  String containing message parameter types.
  *  \param argc   Number of arguments in the argv array.
  *  \param argv   Vector of lo_arg structures.
- *  \return       Non-zero indicates error in parsing. */
+ *  \return       The number of extracted parameters. */
 int mapper_msg_parse_params(mapper_message_t *msg,
                             const char *path, const char *types,
                             int argc, lo_arg **argv);
@@ -688,6 +692,9 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq);
 void mapper_msg_prepare_params(lo_message m,
                                mapper_message_t *params);
 
+void mapper_msg_add_typed_value(lo_message m, char type,
+                                int length, void *value);
+
 /*! Prepare a lo_message for sending based on a link struct. */
 void mapper_link_prepare_osc_message(lo_message m,
                                      mapper_link link, int swap);
@@ -697,8 +704,8 @@ void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
 
 /*! Prepare a lo_message for sending based on a combiner struct. */
-void mapper_combiner_prepare_osc_message(lo_message m,
-                                         mapper_combiner c);
+int mapper_combiner_prepare_osc_message(lo_message m,
+                                        mapper_combiner c);
 
 /*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,
