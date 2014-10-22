@@ -82,7 +82,7 @@ typedef void mapper_signal_instance_event_handler(mapper_signal msig,
  *                  bundling multiple signal updates with the same
  *                  timetag. */
 void msig_update(mapper_signal sig, void *value,
-                 int count, mapper_timetag_t tt);
+                 int count, mapper_timetag_t timetag);
 
 /*! Update the value of a scalar signal of type int.
  *  This is a scalar equivalent to msig_update(), for when passing by
@@ -114,7 +114,7 @@ void msig_update_double(mapper_signal sig, double value);
  *                  May be 0.
  *  \return         A pointer to an array containing the value
  *                  of the signal, or 0 if the signal has no value. */
-void *msig_value(mapper_signal sig, mapper_timetag_t *tt);
+void *msig_value(mapper_signal sig, mapper_timetag_t *timetag);
 
 /*! Query the values of any signals connected via mapping connections.
  *  \param sig      A local output signal. We will be querying the remote
@@ -151,8 +151,8 @@ int msig_reserve_instances(mapper_signal sig, int num, int *ids, void **user_dat
  *                      libmapper will tag the value update with the current
  *                      time. See mdev_start_queue() for more information on
  *                      bundling multiple signal updates with the same timetag. */
-void msig_update_instance(mapper_signal sig, int instance_id,
-                          void *value, int count, mapper_timetag_t tt);
+void msig_update_instance(mapper_signal sig, int instance_id, void *value,
+                          int count, mapper_timetag_t timetag);
 
 /*! Release a specific instance of a signal by removing it from the list
  *  of active instances and adding it to the reserve list.
@@ -163,7 +163,7 @@ void msig_update_instance(mapper_signal sig, int instance_id,
  *                     See mdev_start_queue() for more information on
  *                     bundling multiple signal updates with the same timetag. */
 void msig_release_instance(mapper_signal sig, int instance_id,
-                           mapper_timetag_t tt);
+                           mapper_timetag_t timetag);
 
 /*! Remove a specific instance of a signal and free its memory.
  *  \param sig         The signal to operate on.
@@ -191,7 +191,7 @@ int msig_get_newest_active_instance(mapper_signal sig, int *instance_id);
  *                     of the signal instance, or 0 if the signal instance
  *                     has no value. */
 void *msig_instance_value(mapper_signal sig, int instance_id,
-                          mapper_timetag_t *tt);
+                          mapper_timetag_t *timetag);
 
 /*! Copy group/routing data for sharing an instance abstraction
  *  between multiple signals.
@@ -1488,7 +1488,7 @@ void mdev_now(mapper_device dev,
               mapper_timetag_t *tt);
 
 /*! Initialize a timetag to the current mapping network time.
- *  \param dev  The device whose time we are asking for.
+ *  \param mon  The monitor whose time we are asking for.
  *  \param tt   A previously allocated timetag to initialize. */
 void mapper_monitor_now(mapper_monitor mon,
                         mapper_timetag_t *tt);
@@ -1500,20 +1500,28 @@ void mapper_monitor_now(mapper_monitor mon,
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
 
 /*! Add seconds to a given timetag.
- *  \param timetag  A previously allocated timetag to augment.
+ *  \param tt       A previously allocated timetag to augment.
  *  \param addend   An amount in seconds to add. */
 void mapper_timetag_add_seconds(mapper_timetag_t *tt, double addend);
 
-/*! Return value of mapper_timetag as a double-precision floating point value. */
+/*! Return value of mapper_timetag as a double-precision floating point value.
+ *  \param tt   The timetag to read.
+ *  \return     The timetag value in seconds. */
 double mapper_timetag_get_double(mapper_timetag_t tt);
 
-/*! Set value of a mapper_timetag from an integer value. */
+/*! Set value of a mapper_timetag from an integer value.
+ *  \param tt       The timetag to set.
+ *  \param value    Time value in seconds. */
 void mapper_timetag_set_int(mapper_timetag_t *tt, int value);
 
-/*! Set value of a mapper_timetag from a floating point value. */
+/*! Set value of a mapper_timetag from a floating point value.
+ *  \param tt       The timetag to set.
+ *  \param value    Time value in seconds. */
 void mapper_timetag_set_float(mapper_timetag_t *tt, float value);
 
-/*! Set value of a mapper_timetag from a double-precision floating point value. */
+/*! Set value of a mapper_timetag from a double-precision floating point value.
+ *  \param tt       The timetag to set.
+ *  \param value    Time value in seconds. */
 void mapper_timetag_set_double(mapper_timetag_t *tt, double value);
 
 /*! Copy value of a mapper_timetag. */
