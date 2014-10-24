@@ -1016,14 +1016,13 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
-        if (c->props.direction == DI_OUTGOING) {
+        if (c->props.direction == DI_OUTGOING
+            && c->props.mode == MO_EXPRESSION) {
             int input_history_size, output_history_size;
             if (!replace_expression_string(c, expr, &input_history_size,
                                            &output_history_size)) {
-                if (c->props.mode == MO_EXPRESSION) {
-                    reallocate_connection_histories(c, input_history_size,
-                                                    output_history_size);
-                }
+                reallocate_connection_histories(c, input_history_size,
+                                                output_history_size);
             }
         }
         else {

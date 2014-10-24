@@ -314,16 +314,20 @@ static int handler_signal(const char *path, const char *types,
         cb = mapper_router_find_combiner(md->router, sig);
         if (cb) {
             s = mapper_combiner_get_slot(cb, slot);
-            if (s && s->connection)
+            if (s && s->connection) {
                 count = check_types(types, value_len,
                                     s->connection->props.remote_type,
                                     s->connection->props.remote_length);
-            else
+            }
+            else {
+                count = check_types(types, value_len, sig->props.type, sig->props.length);
                 s = 0;
+            }
         }
     }
-    else
+    else {
         count = check_types(types, value_len, sig->props.type, sig->props.length);
+    }
 
     if (!count)
         return 0;

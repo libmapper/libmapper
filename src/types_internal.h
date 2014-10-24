@@ -252,12 +252,13 @@ typedef struct _mapper_connection {
 } *mapper_connection;
 
 typedef struct _mapper_combiner_slot {
-    char *name;                             //!< Name of remote signal
     int id;                                 //!< Slot id.
     mapper_connection connection;           //!< Incoming connection.
 } mapper_combiner_slot_t, *mapper_combiner_slot;
 
 typedef struct _mapper_combiner {
+    int ready;                              /*!< 1 if all incoming connections
+                                             *   known, 0 otherwise. */
     struct _mapper_db_combiner props;       //!< Properties
     struct _mapper_router_signal *parent;   /*!< Parent signal reference
                                              *   in router. */

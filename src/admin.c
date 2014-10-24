@@ -2117,7 +2117,7 @@ static int handler_signal_connect(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal src_signal, dest_signal;
-    int i = 1, num_inputs = 1, dest_index = 1, num_params, slot = 0;
+    int i = 1, num_inputs = 1, dest_index = 1, num_params, slot = -1;
 
     const char *dest_signal_name, *dest_name;
     const char *src_signal_name, *src_name = NULL;
@@ -2148,7 +2148,7 @@ static int handler_signal_connect(const char *path, const char *types,
         dest_name = &argv[dest_index]->s;
         // we are the destination of this connection
         trace("<%s> got /connect from remote signal%s",
-              mdev_name(md), num_inputs ? "s" : "");
+              mdev_name(md), num_inputs > 1 ? "s" : "");
         for (i = 0; i < num_inputs; i++)
             printf(" %s", &argv[i]->s);
         printf(" to local signal %s\n", dest_name);
@@ -2188,19 +2188,12 @@ static int handler_signal_connect(const char *path, const char *types,
 
         // Create a combiner
         mapper_combiner com = mapper_router_find_combiner(md->router, dest_signal);
-        if (!com) {
-            com = mapper_router_add_combiner(md->router, dest_signal,
-                                             num_inputs);
-        }
-        else {
-            // need to reallocate combiner...
-        }
-        // set names for connections
-        if (mapper_combiner_set_from_message(com, &params)) {
-            // Inform subscribers
-            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
-            mapper_admin_send_combined(admin, md, com);
-        }
+        if (!com)
+            com = mapper_router_add_combiner(md->router, dest_signal, num_inputs);
+        else
+            mapper_combiner_set_num_slots(com, num_inputs);
+
+        mapper_combiner_set_from_message(com, &params);
     }
 
     for (i = 0; i < num_inputs; i++) {
@@ -2300,13 +2293,12 @@ static int handler_signal_connect(const char *path, const char *types,
                 mapper_connection_set_from_message(c, &params, DI_INCOMING);
                 mapper_connection_set_from_message(c2, &params, DI_OUTGOING);
 
-                c->props.slot = c2->props.slot = slot;
+                c->props.slot = c2->props.slot = -1;
             }
 
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS);
             mapper_admin_send_connected(admin, md, c, -1);
-            mapper_admin_send_connected(admin, md, c2, -1);
 
             // Call local connection handler if it exists
             if (md->connection_cb) {
@@ -2337,10 +2329,13 @@ static int handler_signal_connect(const char *path, const char *types,
         params.types[AT_INSTANCES] = "i";
         params.lengths[AT_INSTANCES] = 1;
 
-        lo_arg *arg_slot = (lo_arg*) &slot;
-        params.values[AT_SLOT] = &arg_slot;
-        params.types[AT_SLOT] = "i";
-        params.lengths[AT_SLOT] = 1;
+        if (num_inputs > 1) {
+            ++slot;
+            lo_arg *arg_slot = (lo_arg*) &slot;
+            params.values[AT_SLOT] = &arg_slot;
+            params.types[AT_SLOT] = "i";
+            params.lengths[AT_SLOT] = 1;
+        }
 
         mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
         mapper_admin_bundle_message_with_params(
@@ -2600,11 +2595,52 @@ static int handler_signal_connected(const char *path, const char *types,
                                   md->connection_cb_userdata);
             c->new = 0;
         }
-        return 0;
     }
     else {
-        trace("<%s> warning: received /connected from unconnected signal %s\n",
-              mdev_name(md), remote_name);
+        /* Creation of a connection requires the type and length info. */
+        if (!params.values[AT_SRC_TYPE] || !params.values[AT_SRC_LENGTH])
+            return 0;
+
+        char remote_type = 0;
+        if (*params.types[AT_SRC_TYPE] == 'c')
+            remote_type = (*params.values[AT_SRC_TYPE])->c;
+        else if (*params.types[AT_SRC_TYPE] == 's')
+            remote_type = (*params.values[AT_SRC_TYPE])->s;
+        else
+            return 0;
+
+        int remote_length = 0;
+        if (*params.types[AT_SRC_LENGTH] == 'i')
+            remote_length = (*params.values[AT_SRC_LENGTH])->i;
+        else
+            return 0;
+
+        // Add a flavourless connection
+        c = mapper_router_add_connection(md->router, link, signal, remote_signal_name,
+                                         remote_type, remote_length, DI_INCOMING);
+
+        /* Set its properties. */
+        mapper_connection_set_from_message(c, &params, DI_INCOMING);
+
+        // Inform subscribers
+        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+        mapper_admin_send_connected(admin, md, c, -1);
+
+        // Call local connection handler if it exists
+        if (md->connection_cb)
+            md->connection_cb(md, &link->props, signal, &c->props,
+                              MDEV_LOCAL_ESTABLISHED, md->connection_cb_userdata);
+    }
+
+    // Check if this connection targets a combiner
+    mapper_combiner cb;
+    if (c->props.slot >=0 &&
+        (cb = mapper_router_find_combiner(md->router, signal))) {
+        if (!mapper_combiner_set_slot_connection(cb, c->props.slot, c)) {
+            // Combiner is initialised, inform subscribers
+            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+            mapper_admin_send_combined(admin, md, cb);
+        }
     }
 
     return 0;

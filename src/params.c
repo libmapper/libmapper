@@ -646,8 +646,11 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     lo_message_add_int32(m, out ? props->remote_length : props->local_length);
     lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, props->send_as_instance);
-    lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-    lo_message_add_int32(m, props->slot);
+
+    if (props->slot >= 0) {
+        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
+        lo_message_add_int32(m, props->slot);
+    }
 
     // Add connection scopes
     lo_message_add_string(m, prop_msg_strings[AT_SCOPE]);

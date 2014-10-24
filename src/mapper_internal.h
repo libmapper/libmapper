@@ -294,6 +294,11 @@ mapper_combiner mapper_router_find_combiner(mapper_router router,
 mapper_combiner mapper_router_add_combiner(mapper_router router,
                                            mapper_signal sig, int num_slots);
 
+void mapper_combiner_set_num_slots(mapper_combiner combiner, int num_slots);
+
+int mapper_combiner_set_slot_connection(mapper_combiner combiner, int slot_num,
+                                        mapper_connection connection);
+
 void mapper_combiner_new_connection(mapper_combiner combiner,
                                     mapper_connection connection);
 

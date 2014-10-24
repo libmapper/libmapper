@@ -673,7 +673,7 @@ mapper_combiner mapper_router_find_combiner(mapper_router router,
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != signal)
         rs = rs->next;
-    if (!rs || rs->combiner->props.mode == MO_NONE)
+    if (!rs || !rs->combiner || rs->combiner->props.mode == MO_NONE)
         return NULL;
     else
         return rs->combiner;
@@ -710,14 +710,7 @@ mapper_combiner mapper_router_add_combiner(mapper_router router,
     else {
         rs->combiner = (mapper_combiner) calloc(1, sizeof(struct _mapper_combiner));
         rs->combiner->parent = rs;
-        if (num_slots) {
-            rs->combiner->slots = ((mapper_combiner_slot)
-                                   calloc(1, num_slots
-                                          * sizeof(struct _mapper_combiner_slot)));
-            int i;
-            for (i = 0; i < num_slots; i++)
-                rs->combiner->slots[i].id = i;
-        }
+        mapper_combiner_set_num_slots(rs->combiner, num_slots);
     }
     return rs->combiner;
 }
