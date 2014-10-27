@@ -487,6 +487,7 @@ typedef struct _token {
         TOK_SEMICOLON       = 0x2000,
         TOK_ASSIGNMENT      = 0x4000,
         TOK_VECTORIZE,
+        TOK_MUTE,
         TOK_END,
     } toktype;
     union {
@@ -831,6 +832,9 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         return ++index;
     case ';':
         tok->toktype = TOK_SEMICOLON;
+        return ++index;
+    case '#':
+        tok->toktype = TOK_MUTE;
         return ++index;
     default:
         if (!isalpha(c)) {
@@ -1437,6 +1441,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     int output_assigned = 0;
     int vectorizing = 0;
     int variable = 0;
+    int muted = 0;
     int allow_toktype = 0xFFFF;
     int constant_output = 1;
 
@@ -1484,10 +1489,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 else if (tok.var > VAR_X) {
                     if (!combiner)
                         {FAIL("Cannot reference multiple inputs without combiner.");}
-                    if (mapper_combiner_get_var_info(combiner, tok.var-VAR_X-1,
-                                                     &tok.datatype,
-                                                     &tok.vector_length))
+                    if (mapper_combiner_get_slot_info(combiner, tok.var-VAR_X-1,
+                                                      &tok.datatype,
+                                                      &tok.vector_length))
                         {FAIL("Input variable reference not found.");}
+                    mapper_combiner_mute_slot(combiner, tok.var-VAR_X-1, muted);
                     tok.vector_length_locked = 1;
                     constant_output = 0;
                 }
@@ -1540,10 +1546,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 tok.vector_index = 0;
                 PUSH_TO_OUTPUT(tok);
                 // variables can have vector and history indices
-                variable = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
+                variable = TOK_OPEN_SQUARE | TOK_OPEN_CURLY | TOK_MUTE;
                 allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE
                                  | TOK_COMMA | TOK_COLON | TOK_SEMICOLON
                                  | variable | (assigning ? TOK_ASSIGNMENT : 0));
+                muted = 0;
                 break;
             case TOK_FUNC:
                 if (function_table[tok.func].func_int32)
@@ -1882,6 +1889,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     {FAIL("Malformed expression left of assignment.");}
                 assigning = 0;
                 allow_toktype = 0xFFFF;
+                break;
+            case TOK_MUTE:
+                muted = 1;
                 break;
             default:
                 {FAIL("Unknown token type.");}

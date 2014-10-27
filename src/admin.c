@@ -2194,6 +2194,9 @@ static int handler_signal_connect(const char *path, const char *types,
             mapper_combiner_set_num_slots(com, num_inputs);
 
         mapper_combiner_set_from_message(com, &params);
+
+        // now overwrite some parameters for the subconnections
+        params.values[AT_EXPRESSION] = 0;
     }
 
     for (i = 0; i < num_inputs; i++) {

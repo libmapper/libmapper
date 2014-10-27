@@ -1050,14 +1050,6 @@ int mapper_connection_set_from_message(mapper_connection c,
         updated++;
     }
 
-    /* Cause update */
-    int cause_update;
-    if (!mapper_msg_get_param_if_int(msg, AT_CAUSE_UPDATE, &cause_update)
-        && c->props.cause_update != cause_update) {
-        c->props.cause_update = cause_update;
-        updated++;
-    }
-
     /* Scopes */
     lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
     int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);

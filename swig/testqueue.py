@@ -20,7 +20,7 @@ while not src.ready() or not dest.ready():
 monitor = mapper.monitor()
 
 monitor.link('%s' %src.name, '%s' %dest.name)
-while not src.num_links_out:
+while not src.num_links:
     src.poll()
     dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig1.name),

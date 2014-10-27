@@ -26,11 +26,12 @@ const int polltime_ms = 100;
 const char *mode_strings[] =
 {
     "undefined",
+    "none",
+    "raw",
     "bypass",
     "linear",
     "expression",
-    "calibrate",
-    "reverse"
+    "calibrate"
 };
 
 const char *bound_strings[] =

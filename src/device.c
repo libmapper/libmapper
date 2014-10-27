@@ -412,8 +412,7 @@ static int handler_signal(const char *path, const char *types,
                 memcpy(c->history[index].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (s->connection->props.cause_update
-                && (vals = mapper_combiner_perform(cb, index))) {
+            if (s->cause_update && (vals = mapper_combiner_perform(cb, index))) {
                 memcpy(si->value,
                        msig_history_value_pointer(c->parent->history[index]),
                        mapper_type_size(sig->props.type) * sig->props.length);
@@ -456,7 +455,7 @@ static int handler_signal(const char *path, const char *types,
         }
 
         if (s) {
-            if (s->connection->props.cause_update) {
+            if (s->cause_update) {
                 if (count > 1) {
                     memcpy(out_buffer + out_count * sig->props.length * size,
                            si->value, size);

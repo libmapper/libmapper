@@ -469,19 +469,21 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 /**** Combiners ****/
 
-int mapper_combiner_get_var_info(mapper_combiner combiner, int slot,
-                                 char *datatype, int *vector_length);
+int mapper_combiner_get_slot_info(mapper_combiner combiner, int slot,
+                                  char *datatype, int *vector_length);
 
 int mapper_combiner_set_from_message(mapper_combiner c,
                                      mapper_message_t *msg);
 
-mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner c, int slot_id);
+mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner c, int slot_num);
+
+void mapper_combiner_mute_slot(mapper_combiner cb, int slot_num, int mute);
 
 void mapper_combiner_free(mapper_combiner c);
 
 int mapper_combiner_perform(mapper_combiner c, int instance);
 
-/*! Update a scope identifiers to a given connection record. */
+/*! Update scope identifiers for a given connection record. */
 int mapper_db_connection_update_scope(mapper_connection_scope scope,
                                       lo_arg **scope_list, int num);
 

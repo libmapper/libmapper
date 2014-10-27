@@ -253,6 +253,8 @@ typedef struct _mapper_connection {
 
 typedef struct _mapper_combiner_slot {
     int id;                                 //!< Slot id.
+    int cause_update;                       /*!< 1 if this slot should cause
+                                             *   expression output */
     mapper_connection connection;           //!< Incoming connection.
 } mapper_combiner_slot_t, *mapper_combiner_slot;
 

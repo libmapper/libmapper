@@ -332,8 +332,7 @@ void mapper_monitor_connect(mapper_monitor mon,
              props->send_as_instance,
             ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
              ? AT_SCOPE : -1, props->scope.names,
-            (flags & CONNECTION_SLOT) ? AT_SLOT : -1, props->slot,
-            (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props->cause_update);
+            (flags & CONNECTION_SLOT) ? AT_SLOT : -1, props->slot);
     }
     else
         mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
@@ -347,7 +346,7 @@ void mapper_monitor_connect(mapper_monitor mon,
 void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
                                  const char** source_signals,
                                  const char* dest_signal,
-                                 mapper_db_connection_t *props,
+                                 mapper_db_combiner_t *props,
                                  unsigned int flags)
 {
     // TODO: lookup device ip/ports, send directly?
@@ -372,80 +371,21 @@ void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
         return;
     }
 
-    if ((flags & CONNECTION_BOUND_MIN) && ((int)props->bound_min >= 0)
-        && (props->bound_min < N_MAPPER_BOUNDARY_ACTIONS)) {
-        lo_message_add_string(m, prop_msg_strings[AT_BOUND_MIN]);
-        lo_message_add_string(m, mapper_boundary_action_strings[props->bound_min]);
-    }
-
-    if ((flags & CONNECTION_BOUND_MIN) && ((int)props->bound_max >= 0)
-        && (props->bound_max < N_MAPPER_BOUNDARY_ACTIONS)) {
-        lo_message_add_string(m, prop_msg_strings[AT_BOUND_MAX]);
-        lo_message_add_string(m, mapper_boundary_action_strings[props->bound_max]);
-    }
-
-    if ((flags & CONNECTION_SRC_TYPE) && (flags & CONNECTION_SRC_LENGTH)) {
-        if (flags & CONNECTION_RANGE_SRC_MIN) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
-            mapper_msg_add_typed_value(m, props->src_type, props->src_length,
-                                       props->src_min);
-        }
-        if (flags & CONNECTION_RANGE_SRC_MAX) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
-            mapper_msg_add_typed_value(m, props->src_type, props->src_length,
-                                       props->src_max);
-        }
-    }
-
-    if ((flags & CONNECTION_DEST_TYPE) && (flags & CONNECTION_DEST_LENGTH)) {
-        if (flags & CONNECTION_RANGE_DEST_MIN) {
-            lo_message_add_string(m, prop_msg_strings[AT_DEST_MIN]);
-            mapper_msg_add_typed_value(m, props->dest_type, props->dest_length,
-                                       props->dest_min);
-        }
-        if (flags & CONNECTION_RANGE_DEST_MAX) {
-            lo_message_add_string(m, prop_msg_strings[AT_DEST_MAX]);
-            mapper_msg_add_typed_value(m, props->dest_type, props->dest_length,
-                                       props->dest_max);
-        }
-    }
-
-    if (flags & CONNECTION_EXPRESSION) {
+    if (flags & COMBINER_EXPRESSION) {
         lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
         lo_message_add_string(m, props->expression);
     }
 
-    if ((flags & CONNECTION_MODE)
+    if ((flags & COMBINER_MODE)
         && ((int)props->mode >= 0 && (int)props->mode < N_MAPPER_MODE_TYPES)) {
         lo_message_add_string(m, prop_msg_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[props->mode]);
     }
 
-    if (flags & CONNECTION_MUTED) {
-        lo_message_add_string(m, prop_msg_strings[AT_MUTE]);
-        lo_message_add_int32(m, props->muted);
-    }
-
-    if (flags & CONNECTION_SEND_AS_INSTANCE) {
-        lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
-        lo_message_add_int32(m, props->send_as_instance);
-    }
-
-    if (flags & CONNECTION_SLOT) {
-        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, props->slot);
-    }
-
-    if (flags & CONNECTION_CAUSE_UPDATE) {
-        lo_message_add_string(m, prop_msg_strings[AT_CAUSE_UPDATE]);
-        lo_message_add_int32(m, props->cause_update);
-    }
-
-    if ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size) {
-        lo_message_add_string(m, prop_msg_strings[AT_SCOPE]);
-        for (i = 0; i < props->scope.size; i++)
-            lo_message_add_string(m, props->scope.names[i]);
-    }
+//    if (flags & CONNECTION_SEND_AS_INSTANCE) {
+//        lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
+//        lo_message_add_int32(m, props->send_as_instance);
+//    }
 
     lo_bundle_add_message(mon->admin->bundle,
                           admin_msg_strings[ADM_CONNECT], m);
@@ -485,8 +425,7 @@ void mapper_monitor_connection_modify(mapper_monitor mon,
          props->send_as_instance,
         ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1,
          props->scope.names,
-        (flags & CONNECTION_SLOT) ? AT_SLOT: -1, props->slot,
-        (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props->cause_update);
+        (flags & CONNECTION_SLOT) ? AT_SLOT: -1, props->slot);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */

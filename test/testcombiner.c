@@ -145,10 +145,10 @@ int setup_connection()
     msig_full_name(recvsig, dest_name, 512);
     const char *all_sources[2] = {src1_name, src2_name};
 
-    mapper_db_connection_t props;
+    mapper_db_combiner_t props;
     props.mode = MO_EXPRESSION;
-    props.expression = "y=x0+x1";
-    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+    props.expression = "y=x0+#x1";
+    int flags = COMBINER_MODE | COMBINER_EXPRESSION;
 
     mapper_monitor_multiconnect(mon, 2, all_sources, dest_name, &props, flags);
 
@@ -178,7 +178,7 @@ void loop()
     int i = 0;
     float value = 0.;
     mapper_timetag_t timetag;
-    while ((!terminate || i < 5) && !done) {
+    while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 0);
 
         eprintf("Updating signals: %s = %i, %s = %f\n",
@@ -191,7 +191,7 @@ void loop()
         msig_update(sendsig[1], &value, 1, timetag);
         mdev_send_queue(source, timetag);
 
-        sent += 2;
+        sent++;
         mdev_poll(destination, 100);
         i++;
 

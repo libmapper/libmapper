@@ -587,6 +587,7 @@ void mapper_msg_prepare_params(lo_message m,
 
 void mapper_link_prepare_osc_message(lo_message m, mapper_link l, int swap)
 {
+    // TODO: include ports?
     mapper_msg_add_value_table(m, l->props.extra);
 }
 

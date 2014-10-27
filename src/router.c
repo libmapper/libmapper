@@ -496,7 +496,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.muted = 0;
     c->props.send_as_instance = (rs->num_instances > 1);
     c->props.slot = -1;
-    c->props.cause_update = 1;
 
     c->props.local_min = 0;
     c->props.local_max = 0;

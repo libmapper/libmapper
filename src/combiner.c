@@ -115,20 +115,24 @@ void reallocate_combiner_input_history(mapper_combiner cb,
 //    }
 }
 
-int mapper_combiner_get_var_info(mapper_combiner cb, int slot,
-                                 char *datatype, int *vector_length)
+int mapper_combiner_get_slot_info(mapper_combiner cb, int slot_num,
+                                  char *datatype, int *vector_length)
 {
     // we are interested in the type & length of the remote signal
-    mapper_connection cn = cb->parent->connections;
-    while (cn) {
-        if (cn->props.slot == slot) {
-            *datatype = cn->props.remote_type;
-            *vector_length = cn->props.remote_length;
-            return 0;
-        }
-        cn = cn->next;
-    }
-    return 1;
+    if (!cb->slots || cb->props.num_slots <= slot_num
+        || !cb->slots[slot_num].connection)
+        return 1;
+
+    *datatype = cb->slots[slot_num].connection->props.remote_type;
+    *vector_length = cb->slots[slot_num].connection->props.remote_length;
+
+    return 0;
+}
+
+void mapper_combiner_mute_slot(mapper_combiner cb, int slot_num, int mute)
+{
+    if (cb->slots && slot_num < cb->props.num_slots)
+        cb->slots[slot_num].cause_update = !mute;
 }
 
 /* Helper to replace a connection's expression only if the given string

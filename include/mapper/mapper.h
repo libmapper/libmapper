@@ -1461,7 +1461,7 @@ void mapper_monitor_connect(mapper_monitor mon,
 void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
                                  const char** source_names,
                                  const char* dest_name,
-                                 mapper_db_connection_t *properties,
+                                 mapper_db_combiner_t *properties,
                                  unsigned int property_flags);
 
 /*! Interface to modify a connection between two signals.

@@ -75,7 +75,6 @@ typedef struct _mapper_db_device {
 #define CONNECTION_SCOPE_NAMES      0xC000  // need to know num_scopes also
 #define CONNECTION_SCOPE_HASHES     0x14000 // need to know num_scopes also
 #define CONNECTION_SLOT             0x20000
-#define CONNECTION_CAUSE_UPDATE     0x40000
 #define CONNECTION_ALL              0xFFFFF
 
 // For range info to be known we also need to know data types and lengths
@@ -180,9 +179,6 @@ typedef struct _mapper_db_connection {
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
 
-    int cause_update;               /*!< Whether or not source update should
-                                     *   result in destination output*/
-
     struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
@@ -220,8 +216,6 @@ typedef struct _mapper_connection_props {
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
     int direction;                  //!< DI_INCOMING or DI_OUTGOING
-    int cause_update;               /*!< Whether or not source update should
-                                     *   result in destination output*/
 
     struct _mapper_connection_scope scope;
 

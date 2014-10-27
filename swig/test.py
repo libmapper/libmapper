@@ -99,7 +99,7 @@ for i in range(1000):
         print 'link for /testsend.1, /testrecv.1:'
         print mon.db.get_link_by_device_names("/testsend.1", "/testrecv.1")
         print 'not found link:'
-        print mon.db.get_link_by_src_dest_names("/foo", "/bar")
+        print mon.db.get_link_by_device_names("/foo", "/bar")
         mon.link('%s' %dev.name, '%s' %dev.name)
 
     if i==500:
