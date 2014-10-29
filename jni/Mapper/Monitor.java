@@ -41,10 +41,11 @@ public class Monitor
 
     public class Db {
 
-        /*! The set of possible actions on a db entity. */
-        public static final int MODIFIED = 0;
-        public static final int NEW      = 1;
-        public static final int REMOVED  = 2;
+        /*! The set of possible statuses for a db entity. */
+        public static final int MODIFIED     = 0;
+        public static final int NEW          = 1;
+        public static final int REMOVED      = 2;
+        public static final int UNRESPONSIVE = 3;
 
         private Db(long d) {
             _db = d;
