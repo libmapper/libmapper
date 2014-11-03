@@ -10,7 +10,11 @@ General Syntax
 
 Expressions in libmapper must always be presented in the form
 `y = x`, where `x` refers to the updated source value and `y` is
-the computed value to be forwarded to the destination.
+the computed value to be forwarded to the destination. Sub-expressions
+can be used if separated by a semicolon `;` however a value can
+only be assigned to a variable once per timestep – the expression
+`y=x; y=x*2` is not allowed. Spaces may be freely used within the expression,
+they will have no effect on the generated output.
 
 
 Available Functions
@@ -116,17 +120,17 @@ Initializing filters
 --------------------
 Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using commas:
 
-* `y = y{-1} + x`, `y{-1} = 100`
+* `y = y{-1} + x`; `y{-1} = 100`
 
 Filter initialization takes place the first time the expression evaluator is called;
 after this point the initialization sub-expressions will not be evaluated. This means
 the filter could be initialized with the first sample of `x` for example:
 
-* `y = y{-1} + x`, `y{-1} = x * 2`
+* `y = y{-1} + x`; `y{-1} = x * 2`
 
 A function could also be used for initialization:
 
-* `y = y{-1} + x`, `y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
+* `y = y{-1} + x`; `y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
 
 Any past values that are not explicitly initialized are given the value `0`.
 
@@ -136,9 +140,9 @@ User-Declared Variables
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable names can be any string except for the reserved variable names `x` and `y` or the name of an existing function.  The values of these variables are stored with the connection context and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
 
-* `ema = ema{-1} * 0.9 + x * 0.1`, `y = x - ema`
+* `ema = ema{-1} * 0.9 + x * 0.1; y = x - ema`
 
-Just like the output variable `y` we can initialize past values of user-defined variables before expression evaluation. **Initialization will always be performed first**, after which sub-expressions are evaluated **in the order they are written**. For example, the expression string `y=ema*2, ema=ema{-1}*0.9+x*0.1, ema{-1}=90` will be evaluated in the following order:
+Just like the output variable `y` we can initialize past values of user-defined variables before expression evaluation. **Initialization will always be performed first**, after which sub-expressions are evaluated **in the order they are written**. For example, the expression string `y=ema*2; ema=ema{-1}*0.9+x*0.1; ema{-1}=90` will be evaluated in the following order:
 
 1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
 2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied by `2`. The current value of `ema` is `0` since it has not yet been set.
