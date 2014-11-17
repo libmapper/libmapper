@@ -192,7 +192,7 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
                               int subscribe_flags, int timeout)
 {
     mapper_db_device found = 0;
-    if (timeout == -1) {
+    if (timeout < 0) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
         mapper_monitor_subscription s = mon->subscriptions;
