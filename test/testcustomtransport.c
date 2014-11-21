@@ -6,13 +6,19 @@
 #include <string.h>
 #include <stdlib.h>
 #include <lo/lo.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
 #include <signal.h>
 #include <errno.h>
 
 #ifdef WIN32
-#define usleep(x) Sleep(x/1000)
+ #include <winsock2.h>
+ #define usleep(x) Sleep(x/1000)
+ #define ioctl(x,y,z) ioctlsocket(x,y,z)
+ #ifndef EINPROGRESS
+  #define EINPROGRESS WSAEINPROGRESS
+ #endif
+#else
+ #include <sys/ioctl.h>
+ #include <unistd.h>
 #endif
 
 #define eprintf(format, ...) do {               \
