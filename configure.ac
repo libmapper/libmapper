@@ -45,6 +45,7 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
   AC_CHECK_LIB([iphlpapi],[exit],[
       # Need some functions not available before Windows XP
       CFLAGS="$CFLAGS -DWIN32 -D_WIN32_WINNT=0x501"
+      CXXFLAGS="$CXXFLAGS -DWIN32 -D_WIN32_WINNT=0x501"
       AC_DEFINE([HAVE_LIBIPHLPAPI],[],[Define if iphlpapi library is available. (Windows)])
       is_windows=yes
     ],[])])
@@ -298,12 +299,14 @@ AS_IF([test x$with_liblo != xno],[
 
 # Debug mode
 AS_IF([test x$enable_debug = xyes],
-      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"],
-      [CFLAGS="$CFLAGS -DNDEBUG"])
+      [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"
+       CXXFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CXXFLAGS | sed 's/-O2//'`"],
+      [CFLAGS="$CFLAGS -DNDEBUG"; CXXFLAGS="$CXXFLAGS -DNDEBUG"])
 
 # Add -I. so that config.h is found correctly during VPATH builds
 # (see autoconf manual section 4.9)
 CFLAGS="-I. $CFLAGS"
+CXXFLAGS="-I. $CXXFLAGS"
 
 AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
