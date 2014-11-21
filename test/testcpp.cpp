@@ -73,7 +73,7 @@ int main(int argc, char ** argv)
     std::cout << "device " << dev.name() << " ready..." << std::endl;
     std::cout << "  ordinal: " << dev.ordinal() << std::endl;
     std::cout << "  id: " << dev.id() << std::endl;
-    std::cout << "  interface: " << dev.interface() << std::endl;
+    std::cout << "  interface: " << dev.iface() << std::endl;
     const struct in_addr* a = dev.ip4();
     if (a)
         std::cout << "  host: " << inet_ntoa(*a) << std::endl;
