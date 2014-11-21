@@ -854,7 +854,7 @@ namespace mapper {
             { return mdev_port(device); }
         const struct in_addr *ip4() const
             { return mdev_ip4(device); }
-        std::string interface() const
+        std::string iface() const
             { return mdev_interface(device); }
         int ordinal() const
             { return mdev_ordinal(device); }
