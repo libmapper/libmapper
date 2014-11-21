@@ -1,12 +1,17 @@
 
 #include <cstring>
 #include <iostream>
-#include <arpa/inet.h>
 #include <cstdio>
 #include <cstdlib>
 #include <array>
 
+#include "config.h"
+
 #include <mapper/mapper_cpp.h>
+
+#ifdef HAVE_ARPA_INET_H
+ #include <arpa/inet.h>
+#endif
 
 #ifdef WIN32
 #define usleep(x) Sleep(x/1000)
