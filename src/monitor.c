@@ -119,8 +119,11 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
 
     if (ping_time != mon->admin->clock.next_ping) {
         // some housekeeping: check if any devices have timed out
-        mapper_db_check_device_status(&mon->db,
-                                      mon->admin->clock.now.sec - mon->timeout_sec);
+        if (mapper_db_check_device_status(&mon->db,
+                                          mon->admin->clock.now.sec
+                                          - mon->timeout_sec))
+            // if so, flush them
+            mapper_monitor_flush_db(mon, 10, 0);
     }
 
     return admin_count;

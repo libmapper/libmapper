@@ -1068,13 +1068,15 @@ void mapper_db_remove_device_callback(mapper_db db,
     remove_callback(&db->device_callbacks, h, user);
 }
 
-void mapper_db_check_device_status(mapper_db db, uint32_t thresh_time_sec)
+int mapper_db_check_device_status(mapper_db db, uint32_t thresh_time_sec)
 {
-    mapper_db_device reg = db->registered_devices;
+    int found_unresponsive = 0;
+    mapper_db_device reg = db->registered_devices, next;
     while (reg) {
         // check if device has "checked in" recently
         // this could be /sync ping or any sent metadata
         if (reg->synced.sec && (reg->synced.sec < thresh_time_sec)) {
+            found_unresponsive = 1;
             fptr_list cb = db->device_callbacks;
             while (cb) {
                 mapper_db_device_handler *h = cb->f;
@@ -1084,19 +1086,22 @@ void mapper_db_check_device_status(mapper_db db, uint32_t thresh_time_sec)
         }
         reg = list_get_next(reg);
     }
+
+    return found_unresponsive;
 }
 
 int mapper_db_flush(mapper_db db, uint32_t current_time,
                     uint32_t timeout, int quiet)
 {
-    mapper_db_device reg = db->registered_devices;
+    mapper_db_device reg = db->registered_devices, next;
     int removed = 0;
     while (reg) {
+        next = list_get_next(reg);
         if (reg->synced.sec && (current_time - reg->synced.sec > timeout)) {
             db_remove_device_internal(db, reg, quiet);
             removed++;
         }
-        reg = list_get_next(reg);
+        reg = next;
     }
     return removed;
 }

@@ -602,7 +602,7 @@ void mapper_db_dump(mapper_db db);
 void mapper_db_remove_all_callbacks(mapper_db db);
 
 /*! Check device records for unresponsive devices. */
-void mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
+int mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
 
 /*! Flush device records for unresponsive devices. */
 int mapper_db_flush(mapper_db db, uint32_t current_time,

@@ -276,7 +276,6 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         break;
     case MDB_UNRESPONSIVE:
         printf("unresponsive.\n");
-        mapper_monitor_flush_db(mon, 10, 0);
         break;
     }
     dbpause();
