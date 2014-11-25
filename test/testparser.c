@@ -426,7 +426,7 @@ int run_tests()
     eprintf("Expected: FAILURE\n");
 
     /* Some examples of bad syntax */
-    snprintf(str, 256, " ");
+    snprintf(str, 256, "");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += parse_and_eval(EXPECT_FAILURE);
     eprintf("Expected: FAILURE\n");
@@ -463,7 +463,7 @@ int run_tests()
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: 2\n");
 
-    /* Malformed variable declaration */
+    /* Use of uninitialized variable */
     snprintf(str, 256, "y=x + myvariable * 10");
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
     result += parse_and_eval(EXPECT_FAILURE);

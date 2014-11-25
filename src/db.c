@@ -1071,7 +1071,7 @@ void mapper_db_remove_device_callback(mapper_db db,
 int mapper_db_check_device_status(mapper_db db, uint32_t thresh_time_sec)
 {
     int found_unresponsive = 0;
-    mapper_db_device reg = db->registered_devices, next;
+    mapper_db_device reg = db->registered_devices;
     while (reg) {
         // check if device has "checked in" recently
         // this could be /sync ping or any sent metadata
