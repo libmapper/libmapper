@@ -436,8 +436,7 @@ The important qualities of signal instances in _libmapper_ are:
   created and destroyed. _libmapper_ will ensure that linked devices
   share a common understanding of the relatonships between instances
   when they are mapped.
-* **map once for all instances**: one mapping connection serves to
-  map all of its instances.
+* **one mapping connection serves to map all of its instances.**
 
 All signals possess one instance by default. If you would like to reserve
 more instances you can use:

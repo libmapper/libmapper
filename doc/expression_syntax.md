@@ -90,10 +90,12 @@ leave `y[1]` unchanged.
 
 ### Vector functions
 
-There are two special functions that operate across all elements of the vector:
+There are several special functions that operate across all elements of the vector:
 
 * `y = any(x)` — output `1` if **any** of the elements of `x` are non-zero, otherwise output `0`
 * `y = all(x)` — output `1` if **all** of the elements of `x` are non-zero, otherwise output `0`
+* `y = max(x)` — output the largest element of the vector
+* `y = min(x)` — output the smallest element of the vector
 
 FIR and IIR Filters
 ===================
