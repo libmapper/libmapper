@@ -428,7 +428,7 @@ typedef enum {
 #define GET_ZERO    0x1
 #define GET_ONE     0x2
 #define GET_OPER    0x4
-#define ERROR       0x8
+#define BAD_EXPR    0x8
 
 static struct {
     const char *name;
@@ -436,9 +436,10 @@ static struct {
     char precedence;
     uint16_t optimize_const_operands;
 } op_table[] = {
+/*                     left==0  | right==0     | left==1      | right==1     */
     { "!",      1, 11, GET_ONE  | GET_ONE  <<4 | GET_ZERO <<8 | GET_ZERO <<12 },
     { "*",      2, 10, GET_ZERO | GET_ZERO <<4 | GET_OPER <<8 | GET_OPER <<12 },
-    { "/",      2, 10, GET_ZERO | ERROR    <<4 | NONE     <<8 | GET_OPER <<12 },
+    { "/",      2, 10, GET_ZERO | BAD_EXPR <<4 | NONE     <<8 | GET_OPER <<12 },
     { "%",      2, 10, GET_ZERO | GET_OPER <<4 | GET_ONE  <<8 | GET_OPER <<12 },
     { "+",      2, 9,  GET_OPER | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
     { "-",      2, 9,  NONE     | GET_OPER <<4 | NONE     <<8 | NONE     <<12 },
@@ -1209,7 +1210,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
 
         if (!can_precompute) {
             switch (optimize) {
-                case ERROR:
+                case BAD_EXPR:
                 {
                     parse_error("Operator '%s' cannot have zero operand.\n",
                                 op_table[stack[top].op].name);

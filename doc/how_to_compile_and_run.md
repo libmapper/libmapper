@@ -187,8 +187,8 @@ folder and running `test` with the correct class and library paths:
     cd jni
     java -cp libmapper-0.jar -Djava.libraries.path=.libs test
 
-Windows
--------
+Cross-compiling for Windows under Linux
+---------------------------------------
 
 Since libmapper was developed on Unix-like systems (Linux and Apple's
 OS X), building libmapper uses GNU command-line tools.  However, it is
