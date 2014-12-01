@@ -426,7 +426,7 @@ int run_tests()
     eprintf("Expected: FAILURE\n");
 
     /* Some examples of bad syntax */
-    snprintf(str, 256, "");
+    strcpy(str, "");
     setup_test('i', 1, 1, src_int, 'f', 1, 3, dest_float);
     result += parse_and_eval(EXPECT_FAILURE);
     eprintf("Expected: FAILURE\n");
