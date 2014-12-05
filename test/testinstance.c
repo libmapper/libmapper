@@ -41,7 +41,7 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_poly_output(source, "/outsig", 1, 'f', 0, &mn, &mx, 10);
+    sendsig = mdev_add_output_with_instances(source, "/outsig", 1, 'f', 0, &mn, &mx, 10);
     if (!sendsig)
         goto error;
 
@@ -105,8 +105,8 @@ int setup_destination()
     float mn=0;//, mx=1;
 
     // Specify 0 instances since we wich to use specific ids
-    recvsig = mdev_add_poly_input(destination, "/insig", 1, 'f',
-                                  0, &mn, 0, 0, insig_handler, 0);
+    recvsig = mdev_add_input_with_instances(destination, "/insig", 1, 'f',
+                                            0, &mn, 0, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
 

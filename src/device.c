@@ -542,12 +542,12 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 }
 
 // Add an input signal with multiple instances to a mapper device.
-mapper_signal mdev_add_poly_input(mapper_device md, const char *name, int length,
-                                  char type, const char *unit,
-                                  void *minimum, void *maximum,
-                                  int num_instances,
-                                  mapper_signal_update_handler *handler,
-                                  void *user_data)
+mapper_signal mdev_add_input_with_instances(mapper_device md, const char *name, int length,
+                                            char type, const char *unit,
+                                            void *minimum, void *maximum,
+                                            int num_instances,
+                                            mapper_signal_update_handler *handler,
+                                            void *user_data)
 {
     if (num_instances < 0)
         num_instances = 0;
@@ -596,10 +596,10 @@ mapper_signal mdev_add_output(mapper_device md, const char *name,
 }
 
 // Add an output signal with multiple instances to a mapper device.
-mapper_signal mdev_add_poly_output(mapper_device md, const char *name,
-                                   int length, char type, const char *unit,
-                                   void *minimum, void *maximum,
-                                   int num_instances)
+mapper_signal mdev_add_output_with_instances(mapper_device md, const char *name,
+                                             int length, char type, const char *unit,
+                                             void *minimum, void *maximum,
+                                             int num_instances)
 {
     if (num_instances < 0)
         num_instances = 0;
