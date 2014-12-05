@@ -253,7 +253,7 @@ typedef struct _mapper_id_map {
     struct _mapper_id_map *next;   //!< The next id map in the list.
 } *mapper_id_map;
 
-typedef int mapper_multisig;
+typedef int mapper_signal_group;
 
 /**** Device ****/
 struct _mapper_device;

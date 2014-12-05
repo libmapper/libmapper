@@ -26,7 +26,7 @@ typedef void *mapper_db;
 typedef void *mapper_queue;
 
 //! An internal structure defining a grouping of mapper signals.
-typedef int mapper_multisig;
+typedef int mapper_signal_group;
 
 #ifdef __cplusplus
 }

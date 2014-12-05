@@ -82,11 +82,11 @@ struct _mapper_device {
     mapper_device_connection_handler *connection_cb;
     void *connection_cb_userdata;
 
-    /*! Number of declared multi-signal objects. */
-    int num_multisigs;
+    /*! Number of declared signal groups. */
+    int num_signal_groups;
 
     /*! Array of lists of active instance id mappings, one for each
-     *  multi-signal group. */
+     *  signal group. */
     struct _mapper_id_map **active_id_maps;
 
     /*! The list of reserve instance id mappings. */

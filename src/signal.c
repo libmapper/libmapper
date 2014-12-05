@@ -425,7 +425,6 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_
          * maps, however users may wish to create devices with multiple object classes which do not
          * require mutual instance id synchronization - e.g. instance 1 of object class A is not
          * related to instance 1 of object B. */
-        // TODO: add object groups for explictly sharing id maps
 
         if ((si = get_reserved_instance(sig))) {
             map = mdev_add_instance_id_map(sig->device, sig->group_map_index,
@@ -1009,13 +1008,13 @@ int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt)
     return mdev_route_query(sig->device, sig, tt);
 }
 
-void msig_set_group(mapper_signal sig, mapper_multisig mms)
+void msig_set_group(mapper_signal sig, mapper_signal_group group)
 {
     // first check if group exists
-    if (mms >= sig->device->num_multisigs)
+    if (group >= sig->device->num_signal_groups)
         return;
 
-    sig->group_map_index = mms;
+    sig->group_map_index = group;
 }
 
 /**** Signal Properties ****/

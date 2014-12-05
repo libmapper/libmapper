@@ -65,7 +65,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->ordinal.locked = 0;
     md->registered = 0;
     md->routers = 0;
-    md->num_multisigs = 1;
+    md->num_signal_groups = 1;
     md->active_id_maps = (mapper_id_map *) calloc(1, sizeof(mapper_id_map *));
     md->reserve_id_maps = 0;
     md->id_counter = 0;
@@ -138,7 +138,7 @@ void mdev_free(mapper_device md)
 
     // Release device id maps
     mapper_id_map map;
-    for (i = 0; i < md->num_multisigs; i++) {
+    for (i = 0; i < md->num_signal_groups; i++) {
         while (md->active_id_maps[i]) {
             map = md->active_id_maps[i];
             md->active_id_maps[i] = map->next;
@@ -657,26 +657,26 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
     md->n_output_callbacks --;
 }
 
-mapper_multisig mdev_add_multisig(mapper_device md)
+mapper_signal_group mdev_add_signal_group(mapper_device md)
 {
-    ++md->num_multisigs;
-    md->active_id_maps = realloc(md->active_id_maps, md->num_multisigs * sizeof(mapper_id_map *));
-    md->active_id_maps[md->num_multisigs-1] = 0;
+    ++md->num_signal_groups;
+    md->active_id_maps = realloc(md->active_id_maps, md->num_signal_groups * sizeof(mapper_id_map *));
+    md->active_id_maps[md->num_signal_groups-1] = 0;
 
-    return md->num_multisigs-1;
+    return md->num_signal_groups-1;
 }
 
-void mdev_remove_multisig(mapper_device md, mapper_multisig mms)
+void mdev_remove_signal_group(mapper_device md, mapper_signal_group group)
 {
-    if (mms >= md->num_multisigs)
+    if (group >= md->num_signal_groups)
         return;
 
-    int i = (int)mms + 1;
-    for (; i < md->num_multisigs; i++) {
+    int i = (int)group + 1;
+    for (; i < md->num_signal_groups; i++) {
         md->active_id_maps[i-1] = md->active_id_maps[i];
     }
-    --md->num_multisigs;
-    md->active_id_maps = realloc(md->active_id_maps, md->num_multisigs * sizeof(mapper_id_map *));
+    --md->num_signal_groups;
+    md->active_id_maps = realloc(md->active_id_maps, md->num_signal_groups * sizeof(mapper_id_map *));
 }
 
 void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal sig)
