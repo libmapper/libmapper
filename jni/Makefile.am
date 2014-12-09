@@ -28,7 +28,8 @@ JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
            Mapper/Db/ConnectionIterator.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class	\
-                   Mapper/PropertyValue$$PropertyException.class
+                   Mapper/PropertyValue$$PropertyException.class        \
+                   Mapper/Monitor$$Db.class Mapper/Monitor$$1.class
 
 JJAVA = $(JCLASSES:%.class=%.java)
 
