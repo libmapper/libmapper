@@ -111,6 +111,6 @@ for i in range(1000):
                      'bound_max': mapper.BA_CLAMP})
     if i==750:
         mon.modify_connection("/test.1/outsig", "/test.1/insig",
-                              {'src_min':[10,11,12,13],
-                               'muted':True,
+                              {'src_min': [10,11,12,13],
+                               'muted': True,
                                'mode': mapper.MO_LINEAR})

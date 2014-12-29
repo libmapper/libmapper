@@ -15,9 +15,6 @@ public class Link
         _src_port = mdb_link_get_src_port(_linkprops);
         _dest_host = mdb_link_get_dest_host(_linkprops);
         _dest_port = mdb_link_get_dest_port(_linkprops);
-
-        _num_scopes = mdb_link_get_num_scopes(_linkprops);
-        _scope_names = mdb_link_get_scope_names(_linkprops);
     }
 
     private String _src_name;
@@ -43,17 +40,6 @@ public class Link
     int _dest_port;
     public int destPort() { return _dest_port; }
     private native int mdb_link_get_dest_port(long p);
-
-    int _num_scopes;
-    public int numScopes() { return _num_scopes; }
-    private native int mdb_link_get_num_scopes(long p);
-
-    PropertyValue _scope_names;
-    public PropertyValue scopeNames() {
-        _scope_names = mdb_link_get_scope_names(_linkprops);
-        return _scope_names;
-    }
-    private native PropertyValue mdb_link_get_scope_names(long p);
 
     public PropertyValue property(String property) {
         return mapper_db_link_property_lookup(_linkprops, property);

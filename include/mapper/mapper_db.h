@@ -49,14 +49,6 @@ typedef struct _mapper_db_device {
     struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which fields in a mapper_db_link
- * structure are valid.  This is only used when specifying link
- * properties via the mapper_monitor_link() or
- * mapper_monitor_link_modify() functions. */
-#define LINK_NUM_SCOPES         0x01
-#define LINK_SCOPE_NAMES        0x02
-#define LINK_SCOPE_HASHES       0x04
-
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
@@ -71,17 +63,20 @@ typedef struct _mapper_db_device {
  * properties via the mapper_monitor_connect() or
  * mapper_monitor_connection_modify() functions. Should be combined with the
  * above range bitflags. */
-#define CONNECTION_BOUND_MIN        0x0010
-#define CONNECTION_BOUND_MAX        0x0020
-#define CONNECTION_EXPRESSION       0x0040
-#define CONNECTION_MODE             0x0080
-#define CONNECTION_MUTED            0x0100
-#define CONNECTION_SEND_AS_INSTANCE 0x0200
-#define CONNECTION_SRC_TYPE         0x0400
-#define CONNECTION_DEST_TYPE        0x0800
-#define CONNECTION_SRC_LENGTH       0x1000
-#define CONNECTION_DEST_LENGTH      0x2000
-#define CONNECTION_ALL              0xFFFF
+#define CONNECTION_BOUND_MIN        0x00010
+#define CONNECTION_BOUND_MAX        0x00020
+#define CONNECTION_EXPRESSION       0x00040
+#define CONNECTION_MODE             0x00080
+#define CONNECTION_MUTED            0x00100
+#define CONNECTION_SEND_AS_INSTANCE 0x00200
+#define CONNECTION_SRC_TYPE         0x00400
+#define CONNECTION_DEST_TYPE        0x00800
+#define CONNECTION_SRC_LENGTH       0x01000
+#define CONNECTION_DEST_LENGTH      0x02000
+#define CONNECTION_NUM_SCOPES       0x04000
+#define CONNECTION_SCOPE_NAMES      0x0C000  // need to know num_scopes also
+#define CONNECTION_SCOPE_HASHES     0x14000 // need to know num_scopes also
+#define CONNECTION_ALL              0xFFFFF
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
@@ -117,6 +112,12 @@ typedef enum _mapper_instance_allocation_type {
     IN_STEAL_NEWEST, //!< Steal the newest instance
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
+
+typedef struct _mapper_connection_scope {
+    int size;                           //!< The number of connection scopes.
+    uint32_t *hashes;                   //!< Array of connection scope hashes.
+    char **names;                       //!< Array of connection scope names.
+} mapper_connection_scope_t, *mapper_connection_scope;
 
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
@@ -154,6 +155,8 @@ typedef struct _mapper_db_connection {
                                  *   expression connection */
     int muted;                  /*!< 1 to mute mapping connection, 0
                                  *   to unmute */
+
+    struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
@@ -193,8 +196,8 @@ typedef struct _mapper_db_signal
     /*! Signal index */
     int id;
 
-	/*! Flag to indicate whether signal is source or destination */
-	int is_output;
+    /*! Flag to indicate whether signal is source or destination */
+    int is_output;
 
     /*! The type of this signal, specified as an OSC type
      *  character. */
@@ -209,7 +212,7 @@ typedef struct _mapper_db_signal
     /*! The name of this signal, an OSC path.  Must start with '/'. */
     char *name;
 
-    /*! The name of the device owning this signal. An OSC path. 
+    /*! The name of the device owning this signal. An OSC path.
      *  Must start with '/'. */
     char *device_name;
 
@@ -243,9 +246,6 @@ typedef struct _mapper_db_link {
     int src_port;                   //!< Network port of source device.
     char *dest_host;                //!< IP Address of the destination device.
     int dest_port;                  //!< Network port of destination device.
-    int num_scopes;                 //!< The number of instance group scopes.
-    char **scope_names;             //!< Array of instance group scopes.
-    uint32_t *scope_hashes;         //!< Array of CRC-32 scope hashes.
 
     /*! Extra properties associated with this link. */
     struct _mapper_string_table *extra;

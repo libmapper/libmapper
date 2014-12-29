@@ -304,8 +304,6 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router rt,
                                                          const char* src_name,
                                                          const char* dest_name);
 
-int mapper_router_in_scope(mapper_router router, uint32_t origin);
-
 /*! Find a router by destination address in a linked list of routers. */
 mapper_router mapper_router_find_by_dest_address(mapper_router routers,
                                                  const char *host,
@@ -359,8 +357,6 @@ mapper_connection mapper_receiver_find_connection_by_names(mapper_receiver rc,
                                                            const char* src_name,
                                                            const char* dest_name);
 
-int mapper_receiver_in_scope(mapper_receiver receiver, uint32_t origin);
-
 /*! Find a receiver by source address in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_address(mapper_receiver receivers,
                                                     const char *host,
@@ -373,10 +369,6 @@ mapper_receiver mapper_receiver_find_by_src_name(mapper_receiver receivers,
 /*! Find a receiver by source device hash in a linked list of receivers. */
 mapper_receiver mapper_receiver_find_by_src_hash(mapper_receiver receivers,
                                                  uint32_t hash);
-
-int mapper_receiver_add_scope(mapper_receiver receiver, const char *scope);
-
-int mapper_receiver_remove_scope(mapper_receiver receiver, const char *scope);
 
 /**** Signals ****/
 
@@ -624,18 +616,14 @@ int mapper_db_add_or_update_link_params(mapper_db db,
                                         const char *dest_name,
                                         mapper_message_t *params);
 
-/*! Add a scope identifier to a given link record. */
-int mapper_db_link_add_scope(mapper_db_link link,
-                             const char *scope);
-
-/*! Remove a scope identifier from a given link record. */
-int mapper_db_link_remove_scope(mapper_db_link link,
-                                const char *scope);
-
 /**** Connections ****/
 
 void mhist_realloc(mapper_signal_history_t *history, int history_size,
                    int sample_size, int is_output);
+
+/*! Update a scope identifiers to a given connection record. */
+int mapper_db_connection_update_scope(mapper_connection_scope scope,
+                                      lo_arg **scope_list, int num);
 
 /**** Messages ****/
 

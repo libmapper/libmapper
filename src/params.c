@@ -131,6 +131,10 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 msg->lengths[j] = 0;
                 break;
             }
+            else if (types[i] == LO_NIL) {
+                msg->lengths[j] = 0;
+                break;
+            }
             msg->lengths[j]++;
         }
         if (!msg->lengths[j]) {
@@ -483,6 +487,10 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
+        case AT_SCOPE:
+            con = va_arg(aq, mapper_db_connection_t*);
+            msg_add_typed_value(m, 's', con->scope.size, con->scope.names);
+            break;
         case AT_EXTRA:
             tab = va_arg(aq, table);
             i = 0;
@@ -581,22 +589,13 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_link_prepare_osc_message(lo_message m,
                                      mapper_link link)
 {
-    int i;
-
-    // Add link scopes
-    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
-    if (link->props.num_scopes) {
-        for (i=0; i<link->props.num_scopes; i++)
-            lo_message_add_string(m, link->props.scope_names[i]);
-    }
-    else
-        lo_message_add_string(m, "none");
     mapper_msg_add_value_table(m, link->props.extra);
 }
 
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection con)
 {
+    int i;
     if (con->props.mode) {
         lo_message_add_string(m, mapper_msg_param_strings[AT_MODE]);
         lo_message_add_string(m, mapper_mode_type_strings[con->props.mode]);
@@ -646,6 +645,13 @@ void mapper_connection_prepare_osc_message(lo_message m,
     lo_message_add_int32(m, con->props.dest_length);
     lo_message_add_string(m, mapper_msg_param_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, con->props.send_as_instance);
+    lo_message_add_string(m, mapper_msg_param_strings[AT_SCOPE]);
+    if (con->props.scope.size) {
+        for (i = 0; i < con->props.scope.size; i++)
+            lo_message_add_string(m, con->props.scope.names[i]);
+    }
+    else
+        lo_message_add_nil(m);
 
     mapper_msg_add_value_table(m, con->props.extra);
 }

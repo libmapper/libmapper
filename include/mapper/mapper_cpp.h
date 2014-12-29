@@ -16,6 +16,20 @@
 #include <vector>
 #include <iterator>
 
+// Helpers: for range info to be known we also need to know data types and lengths
+#define CONNECTION_RANGE_SRC_MIN_KNOWN  (  CONNECTION_RANGE_SRC_MIN     \
+                                         | CONNECTION_SRC_TYPE          \
+                                         | CONNECTION_SRC_LENGTH )
+#define CONNECTION_RANGE_SRC_MAX_KNOWN  (  CONNECTION_RANGE_SRC_MAX     \
+                                         | CONNECTION_SRC_TYPE          \
+                                         | CONNECTION_SRC_LENGTH )
+#define CONNECTION_RANGE_DEST_MIN_KNOWN (  CONNECTION_RANGE_DEST_MIN    \
+                                         | CONNECTION_DEST_TYPE         \
+                                         | CONNECTION_DEST_LENGTH )
+#define CONNECTION_RANGE_DEST_MAX_KNOWN (  CONNECTION_RANGE_DEST_MAX    \
+                                         | CONNECTION_DEST_TYPE         \
+                                         | CONNECTION_DEST_LENGTH )
+
 //#include <lo/lo.h>
 //#include <lo/lo_cpp.h>
 
@@ -1115,7 +1129,12 @@ namespace mapper {
             void *dest_max;
 
             Connection(mapper_db_connection connection)
-                { props = connection; found = connection ? 1 : 0; owned = 0; }
+                {
+                    props = connection;
+                    found = connection ? 1 : 0;
+                    flags = 0;
+                    owned = 0;
+                }
             Connection()
             {
                 props = (mapper_db_connection)calloc(1, sizeof(mapper_db_connection_t));
@@ -1146,28 +1165,28 @@ namespace mapper {
                 props->src_min = (void*)(const void*)value;
                 props->src_type = value.type;
                 props->src_length = value.length;
-                flags |= (CONNECTION_RANGE_SRC_MIN | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+                flags |= (CONNECTION_RANGE_SRC_MIN_KNOWN);
             }
             void set_src_max(Property &value)
             {
                 props->src_max = (void*)(const void*)value;
                 props->src_type = value.type;
                 props->src_length = value.length;
-                flags |= (CONNECTION_RANGE_SRC_MAX | CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH);
+                flags |= (CONNECTION_RANGE_SRC_MAX_KNOWN);
             }
             void set_dest_min(Property &value)
             {
                 props->dest_min = (void*)(const void*)value;
                 props->dest_type = value.type;
                 props->dest_length = value.length;
-                flags |= (CONNECTION_RANGE_DEST_MIN | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+                flags |= (CONNECTION_RANGE_DEST_MIN_KNOWN);
             }
             void set_dest_max(Property &value)
             {
                 props->dest_min = (void*)(const void*)value;
                 props->dest_type = value.type;
                 props->dest_length = value.length;
-                flags |= (CONNECTION_RANGE_DEST_MAX | CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+                flags |= (CONNECTION_RANGE_DEST_MAX_KNOWN);
             }
             Property get(const string_type &name) const
             {

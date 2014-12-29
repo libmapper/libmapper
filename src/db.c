@@ -492,7 +492,7 @@ typedef struct {
 #define SIG_LENGTH  (SIGDB_OFFSET(length))
 #define SRC_LENGTH  (CONDB_OFFSET(src_length))
 #define DEST_LENGTH (CONDB_OFFSET(dest_length))
-#define NUM_SCOPES  (LINKDB_OFFSET(num_scopes))
+#define NUM_SCOPES  (CONDB_OFFSET(scope.size))
 
 /* Here type 'o', which is not an OSC type, was reserved to mean "same
  * type as the signal's type".  The lookup and index functions will
@@ -564,32 +564,26 @@ static mapper_string_table_t devdb_table =
   { devdb_nodes, 13, 13 };
 
 static property_table_value_t linkdb_values[] = {
-    { 's', {1}, -1,         LINKDB_OFFSET(dest_host) },
-    { 's', {1}, -1,         LINKDB_OFFSET(dest_name) },
-    { 'i', {0}, -1,         LINKDB_OFFSET(dest_port) },
-    { 'i', {0}, -1,         LINKDB_OFFSET(num_scopes) },
-    { 's', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_names)},
-    { 'i', {1}, NUM_SCOPES, LINKDB_OFFSET(scope_hashes)},
-    { 's', {1}, -1,         LINKDB_OFFSET(src_host) },
-    { 's', {1}, -1,         LINKDB_OFFSET(src_name) },
-    { 'i', {0}, -1,         LINKDB_OFFSET(src_port) },
+    { 's', {1}, -1, LINKDB_OFFSET(dest_host) },
+    { 's', {1}, -1, LINKDB_OFFSET(dest_name) },
+    { 'i', {0}, -1, LINKDB_OFFSET(dest_port) },
+    { 's', {1}, -1, LINKDB_OFFSET(src_host) },
+    { 's', {1}, -1, LINKDB_OFFSET(src_name) },
+    { 'i', {0}, -1, LINKDB_OFFSET(src_port) },
 };
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t linkdb_nodes[] = {
-    { "dest_host",    &linkdb_values[0] },
-    { "dest_name",    &linkdb_values[1] },
-    { "dest_port",    &linkdb_values[2] },
-    { "num_scopes",   &linkdb_values[3] },
-    { "scope_names",  &linkdb_values[4] },
-    { "scope_hashes", &linkdb_values[5]},
-    { "src_host",     &linkdb_values[6] },
-    { "src_name",     &linkdb_values[7] },
-    { "src_port",     &linkdb_values[8] },
+    { "dest_host", &linkdb_values[0] },
+    { "dest_name", &linkdb_values[1] },
+    { "dest_port", &linkdb_values[2] },
+    { "src_host",  &linkdb_values[3] },
+    { "src_name",  &linkdb_values[4] },
+    { "src_port",  &linkdb_values[5] },
 };
 
 static mapper_string_table_t linkdb_table =
-{ linkdb_nodes, 9, 9 };
+{ linkdb_nodes, 6, 6 };
 
 static property_table_value_t condb_values[] = {
     { 'i', {0},         -1,          CONDB_OFFSET(bound_min) },
@@ -602,6 +596,9 @@ static property_table_value_t condb_values[] = {
     { 's', {1},         -1,          CONDB_OFFSET(expression) },
     { 'i', {0},         -1,          CONDB_OFFSET(mode) },
     { 'i', {0},         -1,          CONDB_OFFSET(muted) },
+    { 'i', {0},         -1,          CONDB_OFFSET(scope.size) },
+    { 's', {1},         NUM_SCOPES,  CONDB_OFFSET(scope.names) },
+    { 'i', {0},         -1,          CONDB_OFFSET(send_as_instance) },
     { 'i', {0},         -1,          CONDB_OFFSET(src_length) },
     { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_max) },
     { 'o', {SRC_TYPE},  SRC_LENGTH,  CONDB_OFFSET(src_min) },
@@ -611,25 +608,28 @@ static property_table_value_t condb_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t condb_nodes[] = {
-    { "bound_min",   &condb_values[0] },
-    { "bound_max",   &condb_values[1] },
-    { "dest_length", &condb_values[2] },
-    { "dest_max",    &condb_values[3] },
-    { "dest_min",    &condb_values[4] },
-    { "dest_name",   &condb_values[5] },
-    { "dest_type",   &condb_values[6] },
-    { "expression",  &condb_values[7] },
-    { "mode",        &condb_values[8] },
-    { "muted",       &condb_values[9] },
-    { "src_length",  &condb_values[10] },
-    { "src_max",     &condb_values[11] },
-    { "src_min",     &condb_values[12] },
-    { "src_name",    &condb_values[13] },
-    { "src_type",    &condb_values[14] },
+    { "bound_min",        &condb_values[0] },
+    { "bound_max",        &condb_values[1] },
+    { "dest_length",      &condb_values[2] },
+    { "dest_max",         &condb_values[3] },
+    { "dest_min",         &condb_values[4] },
+    { "dest_name",        &condb_values[5] },
+    { "dest_type",        &condb_values[6] },
+    { "expression",       &condb_values[7] },
+    { "mode",             &condb_values[8] },
+    { "muted",            &condb_values[9] },
+    { "num_scopes",       &condb_values[10] },
+    { "scope_names",      &condb_values[11] },
+    { "send_as_instance", &condb_values[12] },
+    { "src_length",       &condb_values[13] },
+    { "src_max",          &condb_values[14] },
+    { "src_min",          &condb_values[15] },
+    { "src_name",         &condb_values[16] },
+    { "src_type",         &condb_values[17] },
 };
 
 static mapper_string_table_t condb_table =
-{ condb_nodes, 15, 15 };
+{ condb_nodes, 18, 18 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -1547,6 +1547,77 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /**** Connection records ****/
 
+static int mapper_db_connection_add_scope(mapper_connection_scope scope,
+                                          const char *name)
+{
+    int i;
+    if (!scope || !name)
+        return 1;
+
+    // Check if scope is already stored for this link
+    uint32_t hash;
+    if (strcmp(name, "all")==0)
+        hash = 0;
+    else
+        hash = crc32(0L, (const Bytef *)name, strlen(name));
+    for (i=0; i<scope->size; i++)
+        if (scope->hashes[i] == hash)
+            return 1;
+
+    // not found - add a new scope
+    i = ++scope->size;
+    scope->names = realloc(scope->names, i * sizeof(char *));
+    scope->names[i-1] = strdup(name);
+    scope->hashes = realloc(scope->hashes, i * sizeof(uint32_t));
+    scope->hashes[i-1] = hash;
+    return 0;
+}
+
+static int mapper_db_connection_remove_scope(mapper_connection_scope scope,
+                                             int index)
+{
+    int j;
+
+    free(scope->names[index]);
+    for (j=index+1; j<scope->size; j++) {
+        scope->names[j-1] = scope->names[j];
+        scope->hashes[j-1] = scope->hashes[j];
+    }
+    scope->size--;
+    scope->names = realloc(scope->names, scope->size * sizeof(char *));
+    scope->hashes = realloc(scope->hashes, scope->size * sizeof(uint32_t));
+    return 0;
+}
+
+int mapper_db_connection_update_scope(mapper_connection_scope scope,
+                                      lo_arg **scope_list, int num)
+{
+    int i, j, updated = 0;
+    if (scope_list && *scope_list) {
+        if (num == 1 && strcmp(&scope_list[0]->s, "none")==0)
+            num = 0;
+
+        // First remove old scopes that are missing
+        for (i = 0; i < scope->size; i++) {
+            int found = 0;
+            for (j = 0; j < num; j++) {
+                if (strcmp(scope->names[i], &scope_list[j]->s) == 0) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                mapper_db_connection_remove_scope(scope, i);
+                updated++;
+            }
+        }
+        // ...then add any new scopes
+        for (i=0; i<num; i++)
+            updated += (1 - mapper_db_connection_add_scope(scope, &scope_list[i]->s));
+    }
+    return updated;
+}
+
 /*! Update information about a given connection record based on
  *  message parameters. */
 static int update_connection_record_params(mapper_db_connection con,
@@ -1704,6 +1775,10 @@ static int update_connection_record_params(mapper_db_connection con,
         con->muted = mute;
         updated++;
     }
+
+    lo_arg **a_scopes = mapper_msg_get_param(params, AT_SCOPE);
+    int num_scopes = mapper_msg_get_length(params, AT_SCOPE);
+    mapper_db_connection_update_scope(&con->scope, a_scopes, num_scopes);
 
     updated += mapper_msg_add_or_update_extra_params(con->extra, params);
     return updated;
@@ -2173,6 +2248,7 @@ void mapper_db_remove_connections_by_query(mapper_db db,
 
 void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 {
+    int i;
     if (!con)
         return;
 
@@ -2197,68 +2273,18 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
         free(con->dest_min);
     if (con->dest_max)
         free(con->dest_max);
+    if (con->scope.size && con->scope.names) {
+        for (i=0; i<con->scope.size; i++)
+            free(con->scope.names[i]);
+        free(con->scope.names);
+        free(con->scope.hashes);
+    }
     if (con->extra)
         table_free(con->extra, 1);
     list_remove_item(con, (void**)&db->registered_connections);
 }
 
 /**** Link records ****/
-
-int mapper_db_link_add_scope(mapper_db_link link,
-                             const char *scope)
-{
-    int i;
-    if (!link || !scope)
-        return 1;
-
-    // Check if scope is already stored for this link
-    uint32_t hash;
-    if (strcmp(scope, "all")==0)
-        hash = 0;
-    else
-        hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    for (i=0; i<link->num_scopes; i++)
-        if (link->scope_hashes[i] == hash)
-            return 1;
-
-    // not found - add a new scope
-    i = ++link->num_scopes;
-    link->scope_names = realloc(link->scope_names, i * sizeof(char *));
-    link->scope_names[i-1] = strdup(scope);
-    link->scope_hashes = realloc(link->scope_hashes, i * sizeof(uint32_t));
-    link->scope_hashes[i-1] = hash;
-    return 0;
-}
-
-int mapper_db_link_remove_scope(mapper_db_link link,
-                                const char *scope)
-{
-    int i, j;
-    if (!link || !scope)
-        return 1;
-
-    uint32_t hash;
-    if (strcmp(scope, "all")==0)
-        hash = 0;
-    else
-        hash = crc32(0L, (const Bytef *)scope, strlen(scope));
-    for (i=0; i<link->num_scopes; i++) {
-        if (link->scope_hashes[i] == hash) {
-            free(link->scope_names[i]);
-            for (j=i+1; j<link->num_scopes; j++) {
-                link->scope_names[j-1] = link->scope_names[j];
-                link->scope_hashes[j-1] = link->scope_hashes[j];
-            }
-            link->num_scopes--;
-            link->scope_names = realloc(link->scope_names,
-                                        link->num_scopes * sizeof(char *));
-            link->scope_hashes = realloc(link->scope_hashes,
-                                         link->num_scopes * sizeof(uint32_t));
-            return 0;
-        }
-    }
-    return 1;
-}
 
 /*! Update information about a given link record based on message
  *  parameters. */
@@ -2267,7 +2293,7 @@ static int update_link_record_params(mapper_db_link link,
                                      const char *dest_name,
                                      mapper_message_t *params)
 {
-    int i, j, num_scopes = 0, updated = 0;
+    int updated = 0;
     updated += update_string_if_different(&link->src_name, src_name);
     updated += update_string_if_different(&link->dest_name, dest_name);
 
@@ -2276,27 +2302,6 @@ static int update_link_record_params(mapper_db_link link,
 
     updated += update_int_if_arg(&link->src_port, params, AT_SRC_PORT);
     updated += update_int_if_arg(&link->dest_port, params, AT_DEST_PORT);
-
-    lo_arg **a_scopes = mapper_msg_get_param(params, AT_SCOPE);
-    num_scopes = mapper_msg_get_length(params, AT_SCOPE);
-
-    // First remove old scopes that are missing
-    for (i=0; i<link->num_scopes; i++) {
-        int found = 0;
-        for (j=0; j<num_scopes; j++) {
-            if (strcmp(link->scope_names[i], &a_scopes[j]->s) == 0) {
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-            mapper_db_link_remove_scope(link, link->scope_names[i]);
-            updated++;
-        }
-    }
-    // ...then add any new scopes
-    for (i=0; i<num_scopes; i++)
-        updated += (1 - mapper_db_link_add_scope(link, &a_scopes[i]->s));
 
     updated += mapper_msg_add_or_update_extra_params(link->extra, params);
     return updated;
@@ -2592,7 +2597,6 @@ void mapper_db_remove_links_by_query(mapper_db db, mapper_db_link_t **s)
 
 void mapper_db_remove_link(mapper_db db, mapper_db_link link)
 {
-    int i;
     if (!link)
         return;
 
@@ -2607,12 +2611,6 @@ void mapper_db_remove_link(mapper_db db, mapper_db_link link)
         free(link->src_name);
     if (link->dest_name)
         free(link->dest_name);
-    if (link->num_scopes && link->scope_names) {
-        for (i=0; i<link->num_scopes; i++)
-            free(link->scope_names[i]);
-        free(link->scope_names);
-        free(link->scope_hashes);
-    }
     if (link->extra)
         table_free(link->extra, 1);
     list_remove_item(link, (void**)&db->registered_links);

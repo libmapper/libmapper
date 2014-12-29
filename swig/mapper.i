@@ -110,27 +110,13 @@
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "scope_names")==0) {
-                        if (PyString_Check(v)) {
-                            p->props.num_scopes = 1;
-                            p->flags |= LINK_NUM_SCOPES;
-                            char *scope = PyString_AsString(v);
-                            p->props.scope_names = &scope;
-                            p->flags |= LINK_SCOPE_NAMES;
-                        }
-                    }
-                    else if (strcmp(s, "src_name")==0) {
+                    if (strcmp(s, "src_name")==0) {
                         if (PyString_Check(v))
                             p->props.src_name = PyString_AsString(v);
                     }
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
                             p->props.dest_name = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "num_scopes")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode))
-                            p->props.num_scopes = k;
                     }
                     else if (strcmp(s, "src_host")==0) {
                         if (PyString_Check(v))
@@ -294,6 +280,50 @@
                             p->flags |= CONNECTION_DEST_TYPE;
                         }
                     }
+                    else if (strcmp(s, "send_as_instance")==0) {
+                        k = -1;
+                        if (v == Py_True)
+                            k = 1;
+                        else if (v == Py_False) {
+                            k = 0;
+                        }
+                        else {
+                            int ecode = SWIG_AsVal_int(v, &k);
+                            if (SWIG_IsOK(ecode))
+                                k = k!=0;
+                            else
+                                k = -1;
+                        }
+                        if (k>-1) {
+                            p->props.send_as_instance = k;
+                            p->flags |= CONNECTION_SEND_AS_INSTANCE;
+                        }
+                    }
+                    else if (strcmp(s, "scope_names")==0) {
+                        // could be array or single string
+                        if (PyString_Check(v)) {
+                            p->props.scope.size = 1;
+                            char *scope = PyString_AsString(v);
+                            p->props.scope.names = &scope;
+                        }
+                        else if (PyList_Check(v)) {
+                            p->props.scope.size = PyList_Size(v);
+                            p->props.scope.names = malloc(p->props.scope.size
+                                                          * sizeof(char *));
+                            for (k=0; k<p->props.scope.size; k++) {
+                                PyObject *element = PySequence_GetItem(v, k);
+                                if (!PyString_Check(element)) {
+                                    p->props.scope.size = 0;
+                                    free(p->props.scope.names);
+                                    break;
+                                }
+                                p->props.scope.names[k] =
+                                    strdup(PyString_AsString(element));
+                            }
+                        }
+                        if (p->props.scope.size > 0)
+                            p->flags |= CONNECTION_SCOPE_NAMES;
+                    }
                     p->flags |= p->props.range_known;
                 }
             }
@@ -302,21 +332,27 @@
         }
     }
     else {
-        SWIG_exception_fail(SWIG_TypeError,
-                            "argument $argnum must be 'dict'");
+        SWIG_exception_fail(SWIG_TypeError, "argument $argnum must be 'dict'");
     }
  %}
 
 %typemap(freearg) mapper_db_connection_with_flags_t* {
     if ($1) {
-        if ($1->props.range_known & CONNECTION_RANGE_SRC_MIN)
+        if ($1->props.src_min)
             free($1->props.src_min);
-        if ($1->props.range_known & CONNECTION_RANGE_SRC_MAX)
+        if ($1->props.src_max)
             free($1->props.src_max);
-        if ($1->props.range_known | CONNECTION_RANGE_DEST_MIN)
+        if ($1->props.dest_min)
             free($1->props.dest_min);
-        if ($1->props.range_known | CONNECTION_RANGE_DEST_MAX)
+        if ($1->props.dest_max)
             free($1->props.dest_max);
+        if ($1->props.scope.size > 1) {
+            int i;
+            for (i=0; i<$1->props.scope.size; i++) {
+                free($1->props.scope.names[i]);
+            }
+            free($1->props.scope.names);
+        }
     }
 }
 
@@ -862,10 +898,12 @@ static void msig_handler_py(struct _mapper_signal *msig,
                     PyObject *o = Py_BuildValue("i", vint[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, valuelist, timetag);
+                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
+                                        valuelist, timetag);
             }
             else
-                arglist = Py_BuildValue("(Oiid)", py_msig, instance_id, *(int*)v, timetag);
+                arglist = Py_BuildValue("(Oiid)", py_msig, instance_id,
+                                        *(int*)v, timetag);
         }
         else if (props->type == 'f') {
             if (props->length > 1 || count > 1) {
@@ -875,14 +913,17 @@ static void msig_handler_py(struct _mapper_signal *msig,
                     PyObject *o = Py_BuildValue("f", vfloat[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, valuelist, timetag);
+                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
+                                        valuelist, timetag);
             }
             else
-                arglist = Py_BuildValue("(Oifd)", py_msig, instance_id, *(float*)v, timetag);
+                arglist = Py_BuildValue("(Oifd)", py_msig, instance_id,
+                                        *(float*)v, timetag);
         }
     }
     else {
-        arglist = Py_BuildValue("(OiOd)", py_msig, instance_id, Py_None, timetag);
+        arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
+                                Py_None, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (msig_handler_py).\n");
@@ -936,7 +977,8 @@ static void device_link_handler_py(mapper_device dev,
                                    void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOi", device_to_py(&dev->props), link_to_py(link), action);
+    PyObject *arglist = Py_BuildValue("OOi", device_to_py(&dev->props),
+                                      link_to_py(link), action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_link_handler_py).\n");
         return;
@@ -956,8 +998,10 @@ static void device_connection_handler_py(mapper_device dev,
                                          void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(&dev->props), link_to_py(link),
-                                      signal_to_py(&signal->props), connection_to_py(connection),
+    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(&dev->props),
+                                      link_to_py(link),
+                                      signal_to_py(&signal->props),
+                                      connection_to_py(connection),
                                       action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_connection_handler_py).\n");
@@ -1186,9 +1230,9 @@ typedef enum _mapper_instance_allocation_type {
  *  to inform them of what is happening. */
 typedef enum {
     IN_NEW                  = 0x01, //!< New instance has been created.
-    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
-    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
-    IN_OVERFLOW             = 0x08  //!< No local instances left for incoming remote instance.
+    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance released by upstream device.
+    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance released by downstream device.
+    IN_OVERFLOW             = 0x08  //!< No local instances left.
 } msig_instance_event_t;
 
 /*! Possible monitor auto-subscribe settings. */
@@ -1196,13 +1240,13 @@ typedef enum {
 %constant int SUB_DEVICE                  = 0x01;
 %constant int SUB_DEVICE_INPUTS           = 0x02;
 %constant int SUB_DEVICE_OUTPUTS          = 0x04;
-%constant int SUB_DEVICE_SIGNALS          = 0x06; //!< SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
+%constant int SUB_DEVICE_SIGNALS          = 0x06;
 %constant int SUB_DEVICE_LINKS_IN         = 0x08;
 %constant int SUB_DEVICE_LINKS_OUT        = 0x10;
-%constant int SUB_DEVICE_LINKS            = 0x18; //!< SUB_DEVICE_LINKS_IN & SUB_DEVICE_LINKS_OUT
+%constant int SUB_DEVICE_LINKS            = 0x18;
 %constant int SUB_DEVICE_CONNECTIONS_IN   = 0x20;
 %constant int SUB_DEVICE_CONNECTIONS_OUT  = 0x40;
-%constant int SUB_DEVICE_CONNECTIONS      = 0x60; //!< SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
+%constant int SUB_DEVICE_CONNECTIONS      = 0x60;
 %constant int SUB_DEVICE_ALL              = 0xFF;
 
 /*! The set of possible actions on a database record, used
@@ -1441,8 +1485,10 @@ typedef struct _admin {} admin;
     int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
     int get_num_links_in() { return mdev_num_links_in((mapper_device)$self); }
     int get_num_links_out() { return mdev_num_links_out((mapper_device)$self); }
-    int get_num_connections_in() { return mdev_num_connections_in((mapper_device)$self); }
-    int get_num_connections_out() { return mdev_num_connections_out((mapper_device)$self); }
+    int get_num_connections_in()
+        { return mdev_num_connections_in((mapper_device)$self); }
+    int get_num_connections_out()
+        { return mdev_num_connections_out((mapper_device)$self); }
     signal *get_input_by_name(const char *name) {
         return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
     }
@@ -1644,7 +1690,8 @@ typedef struct _admin {} admin;
                 callbacks = 0;
             }
         }
-        msig_set_instance_event_callback((mapper_signal)$self, h, flags, callbacks);
+        msig_set_instance_event_callback((mapper_signal)$self, h,
+                                         flags, callbacks);
     }
     void set_callback(PyObject *PyFunc=0) {
         mapper_signal_update_handler *h = 0;
@@ -1849,7 +1896,8 @@ typedef struct _admin {} admin;
                                    &properties->props, properties->flags);
         }
         else
-            mapper_monitor_connect((mapper_monitor)$self, source_signal, dest_signal, 0, 0);
+            mapper_monitor_connect((mapper_monitor)$self, source_signal,
+                                   dest_signal, 0, 0);
     }
     void disconnect(const char* source_signal, 
                     const char* dest_signal) {
@@ -1871,36 +1919,44 @@ typedef struct _admin {} admin;
 %extend _db {
     void add_device_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_device_callback((mapper_db)$self, device_db_handler_py, PyFunc);
+        mapper_db_add_device_callback((mapper_db)$self,
+                                      device_db_handler_py, PyFunc);
     }
     void remove_device_callback(PyObject *PyFunc) {
-        mapper_db_remove_device_callback((mapper_db)$self, device_db_handler_py, PyFunc);
+        mapper_db_remove_device_callback((mapper_db)$self,
+                                         device_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_signal_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_signal_callback((mapper_db)$self, signal_db_handler_py, PyFunc);
+        mapper_db_add_signal_callback((mapper_db)$self,
+                                      signal_db_handler_py, PyFunc);
     }
     void remove_signal_callback(PyObject *PyFunc) {
-        mapper_db_remove_signal_callback((mapper_db)$self, signal_db_handler_py, PyFunc);
+        mapper_db_remove_signal_callback((mapper_db)$self,
+                                         signal_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_connection_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_connection_callback((mapper_db)$self, connection_db_handler_py,
+        mapper_db_add_connection_callback((mapper_db)$self,
+                                          connection_db_handler_py,
                                           PyFunc);
     }
     void remove_connection_callback(PyObject *PyFunc) {
-        mapper_db_remove_connection_callback((mapper_db)$self, connection_db_handler_py,
+        mapper_db_remove_connection_callback((mapper_db)$self,
+                                             connection_db_handler_py,
                                              PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_link_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
+        mapper_db_add_link_callback((mapper_db)$self,
+                                    link_db_handler_py, PyFunc);
     }
     void remove_link_callback(PyObject *PyFunc) {
-        mapper_db_remove_link_callback((mapper_db)$self, link_db_handler_py, PyFunc);
+        mapper_db_remove_link_callback((mapper_db)$self,
+                                       link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     mapper_db_device get_device_by_name(const char *device_name) {

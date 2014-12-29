@@ -972,7 +972,6 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* First record any provided parameters. */
 
     /* Destination type. */
-
     const char *dest_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
     if (dest_type && c->props.dest_type != dest_type[0]) {
         // TODO: need to reinitialize connections using this destination signal
@@ -981,7 +980,6 @@ int mapper_connection_set_from_message(mapper_connection c,
     }
 
     /* Range information. */
-
     updated += set_range(c, msg);
     if (c->props.range_known == CONNECTION_RANGE_KNOWN &&
         c->props.mode == MO_LINEAR) {
@@ -1022,6 +1020,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         }
         updated++;
     }
+
     /* Instances. */
     int send_as_instance;
     if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
@@ -1029,6 +1028,11 @@ int mapper_connection_set_from_message(mapper_connection c,
         c->props.send_as_instance = send_as_instance;
         updated++;
     }
+
+    /* Scopes. */
+    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
+    int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
+    mapper_db_connection_update_scope(&c->props.scope, a_scopes, num_scopes);
 
     /* Extra properties. */
     updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
@@ -1045,14 +1049,14 @@ int mapper_connection_set_from_message(mapper_connection c,
     case -1:
         /* No mode type specified; if mode not yet set, see if
          we know the range and choose between linear or direct connection. */
-            if (c->props.mode == MO_UNDEFINED) {
-                if (c->props.range_known == CONNECTION_RANGE_KNOWN) {
-                    /* We have enough information for a linear connection. */
-                    mapper_connection_set_mode_linear(c);
-                } else
-                    /* No range, default to direct connection. */
-                    mapper_connection_set_mode_direct(c);
-            }
+        if (c->props.mode == MO_UNDEFINED) {
+            if (c->props.range_known == CONNECTION_RANGE_KNOWN) {
+                /* We have enough information for a linear connection. */
+                mapper_connection_set_mode_linear(c);
+            } else
+                /* No range, default to direct connection. */
+                mapper_connection_set_mode_direct(c);
+        }
         break;
     case MO_BYPASS:
         mapper_connection_set_mode_direct(c);
