@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     args[12] = (lo_arg*)&src_length;
 
     int rc = mapper_msg_parse_params(&msg, "/test", "sssffffsiscsi", 13, args);
-    if (rc) {
+    if (!rc) {
         eprintf("1: Error parsing.\n");
         result = 1;
         goto done;
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)"@IP";
 
     rc = mapper_msg_parse_params(&msg, "/test", "sis", 3, args);
-    if (rc) {
+    if (!rc) {
         eprintf("2: Error parsing.\n");
         result = 1;
         goto done;

@@ -97,7 +97,7 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)"@IP";
     args[3] = (lo_arg*)"localhost";
 
-    if (mapper_msg_parse_params(&msg, "/registered", "siss", 4, args))
+    if (!mapper_msg_parse_params(&msg, "/registered", "siss", 4, args))
     {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
@@ -116,8 +116,8 @@ int main(int argc, char **argv)
     args[4] = (lo_arg*)"@IP";
     args[5] = (lo_arg*)"localhost";
 
-    if (mapper_msg_parse_params(&msg, "/testdb.1/signal",
-                                "sc", 2, args))
+    if (!mapper_msg_parse_params(&msg, "/testdb.1/signal",
+                                 "sc", 2, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -130,8 +130,8 @@ int main(int argc, char **argv)
     
     args[1] = (lo_arg*)"output";
     
-    if (mapper_msg_parse_params(&msg, "/testdb.1/signal",
-                                "sc", 2, args))
+    if (!mapper_msg_parse_params(&msg, "/testdb.1/signal",
+                                 "sc", 2, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -147,8 +147,8 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)"@boundMin";
     args[3] = (lo_arg*)"none";
 
-    if (mapper_msg_parse_params(&msg, "/connected",
-                                "ssss", 4, args))
+    if (!mapper_msg_parse_params(&msg, "/connected",
+                                 "ssss", 4, args))
     {
         eprintf("4: Error, parsing failed.\n");
         result = 1;
@@ -177,8 +177,8 @@ int main(int argc, char **argv)
     args[14] = (lo_arg*)&one;
     args[15] = (lo_arg*)&two;
 
-    if (mapper_msg_parse_params(&msg, "/connected",
-                                "sssssssisssfisii", 16, args))
+    if (!mapper_msg_parse_params(&msg, "/connected",
+                                 "sssssssisssfisii", 16, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
