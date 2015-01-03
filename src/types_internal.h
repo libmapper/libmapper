@@ -72,7 +72,6 @@ typedef enum {
     ADM_DISCONNECT,
     ADM_DISCONNECTED,
     ADM_LINK,
-    ADM_LINK_MODIFY,
     ADM_LINK_TO,
     ADM_LINKED,
     ADM_LINK_PING,

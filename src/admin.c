@@ -73,7 +73,6 @@ const char* admin_msg_strings[] =
     "/disconnect",              /* ADM_DISCONNECT */
     "/disconnected",            /* ADM_DISCONNECTED */
     "/link",                    /* ADM_LINK */
-    "/link/modify",             /* ADM_LINK_MODIFY */
     "/linkTo",                  /* ADM_LINK_TO */
     "/linked",                  /* ADM_LINKED */
     "/link/ping",               /* ADM_LINK_PING */
@@ -126,8 +125,6 @@ static int handler_device_linkTo(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
 static int handler_device_linked(const char *, const char *, lo_arg **,
                                  int, lo_message, void *);
-static int handler_device_link_modify(const char *, const char *, lo_arg **, int,
-                                      lo_message, void *);
 static int handler_device_link_ping(const char *, const char *, lo_arg **, int,
                                     lo_message, void *);
 static int handler_device_unlink(const char *, const char *, lo_arg **,
@@ -177,7 +174,6 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_LINK,                  NULL,       handler_device_link},
     {ADM_LINK_TO,               NULL,       handler_device_linkTo},
     {ADM_LINKED,                NULL,       handler_device_linked},
-    {ADM_LINK_MODIFY,           NULL,       handler_device_link_modify},
     {ADM_UNLINK,                NULL,       handler_device_unlink},
     {ADM_UNLINKED,              NULL,       handler_device_unlinked},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
@@ -1945,8 +1941,7 @@ static int handler_device_linkTo(const char *path, const char *types,
         mapper_router_find_by_dest_name(md->routers, dest_name);
 
     if (router) {
-        // Already linked, forward to link/modify handler.
-        handler_device_link_modify(path, types, argv, argc, msg, user_data);
+        // Already linked
         return 0;
     }
 
@@ -2082,72 +2077,6 @@ static int handler_device_linked(const char *path, const char *types,
     if (md->link_cb)
     md->link_cb(md, &receiver->props, MDEV_LOCAL_ESTABLISHED,
                 md->link_cb_userdata);
-
-    return 0;
-}
-
-/*! Modify the link properties : scope, etc. */
-static int handler_device_link_modify(const char *path, const char *types,
-                                      lo_arg **argv, int argc, lo_message msg,
-                                      void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    const char *src_name, *dest_name;
-    int updated;
-    mapper_message_t params;
-
-    if (argc < 2)
-        return 0;
-
-    if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
-        && types[1] != 'S')
-        return 0;
-
-    src_name = &argv[0]->s;
-    dest_name = &argv[1]->s;
-
-    if (strcmp(src_name, mdev_name(md))) {
-        trace("<%s> ignoring /link/modify %s %s\n",
-              mdev_name(md), src_name, dest_name);
-        return 0;
-    }
-
-    trace("<%s> got /link/modify %s %s\n", mdev_name(md),
-          src_name, dest_name);
-
-    // Discover whether the device is already linked.
-    mapper_router router =
-        mapper_router_find_by_dest_name(md->routers, dest_name);
-
-    if (!router)
-        return 0;
-
-    // Parse the message.
-    if (mapper_msg_parse_params(&params, path, &types[2], argc-2, &argv[2])) {
-        trace("<%s> error parsing message parameters in /link/modify.\n",
-              mdev_name(md));
-        return 0;
-    }
-
-    updated = mapper_router_set_from_message(router, &params);
-
-    if (updated) {
-        // increment device version
-        md->version += updated;
-
-        // Inform subscribers
-        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_LINKS_OUT);
-        mapper_admin_send_linked(admin, router, 0);
-
-        // Call local link handler if it exists
-        if (md->link_cb)
-            md->link_cb(md, &router->props, MDEV_LOCAL_MODIFIED,
-                        md->link_cb_userdata);
-
-        trace("<%s> modified link to %s\n", mdev_name(md), dest_name);
-    }
 
     return 0;
 }
