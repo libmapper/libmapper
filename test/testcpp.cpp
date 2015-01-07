@@ -162,7 +162,7 @@ int main(int argc, char ** argv)
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    c.set_src_min(mapper::Property(0, d, 3));
+    c.set_src_min(0, d, 3);
     mon.connect("/mydevice.1/out2", "/mydevice.1/in4", c);
     while (dev.num_connections_in() <= 0) { dev.poll(100); }
 

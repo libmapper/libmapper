@@ -1160,32 +1160,48 @@ namespace mapper {
                 props->expression = (char*)(const char*)expression;
                 flags |= CONNECTION_EXPRESSION;
             }
-            void set_src_min(const Property &value)
+            template<typename... T>
+            void set_src_min(const T&... args)
             {
-                props->src_min = (void*)(const void*)value;
-                props->src_type = value.type;
-                props->src_length = value.length;
+                mapper::Property p = mapper::Property(0, args...);
+                if (!p.length)
+                    return;
+                props->src_min = (void*)p.value;
+                props->src_type = p.type;
+                props->src_length = p.length;
                 flags |= (CONNECTION_RANGE_SRC_MIN_KNOWN);
             }
-            void set_src_max(Property &value)
+            template<typename... T>
+            void set_src_max(const T&... args)
             {
-                props->src_max = (void*)(const void*)value;
-                props->src_type = value.type;
-                props->src_length = value.length;
+                mapper::Property p = mapper::Property(0, args...);
+                if (!p.length)
+                    return;
+                props->src_max = (void*)p.value;
+                props->src_type = p.type;
+                props->src_length = p.length;
                 flags |= (CONNECTION_RANGE_SRC_MAX_KNOWN);
             }
-            void set_dest_min(Property &value)
+            template<typename... T>
+            void set_dest_min(const T&... args)
             {
-                props->dest_min = (void*)(const void*)value;
-                props->dest_type = value.type;
-                props->dest_length = value.length;
+                mapper::Property p = mapper::Property(0, args...);
+                if (!p.length)
+                    return;
+                props->dest_min = (void*)p.value;
+                props->dest_type = p.type;
+                props->dest_length = p.length;
                 flags |= (CONNECTION_RANGE_DEST_MIN_KNOWN);
             }
-            void set_dest_max(Property &value)
+            template<typename... T>
+            void set_dest_max(const T&... args)
             {
-                props->dest_min = (void*)(const void*)value;
-                props->dest_type = value.type;
-                props->dest_length = value.length;
+                mapper::Property p = mapper::Property(0, args...);
+                if (!p.length)
+                    return;
+                props->dest_min = (void*)p.value;
+                props->dest_type = p.type;
+                props->dest_length = p.length;
                 flags |= (CONNECTION_RANGE_DEST_MAX_KNOWN);
             }
             Property get(const string_type &name) const
