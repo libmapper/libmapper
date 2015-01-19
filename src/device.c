@@ -433,7 +433,6 @@ static int handler_signal(const char *path, const char *types,
             if (vals == 0 && si->has_value) {
                 // protocol: update with all nulls sets signal has_value to 0
                 si->has_value = 0;
-                // TODO: need to use combiner here instead
                 memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
                 if (is_instance_update) {
                     // TODO: handle multiple upstream devices

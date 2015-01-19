@@ -665,30 +665,6 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     mapper_msg_add_value_table(m, props->extra);
 }
 
-int mapper_combiner_prepare_osc_message(lo_message m, mapper_combiner c)
-{
-    // Add signal names
-//    int i;
-//    for (i = 0; i < c->props.num_slots; i++) {
-//        // need to check if connection exists already, if not, abort
-//        if ()
-//    snprintf(signal_name, 1024, "%s%s", mdev_name(md),
-//             c->parent->signal->props.name);
-//        lo_message_add_string
-//    }
-//    if (c->mode) {
-        lo_message_add_string(m, prop_msg_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[MO_EXPRESSION]);
-//    }
-    if (c->props.expression) {
-        lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
-        lo_message_add_string(m, c->props.expression);
-    }
-
-//    mapper_msg_add_value_table(m, c->extra);
-    return 0;
-}
-
 int mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
     lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);

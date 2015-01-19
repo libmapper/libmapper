@@ -302,7 +302,6 @@ int mapper_combiner_set_slot_connection(mapper_combiner combiner, int slot_num,
 void mapper_combiner_new_connection(mapper_combiner combiner,
                                     mapper_connection connection);
 
-
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
                                                       const char *host,
@@ -709,10 +708,6 @@ void mapper_link_prepare_osc_message(lo_message m,
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
-
-/*! Prepare a lo_message for sending based on a combiner struct. */
-int mapper_combiner_prepare_osc_message(lo_message m,
-                                        mapper_combiner c);
 
 /*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,

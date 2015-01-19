@@ -81,6 +81,8 @@ typedef enum {
     ADM_LINKED,
     ADM_LINK_PING,
     ADM_LOGOUT,
+    ADM_NAME_PROBE,
+    ADM_NAME_REG,
     ADM_SIGNAL,
     ADM_SIGNAL_REMOVED,
     ADM_SUBSCRIBE,
