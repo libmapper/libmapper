@@ -103,10 +103,9 @@ void cleanup_destination()
 
 int setup_connection()
 {
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source), mdev_name(destination), 0, 0);
 
     // wait unitl link has been established
     while (!done && !source->router->links) {
@@ -120,12 +119,12 @@ int setup_connection()
     msig_full_name(recvsig, dest_name, 512);
     const char *all_sources[2] = {src1_name, src2_name};
 
-    mapper_db_combiner_t props;
+    mapper_db_connection_t props;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x0+#x1";
-    int flags = COMBINER_MODE | COMBINER_EXPRESSION;
+    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
 
-    mapper_monitor_multiconnect(mon, 2, all_sources, dest_name, &props, flags);
+    mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props, flags);
 
     // wait until connections have been established
     while (!done && !source->router->links->num_connections_out) {
@@ -133,7 +132,7 @@ int setup_connection()
         mdev_poll(destination, 10);
     }
 
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 
     return 0;
 }

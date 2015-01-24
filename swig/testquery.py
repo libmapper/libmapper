@@ -24,7 +24,7 @@ monitor = mapper.monitor()
 
 monitor.link('%s' %src.name, '%s' %dest.name)
 while not src.num_links:
-    src.poll()
+    src.poll(10)
     dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),

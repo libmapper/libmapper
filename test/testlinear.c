@@ -102,20 +102,16 @@ int setup_connection()
 {
     float src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
 
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->admin, 0);
 
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mmon_link_devices_by_name(mon, mdev_name(source),
+                              mdev_name(destination), 0, 0);
 
     // Wait until link has been established
     while (!done && !source->router->links) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-
-    msig_full_name(sendsig, src_name, 1024);
-    msig_full_name(recvsig, dest_name, 1024);
 
     mapper_db_connection_t props;
     props.src_min = &src_min;
@@ -128,10 +124,9 @@ int setup_connection()
     props.dest_type = 'f';
     props.mode = MO_LINEAR;
 
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE |
-                           CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
-                           CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
+    mapper_db_signal src = &sendsig->props;
+    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props,
+                                      CONNECTION_RANGE_KNOWN | CONNECTION_MODE);
 
     // Wait until connection has been established
     while (!done && !source->router->links->num_connections_out) {
@@ -139,7 +134,7 @@ int setup_connection()
         mdev_poll(destination, 10);
     }
 
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 
     return 0;
 }

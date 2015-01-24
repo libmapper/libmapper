@@ -56,6 +56,21 @@ void printsignal(mapper_db_signal sig)
     eprintf("\n");
 }
 
+void printconnection(mapper_db_connection con)
+{
+    int i;
+    if (verbose) {
+        printf("  source=");
+        if (con->num_sources > 1)
+            printf("[");
+        for (i = 0; i < con->num_sources; i++)
+            printf("%s, ", con->src_names[i]);
+        if (con->num_sources > 1)
+            printf("\b\b], ");
+        printf("dest=%s\n", con->dest_name);
+    }
+}
+
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
@@ -155,9 +170,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mapper_db_add_or_update_connection_params(db, "/testdb.1/out2",
+    const char *src_sig_name = "/testdb.1/out2";
+    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_connection_params(db, "/testdb__.2/out1",
+    src_sig_name = "/testdb__.2/out1";
+    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb.1/in1", &msg);
 
     args[0] = (lo_arg*)"@mode";
@@ -185,11 +202,14 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mapper_db_add_or_update_connection_params(db, "/testdb.1/out1",
+    src_sig_name = "/testdb.1/out1";
+    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb__.2/in2", &msg);
-    mapper_db_add_or_update_connection_params(db, "/testdb.1/out1",
+    src_sig_name = "/testdb.1/out1";
+    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb__.2/in1", &msg);
-    mapper_db_add_or_update_connection_params(db, "/testdb__.2/out2",
+    src_sig_name = "/testdb__.2/out2";
+    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb.1/in2", &msg);
 
     if (mapper_msg_parse_params(&msg, "/linked",
@@ -533,8 +553,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 
@@ -568,8 +587,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 
@@ -600,8 +618,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 
@@ -636,8 +653,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 
@@ -652,8 +668,10 @@ int main(int argc, char **argv)
     eprintf("\nFind connections for input device 'testdb__.2', signal 'out1',"
             "\n                 and output device 'testdb.1', signal 'in1':\n");
 
+    const char *src_dev_name = "testdb__.2";
+    src_sig_name = "out1";
     pcon = mapper_db_get_connections_by_device_and_signal_names(
-        db, "testdb__.2", "out1", "testdb.1", "in1");
+        db, 1, &src_dev_name, &src_sig_name, "testdb.1", "in1");
 
     count=0;
     if (!pcon) {
@@ -671,8 +689,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 
@@ -708,8 +725,7 @@ int main(int argc, char **argv)
 
     while (pcon) {
         count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*pcon)->src_name, (*pcon)->dest_name);
+        printconnection(*pcon);
         pcon = mapper_db_connection_next(pcon);
     }
 

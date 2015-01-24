@@ -1143,7 +1143,8 @@ static void mapper_admin_send_combined(mapper_admin admin, mapper_device md,
 
     // mapper_msg_add_value_table(m, c->extra);
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_CONNECTED], m);
-    mapper_admin_send_bundle(admin);
+    // TODO: should send bundle here since message refers to generated strings
+//    mapper_admin_send_bundle(admin);
 }
 
 static void mapper_admin_send_connected(mapper_admin admin, mapper_device md,
@@ -1187,7 +1188,8 @@ static void mapper_admin_send_connected(mapper_admin admin, mapper_device md,
     mapper_connection_prepare_osc_message(m, c);
 
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_CONNECTED], m);
-    mapper_admin_send_bundle(admin);
+    // TODO: should send bundle here since message refers to generated strings
+//    mapper_admin_send_bundle(admin);
 }
 
 static void mapper_admin_send_connections_in(mapper_admin admin,
@@ -1259,7 +1261,7 @@ static int handler_device(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 1)
         return 0;
@@ -1304,7 +1306,7 @@ static int handler_logout(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
     int diff, ordinal;
     char *s;
 
@@ -1323,7 +1325,7 @@ static int handler_logout(const char *path, const char *types,
         mapper_db_remove_device_by_name(db, name);
 
         // remove subscriptions
-        mapper_monitor_unsubscribe(mon, name);
+        mmon_unsubscribe(mon, name);
     }
 
     // If device exists and is registered
@@ -1534,7 +1536,7 @@ static int handler_signal_info(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 2)
         return 1;
@@ -1570,7 +1572,7 @@ static int handler_signal_removed(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     if (argc < 1)
         return 1;
@@ -1901,7 +1903,7 @@ static int handler_device_linked(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     const char *src_name, *dest_name;
 
@@ -2067,10 +2069,10 @@ static int handler_device_unlinked(const char *path, const char *types,
     trace("<monitor> got /unlinked %s %s + %i arguments\n",
           src_name, dest_name, argc-2);
 
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
     mapper_db_remove_connections_by_query(db,
-        mapper_db_get_connections_by_src_dest_device_names(db, src_name,
+        mapper_db_get_connections_by_src_dest_device_names(db, 1, &src_name,
                                                            dest_name));
     mapper_db_remove_link(db,
         mapper_db_get_link_by_device_names(db, src_name, dest_name));
@@ -2118,7 +2120,7 @@ static int handler_signal_connect(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal src_signal, dest_signal;
-    int i = 1, num_inputs = 1, dest_index = 1, num_params, slot = -1;
+    int i = 1, num_sources = 1, dest_index = 1, num_params, slot = -1;
 
     const char *dest_signal_name, *dest_name;
     const char *src_signal_name, *src_name = NULL;
@@ -2137,7 +2139,7 @@ static int handler_signal_connect(const char *path, const char *types,
         if ((&argv[i]->s)[0] == '@')
             break;
         else if (strcmp(&argv[i]->s, "->") == 0) {
-            num_inputs = i;
+            num_sources = i;
             dest_index = i+1;
             break;
         }
@@ -2149,9 +2151,9 @@ static int handler_signal_connect(const char *path, const char *types,
         dest_name = &argv[dest_index]->s;
         // we are the destination of this connection
 #ifdef DEBUG
-        printf("<%s> got /connect from remote signal%s",
-               mdev_name(md), num_inputs > 1 ? "s" : "");
-        for (i = 0; i < num_inputs; i++)
+        printf("-- <%s> got /connect from remote signal%s",
+               mdev_name(md), num_sources > 1 ? "s" : "");
+        for (i = 0; i < num_sources; i++)
             printf(" %s", &argv[i]->s);
         printf(" to local signal %s\n", dest_name);
 #endif
@@ -2186,7 +2188,7 @@ static int handler_signal_connect(const char *path, const char *types,
 
     /* If this is a multi-input connection, create combiner and requisite
      * bypass-mode subconnections. */
-    if (num_inputs > 1) {
+    if (num_sources > 1) {
         // set subconnections to "raw" mode
         params.values[AT_MODE] = 0;
         params.lengths[AT_MODE] = 0;
@@ -2194,9 +2196,9 @@ static int handler_signal_connect(const char *path, const char *types,
         // Create a combiner
         mapper_combiner com = mapper_router_find_combiner(md->router, dest_signal);
         if (!com)
-            com = mapper_router_add_combiner(md->router, dest_signal, num_inputs);
+            com = mapper_router_add_combiner(md->router, dest_signal, num_sources);
         else
-            mapper_combiner_set_num_slots(com, num_inputs);
+            mapper_combiner_set_num_slots(com, num_sources);
 
         mapper_combiner_set_from_message(com, &params);
 
@@ -2204,7 +2206,7 @@ static int handler_signal_connect(const char *path, const char *types,
         params.values[AT_EXPRESSION] = 0;
     }
 
-    for (i = 0; i < num_inputs; i++) {
+    for (i = 0; i < num_sources; i++) {
         src_name = &argv[i]->s;
         src_signal_name = strchr(src_name+1, '/');
         if (!src_signal_name) {
@@ -2233,7 +2235,7 @@ static int handler_signal_connect(const char *path, const char *types,
         /* If a connection connection already exists between these two signals,
          * forward the message to handler_signal_connection_modify() and stop. */
         if (c) {
-            if (num_inputs == 1)
+            if (num_sources == 1)
                 handler_signal_connection_modify(path, types, argv, argc,
                                                  msg, user_data);
             else {
@@ -2278,7 +2280,7 @@ static int handler_signal_connect(const char *path, const char *types,
             c->complement = c2;
             c2->complement = c;
 
-            if (num_inputs == 1 && num_params) {
+            if (num_sources == 1 && num_params) {
                 /* If send_as_instance property is not set, make connection
                  * default to passing updates as instances if either source
                  * or destination signals have multiple instances. */
@@ -2337,7 +2339,7 @@ static int handler_signal_connect(const char *path, const char *types,
         params.types[AT_INSTANCES] = "i";
         params.lengths[AT_INSTANCES] = 1;
 
-        if (num_inputs > 1) {
+        if (num_sources > 1) {
             ++slot;
             lo_arg *arg_slot = (lo_arg*) &slot;
             params.values[AT_SLOT] = &arg_slot;
@@ -2349,7 +2351,7 @@ static int handler_signal_connect(const char *path, const char *types,
         mapper_admin_bundle_message_with_params(
             admin, &params, dest_signal->props.extra,
             ADM_CONNECT_TO, 0, "sss", src_name, "->", dest_name,
-            (num_inputs > 1) ? AT_MODE : -1, MO_RAW,
+            (num_sources > 1) ? AT_MODE : -1, MO_RAW,
             (!params.values[AT_MIN] && dest_signal->props.minimum) ? AT_MIN : -1, dest_signal,
             (!params.values[AT_MAX] && dest_signal->props.maximum) ? AT_MAX : -1, dest_signal);
     }
@@ -2518,7 +2520,7 @@ static int handler_signal_connected(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_monitor mon = admin->monitor;
-    int i = 1, num_inputs = 1, dest_index = 1, num_params;
+    int i = 1, num_sources = 1, dest_index = 1, num_params;
     const char *local_signal_name;
     const char *remote_signal_name, *remote_name;
 
@@ -2536,7 +2538,7 @@ static int handler_signal_connected(const char *path, const char *types,
         if ((&argv[i]->s)[0] == '@')
             break;
         else if (strcmp(&argv[i]->s, "->") == 0) {
-            num_inputs = i;
+            num_sources = i;
             dest_index = i+1;
             break;
         }
@@ -2548,14 +2550,19 @@ static int handler_signal_connected(const char *path, const char *types,
                             argc-dest_index-1, &argv[dest_index+1]);
 
     if (mon) {
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[i]->s;
+        }
 #ifdef DEBUG
-        printf("<monitor> got /connected");
-        for (i = 0; i < num_inputs; i++)
-            printf(" %s", &argv[i]->s);
+        printf("-- <monitor> got /connected");
+        for (i = 0; i < num_sources; i++)
+            printf(" %s", src_names[i]);
         printf(" -> %s\n", &argv[dest_index]->s);
 #endif
-        mapper_db db = mapper_monitor_get_db(mon);
-        mapper_db_add_or_update_connection_params(db, &argv[0]->s,
+        mapper_db db = mmon_get_db(mon);
+
+        mapper_db_add_or_update_connection_params(db, num_sources, src_names,
                                                   &argv[dest_index]->s, &params);
     }
 
@@ -2564,14 +2571,14 @@ static int handler_signal_connected(const char *path, const char *types,
         return 0;
 
 #ifdef DEBUG
-    printf("<%s> got /connected", mdev_name(md));
-    for (i = 0; i < num_inputs; i++)
+    printf("-- <%s> got /connected", mdev_name(md));
+    for (i = 0; i < num_sources; i++)
         printf(" %s", &argv[i]->s);
     printf(" -> %s\n", &argv[dest_index]->s);
 #endif
 
-    // for now, return if num_inputs > 1
-    if (num_inputs > 1)
+    // for now, return if num_sources > 1
+    if (num_sources > 1)
         return 0;
 
     remote_name = &argv[0]->s;
@@ -2908,7 +2915,7 @@ static int handler_signal_disconnected(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    int skip_arg = 0;
+    int i = 1, num_sources = 1, dest_index = 1;
 
     if (argc < 2)
         return 0;
@@ -2917,21 +2924,38 @@ static int handler_signal_disconnected(const char *path, const char *types,
         && types[1] != 'S')
         return 0;
 
-    if (argc > 2 && (types[2] == 's' || types[2] == 'S')) {
-        // check for string "->" or "<-" in argv[1]
-        if ((strcmp(&argv[1]->s, "<-") == 0) || (strcmp(&argv[1]->s, "->") == 0))
-            skip_arg = 1;
+    while (i < argc && (types[i] == 's' || types[i] == 'S')) {
+        // old protocol: /connect src dest
+        // new protocol: /connect src1 src2 ... srcN -> dest
+        // if we find "->" before '@' or end of args, count inputs
+        if ((&argv[i]->s)[0] == '@')
+            break;
+        else if (strcmp(&argv[i]->s, "->") == 0) {
+            num_sources = i;
+            dest_index = i+1;
+            break;
+        }
+        i++;
     }
 
-    const char *src_name = &argv[0]->s;
-    const char *dest_name = &argv[1+skip_arg]->s;
+    const char *src_names[num_sources];
+    for (i=0; i<num_sources; i++) {
+        src_names[i] = &argv[i]->s;
+    }
+    const char *dest_name = &argv[dest_index]->s;
 
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
 
-    trace("<monitor> got /disconnected %s %s\n", src_name, dest_name);
+#ifdef DEBUG
+    printf("-- <monitor> got /disconnected");
+    for (i = 0; i < num_sources; i++)
+        printf(" %s", &argv[i]->s);
+    printf(" -> %s\n", &argv[dest_index]->s);
+#endif
 
     mapper_db_remove_connection(db,
-        mapper_db_get_connection_by_signal_full_names(db, src_name, dest_name));
+        mapper_db_get_connection_by_signal_full_names(db, num_sources,
+                                                      src_names, dest_name));
 
     return 0;
 }
@@ -3013,7 +3037,7 @@ static int handler_sync(const char *path,
             mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
         else if (mon->autosubscribe) {
             // only create device record after requesting more information
-            mapper_monitor_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
+            mmon_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
         }
     }
     else if (types[0] == 'i') {

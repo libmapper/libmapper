@@ -15,7 +15,7 @@ dest = mapper.device("dest")
 insig = dest.add_input("/insig1", 10, 'f', None, mins, maxs, h)
 
 while not src.ready() or not dest.ready():
-    src.poll()
+    src.poll(10)
     dest.poll(10)
 
 monitor = mapper.monitor()

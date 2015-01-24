@@ -531,7 +531,8 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
  *  \return          Non-zero if connection was added to the database,
  *                   or zero if it was already present. */
 int mapper_db_add_or_update_connection_params(mapper_db db,
-                                              const char *src_name,
+                                              int num_sources,
+                                              const char **src_names,
                                               const char *dest_name,
                                               mapper_message_t *params);
 

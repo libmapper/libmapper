@@ -112,12 +112,12 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_monitor mon = mapper_monitor_new(devices[0]->admin, 0);
+        mapper_monitor mon = mmon_new(devices[0]->admin, 0);
 
-        mapper_monitor_link(mon, mdev_name(devices[0]),
-                            mdev_name(devices[0]), 0, 0);
-        mapper_monitor_link(mon, mdev_name(devices[0]),
-                            mdev_name(devices[1]), 0, 0);
+        mmon_link_devices_by_name(mon, mdev_name(devices[0]),
+                                  mdev_name(devices[0]), 0, 0);
+        mmon_link_devices_by_name(mon, mdev_name(devices[0]),
+                                  mdev_name(devices[1]), 0, 0);
 
         while (!done && (devices[0]->props.num_links < 2)) {
             mdev_poll(devices[0], 10);
@@ -125,16 +125,17 @@ void loop()
         }
 
         char src_name[1024], dest_name[1024];
+        const char *src_name_ptr = src_name;
 
         // connect input to another input on same device
         msig_full_name(inputs[0], src_name, 1024);
         msig_full_name(inputs[1], dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0, 0);
 
         // connect input to an input on another device
         msig_full_name(inputs[1], src_name, 1024);
         msig_full_name(inputs[2], dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0, 0);
 
         // wait until connection has been established
         while (!done && !devices[0]->router->links->num_connections_out) {
@@ -142,7 +143,7 @@ void loop()
             mdev_poll(devices[1], 10);
         }
 
-        mapper_monitor_free(mon);
+        mmon_free(mon);
     }
 
     i = 0;

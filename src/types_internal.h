@@ -348,19 +348,19 @@ typedef struct _mapper_db {
     fptr_list   link_callbacks;       //<! List of link record callbacks.
 } mapper_db_t, *mapper_db;
 
-typedef struct _mapper_monitor_subscription {
+typedef struct _mapper_subscription {
     char                                *name;
     int                                 flags;
     uint32_t                            lease_expiration_sec;
-    struct _mapper_monitor_subscription *next;
-} *mapper_monitor_subscription;
+    struct _mapper_subscription *next;
+} *mapper_subscription;
 
 typedef struct _mapper_monitor {
     mapper_admin      admin;    //<! Admin for this monitor.
 
     /*! Non-zero if this monitor is the sole owner of this admin, i.e.,
-     *  it was created during mapper_monitor_new() and should be freed during
-     *  mapper_monitor_free(). */
+     *  it was created during mmon_new() and should be freed during
+     *  mmon_free(). */
     int own_admin;
 
     /*! Flags indicating whether information on signals, links,
@@ -372,7 +372,7 @@ typedef struct _mapper_monitor {
     int timeout_sec;
 
     /*! Linked-list of autorenewing device subscriptions. */
-    mapper_monitor_subscription subscriptions;
+    mapper_subscription subscriptions;
 
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;

@@ -71,7 +71,7 @@ void printdevice(mapper_db_device dev)
         if (strcmp(key, "synced")==0) {
             // check current time
             mapper_timetag_t now;
-            mapper_monitor_now(mon, &now);
+            mmon_now(mon, &now);
             mapper_timetag_t *tt = (mapper_timetag_t *)val;
             if (tt->sec == 0)
                 printf(", seconds_since_sync=unknown");
@@ -146,9 +146,13 @@ void printlink(mapper_db_link link)
 
 void printconnection(mapper_db_connection con)
 {
-    printf("  %s -> %s", con->src_name, con->dest_name);
+    int i;
+    printf("  ");
+    for (i = 0; i < con->num_sources; i++)
+        printf("%s ", con->src_names[i]);
+    printf("-> %s", con->dest_name);
 
-    int i=0;
+    i = 0;
     const char *key;
     char type;
     const void *val;
@@ -179,12 +183,12 @@ void printconnection(mapper_db_connection con)
 /*! Creation of a local dummy device. */
 int setup_monitor()
 {
-    mon = mapper_monitor_new(0, SUB_DEVICE_ALL);
+    mon = mmon_new(0, SUB_DEVICE_ALL);
     if (!mon)
         goto error;
     printf("Monitor created.\n");
 
-    db = mapper_monitor_get_db(mon);
+    db = mmon_get_db(mon);
 
     return 0;
 
@@ -197,7 +201,7 @@ void cleanup_monitor()
     if (mon) {
         printf("\rFreeing monitor.. ");
         fflush(stdout);
-        mapper_monitor_free(mon);
+        mmon_free(mon);
         printf("ok\n");
     }
 }
@@ -207,7 +211,7 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mapper_monitor_poll(mon, 0);
+        mmon_poll(mon, 0);
         usleep(polltime_ms * 1000);
 
         if (update++ < 0)
@@ -277,7 +281,7 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
         break;
     case MDB_UNRESPONSIVE:
         printf("unresponsive.\n");
-        mapper_monitor_flush_db(mon, 10, 0);
+        mmon_flush_db(mon, 10, 0);
         break;
     }
     dbpause();
@@ -307,7 +311,11 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
 
 void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
 {
-    printf("Connection %s -> %s ", con->src_name, con->dest_name);
+    int i;
+    printf("Connection ");
+    for (i = 0; i < con->num_sources; i++)
+        printf("%s ", con->src_names[i]);
+    printf("-> %s", con->dest_name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");

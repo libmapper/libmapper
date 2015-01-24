@@ -58,9 +58,8 @@ dev = mapper.device("test")
 setup(dev)
 
 def db_cb(rectype, record, action):
-    print rectype,'callback -'
+    print rectype,["MODIFY","NEW","REMOVE"][action],'callback -'
     print '  record:',record
-    print '  action:',["MODIFY","NEW","REMOVE"][action]
 
 mon = mapper.monitor(autosubscribe_flags=mapper.SUB_DEVICE)
 
@@ -79,38 +78,44 @@ for i in range(1000):
     dev.poll(10)
     mon.poll()
     if i==250:
-        for i in [('devices', mon.db.all_devices),
-                  ('inputs', mon.db.all_inputs),
-                  ('outputs', mon.db.all_outputs),
-                  ('connections', mon.db.all_connections),
-                  ('links', mon.db.all_links)]:
-            print i[0],':'
-            for j in i[1]():
-                print j
-        print 'devices matching "send":'
-        for i in mon.db.match_devices_by_name('send'):
-            print i
-        print 'outputs for device "/testsend.1" matching "3":'
-        for i in mon.db.match_outputs_by_device_name('/testsend.1', '3'):
-            print i
-        print 'links for device "/testsend.1":'
-        for i in mon.db.links_by_device_name('/testsend.1'):
-            print i
-        print 'link for /testsend.1, /testrecv.1:'
-        print mon.db.get_link_by_device_names("/testsend.1", "/testrecv.1")
-        print 'not found link:'
-        print mon.db.get_link_by_device_names("/foo", "/bar")
         mon.link('%s' %dev.name, '%s' %dev.name)
-
     if i==500:
-        mon.connect("/test.1/outsig", "/test.1/insig",
+        mon.connect('%s%s' %(dev.name, "/outsig"),
+                    '%s%s' %(dev.name, "/insig"),
                     {'mode': mapper.MO_EXPRESSION,
                      'expression': 'y=x',
                      'src_min': [1,2,3,4],
                      'bound_min': mapper.BA_WRAP,
                      'bound_max': mapper.BA_CLAMP})
     if i==750:
-        mon.modify_connection("/test.1/outsig", "/test.1/insig",
+        mon.modify_connection('%s%s' %(dev.name, "/outsig"),
+                              '%s%s' %(dev.name, "/insig"),
                               {'src_min':[10,11,12,13],
                                'muted':True,
                                'mode': mapper.MO_LINEAR})
+
+for i in [('devices', mon.db.devices),
+          ('inputs', mon.db.inputs),
+          ('outputs', mon.db.outputs),
+          ('connections', mon.db.connections),
+          ('links', mon.db.links)]:
+    print i[0],':'
+    for j in i[1]():
+        print "  {"
+        for k in j:
+            print "    ", k, ":", j[k]
+        print "  }"
+
+print 'devices matching "send":'
+for i in mon.db.devices('send'):
+    print i
+print 'outputs for device "/test.1" matching "3":'
+for i in mon.db.match_outputs('/test.1', '3'):
+    print i
+print 'links for device "/test.1":'
+for i in mon.db.links_by_src('/test.1'):
+    print i
+print 'link for /test.1, /test.1:'
+print mon.db.link("/test.1", "/test.1")
+print 'not found link:'
+print mon.db.link("/foo", "/bar")

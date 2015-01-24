@@ -1118,8 +1118,8 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
  *          or zero if none.  Use mapper_db_connection_next() to
  *          iterate. */
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
-    mapper_db db,
-    const char *src_device,  const char *src_signal,
+    mapper_db db, int num_sources,
+    const char **src_devices,  const char **src_signals,
     const char *dest_device, const char *dest_signal);
 
 /*! Return the connection that match the exact source and destination
@@ -1130,7 +1130,7 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
  *  \return A pointer to a structure containing information on the
  *          found connection, or 0 if not found. */
 mapper_db_connection mapper_db_get_connection_by_signal_full_names(
-    mapper_db db, const char *src_name, const char *dest_name);
+    mapper_db db, int num_sources, const char **src_names, const char *dest_name);
 
 /*! Return connections that have the specified source and destination
  *  devices.
@@ -1140,8 +1140,8 @@ mapper_db_connection mapper_db_get_connection_by_signal_full_names(
  *  \return A double-pointer to the first item in a list of results,
  *          or 0 if not found. */
 mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
-    mapper_db db,
-    const char *src_device_name, const char *dest_device_name);
+    mapper_db db, int num_sources,
+    const char **src_device_names, const char *dest_device_name);
 
 /*! Return the list of connections that touch any signals in the lists
  *  of sources and destinations provided.
@@ -1342,43 +1342,43 @@ int mapper_db_link_property_lookup(mapper_db_link link,
  *                             and connections when it encounters a
  *                             previously-unseen device.
  *  \return The new monitor. */
-mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags);
+mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags);
 
 /*! Free a network monitor. */
-void mapper_monitor_free(mapper_monitor mon);
+void mmon_free(mapper_monitor mon);
 
 /*! Poll a network monitor.
  *  \param mon      The monitor to poll.
  *  \param block_ms The number of milliseconds to block, or 0 for
  *                  non-blocking behaviour.
  *  \return The number of handled messages. */
-int mapper_monitor_poll(mapper_monitor mon, int block_ms);
+int mmon_poll(mapper_monitor mon, int block_ms);
 
 /*! Get the database associated with a monitor. This can be used as
  *  long as the monitor remains alive. */
-mapper_db mapper_monitor_get_db(mapper_monitor mon);
+mapper_db mmon_get_db(mapper_monitor mon);
 
 /*! Set the timeout in seconds after which a monitor will declare a device
  *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
  *  \param mon      The monitor to use.
  *  \param timeout  The timeout in seconds. */
-void mapper_monitor_set_timeout(mapper_monitor mon, int timeout);
+void mmon_set_timeout(mapper_monitor mon, int timeout);
 
 /*! Get the timeout in seconds after which a monitor will declare a device
  *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
  *  \param mon      The monitor to use.
  *  \return The current timeout in seconds. */
-int mapper_monitor_get_timeout(mapper_monitor mon);
+int mmon_get_timeout(mapper_monitor mon);
 
 /*! Remove unresponsive devices from the database.
  *  \param mon         The monitor to use.
  *  \param timeout_sec The number of seconds a device must have been
  *                     unresponsive before removal.
  *  \param quiet       1 to disable callbacks during db flush, 0 otherwise. */
-void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
+void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
 
 /*! Request that all devices report in. */
-void mapper_monitor_request_devices(mapper_monitor mon);
+void mmon_request_devices(mapper_monitor mon);
 
 /*! Subscribe to information about a specific device.
  *  \param mon             The monitor to use.
@@ -1394,113 +1394,187 @@ void mapper_monitor_request_devices(mapper_monitor mon);
  *                         to -1, libmapper will automatically renew the
  *                         subscription until the monitor is freed or this
  *                         function is called again. */
-void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
-                              int subscribe_flags, int timeout);
+void mmon_subscribe(mapper_monitor mon, const char *device_name,
+                    int subscribe_flags, int timeout);
 
 /*! Unsubscribe from information about a specific device.
  *  \param mon             The monitor to use.
  *  \param device_name     The name of the device of interest. */
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name);
+void mmon_unsubscribe(mapper_monitor mon, const char *device_name);
 
 /*! Sets whether the monitor should automatically subscribe to
  *  information on signals, links, and connections when it encounters
  *  a previously-unseen device.*/
-void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
+void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
 
 /*! Interface to add a link between two devices.
  *  \param mon            The monitor to use for sending the message.
- *  \param source_device  Source device name.
- *  \param dest_device    Destination device name.
+ *  \param source         Source device data structure.
+ *  \param dest           Destination device data structure.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this link.
  *  \param property_flags Bit flags indicating which properties in the
  *                        provided mapper_db_link_t should be
  *                        applied to the new link. See the flags
  *                        prefixed by LINK_ in mapper_db.h. */
-void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device,
-                         const char* dest_device,
-                         mapper_db_link_t *properties,
-                         unsigned int property_flags);
+void mmon_link_devices_by_db_record(mapper_monitor mon,
+                                    mapper_db_device_t *source,
+                                    mapper_db_device_t *dest,
+                                    mapper_db_link_t *properties,
+                                    unsigned int property_flags);
+
+/*! Interface to add a link between two devices.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param source         Source device name.
+ *  \param dest           Destination device name.
+ *  \param properties     An optional data structure specifying the
+ *                        requested properties of this link.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_link_t should be
+ *                        applied to the new link. See the flags
+ *                        prefixed by LINK_ in mapper_db.h. */
+void mmon_link_devices_by_name(mapper_monitor mon,
+                               const char *source,
+                               const char *dest,
+                               mapper_db_link_t *properties,
+                               unsigned int property_flags);
 
 /*! Interface to remove a link between two devices.
  *  \param mon           The monitor to use for sending the message.
- *  \param source_device Source device name.
- *  \param dest_device   Destination device name. */
-void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device,
-                           const char* dest_device);
+ *  \param source        Source device data structure.
+ *  \param dest          Destination device data structure. */
+void mmon_unlink_devices_by_db_record(mapper_monitor mon,
+                                      mapper_db_device_t *source,
+                                      mapper_db_device_t *dest);
+
+/*! Interface to remove a link between two devices.
+ *  \param mon           The monitor to use for sending the message.
+ *  \param source        Source device name.
+ *  \param dest          Destination device name. */
+void mmon_unlink_devices_by_name(mapper_monitor mon,
+                                 const char *source,
+                                 const char *dest);
+
+/*! Interface to remove a link between two devices.
+ *  \param mon           The monitor to use for sending the message.
+ *  \param link          Link data structure. */
+void mmon_remove_link(mapper_monitor mon, mapper_db_link_t *link);
 
 /*! Interface to add a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param sources        Array of source signal data structures.
+ *  \param dest           Destination signal data structure.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
  *                        provided mapper_db_connection_t should be
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_connect(mapper_monitor mon,
-                            const char* source_signal,
-                            const char* dest_signal,
-                            mapper_db_connection_t *properties,
-                            unsigned int property_flags);
+void mmon_connect_signals_by_db_record(mapper_monitor mon,
+                                       int num_sources,
+                                       mapper_db_signal_t **sources,
+                                       mapper_db_signal_t *dest,
+                                       mapper_db_connection_t *properties,
+                                       unsigned int property_flags);
 
 /*! Interface to add a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param num_sources    Number of source signals involved in this multiconnection.
- *  \param source_names   Array of source signal names.
- *  \param dest_name      Destination signal name.
+ *  \param mon The monitor to use for sending the message.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param sources        Array of source signal names.
+ *  \param dest           Destination signal name.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
  *                        provided mapper_db_connection_t should be
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
-                                 const char** source_names,
-                                 const char* dest_name,
-                                 mapper_db_combiner_t *properties,
-                                 unsigned int property_flags);
+void mmon_connect_signals_by_name(mapper_monitor mon,
+                                  int num_sources,
+                                  const char **sources,
+                                  const char *dest,
+                                  mapper_db_connection_t *properties,
+                                  unsigned int property_flags);
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
+ *  \param connection     A modified data structure specifying the connection
+ *                        properties.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_connection_t have been altered.
+ *                        See the flags prefixed by CONNECTION_ in mapper_db.h */
+void mmon_modify_connection(mapper_monitor mon,
+                            mapper_db_connection_t *connection,
+                            unsigned int property_flags);
+
+/*! Interface to modify a connection between two signals.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param source         Array of source signal names.
+ *  \param dest           Destination name.
  *  \param properties     An optional data structure specifying the
  *                        requested properties of this connection.
  *  \param property_flags Bit flags indicating which properties in the
  *                        provided mapper_db_connection_t should be
  *                        applied to the new connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_connection_modify(mapper_monitor mon,
-                                      const char *source_signal,
-                                      const char *dest_signal,
-                                      mapper_db_connection_t *properties,
-                                      unsigned int property_flags);
+void mmon_modify_connection_by_signal_names(mapper_monitor mon,
+                                            int num_sources,
+                                            const char **sources,
+                                            const char *dest,
+                                            mapper_db_connection_t *properties,
+                                            unsigned int property_flags);
+
+/*! Interface to modify a connection between two signals.
+ *  \param mon            The monitor to use for sending the message.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param sources        Array of source signal data structures.
+ *  \param dest           Destination signal data structure.
+ *  \param properties     An optional data structure specifying the
+ *                        requested properties of this connection.
+ *  \param property_flags Bit flags indicating which properties in the
+ *                        provided mapper_db_connection_t should be
+ *                        applied to the new connection. See the flags
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
+void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
+                                                 int num_sources,
+                                                 mapper_db_signal_t **sources,
+                                                 mapper_db_signal_t *dest,
+                                                 mapper_db_connection_t *properties,
+                                                 unsigned int property_flags);
 
 /*! Interface to remove a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name. */
-void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal,
-                               const char* dest_signal);
+ *  \param mon          The monitor to use for sending the message.
+ *  \param connection   Connection data structure. */
+void mmon_remove_connection(mapper_monitor mon,
+                            mapper_db_connection_t *connection);
 
-/*! Interface to comfigure a signal combiner.
- *  \param mon            The monitor to use for sending the message.
- *  \param signal_name    Signal name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this combiner.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_combiner_t should be
- *                        applied to the combiner. See the flags
- *                        prefixed by COMBINER_ in mapper_db.h. */
-void mapper_monitor_set_signal_combiner(mapper_monitor mon,
-                                        const char* signal_name,
-                                        mapper_db_combiner_t *properties,
-                                        unsigned int property_flags);
+/*! Interface to remove a connection between two signals.
+ *  \param mon      The monitor to use for sending the message.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param sources  Array of source signal names.
+ *  \param dest     Destination signal name. */
+void mmon_disconnect_signals_by_name(mapper_monitor mon,
+                                     int num_sources,
+                                     const char **sources,
+                                     const char *dest);
+
+/*! Interface to remove a connection between two signals.
+ *  \param mon      The monitor to use for sending the message.
+ *  \param num_sources    The number of source signals in this connection.
+ *  \param sources  Array of source signal data structures.
+ *  \param dest     Destination signal data structure. */
+void mmon_disconnect_signals_by_db_record(mapper_monitor mon,
+                                          int num_sources,
+                                          mapper_db_signal_t **sources,
+                                          mapper_db_signal_t *dest);
+
+/*! Interface to send an arbitrary OSC message to the administrative bus.
+ *  \param mon      The monitor to use for sending the message.
+ *  \param path     The path for the OSC message.
+ *  \param types    A string specifying the types of subsequent arguments.
+ *  \param ...      A list of arguments. */
+void mmon_send(mapper_monitor mon, const char *path, const char *types, ...);
 
 /* @} */
 
@@ -1514,14 +1588,12 @@ void mapper_monitor_set_signal_combiner(mapper_monitor mon,
 /*! Initialize a timetag to the current mapping network time.
  *  \param dev  The device whose time we are asking for.
  *  \param tt   A previously allocated timetag to initialize. */
-void mdev_now(mapper_device dev,
-              mapper_timetag_t *tt);
+void mdev_now(mapper_device dev, mapper_timetag_t *tt);
 
 /*! Initialize a timetag to the current mapping network time.
  *  \param dev  The device whose time we are asking for.
  *  \param tt   A previously allocated timetag to initialize. */
-void mapper_monitor_now(mapper_monitor mon,
-                        mapper_timetag_t *tt);
+void mmon_now(mapper_monitor mon, mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param a    The minuend.

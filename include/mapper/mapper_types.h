@@ -18,7 +18,7 @@ typedef void *mapper_monitor;
 typedef void *mapper_admin;
 
 //! An internal structure to handle network database.
-//! This should be retrieved by calling mapper_monitor_get_db().
+//! This should be retrieved by calling mmon_get_db().
 typedef void *mapper_db;
 
 //! An internal data structure defining a mapper queue

@@ -765,6 +765,8 @@ namespace mapper {
             { device = mdev_new(name_prefix, 0, 0); }
         ~Device()
             { if (device) mdev_free(device); }
+        operator mapper_device() const
+            { return device; }
         Signal add_input(const string_type &name, int length, char type,
                          const string_type &unit, void *minimum,
                          void *maximum, mapper_signal_update_handler handler,
@@ -883,17 +885,16 @@ namespace mapper {
         Db(mapper_monitor mon)
         {
             monitor = mon;
-            db = mapper_monitor_get_db(mon);
+            db = mmon_get_db(mon);
         }
         ~Db()
         {}
         void flush()
         {
-            mapper_monitor_flush_db(monitor,
-                                    mapper_monitor_get_timeout(monitor), 0);
+            mmon_flush_db(monitor, mmon_get_timeout(monitor), 0);
         }
         void flush(int timeout_sec, int quiet=0)
-            { mapper_monitor_flush_db(monitor, timeout_sec, quiet); }
+            { mmon_flush_db(monitor, timeout_sec, quiet); }
 
         // db_devices
         void add_device_callback(mapper_db_device_handler *handler,
@@ -1220,9 +1221,11 @@ namespace mapper {
                                          const string_type &dest_device,
                                          const string_type &dest_signal) const
         {
+            const char *_src_dev = src_device;
+            const char *_src_sig = src_signal;
             return Connection::Iterator(
-                mapper_db_get_connections_by_device_and_signal_names(db,
-                     src_device, src_signal, dest_device, dest_signal));
+                mapper_db_get_connections_by_device_and_signal_names(db, 1,
+                     &_src_dev, &_src_sig, dest_device, dest_signal));
         }
         Connection::Iterator connections(const string_type &device_name) const
         {
@@ -1256,16 +1259,17 @@ namespace mapper {
         Connection connection_by_signals(const string_type &source_name,
                                          const string_type &dest_name) const
         {
+            const char *_src = source_name;
             return Connection(
-                mapper_db_get_connection_by_signal_full_names(db, source_name,
+                mapper_db_get_connection_by_signal_full_names(db, 1, &_src,
                                                               dest_name));
         }
         Connection::Iterator connections_by_devices(const string_type &source_name,
                                                     const string_type &dest_name) const
         {
+            const char *_src = source_name;
             return Connection::Iterator(
-                mapper_db_get_connections_by_src_dest_device_names(db,
-                                                                   source_name,
+                mapper_db_get_connections_by_src_dest_device_names(db, 1, &_src,
                                                                    dest_name));
         }
         Connection::Iterator connections(Signal::Iterator src_list,
@@ -1285,55 +1289,149 @@ namespace mapper {
     {
     public:
         Monitor()
-            { monitor = mapper_monitor_new(0, 0); }
+            { monitor = mmon_new(0, 0); }
         Monitor(Admin admin, int autosubscribe_flags=0)
-            { monitor = mapper_monitor_new(admin, autosubscribe_flags); }
+            { monitor = mmon_new(admin, autosubscribe_flags); }
         Monitor(int autosubscribe_flags)
-            { monitor = mapper_monitor_new(0, autosubscribe_flags); }
+            { monitor = mmon_new(0, autosubscribe_flags); }
         ~Monitor()
-            { if (monitor) mapper_monitor_free(monitor); }
+            { if (monitor) mmon_free(monitor); }
         int poll(int block_ms=0)
-            { return mapper_monitor_poll(monitor, block_ms); }
+            { return mmon_poll(monitor, block_ms); }
         Db db() const
             { return Db(monitor); }
         void request_devices() const
-            { mapper_monitor_request_devices(monitor); }
+            { mmon_request_devices(monitor); }
         void subscribe(const string_type &device_name, int flags, int timeout)
-            { mapper_monitor_subscribe(monitor, device_name, flags, timeout); }
+            { mmon_subscribe(monitor, device_name, flags, timeout); }
         void unsubscribe(const string_type &device_name)
-            { mapper_monitor_unsubscribe(monitor, device_name); }
+            { mmon_unsubscribe(monitor, device_name); }
         void autosubscribe(int flags) const
-            { mapper_monitor_autosubscribe(monitor, flags); }
-        void link(const string_type &source_device, const string_type &dest_device)
-            { mapper_monitor_link(monitor, source_device, dest_device, 0, 0); }
-//        void link(const string_type &source_device, const string_type &dest_device,
-//             const LinkProps &properties)
-//        {
-//            mapper_monitor_link(monitor, source_device, dest_device,
-//                                mapper_db_link(properties), properties.flags);
-//        }
-        void unlink(const string_type &source_device, const string_type &dest_device)
-            { mapper_monitor_unlink(monitor, source_device, dest_device); }
-        void connect(const string_type &source_signal, const string_type &dest_signal)
-            { mapper_monitor_connect(monitor, source_signal, dest_signal, 0, 0); }
-        void connect(const string_type &source_signal,
-                     const string_type &dest_signal,
-                     const Db::Connection &properties) const
+            { mmon_autosubscribe(monitor, flags); }
+        void link(const mapper::Device &source, const mapper::Device &dest) const
         {
-            mapper_monitor_connect(monitor, source_signal, dest_signal,
-                                   mapper_db_connection(properties),
-                                   properties.flags);
+            mmon_link_devices_by_name(monitor, mdev_name((mapper_device)source),
+                                      mdev_name((mapper_device)dest), 0, 0);
         }
-        void connection_modify(const string_type &source_signal,
-                               const string_type &dest_signal,
-                               Db::Connection &properties) const
+        void link(const mapper::Db::Device &source,
+                  const mapper::Db::Device &dest) const
         {
-            mapper_monitor_connection_modify(monitor, source_signal, dest_signal,
-                                             mapper_db_connection(properties),
-                                             properties.flags);
+            mmon_link_devices_by_db_record(monitor, (mapper_db_device)source,
+                                           (mapper_db_device)dest, 0, 0);
         }
-        void disconnect(const string_type &source_signal, const string_type &dest_signal)
-            { mapper_monitor_disconnect(monitor, source_signal, dest_signal); }
+        void link(const string_type &source, const string_type &dest) const
+        {
+            mmon_link_devices_by_name(monitor, source, dest, 0, 0);
+        }
+        void unlink(const mapper::Device &source, const mapper::Device &dest) const
+        {
+            mmon_unlink_devices_by_name(monitor, mdev_name((mapper_device)source),
+                                        mdev_name((mapper_device)dest));
+        }
+        void unlink(const mapper::Db::Device &source,
+                    const mapper::Db::Device &dest) const
+        {
+            mmon_unlink_devices_by_db_record(monitor, (mapper_db_device)source,
+                                             (mapper_db_device)dest);
+        }
+        void unlink(const string_type &source, const string_type &dest) const
+        {
+            mmon_unlink_devices_by_name(monitor, source, dest);
+        }
+        void unlink(const mapper::Db::Link &link) const
+        {
+            mmon_remove_link(monitor, (mapper_db_link)link);
+        }
+        // TODO: handle connections with multiple inputs
+        // array/vector of const char
+        // array/vector of std::string
+        // array/vector of mapper::Signal
+        // array/vector of mapper::Db::Signal
+        void connect(const mapper::Signal &source, const mapper::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source.properties();
+            mmon_connect_signals_by_db_record(monitor, 1, &_src,
+                                              (mapper_db_signal)dest.properties(),
+                                              props ? (mapper_db_connection)props : 0,
+                                              props ? props.flags : 0);
+        }
+        void connect(const mapper::Db::Signal &source,
+                     const mapper::Db::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source;
+            mmon_connect_signals_by_db_record(monitor, 1, &_src,
+                                              (mapper_db_signal)dest,
+                                              props ? (mapper_db_connection)props : 0,
+                                              props ? props.flags : 0);
+        }
+        void connect(const string_type &source, const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            const char *_src = source;
+            mmon_connect_signals_by_name(monitor, 1, &_src, dest,
+                                         props ? (mapper_db_connection)props : 0,
+                                         props ? props.flags : 0);
+        }
+        void modify_connection(const mapper::Db::Connection &connection) const
+        {
+            mmon_modify_connection(monitor, (mapper_db_connection)connection,
+                                   connection.flags);
+        }
+        void modify_connection(const string_type &source,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            const char *_src = source;
+            mmon_modify_connection_by_signal_names(monitor, 1, &_src, dest,
+                                                   (mapper_db_connection)props,
+                                                   props.flags);
+        }
+        void modify_connection(const mapper::Signal &source,
+                               const mapper::Signal &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source.properties();
+            mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
+                                                        (mapper_db_signal)dest.properties(),
+                                                        (mapper_db_connection)props,
+                                                        props.flags);
+        }
+        void modify_connection(const mapper::AbstractSignalProps &source,
+                               const mapper::AbstractSignalProps &dest,
+                               const mapper::Db::Connection &props) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source;
+            mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
+                                                        (mapper_db_signal)dest,
+                                                        (mapper_db_connection)props,
+                                                        props.flags);
+        }
+        void disconnect(const mapper::Db::Connection &connection) const
+        {
+            mmon_remove_connection(monitor, (mapper_db_connection)connection);
+        }
+        void disconnect(const string_type &source,
+                        const string_type &dest) const
+        {
+            const char *_src = source;
+            mmon_disconnect_signals_by_name(monitor, 1, &_src, dest);
+        }
+        void disconnect(const mapper::Signal &source,
+                        const mapper::Signal &dest) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source.properties();
+            mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
+                                                 (mapper_db_signal)dest.properties());
+        }
+        void disconnect(const mapper::Db::Signal &source,
+                        const mapper::Db::Signal &dest) const
+        {
+            mapper_db_signal _src = (mapper_db_signal)source;
+            mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
+                                                 (mapper_db_signal)dest);
+        }
     private:
         mapper_monitor monitor;
     };

@@ -13,6 +13,20 @@
 extern const char* prop_msg_strings[N_AT_PARAMS];
 extern const char* admin_msg_strings[N_ADM_STRINGS];
 
+// Helpers: for range info to be known we also need to know data types and lengths
+#define SRC_MIN_KNOWN  (  CONNECTION_RANGE_SRC_MIN     \
+                        | CONNECTION_SRC_TYPE          \
+                        | CONNECTION_SRC_LENGTH )
+#define SRC_MAX_KNOWN  (  CONNECTION_RANGE_SRC_MAX     \
+                        | CONNECTION_SRC_TYPE          \
+                        | CONNECTION_SRC_LENGTH )
+#define DEST_MIN_KNOWN (  CONNECTION_RANGE_DEST_MIN    \
+                        | CONNECTION_DEST_TYPE         \
+                        | CONNECTION_DEST_LENGTH )
+#define DEST_MAX_KNOWN (  CONNECTION_RANGE_DEST_MAX    \
+                        | CONNECTION_DEST_TYPE         \
+                        | CONNECTION_DEST_LENGTH )
+
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -26,7 +40,8 @@ static double get_current_time()
 }
 
 // function prototypes
-static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon,
+                                       const char *device_name,
                                        int subscribe_flags, int timeout,
                                        int version);
 
@@ -36,7 +51,7 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
+mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
@@ -51,7 +66,7 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
     }
 
     if (!mon->admin) {
-        mapper_monitor_free(mon);
+        mmon_free(mon);
         return NULL;
     }
 
@@ -59,13 +74,13 @@ mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags)
 
     mapper_admin_add_monitor(mon->admin, mon);
     if (autosubscribe_flags) {
-        mapper_monitor_autosubscribe(mon, autosubscribe_flags);
-        mapper_monitor_request_devices(mon);
+        mmon_autosubscribe(mon, autosubscribe_flags);
+        mmon_request_devices(mon);
     }
     return mon;
 }
 
-void mapper_monitor_free(mapper_monitor mon)
+void mmon_free(mapper_monitor mon)
 {
     if (!mon)
         return;
@@ -75,7 +90,7 @@ void mapper_monitor_free(mapper_monitor mon)
 
     // unsubscribe from and remove any autorenewing subscriptions
     while (mon->subscriptions) {
-        mapper_monitor_unsubscribe(mon, mon->subscriptions->name);
+        mmon_unsubscribe(mon, mon->subscriptions->name);
     }
 
     while (mon->db.registered_devices)
@@ -89,14 +104,14 @@ void mapper_monitor_free(mapper_monitor mon)
     free(mon);
 }
 
-int mapper_monitor_poll(mapper_monitor mon, int block_ms)
+int mmon_poll(mapper_monitor mon, int block_ms)
 {
     int ping_time = mon->admin->clock.next_ping;
     int admin_count = mapper_admin_poll(mon->admin);
     mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
     // check if any subscriptions need to be renewed
-    mapper_monitor_subscription s = mon->subscriptions;
+    mapper_subscription s = mon->subscriptions;
     while (s) {
         if (s->lease_expiration_sec < mon->admin->clock.now.sec) {
             monitor_subscribe_internal(mon, s->name, s->flags,
@@ -129,25 +144,26 @@ int mapper_monitor_poll(mapper_monitor mon, int block_ms)
     return admin_count;
 }
 
-mapper_db mapper_monitor_get_db(mapper_monitor mon)
+mapper_db mmon_get_db(mapper_monitor mon)
 {
     return &mon->db;
 }
 
-static void mapper_monitor_set_bundle_dest(mapper_monitor mon, const char *name)
+static void monitor_set_bundle_dest(mapper_monitor mon, const char *name)
 {
     // TODO: look up device info, maybe send directly
     mapper_admin_set_bundle_dest_bus(mon->admin);
 }
 
-static void monitor_subscribe_internal(mapper_monitor mon, const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon,
+                                       const char *device_name,
                                        int subscribe_flags, int timeout,
                                        int version)
 {
     char cmd[1024];
     snprintf(cmd, 1024, "%s/subscribe", device_name);
 
-    mapper_monitor_set_bundle_dest(mon, device_name);
+    monitor_set_bundle_dest(mon, device_name);
     lo_message m = lo_message_new();
     if (m) {
         if (subscribe_flags & SUB_DEVICE_ALL)
@@ -185,10 +201,10 @@ static void monitor_subscribe_internal(mapper_monitor mon, const char *device_na
     }
 }
 
-static mapper_monitor_subscription get_subscription(mapper_monitor mon,
-                                                    const char *device_name)
+static mapper_subscription get_subscription(mapper_monitor mon,
+                                            const char *device_name)
 {
-    mapper_monitor_subscription s = mon->subscriptions;
+    mapper_subscription s = mon->subscriptions;
     while (s) {
         if (strcmp(device_name, s->name)==0)
             return s;
@@ -197,17 +213,17 @@ static mapper_monitor_subscription get_subscription(mapper_monitor mon,
     return 0;
 }
 
-void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
-                              int subscribe_flags, int timeout)
+void mmon_subscribe(mapper_monitor mon, const char *device_name,
+                    int subscribe_flags, int timeout)
 {
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_monitor_subscription s = get_subscription(mon, device_name);
+        mapper_subscription s = get_subscription(mon, device_name);
 
         if (!s) {
             // store subscription record
-            s = malloc(sizeof(struct _mapper_monitor_subscription));
+            s = malloc(sizeof(struct _mapper_subscription));
             s->name = strdup(device_name);
             s->next = mon->subscriptions;
             mon->subscriptions = s;
@@ -225,18 +241,18 @@ void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
     monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout, 0);
 }
 
-static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
-                                                const char *device_name,
-                                                int send_message)
+static void monitor_unsubscribe_internal(mapper_monitor mon,
+                                         const char *device_name,
+                                         int send_message)
 {
     char cmd[1024];
     // check if autorenewing subscription exists
-    mapper_monitor_subscription *s = &mon->subscriptions;
+    mapper_subscription *s = &mon->subscriptions;
     while (*s) {
         if (strcmp((*s)->name, device_name)==0) {
             if (send_message) {
                 snprintf(cmd, 1024, "%s/unsubscribe", device_name);
-                mapper_monitor_set_bundle_dest(mon, device_name);
+                monitor_set_bundle_dest(mon, device_name);
                 lo_message m = lo_message_new();
                 if (!m)
                     break;
@@ -244,7 +260,7 @@ static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
                 mapper_admin_send_bundle(mon->admin);
             }
             // remove from subscriber list
-            mapper_monitor_subscription temp = *s;
+            mapper_subscription temp = *s;
             *s = temp->next;
             if (temp->name)
                 free(temp->name);
@@ -255,22 +271,20 @@ static void mapper_monitor_unsubscribe_internal(mapper_monitor mon,
     }
 }
 
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name)
+void mmon_unsubscribe(mapper_monitor mon, const char *device_name)
 {
-    mapper_monitor_unsubscribe_internal(mon, device_name, 1);
+    monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
-void mapper_monitor_request_devices(mapper_monitor mon)
+void mmon_request_devices(mapper_monitor mon)
 {
     mapper_admin_set_bundle_dest_bus(mon->admin);
     mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
 }
 
-void mapper_monitor_link(mapper_monitor mon,
-                         const char* device1,
-                         const char* device2,
-                         mapper_db_link_t *props,
-                         unsigned int props_flags)
+void mmon_link_devices_by_name(mapper_monitor mon, const char *source,
+                               const char *dest, mapper_db_link_t *props,
+                               unsigned int props_flags)
 {
     mapper_admin_set_bundle_dest_bus(mon->admin);
     if (props) {
@@ -278,189 +292,293 @@ void mapper_monitor_link(mapper_monitor mon,
         if (!m)
             return;
 
-        lo_message_add_string(m, device1);
-        lo_message_add_string(m, device2);
-
-//      TODO: add extra props
+        lo_message_add_string(m, source);
+        lo_message_add_string(m, dest);
 
         lo_send_message(mon->admin->bus_addr, "/link", m);
         free(m);
     }
     else {
         mapper_admin_bundle_message(mon->admin, ADM_LINK, 0, "ss",
-                                    device1, device2);
+                                    source, dest);
     }
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* src_device,
-                           const char* dest_device)
+void mmon_link_devices_by_db_record(mapper_monitor mon,
+                                    mapper_db_device_t *source,
+                                    mapper_db_device_t *dest,
+                                    mapper_db_link_t *props,
+                                    unsigned int props_flags)
 {
-    mapper_monitor_set_bundle_dest(mon, src_device);
-    mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
-                                src_device, dest_device);
+    if (!source || !dest)
+        return;
+    mmon_link_devices_by_name(mon, source->name, dest->name, props, props_flags);
 }
 
-void mapper_monitor_connect(mapper_monitor mon,
-                            const char* source_signal,
-                            const char* dest_signal,
-                            mapper_db_connection_t *props,
-                            unsigned int flags)
+void mmon_unlink_devices_by_name(mapper_monitor mon, const char *source,
+                                 const char *dest)
 {
-    // TODO: lookup device ip/ports, send directly?
+    if (!source || !dest)
+        return;
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    if (props) {
-        mapper_admin_bundle_message(
-            mon->admin, ADM_CONNECT, 0, "sss", source_signal, "->", dest_signal,
+    mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
+                                source, dest);
+}
+
+void mmon_unlink_devices_by_db_record(mapper_monitor mon,
+                                      mapper_db_device_t *source,
+                                      mapper_db_device_t *dest)
+{
+    if (!source || !dest)
+        return;
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
+                                source->name, dest->name);
+}
+
+void mmon_remove_link(mapper_monitor mon, mapper_db_link_t *link)
+{
+    if (!link || !link->name1 || !link->name2)
+        return;
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    mapper_admin_bundle_message(mon->admin, ADM_UNLINK, 0, "ss",
+                                link->name1, link->name2);
+}
+
+#define call_mapper_msg_prepare_varargs(...)    \
+    _real_call_mapper_msg_prepare_varargs(__VA_ARGS__, N_AT_PARAMS);
+
+// simple wrapper function for building osc messages
+static void _real_call_mapper_msg_prepare_varargs(lo_message m, ...)
+{
+    va_list aq;
+    va_start(aq, m);
+    mapper_msg_prepare_varargs(m, aq);
+    va_end(aq);
+}
+
+void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
+                                  const char **source_names,
+                                  const char *dest_name,
+                                  mapper_db_connection_t *props,
+                                  unsigned int flags)
+{
+    if (!mon || !num_sources || !source_names || !dest_name)
+        return;
+
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    int i;
+    for (i = 0; i < num_sources; i++)
+        lo_message_add_string(m, source_names[i]);
+    lo_message_add_string(m, "->");
+    lo_message_add_string(m, dest_name);
+
+    if (props && flags) {
+        call_mapper_msg_prepare_varargs(m,
             (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
             (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
-            ((flags & CONNECTION_RANGE_SRC_MIN) && (flags & CONNECTION_SRC_TYPE)
-             && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MIN : -1, props,
-            ((flags & CONNECTION_RANGE_SRC_MAX) && (flags & CONNECTION_SRC_TYPE)
-             && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MAX : -1, props,
-            ((flags & CONNECTION_RANGE_DEST_MIN) && (flags & CONNECTION_DEST_TYPE)
-             && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MIN : -1, props,
-            ((flags & CONNECTION_RANGE_DEST_MAX) && (flags & CONNECTION_DEST_TYPE)
-             && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MAX : -1, props,
+            (flags & SRC_MIN_KNOWN) == SRC_MIN_KNOWN ? AT_SRC_MIN : -1, props,
+            (flags & SRC_MAX_KNOWN) == SRC_MAX_KNOWN ? AT_SRC_MAX : -1, props,
+            (flags & DEST_MIN_KNOWN) == DEST_MIN_KNOWN ? AT_DEST_MIN : -1, props,
+            (flags & DEST_MAX_KNOWN) == DEST_MAX_KNOWN ? AT_DEST_MAX : -1, props,
             (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
             (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
             (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
             (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
              props->send_as_instance,
             ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-             ? AT_SCOPE : -1, props->scope.names,
-            (flags & CONNECTION_SLOT) ? AT_SLOT : -1, props->slot);
+             ? AT_SCOPE : -1, props->scope.names);
     }
-    else
-        mapper_admin_bundle_message(mon->admin, ADM_CONNECT, 0, "sss",
-                                    source_signal, "->", dest_signal);
+
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_CONNECT], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mapper_monitor_multiconnect(mapper_monitor mon, int num_sources,
-                                 const char** source_signals,
-                                 const char* dest_signal,
-                                 mapper_db_combiner_t *props,
-                                 unsigned int flags)
+void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                       mapper_db_signal_t **sources,
+                                       mapper_db_signal_t *dest,
+                                       mapper_db_connection_t *props,
+                                       unsigned int props_flags)
 {
-    // TODO: lookup device ip/ports, send directly?
-    mapper_admin_set_bundle_dest_bus(mon->admin);
+    if (!mon || !num_sources || !sources || !dest)
+        return;
+
+    const char *src_names[num_sources];
+    int i;
+    for (i = 0; i < num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        src_names[i] = strdup(src_name);
+    }
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+
+    mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
+                                 props, props_flags);
+
+    for (i = 0; i < num_sources; i++)
+        free((char *)src_names[i]);
+}
+
+void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
+                                            const char **source_names,
+                                            const char *dest_name,
+                                            mapper_db_connection_t *props,
+                                            unsigned int flags)
+{
+    if (!mon || !num_sources || !source_names || !dest_name || !props || !flags)
+        return;
+
     lo_message m = lo_message_new();
     if (!m)
         return;
 
     int i;
-    for (i = 0; i < num_sources; i++) {
-        lo_message_add_string(m, source_signals[i]);
-    }
+    for (i = 0; i < num_sources; i++)
+        lo_message_add_string(m, source_names[i]);
     lo_message_add_string(m, "->");
-    lo_message_add_string(m, dest_signal);
+    lo_message_add_string(m, dest_name);
 
-    if (!props) {
-        lo_bundle_add_message(mon->admin->bundle,
-                              admin_msg_strings[ADM_CONNECT], m);
-        /* We cannot depend on string arguments sticking around for liblo to
-         * serialize later: trigger immediate dispatch. */
-        mapper_admin_send_bundle(mon->admin);
-        return;
-    }
-
-    if (flags & COMBINER_EXPRESSION) {
-        lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
-        lo_message_add_string(m, props->expression);
-    }
-
-    if ((flags & COMBINER_MODE)
-        && ((int)props->mode >= 0 && (int)props->mode < N_MAPPER_MODE_TYPES)) {
-        lo_message_add_string(m, prop_msg_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[props->mode]);
-    }
-
-//    if (flags & CONNECTION_SEND_AS_INSTANCE) {
-//        lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
-//        lo_message_add_int32(m, props->send_as_instance);
-//    }
-
-    lo_bundle_add_message(mon->admin->bundle,
-                          admin_msg_strings[ADM_CONNECT], m);
-
-    /* We cannot depend on string arguments sticking around for liblo to
-     * serialize later: trigger immediate dispatch. */
-    mapper_admin_send_bundle(mon->admin);
-}
-
-void mapper_monitor_connection_modify(mapper_monitor mon,
-                                      const char *source_signal,
-                                      const char *dest_signal,
-                                      mapper_db_connection_t *props,
-                                      unsigned int flags)
-{
-    if (!mon || !source_signal || !dest_signal || !props)
-        return;
-
-    // TODO: lookup device ip/ports, send directly?
-    mapper_admin_set_bundle_dest_bus(mon->admin);
-    mapper_admin_bundle_message(
-        mon->admin, ADM_CONNECTION_MODIFY, 0, "ss", source_signal, dest_signal,
+    call_mapper_msg_prepare_varargs(m,
         (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
         (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
-        ((flags & CONNECTION_RANGE_SRC_MIN) && (flags & CONNECTION_SRC_TYPE)
-         && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MIN : -1, props,
-        ((flags & CONNECTION_RANGE_SRC_MAX) && (flags & CONNECTION_SRC_TYPE)
-         && (flags & CONNECTION_SRC_LENGTH)) ? AT_SRC_MAX : -1, props,
-        ((flags & CONNECTION_RANGE_DEST_MIN) && (flags & CONNECTION_DEST_TYPE)
-         && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MIN : -1, props,
-        ((flags & CONNECTION_RANGE_DEST_MAX) && (flags & CONNECTION_DEST_TYPE)
-         && (flags & CONNECTION_DEST_LENGTH)) ? AT_DEST_MAX : -1, props,
+        (flags & SRC_MIN_KNOWN) == SRC_MIN_KNOWN ? AT_SRC_MIN : -1, props,
+        (flags & SRC_MAX_KNOWN) == SRC_MAX_KNOWN ? AT_SRC_MAX : -1, props,
+        (flags & DEST_MIN_KNOWN) == DEST_MIN_KNOWN ? AT_DEST_MIN : -1, props,
+        (flags & DEST_MAX_KNOWN) == DEST_MAX_KNOWN ? AT_DEST_MAX : -1, props,
         (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
         (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
         (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
         (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
          props->send_as_instance,
-        ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1,
-         props->scope.names,
-        (flags & CONNECTION_SLOT) ? AT_SLOT: -1, props->slot);
+        ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
+         ? AT_SCOPE : -1, props->scope.names);
 
-    /* We cannot depend on string arguments sticking around for liblo to
-     * serialize later: trigger immediate dispatch. */
-    mapper_admin_send_bundle(mon->admin);
-}
-
-void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal,
-                               const char* dest_signal)
-{
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    mapper_admin_bundle_message(mon->admin, ADM_DISCONNECT, 0, "ss",
-                                source_signal, dest_signal);
-}
+    lo_bundle_add_message(mon->admin->bundle,
+                          admin_msg_strings[ADM_CONNECTION_MODIFY], m);
 
-void mapper_monitor_set_signal_combiner(mapper_monitor mon, const char *sig_name,
-                                        mapper_db_combiner_t *props,
-                                        unsigned int flags)
-{
-    if (!mon || !sig_name)
-        return;
-
-    if ((flags & COMBINER_MODE) && (props->mode != MO_EXPRESSION)) {
-        trace("Only 'expression' mode is currently supported for combiners.");
-        return;
-    }
-    mapper_admin_set_bundle_dest_bus(mon->admin);
-    mapper_admin_bundle_message(mon->admin, ADM_COMBINE, 0, "s", sig_name,
-                                (flags & COMBINER_NUM_SLOTS) ? AT_NUM_SLOTS : -1, props->num_slots,
-                                (flags & COMBINER_MODE) ? AT_MODE : -1, props->mode,
-                                (flags & COMBINER_EXPRESSION) ? AT_EXPRESSION : -1, props->expression);
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
+}
+
+void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
+                                                 int num_sources,
+                                                 mapper_db_signal_t **sources,
+                                                 mapper_db_signal_t *dest,
+                                                 mapper_db_connection_t *props,
+                                                 unsigned int props_flags)
+{
+    if (!mon || !num_sources || !sources || !dest || !props || !props_flags)
+        return;
+
+    const char *src_names[num_sources];
+    int i;
+    for (i = 0; i < num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        src_names[i] = strdup(src_name);
+    }
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+
+    mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
+                                           dest_name, props, props_flags);
+
+    for (i = 0; i < num_sources; i++)
+        free((char *)src_names[i]);
+}
+
+void mmon_modify_connection(mapper_monitor mon,
+                            mapper_db_connection_t *props,
+                            unsigned int props_flags)
+{
+    if (!mon || !props || !props->src_names || !props->dest_name)
+        return;
+
+    mmon_modify_connection_by_signal_names(mon, props->num_sources,
+                                           (const char **)props->src_names,
+                                           props->dest_name,
+                                           props, props_flags);
+}
+
+void mmon_disconnect_signals_by_name(mapper_monitor mon, int num_sources,
+                                     const char **sources, const char *dest)
+{
+    if (!mon || !num_sources || !sources || !dest)
+        return;
+
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    int i;
+    for (i = 0; i < num_sources; i++)
+        lo_message_add_string(m, sources[i]);
+    lo_message_add_string(m, "->");
+    lo_message_add_string(m, dest);
+
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
+
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
+}
+
+void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                          mapper_db_signal_t **sources,
+                                          mapper_db_signal_t *dest)
+{
+    if (!mon || !num_sources || !sources || !dest)
+        return;
+
+    const char *src_names[num_sources];
+    int i;
+    for (i = 0; i < num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        src_names[i] = strdup(src_name);
+    }
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+
+    mmon_disconnect_signals_by_name(mon, num_sources, src_names, dest_name);
+
+    for (i = 0; i < num_sources; i++)
+        free((char *)src_names[i]);
+}
+
+void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
+{
+    if (!mon || !c || !c->num_sources || !c->src_names || !c->dest_name)
+        return;
+
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+    int i;
+    for (i = 0; i < c->num_sources; i++)
+        lo_message_add_string(m, c->src_names[i]);
+    lo_message_add_string(m, "->");
+    lo_message_add_string(m, c->dest_name);
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
 }
 
 static void on_device_autosubscribe(mapper_db_device dev,
@@ -472,14 +590,14 @@ static void on_device_autosubscribe(mapper_db_device dev,
     if (a == MDB_NEW) {
         // Subscribe to signals, links, and/or connections for new devices.
         if (mon->autosubscribe)
-            mapper_monitor_subscribe(mon, dev->name, mon->autosubscribe, -1);
+            mmon_subscribe(mon, dev->name, mon->autosubscribe, -1);
     }
     else if (a == MDB_REMOVE) {
-        mapper_monitor_unsubscribe_internal(mon, dev->name, 0);
+        monitor_unsubscribe_internal(mon, dev->name, 0);
     }
 }
 
-void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
+void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 {
     // TODO: remove autorenewing subscription record if necessary
     if (!mon->autosubscribe && autosubscribe_flags)
@@ -487,30 +605,30 @@ void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
     else if (mon->autosubscribe && !autosubscribe_flags) {
         mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
         while (mon->subscriptions) {
-            mapper_monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
+            monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
         }
     }
     mon->autosubscribe = autosubscribe_flags;
 }
 
-void mapper_monitor_now(mapper_monitor mon, mapper_timetag_t *tt)
+void mmon_now(mapper_monitor mon, mapper_timetag_t *tt)
 {
     mapper_clock_now(&mon->admin->clock, tt);
 }
 
-void mapper_monitor_set_timeout(mapper_monitor mon, int timeout_sec)
+void mmon_set_timeout(mapper_monitor mon, int timeout_sec)
 {
     if (timeout_sec < 0)
         timeout_sec = ADMIN_TIMEOUT_SEC;
     mon->timeout_sec = timeout_sec;
 }
 
-int mapper_monitor_get_timeout(mapper_monitor mon)
+int mmon_get_timeout(mapper_monitor mon)
 {
     return mon->timeout_sec;
 }
 
-void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
+void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
 {
     mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
@@ -518,12 +636,12 @@ void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
     mapper_db_flush(&mon->db, mon->admin->clock.now.sec, timeout_sec, quiet);
 
     // also need to remove subscriptions
-    mapper_monitor_subscription *s = &mon->subscriptions;
+    mapper_subscription *s = &mon->subscriptions;
     while (*s) {
         if (!mapper_db_get_device_by_name(&mon->db, (*s)->name)) {
             // don't bother sending '/unsubscribe' since device is unresponsive
             // remove from subscriber list
-            mapper_monitor_subscription temp = *s;
+            mapper_subscription temp = *s;
             *s = temp->next;
             if (temp->name)
                 free(temp->name);
@@ -532,4 +650,50 @@ void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
         else
             s = &(*s)->next;
     }
+}
+
+// Forward a message to the admin bus
+void mmon_send(mapper_monitor mon, const char *path, const char *types, ...)
+{
+    if (!mon || !path || !types)
+        return;
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    va_list aq;
+    va_start(aq, types);
+    char t[] = " ";
+
+    while (types && *types) {
+        t[0] = types[0];
+        switch (t[0]) {
+            case 'i':
+                lo_message_add(m, t, va_arg(aq, int));
+                break;
+            case 's':
+            case 'S':
+                lo_message_add(m, t, va_arg(aq, char*));
+                break;
+            case 'f':
+            case 'd':
+                lo_message_add(m, t, va_arg(aq, double));
+                break;
+            case 'c':
+                lo_message_add(m, t, (char)va_arg(aq, int));
+                break;
+            case 't':
+                lo_message_add(m, t, va_arg(aq, mapper_timetag_t));
+                break;
+            default:
+                die_unless(0, "message %s, unknown type '%c'\n",
+                           path, t[0]);
+        }
+        types++;
+    }
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    lo_bundle_add_message(mon->admin->bundle, path, m);
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
 }

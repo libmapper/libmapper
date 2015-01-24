@@ -58,8 +58,8 @@ typedef struct _mapper_db_device {
 
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
- * properties via the mapper_monitor_connect() or
- * mapper_monitor_connection_modify() functions. Should be combined with the
+ * properties via the mmon_connect() or
+ * mmon_modify_connection() functions. Should be combined with the
  * above range bitflags. */
 #define CONNECTION_BOUND_MIN        0x0010
 #define CONNECTION_BOUND_MAX        0x0020
@@ -94,14 +94,6 @@ typedef struct _mapper_db_device {
                                          | CONNECTION_RANGE_SRC_MAX_KNOWN   \
                                          | CONNECTION_RANGE_DEST_MIN_KNOWN  \
                                          | CONNECTION_RANGE_DEST_MAX_KNOWN )
-
-/* Bit flags to identify which fields in a mapper_db_combiner
- * structure are valid.  This is only used when specifying combiner
- * properties via the mapper_monitor_set_signal_combiner() function. */
-#define COMBINER_EXPRESSION         0x1
-#define COMBINER_MODE               0x2
-#define COMBINER_NUM_SLOTS          0x4
-#define COMBINER_ALL                0xF
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
@@ -150,7 +142,8 @@ typedef struct _mapper_connection_scope {
 typedef struct _mapper_db_connection {
     int id;                         //!< Connection index
 
-    char *src_name;                 //!< Source signal name (OSC path).
+    int num_sources;
+    char **src_names;               //!< Source signal names (OSC path).
     char *dest_name;                //!< Destination signal name (OSC path).
     int slot;                       //!< Destination signal slot.
 

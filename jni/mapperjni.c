@@ -126,6 +126,34 @@ static mapper_db get_db_from_jobject(JNIEnv *env, jobject obj)
     return 0;
 }
 
+static mapper_db_device get_db_device_from_jobject(JNIEnv *env, jobject obj)
+{
+    // TODO check device here
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID val = (*env)->GetFieldID(env, cls, "_devprops", "J");
+        if (val) {
+            jlong s = (*env)->GetLongField(env, obj, val);
+            return (mapper_db_device)ptr_jlong(s);
+        }
+    }
+    return 0;
+}
+
+static mapper_db_signal get_db_signal_from_jobject(JNIEnv *env, jobject obj)
+{
+    // TODO check device here
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID val = (*env)->GetFieldID(env, cls, "_sigprops", "J");
+        if (val) {
+            jlong s = (*env)->GetLongField(env, obj, val);
+            return (mapper_db_signal)ptr_jlong(s);
+        }
+    }
+    return 0;
+}
+
 static mapper_timetag_t *get_timetag_from_jobject(JNIEnv *env, jobject obj,
                                                   mapper_timetag_t *tt)
 {
@@ -1727,7 +1755,7 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_numConnections
 JNIEXPORT jlong JNICALL Java_Mapper_Monitor_mmon_1new
   (JNIEnv *env, jobject obj, jint autosubscribe_flags)
 {
-    mapper_monitor mon = mapper_monitor_new(0, autosubscribe_flags);
+    mapper_monitor mon = mmon_new(0, autosubscribe_flags);
     return jlong_ptr(mon);
 }
 
@@ -1735,7 +1763,7 @@ JNIEXPORT jlong JNICALL Java_Mapper_Monitor_mmon_1get_1db
 (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    mapper_db db = mapper_monitor_get_db(mon);
+    mapper_db db = mmon_get_db(mon);
     return jlong_ptr(db);
 }
 
@@ -1743,7 +1771,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1free
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    mapper_monitor_free(mon);
+    mmon_free(mon);
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Monitor_mmon_1poll
@@ -1752,7 +1780,7 @@ JNIEXPORT jint JNICALL Java_Mapper_Monitor_mmon_1poll
     genv = env;
     bailing = 0;
     mapper_monitor mon = (mapper_monitor)ptr_jlong(d);
-    return mapper_monitor_poll(mon, timeout);
+    return mmon_poll(mon, timeout);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1subscribe
@@ -1760,7 +1788,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1subscribe
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
-    mapper_monitor_subscribe(mon, cname, flags, timeout);
+    mmon_subscribe(mon, cname, flags, timeout);
     (*env)->ReleaseStringUTFChars(env, name, cname);
 }
 
@@ -1769,42 +1797,59 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unsubscribe
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
-    mapper_monitor_unsubscribe(mon, cname);
+    mmon_unsubscribe(mon, cname);
     (*env)->ReleaseStringUTFChars(env, name, cname);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1link
-  (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name,
-   jobject link_props)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1link__JLMapper_Device_2LMapper_Device_2LMapper_Db_Link_2
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
-    const char *cdest_name = (*env)->GetStringUTFChars(env, dest_name, 0);
-// TODO: process props!
-    mapper_monitor_link(mon, csrc_name, cdest_name, 0, 0);
-    (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
-    (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
+    mapper_device srcdev = get_device_from_jobject(env, src);
+    mapper_device destdev = get_device_from_jobject(env, dest);
+    if (!srcdev || !destdev)
+        return;
+    // TODO: process props!
+    mmon_link_devices_by_name(mon, mdev_name(srcdev), mdev_name(destdev), 0, 0);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unlink
-  (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1link__JLMapper_Db_Device_2LMapper_Db_Device_2LMapper_Db_Link_2
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
-    const char *cdest_name = (*env)->GetStringUTFChars(env, dest_name, 0);
-    mapper_monitor_unlink(mon, csrc_name, cdest_name);
-    (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
-    (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
+    mapper_db_device srcdev = get_db_device_from_jobject(env, src);
+    mapper_db_device destdev = get_db_device_from_jobject(env, dest);
+    if (!srcdev || !destdev)
+        return;
+    // TODO: process props!
+    mmon_link_devices_by_db_record(mon, srcdev, destdev, 0, 0);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
-  (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name,
-   jobject jprops, jint modify)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unlink__JLMapper_Device_2LMapper_Device_2
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
-    const char *cdest_name = (*env)->GetStringUTFChars(env, dest_name, 0);
+    mapper_device srcdev = get_device_from_jobject(env, src);
+    mapper_device destdev = get_device_from_jobject(env, dest);
+    if (!srcdev || !destdev)
+        return;
+    mmon_unlink_devices_by_name(mon, mdev_name(srcdev), mdev_name(destdev));
+}
 
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unlink__JLMapper_Db_Device_2LMapper_Db_Device_2
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
+{
+    mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
+    mapper_db_device srcdev = get_db_device_from_jobject(env, src);
+    mapper_db_device destdev = get_db_device_from_jobject(env, dest);
+    if (!srcdev || !destdev)
+        return;
+    mmon_unlink_devices_by_db_record(mon, srcdev, destdev);
+}
+
+static void connect_or_mod(JNIEnv *env, mapper_monitor mon, mapper_db_signal src,
+                           mapper_db_signal dest, jobject jprops, jint modify)
+{
     // process props
     // don't bother letting user define signal types or lengths (will be overwritten)
     mapper_db_connection_t cprops;
@@ -1936,12 +1981,11 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
     }
 
     if (modify)
-        mapper_monitor_connection_modify(mon, csrc_name, cdest_name,
-                                         &cprops, props_flags);
+        mmon_modify_connection_by_signal_names(mon, src->name, dest->name,
+                                               &cprops, props_flags);
     else
-        mapper_monitor_connect(mon, csrc_name, cdest_name, &cprops, props_flags);
-    (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
-    (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
+        mmon_connect_signals_by_db_record(mon, src, dest, &cprops, props_flags);
+
     if (expr_jstr)
         (*env)->ReleaseStringUTFChars(env, expr_jstr, cprops.expression);
     if (src_min_field)
@@ -1954,22 +1998,57 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod
         release_PropertyValue_elements(env, dest_max_field, cprops.dest_max);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect
-  (JNIEnv *env, jobject obj, jlong p, jstring src_name, jstring dest_name)
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props, jint modify)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    const char *csrc_name = (*env)->GetStringUTFChars(env, src_name, 0);
-    const char *cdest_name = (*env)->GetStringUTFChars(env, dest_name, 0);
-    mapper_monitor_disconnect(mon, csrc_name, cdest_name);
-    (*env)->ReleaseStringUTFChars(env, src_name, csrc_name);
-    (*env)->ReleaseStringUTFChars(env, dest_name, cdest_name);
+    mapper_signal srcsig = get_signal_from_jobject(env, src);
+    mapper_signal destsig = get_signal_from_jobject(env, dest);
+    if (!srcsig || !destsig)
+        return;
+    connect_or_mod(env, mon, msig_properties(srcsig), msig_properties(destsig),
+                   props, modify);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1db_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest, jobject props, jint modify)
+{
+    mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
+    mapper_db_signal srcsig = get_db_signal_from_jobject(env, src);
+    mapper_db_signal destsig = get_db_signal_from_jobject(env, dest);
+    if (!srcsig || !destsig)
+        return;
+    connect_or_mod(env, mon, srcsig, destsig, props, modify);
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
+{
+    mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
+    mapper_signal srcsig = get_signal_from_jobject(env, src);
+    mapper_signal destsig = get_signal_from_jobject(env, dest);
+    if (!srcsig || !destsig)
+        return;
+    mmon_disconnect_signals_by_db_record(mon, msig_properties(srcsig),
+                                         msig_properties(destsig));
+}
+
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1db_1sigs
+  (JNIEnv *env, jobject obj, jlong p, jobject src, jobject dest)
+{
+    mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
+    mapper_db_signal srcsig = get_db_signal_from_jobject(env, src);
+    mapper_db_signal destsig = get_db_signal_from_jobject(env, dest);
+    if (!srcsig || !destsig)
+        return;
+    mmon_disconnect_signals_by_db_record(mon, srcsig, destsig);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1autosubscribe
   (JNIEnv *env, jobject obj, jlong p, jint flags)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    mapper_monitor_autosubscribe(mon, flags);
+    mmon_autosubscribe(mon, flags);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Monitor_mmon_1now
@@ -1977,7 +2056,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_mmon_1now
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
     mapper_timetag_t tt;
-    mapper_monitor_now(mon, &tt);
+    mmon_now(mon, &tt);
     jobject o = get_jobject_from_timetag(genv, &tt);
     return o;
 }
