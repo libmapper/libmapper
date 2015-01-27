@@ -232,9 +232,31 @@
                             p->flags |= CONNECTION_MUTED;
                         }
                     }
-                    else if (strcmp(s, "src_name")==0) {
-                        if (PyString_Check(v))
-                            p->props.src_name = PyString_AsString(v);
+                    else if (   strcmp(s, "src_name")==0
+                             || strcmp(s, "src_names")==0) {
+                        // could be array or single string
+                        if (PyString_Check(v)) {
+                            p->props.num_sources = 1;
+                            char *src_name = PyString_AsString(v);
+                            p->props.src_names = &src_name;
+                        }
+                        else if (PyList_Check(v)) {
+                            p->props.num_sources = PyList_Size(v);
+                            p->props.src_names = malloc(p->props.num_sources
+                                                        * sizeof(char *));
+                            for (k=0; k<p->props.num_sources; k++) {
+                                PyObject *element = PySequence_GetItem(v, k);
+                                if (!PyString_Check(element)) {
+                                    p->props.num_sources = 0;
+                                    for (--k; k>=0; k--)
+                                        free(p->props.src_names[k]);
+                                    free(p->props.src_names);
+                                    break;
+                                }
+                                p->props.src_names[k] =
+                                    strdup(PyString_AsString(element));
+                            }
+                        }
                     }
                     else if (strcmp(s, "dest_name")==0) {
                         if (PyString_Check(v))
@@ -310,6 +332,8 @@
                                 PyObject *element = PySequence_GetItem(v, k);
                                 if (!PyString_Check(element)) {
                                     p->props.scope.size = 0;
+                                    for (--k; k>=0; k--)
+                                        free(p->props.scope.names[k]);
                                     free(p->props.scope.names);
                                     break;
                                 }
@@ -1899,13 +1923,25 @@ typedef struct _admin {} admin;
         if (!source || !dest)
             return;
         if (properties) {
-            mmon_connect_signals_by_name((mapper_monitor)$self, source, dest,
+            mmon_connect_signals_by_name((mapper_monitor)$self, 1, &source, dest,
                                          &properties->props, properties->flags);
         }
         else
-            mmon_connect_signals_by_name((mapper_monitor)$self,
-                                         source, dest, 0, 0);
+            mmon_connect_signals_by_name((mapper_monitor)$self, 1,
+                                         &source, dest, 0, 0);
     }
+//    void connect(int num_sources, const char **sources, const char *dest,
+//                 mapper_db_connection_with_flags_t *properties=0) {
+//        if (!source || !dest)
+//            return;
+//        if (properties) {
+//            mmon_connect_signals_by_name((mapper_monitor)$self, source, dest,
+//                                         &properties->props, properties->flags);
+//        }
+//        else
+//            mmon_connect_signals_by_name((mapper_monitor)$self,
+//                                         source, dest, 0, 0);
+//    }
 //    void connect(signal *source, signal *dest,
 //                 mapper_db_connection_with_flags_t *properties=0) {
 //        if (!source || !dest)
@@ -1925,7 +1961,7 @@ typedef struct _admin {} admin;
                            mapper_db_connection_with_flags_t *properties) {
         if (!source || !dest || !properties)
             return;
-        mmon_modify_connection_by_signal_names((mapper_monitor)$self, source,
+        mmon_modify_connection_by_signal_names((mapper_monitor)$self, 1, &source,
                                                dest, &properties->props,
                                                properties->flags);
     }
@@ -1941,7 +1977,7 @@ typedef struct _admin {} admin;
     void disconnect(const char *source, const char *dest) {
         if (!source || !dest)
             return;
-        mmon_disconnect_signals_by_name((mapper_monitor)$self, source, dest);
+        mmon_disconnect_signals_by_name((mapper_monitor)$self, 1, &source, dest);
     }
 //    void disconnect(signal *source, signal *dest) {
 //        if (!source || !dest)
@@ -2087,18 +2123,35 @@ typedef struct _admin {} admin;
         const char *src_device,  const char *src_signal,
         const char *dest_device, const char *dest_signal) {
         return mapper_db_get_connections_by_device_and_signal_names(
-            (mapper_db)$self, src_device, src_signal,
+            (mapper_db)$self, 1, &src_device, &src_signal,
+            dest_device, dest_signal);
+    }
+    mapper_db_connection_t **get_connections_by_device_and_signal_names(
+        int num_sources, const char **src_devices,  const char **src_signals,
+        const char *dest_device, const char *dest_signal) {
+        return mapper_db_get_connections_by_device_and_signal_names(
+            (mapper_db)$self, num_sources, src_devices, src_signals,
             dest_device, dest_signal);
     }
     mapper_db_connection connection_by_signal_full_names(
         const char *src_name, const char *dest_name) {
         return mapper_db_get_connection_by_signal_full_names(
-            (mapper_db)$self, src_name, dest_name);
+            (mapper_db)$self, 1, &src_name, dest_name);
+    }
+    mapper_db_connection connection_by_signal_full_names(
+        int num_sources, const char **src_names, const char *dest_name) {
+        return mapper_db_get_connection_by_signal_full_names(
+             (mapper_db)$self, num_sources, src_names, dest_name);
     }
     mapper_db_connection_t **get_connections_by_src_dest_device_names(
         const char *src_device_name, const char *dest_device_name) {
         return mapper_db_get_connections_by_src_dest_device_names(
-            (mapper_db)$self, src_device_name, dest_device_name);
+            (mapper_db)$self, 1, &src_device_name, dest_device_name);
+    }
+    mapper_db_connection_t **get_connections_by_src_dest_device_names(
+        int num_sources, const char **src_dev_names, const char *dest_dev_name) {
+        return mapper_db_get_connections_by_src_dest_device_names(
+            (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
     }
     mapper_db_connection_t **connection_next(long iterator) {
         return mapper_db_connection_next((mapper_db_connection_t**)iterator);

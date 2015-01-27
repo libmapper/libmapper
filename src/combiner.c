@@ -115,26 +115,6 @@ void reallocate_combiner_input_history(mapper_combiner cb,
 //    }
 }
 
-int mapper_combiner_get_slot_info(mapper_combiner cb, int slot_num,
-                                  char *datatype, int *vector_length)
-{
-    // we are interested in the type & length of the remote signal
-    if (!cb->slots || cb->props.num_slots <= slot_num
-        || !cb->slots[slot_num].connection)
-        return 1;
-
-    *datatype = cb->slots[slot_num].connection->props.remote_type;
-    *vector_length = cb->slots[slot_num].connection->props.remote_length;
-
-    return 0;
-}
-
-void mapper_combiner_mute_slot(mapper_combiner cb, int slot_num, int mute)
-{
-    if (cb->slots && slot_num < cb->props.num_slots)
-        cb->slots[slot_num].cause_update = !mute;
-}
-
 /* Helper to replace a connection's expression only if the given string
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expression_string(mapper_combiner cb,
@@ -331,16 +311,4 @@ mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner cb, int id)
             return &cb->slots[i];
     }
     return 0;
-}
-
-int mapper_combiner_perform(mapper_combiner cb, int instance)
-{
-    // call expression evaluator with connection data, signal value pointer
-    // TODO: add typestring
-    if (!cb->expr)
-        return 0;
-
-    return mapper_expr_evaluate(cb->expr, 0, cb->expr_vars,
-                                &cb->parent->history[instance], 0,
-                                cb, instance);
 }

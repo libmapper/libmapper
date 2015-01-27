@@ -11,6 +11,7 @@ const char* prop_msg_strings[] =
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
     "@causeUpdate",     /* AT_CAUSE_UPDATE */
+    "@calibrating",     /* AT_CALIBRATING */
     "@destLength",      /* AT_DEST_LENGTH */
     "@destMax",         /* AT_DEST_MAX */
     "@destMin",         /* AT_DEST_MIN */
@@ -29,7 +30,6 @@ const char* prop_msg_strings[] =
     "@numConnectsIn",   /* AT_NUM_CONNECTIONS_IN */
     "@numConnectsOut",  /* AT_NUM_CONNECTIONS_OUT */
     "@numInputs",       /* AT_NUM_INPUTS */
-    "@numLinks",        /* AT_NUM_LINKS */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
     "@numSlots",        /* AT_NUM_SLOTS */
     "@port",            /* AT_PORT */
@@ -687,14 +687,10 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return MO_NONE;
     if (strcmp(&(*a)->s, "raw") == 0)
         return MO_RAW;
-    else if (strcmp(&(*a)->s, "bypass") == 0)
-        return MO_BYPASS;
     else if (strcmp(&(*a)->s, "linear") == 0)
         return MO_LINEAR;
     else if (strcmp(&(*a)->s, "expression") == 0)
         return MO_EXPRESSION;
-    else if (strcmp(&(*a)->s, "calibrate") == 0)
-        return MO_CALIBRATE;
     else
         return -1;
 

@@ -74,10 +74,6 @@ struct _mapper_device {
 
     int signal_slot_counter;
 
-    /*! Function to call for custom link handling. */
-    mapper_device_link_handler *link_cb;
-    void *link_cb_userdata;
-
     /*! Function to call for custom connection handling. */
     mapper_device_connection_handler *connection_cb;
     void *connection_cb_userdata;
@@ -251,10 +247,6 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
 
 void mapper_router_remove_link(mapper_router router, mapper_link link);
 
-/*! Set a router's properties based on message parameters. */
-int mapper_router_set_link_from_message(mapper_router router, mapper_link link,
-                                        mapper_message_t *msg, int swap);
-
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
                                          int size);
@@ -273,11 +265,9 @@ int mapper_router_send_query(mapper_router router,
                              mapper_timetag_t tt);
 
 mapper_connection mapper_router_add_connection(mapper_router router,
-                                               mapper_link link,
                                                mapper_signal sig,
-                                               const char *dest_name,
-                                               char dest_type,
-                                               int dest_length,
+                                               int num_remote_signals,
+                                               const char **remote_signal_names,
                                                int direction);
 
 int mapper_router_remove_connection(mapper_router router,
@@ -286,21 +276,12 @@ int mapper_router_remove_connection(mapper_router router,
 /*! Find a connection in a router by local signal and remote signal name. */
 mapper_connection mapper_router_find_connection(mapper_router router,
                                                 mapper_signal signal,
-                                                const char* remote_signal_name);
+                                                int num_remote_signals,
+                                                const char **remote_signal_names);
 
-mapper_combiner mapper_router_find_combiner(mapper_router router,
-                                            mapper_signal sig);
-
-mapper_combiner mapper_router_add_combiner(mapper_router router,
-                                           mapper_signal sig, int num_slots);
-
-void mapper_combiner_set_num_slots(mapper_combiner combiner, int num_slots);
-
-int mapper_combiner_set_slot_connection(mapper_combiner combiner, int slot_num,
-                                        mapper_connection connection);
-
-void mapper_combiner_new_connection(mapper_combiner combiner,
-                                    mapper_connection connection);
+mapper_connection mapper_router_find_connection_by_slot(mapper_router router,
+                                                        mapper_signal signal,
+                                                        int *slot_number);
 
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
@@ -417,22 +398,6 @@ void msig_release_instance_internal(mapper_signal sig,
                                     int instance_index,
                                     mapper_timetag_t timetag);
 
-/**** Links ****/
-
-/*! Add or update an entry in the link database using parsed message
- *  parameters.
- *  \param db     The database to operate on.
- *  \param src_name  The name of the source device.
- *  \param dest_name The name of the destination device.
- *  \param params The parsed message parameters containing new link
- *                information.
- *  \return       Non-zero if link was added to the database, or
- *                zero if it was already present. */
-int mapper_db_add_or_update_link_params(mapper_db db,
-                                        const char *src_name,
-                                        const char *dest_name,
-                                        mapper_message_t *params);
-
 /**** Connections ****/
 
 void mhist_realloc(mapper_signal_history_t *history, int history_size,
@@ -453,6 +418,8 @@ int mapper_connection_perform(mapper_connection connection,
 int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
 
+int mapper_connection_combine(mapper_connection connection, int instance);
+
 lo_message mapper_connection_build_message(mapper_connection c, void *value,
                                            int length, char *typestring,
                                            mapper_id_map id_map);
@@ -466,25 +433,17 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
-/**** Combiners ****/
+void mapper_connection_mute_slot(mapper_connection connection,
+                                 int slot_num, int mute);
 
-int mapper_combiner_get_slot_info(mapper_combiner combiner, int slot,
-                                  char *datatype, int *vector_length);
-
-int mapper_combiner_set_from_message(mapper_combiner c,
-                                     mapper_message_t *msg);
-
-mapper_combiner_slot mapper_combiner_get_slot(mapper_combiner c, int slot_num);
-
-void mapper_combiner_mute_slot(mapper_combiner cb, int slot_num, int mute);
-
-void mapper_combiner_free(mapper_combiner c);
-
-int mapper_combiner_perform(mapper_combiner c, int instance);
+int mapper_connection_get_source_info(mapper_connection connection, int slot,
+                                      char *datatype, int *vector_length);
 
 /*! Update scope identifiers for a given connection record. */
 int mapper_db_connection_update_scope(mapper_connection_scope scope,
                                       lo_arg **scope_list, int num);
+
+void mapper_connection_set_num_slots(mapper_connection connection, int num_slots);
 
 /**** Local device database ****/
 
@@ -495,12 +454,11 @@ int mapper_db_connection_update_scope(mapper_connection_scope scope,
  *  \param params       The parsed message parameters containing new device
  *                      information.
  *  \param current_time The current time.
- *  \return             Non-zero if device was added to the database, or
- *                      zero if it was already present. */
-int mapper_db_add_or_update_device_params(mapper_db db,
-                                          const char *device_name,
-                                          mapper_message_t *params,
-                                          mapper_timetag_t *current_time);
+ *  \return             Pointer to the device database entry. */
+mapper_db_device mapper_db_add_or_update_device_params(mapper_db db,
+                                                       const char *device_name,
+                                                       mapper_message_t *params,
+                                                       mapper_timetag_t *current_time);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
@@ -509,12 +467,11 @@ int mapper_db_add_or_update_device_params(mapper_db db,
  *  \param device_name The name of the device associated with this signal.
  *  \param params      The parsed message parameters containing new signal
  *                     information.
- *  \return            Non-zero if signal was added to the database, or
- *                     zero if it was already present. */
-int mapper_db_add_or_update_signal_params(mapper_db db,
-                                          const char *signal_name,
-                                          const char *device_name,
-                                          mapper_message_t *params);
+ *  \return            Pointer to the signal database entry. */
+mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
+                                                       const char *signal_name,
+                                                       const char *device_name,
+                                                       mapper_message_t *params);
 
 /*! Initialize an already-allocated mapper_db_signal structure. */
 void mapper_db_signal_init(mapper_db_signal sig, int is_output,
@@ -528,13 +485,12 @@ void mapper_db_signal_init(mapper_db_signal sig, int is_output,
  *  \param dest_name The full name of the destination signal.
  *  \param params    The parsed message parameters containing new
  *                   connection information.
- *  \return          Non-zero if connection was added to the database,
- *                   or zero if it was already present. */
-int mapper_db_add_or_update_connection_params(mapper_db db,
-                                              int num_sources,
-                                              const char **src_names,
-                                              const char *dest_name,
-                                              mapper_message_t *params);
+ *  \return          Pointer to the connection database entry. */
+mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
+                                                               int num_sources,
+                                                               const char **src_names,
+                                                               const char *dest_name,
+                                                               mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device_by_name(mapper_db db, const char *name);
@@ -549,7 +505,7 @@ void mapper_db_remove_input_by_name(mapper_db db, const char *dev_name,
 
 /*! Remove a named output signal from the database if it exists. */
 void mapper_db_remove_output_by_name(mapper_db db, const char *dev_name,
-                                    const char *sig_name);
+                                     const char *sig_name);
 
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,
@@ -566,14 +522,6 @@ void mapper_db_remove_connections_by_query(mapper_db db,
 /*! Remove a specific connection from the database. */
 void mapper_db_remove_connection(mapper_db db,
                                  mapper_db_connection map);
-
-/*! Remove links in the provided query. */
-void mapper_db_remove_links_by_query(mapper_db db,
-                                     mapper_db_link_t **s);
-
-/*! Remove a specific link from the database. */
-void mapper_db_remove_link(mapper_db db,
-                           mapper_db_link map);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
@@ -702,10 +650,6 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_msg_add_typed_value(lo_message m, char type,
                                 int length, void *value);
 
-/*! Prepare a lo_message for sending based on a link struct. */
-void mapper_link_prepare_osc_message(lo_message m,
-                                     mapper_link link, int swap);
-
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m,
                                            mapper_connection c);
@@ -727,11 +671,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         char output_type,
                                         int input_vector_size,
                                         int output_vector_size,
-                                        mapper_combiner combiner);
+                                        mapper_connection connection);
 
-int mapper_expr_input_history_size(mapper_expr expr);
-
-int mapper_expr_combiner_input_history_size(mapper_expr expr, int index);
+int mapper_expr_input_history_size(mapper_expr expr, int index);
 
 int mapper_expr_output_history_size(mapper_expr expr);
 
@@ -750,7 +692,8 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t **expr_vars,
                          mapper_signal_history_t *to_value,
                          char *typestring,
-                         mapper_combiner combiner, int instance);
+                         mapper_connection connection,
+                         int instance);
 
 int mapper_expr_constant_output(mapper_expr expr);
 

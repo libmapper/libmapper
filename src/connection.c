@@ -28,10 +28,8 @@ const char* mapper_mode_type_strings[] =
     NULL,          /* MO_UNDEFINED */
     "none",        /* MO_NONE */
     "raw",         /* MO_RAW */
-    "bypass",      /* MO_BYPASS */
     "linear",      /* MO_LINEAR */
     "expression",  /* MO_EXPRESSION */
-    "calibrate",   /* MO_CALIBRATE */
 };
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
@@ -61,117 +59,8 @@ int mapper_connection_perform(mapper_connection c,
     int changed = 0, i;
     int vector_length = from->length < to->length ? from->length : to->length;
 
-    if (c->props.muted)
-        return 0;
-
-    /* If the destination type is unknown, we can't do anything
-     * intelligent here -- even bypass mode might screw up if we
-     * assume the types work out. */
-    if (c->props.remote_type != 'f'
-        && c->props.remote_type != 'i'
-        && c->props.remote_type != 'd')
+    if (c->props.calibrating == 1)
     {
-        return 0;
-    }
-
-    if (!c->props.mode || c->props.mode == MO_BYPASS)
-    {
-        /* Increment index position of output data structure. */
-        to->position = (to->position + 1) % to->size;
-        if (c->props.local_type == c->props.remote_type) {
-            memcpy(msig_history_value_pointer(*to),
-                   msig_history_value_pointer(*from),
-                   mapper_type_size(to->type) * vector_length);
-            memset(msig_history_value_pointer(*to) +
-                   mapper_type_size(to->type) * vector_length, 0,
-                   (to->length - vector_length) * mapper_type_size(to->type));
-        }
-        else if (c->props.local_type == 'f') {
-            float *vfrom = msig_history_value_pointer(*from);
-            if (c->props.remote_type == 'i') {
-                int *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (int)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-            else if (c->props.remote_type == 'd') {
-                double *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (double)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-        }
-        else if (c->props.local_type == 'i') {
-            int *vfrom = msig_history_value_pointer(*from);
-            if (c->props.remote_type == 'f') {
-                float *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (float)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-            else if (c->props.remote_type == 'd') {
-                double *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (double)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-        }
-        else if (c->props.local_type == 'd') {
-            double *vfrom = msig_history_value_pointer(*from);
-            if (c->props.remote_type == 'i') {
-                int *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (int)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-            else if (c->props.remote_type == 'f') {
-                float *vto = msig_history_value_pointer(*to);
-                for (i = 0; i < vector_length; i++) {
-                    vto[i] = (float)vfrom[i];
-                }
-                for (; i < to->length; i++) {
-                    vto[i] = 0;
-                }
-            }
-        }
-        for (i = 0; i < vector_length; i++) {
-            typestring[i] = to->type;
-        }
-        return 1;
-    }
-    else if (c->props.mode == MO_RAW) {
-        // No type coercion
-        for (i = 0; i < vector_length; i++)
-            typestring[i] = c->props.local_type;
-        return 1;
-    }
-    else if (c->props.mode == MO_EXPRESSION
-             || c->props.mode == MO_LINEAR)
-    {
-        die_unless(c->expr!=0, "Missing expression.\n");
-        return (mapper_expr_evaluate(c->expr, from, expr_vars,
-                                     to, typestring, 0, 0));
-    }
-    else if (c->props.mode == MO_CALIBRATE)
-    {
-        /* Increment index position of output data structure. */
-        to->position = (to->position + 1) % to->size;
-
         if (!c->props.local_min) {
             c->props.local_min =
                 malloc(c->props.local_length *
@@ -261,20 +150,23 @@ int mapper_connection_perform(mapper_connection c,
             }
         }
 
-        if (changed) {
+        if (changed && c->props.mode == MO_LINEAR)
             mapper_connection_set_mode_linear(c);
-
-            /* Stay in calibrate mode. */
-            c->props.mode = MO_CALIBRATE;
-        }
-
-        if (c->expr)
-            return (mapper_expr_evaluate(c->expr, from, expr_vars,
-                                         to, typestring, 0, 0));
-        else
-            return 0;
     }
-    return 1;
+
+    if (c->props.muted)
+        return 0;
+
+    else if (c->props.mode == MO_RAW) {
+        // No type coercion, skip expression
+        for (i = 0; i < vector_length; i++)
+            typestring[i] = c->props.local_type;
+        return 1;
+    }
+
+    die_unless(c->expr!=0, "Missing expression.\n");
+    return (mapper_expr_evaluate(c->expr, from, expr_vars,
+                                 to, typestring, 0, 0));
 }
 
 int mapper_boundary_perform(mapper_connection c,
@@ -451,6 +343,18 @@ int mapper_boundary_perform(mapper_connection c,
     return !muted;
 }
 
+// TODO: call boundary methods
+int mapper_connection_combine(mapper_connection c, int instance)
+{
+    // call expression evaluator with connection data, signal value pointer
+    // TODO: add typestring
+    if (!cb->expr)
+        return 0;
+
+    return mapper_expr_evaluate(cb->expr, 0, c->expr_vars,
+                                &c->history[instance], 0, c, instance);
+}
+
 /*! Build a value update message for a given connection. */
 lo_message mapper_connection_build_message(mapper_connection c, void *value,
                                            int count, char *typestring,
@@ -543,12 +447,6 @@ static int replace_expression_string(mapper_connection c,
 void mapper_connection_set_mode_raw(mapper_connection c)
 {
     c->props.mode = MO_RAW;
-    reallocate_connection_histories(c, 1, 1);
-}
-
-void mapper_connection_set_mode_direct(mapper_connection c)
-{
-    c->props.mode = MO_BYPASS;
     reallocate_connection_histories(c, 1, 1);
 }
 
@@ -702,69 +600,6 @@ void mapper_connection_set_mode_expression(mapper_connection c,
         if (sig->handler)
             sig->handler(sig, &sig->props, 0, si->value, 1, &now);
     }
-}
-
-static void mapper_connection_set_mode_calibrate(mapper_connection c)
-{
-    /* Need destination extrema to calibrate. */
-    if (!c->props.remote_min || !c->props.remote_max)
-        return;
-
-    c->props.mode = MO_CALIBRATE;
-
-    if (c->props.expression)
-        free(c->props.expression);
-
-    char expr[256];
-    int i, len;
-    int min_length = c->props.local_length < c->props.remote_length ?
-                     c->props.local_length : c->props.remote_length;
-
-    if (c->props.remote_length > c->props.local_length) {
-        if (min_length == 1)
-            snprintf(expr, 256, "y[0]=");
-        else
-            snprintf(expr, 256, "y[0:%i]=", min_length-1);
-    }
-    else
-        snprintf(expr, 256, "y=");
-
-    if (c->props.remote_length > 1) {
-        len = strlen(expr);
-        snprintf(expr+len, 256-len, "[");
-    }
-
-    if (c->props.remote_type == 'f') {
-        float *temp = (float*)c->props.remote_min;
-        for (i=0; i<c->props.remote_length; i++) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "%g,", temp[i]);
-        }
-    }
-    else if (c->props.remote_type == 'i') {
-        int *temp = (int*)c->props.remote_min;
-        for (i=0; i<c->props.remote_length; i++) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "%i,", temp[i]);
-        }
-    }
-    else if (c->props.remote_type == 'd') {
-        double *temp = (double*)c->props.remote_min;
-        for (i=0; i<c->props.remote_length; i++) {
-            len = strlen(expr);
-            snprintf(expr+len, 256-len, "%g,", temp[i]);
-        }
-    }
-
-    len = strlen(expr);
-    if (c->props.remote_length > 1)
-        snprintf(expr+len-1, 256-len+1, "]");
-    else
-        expr[len-1] = '\0';
-
-    c->props.expression = strdup(expr);
-
-    c->calibrating = 0;
 }
 
 /* Helper to check if type is a number. */
@@ -966,23 +801,27 @@ int mapper_connection_set_from_message(mapper_connection c,
     int updated = 0;
     /* First record any provided parameters. */
 
-    /* Direction */
-    if (direction != c->props.direction) {
-        // check if we can swap direction
-        if (direction == DI_INCOMING && !c->parent->signal->handler) {
-            trace("error: signal '%s' cannot accept incoming connection.",
-                  c->props.local_name);
-            return 0;
-        }
-        c->props.direction = direction;
-        updated++;
-    }
+    /* Destination slot */
+    int slot = 0;
+    mapper_msg_get_param_if_int(msg, AT_SLOT, &slot);
 
     /* Remote type. */
     const char *remote_type = mapper_msg_get_param_if_char(msg, AT_TYPE);
-    if (remote_type && c->props.remote_type != remote_type[0]) {
-        // TODO: need to reinitialize connections using this destination signal
-        c->props.remote_type = remote_type[0];
+    if (remote_type && c->props.remote[slot].type != remote_type) {
+        if (!c->props.remote[slot]->ready)
+            c->props.remote[slot]->type = remote_type;
+        else
+            trace("error: can't change type of connection endpoint.\n");
+        updated++;
+    }
+
+    /* Remote length. */
+    int remote_length = mapper_msg_get_param_if_int(msg, AT_LENGTH);
+    if (remote_length && c->props.remote[slot].length != remote_length) {
+        if (!c->props.remote[slot]->ready)
+            c->props.remote[slot]->length = remote_length;
+        else
+            trace("error: can't change length of connection endpoint.\n");
         updated++;
     }
 
@@ -997,6 +836,14 @@ int mapper_connection_set_from_message(mapper_connection c,
     if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
         && c->props.muted != muting) {
         c->props.muted = muting;
+        updated++;
+    }
+
+    /* Calibrating. */
+    int calibrating;
+    if (!mapper_msg_get_param_if_int(msg, AT_CALIBRATING, &calibrating)
+        && c->props.calibrating != calibrating) {
+        c->props.calibrating = calibrating;
         updated++;
     }
 
@@ -1042,14 +889,6 @@ int mapper_connection_set_from_message(mapper_connection c,
         updated++;
     }
 
-    /* Destination slot */
-    int slot;
-    if (!mapper_msg_get_param_if_int(msg, AT_SLOT, &slot)
-        && c->props.slot != slot) {
-        c->props.slot = slot;
-        updated++;
-    }
-
     /* Scopes */
     lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE);
     int num_scopes = mapper_msg_get_length(msg, AT_SCOPE);
@@ -1067,58 +906,48 @@ int mapper_connection_set_from_message(mapper_connection c,
 
     switch (mode)
     {
-    case -1:
-        /* No mode type specified; if mode not yet set, see if
-         we know the range and choose between linear or direct connection. */
-            if (c->props.mode == MO_UNDEFINED) {
-                /* Try to use linear connection .*/
-                if (mapper_connection_set_mode_linear(c)) {
-                    /* Unsuccessful, default to direct connection. */
-                    mapper_connection_set_mode_direct(c);
-                }
-            }
-        break;
     case MO_RAW:
         mapper_connection_set_mode_raw(c);
-        break;
-    case MO_BYPASS:
-        mapper_connection_set_mode_direct(c);
         break;
     case MO_LINEAR:
         mapper_connection_set_mode_linear(c);
         break;
-    case MO_CALIBRATE:
-        mapper_connection_set_mode_calibrate(c);
-        break;
     case MO_EXPRESSION:
-        {
-            if (!c->props.expression) {
-                if (c->props.local_length == c->props.remote_length)
-                    c->props.expression = strdup("y=x");
-                else {
-                    char expr[256] = "";
-                    if (c->props.local_length > c->props.remote_length) {
-                        // truncate source
-                        if (c->props.remote_length == 1)
-                            snprintf(expr, 256, "y=x[0]");
-                        else
-                            snprintf(expr, 256, "y=x[0:%i]",
-                                     c->props.remote_length-1);
-                    }
-                    else {
-                        // truncate destination
-                        if (c->props.local_length == 1)
-                            snprintf(expr, 256, "y[0]=x");
-                        else
-                            snprintf(expr, 256, "y[0:%i]=x",
-                                     c->props.local_length);
-                    }
-                    c->props.expression = strdup(expr);
-                }
-            }
-            mapper_connection_set_mode_expression(c, c->props.expression);
+    case MO_UNDEFINED: {
+        if (mode == MO_UNDEFINED) {
+            /* No mode type specified; if mode not yet set, see if
+             we know the range and choose between linear or direct connection. */
+            /* Try to use linear connection .*/
+            if (mapper_connection_set_mode_linear(c) == 0)
+                break;
         }
+        if (!c->props.expression) {
+            if (c->props.local_length == c->props.remote_length)
+                c->props.expression = strdup("y=x");
+            else {
+                char expr[256] = "";
+                if (c->props.local_length > c->props.remote_length) {
+                    // truncate source
+                    if (c->props.remote_length == 1)
+                        snprintf(expr, 256, "y=x[0]");
+                    else
+                        snprintf(expr, 256, "y=x[0:%i]",
+                                 c->props.remote_length-1);
+                }
+                else {
+                    // truncate destination
+                    if (c->props.local_length == 1)
+                        snprintf(expr, 256, "y[0]=x");
+                    else
+                        snprintf(expr, 256, "y[0:%i]=x",
+                                 c->props.local_length);
+                }
+                c->props.expression = strdup(expr);
+            }
+        }
+        mapper_connection_set_mode_expression(c, c->props.expression);
         break;
+    }
     default:
         trace("unknown result from mapper_msg_get_mode()\n");
         break;
@@ -1297,4 +1126,23 @@ void mhist_realloc(mapper_signal_history_t *history,
         }
     }
     history->size = history_size;
+}
+
+void mapper_connection_mute_slot(mapper_connection c, int slot_num, int mute)
+{
+    if (c->upstream && slot_num < c->props.num_remote_signals)
+        c->upstream[slot_num].props->cause_update = !mute;
+}
+
+int mapper_connection_get_slot_info(mapper_connection c, int slot_num,
+                                    char *datatype, int *vector_length)
+{
+    // we are interested in the type & length of the remote signal
+    if (!c->upstream || c->props.num_remote_signals <= slot_num)
+        return 1;
+
+    *datatype = c->upstream[slot_num]->props.type;
+    *vector_length = c->upstream[slot_num]->props.length;
+
+    return 0;
 }

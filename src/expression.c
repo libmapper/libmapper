@@ -1425,10 +1425,10 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                                         char output_type,
                                         int input_vector_size,
                                         int output_vector_size,
-                                        mapper_combiner combiner)
+                                        mapper_connection connection)
 {
     if (!str) return 0;
-    if (!combiner && (input_type != 'i' && input_type != 'f' && input_type != 'd'))
+    if (!connection && (input_type != 'i' && input_type != 'f' && input_type != 'd'))
         return 0;
     if (output_type != 'i' && output_type != 'f' && output_type != 'd') return 0;
 
@@ -1487,13 +1487,13 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     constant_output = 0;
                 }
                 else if (tok.var > VAR_X) {
-                    if (!combiner)
-                        {FAIL("Cannot reference multiple inputs without combiner.");}
-                    if (mapper_combiner_get_slot_info(combiner, tok.var-VAR_X-1,
-                                                      &tok.datatype,
-                                                      &tok.vector_length))
+                    if (!connection
+                        || mapper_connection_get_source_info(connection,
+                                                             tok.var-VAR_X-1,
+                                                             &tok.datatype,
+                                                             &tok.vector_length))
                         {FAIL("Input variable reference not found.");}
-                    mapper_combiner_mute_slot(combiner, tok.var-VAR_X-1, muted);
+                    mapper_connection_mute_slot(connection, tok.var-VAR_X-1, muted);
                     tok.vector_length_locked = 1;
                     constant_output = 0;
                 }
@@ -1962,9 +1962,17 @@ mapper_expr mapper_expr_new_from_string(const char *str,
     return expr;
 }
 
-int mapper_expr_input_history_size(mapper_expr expr)
+int mapper_expr_input_history_size(mapper_expr expr, int index)
 {
-    return expr->input_history_size;
+    int i, size = -1, var = index + VAR_X + 1;
+    mapper_token_t *tok = expr->tokens;
+    for (i = 0; i < expr->length; i++) {
+        if (tok[i].toktype == TOK_VAR && tok[i].var == var) {
+            if (tok[i].history_index > size)
+                size = tok[i].history_index;
+        }
+    }
+    return size;
 }
 
 int mapper_expr_output_history_size(mapper_expr expr)
@@ -2013,19 +2021,6 @@ int mapper_expr_num_input_slots(mapper_expr expr)
     return count - VAR_X + 1;
 }
 
-int mapper_expr_combiner_input_history_size(mapper_expr expr, int index)
-{
-    int i, size = -1, var = index + VAR_X + 1;
-    mapper_token_t *tok = expr->tokens;
-    for (i = 0; i < expr->length; i++) {
-        if (tok[i].toktype == TOK_VAR && tok[i].var == var) {
-            if (tok[i].history_index > size)
-                size = tok[i].history_index;
-        }
-    }
-    return size;
-}
-
 #if TRACING
 static void print_stack_vector(mapper_signal_value_t *stack, char type,
                                int vector_length)
@@ -2060,7 +2055,7 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *from,
                          mapper_signal_history_t **expr_vars,
                          mapper_signal_history_t *to,
-                         char *typestring, mapper_combiner combiner,
+                         char *typestring, mapper_connection connection,
                          int instance)
 {
     mapper_signal_value_t stack[expr->length][expr->vector_size];
@@ -2115,8 +2110,10 @@ int mapper_expr_evaluate(mapper_expr expr,
                 ++top;
                 dims[top] = tok->vector_length;
                 mapper_signal_history_t *h;
-                if (tok->var > VAR_X && combiner)
-                    h = &combiner->slots[tok->var-VAR_X-1].connection->history[instance];
+                if (tok->var > VAR_X && connection) {
+                    // TODO: verify that non-instance signal updates are copies to instances
+                    h = &connection->sources[tok->var-VAR_X-1]->history[instance];
+                }
                 else
                     h = from;
                 idx = ((tok->history_index + h->position + h->size) % h->size);

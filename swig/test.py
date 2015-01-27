@@ -10,34 +10,34 @@ def h(sig, id, f, timetag):
 
 def setup(d):
     sig = d.add_input("/freq", 1, 'i', "Hz", None, None, h)
-    print 'inputs',d.num_inputs
-    print 'minimum',sig.minimum
+    print 'inputs', d.num_inputs
+    print 'minimum', sig.minimum
     sig.minimum = 34.0
-    print 'minimum',sig.minimum
+    print 'minimum', sig.minimum
     sig.minimum = 12
-    print 'minimum',sig.minimum
+    print 'minimum', sig.minimum
     sig.minimum = None
-    print 'minimum',sig.minimum
+    print 'minimum', sig.minimum
 
-    print 'port',d.port
-    print 'device name',d.name
-    print 'device port',d.port
-    print 'device ip',d.ip4
-    print 'device interface',d.interface
-    print 'device ordinal',d.ordinal
-    print 'signal name',sig.name
-    print 'signal full name',sig.full_name
+    print 'port', d.port
+    print 'device name', d.name
+    print 'device port', d.port
+    print 'device ip', d.ip4
+    print 'device interface', d.interface
+    print 'device ordinal', d.ordinal
+    print 'signal name', sig.name
+    print 'signal full name', sig.full_name
     while not d.ready():
         d.poll(10)
-    print 'port',d.port
-    print 'device name',d.name
-    print 'device ip',d.ip4
-    print 'device interface',d.interface
-    print 'device ordinal',d.ordinal
-    print 'signal name',sig.name
-    print 'signal full name',sig.full_name
-    print 'signal is_output',sig.is_output
-    print 'signal length',sig.length
+    print 'port', d.port
+    print 'device name', d.name
+    print 'device ip', d.ip4
+    print 'device interface', d.interface
+    print 'device ordinal', d.ordinal
+    print 'signal name', sig.name
+    print 'signal full name', sig.full_name
+    print 'signal is_output', sig.is_output
+    print 'signal length', sig.length
     print 'signal type', sig.type
     print 'signal is_output', sig.is_output
     print 'signal unit', sig.unit
@@ -58,7 +58,7 @@ dev = mapper.device("test")
 setup(dev)
 
 def db_cb(rectype, record, action):
-    print rectype,["MODIFY","NEW","REMOVE"][action],'callback -'
+    print rectype,["MODIFY", "NEW", "REMOVE"][action],'callback -'
     print '  record:',record
 
 mon = mapper.monitor(autosubscribe_flags=mapper.SUB_DEVICE)
@@ -108,14 +108,14 @@ for i in [('devices', mon.db.devices),
 
 print 'devices matching "send":'
 for i in mon.db.devices('send'):
-    print i
+    print "  ", i
 print 'outputs for device "/test.1" matching "3":'
 for i in mon.db.match_outputs('/test.1', '3'):
-    print i
+    print "  ", i
 print 'links for device "/test.1":'
-for i in mon.db.links_by_src('/test.1'):
-    print i
+for i in mon.db.links('/test.1'):
+    print "  ", i
 print 'link for /test.1, /test.1:'
-print mon.db.link("/test.1", "/test.1")
+print "  ", mon.db.link("/test.1", "/test.1")
 print 'not found link:'
-print mon.db.link("/foo", "/bar")
+print "  ", mon.db.link("/foo", "/bar")

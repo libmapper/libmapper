@@ -34,7 +34,6 @@ typedef struct _mapper_db_device {
     int port;                   //!< Device network port.
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
-    int num_links;              //!< Number of associated links.
     int num_connections_in;     //!< Number of associated incoming connections.
     int num_connections_out;    //!< Number of associated outgoing connections.
     int version;                //!< Reported device state version.
@@ -109,16 +108,14 @@ typedef enum _mapper_boundary_action {
     N_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
-/*! Describes the connection and combiner modes.
+/*! Describes the connection modes.
  *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_NONE,         //!< No mode
     MO_RAW,          //!< No type coercion
-    MO_BYPASS,       //!< Direct throughput with automatic type coercion
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
-    MO_CALIBRATE,    //!< Calibrate to source signal
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
@@ -136,91 +133,6 @@ typedef struct _mapper_connection_scope {
     uint32_t *hashes;                   //!< Array of connection scope hashes.
     char **names;                       //!< Array of connection scope names.
 } mapper_connection_scope_t, *mapper_connection_scope;
-
-/*! A record that describes the properties of a connection mapping.
- *  @ingroup connectiondb */
-typedef struct _mapper_db_connection {
-    int id;                         //!< Connection index
-
-    int num_sources;
-    char **src_names;               //!< Source signal names (OSC path).
-    char *dest_name;                //!< Destination signal name (OSC path).
-    int slot;                       //!< Destination signal slot.
-
-    char src_type;                  //!< Source signal type.
-    char dest_type;                 //!< Destination signal type.
-
-    int src_length;                 //!< Source signal length.
-    int dest_length;                //!< Destination signal length.
-
-    mapper_boundary_action bound_max; /*!< Operation for exceeded
-                                       *   upper boundary. */
-    mapper_boundary_action bound_min; /*!< Operation for exceeded
-                                       *   lower boundary. */
-
-    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
-
-    void *src_min;                  //!< Array of source minima.
-    void *src_max;                  //!< Array of source maxima.
-    void *dest_min;                 //!< Array of destination minima.
-    void *dest_max;                 //!< Array of destination maxima.
-
-    char *expression;
-
-    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
-                                     *   expression connection */
-    int muted;                      /*!< 1 to mute mapping connection, 0
-                                     *   to unmute */
-
-    struct _mapper_connection_scope scope;
-
-    /*! Extra properties associated with this connection. */
-    struct _mapper_string_table *extra;
-} mapper_db_connection_t, *mapper_db_connection;
-
-/*! A record that describes the properties of a connection mapping. */
-typedef struct _mapper_connection_props {
-    char *local_name;               //!< Local signal name (OSC path).
-    char *remote_name;              //!< Remote signal name (OSC path).
-    char *query_name;
-    int slot;                       //!< Remote signal slot.
-
-    char local_type;                //!< Local signal type.
-    int local_length;               //!< Local signal length.
-    char remote_type;               //!< Remote signal type.
-    int remote_length;              //!< Remote signal length.
-
-    mapper_boundary_action bound_max; /*!< Operation for exceeded
-                                       *   upper boundary. */
-    mapper_boundary_action bound_min; /*!< Operation for exceeded
-                                       *   lower boundary. */
-
-    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
-
-    void *local_min;                //!< Array of local minima.
-    void *local_max;                //!< Array of local maxima.
-    void *remote_min;               //!< Array of remote minima.
-    void *remote_max;               //!< Array of remote maxima.
-
-    char *expression;               //!< Expression string
-
-    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
-                                     *   expression connection */
-    int muted;                      /*!< 1 to mute mapping connection, 0
-                                     *   to unmute */
-    int direction;                  //!< DI_INCOMING or DI_OUTGOING
-
-    struct _mapper_connection_scope scope;
-
-    /*! Extra properties associated with this connection. */
-    struct _mapper_string_table *extra;
-} mapper_connection_props_t, *mapper_connection_props;
-
-typedef struct _mapper_db_combiner {
-    int num_slots;                  //!< Number of incoming slots.
-    mapper_mode_type mode;          //!< Expression only for now.
-    char *expression;               //!< Expression string.
-} mapper_db_combiner_t, *mapper_db_combiner;
 
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */
@@ -268,32 +180,51 @@ typedef struct _mapper_db_signal
     void *user_data;
 } mapper_db_signal_t, *mapper_db_signal;
 
-/*! A record that describes the properties of a link between devices.
- *  @ingroup linkdb */
-typedef struct _mapper_db_link {
-    char *name1;                        //!< Name of 1st device (OSC path).
-    uint32_t name1_hash;                //!< CRC-32 hash of 1st device name.
-    char *name2;                        //!< Name or 2nd device (OSC path).
-    uint32_t name2_hash;                //!< CRC-32 hash of 2nd device name.
-    char *host1;                        //!< IP Address of the 1st device.
-    int port1;                          //!< Network port of 1st device.
-    char *host2;                        //!< IP Address of the 2nd device.
-    int port2;                          //!< Network port of 2nd device.
+typedef struct _mapper_db_connection_slot_props {
+    mapper_db_signal signal;
+    char *name;
+    char *signal_name;              //!< offset into name property.
+    char type;
+    int length;
+    float rate;
+    int slot;                       //!< Destination signal slot.
+    void *minimum;                  //!< Array of minima.
+    void *maximum;                  //!< Array of maxima.
+    int cause_update;
+    int num_instances;
+    int free_vars;
+} mapper_db_connection_slot_props_t, *mapper_db_connection_slot_props;
 
-    /*! Extra properties associated with this link. */
+/*! A record that describes the properties of a connection mapping.
+ *  @ingroup connectiondb */
+typedef struct _mapper_db_connection {
+    int id;                         //!< Connection index
+    int num_instances;
+    int num_sources;
+    mapper_db_connection_slot_props *sources;
+    mapper_db_connection_slot_props dest;
+
+    mapper_boundary_action bound_max; /*!< Operation for exceeded
+                                       *   upper boundary. */
+    mapper_boundary_action bound_min; /*!< Operation for exceeded
+                                       *   lower boundary. */
+
+    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
+
+    char *expression;
+
+    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
+                                     *   expression connection */
+    int muted;                      /*!< 1 to mute mapping connection, 0
+                                     *   to unmute */
+
+    int direction;                  //!< DI_INCOMING or DI_OUTGOING
+
+    struct _mapper_connection_scope scope;
+
+    /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
-} mapper_db_link_t, *mapper_db_link;
-
-/*! A record that describes the properties of a link from the device. */
-typedef struct _mapper_link_props {
-    char *remote_name;                  //!< Remote device name (OSC path).
-    uint32_t remote_name_hash;          //!< CRC-32 hash of remote device name.
-    char *remote_host;                  //!< IP Address of the destination device.
-    int remote_port;                    //!< Network port of remote device.
-
-    /*! Extra properties associated with this link. */
-    struct _mapper_string_table *extra;
-} mapper_link_props_t, *mapper_link_props;
+} mapper_db_connection_t, *mapper_db_connection;
 
 typedef struct _mapper_db_batch_request
 {

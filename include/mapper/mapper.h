@@ -33,8 +33,7 @@ typedef mapper_db_signal mapper_signal_props;
        floating-point type.  A mapper_signal is created by adding an
        input or output to a device.  It can optionally be provided
        with some metadata such as a signal's range, unit, or other
-       properties.  Signals can be mapped between linked devices
-       anywhere on the network by creating connections through a
+       properties.  Signals can be mapped by creating connections through a
        GUI. */
 
 struct _mapper_signal;
@@ -345,12 +344,11 @@ void msig_remove_property(mapper_signal sig, const char *property);
 
 /*! @defgroup devices Devices
 
-    @{ A device is an entity on the network which has input and/or
-       output signals.  The mapper_device is the primary interface
-       through which a program uses libmapper.  A device must have a
-       name, to which a unique ordinal is subsequently appended.  It
-       can also be given other user-specified metadata.  Devices must
-       be linked before their signals can be connected, which is
+    @{ A device is an entity on the network which has input and/or output
+       signals.  The mapper_device is the primary interface through which a
+       program uses libmapper.  A device must have a name, to which a unique
+       ordinal is subsequently appended.  It can also be given other
+       user-specified metadata.  Devices signals can be connected, which is
        accomplished by requests from an external GUI. */
 
 /*! Allocate and initialize a mapper device.
@@ -416,9 +414,6 @@ int mdev_num_inputs(mapper_device dev);
 
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
-
-//! Return the number of links to other devices.
-int mdev_num_links(mapper_device dev);
 
 //! Return the number of incoming connections.
 int mdev_num_connections_in(mapper_device dev);
@@ -617,59 +612,30 @@ lo_server mdev_get_lo_server(mapper_device md);
 /*! Get the device's synchronization clock offset. */
 double mdev_get_clock_offset(mapper_device md);
 
-/*! The set of possible actions on a local device link or
- *  connection. */
+/*! The set of possible actions on a local device connection. */
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
     MDEV_LOCAL_MODIFIED,
     MDEV_LOCAL_DESTROYED,
 } mapper_device_local_action_t;
 
-/*! Function to call when a local device link is established or
- *  destroyed. */
-typedef void mapper_device_link_handler(mapper_device dev,
-                                        mapper_link_props link,
-                                        mapper_device_local_action_t action,
-                                        void *user);
-
 /*! Function to call when a local device connection is established or
  *  destroyed. */
 typedef void mapper_device_connection_handler(mapper_device dev,
-                                              mapper_link_props link,
                                               mapper_signal sig,
-                                              mapper_connection_props connection,
+                                              mapper_db_connection connection,
                                               mapper_device_local_action_t action,
                                               void *user);
 
-/*! Set a function to be called when a local device link is
- *  established or destroyed, indicated by the action parameter to the
- *  provided function. */
-void mdev_set_link_callback(mapper_device dev,
-                            mapper_device_link_handler *h, void *user);
-
 /*! Set a function to be called when a local device connection is
  *  established or destroyed, indicated by the action parameter to the
- *  provided function. Important: if a link is destroyed, this
- *  function will not be called for all connections in the link. */
+ *  provided function. */
 void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user);
 
-/*! Look up a link property by name.
- *  \param link     The link to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_link_property_lookup(mapper_link_props link, const char *property,
-                                char *type, const void **value, int *length);
-
 /*! Look up a connection property by name.
- *  \param connection   The link to look at.
+ *  \param connection   The connection to look at.
  *  \param property     The name of the property to retrive.
  *  \param type         A pointer to a location to receive the type of the
  *                      property value. (Required.)
@@ -678,7 +644,7 @@ int mapper_link_property_lookup(mapper_link_props link, const char *property,
  *  \param length       A pointer to a location to receive the vector length of
  *                      the property value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
-int mapper_connection_property_lookup(mapper_connection_props connection,
+int mapper_connection_property_lookup(mapper_db_connection connection,
                                       const char *property, char *type,
                                       const void **value, int *length);
 
@@ -1201,114 +1167,6 @@ int mapper_db_connection_property_lookup(mapper_db_connection con,
                                          const char *property, char *type,
                                          const void **value, int *length);
 
-/* @} */
-
-/***** Links *****/
-
-/*! @defgroup linkdb Links database
-
-    @{ A monitor may query information about links betweend devices on
-       the network through this interface. */
-
-/*! A callback function prototype for when a link record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_link_callback().
- *  \param record  Pointer to the link record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_link_handler(mapper_db_link record,
-                                    mapper_db_action_t action,
-                                    void *user);
-
-/*! Register a callback for when a link record is added or updated
- *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
-void mapper_db_add_link_callback(mapper_db db,
-                                 mapper_db_link_handler *h,
-                                 void *user);
-
-/*! Remove a link record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
-void mapper_db_remove_link_callback(mapper_db db,
-                                    mapper_db_link_handler *h,
-                                    void *user);
-
-/*! Return the whole list of links.
- *  \param db The database to query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_all_links(mapper_db db);
-
-/*! Return the list of links that touch the given device name.
- *  \param db       The database to query.
- *  \param dev_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_links_by_device_name(
-    mapper_db db, const char *dev_name);
-
-/*! Return the link structure associated with the exact devices specified.
- *  \param db               The database to query.
- *  \param src_device_name  Name of the source device to find.
- *  \param dest_device_name Name of the destination device to find.
- *  \return A structure containing information on the link, or 0 if
- *          not found. */
-mapper_db_link mapper_db_get_link_by_device_names(mapper_db db,
-    const char *src_device_name, const char *dest_device_name);
-
-/*! Given a link record double-pointer returned from a previous
- *  mapper_db_get_links*() call, get the next item in the list.
- *  \param s The previous link record double-pointer.
- *  \return A double-pointer to the next link record in the list, or
- *          zero if no more links. */
-mapper_db_link_t **mapper_db_link_next(mapper_db_link_t **s);
-
-/*! Given a link record double-pointer returned from a previous
- *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous link record double-pointer. */
-void mapper_db_link_done(mapper_db_link_t **s);
-
-/*! Look up a link property by index. To iterate all properties,
- *  call this function from index=0, increasing until it returns zero.
- *  \param link     The link to look at.
- *  \param index    Numerical index of a link property.
- *  \param property Address of a string pointer to receive the name of
- *                  indexed property.  May be zero.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
-                                  const char **property, char *type,
-                                  const void **value, int *length);
-
-/*! Look up a link property by name.
- *  \param link     The link to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_link_property_lookup(mapper_db_link link,
-                                   const char *property, char *type,
-                                   const void **value, int *length);
-
-/* @} */
-
 /***** Monitors *****/
 
 /*! @defgroup monitor Monitors
@@ -1316,8 +1174,8 @@ int mapper_db_link_property_lookup(mapper_db_link link,
     @{ Monitors are the primary interface through which a program may
        observe the network and store information about devices and
        signals that are present.  Each monitor has a database of
-       devices, signals, connections, and links, which can be queried.
-       A monitor can also make link and connection requests.  In
+       devices, signals, and connections, which can be queried.
+       A monitor can also make connection requests.  In
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
@@ -1328,7 +1186,7 @@ int mapper_db_link_property_lookup(mapper_db_link link,
 #define SUB_DEVICE_INPUTS           0x03
 #define SUB_DEVICE_OUTPUTS          0x05
 #define SUB_DEVICE_SIGNALS          0x07 // SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
-#define SUB_DEVICE_LINKS            0x09
+//#define SUB_DEVICE_LINKS            0x09
 #define SUB_DEVICE_CONNECTIONS_IN   0x21
 #define SUB_DEVICE_CONNECTIONS_OUT  0x41
 #define SUB_DEVICE_CONNECTIONS      0x61 // SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
@@ -1338,7 +1196,7 @@ int mapper_db_link_property_lookup(mapper_db_link link,
  *  \param admin               A previously allocated admin to use.  If 0, an
  *                             admin will be allocated for use with this monitor.
  *  \param autosubscribe_flags Sets whether the monitor should automatically
- *                             subscribe to information about signals, links,
+ *                             subscribe to information about signals
  *                             and connections when it encounters a
  *                             previously-unseen device.
  *  \return The new monitor. */
@@ -1386,8 +1244,7 @@ void mmon_request_devices(mapper_monitor mon);
  *  \param subscribe_flags Bitflags setting the type of information of interest.
  *                         Can be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
  *                         SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS,
- *                         SUB_DEVICE_LINKS_IN, SUB_DEVICE_LINKS_OUT,
- *                         SUB_DEVICE_LINKS, SUB_DEVICE_CONNECTIONS_IN,
+ *                         SUB_DEVICE_CONNECTIONS_IN,
  *                         SUB_DEVICE_CONNECTIONS_OUT, SUB_DEVICE_CONNECTIONS,
  *                         or simply SUB_DEVICE_ALL for all information.
  *  \param timeout         The length in seconds for this subscription. If set
@@ -1403,62 +1260,9 @@ void mmon_subscribe(mapper_monitor mon, const char *device_name,
 void mmon_unsubscribe(mapper_monitor mon, const char *device_name);
 
 /*! Sets whether the monitor should automatically subscribe to
- *  information on signals, links, and connections when it encounters
+ *  information on signals and connections when it encounters
  *  a previously-unseen device.*/
 void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
-
-/*! Interface to add a link between two devices.
- *  \param mon            The monitor to use for sending the message.
- *  \param source         Source device data structure.
- *  \param dest           Destination device data structure.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this link.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_link_t should be
- *                        applied to the new link. See the flags
- *                        prefixed by LINK_ in mapper_db.h. */
-void mmon_link_devices_by_db_record(mapper_monitor mon,
-                                    mapper_db_device_t *source,
-                                    mapper_db_device_t *dest,
-                                    mapper_db_link_t *properties,
-                                    unsigned int property_flags);
-
-/*! Interface to add a link between two devices.
- *  \param mon            The monitor to use for sending the message.
- *  \param source         Source device name.
- *  \param dest           Destination device name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this link.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_link_t should be
- *                        applied to the new link. See the flags
- *                        prefixed by LINK_ in mapper_db.h. */
-void mmon_link_devices_by_name(mapper_monitor mon,
-                               const char *source,
-                               const char *dest,
-                               mapper_db_link_t *properties,
-                               unsigned int property_flags);
-
-/*! Interface to remove a link between two devices.
- *  \param mon           The monitor to use for sending the message.
- *  \param source        Source device data structure.
- *  \param dest          Destination device data structure. */
-void mmon_unlink_devices_by_db_record(mapper_monitor mon,
-                                      mapper_db_device_t *source,
-                                      mapper_db_device_t *dest);
-
-/*! Interface to remove a link between two devices.
- *  \param mon           The monitor to use for sending the message.
- *  \param source        Source device name.
- *  \param dest          Destination device name. */
-void mmon_unlink_devices_by_name(mapper_monitor mon,
-                                 const char *source,
-                                 const char *dest);
-
-/*! Interface to remove a link between two devices.
- *  \param mon           The monitor to use for sending the message.
- *  \param link          Link data structure. */
-void mmon_remove_link(mapper_monitor mon, mapper_db_link_t *link);
 
 /*! Interface to add a connection between two signals.
  *  \param mon            The monitor to use for sending the message.

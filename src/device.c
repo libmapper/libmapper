@@ -18,6 +18,8 @@
 #include <pthread.h>
 #endif
 
+extern const char* admin_msg_strings[N_ADM_STRINGS];
+
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -148,11 +150,6 @@ void mdev_free(mapper_device md)
         while (md->router->signals) {
             mapper_router_signal rs = md->router->signals;
             md->router->signals = md->router->signals->next;
-            if (rs->combiner) {
-                if (rs->combiner->props.expression)
-                    free(rs->combiner->props.expression);
-                free(rs->combiner);
-            }
             free(rs);
         }
         free(md->router);
@@ -258,9 +255,9 @@ static int handler_signal(const char *path, const char *types,
     int i = 0, j, k, count = 1, nulls = 0;
     int index = 0, is_instance_update = 0, origin, public_id;
     mapper_id_map map;
-    mapper_combiner cb;
-    mapper_combiner_slot s = 0;
     int slot = -1;
+    mapper_connection c;
+    mapper_connection_history s;
 
     if (!sig || !sig->handler || !(md = sig->device)) {
         trace("error, cannot retrieve user_data\n");
@@ -311,18 +308,12 @@ static int handler_signal(const char *path, const char *types,
 
     if (slot >= 0) {
         // check if we have a combiner for this signal
-        cb = mapper_router_find_combiner(md->router, sig);
-        if (cb) {
-            s = mapper_combiner_get_slot(cb, slot);
-            if (s && s->connection) {
-                count = check_types(types, value_len,
-                                    s->connection->props.remote_type,
-                                    s->connection->props.remote_length);
-            }
-            else {
-                count = check_types(types, value_len, sig->props.type, sig->props.length);
-                s = 0;
-            }
+        // retrieve connection associated with this slot
+        c = mapper_router_find_connection_by_slot(md->router, sig, &slot);
+        if (c) {
+            count = check_types(types, value_len, c->props.sources[slot]->type,
+                                c->props.sources[slot]->length);
+            s = c->sources[slot];
         }
     }
     else {
@@ -387,12 +378,12 @@ static int handler_signal(const char *path, const char *types,
     map = sig->id_maps[index].map;
 
     // TODO: alter timetags for multicount updates with missing handler calls?
-    if (!s) {
+    if (!c) {
         si->timetag.sec = tt.sec;
         si->timetag.frac = tt.frac;
     }
 
-    int size = (s ? mapper_type_size(s->connection->props.remote_type)
+    int size = (s ? mapper_type_size(c->props.sources[slot]->type)
                 : mapper_type_size(sig->props.type));
     void *out_buffer = count == 1 ? 0 : alloca(count * sig->props.length * size);
     int vals, out_count = 0;
@@ -403,18 +394,18 @@ static int handler_signal(const char *path, const char *types,
         // check if each update will result in a handler call
         // all nulls -> release instance, sig has no value, break "count"
         vals = 0;
-        if (s) {
-            mapper_connection c = s->connection;
-            for (j = 0; j < c->props.remote_length; j++) {
+        if (c) {
+            for (j = 0; j < c->props.sources[slot]->length; j++) {
                 if (types[k] == 'N')
                     continue;
-                memcpy(c->history[index].value + j * size, argv[k], size);
-                memcpy(c->history[index].timetag + j * sizeof(mapper_timetag_t),
+                memcpy(s->history[index].value + j * size, argv[k], size);
+                memcpy(s->history[index].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (s->cause_update && (vals = mapper_combiner_perform(cb, index))) {
+            if (c->props.sources[slot]->cause_update
+                && (vals = mapper_connection_combine(c, index))) {
                 memcpy(si->value,
-                       msig_history_value_pointer(c->parent->history[index]),
+                       msig_history_value_pointer(c->result.history[index]),
                        mapper_type_size(sig->props.type) * sig->props.length);
             }
         }
@@ -453,8 +444,8 @@ static int handler_signal(const char *path, const char *types,
             }
         }
 
-        if (s) {
-            if (s->cause_update) {
+        if (c) {
+            if (c->props.sources[i]->cause_update) {
                 if (count > 1) {
                     memcpy(out_buffer + out_count * sig->props.length * size,
                            si->value, size);
@@ -729,10 +720,29 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     md->n_output_callbacks --;
 }
 
+static void send_disconnect(mapper_admin admin, mapper_connection c)
+{
+    int i;
+    if (!c->remote_dest)
+        return;
+
+    mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
+
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    for (i = 0; i < c->props.num_sources; i++)
+        lo_message_add_string(m, c->props.sources[i]->name);
+    lo_message_add_string(m, "->");
+    lo_message_add_string(m, c->props.dest->name);
+    lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
+    mapper_admin_send_bundle(admin);
+}
+
 void mdev_remove_input(mapper_device md, mapper_signal sig)
 {
     int i, n;
-    char str1[1024], str2[1024];
     for (i=0; i<md->props.num_inputs; i++) {
         if (md->inputs[i] == sig)
             break;
@@ -746,28 +756,18 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 
     lo_server_del_method(md->server, sig->props.name, NULL);
 
-    snprintf(str1, 1024, "%s/get", sig->props.name);
-    lo_server_del_method(md->server, str1, NULL);
+    char str[1024];
+    snprintf(str, 1024, "%s/get", sig->props.name);
+    lo_server_del_method(md->server, str, NULL);
 
-    msig_full_name(sig, str1, 1024);
     mapper_router_signal rs = md->router->signals;
     while (rs) {
         if (rs->signal == sig) {
             // need to disconnect
             mapper_connection c = rs->connections;
             while (c) {
-                mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
-                if (!c->link->self_link) {
-                    snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
-                             c->props.remote_name);
-                    if (c->props.direction == DI_OUTGOING)
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
-                                                    0, "ss", str1, str2);
-                    else
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT,
-                                                    0, "ss", str2, str1);
-                }
                 mapper_connection temp = c->next;
+                send_disconnect(md->admin, c);
                 mapper_router_remove_connection(md->router, c);
                 c = temp;
             }
@@ -790,7 +790,6 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 void mdev_remove_output(mapper_device md, mapper_signal sig)
 {
     int i, n;
-    char str1[1024], str2[1024];
     for (i=0; i<md->props.num_outputs; i++) {
         if (md->outputs[i] == sig)
             break;
@@ -802,33 +801,23 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         md->outputs[n] = md->outputs[n+1];
     }
     if (sig->handler) {
-        snprintf(str1, 1024, "%s/got", sig->props.name);
-        lo_server_del_method(md->server, str1, NULL);
+        char str[1024];
+        snprintf(str, 1024, "%s/got", sig->props.name);
+        lo_server_del_method(md->server, str, NULL);
     }
     if (sig->instance_event_handler &&
         (sig->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
         lo_server_del_method(md->server, sig->props.name, "iiF");
     }
 
-    msig_full_name(sig, str1, 1024);
     mapper_router_signal rs = md->router->signals;
     while (rs) {
         if (rs->signal == sig) {
             // need to disconnect
             mapper_connection c = rs->connections;
             while (c) {
-                if (!c->link->self_link) {
-                    mapper_admin_set_bundle_dest_mesh(md->admin, c->link->admin_addr);
-                    snprintf(str2, 1024, "%s%s", c->link->props.remote_name,
-                             c->props.remote_name);
-                    if (c->props.direction == DI_OUTGOING)
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                    "ss", str1, str2);
-                    else
-                        mapper_admin_bundle_message(md->admin, ADM_DISCONNECT, 0,
-                                                    "ss", str2, str1);
-                }
                 mapper_connection temp = c->next;
+                send_disconnect(md->admin, c);
                 mapper_router_remove_connection(md->router, c);
                 c = temp;
             }
@@ -856,11 +845,6 @@ int mdev_num_inputs(mapper_device md)
 int mdev_num_outputs(mapper_device md)
 {
     return md->props.num_outputs;
-}
-
-int mdev_num_links(mapper_device md)
-{
-    return md->props.num_links;
 }
 
 int mdev_num_connections_in(mapper_device md)
@@ -1310,13 +1294,6 @@ lo_server mdev_get_lo_server(mapper_device md)
 void mdev_now(mapper_device dev, mapper_timetag_t *timetag)
 {
     mapper_clock_now(&dev->admin->clock, timetag);
-}
-
-void mdev_set_link_callback(mapper_device dev,
-                            mapper_device_link_handler *h, void *user)
-{
-    dev->link_cb = h;
-    dev->link_cb_userdata = user;
 }
 
 void mdev_set_connection_callback(mapper_device dev,
