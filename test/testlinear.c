@@ -104,24 +104,18 @@ int setup_connection()
 
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mmon_link_devices_by_name(mon, mdev_name(source),
-                              mdev_name(destination), 0, 0);
-
-    // Wait until link has been established
-    while (!done && !source->router->links) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-    }
-
     mapper_db_connection_t props;
-    props.src_min = &src_min;
-    props.src_max = &src_max;
-    props.dest_min = &dest_min;
-    props.dest_max = &dest_max;
-    props.src_length = 1;
-    props.dest_length = 1;
-    props.src_type = 'f';
-    props.dest_type = 'f';
+    mapper_db_connection_slot_t src_slot;
+    props.num_sources = 1;
+    props.sources = &src_slot;
+    src_slot.minimum = &src_min;
+    src_slot.maximum = &src_max;
+    src_slot.length = 1;
+    src_slot.type = 'f';
+    props.destination.minimum = &dest_min;
+    props.destination.maximum = &dest_max;
+    props.destination.length = 1;
+    props.destination.type = 'f';
     props.mode = MO_LINEAR;
 
     mapper_db_signal src = &sendsig->props;

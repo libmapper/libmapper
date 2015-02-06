@@ -73,9 +73,8 @@ typedef enum {
     ADM_DEVICE,
     ADM_DISCONNECT,
     ADM_DISCONNECTED,
-    ADM_LINK,
     ADM_LINK_TO,
-    ADM_LINK_PING,
+    ADM_PING,
     ADM_LOGOUT,
     ADM_NAME_PROBE,
     ADM_NAME_REG,
@@ -84,7 +83,6 @@ typedef enum {
     ADM_SUBSCRIBE,
     ADM_UNSUBSCRIBE,
     ADM_SYNC,
-    ADM_UNLINK,
     ADM_WHO,
     N_ADM_STRINGS
 } admin_msg_t;
@@ -227,11 +225,25 @@ typedef struct _mapper_link {
     struct _mapper_link *next;          //!< Next link in the list.
 } *mapper_link;
 
-typedef struct _mapper_connection_history {
+#define MAPPER_TYPE_KNOWN      0x01
+#define MAPPER_LENGTH_KNOWN    0x02
+#define MAPPER_LINK_KNOWN      0x04
+#define MAPPER_SLOT_KNOWN      0x07
+#define MAPPER_READY           0x17
+#define MAPPER_ACTIVE          0x27
+
+typedef struct _mapper_connection_slot {
+    // each slot can point to local signal or a connection_slot structure
+    struct _mapper_router_signal *local;
+    mapper_link link;
+
     mapper_signal_history_t *history;   /*!< Array of value histories
                                          *   for each signal instance. */
     int history_size;                   //!< History size.
-} mapper_connection_history_t, *mapper_connection_history;
+    int status;
+    int calibrating;
+    int cause_update;
+} mapper_connection_slot_t, *mapper_connection_slot;
 
 /*! The router_connection structure is a linked list of connections for a
  *  given signal.  Each signal can be associated with multiple inputs or
@@ -239,31 +251,48 @@ typedef struct _mapper_connection_history {
  *  performing mapping, the connection properties are publically
  *  defined in mapper_db.h. */
 typedef struct _mapper_connection {
-    mapper_db_connection_t props;           //!< Properties
+    // TODO: combine id with slot_start
+    struct _mapper_router *router;
+    int is_admin;
+    mapper_db_connection_t props;
 
-    mapper_connection_history *sources;
+    int num_sources;
+    mapper_connection_slot sources;
+    mapper_connection_slot_t destination;
 
-    struct _mapper_router_signal **local_src;
-    struct _mapper_router_signal *local_dest;
-    mapper_link remote_dest;
+    int slot_start;
 
-    int new;                                //!< 1 if hasn't been announced locally
-    int calibrating;                        /*!< 1 if the source range is
-                                             *   currently being calibrated,
-                                             *   0 otherwise. */
+    // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
     mapper_signal_history_t **expr_vars;    //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
+    int num_var_instances;
 
-    int ready;                              /*!< 1 if all incoming connections
-                                             *   slots known, 0 otherwise. */
+    int status;                      /*!< 0, MAPPER_READY or MAPPER_ACTIVE. */
 
-    struct _mapper_connection_history result;
+    mapper_boundary_action bound_max; /*!< Operation for exceeded
+                                       *   upper boundary. */
+    mapper_boundary_action bound_min; /*!< Operation for exceeded
+                                       *   lower boundary. */
+
+    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
+
+    char *expression;
+
+    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
+                                     *   expression connection */
+    int muted;                      /*!< 1 to mute mapping connection, 0
+                                     *   to unmute */
+
+    struct _mapper_connection_scope scope;
+    
+    /*! Extra properties associated with this connection. */
+    struct _mapper_string_table *extra;
     
     struct _mapper_connection *complement;  /*!< Pointer to complement in case
                                              *   of self-connection. */
     struct _mapper_connection *next;        //!< Next connection in the list.
-} *mapper_connection;
+} mapper_connection_t, *mapper_connection;
 
 /*! The link_signal is a linked list containing a signal and a
  *  list of connections.  TODO: This should be replaced with a more
@@ -275,10 +304,13 @@ typedef struct _mapper_router_signal {
 //    int max_output_size;                    /*!< Maximum output vector size in
 //                                             *   child connections. */
 
-    struct _mapper_connection_history value;
+    mapper_signal_history_t *history;   /*!< Array of value histories
+                                         *   for each signal instance. */
+    int history_size;                   //!< History size.
 
     mapper_connection connections;          /*!< The first connection for
                                              *   this signal. */
+    int slot_start;
     struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */
 } *mapper_router_signal;
@@ -329,8 +361,7 @@ typedef struct _fptr_list {
 
 typedef struct _mapper_db {
     mapper_db_device     registered_devices;     //<! List of devices.
-    mapper_db_signal     registered_inputs;      //<! List of inputs.
-    mapper_db_signal     registered_outputs;     //<! List of outputs.
+    mapper_db_signal     registered_signals;     //<! List of signals.
     mapper_db_connection registered_connections; //<! List of connections.
     fptr_list   device_callbacks;     //<! List of device record callbacks.
     fptr_list   signal_callbacks;     //<! List of signal record callbacks.

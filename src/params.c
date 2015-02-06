@@ -393,7 +393,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_CONNECTIONS_IN:
         case AT_NUM_CONNECTIONS_OUT:
         case AT_NUM_INPUTS:
-        case AT_NUM_LINKS:
         case AT_NUM_OUTPUTS:
         case AT_NUM_SLOTS:
         case AT_PORT:
@@ -450,31 +449,42 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            mapper_msg_add_typed_value(m, con->src_type, con->src_length,
-                                       con->src_min);
+            mapper_msg_add_typed_value(m, con->sources[0].type,
+                                       con->sources[0].length,
+                                       con->sources[0].minimum);
             break;
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            mapper_msg_add_typed_value(m, con->src_type, con->src_length,
-                                       con->src_max);
+            mapper_msg_add_typed_value(m, con->sources[0].type,
+                                       con->sources[0].length,
+                                       con->sources[0].maximum);
             break;
         case AT_DEST_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
-            mapper_msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                       con->dest_min);
+            mapper_msg_add_typed_value(m, con->destination.type,
+                                       con->destination.length,
+                                       con->destination.minimum);
             break;
         case AT_DEST_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
-            mapper_msg_add_typed_value(m, con->dest_type, con->dest_length,
-                                       con->dest_max);
+            mapper_msg_add_typed_value(m, con->destination.type,
+                                       con->destination.length,
+                                       con->destination.maximum);
             break;
         case AT_MUTE:
             i = va_arg(aq, int);
             lo_message_add_int32(m, i!=0);
             break;
         case AT_DIRECTION:
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
+            sig = va_arg(aq, mapper_signal);
+            if (sig->props.is_output) {
+                if (sig->handler)
+                    lo_message_add_string(m, "both");
+                else
+                    lo_message_add_string(m, "output");
+            }
+            else
+                lo_message_add_string(m, "input");
             break;
         case AT_INSTANCES:
             sig = va_arg(aq, mapper_signal);
@@ -585,17 +595,10 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_link_prepare_osc_message(lo_message m, mapper_link l, int swap)
-{
-    // TODO: include ports?
-    mapper_msg_add_value_table(m, l->props.extra);
-}
-
 void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
 {
     int i;
-    mapper_connection_props props = &c->props;
-    int out = props->direction == DI_OUTGOING;
+    mapper_db_connection props = &c->props;
 
     if (props->mode) {
         lo_message_add_string(m, prop_msg_strings[AT_MODE]);
@@ -606,28 +609,32 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
         lo_message_add_string(m, props->expression);
     }
 
-    if (props->local_min) {
-        lo_message_add_string(m, prop_msg_strings[out ? AT_SRC_MIN : AT_DEST_MIN]);
-        mapper_msg_add_typed_value(m, props->local_type, props->local_length,
-                                   props->local_min);
+    if (props->sources[0].minimum) {
+        lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
+        mapper_msg_add_typed_value(m, props->sources[0].type,
+                                   props->sources[0].length,
+                                   props->sources[0].minimum);
     }
 
-    if (props->local_max) {
-        lo_message_add_string(m, prop_msg_strings[out ? AT_SRC_MAX : AT_DEST_MAX]);
-        mapper_msg_add_typed_value(m, props->local_type, props->local_length,
-                                   props->local_max);
+    if (props->sources[0].maximum) {
+        lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
+        mapper_msg_add_typed_value(m, props->sources[0].type,
+                                   props->sources[0].length,
+                                   props->sources[0].maximum);
     }
 
-    if (props->remote_min) {
-        lo_message_add_string(m, prop_msg_strings[out ? AT_DEST_MIN : AT_SRC_MIN]);
-        mapper_msg_add_typed_value(m, props->remote_type, props->remote_length,
-                                   props->remote_min);
+    if (props->destination.minimum) {
+        lo_message_add_string(m, prop_msg_strings[AT_DEST_MIN]);
+        mapper_msg_add_typed_value(m, props->destination.type,
+                                   props->destination.length,
+                                   props->destination.minimum);
     }
 
-    if (props->remote_max) {
-        lo_message_add_string(m, prop_msg_strings[out ? AT_DEST_MAX : AT_SRC_MAX]);
-        mapper_msg_add_typed_value(m, props->remote_type, props->remote_length,
-                                   props->remote_max);
+    if (props->destination.maximum) {
+        lo_message_add_string(m, prop_msg_strings[AT_DEST_MAX]);
+        mapper_msg_add_typed_value(m, props->destination.type,
+                                   props->destination.length,
+                                   props->destination.maximum);
     }
 
     lo_message_add_string(m, prop_msg_strings[AT_BOUND_MIN]);
@@ -638,19 +645,19 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     lo_message_add_int32(m, props->muted);
 
     lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
-    lo_message_add_char(m, out ? props->local_type : props->remote_type);
+    lo_message_add_char(m, props->sources[0].type);
     lo_message_add_string(m, prop_msg_strings[AT_DEST_TYPE]);
-    lo_message_add_char(m, out ? props->remote_type : props->local_type);
+    lo_message_add_char(m, props->destination.type);
     lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
-    lo_message_add_int32(m, out ? props->local_length : props->remote_length);
+    lo_message_add_int32(m, props->sources[0].length);
     lo_message_add_string(m, prop_msg_strings[AT_DEST_LENGTH]);
-    lo_message_add_int32(m, out ? props->remote_length : props->local_length);
+    lo_message_add_int32(m, props->destination.length);
     lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, props->send_as_instance);
 
-    if (props->slot >= 0) {
+    if (props->destination.slot >= 0) {
         lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, props->slot);
+        lo_message_add_int32(m, props->destination.slot);
     }
 
     // Add connection scopes
@@ -671,8 +678,12 @@ int mapper_msg_get_signal_direction(mapper_message_t *msg)
     if (!a || !*a)
         return -1;
     const char *str = &(*a)->s;
-    if ((strcmp(str, "output") == 0) || (strlen(str) == 2 && str[1] == 'O'))
-        return 1;
+    if (strcmp(str, "output")==0)
+        return DI_OUTGOING;
+    else if (strcmp(str, "input")==0)
+        return DI_INCOMING;
+    else if (strcmp(str, "both")==0)
+        return DI_OUTGOING | DI_INCOMING;
 
     return 0;
 }
@@ -691,8 +702,6 @@ mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
         return MO_LINEAR;
     else if (strcmp(&(*a)->s, "expression") == 0)
         return MO_EXPRESSION;
-    else
-        return -1;
 
     return -1;
 }

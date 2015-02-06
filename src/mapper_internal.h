@@ -245,6 +245,9 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
                                    int admin_port, int data_port,
                                    const char *name);
 
+void mapper_router_update_link(mapper_router router, mapper_link link,
+                               const char *host, int admin_port, int data_port);
+
 void mapper_router_remove_link(mapper_router router, mapper_link link);
 
 void mapper_router_num_instances_changed(mapper_router r,
@@ -406,14 +409,12 @@ void mhist_realloc(mapper_signal_history_t *history, int history_size,
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
  *  \param connection The mapping process to perform.
+ *  \param slot       The slot index of the source being updated.
  *  \param from_value Pointer to current value of the source signal.
  *  \param to_value   Pointer to a value to receive the result.
  *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_connection_perform(mapper_connection connection,
-                              mapper_signal_history_t *from_value,
-                              mapper_signal_history_t **expr_vars,
-                              mapper_signal_history_t *to_value,
-                              char *typestring);
+int mapper_connection_perform(mapper_connection connection, int slot,
+                              int instance, char *typestring);
 
 int mapper_boundary_perform(mapper_connection connection,
                             mapper_signal_history_t *from_value);
@@ -445,6 +446,8 @@ int mapper_db_connection_update_scope(mapper_connection_scope scope,
 
 void mapper_connection_set_num_slots(mapper_connection connection, int num_slots);
 
+int mapper_connection_check_status(mapper_connection connection);
+
 /**** Local device database ****/
 
 /*! Add or update an entry in the device database using parsed message
@@ -474,8 +477,7 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
                                                        mapper_message_t *params);
 
 /*! Initialize an already-allocated mapper_db_signal structure. */
-void mapper_db_signal_init(mapper_db_signal sig, int is_output,
-                           char type, int length,
+void mapper_db_signal_init(mapper_db_signal sig, char type, int length,
                            const char *name, const char *unit);
 
 /*! Add or update an entry in the connection database using parsed
@@ -667,10 +669,6 @@ double propval_get_double(void *value, const char type, int index);
 /**** Expression parser/evaluator ****/
 
 mapper_expr mapper_expr_new_from_string(const char *str,
-                                        char input_type,
-                                        char output_type,
-                                        int input_vector_size,
-                                        int output_vector_size,
                                         mapper_connection connection);
 
 int mapper_expr_input_history_size(mapper_expr expr, int index);
@@ -687,13 +685,9 @@ int mapper_expr_variable_vector_length(mapper_expr expr, int index);
 void printexpr(const char*, mapper_expr);
 #endif
 
-int mapper_expr_evaluate(mapper_expr expr,
-                         mapper_signal_history_t *from_value,
-                         mapper_signal_history_t **expr_vars,
-                         mapper_signal_history_t *to_value,
-                         char *typestring,
-                         mapper_connection connection,
-                         int instance);
+int mapper_expr_evaluate(mapper_expr expr, mapper_connection connection,
+                         int instance, mapper_timetag_t *tt,
+                         mapper_signal_history_t *result, char *typestring);
 
 int mapper_expr_constant_output(mapper_expr expr);
 

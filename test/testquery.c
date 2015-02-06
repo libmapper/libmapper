@@ -145,17 +145,6 @@ int setup_connections()
     int i;
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mmon_link_devices_by_name(mon, mdev_name(source),
-                              mdev_name(destination), 0, 0);
-
-    i = 0;
-    while (!done && !source->router->links) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-        if (i++ > 100)
-            return 1;
-    }
-
     mapper_db_signal src;
     for (int i = 0; i < 2; i++) {
         src = &sendsig[i]->props;

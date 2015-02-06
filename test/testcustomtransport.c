@@ -46,37 +46,21 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_mdev_link(mapper_device dev,
-                  mapper_link_props link,
-                  mapper_device_local_action_t action,
-                  void *user)
-{
-    eprintf("%s link for %s -> %s, ",
-            action == MDEV_LOCAL_ESTABLISHED ? "New"
-            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-            mdev_name(dev), link->remote_name);
-
-    eprintf("destination host is %s, port is %i\n",
-            link->remote_host, link->remote_port);
-}
-
 void on_mdev_connection(mapper_device dev,
-                        mapper_link_props link,
                         mapper_signal sig,
-                        mapper_connection_props connection,
+                        mapper_db_connection connection,
                         mapper_device_local_action_t action,
                         void *user)
 {
-    eprintf("%s connection for %s (%s:%s %s %s:%s), ",
+    eprintf("%s connection for device %s (%s:%s -> %s), ",
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
             mdev_name(dev), mdev_name(dev), sig->props.name,
-            connection->direction == DI_OUTGOING ? "->" : "<-",
-            link->remote_name, connection->remote_name);
+            connection->destination.name);
 
-    eprintf("%s host is %s, port is %i\n",
-            connection->direction == DI_OUTGOING ? "Destination" : "Source",
-            link->remote_host, link->remote_port);
+//    eprintf("%s host is %s, port is %i\n",
+//            connection->direction == DI_OUTGOING ? "Destination" : "Source",
+//            link->remote_host, link->remote_port);
 
     if (action == MDEV_LOCAL_DESTROYED) {
         if (send_socket != -1) {
@@ -92,9 +76,9 @@ void on_mdev_connection(mapper_device dev,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_connection_property_lookup(connection, "transport", &t,
-                                          (const void **)&a_transport,
-                                          &length)
+    if (mapper_db_connection_property_lookup(connection, "transport", &t,
+                                             (const void **)&a_transport,
+                                             &length)
         || t != 's' || length != 1)
     {
         eprintf("Couldn't find `transport' property.\n");
@@ -110,8 +94,8 @@ void on_mdev_connection(mapper_device dev,
 
     // Find the TCP port in the connection properties
     const int *a_port;
-    if (mapper_connection_property_lookup(connection, "tcpPort", &t,
-                                          (const void **)&a_port, &length)
+    if (mapper_db_connection_property_lookup(connection, "tcpPort", &t,
+                                             (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
         eprintf("Couldn't make TCP connection, "
@@ -131,7 +115,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = link->remote_host;
+    const char *host = connection->destination.device->host;
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -165,7 +149,6 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mdev_set_link_callback(source, on_mdev_link, 0);
     mdev_set_connection_callback(source, on_mdev_connection, 0);
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
@@ -265,14 +248,6 @@ void loop()
 
     if (autoconnect) {
         mapper_monitor mon = mmon_new(source->admin, 0);
-
-        mmon_link_devices_by_name(mon, mdev_name(source),
-                                  mdev_name(destination), 0, 0);
-
-        while (i++ < 10) {
-            mdev_poll(source, 0);
-            mdev_poll(destination, 0);
-        }
 
         mapper_db_signal src = &sendsig->props;
         mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, 0, 0);

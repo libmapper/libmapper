@@ -160,17 +160,9 @@ void connect_signals()
 {
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mmon_link_devices_by_name(mon, mdev_name(source),
-                              mdev_name(destination), 0, 0);
-
-    while (!done && !source->router->links) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-    }
-
     mapper_db_connection_t props;
     props.expression = "foo=1;  y=y{-1}+foo";
-    props.mode = MO_BYPASS;
+    props.mode = MO_EXPRESSION;
     mapper_db_signal src = &sendsig->props;
     mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props,
                                       CONNECTION_MODE | CONNECTION_EXPRESSION);

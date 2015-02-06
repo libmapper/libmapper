@@ -803,8 +803,6 @@ namespace mapper {
             { return mdev_num_inputs(device); }
         int num_outputs() const
             { return mdev_num_outputs(device); }
-        int num_links() const
-            { return mdev_num_links(device); }
         int num_connections_in() const
             { return mdev_num_connections_in(device); }
         int num_connections_out() const
@@ -864,8 +862,6 @@ namespace mapper {
             { mdev_send_queue(device, *tt); }
 //        lo::Server get_lo_server()
 //            { return lo::Server(mdev_get_lo_server(device)); }
-        void set_link_callback(mapper_device_link_handler handler, void *user_data)
-            { mdev_set_link_callback(device, handler, user_data); }
         void set_connection_callback(mapper_device_connection_handler handler,
                                      void *user_data)
             { mdev_set_connection_callback(device, handler, user_data); }
@@ -977,102 +973,6 @@ namespace mapper {
                  mapper_db_match_outputs_by_device_name(db, device_name, pattern));
         }
 
-        // db_links
-        void add_link_callback(mapper_db_link_handler *handler,
-                               void *user_data)
-            { mapper_db_add_link_callback(db, handler, user_data); }
-        void remove_link_callback(mapper_db_link_handler *handler,
-                                  void *user_data)
-            { mapper_db_remove_link_callback(db, handler, user_data); }
-        class Link : AbstractObjectProps
-        {
-        public:
-            int found;
-            Link(mapper_db_link link)
-                { props = link; found = link ? 1 : 0; owned = 0; }
-            Link()
-            {
-                props = (mapper_db_link)calloc(1, sizeof(mapper_db_link_t));
-                owned = 1;
-            }
-            ~Link()
-                { if (owned && props) free(props); }
-            operator mapper_db_link() const
-                { return props; }
-            void set(Property p) {}
-            void remove(const string_type &name) {}
-            Property get(const string_type &name) const
-            {
-                char type;
-                const void *value;
-                int length;
-                if (!mapper_db_link_property_lookup(props, name, &type,
-                                                    &value, &length))
-                    return Property(name, type, value, length);
-                else
-                    return Property();
-            }
-            Property get(int index) const
-            {
-                const char *name;
-                char type;
-                const void *value;
-                int length;
-                if (!mapper_db_link_property_index(props, index, &name, &type,
-                                                   &value, &length))
-                    return Property(name, type, value, length);
-                else
-                    return Property();
-            }
-            class Iterator : public std::iterator<std::input_iterator_tag, int>
-            {
-            public:
-                Iterator(mapper_db_link *l)
-                    { link = l; }
-                ~Iterator()
-                    { mapper_db_link_done(link); }
-                bool operator==(const Iterator& rhs)
-                    { return (link == rhs.link); }
-                bool operator!=(const Iterator& rhs)
-                    { return (link != rhs.link); }
-                Iterator& operator++()
-                {
-                    if (link != NULL)
-                        link = mapper_db_link_next(link);
-                    return (*this);
-                }
-                Iterator operator++(int)
-                    { Iterator tmp(*this); operator++(); return tmp; }
-                Link operator*()
-                    { return Link(*link); }
-                Iterator begin()
-                    { return Iterator(link); }
-                Iterator end()
-                    { return Iterator(0); }
-            private:
-                mapper_db_link *link;
-            };
-        protected:
-            void set(Property *p) {}
-        private:
-            mapper_db_link props;
-            int owned;
-        };
-        Link::Iterator links() const
-            { return Link::Iterator(mapper_db_get_all_links(db)); }
-        Link::Iterator links(const string_type &device_name) const
-        {
-            return Link::Iterator(
-                mapper_db_get_links_by_device_name(db, device_name));
-        }
-        Link link(const string_type &source_device,
-                  const string_type &dest_device)
-        {
-            return Link(
-                mapper_db_get_link_by_device_names(db, source_device,
-                                                   dest_device));
-        }
-
         // db connections
         void add_connection_callback(mapper_db_connection_handler *handler,
                                      void *user_data)
@@ -1128,30 +1028,30 @@ namespace mapper {
             }
             void set_src_min(const Property &value)
             {
-                props->src_min = (void*)(const void*)value;
-                props->src_type = value.type;
-                props->src_length = value.length;
+                props->sources[0].minimum = (void*)(const void*)value;
+                props->sources[0].type = value.type;
+                props->sources[0].length = value.length;
                 flags |= (CONNECTION_RANGE_SRC_MIN_KNOWN);
             }
             void set_src_max(Property &value)
             {
-                props->src_max = (void*)(const void*)value;
-                props->src_type = value.type;
-                props->src_length = value.length;
+                props->sources[0].maximum = (void*)(const void*)value;
+                props->sources[0].type = value.type;
+                props->sources[0].length = value.length;
                 flags |= (CONNECTION_RANGE_SRC_MAX_KNOWN);
             }
             void set_dest_min(Property &value)
             {
-                props->dest_min = (void*)(const void*)value;
-                props->dest_type = value.type;
-                props->dest_length = value.length;
+                props->destination.minimum = (void*)(const void*)value;
+                props->destination.type = value.type;
+                props->destination.length = value.length;
                 flags |= (CONNECTION_RANGE_DEST_MIN_KNOWN);
             }
             void set_dest_max(Property &value)
             {
-                props->dest_min = (void*)(const void*)value;
-                props->dest_type = value.type;
-                props->dest_length = value.length;
+                props->destination.maximum = (void*)(const void*)value;
+                props->destination.type = value.type;
+                props->destination.length = value.length;
                 flags |= (CONNECTION_RANGE_DEST_MAX_KNOWN);
             }
             Property get(const string_type &name) const
@@ -1308,40 +1208,6 @@ namespace mapper {
             { mmon_unsubscribe(monitor, device_name); }
         void autosubscribe(int flags) const
             { mmon_autosubscribe(monitor, flags); }
-        void link(const mapper::Device &source, const mapper::Device &dest) const
-        {
-            mmon_link_devices_by_name(monitor, mdev_name((mapper_device)source),
-                                      mdev_name((mapper_device)dest), 0, 0);
-        }
-        void link(const mapper::Db::Device &source,
-                  const mapper::Db::Device &dest) const
-        {
-            mmon_link_devices_by_db_record(monitor, (mapper_db_device)source,
-                                           (mapper_db_device)dest, 0, 0);
-        }
-        void link(const string_type &source, const string_type &dest) const
-        {
-            mmon_link_devices_by_name(monitor, source, dest, 0, 0);
-        }
-        void unlink(const mapper::Device &source, const mapper::Device &dest) const
-        {
-            mmon_unlink_devices_by_name(monitor, mdev_name((mapper_device)source),
-                                        mdev_name((mapper_device)dest));
-        }
-        void unlink(const mapper::Db::Device &source,
-                    const mapper::Db::Device &dest) const
-        {
-            mmon_unlink_devices_by_db_record(monitor, (mapper_db_device)source,
-                                             (mapper_db_device)dest);
-        }
-        void unlink(const string_type &source, const string_type &dest) const
-        {
-            mmon_unlink_devices_by_name(monitor, source, dest);
-        }
-        void unlink(const mapper::Db::Link &link) const
-        {
-            mmon_remove_link(monitor, (mapper_db_link)link);
-        }
         // TODO: handle connections with multiple inputs
         // array/vector of const char
         // array/vector of std::string

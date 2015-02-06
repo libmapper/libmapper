@@ -257,7 +257,8 @@ static int handler_signal(const char *path, const char *types,
     mapper_id_map map;
     int slot = -1;
     mapper_connection c;
-    mapper_connection_history s;
+    mapper_connection_slot s;
+    mapper_db_connection_slot p;
 
     if (!sig || !sig->handler || !(md = sig->device)) {
         trace("error, cannot retrieve user_data\n");
@@ -311,9 +312,16 @@ static int handler_signal(const char *path, const char *types,
         // retrieve connection associated with this slot
         c = mapper_router_find_connection_by_slot(md->router, sig, &slot);
         if (c) {
-            count = check_types(types, value_len, c->props.sources[slot]->type,
-                                c->props.sources[slot]->length);
-            s = c->sources[slot];
+            s = &c->sources[slot];
+            if (!s) {
+                trace("error: no slot history structure found.\n");
+            }
+            p = &c->props.sources[slot];
+            count = check_types(types, value_len, p->type, p->length);
+        }
+        else {
+            trace("error in signal handler: slot index exceeds num_sources.\n");
+            return 0;
         }
     }
     else {
@@ -383,8 +391,7 @@ static int handler_signal(const char *path, const char *types,
         si->timetag.frac = tt.frac;
     }
 
-    int size = (s ? mapper_type_size(c->props.sources[slot]->type)
-                : mapper_type_size(sig->props.type));
+    int size = (c ? mapper_type_size(p->type) : mapper_type_size(sig->props.type));
     void *out_buffer = count == 1 ? 0 : alloca(count * sig->props.length * size);
     int vals, out_count = 0;
 
@@ -395,17 +402,17 @@ static int handler_signal(const char *path, const char *types,
         // all nulls -> release instance, sig has no value, break "count"
         vals = 0;
         if (c) {
-            for (j = 0; j < c->props.sources[slot]->length; j++) {
+            for (j = 0; j < p->length; j++) {
                 if (types[k] == 'N')
                     continue;
                 memcpy(s->history[index].value + j * size, argv[k], size);
                 memcpy(s->history[index].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (c->props.sources[slot]->cause_update
+            if (s->cause_update
                 && (vals = mapper_connection_combine(c, index))) {
                 memcpy(si->value,
-                       msig_history_value_pointer(c->result.history[index]),
+                       msig_history_value_pointer(c->destination.history[index]),
                        mapper_type_size(sig->props.type) * sig->props.length);
             }
         }
@@ -445,7 +452,7 @@ static int handler_signal(const char *path, const char *types,
         }
 
         if (c) {
-            if (c->props.sources[i]->cause_update) {
+            if (s->cause_update) {
                 if (count > 1) {
                     memcpy(out_buffer + out_count * sig->props.length * size,
                            si->value, size);
@@ -723,19 +730,21 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
 static void send_disconnect(mapper_admin admin, mapper_connection c)
 {
     int i;
-    if (!c->remote_dest)
+    if (!c->status)
         return;
 
-    mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
+    // TODO: send appropriate messages using mesh
+//    mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
+    mapper_admin_set_bundle_dest_bus(admin);
 
     lo_message m = lo_message_new();
     if (!m)
         return;
 
-    for (i = 0; i < c->props.num_sources; i++)
-        lo_message_add_string(m, c->props.sources[i]->name);
+    for (i = 0; i < c->num_sources; i++)
+        lo_message_add_string(m, c->props.sources[i].name);
     lo_message_add_string(m, "->");
-    lo_message_add_string(m, c->props.dest->name);
+    lo_message_add_string(m, c->props.destination.name);
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
     mapper_admin_send_bundle(admin);
 }

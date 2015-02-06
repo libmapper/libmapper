@@ -105,14 +105,6 @@ int setup_connection()
 {
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mmon_link_devices_by_name(mon, mdev_name(source), mdev_name(destination), 0, 0);
-
-    // wait unitl link has been established
-    while (!done && !source->router->links) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-    }
-
     char src1_name[512], src2_name[512], dest_name[512];
     msig_full_name(sendsig[0], src1_name, 512);
     msig_full_name(sendsig[1], src2_name, 512);

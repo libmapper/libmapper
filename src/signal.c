@@ -61,8 +61,12 @@ mapper_signal msig_new(const char *name, int length, char type,
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
-    mapper_db_signal_init(&sig->props, is_output, type, length, name, unit);
+    mapper_db_signal_init(&sig->props, type, length, name, unit);
+    if (is_output)
+        sig->props.is_output = 1;
     sig->handler = handler;
+    if (handler)
+        sig->props.is_input = 1;
     sig->props.num_instances = 0;
     sig->has_complete_value = calloc(1, length / 8 + 1);
     for (i = 0; i < length; i++) {

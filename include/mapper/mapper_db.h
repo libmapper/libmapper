@@ -138,71 +138,51 @@ typedef struct _mapper_connection_scope {
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal
 {
-    /*! Signal index */
-    int id;
+    char *name;             /*! The name of this signal, an OSC path.  Must
+                             *  start with '/'. */
+    char *device_name;      /*! The name of the device owning this signal. An
+                             *  OSC path. Must start with '/'. */
 
-	/*! Flag to indicate whether signal is source or destination */
-	int is_output;
+    char *unit;             //!< The unit of this signal, or NULL for N/A.
+    void *minimum;          //!< The minimum of this signal, or NULL for N/A.
+    void *maximum;          //!< The maximum of this signal, or NULL for N/A.
 
-    /*! The type of this signal, specified as an OSC type
-     *  character. */
-    char type;
+    struct _mapper_string_table *extra; /*! Extra properties associated with
+                                         *  this signal. */
 
-    /*! Length of the signal vector, or 1 for scalars. */
-    int length;
+    void *user_data;        //!< A pointer available for associating user context.
 
-    /*! Number of instances. */
-    int num_instances;
-
-    /*! The name of this signal, an OSC path.  Must start with '/'. */
-    char *name;
-
-    /*! The name of the device owning this signal. An OSC path.
-     *  Must start with '/'. */
-    char *device_name;
-
-    /*! The unit of this signal, or NULL for N/A. */
-    char *unit;
-
-    /*! The minimum of this signal, or NULL for no minimum. */
-    void *minimum;
-
-    /*! The maximum of this signal, or NULL for no maximum. */
-    void *maximum;
-
-    /*! The rate of this signal, or 0 for non-periodic signals. */
-    float rate;
-
-    /*! Extra properties associated with this signal. */
-    struct _mapper_string_table *extra;
-
-    /*! A pointer available for associating user context. */
-    void *user_data;
+    float rate;             //!< The update rate, or 0 for non-periodic signals.
+    int id;                 //!< Signal index.
+    int is_output;       	//!< Flag to indicate whether signal is source.
+    int is_input;       	//!< Flag to indicate whether signal is destination.
+    int length;             //!< Length of the signal vector, or 1 for scalars.
+    int num_instances;      //!< Number of instances.
+    char type;              /*! The type of this signal, specified as an OSC type
+                             *  character. */
 } mapper_db_signal_t, *mapper_db_signal;
 
-typedef struct _mapper_db_connection_slot_props {
+typedef struct _mapper_db_connection_slot {
     mapper_db_signal signal;
+    mapper_db_device device;
     char *name;
-    char *signal_name;              //!< offset into name property.
-    char type;
-    int length;
-    float rate;
-    int slot;                       //!< Destination signal slot.
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.
-    int cause_update;
+    float rate;
+    int slot;                       //!< Slot number
+    int length;
     int num_instances;
-    int free_vars;
-} mapper_db_connection_slot_props_t, *mapper_db_connection_slot_props;
+    int status;
+    char type;
+} mapper_db_connection_slot_t, *mapper_db_connection_slot;
 
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {
     int id;                         //!< Connection index
-    int num_instances;
     int num_sources;
-    mapper_db_connection_slot_props *sources;
-    mapper_db_connection_slot_props dest;
+    mapper_db_connection_slot sources;
+    mapper_db_connection_slot_t destination;
 
     mapper_boundary_action bound_max; /*!< Operation for exceeded
                                        *   upper boundary. */
@@ -219,6 +199,7 @@ typedef struct _mapper_db_connection {
                                      *   to unmute */
 
     int direction;                  //!< DI_INCOMING or DI_OUTGOING
+    int calibrating;
 
     struct _mapper_connection_scope scope;
 

@@ -64,10 +64,10 @@ void printconnection(mapper_db_connection con)
         if (con->num_sources > 1)
             printf("[");
         for (i = 0; i < con->num_sources; i++)
-            printf("%s, ", con->src_names[i]);
+            printf("%s, ", con->sources[i].name);
         if (con->num_sources > 1)
             printf("\b\b], ");
-        printf("dest=%s\n", con->dest_name);
+        printf("dest=%s\n", con->destination.name);
     }
 }
 
@@ -211,20 +211,6 @@ int main(int argc, char **argv)
     src_sig_name = "/testdb__.2/out2";
     mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb.1/in2", &msg);
-
-    if (mapper_msg_parse_params(&msg, "/linked",
-                                "", 0, args))
-    {
-        eprintf("6: Error, parsing failed (on no args!)\n");
-        result = 1;
-        goto done;
-    }
-
-    mapper_db_add_or_update_link_params(db, "/testdb.1", "/testdb__.2", &msg);
-    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb.3", &msg);
-    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb.3", &msg);
-    mapper_db_add_or_update_link_params(db, "/testdb.3", "/testdb.1", &msg);
-    mapper_db_add_or_update_link_params(db, "/testdb__.2", "/testdb__.4", &msg);
 
     /*********/
 
@@ -390,9 +376,9 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind all inputs for device '/testdb__.2':\n");
+    eprintf("\nFind all inputs for device '/testdb__xx.2':\n");
 
-    psig = mapper_db_get_inputs_by_device_name(db, "/testdb__.2");
+    psig = mapper_db_get_inputs_by_device_name(db, "/testdb__xx.2");
 
     count=0;
     if (psig) {
@@ -430,8 +416,8 @@ int main(int argc, char **argv)
         psig = mapper_db_signal_next(psig);
     }
 
-    if (count != 1) {
-        eprintf("Expected 1 record, but counted %d.\n", count);
+    if (count != 2) {
+        eprintf("Expected 2 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -523,8 +509,8 @@ int main(int argc, char **argv)
         psig = mapper_db_signal_next(psig);
     }
 
-    if (count != 1) {
-        eprintf("Expected 1 record, but counted %d.\n", count);
+    if (count != 2) {
+        eprintf("Expected 2 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -729,75 +715,8 @@ int main(int argc, char **argv)
         pcon = mapper_db_connection_next(pcon);
     }
 
-    if (count != 1) {
-        eprintf("Expected 1 records, but counted %d.\n", count);
-        result = 1;
-        goto done;
-    }
-
-    /*********/
-
-    eprintf("\n--- Links ---\n");
-
-    eprintf("\nFind matching links with endpoint '/testdb__.2':\n");
-
-    mapper_db_link* plink =
-        mapper_db_get_links_by_device_name(db, "/testdb__.2");
-
-    count=0;
-    if (!plink) {
-        eprintf("mapper_db_get_links_by_device_name() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-    if (!*plink) {
-        eprintf("mapper_db_get_links_by_device_name() returned something "
-                "which pointed to 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    while (plink) {
-        count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*plink)->name1, (*plink)->name2);
-        plink = mapper_db_link_next(plink);
-    }
-
-    if (count != 3) {
-        eprintf("Expected 3 records, but counted %d.\n", count);
-        result = 1;
-        goto done;
-    }
-
-    /*********/
-
-    eprintf("\nFind matching links with endpoint '/testdb__.4':\n");
-
-    plink = mapper_db_get_links_by_device_name(db, "/testdb__.4");
-
-    count=0;
-    if (!plink) {
-        eprintf("mapper_db_get_links_by_device_name() returned 0.\n");
-        result = 1;
-        goto done;
-    }
-    if (!*plink) {
-        eprintf("mapper_db_get_links_by_device_name() returned something "
-                "which pointed to 0.\n");
-        result = 1;
-        goto done;
-    }
-
-    while (plink) {
-        count ++;
-        eprintf("  source=%s, dest=%s\n",
-                (*plink)->name1, (*plink)->name2);
-        plink = mapper_db_link_next(plink);
-    }
-
-    if (count != 1) {
-        eprintf("Expected 1 record, but counted %d.\n", count);
+    if (count != 2) {
+        eprintf("Expected 2 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }

@@ -100,14 +100,6 @@ int setup_connection()
 {
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mmon_link_devices_by_name(mon, mdev_name(source),
-                              mdev_name(destination), 0, 0);
-
-    while (!done && !source->router->links) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-    }
-
     mapper_db_connection_t props;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x*10";

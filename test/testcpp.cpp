@@ -82,7 +82,6 @@ int main(int argc, char ** argv)
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
     std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
     std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
-    std::cout << "  num_links: " << dev.num_links() << std::endl;
     std::cout << "  num_connections_in: " << dev.num_connections_in() << std::endl;
     std::cout << "  num_connections_out: " << dev.num_connections_out() << std::endl;
 
@@ -155,9 +154,6 @@ int main(int argc, char ** argv)
     }
 
     mapper::Monitor mon(SUB_DEVICE_ALL);
-    mon.link(dev, dev);
-    while (dev.num_links() <= 0) { dev.poll(100); }
-
     mapper::Db::Connection c;
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");
@@ -189,13 +185,6 @@ int main(int argc, char ** argv)
     for (auto const &signal : mon.db().outputs()) {
         std::cout << "  output signal: ";
         signal.get("name").print();
-        std::cout << std::endl;
-    }
-    for (auto const &link : mon.db().links()) {
-        std::cout << "  link: ";
-        link.get("src_name").print();
-        std::cout << " -> ";
-        link.get("dest_name").print();
         std::cout << std::endl;
     }
     for (auto const &conn : mon.db().connections()) {

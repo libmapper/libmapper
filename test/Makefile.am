@@ -8,17 +8,17 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testcombiner testcpp testcustomtransport testdb \
-                  testexpression testinstance testlinear testmany testmapinput \
-                  testmonitor testparams testparser testprops testqueue \
-                  testquery testrate testrecv testreverse testselect testsend \
+noinst_PROGRAMS = test testadmin testcombiner testcpp testcustomtransport      \
+                  testdb testexpression testinstance testlinear testmany       \
+                  testmapinput testmonitor testparams testparser testprops     \
+                  testqueue testquery testrate testreverse testselect          \
                   testsignals testspeed testsync testvector
 
-test_all_ordered = testparams testprops testdb testparser testadmin testmany \
-                   testsend testrecv test testlinear testexpression testqueue \
-                   testquery testrate testinstance testreverse testselect \
-                   testvector testcustomtransport testspeed testsync testcpp \
-                   testmapinput testcombiner
+test_all_ordered = testparams testprops testdb testparser testadmin testmany   \
+                   test testlinear testexpression testqueue testquery testrate \
+                   testinstance testreverse testselect testvector              \
+                   testcustomtransport testspeed testsync testcpp testmapinput \
+                   testcombiner
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -92,10 +92,6 @@ testrate_CFLAGS = $(TEST_CFLAGS)
 testrate_SOURCES = testrate.c
 testrate_LDADD = $(TEST_LDADD)
 
-testrecv_CFLAGS = $(TEST_CFLAGS)
-testrecv_SOURCES = testrecv.c
-testrecv_LDADD = $(TEST_LDADD)
-
 testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c
 testreverse_LDADD = $(TEST_LDADD)
@@ -103,10 +99,6 @@ testreverse_LDADD = $(TEST_LDADD)
 testselect_CFLAGS = $(TEST_CFLAGS)
 testselect_SOURCES = testselect.c
 testselect_LDADD = $(TEST_LDADD)
-
-testsend_CFLAGS = $(TEST_CFLAGS)
-testsend_SOURCES = testsend.c
-testsend_LDADD = $(TEST_LDADD)
 
 testsignals_CFLAGS = $(TEST_CFLAGS)
 testsignals_SOURCES = testsignals.c

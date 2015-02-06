@@ -117,40 +117,13 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
-void printlink(mapper_db_link link)
-{
-    printf("  %s -> %s", link->name1, link->name2);
-
-    int i=0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_db_link_property_index(link, i++, &key, &type,
-                                         &val, &length))
-    {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed these
-        if (strcmp(key, "name1")==0
-            || strcmp(key, "name2")==0)
-            continue;
-
-        if (length) {
-            printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
-        }
-    }
-    printf("\n");
-}
-
 void printconnection(mapper_db_connection con)
 {
     int i;
     printf("  ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s ", con->src_names[i]);
-    printf("-> %s", con->dest_name);
+        printf("%s ", con->sources[i].name);
+    printf("-> %s", con->destination.name);
 
     i = 0;
     const char *key;
@@ -246,15 +219,6 @@ void loop()
 
         printf("------------------------------\n");
 
-        printf("Registered links:\n");
-        mapper_db_link *plink = mapper_db_get_all_links(db);
-        while (plink) {
-            printlink(*plink);
-            plink = mapper_db_link_next(plink);
-        }
-
-        printf("------------------------------\n");
-
         printf("Registered connections:\n");
         mapper_db_connection *pcon = mapper_db_get_all_connections(db);
         while (pcon) {
@@ -314,29 +278,8 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
     int i;
     printf("Connection ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s ", con->src_names[i]);
-    printf("-> %s", con->dest_name);
-    switch (a) {
-    case MDB_NEW:
-        printf("added.\n");
-        break;
-    case MDB_MODIFY:
-        printf("modified.\n");
-        break;
-    case MDB_REMOVE:
-        printf("removed.\n");
-        break;
-    case MDB_UNRESPONSIVE:
-        printf("unresponsive.\n");
-        break;
-    }
-    dbpause();
-    update = 1;
-}
-
-void on_link(mapper_db_link link, mapper_db_action_t a, void *user)
-{
-    printf("Link %s -> %s ", link->name1, link->name2);
+        printf("%s ", con->sources[i].name);
+    printf("-> %s", con->destination.name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
@@ -401,7 +344,6 @@ int main(int argc, char **argv)
     mapper_db_add_device_callback(db, on_device, 0);
     mapper_db_add_signal_callback(db, on_signal, 0);
     mapper_db_add_connection_callback(db, on_connection, 0);
-    mapper_db_add_link_callback(db, on_link, 0);
 
     loop();
 
@@ -409,7 +351,6 @@ int main(int argc, char **argv)
     mapper_db_remove_device_callback(db, on_device, 0);
     mapper_db_remove_signal_callback(db, on_signal, 0);
     mapper_db_remove_connection_callback(db, on_connection, 0);
-    mapper_db_remove_link_callback(db, on_link, 0);
     cleanup_monitor();
     return result;
 }

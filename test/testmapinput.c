@@ -114,16 +114,6 @@ void loop()
     if (autoconnect) {
         mapper_monitor mon = mmon_new(devices[0]->admin, 0);
 
-        mmon_link_devices_by_name(mon, mdev_name(devices[0]),
-                                  mdev_name(devices[0]), 0, 0);
-        mmon_link_devices_by_name(mon, mdev_name(devices[0]),
-                                  mdev_name(devices[1]), 0, 0);
-
-        while (!done && (devices[0]->props.num_links < 2)) {
-            mdev_poll(devices[0], 10);
-            mdev_poll(devices[1], 10);
-        }
-
         char src_name[1024], dest_name[1024];
         const char *src_name_ptr = src_name;
 

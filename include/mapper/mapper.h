@@ -9,8 +9,8 @@ extern "C" {
 #include <mapper/mapper_types.h>
 
 #define MAPPER_NOW ((mapper_timetag_t){0L,1L})
-#define DI_OUTGOING 0
-#define DI_INCOMING 1
+#define DI_OUTGOING 0x1
+#define DI_INCOMING 0x2
 
 /*! \mainpage libmapper
 
@@ -634,20 +634,6 @@ void mdev_set_connection_callback(mapper_device dev,
                                   mapper_device_connection_handler *h,
                                   void *user);
 
-/*! Look up a connection property by name.
- *  \param connection   The connection to look at.
- *  \param property     The name of the property to retrive.
- *  \param type         A pointer to a location to receive the type of the
- *                      property value. (Required.)
- *  \param value        A pointer to a location to receive the address of the
- *                      property's value. (Required.)
- *  \param length       A pointer to a location to receive the vector length of
- *                      the property value. (Required.)
- *  \return             Zero if found, otherwise non-zero. */
-int mapper_connection_property_lookup(mapper_db_connection connection,
-                                      const char *property, char *type,
-                                      const void **value, int *length);
-
 /* @} */
 
 /*** Admins ***/
@@ -888,6 +874,14 @@ mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
 /*! Find information for a registered input signal.
  *  \param db          The database to query.
  *  \param device_name Name of the device to find in the database.
+ *  \param signal_name Name of the signal to find in the database.
+ *  \return            Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_signal_by_device_and_signal_names(
+    mapper_db db, const char *device_name, const char *signal_name);
+
+/*! Find information for a registered input signal.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to find in the database.
  *  \param signal_name Name of the input signal to find in the database.
  *  \return            Information about the signal, or zero if not found. */
 mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
@@ -902,24 +896,31 @@ mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
     mapper_db db, const char *device_name, char const *signal_name);
 
 /*! Return the list of inputs for a given device.
- *  \param db            The database to query.
- *  \param device_name   Name of the device to match for inputs.
- *  \param input_pattern A substring to search for in the device inputs.
- *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to match for inputs.
+ *  \param pattern      A substring to search for in the device inputs.
+ *  \return A double-pointer to the first item in the list of input signals,
+ *          or zero if none.  Use mapper_db_signal_next() to iterate. */
 mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
-    mapper_db db, const char *device_name, const char *input_pattern);
+    mapper_db db, const char *device_name, const char *pattern);
 
 /*! Return the list of outputs for a given device.
- *  \param db             The database to query.
- *  \param device_name    Name of the device to match for outputs.
- *  \param output_pattern A substring to search for in the device outputs.
- *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to match for outputs.
+ *  \param pattern      A substring to search for in the device outputs.
+ *  \return A double-pointer to the first item in the list of output signals,
+ *          or zero if none.  Use mapper_db_signal_next() to iterate. */
 mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
-    mapper_db db, const char *device_name, char const *output_pattern);
+    mapper_db db, const char *device_name, char const *pattern);
+
+/*! Return the list of signals for a given device.
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to match for signals.
+ *  \param pattern      A substring to search for in the device signals.
+ *  \return A double-pointer to the first item in the list of signals, or zero
+ *          if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal_t **mapper_db_match_signals_by_device_name(
+    mapper_db db, const char *device_name, char const *pattern);
 
 /*! Given a signal record pointer returned from a previous
  *  mapper_db_get_*() call, get the next item in the list.
@@ -1166,6 +1167,38 @@ int mapper_db_connection_property_index(mapper_db_connection con,
 int mapper_db_connection_property_lookup(mapper_db_connection con,
                                          const char *property, char *type,
                                          const void **value, int *length);
+
+/*! Look up a connection slot property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param slot     The connection slot to look at.
+ *  \param index    Numerical index of a connection slot property.
+ *  \param property Address of a string pointer to receive the name of
+ *                  indexed property.  May be zero.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_connection_slot_property_index(mapper_db_connection_slot slot,
+                                             unsigned int index,
+                                             const char **property, char *type,
+                                             const void **value, int *length);
+
+/*! Look up a connection property by name.
+ *  \param con      The connection sloy to look at.
+ *  \param property The name of the property to retrieve.
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \return Zero if found, otherwise non-zero. */
+int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
+                                              const char *property, char *type,
+                                              const void **value, int *length);
 
 /***** Monitors *****/
 
