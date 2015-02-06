@@ -228,9 +228,8 @@ typedef struct _mapper_link {
 #define MAPPER_TYPE_KNOWN      0x01
 #define MAPPER_LENGTH_KNOWN    0x02
 #define MAPPER_LINK_KNOWN      0x04
-#define MAPPER_SLOT_KNOWN      0x07
-#define MAPPER_READY           0x17
-#define MAPPER_ACTIVE          0x27
+#define MAPPER_READY           0x07
+#define MAPPER_ACTIVE          0x17
 
 typedef struct _mapper_connection_slot {
     // each slot can point to local signal or a connection_slot structure
@@ -423,7 +422,6 @@ typedef enum {
     AT_NUM_CONNECTIONS_OUT,
     AT_NUM_INPUTS,
     AT_NUM_OUTPUTS,
-    AT_NUM_SLOTS,
     AT_PORT,
     AT_RATE,
     AT_REV,

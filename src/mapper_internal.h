@@ -10,6 +10,8 @@
 
 /**** Signals ****/
 
+#define MAPPER_MAX_VECTOR_LEN 128
+
 struct _mapper_signal_id_map_t;
 
 /*! A signal is defined as a vector of values, along with some
@@ -427,8 +429,7 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
 
 /*! Set a connection's properties based on message parameters. */
 int mapper_connection_set_from_message(mapper_connection connection,
-                                       mapper_message_t *msg,
-                                       int direction);
+                                       mapper_message_t *msg);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
@@ -653,8 +654,8 @@ void mapper_msg_add_typed_value(lo_message m, char type,
                                 int length, void *value);
 
 /*! Prepare a lo_message for sending based on a connection struct. */
-void mapper_connection_prepare_osc_message(lo_message m,
-                                           mapper_connection c);
+void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
+                                           int slot);
 
 /*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,

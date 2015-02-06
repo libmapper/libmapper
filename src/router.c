@@ -589,7 +589,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->props.sources[0].name = sig->props.name;
         c->props.sources[0].type = sig->props.type;
         c->props.sources[0].length = sig->props.length;
-        c->props.sources[0].status = MAPPER_SLOT_KNOWN;
+        c->sources[0].status = MAPPER_READY;
         signame = strchr(remote_signal_names[0]+1, '/');
         devnamelen = signame - remote_signal_names[0];
         if (devnamelen >= 256) {
@@ -613,7 +613,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->props.destination.name = sig->props.name;
         c->props.destination.type = sig->props.type;
         c->props.destination.length = sig->props.length;
-        c->props.destination.status = MAPPER_SLOT_KNOWN;
+        c->destination.status = MAPPER_READY;
         for (i = 0; i < num_remote_signals; i++) {
             signame = strchr(remote_signal_names[i]+1, '/');
             devnamelen = signame - remote_signal_names[i];

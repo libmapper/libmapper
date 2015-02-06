@@ -189,9 +189,9 @@ void loop()
 
     while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 100);
-//        msig_update_double(sendsig_1, ((i % 10) * 1.0f));
-//        eprintf("/outsig_1 value updated to %d -->\n", i % 10);
-//
+        msig_update_double(sendsig_1, ((i % 10) * 1.0f));
+        eprintf("/outsig_1 value updated to %d -->\n", i % 10);
+
 //        msig_update_float(sendsig_2, ((i % 10) * 1.0f));
 //        eprintf("/outsig_2 value updated to %d -->\n", i % 10);
 //

@@ -31,7 +31,6 @@ const char* prop_msg_strings[] =
     "@numConnectsOut",  /* AT_NUM_CONNECTIONS_OUT */
     "@numInputs",       /* AT_NUM_INPUTS */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
-    "@numSlots",        /* AT_NUM_SLOTS */
     "@port",            /* AT_PORT */
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
@@ -288,7 +287,7 @@ int mapper_msg_add_or_update_extra_params(table t, mapper_message_t *params)
     return updated;
 }
 
-/* helper for mapper_msg_prepare_varargs() */
+/* helper for mapper_msg_varargs() */
 void mapper_msg_add_typed_value(lo_message m, char type, int length, void *value)
 {
     int i;
@@ -394,7 +393,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_CONNECTIONS_OUT:
         case AT_NUM_INPUTS:
         case AT_NUM_OUTPUTS:
-        case AT_NUM_SLOTS:
         case AT_PORT:
         case AT_REV:
         case AT_SEND_AS_INSTANCE:
@@ -595,7 +593,8 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
+void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
+                                           int slot)
 {
     int i;
     mapper_db_connection props = &c->props;
@@ -609,18 +608,51 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
         lo_message_add_string(m, props->expression);
     }
 
-    if (props->sources[0].minimum) {
-        lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
-        mapper_msg_add_typed_value(m, props->sources[0].type,
-                                   props->sources[0].length,
-                                   props->sources[0].minimum);
+    if (slot == -1) {
+        if (c->status & MAPPER_READY) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+            for (i = 0; i < props->num_sources; i++)
+                lo_message_add_char(m, props->sources[i].type);
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
+            for (i = 0; i < props->num_sources; i++)
+                lo_message_add_int32(m, props->sources[i].length);
+        }
+    }
+    else {
+        if (c->sources[slot].status & MAPPER_TYPE_KNOWN) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+            lo_message_add_char(m, props->sources[slot].type);
+        }
+        if (c->sources[slot].status & MAPPER_LENGTH_KNOWN) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
+            lo_message_add_int32(m, props->sources[slot].length);
+        }
     }
 
-    if (props->sources[0].maximum) {
-        lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
-        mapper_msg_add_typed_value(m, props->sources[0].type,
-                                   props->sources[0].length,
-                                   props->sources[0].maximum);
+    if (c->destination.status & MAPPER_TYPE_KNOWN) {
+        lo_message_add_string(m, prop_msg_strings[AT_DEST_TYPE]);
+        lo_message_add_char(m, props->destination.type);
+    }
+    if (c->destination.status & MAPPER_LENGTH_KNOWN) {
+        lo_message_add_string(m, prop_msg_strings[AT_DEST_LENGTH]);
+        lo_message_add_int32(m, props->destination.length);
+    }
+
+    // TODO: extend to multiple sources
+    if (c->props.num_sources == 1) {
+        if (props->sources[0].minimum) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
+            mapper_msg_add_typed_value(m, props->sources[0].type,
+                                       props->sources[0].length,
+                                       props->sources[0].minimum);
+        }
+
+        if (props->sources[0].maximum) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
+            mapper_msg_add_typed_value(m, props->sources[0].type,
+                                       props->sources[0].length,
+                                       props->sources[0].maximum);
+        }
     }
 
     if (props->destination.minimum) {
@@ -644,18 +676,10 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c)
     lo_message_add_string(m, prop_msg_strings[AT_MUTE]);
     lo_message_add_int32(m, props->muted);
 
-    lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
-    lo_message_add_char(m, props->sources[0].type);
-    lo_message_add_string(m, prop_msg_strings[AT_DEST_TYPE]);
-    lo_message_add_char(m, props->destination.type);
-    lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
-    lo_message_add_int32(m, props->sources[0].length);
-    lo_message_add_string(m, prop_msg_strings[AT_DEST_LENGTH]);
-    lo_message_add_int32(m, props->destination.length);
     lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
     lo_message_add_int32(m, props->send_as_instance);
 
-    if (props->destination.slot >= 0) {
+    if (props->num_sources > 1) {
         lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
         lo_message_add_int32(m, props->destination.slot);
     }

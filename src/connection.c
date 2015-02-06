@@ -52,7 +52,6 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode)
 int mapper_connection_perform(mapper_connection c, int slot, int instance,
                               char *typestring)
 {
-    printf("mapper_connection_perform()\n");
     int changed = 0, i;
     mapper_signal_history_t *from = c->sources[slot].history;
     mapper_signal_history_t *to = c->destination.history;
@@ -159,11 +158,8 @@ int mapper_connection_perform(mapper_connection c, int slot, int instance,
         if (changed && c->props.mode == MO_LINEAR)
             mapper_connection_set_mode_linear(c);
     }
-    printf("  GET cause_update(%s)? %s\n",
-           c->props.direction == DI_OUTGOING ? "->" : "<-",
-           c->sources[slot].cause_update ? "YES" : "NO");
-    printf("  c->expr = '%s' %p\n", c->props.expression, c->expr);
-    if (!c->status < MAPPER_ACTIVE || c->props.muted || !c->sources[slot].cause_update)
+
+    if (c->status != MAPPER_ACTIVE || c->props.muted || !c->sources[slot].cause_update)
         return 0;
 
     else if (c->props.mode == MO_RAW) {
@@ -177,7 +173,7 @@ int mapper_connection_perform(mapper_connection c, int slot, int instance,
     die_unless(c->expr!=0, "Missing expression.\n");
     return (mapper_expr_evaluate(c->expr, c, instance,
                                  msig_history_tt_pointer(*c->sources[slot].history),
-                                 c->destination.history, typestring));
+                                 &c->destination.history[instance], typestring));
 }
 
 int mapper_boundary_perform(mapper_connection c,
@@ -411,6 +407,9 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
 static int replace_expression_string(mapper_connection c,
                                      const char *expr_str)
 {
+    if (c->expr && c->props.expression && strcmp(c->props.expression, expr_str)==0)
+        return 1;
+
     mapper_expr expr = mapper_expr_new_from_string(expr_str, c);
 
     if (!expr)
@@ -611,110 +610,47 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
         return 0;
 
     /* The logic here is to first try to use information from the
-     * message, starting with @srcMax, @srcMin, @destMax, @destMin,
-     * and then @min and @max.
+     * message, starting with @srcMax, @srcMin, @destMax, @destMin.
      * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
     int out = (c->props.direction == DI_OUTGOING);
 
-    /* source maxima */
-    args = mapper_msg_get_param(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
-    types = mapper_msg_get_type(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
-    length = mapper_msg_get_length(msg, out ? AT_SRC_MAX : AT_DEST_MAX);
-    if (args && types && is_number_type(types[0])) {
-        if (length == c->props.sources[slot].length) {
-            if (!c->props.sources[slot].maximum)
-                c->props.sources[slot].maximum = calloc(1, length * c->props.sources[0].type);
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.sources[slot].maximum,
-                                                 c->props.sources[slot].type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    break;
-                }
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* source minima */
-    args = mapper_msg_get_param(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
-    types = mapper_msg_get_type(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
-    length = mapper_msg_get_length(msg, out ? AT_SRC_MIN : AT_DEST_MIN);
-    if (args && types && is_number_type(types[0])) {
-        if (length == c->props.sources[slot].length) {
-            if (!c->props.sources[slot].minimum)
-                c->props.sources[slot].minimum = calloc(1, length * c->props.sources[0].type);
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.sources[slot].minimum,
-                                                 c->props.sources[slot].type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    break;
-                }
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* destination maximum */
-    args = mapper_msg_get_param(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
-    types = mapper_msg_get_type(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
-    length = mapper_msg_get_length(msg, out ? AT_DEST_MAX : AT_SRC_MAX);
-    if (args && types && is_number_type(types[0])) {
-        if (length == c->props.destination.length) {
-            if (!c->props.destination.maximum)
-                c->props.destination.maximum = calloc(1, length * c->props.destination.type);
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.destination.maximum,
-                                                 c->props.destination.type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    break;
-                }
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* destination minimum */
-    args = mapper_msg_get_param(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
-    types = mapper_msg_get_type(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
-    length = mapper_msg_get_length(msg, out ? AT_DEST_MIN : AT_SRC_MIN);
-    if (args && types && is_number_type(types[0])) {
-        if (length == c->props.destination.length) {
-            if (!c->props.destination.minimum)
-                c->props.destination.minimum = calloc(1, length * c->props.destination.type);
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(c->props.destination.minimum,
-                                                 c->props.destination.type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    break;
-                }
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* @min, @max */
-    if (!c->props.destination.minimum) {
-        args = mapper_msg_get_param(msg, AT_MIN);
-        types = mapper_msg_get_type(msg, AT_MIN);
-        length = mapper_msg_get_length(msg, AT_MIN);
-        if (args && types && is_number_type(types[0]))
-        {
-            if (length == c->props.destination.length) {
-                if (!c->props.destination.minimum)
-                    c->props.destination.minimum = calloc(1, length * c->props.destination.type);
+    if ((c->sources[slot].status & MAPPER_TYPE_KNOWN)
+        && (c->sources[slot].status & MAPPER_LENGTH_KNOWN)) {
+        /* source maxima */
+        args = mapper_msg_get_param(msg, AT_SRC_MAX);
+        types = mapper_msg_get_type(msg, AT_SRC_MAX);
+        length = mapper_msg_get_length(msg, AT_SRC_MAX);
+        if (args && types && is_number_type(types[0])) {
+            if (length == c->props.sources[slot].length) {
+                if (!c->props.sources[slot].maximum)
+                    c->props.sources[slot].maximum = calloc(1, length
+                                                            * c->props.sources[0].type);
                 for (i=0; i<length; i++) {
-                    result = propval_set_from_lo_arg(c->props.destination.minimum,
-                                                     c->props.destination.type,
+                    result = propval_set_from_lo_arg(c->props.sources[slot].maximum,
+                                                     c->props.sources[slot].type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        break;
+                    }
+                    else
+                        updated += result;
+                }
+            }
+        }
+
+        /* source minima */
+        args = mapper_msg_get_param(msg, AT_SRC_MIN);
+        types = mapper_msg_get_type(msg, AT_SRC_MIN);
+        length = mapper_msg_get_length(msg, AT_SRC_MIN);
+        if (args && types && is_number_type(types[0])) {
+            if (length == c->props.sources[slot].length) {
+                if (!c->props.sources[slot].minimum)
+                    c->props.sources[slot].minimum = calloc(1, length * c->props.sources[0].type);
+                for (i=0; i<length; i++) {
+                    result = propval_set_from_lo_arg(c->props.sources[slot].minimum,
+                                                     c->props.sources[slot].type,
                                                      args[i], types[i], i);
                     if (result == -1) {
                         break;
@@ -726,17 +662,39 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
         }
     }
 
-    if (!c->props.destination.maximum) {
-        args = mapper_msg_get_param(msg, AT_MAX);
-        types = mapper_msg_get_type(msg, AT_MAX);
-        length = mapper_msg_get_length(msg, AT_MAX);
-        if (args && types && is_number_type(types[0]))
-        {
+    if ((c->destination.status & MAPPER_TYPE_KNOWN)
+        && (c->destination.status & MAPPER_LENGTH_KNOWN)) {
+        /* destination maximum */
+        args = mapper_msg_get_param(msg, AT_DEST_MAX);
+        types = mapper_msg_get_type(msg, AT_DEST_MAX);
+        length = mapper_msg_get_length(msg, AT_DEST_MAX);
+        if (args && types && is_number_type(types[0])) {
             if (length == c->props.destination.length) {
                 if (!c->props.destination.maximum)
                     c->props.destination.maximum = calloc(1, length * c->props.destination.type);
                 for (i=0; i<length; i++) {
                     result = propval_set_from_lo_arg(c->props.destination.maximum,
+                                                     c->props.destination.type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        break;
+                    }
+                    else
+                        updated += result;
+                }
+            }
+        }
+
+        /* destination minimum */
+        args = mapper_msg_get_param(msg, AT_DEST_MIN);
+        types = mapper_msg_get_type(msg, AT_DEST_MIN);
+        length = mapper_msg_get_length(msg, AT_DEST_MIN);
+        if (args && types && is_number_type(types[0])) {
+            if (length == c->props.destination.length) {
+                if (!c->props.destination.minimum)
+                    c->props.destination.minimum = calloc(1, length * c->props.destination.type);
+                for (i=0; i<length; i++) {
+                    result = propval_set_from_lo_arg(c->props.destination.minimum,
                                                      c->props.destination.type,
                                                      args[i], types[i], i);
                     if (result == -1) {
@@ -755,28 +713,40 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
         sig = c->sources[slot].local->signal;
     else if (!out && c->destination.local)
         sig = c->destination.local->signal;
-
-    /* If parent signal is an output it must be the "source" of this connection,
-     * if it is an input it can be either "source" or "destination".
-     * According to the protocol for negotiating new connections, we will only
-     * fill-in ranges for the "source" signal.*/
-    if (!sig || c->props.direction != DI_OUTGOING)
+    if (!sig)
         return updated;
 
-    if (!c->props.sources[0].minimum && sig->props.minimum)
-    {
-        c->props.sources[0].minimum = malloc(msig_vector_bytes(sig));
-        memcpy(c->props.sources[0].minimum, sig->props.minimum,
-               msig_vector_bytes(sig));
-        updated++;
+    if (out) {
+        if (!c->props.sources[slot].minimum && sig->props.minimum)
+        {
+            c->props.sources[slot].minimum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.sources[slot].minimum, sig->props.minimum,
+                   msig_vector_bytes(sig));
+            updated++;
+        }
+        if (!c->props.sources[slot].maximum && sig->props.maximum)
+        {
+            c->props.sources[slot].maximum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.sources[slot].maximum, sig->props.maximum,
+                   msig_vector_bytes(sig));
+            updated++;
+        }
     }
-
-    if (!c->props.sources[0].maximum && sig->props.maximum)
-    {
-        c->props.sources[0].maximum = malloc(msig_vector_bytes(sig));
-        memcpy(c->props.sources[0].maximum, sig->props.maximum,
-               msig_vector_bytes(sig));
-        updated++;
+    else {
+        if (!c->props.destination.minimum && sig->props.minimum)
+        {
+            c->props.destination.minimum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.destination.minimum, sig->props.minimum,
+                   msig_vector_bytes(sig));
+            updated++;
+        }
+        if (!c->props.destination.maximum && sig->props.maximum)
+        {
+            c->props.destination.maximum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.destination.maximum, sig->props.maximum,
+                   msig_vector_bytes(sig));
+            updated++;
+        }
     }
 
     return updated;
@@ -788,7 +758,7 @@ static void init_connection_history(mapper_connection_slot slot,
     int i;
     if (slot->history)
         return;
-    slot->history = malloc(sizeof(mapper_signal_history_t *) * props->num_instances);
+    slot->history = malloc(sizeof(struct _mapper_signal_history) * props->num_instances);
     for (i = 0; i < props->num_instances; i++) {
         slot->history[i].type = props->type;
         slot->history[i].length = props->length;
@@ -802,85 +772,89 @@ static void init_connection_history(mapper_connection_slot slot,
 
 int mapper_connection_check_status(mapper_connection c)
 {
-    printf("  mapper_connection_check_status()\n");
+    c->status |= MAPPER_READY;
+    int mask = ~MAPPER_READY;
     if (c->destination.local
         || (c->destination.link && c->destination.link->remote_host))
-        c->props.destination.status |= MAPPER_LINK_KNOWN;
-    if (!(c->status = c->props.destination.status))
-        return 0;
+        c->destination.status |= MAPPER_LINK_KNOWN;
+    c->status &= (c->destination.status | mask);
 
     int i;
     for (i = 0; i < c->props.num_sources; i++) {
         if (c->sources[i].local
             || (c->sources[i].link && c->sources[i].link->remote_host))
-            c->props.sources[i].status |= MAPPER_LINK_KNOWN;
-        if (!(c->status &= c->props.sources[i].status))
-            return 0;
+            c->sources[i].status |= MAPPER_LINK_KNOWN;
+        c->status &= (c->sources[i].status | mask);
     }
-    if (c->status >= (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN)) {
+
+    if ((c->status & MAPPER_TYPE_KNOWN) && (c->status & MAPPER_LENGTH_KNOWN)) {
         // allocate memory for connection history
         // TODO: should we wait for link information also?
         for (i = 0; i < c->props.num_sources; i++) {
-            if (!c->sources[i].local)
+            if (!c->sources[i].local) {
                 init_connection_history(&c->sources[i], &c->props.sources[i]);
+            }
         }
-        if (!c->destination.local)
+        if (!c->destination.local) {
             init_connection_history(&c->destination, &c->props.destination);
+        }
         return 1;
     }
-    return 0;
+    return c->status;
 }
 
-int mapper_connection_set_from_message(mapper_connection c,
-                                       mapper_message_t *msg,
-                                       int direction)
+int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *msg)
 {
-    int updated = 0;
+    int updated = 0, out = c->props.direction == DI_OUTGOING;
     /* First record any provided parameters. */
 
     /* Connection slot */
     int slot = 0;
     mapper_msg_get_param_if_int(msg, AT_SLOT, &slot);
-    if (slot > c->props.num_sources) {
-        trace("error: slot index exceeds number of connection sources.\n");
+    if (slot < 0 || slot > c->props.num_sources) {
+        trace("error: slot index outside bounds of connection sources.\n");
         return 0;
     }
 
     /* Remote type. */
-    const char *type = mapper_msg_get_param_if_char(msg, AT_TYPE);
-    if (type) {
-        if (c->props.direction == DI_OUTGOING) {
-            if (!(c->props.destination.status & MAPPER_TYPE_KNOWN)) {
+    const char *type;
+    type = mapper_msg_get_param_if_char(msg, out ? AT_DEST_TYPE : AT_SRC_TYPE);
+    if (type && (type[0] == 'i' || type[0] == 'f' || type[0] == 'd')) {
+        if (out) {
+            if (!(c->destination.status & MAPPER_TYPE_KNOWN)) {
                 c->props.destination.type = type[0];
-                c->props.destination.status |= MAPPER_TYPE_KNOWN;
+                c->destination.status |= MAPPER_TYPE_KNOWN;
                 updated++;
             }
         }
-        else if (!(c->props.sources[slot].status & MAPPER_TYPE_KNOWN)) {
+        else if (!(c->sources[slot].status & MAPPER_TYPE_KNOWN)) {
             c->props.sources[slot].type = type[0];
-            c->props.sources[slot].status |= MAPPER_TYPE_KNOWN;
+            c->sources[slot].status |= MAPPER_TYPE_KNOWN;
             updated++;
         }
     }
 
     /* Remote length. */
     int length;
-    if (!mapper_msg_get_param_if_int(msg, AT_LENGTH, &length)) {
-        if (c->props.direction == DI_OUTGOING) {
-            if (!(c->props.destination.status & MAPPER_LENGTH_KNOWN)) {
-                c->props.destination.length = length;
-                c->props.destination.status |= MAPPER_LENGTH_KNOWN;
+    if (!mapper_msg_get_param_if_int(msg, out ? AT_DEST_LENGTH : AT_SRC_LENGTH,
+                                     &length)) {
+        if (length > 0 && length <= MAPPER_MAX_VECTOR_LEN) {
+            if (out) {
+                if (!(c->destination.status & MAPPER_LENGTH_KNOWN)) {
+                    c->props.destination.length = length;
+                    c->destination.status |= MAPPER_LENGTH_KNOWN;
+                    updated++;
+                }
+            }
+            else if (!(c->sources[slot].status & MAPPER_LENGTH_KNOWN)) {
+                c->props.sources[slot].length = length;
+                c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
                 updated++;
             }
         }
-        else if (!(c->props.sources[slot].status & MAPPER_LENGTH_KNOWN)) {
-            c->props.sources[slot].length = length;
-            c->props.sources[slot].status |= MAPPER_LENGTH_KNOWN;
-            updated++;
-        }
     }
 
-    if (!c->status) {
+    if (c->status < MAPPER_READY) {
         // check if connection is now "ready"
         mapper_connection_check_status(c);
     }
@@ -888,7 +862,7 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Range information. */
     // TODO: handle updating range types after receiving connectTo
     updated += set_range(c, msg, slot);
-    if (c->props.mode == MO_LINEAR) {
+    if (c->is_admin && c->props.mode == MO_LINEAR) {
         mapper_connection_set_mode_linear(c);
     }
 
@@ -924,8 +898,7 @@ int mapper_connection_set_from_message(mapper_connection c,
     /* Expression. */
     const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
     if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
-        if (c->props.direction == DI_OUTGOING
-            && c->props.mode == MO_EXPRESSION) {
+        if (c->is_admin && c->props.mode == MO_EXPRESSION) {
             if (!replace_expression_string(c, expr)) {
                 reallocate_connection_histories(c);
             }
@@ -961,8 +934,9 @@ int mapper_connection_set_from_message(mapper_connection c,
     if (mode < 0) {
         if (c->props.mode)
             return updated;
-        else
+        else {
             mode = MO_UNDEFINED;
+        }
     }
     else if (mode != c->props.mode) {
         c->props.mode = mode;
@@ -970,7 +944,8 @@ int mapper_connection_set_from_message(mapper_connection c,
     }
 
     // abort if connection metadata still missing
-    if (c->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
+    if (!updated || !c->is_admin || !(c->status & MAPPER_TYPE_KNOWN)
+        || !(c->status & MAPPER_LENGTH_KNOWN))
         return updated;
 
     switch (mode) {
@@ -1237,7 +1212,4 @@ void mapper_connection_mute_slot(mapper_connection c, int slot, int muted)
 {
     if (slot >= 0 && slot < c->props.num_sources)
         c->sources[slot].cause_update = !muted;
-    printf("  SET cause_update(%s)? %s\n",
-           c->props.direction == DI_OUTGOING ? "->" : "<-",
-           c->sources[slot].cause_update ? "YES" : "NO");
 }

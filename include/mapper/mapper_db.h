@@ -172,7 +172,6 @@ typedef struct _mapper_db_connection_slot {
     int slot;                       //!< Slot number
     int length;
     int num_instances;
-    int status;
     char type;
 } mapper_db_connection_slot_t, *mapper_db_connection_slot;
 

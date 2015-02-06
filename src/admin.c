@@ -92,7 +92,8 @@ const char* admin_msg_strings[] =
 /* Internal functions for sending admin messages. */
 static void mapper_admin_send_device(mapper_admin admin, mapper_device device);
 static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
-                                         mapper_connection c, int index, int cmd);
+                                         mapper_connection c, int slot,
+                                         int index, int cmd);
 
 /* Internal message handler prototypes. */
 static int handler_who(const char *, const char *, lo_arg **, int,
@@ -1047,9 +1048,10 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 
 // Send /connected message
 static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
-                                         mapper_connection c, int index, int cmd)
+                                         mapper_connection c, int slot,
+                                         int index, int cmd)
 {
-    if (c->status < MAPPER_READY)
+    if (cmd == ADM_CONNECTED && c->status < MAPPER_READY)
         return;
 
     lo_message m = lo_message_new();
@@ -1076,7 +1078,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
         if (c->sources[i].local)
             result = snprintf(&remote_names[len], 1024-len, "%s%s",
                               mdev_name(md), c->props.sources[i].name);
-        else
+        else if (slot == -1 || slot == i)
             result = snprintf(&remote_names[len], 1024-len, "%s%s",
                               c->sources[i].link->remote_name,
                               c->props.sources[i].name);
@@ -1100,24 +1102,18 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
         lo_message_add_string(m, local_name);
     }
 
-    if (cmd == ADM_CONNECT_TO) {
-        if (c->props.direction == DI_OUTGOING) {
-            // add type and length props
-            lo_message_add_string(m, prop_msg_strings[AT_TYPE]);
-            for (i = 0; i < c->props.num_sources; i++)
-                lo_message_add_char(m, c->props.sources[i].type);
-            lo_message_add_string(m, prop_msg_strings[AT_LENGTH]);
-            for (i = 0; i < c->props.num_sources; i++)
-                lo_message_add_int32(m, c->props.sources[i].length);
-        }
+    // add other properties
+    mapper_connection_prepare_osc_message(m, c, -1);
+
+    if (slot != -1) {
+        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
+        lo_message_add_int32(m, slot);
     }
 
     if (index != -1) {
         lo_message_add_string(m, "@ID");
         lo_message_add_int32(m, index);
     }
-
-    // TODO: add other properties
 
     lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
     // TODO: should send bundle here since message refers to generated strings
@@ -1137,7 +1133,8 @@ static void mapper_admin_send_connections_in(mapper_admin admin,
                 if (max > 0 && i > max)
                     break;
                 if (i >= min) {
-                    mapper_admin_send_connection(admin, md, c, i, ADM_CONNECTED);
+                    mapper_admin_send_connection(admin, md, c, -1,
+                                                 i, ADM_CONNECTED);
                 }
                 c = c->next;
                 i++;
@@ -1160,7 +1157,8 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
                 if (max > 0 && i > max)
                     break;
                 if (i >= min) {
-                    mapper_admin_send_connection(admin, md, c, i, ADM_CONNECTED);
+                    mapper_admin_send_connection(admin, md, c, -1,
+                                                 i, ADM_CONNECTED);
                 }
                 c = c->next;
                 i++;
@@ -1669,7 +1667,7 @@ static int handler_device_link_to(const char *path, const char *types,
     const char *remote_name = NULL, *host = NULL, *admin_port;
     mapper_message_t params;
     lo_address a = NULL;
-    int data_port;
+    int i, data_port;
 
     if (argc < 2)
         return 0;
@@ -1728,13 +1726,23 @@ static int handler_device_link_to(const char *path, const char *types,
     mapper_router_signal s = md->router->signals;
     while (s) {
         mapper_connection c = s->connections;
-        int count = 0;
         while (c) {
-            if (!c->status && mapper_connection_check_status(c)) {
-                mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECT_TO);
+            if (c->props.direction == DI_OUTGOING) {
+                if (c->destination.link == link) {
+                    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                    mapper_admin_send_connection(admin, md, c, -1, -1,
+                                                 ADM_CONNECT_TO);
+                }
             }
-            count++;
+            else {
+                for (i = 0; i < c->props.num_sources; i++) {
+                    if (c->sources[i].link == link) {
+                        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                        mapper_admin_send_connection(admin, md, c, -1, -1,
+                                                     ADM_CONNECT_TO);
+                    }
+                }
+            }
             c = c->next;
         }
         s = s->next;
@@ -1783,7 +1791,7 @@ static int handler_signal_connect(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal dest_signal;
-    int i = 1, num_sources = 1, dest_index = 1, num_params, slot = -1;
+    int i = 1, num_sources = 1, dest_index = 1, num_params;
     const char *dest_signal_name, *dest_name;
 
     if (argc < 2)
@@ -1877,43 +1885,16 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_SRC_LENGTH] = 0;
     params.values[AT_DEST_TYPE] = 0;
     params.values[AT_DEST_LENGTH] = 0;
-    mapper_connection_set_from_message(c, &params, DI_INCOMING);
-
-    // substitute some missing parameters with known properties
-    lo_arg *arg_type = (lo_arg*) &dest_signal->props.type;
-    params.values[AT_TYPE] = &arg_type;
-    params.types[AT_TYPE] = "c";
-    params.lengths[AT_TYPE] = 1;
-
-    lo_arg *arg_length = (lo_arg*) &dest_signal->props.length;
-    params.values[AT_LENGTH] = &arg_length;
-    params.types[AT_LENGTH] = "i";
-    params.lengths[AT_LENGTH] = 1;
-
-    lo_arg *arg_num_instances = (lo_arg*) &dest_signal->props.num_instances;
-    params.values[AT_INSTANCES] = &arg_num_instances;
-    params.types[AT_INSTANCES] = "i";
-    params.lengths[AT_INSTANCES] = 1;
+    mapper_connection_set_from_message(c, &params);
 
     for (i = 0; i < num_sources; i++) {
         // TODO: check if entire connection is local, if so stop connect protocol
         // TODO: check if all sources belong to same remote device, if so send together
-
-        if (num_sources > 1) {
-            ++slot;
-            lo_arg *arg_slot = (lo_arg*) &slot;
-            params.values[AT_SLOT] = &arg_slot;
-            params.types[AT_SLOT] = "i";
-            params.lengths[AT_SLOT] = 1;
-        }
+        if (!c->sources[i].link->remote_host)
+            continue;
 
         mapper_admin_set_bundle_dest_bus(admin);
-        mapper_admin_bundle_message_with_params(
-            admin, &params, dest_signal->props.extra,
-            ADM_CONNECT_TO, 0, "sss", dest_name, "<-", src_names[i],
-            (num_sources > 1) ? AT_MODE : -1, MO_RAW,
-            (!params.values[AT_MIN] && dest_signal->props.minimum) ? AT_MIN : -1, dest_signal,
-            (!params.values[AT_MAX] && dest_signal->props.maximum) ? AT_MAX : -1, dest_signal);
+        mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECT_TO);
     }
 
     return 0;
@@ -1929,9 +1910,9 @@ static int handler_signal_connect_to(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal signal;
-    mapper_connection connection;
+    mapper_connection c;
     int i, num_sources = 1, src_index = 0, dest_index = 1;
-    int num_params, param_index = 0, slot = 0;
+    int num_params, param_index = 0;
 
     const char *local_signal_name = 0;
     const char *remote_name;
@@ -1996,18 +1977,17 @@ static int handler_signal_connect_to(const char *path, const char *types,
             return 0;
         }
         remote_name = &argv[dest_index]->s;
-        connection = mapper_router_find_connection(md->router, signal, 1,
-                                                   &remote_name);
-        if (!connection) {
+        c = mapper_router_find_connection(md->router, signal, 1, &remote_name);
+        if (!c) {
             /* Creation of a connection requires the type and length info. */
-            if (!params.values[AT_TYPE] || !params.values[AT_LENGTH]) {
-                trace("missing type ot length in handler_signal_connect_to\n");
+            if (!params.values[AT_DEST_TYPE] || !params.values[AT_DEST_LENGTH]) {
+                trace("missing dest type or length in handler_signal_connect_to\n");
                 return 0;
             }
             /* Add a flavourless connection */
-            connection = mapper_router_add_connection(md->router, signal, 1,
-                                                      &remote_name, DI_OUTGOING);
-            if (!connection) {
+            c = mapper_router_add_connection(md->router, signal, 1,
+                                             &remote_name, DI_OUTGOING);
+            if (!c) {
                 trace("couldn't create mapper_connection in handler_signal_connect_to\n");
                 return 0;
             }
@@ -2035,19 +2015,18 @@ static int handler_signal_connect_to(const char *path, const char *types,
         for (i = 0; i < num_sources; i++) {
             sources[i] = &argv[i]->s;
         }
-        connection = mapper_router_find_connection(md->router, signal,
-                                                   num_sources, sources);
-        if (!connection) {
+        c = mapper_router_find_connection(md->router, signal,
+                                          num_sources, sources);
+        if (!c) {
             /* Creation of a connection requires the type and length info. */
-            if (!params.values[AT_TYPE] || !params.values[AT_LENGTH]) {
-                trace("missing type ot length in handler_signal_connect_to\n");
+            if (!params.values[AT_SRC_TYPE] || !params.values[AT_SRC_LENGTH]) {
+                trace("missing src type or length in handler_signal_connect_to\n");
                 return 0;
             }
             /* Add a flavourless connection */
-            connection = mapper_router_add_connection(md->router, signal,
-                                                      num_sources, sources,
-                                                      DI_INCOMING);
-            if (!connection) {
+            c = mapper_router_add_connection(md->router, signal, num_sources,
+                                             sources, DI_INCOMING);
+            if (!c) {
                 trace("couldn't create mapper_connection in handler_signal_connect_to\n");
                 return 0;
             }
@@ -2073,24 +2052,28 @@ static int handler_signal_connect_to(const char *path, const char *types,
         mapper_msg_get_param_if_int(&params, AT_INSTANCES,
                                     &remote_instances);
         if (remote_instances > 1 || signal->props.num_instances > 1) {
-            connection->props.send_as_instance = 1;
+            c->props.send_as_instance = 1;
         }
         else
-            connection->props.send_as_instance = 0;
+            c->props.send_as_instance = 0;
     }
 
     /* Set connection properties. */
-    if (params.lengths[AT_SLOT] && *params.types[AT_SLOT] == 'i')
-        slot = (*params.values[AT_SLOT])->i;
+    mapper_connection_set_from_message(c, &params);
 
-    mapper_connection_set_from_message(connection, &params, DI_OUTGOING);
-
-    if (connection->status == MAPPER_READY) {
-        mapper_admin_set_bundle_dest_mesh(admin,
-                                          connection->props.direction == DI_OUTGOING ?
-                                          connection->destination.link->admin_addr :
-                                          connection->sources[slot].link->admin_addr);
-        mapper_admin_send_connection(admin, md, connection, -1, ADM_CONNECTED);
+    if (c->status == MAPPER_READY) {
+        if (c->props.direction == DI_OUTGOING) {
+            mapper_admin_set_bundle_dest_mesh(admin,
+                                              c->destination.link->admin_addr);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
+        else {
+            for (i = 0; i < c->props.num_sources; i++) {
+                mapper_admin_set_bundle_dest_mesh(admin,
+                                                  c->sources[i].link->admin_addr);
+                mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECTED);
+            }
+        }
     }
     return 0;
 }
@@ -2222,23 +2205,28 @@ static int handler_signal_connected(const char *path, const char *types,
         return 0;
     }
 
-    int updated = 0;
-    if (!c->is_admin)
-        updated = mapper_connection_set_from_message(c, &params, DI_INCOMING);
+    int updated = mapper_connection_set_from_message(c, &params);
 
     if (c->status == MAPPER_READY) {
-        // Inform remote peer
-        mapper_admin_set_bundle_dest_mesh(admin,
-                                          c->props.direction == DI_OUTGOING ?
-                                          c->destination.link->admin_addr :
-                                          c->sources[slot].link->admin_addr);
-        mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+        // Inform remote peer(s)
+        if (c->props.direction == DI_OUTGOING) {
+            mapper_admin_set_bundle_dest_mesh(admin,
+                                              c->destination.link->admin_addr);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
+        else {
+            for (i = 0; i < c->props.num_sources; i++) {
+                mapper_admin_set_bundle_dest_mesh(admin,
+                                                  c->sources[i].link->admin_addr);
+                mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECTED);
+            }
+        }
         updated++;
     }
     if (c->status >= MAPPER_READY && updated) {
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Call local connection handler if it exists
         if (md->connection_cb)
@@ -2343,21 +2331,19 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, types+2, argc-2, &argv[2]);
 
-    int updated = mapper_connection_set_from_message(c, &params, outgoing
-                                                     ? DI_OUTGOING : DI_INCOMING);
+    int updated = mapper_connection_set_from_message(c, &params);
     if (updated) {
         // TODO: check for self-connections,don't need to send updates
 
-        // Inform remote device
-        // TODO: send appropriate messages using mesh
+        // Inform remote peer(s) of relevant changes
 //        mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
         mapper_admin_set_bundle_dest_bus(admin);
-        mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin,
             outgoing ? SUB_DEVICE_CONNECTIONS_OUT : SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Call local connection handler if it exists
         if (md->connection_cb)
