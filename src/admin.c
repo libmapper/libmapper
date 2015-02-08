@@ -33,7 +33,7 @@
 extern const char* prop_msg_strings[N_AT_PARAMS];
 
 // set to 1 to force mesh comms to use admin bus instead for debugging
-#define FORCE_ADMIN_TO_BUS      1
+#define FORCE_ADMIN_TO_BUS      0
 
 #define BUNDLE_DEST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DEST_BUS         0
@@ -147,8 +147,9 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
     {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_WHO,                   NULL,       handler_who},
-#if FORCE_ADMIN_TO_BUS
+//#if FORCE_ADMIN_TO_BUS
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
+#if FORCE_ADMIN_TO_BUS
     {ADM_DEVICE,                NULL,       handler_device},
     {ADM_PING,                  "iiid",     handler_device_ping},
 #endif
@@ -728,8 +729,9 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->remote_name_hash == md->props.name_hash) {
-            // don't bother sending pings to self
+        if (link->remote_name_hash == md->props.name_hash
+            || !link->remote_host) {
+            // don't bother sending pings to self or if link not ready
             link = link->next;
             continue;
         }
@@ -1220,8 +1222,12 @@ static int handler_device(const char *path, const char *types,
     }
 
     if (md) {
-        if (strcmp(&argv[0]->s, mdev_name(md))==0) {
+        if (strcmp(&argv[0]->s, mdev_name(md))) {
+            trace("<%s> got /device %s\n", mdev_name(md), &argv[0]->s);
+        }
+        else {
             // ignore own messages
+            trace("<%s> ignoring /device %s\n", mdev_name(md), &argv[0]->s);
             return 0;
         }
         // Discover whether the device is linked.
@@ -1433,6 +1439,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         mapper_admin_send_connections_in(admin, admin->device, -1, -1);
     if (flags & SUB_DEVICE_CONNECTIONS_OUT)
         mapper_admin_send_connections_out(admin, admin->device, -1, -1);
+    mapper_admin_send_bundle(admin);
 }
 
 /*! Respond to /subscribe message by adding or renewing a subscription. */
@@ -1491,7 +1498,6 @@ static int handler_device_subscribe(const char *path, const char *types,
 
     // add or renew subscription
     mapper_admin_manage_subscriber(admin, a, flags, timeout_seconds, version);
-
     return 0;
 }
 
