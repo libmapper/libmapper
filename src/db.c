@@ -1330,9 +1330,9 @@ static int cmp_query_signal_exact_device_name(void *context_data,
     const char direction = *((const char*)context_data
                              + strlen(device_name) + 1);
     if (direction == 'i')
-        return sig->is_input && strcmp(device_name, sig->device_name)==0;
+        return sig->is_input && strcmp(device_name, sig->device->name)==0;
     else if (direction == 'o')
-        return sig->is_output && strcmp(device_name, sig->device_name)==0;
+        return sig->is_output && strcmp(device_name, sig->device->name)==0;
     else
         return strcmp(device_name, sig->device_name)==0;
 }
