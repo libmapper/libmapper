@@ -256,7 +256,7 @@ static int handler_signal(const char *path, const char *types,
     int index = 0, is_instance_update = 0, origin, public_id;
     mapper_id_map map;
     int slot = -1;
-    mapper_connection c;
+    mapper_connection c = 0;
     mapper_connection_slot s;
     mapper_db_connection_slot p;
 
@@ -480,6 +480,7 @@ static int handler_signal(const char *path, const char *types,
             si->has_value = 1;
         }
     }
+
     if (out_count) {
         sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
         if (!sig->props.is_output)

@@ -1216,13 +1216,12 @@ int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
  *  device information must also include SUB_DEVICE. */
 #define SUB_NONE                    0x00
 #define SUB_DEVICE                  0x01
-#define SUB_DEVICE_INPUTS           0x03
-#define SUB_DEVICE_OUTPUTS          0x05
-#define SUB_DEVICE_SIGNALS          0x07 // SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
-//#define SUB_DEVICE_LINKS            0x09
-#define SUB_DEVICE_CONNECTIONS_IN   0x21
-#define SUB_DEVICE_CONNECTIONS_OUT  0x41
-#define SUB_DEVICE_CONNECTIONS      0x61 // SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
+#define SUB_DEVICE_INPUTS           0x02
+#define SUB_DEVICE_OUTPUTS          0x04
+#define SUB_DEVICE_SIGNALS          SUB_DEVICE_INPUTS | SUB_DEVICE_OUTPUTS
+#define SUB_DEVICE_CONNECTIONS_IN   0x10
+#define SUB_DEVICE_CONNECTIONS_OUT  0x20
+#define SUB_DEVICE_CONNECTIONS      SUB_DEVICE_CONNECTIONS_IN | SUB_DEVICE_CONNECTIONS_OUT
 #define SUB_DEVICE_ALL              0xFF
 
 /*! Create a network monitor.

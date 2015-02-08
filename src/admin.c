@@ -76,8 +76,7 @@ const char* admin_msg_strings[] =
     "/device",                  /* ADM_DEVICE */
     "/disconnect",              /* ADM_DISCONNECT */
     "/disconnected",            /* ADM_DISCONNECTED */
-    "/linkTo",                  /* ADM_LINK_TO */
-    "/link/ping",               /* ADM_PING */
+    "/ping",                    /* ADM_PING */
     "/logout",                  /* ADM_LOGOUT */
     "/name/probe",              /* ADM_NAME_PROBE */
     "/name/registered",         /* ADM_NAME_REG */
@@ -114,8 +113,6 @@ static int handler_device_name_probe(const char *, const char *, lo_arg **,
                                      int, lo_message, void *);
 static int handler_device_name_registered(const char *, const char *, lo_arg **,
                                           int, lo_message, void *);
-static int handler_device_link_to(const char *, const char *, lo_arg **,
-                                  int, lo_message, void *);
 static int handler_device_ping(const char *, const char *, lo_arg **, int,
                                lo_message, void *);
 static int handler_signal_connect(const char *, const char *, lo_arg **,
@@ -146,28 +143,18 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_CONNECT_TO,            NULL,       handler_signal_connect_to},
     {ADM_CONNECTION_MODIFY,     NULL,       handler_signal_connection_modify},
     {ADM_DISCONNECT,            NULL,       handler_signal_disconnect},
-    {ADM_LINK_TO,               NULL,       handler_device_link_to},
     {ADM_LOGOUT,                NULL,       handler_logout},
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
     {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_WHO,                   NULL,       handler_who},
 #if FORCE_ADMIN_TO_BUS
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
+    {ADM_DEVICE,                NULL,       handler_device},
     {ADM_PING,                  "iiid",     handler_device_ping},
 #endif
 };
 const int N_DEVICE_BUS_HANDLERS =
     sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
-
-static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_CONNECTED,             NULL,       handler_signal_connected},
-    {ADM_CONNECT_TO,            NULL,       handler_signal_connect_to},
-    {ADM_PING,                  "iiid",     handler_device_ping},
-    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
-    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
-};
-const int N_DEVICE_MESH_HANDLERS =
-    sizeof(device_mesh_handlers)/sizeof(device_mesh_handlers[0]);
 
 // handlers needed by "monitors"
 static struct handler_method_assoc monitor_bus_handlers[] = {
@@ -182,7 +169,19 @@ static struct handler_method_assoc monitor_bus_handlers[] = {
 #endif
 };
 const int N_MONITOR_BUS_HANDLERS =
-    sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
+sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
+
+#if !FORCE_ADMIN_TO_BUS
+static struct handler_method_assoc device_mesh_handlers[] = {
+    {ADM_CONNECTED,             NULL,       handler_signal_connected},
+    {ADM_CONNECT_TO,            NULL,       handler_signal_connect_to},
+    {ADM_DEVICE,                NULL,       handler_device},
+    {ADM_PING,                  "iiid",     handler_device_ping},
+    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
+    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
+};
+const int N_DEVICE_MESH_HANDLERS =
+    sizeof(device_mesh_handlers)/sizeof(device_mesh_handlers[0]);
 
 static struct handler_method_assoc monitor_mesh_handlers[] = {
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
@@ -193,6 +192,7 @@ static struct handler_method_assoc monitor_mesh_handlers[] = {
 };
 const int N_MONITOR_MESH_HANDLERS =
     sizeof(monitor_mesh_handlers)/sizeof(monitor_mesh_handlers[0]);
+#endif
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -365,6 +365,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
                              device_bus_handlers[i].h,
                              admin);
     }
+#if !FORCE_ADMIN_TO_BUS
     for (i=0; i < N_DEVICE_MESH_HANDLERS; i++)
     {
         snprintf(fullpath, 256,
@@ -375,6 +376,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
                              device_mesh_handlers[i].h,
                              admin);
     }
+#endif
 }
 
 static void mapper_admin_add_monitor_methods(mapper_admin admin)
@@ -388,6 +390,7 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
                              monitor_bus_handlers[i].h,
                              admin);
     }
+#if !FORCE_ADMIN_TO_BUS
     for (i=0; i < N_MONITOR_MESH_HANDLERS; i++)
     {
         lo_server_add_method(admin->mesh_server,
@@ -396,6 +399,7 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
                              monitor_mesh_handlers[i].h,
                              admin);
     }
+#endif
 }
 
 static void mapper_admin_remove_monitor_methods(mapper_admin admin)
@@ -420,6 +424,7 @@ static void mapper_admin_remove_monitor_methods(mapper_admin admin)
                              admin_msg_strings[monitor_bus_handlers[i].str_index],
                              monitor_bus_handlers[i].types);
     }
+#if !FORCE_ADMIN_TO_BUS
     for (i=0; i < N_MONITOR_MESH_HANDLERS; i++)
     {
         // make sure method isn't also used by a device
@@ -439,6 +444,7 @@ static void mapper_admin_remove_monitor_methods(mapper_admin admin)
                              admin_msg_strings[monitor_mesh_handlers[i].str_index],
                              monitor_mesh_handlers[i].types);
     }
+#endif
 }
 
 mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
@@ -1107,7 +1113,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
 
     if (slot != -1) {
         lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, slot);
+        lo_message_add_int32(m, slot + c->slot_start);
     }
 
     if (index != -1) {
@@ -1192,6 +1198,7 @@ static int handler_device(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
     mapper_db db = mmon_get_db(mon);
+    mapper_device md = admin->device;
 
     if (argc < 1)
         return 0;
@@ -1200,31 +1207,87 @@ static int handler_device(const char *path, const char *types,
         return 0;
 
     const char *name = &argv[0]->s;
-
-    trace("<monitor> got /device %s + %i arguments\n", name, argc-1);
+    lo_address a = lo_message_get_source(msg);
 
     mapper_message_t params;
     mapper_msg_parse_params(&params, path, &types[1],
                             argc-1, &argv[1]);
 
-    if (params.types[AT_IP]==0 || params.values[AT_IP]==0) {
-        // Find the sender's hostname
-        lo_address a = lo_message_get_source(msg);
-        if (a) {
-            const char *host = lo_address_get_hostname(a);
-            if (host) {
-                params.types[AT_IP] = types;  // 's'
-                params.values[AT_IP] = (lo_arg**)&host;
-                params.lengths[AT_IP] = 1;
-            }
-        }
-        else
-            trace("Couldn't retrieve host for device %s.\n", name);
+    mapper_clock_now(&admin->clock, &admin->clock.now);
+    if (mon) {
+        trace("<monitor> got /device %s + %i arguments\n", name, argc-1);
+        mapper_db_add_or_update_device_params(db, name, &params, &admin->clock.now);
     }
 
-    mapper_clock_now(&admin->clock, &admin->clock.now);
-    mapper_db_add_or_update_device_params(db, name, &params, &admin->clock.now);
+    if (md) {
+        if (strcmp(&argv[0]->s, mdev_name(md))==0) {
+            // ignore own messages
+            return 0;
+        }
+        // Discover whether the device is linked.
+        mapper_link link =
+            mapper_router_find_link_by_remote_name(md->router, name);
+        if (!link) {
+            trace("<%s> ignoring /device '%s', no link.\n", mdev_name(md), name);
+            return 0;
+        }
+        else if (link->remote_host) {
+            // already have metadata, can ignore this message
+            trace("<%s> ignoring /device '%s', link already set.\n",
+                  mdev_name(md), name);
+            return 0;
+        }
+        if (!a) {
+            trace("can't perform /linkTo, address unknown\n");
+            return 0;
+        }
+        // Find the sender's hostname
+        const char *host = lo_address_get_hostname(a);
+        const char *admin_port = lo_address_get_port(a);
+        if (!host) {
+            trace("can't perform /linkTo, host unknown\n");
+            return 0;
+        }
+        // Retrieve the port
+        int data_port;
+        if (mapper_msg_get_param_if_int(&params, AT_PORT, &data_port)) {
+            trace("can't perform /linkTo, port unknown\n");
+            return 0;
+        }
 
+        mapper_router_update_link(md->router, link, host,
+                                  atoi(admin_port), data_port);
+        trace("<%s> activated router to %s -> host: %s, port: %d\n",
+              mdev_name(md), name, host, data_port);
+
+        // check if we have connections waiting for this link
+        mapper_router_signal s = md->router->signals;
+        while (s) {
+            mapper_connection c = s->connections;
+            while (c) {
+                if (c->props.direction == DI_OUTGOING) {
+                    if (c->destination.link == link) {
+                        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                        mapper_admin_send_connection(admin, md, c, -1, -1,
+                                                     ADM_CONNECT_TO);
+                    }
+                }
+                else {
+                    int i;
+                    for (i = 0; i < c->props.num_sources; i++) {
+                        if (c->sources[i].link == link) {
+                            mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                            mapper_admin_send_connection(admin, md, c,
+                                                         c->props.num_sources > 1 ? i : -1,
+                                                         -1, ADM_CONNECT_TO);
+                        }
+                    }
+                }
+                c = c->next;
+            }
+            s = s->next;
+        }
+    }
     return 0;
 }
 
@@ -1344,7 +1407,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
     if (!flags)
         return;
 
-    if (!(*s)) {
+    if (!(*s) && timeout_seconds) {
         // add new subscriber
         mapper_admin_subscriber sub = malloc(sizeof(struct _mapper_admin_subscriber));
         sub->address = lo_address_new(ip, port);
@@ -1359,8 +1422,8 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         return;
 
     // bring new subscriber up to date
-    mapper_admin_set_bundle_dest_mesh(admin, (*s)->address);
-    if (flags & SUB_DEVICE)
+    mapper_admin_set_bundle_dest_mesh(admin, address);
+    if (flags)
         mapper_admin_send_device(admin, admin->device);
     if (flags & SUB_DEVICE_INPUTS)
         mapper_admin_send_inputs(admin, admin->device, -1, -1);
@@ -1392,6 +1455,8 @@ static int handler_device_subscribe(const char *path, const char *types,
             flags = SUB_DEVICE_ALL;
         else if (strcmp(&argv[i]->s, "device")==0)
             flags |= SUB_DEVICE;
+        else if (strcmp(&argv[i]->s, "signals")==0)
+            flags |= SUB_DEVICE_SIGNALS;
         else if (strcmp(&argv[i]->s, "inputs")==0)
             flags |= SUB_DEVICE_INPUTS;
         else if (strcmp(&argv[i]->s, "outputs")==0)
@@ -1655,101 +1720,6 @@ static int handler_device_name_probe(const char *path, const char *types,
  *      otherwise processing metadata is forwarded to the source device.
  */
 
-/*! Link two devices... */
-// TODO: replace with device info request
-static int handler_device_link_to(const char *path, const char *types,
-                                  lo_arg **argv, int argc, lo_message msg,
-                                  void *user_data)
-{
-    mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
-
-    const char *remote_name = NULL, *host = NULL, *admin_port;
-    mapper_message_t params;
-    lo_address a = NULL;
-    int i, data_port;
-
-    if (argc < 2)
-        return 0;
-
-    // Need at least 2 devices to link
-    if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
-        && types[1] != 'S')
-        return 0;
-
-    // Return if we are not the "src"
-    if (strcmp(mdev_name(md), &argv[0]->s) == 0)
-        remote_name = &argv[1]->s;
-    else
-        return 0;
-
-    trace("<%s> got /linkTo %s\n", mdev_name(md), remote_name);
-
-    // Parse the message.
-    mapper_msg_parse_params(&params, path, &types[1], argc-1, &argv[1]);
-
-    // Discover whether the device is already linked.
-    mapper_link link =
-        mapper_router_find_link_by_remote_name(md->router, remote_name);
-
-    if (!link) {
-        trace("<%s> no tentative link for /linkTo '%s'\n", mdev_name(md), remote_name);
-        return 0;
-    }
-    else if (link->remote_host) {
-        // already have metadata, can ignore this message
-        trace("<%s> ignoring /linkTo '%s', link already set\n", mdev_name(md), remote_name);
-        return 0;
-    }
-
-    // Find the sender's hostname
-    a = lo_message_get_source(msg);
-    host = lo_address_get_hostname(a);
-    admin_port = lo_address_get_port(a);
-    if (!host) {
-        trace("can't perform /linkTo, host unknown\n");
-        return 0;
-    }
-
-    // Retrieve the port
-    if (mapper_msg_get_param_if_int(&params, AT_PORT, &data_port)) {
-        trace("can't perform /linkTo, port unknown\n");
-        return 0;
-    }
-
-    mapper_router_update_link(md->router, link, host,
-                              atoi(admin_port), data_port);
-    trace("<%s> activated router to %s -> host: %s, port: %d\n",
-          mdev_name(md), remote_name, host, data_port);
-
-    // check if we have connections waiting for this link
-    mapper_router_signal s = md->router->signals;
-    while (s) {
-        mapper_connection c = s->connections;
-        while (c) {
-            if (c->props.direction == DI_OUTGOING) {
-                if (c->destination.link == link) {
-                    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                    mapper_admin_send_connection(admin, md, c, -1, -1,
-                                                 ADM_CONNECT_TO);
-                }
-            }
-            else {
-                for (i = 0; i < c->props.num_sources; i++) {
-                    if (c->sources[i].link == link) {
-                        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                        mapper_admin_send_connection(admin, md, c, -1, -1,
-                                                     ADM_CONNECT_TO);
-                    }
-                }
-            }
-            c = c->next;
-        }
-        s = s->next;
-    }
-    return 0;
-}
-
 /* Helper function to check if the prefix matches.  Like strcmp(),
  * returns 0 if they match (up to the second '/'), non-0 otherwise.
  * Also optionally returns a pointer to the remainder of str1 after
@@ -1894,7 +1864,8 @@ static int handler_signal_connect(const char *path, const char *types,
             continue;
 
         mapper_admin_set_bundle_dest_bus(admin);
-        mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECT_TO);
+        mapper_admin_send_connection(admin, md, c, num_sources > 1 ? i : -1,
+                                     -1, ADM_CONNECT_TO);
     }
 
     return 0;
@@ -2071,7 +2042,9 @@ static int handler_signal_connect_to(const char *path, const char *types,
             for (i = 0; i < c->props.num_sources; i++) {
                 mapper_admin_set_bundle_dest_mesh(admin,
                                                   c->sources[i].link->admin_addr);
-                mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECTED);
+                mapper_admin_send_connection(admin, md, c,
+                                             c->props.num_sources > 1 ? i : -1, -1,
+                                             ADM_CONNECTED);
             }
         }
     }
@@ -2198,7 +2171,7 @@ static int handler_signal_connected(const char *path, const char *types,
         c = mapper_router_find_connection_by_slot(md->router, signal, &slot);
     }
     else
-        c = mapper_router_find_connection(md->router, signal, 1, &remote_signal_name);
+        c = mapper_router_find_connection(md->router, signal, 1, &remote_name);
 
     if (!c) {
         trace("error: no connection found for /connected.\n");
@@ -2218,7 +2191,9 @@ static int handler_signal_connected(const char *path, const char *types,
             for (i = 0; i < c->props.num_sources; i++) {
                 mapper_admin_set_bundle_dest_mesh(admin,
                                                   c->sources[i].link->admin_addr);
-                mapper_admin_send_connection(admin, md, c, i, -1, ADM_CONNECTED);
+                mapper_admin_send_connection(admin, md, c,
+                                             c->props.num_sources > 1 ? i : -1,
+                                             -1, ADM_CONNECTED);
             }
         }
         updated++;

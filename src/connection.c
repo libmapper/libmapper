@@ -188,9 +188,7 @@ int mapper_boundary_perform(mapper_connection c,
     double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
-    if (c->props.bound_min == BA_NONE
-        && c->props.bound_max == BA_NONE)
-    {
+    if (c->props.bound_min == BA_NONE && c->props.bound_max == BA_NONE) {
         return 1;
     }
     if (!c->props.destination.minimum

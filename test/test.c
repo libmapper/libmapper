@@ -167,13 +167,13 @@ void loop()
 
         mapper_db_signal src = &sendsig_1->props;
         mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_1->props, 0, 0);
-//        src = &sendsig_2->props;
-//        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_2->props, 0, 0);
-//        src = &sendsig_3->props;
-//        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_3->props, 0, 0);
-//        src = &sendsig_3->props;
-//        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_4->props, 0, 0);
-//
+        src = &sendsig_2->props;
+        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_2->props, 0, 0);
+        src = &sendsig_3->props;
+        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_3->props, 0, 0);
+        src = &sendsig_3->props;
+        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_4->props, 0, 0);
+
         
         mmon_free(mon);
 
@@ -185,24 +185,24 @@ void loop()
     }
 
     i = 0;
-//    float val[3];
+    float val[3];
 
     while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 100);
         msig_update_double(sendsig_1, ((i % 10) * 1.0f));
         eprintf("/outsig_1 value updated to %d -->\n", i % 10);
 
-//        msig_update_float(sendsig_2, ((i % 10) * 1.0f));
-//        eprintf("/outsig_2 value updated to %d -->\n", i % 10);
-//
-//        val[0] = val[1] = val[2] = (i % 10) * 1.0f;
-//        msig_update(sendsig_3, val, 1, MAPPER_NOW);
-//        eprintf("/outsig_3 value updated to [%f,%f,%f] -->\n",
-//               val[0], val[1], val[2]);
-//
-//        msig_update_float(sendsig_4, ((i % 10) * 1.0f));
-//        eprintf("/outsig_4 value updated to %d -->\n", i % 10);
-//
+        msig_update_float(sendsig_2, ((i % 10) * 1.0f));
+        eprintf("/outsig_2 value updated to %d -->\n", i % 10);
+
+        val[0] = val[1] = val[2] = (i % 10) * 1.0f;
+        msig_update(sendsig_3, val, 1, MAPPER_NOW);
+        eprintf("/outsig_3 value updated to [%f,%f,%f] -->\n",
+               val[0], val[1], val[2]);
+
+        msig_update_float(sendsig_4, ((i % 10) * 1.0f));
+        eprintf("/outsig_4 value updated to %d -->\n", i % 10);
+
         eprintf("Sent %i messages.\n", 4);
         sent += 4;
         recvd = mdev_poll(destination, 100);

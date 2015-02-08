@@ -73,7 +73,6 @@ typedef enum {
     ADM_DEVICE,
     ADM_DISCONNECT,
     ADM_DISCONNECTED,
-    ADM_LINK_TO,
     ADM_PING,
     ADM_LOGOUT,
     ADM_NAME_PROBE,

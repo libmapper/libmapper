@@ -168,7 +168,7 @@ void connect_signals()
                                       CONNECTION_MODE | CONNECTION_EXPRESSION);
 
     // wait until connection has been established
-    while (!done && !source->router->links->num_connections_out) {
+    while (!done && !mdev_num_connections_out(source)) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }

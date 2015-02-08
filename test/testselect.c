@@ -131,7 +131,7 @@ int setup_connection()
     mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, 0, 0);
 
     // wait until connection has been established
-    while (!done && !source->router->links->num_connections_out) {
+    while (!done && !mdev_num_connections_out(source)) {
         if (count++ > 50)
             goto error;
         mdev_poll(source, 10);
