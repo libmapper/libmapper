@@ -410,25 +410,32 @@ int mapper_router_send_query(mapper_router r,
     int count = 0;
     int len = (int) strlen(sig->props.name) + 5;
     char *response_string = (char*) malloc(len);
-    snprintf(response_string, len, "%s%s", sig->props.name, "/got");
-    char *query_string = (char*) malloc(len);
-    snprintf(query_string, len, "%s%s", sig->props.name, "/get");
+    snprintf(response_string, len, "%s/got", sig->props.name);
+    char query_string[256];
     while (c) {
-        lo_message m = lo_message_new();
-        if (!m)
-            continue;
-        lo_message_add_string(m, response_string);
-        lo_message_add_int32(m, sig->props.length);
-        // include response address as argument to allow TCP queries?
-        // TODO: always use TCP for queries?
-        lo_message_add_char(m, sig->props.type);
-        // TODO: if we are querying connection source, could be multiple sources
-        send_or_bundle_message(c->destination.link, query_string, m, tt);
+        if (c->status == MAPPER_ACTIVE) {
+            lo_message m = lo_message_new();
+            if (!m)
+                continue;
+            lo_message_add_string(m, response_string);
+            lo_message_add_int32(m, sig->props.length);
+            lo_message_add_char(m, sig->props.type);
+            // TODO: include response address as argument to allow TCP queries?
+            // TODO: always use TCP for queries?
+
+            if (c->props.direction == DI_OUTGOING) {
+                snprintf(query_string, 256, "%s/get", c->props.destination.name);
+            }
+            else {
+                // TODO: handle multiple sources
+                snprintf(query_string, 256, "%s/get", c->props.sources[0].name);
+            }
+            send_or_bundle_message(c->destination.link, query_string, m, tt);
+        }
         count++;
         c = c->next;
     }
     free(response_string);
-    free(query_string);
     return count;
 }
 
