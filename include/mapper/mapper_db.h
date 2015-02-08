@@ -136,8 +136,8 @@ typedef struct _mapper_connection_scope {
 
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */
-typedef struct _mapper_db_signal
-{
+typedef struct _mapper_db_signal {
+    mapper_db_device device;
     char *name;             /*! The name of this signal, an OSC path.  Must
                              *  start with '/'. */
     char *device_name;      /*! The name of the device owning this signal. An
@@ -164,7 +164,6 @@ typedef struct _mapper_db_signal
 
 typedef struct _mapper_db_connection_slot {
     mapper_db_signal signal;
-    mapper_db_device device;
     char *name;
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.

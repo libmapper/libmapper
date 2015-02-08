@@ -115,7 +115,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = connection->destination.device->host;
+    const char *host = connection->destination.signal->device->host;
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 

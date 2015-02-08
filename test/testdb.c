@@ -64,10 +64,12 @@ void printconnection(mapper_db_connection con)
         if (con->num_sources > 1)
             printf("[");
         for (i = 0; i < con->num_sources; i++)
-            printf("%s, ", con->sources[i].name);
+            printf("%s%s, ", con->sources[i].signal->device->name,
+                   con->sources[i].name);
         if (con->num_sources > 1)
             printf("\b\b], ");
-        printf("dest=%s\n", con->destination.name);
+        printf("dest=%s%s\n", con->destination.signal->device->name,
+               con->destination.name);
     }
 }
 
@@ -651,8 +653,8 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for input device 'testdb__.2', signal 'out1',"
-            "\n                 and output device 'testdb.1', signal 'in1':\n");
+    eprintf("\nFind connections for source device 'testdb__.2', signal 'out1',"
+            "\n                 and dest device 'testdb.1', signal 'in1':\n");
 
     const char *src_dev_name = "testdb__.2";
     src_sig_name = "out1";
@@ -687,9 +689,9 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for input device 'testdb__.2', signals "
+    eprintf("\nFind connections for source device 'testdb__.2', signals "
             "matching 'out',"
-            "\n                 and output device 'testdb.1', all signals:\n");
+            "\n                 and dest device 'testdb.1', all signals:\n");
 
     pcon = mapper_db_get_connections_by_signal_queries(db,
         mapper_db_match_outputs_by_device_name(db, "/testdb__.2", "out"),

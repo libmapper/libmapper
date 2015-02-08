@@ -599,7 +599,6 @@ static property_table_value_t con_values[] = {
     { 'i', {0}, -1,         CON_OFFSET(muted) },
     { 'i', {0}, -1,         CON_OFFSET(scope.size) },
     { 'i', {0}, -1,         CON_OFFSET(num_sources) },
-    { 'i', {1}, NUM_SCOPES, CON_OFFSET(scope.hashes) },
     { 's', {1}, NUM_SCOPES, CON_OFFSET(scope.names) },
     { 'i', {0}, -1,         CON_OFFSET(send_as_instance) },
 };
@@ -613,12 +612,11 @@ static string_table_node_t con_strings[] = {
     { "muted",              &con_values[4] },
     { "num_scopes",         &con_values[5] },
     { "num_sources",        &con_values[6] },
-    { "scope_hashes",       &con_values[7] },
-    { "scope_names",        &con_values[8] },
-    { "send_as_instance",   &con_values[9] },
+    { "scope_names",        &con_values[7] },
+    { "send_as_instance",   &con_values[8] },
 };
 
-static mapper_string_table_t con_table = { con_strings, 10, 10 };
+static mapper_string_table_t con_table = { con_strings, 9, 9 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -997,13 +995,14 @@ void mapper_db_dump(mapper_db db)
         else
             printf("  src_names=[");
         for (i=0; i<con->num_sources; i++)
-            printf("%s, ", con->sources[i].name);
+            printf("%s%s, ", con->sources[i].signal->device->name,
+                   con->sources[i].name);
         if (con->num_sources > 1)
             printf("\b\b], ");
-        printf("dest_name=%s,\n"
+        printf("dest_name=%s%s,\n"
                "      bound_max=%s, bound_min=%s,\n"
                "      expression=%s, mode=%s, muted=%d\n",
-               con->destination.name,
+               con->destination.signal->device->name, con->destination.name,
                mapper_get_boundary_action_string(con->bound_max),
                mapper_get_boundary_action_string(con->bound_min),
                con->expression,
@@ -1188,7 +1187,7 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
         sig = (mapper_db_signal) list_new_item(sizeof(mapper_db_signal_t));
 
         // also add device record if necessary
-        mapper_db_add_or_update_device_params(db, device_name, 0, 0);
+        sig->device = mapper_db_add_or_update_device_params(db, device_name, 0, 0);
 
         // Defaults (int, length=1)
         mapper_db_signal_init(sig, 'i', 1, 0, 0);
@@ -1875,7 +1874,6 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                                                                const char *dest_name,
                                                                mapper_message_t *params)
 {
-    printf("mapper_db_add_or_update_connection_params(%s -> %s)\n", src_names[0], dest_name);
     mapper_db_connection con;
     int rc = 0, updated = 0, devnamelen, i;
     char *signame, devname[256];
@@ -1912,7 +1910,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             // TODO: clean up partially-built record
             return 0;
         }
-        strncpy(devname, src_names[i], devnamelen);
+        strncpy(devname, dest_name, devnamelen);
         devname[devnamelen] = 0;
         con->destination.name = strdup(signame);
         con->destination.minimum = con->destination.maximum = 0;
@@ -2011,13 +2009,17 @@ static int cmp_query_get_connections_by_device_name(void *context_data,
 {
     // TODO: need to extract actual device name from string
     const char *devname = (const char*)context_data;
-    unsigned int devnamelen = strlen(devname);
+    unsigned int len = strlen(devname);
     int i;
     for (i = 0; i < con->num_sources; i++) {
-        if (strncmp(con->sources[i].name+1, devname, devnamelen)==0)
+        if (strlen(con->sources[i].signal->device->name+1) == len
+            && strncmp(con->sources[i].signal->device->name+1, devname, len)==0)
             return 1;
     }
-    return (strncmp(con->destination.name+1, devname, devnamelen)==0);
+    if (strlen(con->destination.signal->device->name+1) == len
+        && strncmp(con->destination.signal->device->name+1, devname, len)==0)
+        return 1;
+    return 0;
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_device_name(
@@ -2053,16 +2055,20 @@ static int cmp_query_get_connections_by_src_dest_device_names(
     if (con->num_sources != num_sources)
         return 0;
 
+    const char *devname;
+    unsigned int len;
     for (i = 0; i < num_sources; i++) {
-        const char *srcdevname = (const char *)context_data + offset;
-        unsigned int srcdevnamelen = strlen(srcdevname);
-        if (strncmp(con->sources[i].name, srcdevname, srcdevnamelen))
+        devname = (const char *)context_data + offset;
+        len = strlen(devname);
+        if (strlen(con->sources[i].signal->device->name+1) != len
+            || strncmp(con->sources[i].signal->device->name, devname, len))
             return 0;
-        offset += srcdevnamelen + 1;
+        offset += len + 1;
     }
-    const char *destdevname = (const char *)context_data + offset;
-    unsigned int destdevnamelen = strlen(destdevname);
-    return (strncmp(con->destination.name+1, destdevname, destdevnamelen)==0);
+    devname = (const char *)context_data + offset;
+    len = strlen(devname);
+    return (strlen(con->destination.signal->device->name+1) == len
+            && strncmp(con->destination.signal->device->name+1, devname, len)==0);
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
@@ -2104,11 +2110,7 @@ static int cmp_query_get_connections_by_src_signal_name(void *context_data,
     const char *src_name = (const char*)context_data;
     int i;
     for (i = 0; i < con->num_sources; i++) {
-        const char *map_src_name = con->sources[i].name+1;
-        while (*map_src_name && *map_src_name != '/')  // find the signal name
-            map_src_name++;
-        map_src_name++;
-        if (strcmp(map_src_name, src_name)==0)
+        if (strcmp(con->sources[i].name+1, src_name)==0)
             return 1;
     }
     return 0;
@@ -2138,10 +2140,14 @@ mapper_db_connection_t **mapper_db_get_connections_by_src_signal_name(
 static int cmp_query_get_connections_by_src_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
-    const char *name = (const char*) context_data;
-    int i;
+    const char *fullname = (const char*) context_data;
+    const char *signame = strchr(fullname+1, '/');
+    int i, len = signame - fullname;
+
     for (i = 0; i < con->num_sources; i++) {
-        if (strcmp(con->sources[i].name+1, name)==0)
+        if (strlen(con->sources[i].signal->device->name+1) == len
+            && strncmp(con->sources[i].signal->device->name+1, fullname, len)==0
+            && strcmp(con->sources[i].signal->name, signame)==0)
             return 1;
     }
     return 0;
@@ -2175,11 +2181,7 @@ static int cmp_query_get_connections_by_dest_signal_name(void *context_data,
                                                          mapper_db_connection con)
 {
     const char *dest_name = (const char*)context_data;
-    const char *map_dest_name = con->destination.name+1;
-    while (*map_dest_name && *map_dest_name != '/')  // find the signal name
-        map_dest_name++;
-    map_dest_name++;
-    return strcmp(map_dest_name, dest_name)==0;
+    return strcmp(con->destination.name+1, dest_name)==0;
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
@@ -2206,8 +2208,12 @@ mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
 static int cmp_query_get_connections_by_dest_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
-    const char *name = (const char*) context_data;
-    return strcmp(con->destination.name+1, name)==0;
+    const char *fullname = (const char*) context_data;
+    const char *signame = strchr(fullname+1, '/');
+    int len = signame - fullname;
+    return (strlen(con->destination.signal->device->name+1) == len
+            && strncmp(con->destination.signal->device->name+1, fullname, len)==0
+            && strcmp(con->destination.signal->name, signame)==0);
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_names(
@@ -2236,22 +2242,36 @@ mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_nam
 mapper_db_connection mapper_db_get_connection_by_signal_full_names(
     mapper_db db, int num_sources, const char **src_names, const char *dest_name)
 {
-    int i;
+    int i, j;
     mapper_db_connection con = db->registered_connections;
     if (!con)
         return 0;
 
+    const char *signame;
+    int devnamelen;
     while (con) {
         if (con->num_sources == num_sources) {
-            int matched = 1;
+            int matched = 0;
             for (i=0; i<num_sources; i++) {
-                if (strcmp(con->sources[i].name, src_names[i])) {
-                    matched = 0;
-                    break;
+                signame = strchr(src_names[i]+1, '/');
+                devnamelen = signame - src_names[i];
+                for (j=0; j<num_sources; j++) {
+                    if (strlen(con->sources[j].signal->device->name) == devnamelen
+                        && strncmp(con->sources[j].signal->device->name, src_names[i], devnamelen)==0
+                        && strcmp(con->sources[j].name, src_names[i]+devnamelen)==0) {
+                        matched++;
+                        break;
+                    }
                 }
             }
-            if (matched && strcmp(con->destination.name, dest_name)==0)
-                return con;
+            if (matched == num_sources) {
+                signame = strchr(dest_name+1, '/');
+                devnamelen = signame - dest_name;
+                if (strlen(con->destination.signal->device->name) == devnamelen
+                    && strncmp(con->destination.signal->device->name, dest_name, devnamelen)==0
+                    && strcmp(con->destination.name, dest_name+devnamelen)==0)
+                    return con;
+            }
         }
         con = list_get_next(con);
     }
@@ -2262,12 +2282,15 @@ static int cmp_query_get_connections_by_device_and_signal_name(
     void *context_data, mapper_db_connection con)
 {
     const char *fullname = (const char*) context_data;
-    int i;
+    const char *signame = strchr(fullname+1, '/');
+    int i, len = signame - fullname;
     for (i = 0; i < con->num_sources; i++) {
-        if (strcmp(con->sources[i].name+1, fullname)==0)
+        if (strlen(con->sources[i].signal->device->name+1) == len
+            && strncmp(con->sources[i].signal->device->name+1, fullname, len)==0
+            && strcmp(con->sources[0].signal->name, signame)==0)
             return 1;
     }
-    return strcmp(con->destination.name+1, fullname)==0;
+    return 0;
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
@@ -2296,7 +2319,7 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
 static int cmp_query_get_connections_by_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
-    int i, offset;
+    int i, len, offset;
     const char *num_sources_str = (const char*)context_data;
     offset = strlen(num_sources_str) + 1;
 
@@ -2304,15 +2327,25 @@ static int cmp_query_get_connections_by_device_and_signal_names(
     if (con->num_sources != num_sources)
         return 0;
 
+    const char *fullname, *signame;
     for (i = 0; i < num_sources; i++) {
-        const char *srcdevname = (const char *)context_data + offset;
-        unsigned int srcdevnamelen = strlen(srcdevname);
-        if (strcmp(con->sources[i].name+1, srcdevname))
+        fullname = (const char *)context_data + offset;
+        // slash already skipped
+        signame = strchr(fullname, '/');
+        len = signame - fullname;
+        if (strlen(con->sources[i].signal->device->name+1) != len
+            || strncmp(con->sources[i].signal->device->name+1, fullname, len)
+            || strcmp(con->sources[i].signal->name, signame))
             return 0;
-        offset += srcdevnamelen + 1;
+        offset += strlen(fullname) + 1;
     }
-    const char *destdevname = (const char *)context_data + offset;
-    return (strcmp(con->destination.name+1, destdevname)==0);
+    fullname = (const char *)context_data + offset;
+    // slash already skipped
+    signame = strchr(fullname, '/');
+    len = signame - fullname;
+    return (strlen(con->destination.signal->device->name+1) == len
+            && strncmp(con->destination.signal->device->name+1, fullname, len)==0
+            && strcmp(con->destination.signal->name, signame)==0);
 }
 
 mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
@@ -2375,12 +2408,14 @@ static int cmp_get_connections_by_signal_queries(void *context_data,
 
     /* Find at least one signal in the source list that matches. */
     mapper_db_signal *srcsig = (mapper_db_signal*)&qsig->lh_src_head->self;
-    unsigned int devnamelen = strlen((*srcsig)->device_name);
+    unsigned int len = strlen((*srcsig)->device_name);
     while (srcsig && *srcsig) {
         int i, found = 0;
         for (i = 0; i < con->num_sources; i++) {
-            if (strncmp((*srcsig)->device_name, con->sources[i].name, devnamelen)==0
-                && strcmp((*srcsig)->name, con->sources[i].name+devnamelen)==0) {
+            if (strlen(con->sources[i].signal->device->name) == len
+                && strncmp(con->sources[i].signal->device->name,
+                           (*srcsig)->device_name, len)==0
+                && strcmp((*srcsig)->name, con->sources[i].name)==0) {
                 found = 1;
                 break;
             }
@@ -2405,10 +2440,12 @@ static int cmp_get_connections_by_signal_queries(void *context_data,
 
     /* Find at least one signal in the destination list that matches. */
     mapper_db_signal *destsig = (mapper_db_signal*)&qsig->lh_dest_head->self;
-    devnamelen = strlen((*destsig)->device_name);
+    len = strlen((*destsig)->device_name);
     while (destsig && *destsig) {
-        if (strncmp((*destsig)->device_name, con->destination.name, devnamelen)==0
-            && strcmp((*destsig)->name, con->destination.name+devnamelen)==0)
+        if (strlen(con->destination.signal->device->name) == len
+            && strncmp(con->destination.signal->device->name,
+                       (*destsig)->device_name, len)==0
+            && strcmp((*destsig)->name, con->destination.name)==0)
             break;
         destsig = mapper_db_signal_next(destsig);
     }
