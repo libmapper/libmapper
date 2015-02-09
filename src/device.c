@@ -239,6 +239,7 @@ static int check_types(const char *types, int len, char type, int vector_len)
  *     - null vector elements
  *     - entirely null typestrings (used to release instances)
  *     - multiple signal samples in one message ("count" > 1)
+ *     - update to a specific connection "slot" for convergent connections
  */
 
 /* Note: a vector consisting completely of nulls indicates release of a
@@ -862,7 +863,7 @@ int mdev_num_connections_in(mapper_device md)
     mapper_link l = md->router->links;
     int count = 0;
     while (l) {
-        count += l->num_connections_in;
+        count += l->props.num_connections_in;
         l = l->next;
     }
     return count;
@@ -873,7 +874,7 @@ int mdev_num_connections_out(mapper_device md)
     mapper_link l = md->router->links;
     int count = 0;
     while (l) {
-        count += l->num_connections_out;
+        count += l->props.num_connections_out;
         l = l->next;
     }
     return count;

@@ -548,12 +548,8 @@ static void on_device_autosubscribe(mapper_db_device dev,
 {
     mapper_monitor mon = (mapper_monitor)(user);
 
-    if (a == MDB_NEW) {
-        // Subscribe to signals and/or connections for new devices.
-        if (mon->autosubscribe)
-            mmon_subscribe(mon, dev->name, mon->autosubscribe, -1);
-    }
-    else if (a == MDB_REMOVE) {
+    // New subscriptions are handled in admin.c as response to device "sync" msg
+    if (a == MDB_REMOVE) {
         monitor_unsubscribe_internal(mon, dev->name, 0);
     }
 }

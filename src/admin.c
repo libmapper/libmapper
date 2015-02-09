@@ -138,7 +138,7 @@ struct handler_method_assoc {
 };
 
 // handlers needed by "devices"
-static struct handler_method_assoc device_bus_handlers[] = {
+static struct handler_method_assoc device_handlers[] = {
     {ADM_CONNECT,               NULL,       handler_signal_connect},
     {ADM_CONNECT_TO,            NULL,       handler_signal_connect_to},
     {ADM_CONNECTION_MODIFY,     NULL,       handler_signal_connection_modify},
@@ -147,53 +147,25 @@ static struct handler_method_assoc device_bus_handlers[] = {
     {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
     {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
     {ADM_WHO,                   NULL,       handler_who},
-//#if FORCE_ADMIN_TO_BUS
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
-#if FORCE_ADMIN_TO_BUS
     {ADM_DEVICE,                NULL,       handler_device},
     {ADM_PING,                  "iiid",     handler_device_ping},
-#endif
 };
-const int N_DEVICE_BUS_HANDLERS =
-    sizeof(device_bus_handlers)/sizeof(device_bus_handlers[0]);
+const int N_DEVICE_HANDLERS =
+    sizeof(device_handlers)/sizeof(device_handlers[0]);
 
 // handlers needed by "monitors"
-static struct handler_method_assoc monitor_bus_handlers[] = {
+static struct handler_method_assoc monitor_handlers[] = {
     {ADM_CONNECTED,             NULL,       handler_signal_connected},
     {ADM_DEVICE,                NULL,       handler_device},
     {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
     {ADM_LOGOUT,                NULL,       handler_logout},
     {ADM_SYNC,                  NULL,       handler_sync},
-#if FORCE_ADMIN_TO_BUS
-    {ADM_SIGNAL,                NULL,       handler_signal_info},
-    {ADM_SIGNAL_REMOVED,        "s",        handler_signal_removed},
-#endif
-};
-const int N_MONITOR_BUS_HANDLERS =
-sizeof(monitor_bus_handlers)/sizeof(monitor_bus_handlers[0]);
-
-#if !FORCE_ADMIN_TO_BUS
-static struct handler_method_assoc device_mesh_handlers[] = {
-    {ADM_CONNECTED,             NULL,       handler_signal_connected},
-    {ADM_CONNECT_TO,            NULL,       handler_signal_connect_to},
-    {ADM_DEVICE,                NULL,       handler_device},
-    {ADM_PING,                  "iiid",     handler_device_ping},
-    {ADM_SUBSCRIBE,             NULL,       handler_device_subscribe},
-    {ADM_UNSUBSCRIBE,           NULL,       handler_device_unsubscribe},
-};
-const int N_DEVICE_MESH_HANDLERS =
-    sizeof(device_mesh_handlers)/sizeof(device_mesh_handlers[0]);
-
-static struct handler_method_assoc monitor_mesh_handlers[] = {
-    {ADM_CONNECTED,             NULL,       handler_signal_connected},
-    {ADM_DEVICE,                NULL,       handler_device},
-    {ADM_DISCONNECTED,          NULL,       handler_signal_disconnected},
     {ADM_SIGNAL,                NULL,       handler_signal_info},
     {ADM_SIGNAL_REMOVED,        "s",        handler_signal_removed},
 };
-const int N_MONITOR_MESH_HANDLERS =
-    sizeof(monitor_mesh_handlers)/sizeof(monitor_mesh_handlers[0]);
-#endif
+const int N_MONITOR_HANDLERS =
+sizeof(monitor_handlers)/sizeof(monitor_handlers[0]);
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -356,64 +328,54 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
 {
     int i;
     char fullpath[256];
-    for (i=0; i < N_DEVICE_BUS_HANDLERS; i++)
+    for (i=0; i < N_DEVICE_HANDLERS; i++)
     {
         snprintf(fullpath, 256,
-                 admin_msg_strings[device_bus_handlers[i].str_index],
+                 admin_msg_strings[device_handlers[i].str_index],
                  mdev_name(admin->device));
         lo_server_add_method(admin->bus_server, fullpath,
-                             device_bus_handlers[i].types,
-                             device_bus_handlers[i].h,
+                             device_handlers[i].types,
+                             device_handlers[i].h,
                              admin);
-    }
 #if !FORCE_ADMIN_TO_BUS
-    for (i=0; i < N_DEVICE_MESH_HANDLERS; i++)
-    {
-        snprintf(fullpath, 256,
-                 admin_msg_strings[device_mesh_handlers[i].str_index],
-                 mdev_name(admin->device));
         lo_server_add_method(admin->mesh_server, fullpath,
-                             device_mesh_handlers[i].types,
-                             device_mesh_handlers[i].h,
+                             device_handlers[i].types,
+                             device_handlers[i].h,
                              admin);
-    }
 #endif
+    }
 }
 
 static void mapper_admin_add_monitor_methods(mapper_admin admin)
 {
     int i;
-    for (i=0; i < N_MONITOR_BUS_HANDLERS; i++)
+    for (i=0; i < N_MONITOR_HANDLERS; i++)
     {
         lo_server_add_method(admin->bus_server,
-                             admin_msg_strings[monitor_bus_handlers[i].str_index],
-                             monitor_bus_handlers[i].types,
-                             monitor_bus_handlers[i].h,
+                             admin_msg_strings[monitor_handlers[i].str_index],
+                             monitor_handlers[i].types,
+                             monitor_handlers[i].h,
                              admin);
-    }
 #if !FORCE_ADMIN_TO_BUS
-    for (i=0; i < N_MONITOR_MESH_HANDLERS; i++)
-    {
         lo_server_add_method(admin->mesh_server,
-                             admin_msg_strings[monitor_mesh_handlers[i].str_index],
-                             monitor_mesh_handlers[i].types,
-                             monitor_mesh_handlers[i].h,
+                             admin_msg_strings[monitor_handlers[i].str_index],
+                             monitor_handlers[i].types,
+                             monitor_handlers[i].h,
                              admin);
-    }
 #endif
+    }
 }
 
 static void mapper_admin_remove_monitor_methods(mapper_admin admin)
 {
     int i, j;
-    for (i=0; i < N_MONITOR_BUS_HANDLERS; i++)
+    for (i=0; i < N_MONITOR_HANDLERS; i++)
     {
         // make sure method isn't also used by a device
         if (admin->device) {
             int found = 0;
-            for (j=0; j < N_DEVICE_BUS_HANDLERS; j++) {
-                if (monitor_bus_handlers[i].str_index
-                    == device_bus_handlers[j].str_index) {
+            for (j=0; j < N_DEVICE_HANDLERS; j++) {
+                if (monitor_handlers[i].str_index == device_handlers[j].str_index) {
                     found = 1;
                     break;
                 }
@@ -422,30 +384,14 @@ static void mapper_admin_remove_monitor_methods(mapper_admin admin)
                 continue;
         }
         lo_server_del_method(admin->bus_server,
-                             admin_msg_strings[monitor_bus_handlers[i].str_index],
-                             monitor_bus_handlers[i].types);
-    }
+                             admin_msg_strings[monitor_handlers[i].str_index],
+                             monitor_handlers[i].types);
 #if !FORCE_ADMIN_TO_BUS
-    for (i=0; i < N_MONITOR_MESH_HANDLERS; i++)
-    {
-        // make sure method isn't also used by a device
-        if (admin->device) {
-            int found = 0;
-            for (j=0; j < N_DEVICE_MESH_HANDLERS; j++) {
-                if (monitor_mesh_handlers[i].str_index
-                    == device_mesh_handlers[j].str_index) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (found)
-                continue;
-        }
         lo_server_del_method(admin->mesh_server,
-                             admin_msg_strings[monitor_mesh_handlers[i].str_index],
-                             monitor_mesh_handlers[i].types);
-    }
+                             admin_msg_strings[monitor_handlers[i].str_index],
+                             monitor_handlers[i].types);
 #endif
+    }
 }
 
 mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
@@ -729,8 +675,8 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->remote_name_hash == md->props.name_hash
-            || !link->remote_host) {
+        if (link->props.name_hash == md->props.name_hash
+            || !link->props.host) {
             // don't bother sending pings to self or if link not ready
             link = link->next;
             continue;
@@ -742,7 +688,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             if (sync->response.message_id > 0) {
                 trace("<%s> Lost contact with linked device %s "
                       "(%d seconds since sync).\n", mdev_name(md),
-                      link->remote_name, elapsed);
+                      link->props.name, elapsed);
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
@@ -750,7 +696,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             else {
                 trace("<%s> Removing link to unresponsive device %s "
                       "(%d seconds since warning).\n", mdev_name(md),
-                      link->remote_name, elapsed);
+                      link->props.name, elapsed);
                 // TODO: release related connections, call local handlers and inform subscribers
 
                 // remove related data structures
@@ -1074,7 +1020,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
             snprintf(local_name, 1024, "%s%s", mdev_name(md),
                      c->props.destination.name);
         else
-            snprintf(local_name, 1024, "%s%s", c->destination.link->remote_name,
+            snprintf(local_name, 1024, "%s%s", c->destination.link->props.name,
                      c->props.destination.name);
         lo_message_add_string(m, local_name);
         lo_message_add_string(m, "<-");
@@ -1088,7 +1034,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
                               mdev_name(md), c->props.sources[i].name);
         else if (slot == -1 || slot == i)
             result = snprintf(&remote_names[len], 1024-len, "%s%s",
-                              c->sources[i].link->remote_name,
+                              c->sources[i].link->props.name,
                               c->props.sources[i].name);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for combined /connected msg");
@@ -1105,9 +1051,15 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
             snprintf(local_name, 1024, "%s%s", mdev_name(md),
                      c->props.destination.name);
         else
-            snprintf(local_name, 1024, "%s%s", c->destination.link->remote_name,
+            snprintf(local_name, 1024, "%s%s", c->destination.link->props.name,
                      c->props.destination.name);
         lo_message_add_string(m, local_name);
+    }
+    else if (cmd == ADM_CONNECT_TO && c->destination.local) {
+        // include "extra" signal metadata
+        mapper_signal sig = c->destination.local->signal;
+        if (sig->props.extra)
+            mapper_msg_add_value_table(m, sig->props.extra);
     }
 
     // add other properties
@@ -1237,7 +1189,7 @@ static int handler_device(const char *path, const char *types,
             trace("<%s> ignoring /device '%s', no link.\n", mdev_name(md), name);
             return 0;
         }
-        else if (link->remote_host) {
+        else if (link->props.host) {
             // already have metadata, can ignore this message
             trace("<%s> ignoring /device '%s', link already set.\n",
                   mdev_name(md), name);
@@ -1273,6 +1225,7 @@ static int handler_device(const char *path, const char *types,
             while (c) {
                 if (c->props.direction == DI_OUTGOING) {
                     if (c->destination.link == link) {
+                        c->props.destination.device = &link->props;
                         mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
                         mapper_admin_send_connection(admin, md, c, -1, -1,
                                                      ADM_CONNECT_TO);
@@ -1282,6 +1235,7 @@ static int handler_device(const char *path, const char *types,
                     int i;
                     for (i = 0; i < c->props.num_sources; i++) {
                         if (c->sources[i].link == link) {
+                            c->props.sources[i].device = &link->props;
                             mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
                             mapper_admin_send_connection(admin, md, c,
                                                          c->props.num_sources > 1 ? i : -1,
@@ -1335,7 +1289,7 @@ static int handler_logout(const char *path, const char *types,
         if (link) {
             // TODO: release connections, call local handlers and inform subscribers
             trace("<%s> Removing link to expired device %s.\n",
-                  mdev_name(md), link->remote_name);
+                  mdev_name(md), link->props.name);
 
             mapper_router_remove_link(md->router, link);
         }
@@ -1866,7 +1820,7 @@ static int handler_signal_connect(const char *path, const char *types,
     for (i = 0; i < num_sources; i++) {
         // TODO: check if entire connection is local, if so stop connect protocol
         // TODO: check if all sources belong to same remote device, if so send together
-        if (!c->sources[i].link->remote_host)
+        if (!c->sources[i].link->props.host)
             continue;
 
         mapper_admin_set_bundle_dest_bus(admin);
@@ -2217,9 +2171,9 @@ static int handler_signal_connected(const char *path, const char *types,
                               md->connection_cb_userdata);
         c->status = MAPPER_ACTIVE;
         if (c->props.direction == DI_OUTGOING)
-            c->destination.link->num_connections_out++;
+            c->destination.link->props.num_connections_out++;
         else
-            c->sources[slot].link->num_connections_in++;
+            c->sources[slot].link->props.num_connections_in++;
     }
 
     return 0;

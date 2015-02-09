@@ -28,10 +28,8 @@ const char *mode_strings[] =
     "undefined",
     "none",
     "raw",
-    "bypass",
     "linear",
-    "expression",
-    "calibrate"
+    "expression"
 };
 
 const char *bound_strings[] =

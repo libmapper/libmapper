@@ -159,9 +159,10 @@ int mapper_connection_perform(mapper_connection c, int slot, int instance,
             mapper_connection_set_mode_linear(c);
     }
 
-    if (c->status != MAPPER_ACTIVE || c->props.muted || !c->sources[slot].cause_update)
+    if (c->status != MAPPER_ACTIVE || c->props.muted
+        || !c->sources[slot].cause_update) {
         return 0;
-
+    }
     else if (c->props.mode == MO_RAW) {
         // No type coercion, skip expression
         int vector_length = from->length < to->length ? from->length : to->length;
@@ -757,6 +758,7 @@ static void init_connection_history(mapper_connection_slot slot,
     if (slot->history)
         return;
     slot->history = malloc(sizeof(struct _mapper_signal_history) * props->num_instances);
+    slot->history_size = 1;
     for (i = 0; i < props->num_instances; i++) {
         slot->history[i].type = props->type;
         slot->history[i].length = props->length;
@@ -768,19 +770,114 @@ static void init_connection_history(mapper_connection_slot slot,
     }
 }
 
+static void set_mode(mapper_connection c)
+{
+    switch (c->props.mode) {
+        case MO_RAW:
+            mapper_connection_set_mode_raw(c);
+            break;
+        case MO_LINEAR:
+            if (mapper_connection_set_mode_linear(c))
+                break;
+        default: {
+            if (c->props.mode != MO_EXPRESSION) {
+                /* No mode type specified; if mode not yet set, see if
+                 we know the range and choose between linear or direct connection. */
+                /* Try to use linear connection .*/
+                if (mapper_connection_set_mode_linear(c) == 0)
+                    break;
+            }
+            if (!c->props.expression) {
+                if (c->props.num_sources == 1) {
+                    if (c->props.sources[0].length == c->props.destination.length)
+                        c->props.expression = strdup("y=x");
+                    else {
+                        char expr[256] = "";
+                        if (c->props.sources[0].length > c->props.destination.length) {
+                            // truncate source
+                            if (c->props.destination.length == 1)
+                                snprintf(expr, 256, "y=x[0]");
+                            else
+                                snprintf(expr, 256, "y=x[0:%i]",
+                                         c->props.destination.length-1);
+                        }
+                        else {
+                            // truncate destination
+                            if (c->props.sources[0].length == 1)
+                                snprintf(expr, 256, "y[0]=x");
+                            else
+                                snprintf(expr, 256, "y[0:%i]=x",
+                                         c->props.sources[0].length-1);
+                        }
+                        c->props.expression = strdup(expr);
+                    }
+                }
+                else {
+                    // check vector lengths
+                    int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
+                    for (i = 0; i < c->props.num_sources; i++) {
+                        if (c->props.sources[i].length > max_vec_len)
+                            max_vec_len = c->props.sources[i].length;
+                        if (c->props.sources[i].length < min_vec_len)
+                            min_vec_len = c->props.sources[i].length;
+                    }
+                    char expr[256] = "";
+                    int offset = 0, dest_vec_len;
+                    if (max_vec_len < c->props.destination.length) {
+                        snprintf(expr, 256, "y[0:%d]=(", max_vec_len-1);
+                        offset = strlen(expr);
+                        dest_vec_len = max_vec_len;
+                    }
+                    else {
+                        snprintf(expr, 256, "y=(");
+                        offset = 3;
+                        dest_vec_len = c->props.destination.length;
+                    }
+                    for (i = 0; i < c->props.num_sources; i++) {
+                        if (c->props.sources[i].length > dest_vec_len) {
+                            snprintf(expr+offset, 256-offset, "x%d[0:%d]+",
+                                     i, dest_vec_len-1);
+                            offset = strlen(expr);
+                        }
+                        else if (c->props.sources[i].length < dest_vec_len) {
+                            snprintf(expr+offset, 256-offset, "[x%d,0", i);
+                            offset = strlen(expr);
+                            for (j = 1; j < dest_vec_len - c->props.sources[0].length; j++) {
+                                snprintf(expr+offset, 256-offset, ",0");
+                                offset += 2;
+                            }
+                            snprintf(expr+offset, 256-offset, "]+");
+                            offset += 2;
+                        }
+                        else {
+                            snprintf(expr+offset, 256-offset, "x%d+", i);
+                            offset = strlen(expr);
+                        }
+                    }
+                    --offset;
+                    snprintf(expr+offset, 256-offset, ")/%d", c->props.num_sources);
+                    c->props.expression = strdup(expr);
+                }
+            }
+            mapper_connection_set_mode_expression(c, c->props.expression);
+            break;
+        }
+    }
+}
+
 int mapper_connection_check_status(mapper_connection c)
 {
     c->status |= MAPPER_READY;
     int mask = ~MAPPER_READY;
     if (c->destination.local
-        || (c->destination.link && c->destination.link->remote_host))
+        || (c->destination.link && c->destination.link->props.host))
         c->destination.status |= MAPPER_LINK_KNOWN;
     c->status &= (c->destination.status | mask);
 
     int i;
     for (i = 0; i < c->props.num_sources; i++) {
         if (c->sources[i].local
-            || (c->sources[i].link && c->sources[i].link->remote_host))
+            || (c->sources[i].link && c->sources[i].link->props.host))
             c->sources[i].status |= MAPPER_LINK_KNOWN;
         c->status &= (c->sources[i].status | mask);
     }
@@ -796,6 +893,8 @@ int mapper_connection_check_status(mapper_connection c)
         if (!c->destination.local) {
             init_connection_history(&c->destination, &c->props.destination);
         }
+        if (c->is_admin)
+            set_mode(c);
         return 1;
     }
     return c->status;
@@ -946,97 +1045,7 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         || !(c->status & MAPPER_LENGTH_KNOWN))
         return updated;
 
-    switch (mode) {
-        case MO_RAW:
-            mapper_connection_set_mode_raw(c);
-            break;
-        case MO_LINEAR:
-            if (mapper_connection_set_mode_linear(c))
-                break;
-        default: {
-            if (mode != MO_EXPRESSION) {
-                /* No mode type specified; if mode not yet set, see if
-                 we know the range and choose between linear or direct connection. */
-                /* Try to use linear connection .*/
-                if (mapper_connection_set_mode_linear(c) == 0)
-                    break;
-            }
-            if (!c->props.expression) {
-                if (c->props.num_sources == 1) {
-                    if (c->props.sources[0].length == c->props.destination.length)
-                        c->props.expression = strdup("y=x");
-                    else {
-                        char expr[256] = "";
-                        if (c->props.sources[0].length > c->props.destination.length) {
-                            // truncate source
-                            if (c->props.destination.length == 1)
-                                snprintf(expr, 256, "y=x[0]");
-                            else
-                                snprintf(expr, 256, "y=x[0:%i]",
-                                         c->props.destination.length-1);
-                        }
-                        else {
-                            // truncate destination
-                            if (c->props.sources[0].length == 1)
-                                snprintf(expr, 256, "y[0]=x");
-                            else
-                                snprintf(expr, 256, "y[0:%i]=x",
-                                         c->props.sources[0].length-1);
-                        }
-                        c->props.expression = strdup(expr);
-                    }
-                }
-                else {
-                    // check vector lengths
-                    int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
-                    for (i = 0; i < c->props.num_sources; i++) {
-                        if (c->props.sources[i].length > max_vec_len)
-                            max_vec_len = c->props.sources[i].length;
-                        if (c->props.sources[i].length < min_vec_len)
-                            min_vec_len = c->props.sources[i].length;
-                    }
-                    char expr[256] = "";
-                    int offset = 0, dest_vec_len;
-                    if (max_vec_len < c->props.destination.length) {
-                        snprintf(expr, 256, "y[0:%d]=(", max_vec_len-1);
-                        offset = strlen(expr);
-                        dest_vec_len = max_vec_len;
-                    }
-                    else {
-                        snprintf(expr, 256, "y=(");
-                        offset = 3;
-                        dest_vec_len = c->props.destination.length;
-                    }
-                    for (i = 0; i < c->props.num_sources; i++) {
-                        if (c->props.sources[i].length > dest_vec_len) {
-                            snprintf(expr+offset, 256-offset, "x%d[0:%d]+",
-                                     i, dest_vec_len-1);
-                            offset = strlen(expr);
-                        }
-                        else if (c->props.sources[i].length < dest_vec_len) {
-                            snprintf(expr+offset, 256-offset, "[x%d,0", i);
-                            offset = strlen(expr);
-                            for (j = 1; j < dest_vec_len - c->props.sources[0].length; j++) {
-                                snprintf(expr+offset, 256-offset, ",0");
-                                offset += 2;
-                            }
-                            snprintf(expr+offset, 256-offset, "]+");
-                            offset += 2;
-                        }
-                        else {
-                            snprintf(expr+offset, 256-offset, "x%d+", i);
-                            offset = strlen(expr);
-                        }
-                    }
-                    --offset;
-                    snprintf(expr+offset, 256-offset, ")/%d", c->props.num_sources);
-                    c->props.expression = strdup(expr);
-                }
-            }
-            mapper_connection_set_mode_expression(c, c->props.expression);
-            break;
-        }
-    }
+    set_mode(c);
     return updated;
 }
 

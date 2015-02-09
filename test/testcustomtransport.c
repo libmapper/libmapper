@@ -48,7 +48,7 @@ int tcp_port = 12000;
 
 void on_mdev_connection(mapper_device dev,
                         mapper_signal sig,
-                        mapper_db_connection connection,
+                        mapper_db_connection con,
                         mapper_device_local_action_t action,
                         void *user)
 {
@@ -56,11 +56,16 @@ void on_mdev_connection(mapper_device dev,
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
             mdev_name(dev), mdev_name(dev), sig->props.name,
-            connection->destination.name);
+            con->destination.name);
 
-//    eprintf("%s host is %s, port is %i\n",
-//            connection->direction == DI_OUTGOING ? "Destination" : "Source",
-//            link->remote_host, link->remote_port);
+    if (con->direction == DI_OUTGOING) {
+        eprintf("Destination host is %s, port is %i\n",
+                con->destination.device->host, con->destination.device->port);
+    }
+    else {
+        eprintf("Source host is %s, port is %i\n",
+                con->sources[0].device->host, con->sources[0].device->port);
+    }
 
     if (action == MDEV_LOCAL_DESTROYED) {
         if (send_socket != -1) {
@@ -76,7 +81,7 @@ void on_mdev_connection(mapper_device dev,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_db_connection_property_lookup(connection, "transport", &t,
+    if (mapper_db_connection_property_lookup(con, "transport", &t,
                                              (const void **)&a_transport,
                                              &length)
         || t != 's' || length != 1)
@@ -94,7 +99,7 @@ void on_mdev_connection(mapper_device dev,
 
     // Find the TCP port in the connection properties
     const int *a_port;
-    if (mapper_db_connection_property_lookup(connection, "tcpPort", &t,
+    if (mapper_db_connection_property_lookup(con, "tcpPort", &t,
                                              (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
@@ -115,7 +120,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = connection->destination.signal->device->host;
+    const char *host = con->destination.device->host;
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 

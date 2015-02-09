@@ -206,18 +206,12 @@ typedef struct _mapper_queue {
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_link {
-    char *remote_name;                  //!< Remote device name (OSC path).
-    uint32_t remote_name_hash;          //!< CRC-32 hash of remote device name.
-    char *remote_host;                  //!< IP Address of the destination device.
-    int remote_port;                    //!< Network port of remote device.
-
+    mapper_db_device_t props;
     int self_link;                      //!< 1 if this is a router to self.
     lo_address admin_addr;              //!< Network address of remote endpoint
     lo_address data_addr;               //!< Network address of remote endpoint
     struct _mapper_device *device;      /*!< The device associated with
                                          *   this link */
-    int num_connections_in;             //!< Number of incoming connections in link.
-    int num_connections_out;            //!< Number of outgoing connections in link.
     mapper_queue queues;                /*!< Linked-list of message queues
                                          *   waiting to be sent. */
     mapper_sync_clock_t clock;
@@ -313,8 +307,7 @@ typedef struct _mapper_router_signal {
                                              *   in the list. */
 } *mapper_router_signal;
 
-/*! The link structure is a linked list of links each associated
- *  with a destination address that belong to a controller device. */
+/*! The router structure. */
 typedef struct _mapper_router {
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */
