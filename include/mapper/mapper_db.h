@@ -171,6 +171,7 @@ typedef struct _mapper_db_connection_slot {
     int index;                      //!< Slot number
     int length;
     int num_instances;
+    int direction;                  //!< DI_INCOMING or DI_OUTGOING
     char type;
 } mapper_db_connection_slot_t, *mapper_db_connection_slot;
 
@@ -196,7 +197,6 @@ typedef struct _mapper_db_connection {
     int muted;                      /*!< 1 to mute mapping connection, 0
                                      *   to unmute */
 
-    int direction;                  //!< DI_INCOMING or DI_OUTGOING
     int calibrating;
 
     struct _mapper_connection_scope scope;

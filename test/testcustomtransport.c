@@ -49,6 +49,7 @@ int tcp_port = 12000;
 void on_mdev_connection(mapper_device dev,
                         mapper_signal sig,
                         mapper_db_connection con,
+                        mapper_db_connection_slot slot,
                         mapper_device_local_action_t action,
                         void *user)
 {
@@ -58,13 +59,13 @@ void on_mdev_connection(mapper_device dev,
             mdev_name(dev), mdev_name(dev), sig->props.name,
             con->destination.name);
 
-    if (con->direction == DI_OUTGOING) {
-        eprintf("Destination host is %s, port is %i\n",
-                con->destination.device->host, con->destination.device->port);
-    }
-    else {
+    if (slot == &con->destination) {
         eprintf("Source host is %s, port is %i\n",
                 con->sources[0].device->host, con->sources[0].device->port);
+    }
+    else {
+        eprintf("Destination host is %s, port is %i\n",
+                con->destination.device->host, con->destination.device->port);
     }
 
     if (action == MDEV_LOCAL_DESTROYED) {

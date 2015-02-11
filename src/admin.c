@@ -1015,7 +1015,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
     }
 
     char local_name[1024], remote_names[1024];
-    if (c->props.direction == DI_INCOMING) {
+    if (c->destination.props->direction == DI_INCOMING) {
         if (c->destination.local)
             snprintf(local_name, 1024, "%s%s", mdev_name(md),
                      c->props.destination.name);
@@ -1045,7 +1045,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
         len += result + 1;
     }
 
-    if (c->props.direction == DI_OUTGOING) {
+    if (c->destination.props->direction == DI_OUTGOING) {
         lo_message_add_string(m, "->");
         if (c->destination.local)
             snprintf(local_name, 1024, "%s%s", mdev_name(md),
@@ -1062,17 +1062,19 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
             mapper_msg_add_value_table(m, sig->props.extra);
     }
 
-    // add other properties
-    mapper_connection_prepare_osc_message(m, c, -1);
+    if (cmd < ADM_DISCONNECT) {
+        // add other properties
+        mapper_connection_prepare_osc_message(m, c, -1);
 
-    if (slot != -1) {
-        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, slot + c->slot_start);
-    }
+        if (slot != -1) {
+            lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
+            lo_message_add_int32(m, slot + c->slot_start);
+        }
 
-    if (index != -1) {
-        lo_message_add_string(m, "@ID");
-        lo_message_add_int32(m, index);
+        if (index != -1) {
+            lo_message_add_string(m, "@ID");
+            lo_message_add_int32(m, index);
+        }
     }
 
     lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
@@ -1090,11 +1092,11 @@ static void mapper_admin_send_connections_in(mapper_admin admin,
         for (i = 0; i < rs->num_connection_slots; i++) {
             if (rs->connection_slots[i])
                 continue;
-            mapper_connection c = rs->connection_slots[i]->connection;
-            if (c->props.direction == DI_INCOMING) {
+            if (rs->connection_slots[i]->props->direction == DI_INCOMING) {
                 if (max > 0 && count > max)
                     return;
                 if (count >= min) {
+                    mapper_connection c = rs->connection_slots[i]->connection;
                     mapper_admin_send_connection(admin, md, c, -1,
                                                  i, ADM_CONNECTED);
                 }
@@ -1115,11 +1117,11 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
         for (i = 0; i < rs->num_connection_slots; i++) {
             if (!rs->connection_slots[i])
                 continue;
-            mapper_connection c = rs->connection_slots[i]->connection;
-            if (c->props.direction == DI_OUTGOING) {
+            if (rs->connection_slots[i]->props->direction == DI_OUTGOING) {
                 if (max > 0 && count > max)
                     return;
                 if (count >= min) {
+                    mapper_connection c = rs->connection_slots[i]->connection;
                     mapper_admin_send_connection(admin, md, c, -1,
                                                  i, ADM_CONNECTED);
                 }
@@ -1230,7 +1232,7 @@ static int handler_device(const char *path, const char *types,
             if (!rs->connection_slots[i])
                 continue;
             mapper_connection c = rs->connection_slots[i]->connection;
-            if (c->props.direction == DI_OUTGOING) {
+            if (c->destination.props->direction == DI_OUTGOING) {
                 if (c->destination.link == link) {
                     c->props.destination.device = &link->props;
                     mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
@@ -1835,14 +1837,22 @@ static int handler_signal_connect(const char *path, const char *types,
     mapper_connection_set_from_message(c, &params);
 
     if (c->status == MAPPER_READY) {
+        // This connection only references local signals, advance to "connected"
         // Inform subscribers
         mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
         mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Call local connection handler if it exists
-        if (md->connection_cb)
-            md->connection_cb(md, dest_signal, &c->props, MDEV_LOCAL_ESTABLISHED,
+        if (md->connection_cb) {
+            for (i = 0; i < c->props.num_sources; i++) {
+                md->connection_cb(md, c->sources[i].local->signal, &c->props,
+                                  c->sources[i].props, MDEV_LOCAL_ESTABLISHED,
+                                  md->connection_cb_userdata);
+            }
+            md->connection_cb(md, c->destination.local->signal, &c->props,
+                              c->destination.props, MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
+        }
 
         c->status = MAPPER_ACTIVE;
         // TODO: move num_connections_in/out prop to device instead of link
@@ -2028,7 +2038,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
     mapper_connection_set_from_message(c, &params);
 
     if (c->status == MAPPER_READY) {
-        if (c->props.direction == DI_OUTGOING) {
+        if (c->destination.props->direction == DI_OUTGOING) {
             mapper_admin_set_bundle_dest_mesh(admin,
                                               c->destination.link->admin_addr);
             mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
@@ -2180,7 +2190,7 @@ static int handler_signal_connected(const char *path, const char *types,
 
     if (c->status == MAPPER_READY) {
         // Inform remote peer(s)
-        if (c->props.direction == DI_OUTGOING) {
+        if (c->destination.props->direction == DI_OUTGOING) {
             mapper_admin_set_bundle_dest_mesh(admin,
                                               c->destination.link->admin_addr);
             mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
@@ -2202,12 +2212,26 @@ static int handler_signal_connected(const char *path, const char *types,
         mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Call local connection handler if it exists
-        if (md->connection_cb)
-            md->connection_cb(md, signal, &c->props,
-                              c->status == MAPPER_ACTIVE
-                              ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
-                              md->connection_cb_userdata);
-        if (c->props.direction == DI_OUTGOING)
+        if (md->connection_cb) {
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (c->sources[i].local) {
+                    md->connection_cb(md, c->sources[i].local->signal, &c->props,
+                                      c->sources[i].props,
+                                      c->status == MAPPER_ACTIVE
+                                      ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
+                                      md->connection_cb_userdata);
+                }
+            }
+            if (c->destination.local) {
+                md->connection_cb(md, c->destination.local->signal, &c->props,
+                                  c->destination.props,
+                                  c->status == MAPPER_ACTIVE
+                                  ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
+                                  md->connection_cb_userdata);
+            }
+        }
+
+        if (c->destination.props->direction == DI_OUTGOING)
             c->destination.link->props.num_connections_out++;
         else
             c->sources[slot].link->props.num_connections_in++;
@@ -2319,9 +2343,19 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
 
         // Call local connection handler if it exists
-        if (md->connection_cb)
-            md->connection_cb(md, sig, &c->props, MDEV_LOCAL_MODIFIED,
-                              md->connection_cb_userdata);
+        if (md->connection_cb) {
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (c->sources[i].local)
+                    md->connection_cb(md, c->sources[i].local->signal, &c->props,
+                                      c->sources[i].props, MDEV_LOCAL_MODIFIED,
+                                      md->connection_cb_userdata);
+            }
+            if (c->destination.local) {
+                md->connection_cb(md, c->destination.local->signal, &c->props,
+                                  c->destination.props, MDEV_LOCAL_MODIFIED,
+                                  md->connection_cb_userdata);
+            }
+        }
     }
     return 0;
 }
@@ -2378,73 +2412,59 @@ static int handler_signal_disconnect(const char *path, const char *types,
         }
         const char *remote_name = &argv[dest_index]->s;
         c = mapper_router_find_connection(md->router, sig, 1, &remote_name);
+        if (c)
+            break;
+
+        trace("<%s> ignoring /disconnect, no connection found for '%s' -> '%s'\n",
+              mdev_name(md), &argv[i]->s, &argv[dest_index]->s);
+    }
+    if (!c) {
+        // also check if we are the destination
+        if (prefix_cmp(&argv[dest_index]->s, local_device_name, &local_signal_name))
+            return 0;
+        if (!local_signal_name) {
+            trace("<%s> ignoring /disconnect '%s' %s -> '%s'\n", mdev_name(md),
+                  &argv[0]->s, num_sources > 1 ? "..." : "", &argv[dest_index]->s);
+            return 0;
+        }
+        if (!(sig=mdev_get_signal_by_name(md, local_signal_name, 0))) {
+            trace("<%s> no signal found for '%s' in /disconnect\n",
+                  mdev_name(md), &argv[dest_index]->s);
+            return 0;
+        }
+        const char *remote_names[num_sources], **ptr = remote_names;
+        for (i = 0; i < num_sources; i++) {
+            remote_names[i] = &argv[i]->s;
+        }
+        c = mapper_router_find_connection(md->router, sig, num_sources, ptr);
         if (!c) {
             trace("<%s> ignoring /disconnect, "
-                  "no connection found for '%s' -> '%s'\n",
-                  mdev_name(md), &argv[i]->s, &argv[dest_index]->s);
-            continue;
+                  "no connection found for '%s' %s -> '%s'\n",
+                  mdev_name(md), &argv[i]->s, num_sources > 1 ? "..." : "",
+                  &argv[dest_index]->s);
+            return 0;
         }
-
-        // Call local connection handler if it exists
-        if (md->connection_cb)
-            md->connection_cb(md, sig, &c->props, MDEV_LOCAL_DESTROYED,
-                              md->connection_cb_userdata);
-
-        /* The connection is removed. */
-        if (mapper_router_remove_connection(md->router, c))
-            continue;
-
-        // TODO: inform destination
-
-        // Inform subscribers
-        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_OUT);
-        mapper_admin_bundle_message(admin, ADM_DISCONNECTED, 0, "sss",
-                                    &argv[i]->s, "->", &argv[dest_index]->s);
-    }
-
-    // also check if we are the destination
-    if (prefix_cmp(&argv[dest_index]->s, local_device_name, &local_signal_name))
-        return 0;
-    if (!local_signal_name) {
-        trace("<%s> ignoring /disconnect '%s' %s -> '%s'\n", mdev_name(md),
-              &argv[0]->s, num_sources > 1 ? "..." : "", &argv[dest_index]->s);
-        return 0;
-    }
-    if (!(sig=mdev_get_signal_by_name(md, local_signal_name, 0))) {
-        trace("<%s> no signal found for '%s' in /disconnect\n",
-              mdev_name(md), &argv[dest_index]->s);
-        return 0;
-    }
-    const char *remote_names[num_sources], **ptr = remote_names;
-    for (i = 0; i < num_sources; i++) {
-        remote_names[i] = &argv[i]->s;
-    }
-    c = mapper_router_find_connection(md->router, sig, num_sources, ptr);
-    if (!c) {
-        trace("<%s> ignoring /disconnect, "
-              "no connection found for '%s' %s -> '%s'\n",
-              mdev_name(md), &argv[i]->s, num_sources > 1 ? "..." : "",
-              &argv[dest_index]->s);
-        return 0;
     }
 
     // Call local connection handler if it exists
-    if (md->connection_cb)
-        md->connection_cb(md, sig, &c->props, MDEV_LOCAL_DESTROYED,
-                          md->connection_cb_userdata);
-
-    /* The connection is removed. */
-    if (mapper_router_remove_connection(md->router, c)) {
-        return 0;
+    if (md->connection_cb) {
+        for (i = 0; i < c->props.num_sources; i++)
+            if (c->sources[i].local)
+                md->connection_cb(md, c->sources[i].local->signal, &c->props,
+                                  c->sources[i].props, MDEV_LOCAL_DESTROYED,
+                                  md->connection_cb_userdata);
+        if (c->destination.local)
+            md->connection_cb(md, c->destination.local->signal, &c->props,
+                              c->destination.props, MDEV_LOCAL_DESTROYED,
+                              md->connection_cb_userdata);
     }
-
-    // TODO: inform sources
 
     // Inform subscribers
     mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_OUT);
-    mapper_admin_bundle_message(admin, ADM_DISCONNECTED, 0, "sss",
-                                &argv[i]->s, "->", &argv[dest_index]->s);
+    mapper_admin_send_connection(admin, md, c, -1, -1, ADM_DISCONNECTED);
 
+    /* The connection is removed. */
+    mapper_router_remove_connection(md->router, c);
     return 0;
 }
 

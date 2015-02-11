@@ -580,7 +580,7 @@ void mapper_connection_set_mode_expression(mapper_connection c,
 //        mapper_expr_evaluate(c->expr, c, 0, &now, &c->destination.history, 0);
 //
 //        // call handler if it exists
-//        if (c->props.direction == DI_INCOMING && c->destination.local) {
+//        if (c->destination.direction == DI_INCOMING && c->destination.local) {
 //            mapper_signal sig = c->destination.local->signal;
 //            if (sig->handler)
 //                sig->handler(sig, &sig->props, 0, si->value, 1, &now);
@@ -616,7 +616,7 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
      * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
-    int out = (c->props.direction == DI_OUTGOING);
+    int out = (c->props.destination.direction == DI_OUTGOING);
 
     if ((c->sources[slot].status & MAPPER_TYPE_KNOWN)
         && (c->sources[slot].status & MAPPER_LENGTH_KNOWN)) {
@@ -905,7 +905,7 @@ int mapper_connection_check_status(mapper_connection c)
 
 int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *msg)
 {
-    int updated = 0, out = c->props.direction == DI_OUTGOING;
+    int updated = 0, out = c->props.destination.direction == DI_OUTGOING;
     /* First record any provided parameters. */
 
     /* Connection slot */

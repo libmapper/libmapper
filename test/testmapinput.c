@@ -128,7 +128,7 @@ void loop()
         mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0, 0);
 
         // wait until connection has been established
-        while (!done && !mdev_num_connections_out(devices[0])) {
+        while (!done && mdev_num_connections_out(devices[0]) < 2) {
             mdev_poll(devices[0], 10);
             mdev_poll(devices[1], 10);
         }

@@ -570,6 +570,7 @@ static string_table_node_t dev_strings[] = {
 static mapper_string_table_t dev_table = { dev_strings, 11, 11 };
 
 static property_table_value_t slot_values[] = {
+    { 'i', {0},         -1,          SLOT_OFFSET(direction) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) }, /* TODO: get from db_sig? */
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
@@ -578,14 +579,15 @@ static property_table_value_t slot_values[] = {
 };
 
 static string_table_node_t slot_strings[] = {
-    { "length",         &slot_values[0] },
-    { "maximum",        &slot_values[1] },
-    { "minimum",        &slot_values[2] },
-    { "name",           &slot_values[3] },
-    { "type",           &slot_values[4] },
+    { "direction",      &slot_values[0] },
+    { "length",         &slot_values[1] },
+    { "maximum",        &slot_values[2] },
+    { "minimum",        &slot_values[3] },
+    { "name",           &slot_values[4] },
+    { "type",           &slot_values[5] },
 };
 
-static mapper_string_table_t slot_table = { slot_strings, 5, 5 };
+static mapper_string_table_t slot_table = { slot_strings, 6, 6 };
 
 static property_table_value_t con_values[] = {
     { 'i', {0}, -1,         CON_OFFSET(bound_max) },
