@@ -168,7 +168,7 @@ typedef struct _mapper_db_connection_slot {
     char *name;
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.
-    int slot;                       //!< Slot number
+    int index;                      //!< Slot number
     int length;
     int num_instances;
     char type;

@@ -56,6 +56,9 @@ int mapper_connection_perform(mapper_connection c, int slot, int instance,
     mapper_signal_history_t *from = c->sources[slot].history;
     mapper_signal_history_t *to = c->destination.history;
 
+    if (slot < 0)
+        slot = 0;
+
     if (c->props.calibrating == 1)
     {
         mapper_signal_history_t *from = c->sources[slot].history;
@@ -392,10 +395,10 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
         lo_message_add_int32(m, id_map->public);
     }
 
-    if (props->destination.slot >= 0) {
+    if (props->destination.index >= 0) {
         // add slot
         lo_message_add_string(m, "@slot");
-        lo_message_add_int32(m, props->destination.slot);
+        lo_message_add_int32(m, props->destination.index);
     }
 
     return m;
@@ -770,7 +773,7 @@ static void init_connection_history(mapper_connection_slot slot,
     }
 }
 
-static void set_mode(mapper_connection c)
+static void apply_mode(mapper_connection c)
 {
     switch (c->props.mode) {
         case MO_RAW:
@@ -894,7 +897,7 @@ int mapper_connection_check_status(mapper_connection c)
             init_connection_history(&c->destination, &c->props.destination);
         }
         if (c->is_admin)
-            set_mode(c);
+            apply_mode(c);
         return 1;
     }
     return c->status;
@@ -951,11 +954,6 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         }
     }
 
-    if (c->status < MAPPER_READY) {
-        // check if connection is now "ready"
-        mapper_connection_check_status(c);
-    }
-
     /* Range information. */
     // TODO: handle updating range types after receiving connectTo
     updated += set_range(c, msg, slot);
@@ -992,29 +990,35 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         updated++;
     }
 
-    /* Expression. */
-    const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    if (expr && (!c->props.expression || strcmp(c->props.expression, expr))) {
-        if (c->is_admin && c->props.mode == MO_EXPRESSION) {
-            if (!replace_expression_string(c, expr)) {
-                reallocate_connection_histories(c);
-            }
-        }
-        else {
-            // just copy the expression string
-            if (c->props.expression)
-                free(c->props.expression);
-            c->props.expression = strdup(expr);
-        }
-        updated++;
-    }
-
     /* Instances. */
     int send_as_instance;
     if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
         && c->props.send_as_instance != send_as_instance) {
         c->props.send_as_instance = send_as_instance;
         updated++;
+    }
+
+    /* Expression. */
+    const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
+    if (expr) {
+        if (!c->props.expression) {
+            c->props.expression = strdup(expr);
+            updated++;
+        }
+        else if (strcmp(c->props.expression, expr)) {
+            if (c->is_admin) {
+                if (c->props.mode == MO_EXPRESSION) {
+                    if (!replace_expression_string(c, expr))
+                        reallocate_connection_histories(c);
+                }
+            }
+            else {
+                if (c->props.expression)
+                    free(c->props.expression);
+                c->props.expression = strdup(expr);
+            }
+            updated++;
+        }
     }
 
     /* Scopes */
@@ -1040,12 +1044,13 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         updated++;
     }
 
-    // abort if connection metadata still missing
-    if (!updated || !c->is_admin || !(c->status & MAPPER_TYPE_KNOWN)
-        || !(c->status & MAPPER_LENGTH_KNOWN))
-        return updated;
+    if (c->status < MAPPER_READY) {
+        // check if connection is now "ready"
+        mapper_connection_check_status(c);
+    }
+    else if (updated && c->is_admin)
+        apply_mode(c);
 
-    set_mode(c);
     return updated;
 }
 

@@ -1084,20 +1084,21 @@ static void mapper_admin_send_connections_in(mapper_admin admin,
                                              mapper_device md,
                                              int min, int max)
 {
-    int i = 0;
+    int i, count = 0;
     mapper_router_signal rs = md->router->signals;
     while (rs) {
-        if (!rs->signal->props.is_output) {
-            mapper_connection c = rs->connections;
-            while (c) {
-                if (max > 0 && i > max)
-                    break;
-                if (i >= min) {
+        for (i = 0; i < rs->num_connection_slots; i++) {
+            if (rs->connection_slots[i])
+                continue;
+            mapper_connection c = rs->connection_slots[i]->connection;
+            if (c->props.direction == DI_INCOMING) {
+                if (max > 0 && count > max)
+                    return;
+                if (count >= min) {
                     mapper_admin_send_connection(admin, md, c, -1,
                                                  i, ADM_CONNECTED);
                 }
-                c = c->next;
-                i++;
+                count++;
             }
         }
         rs = rs->next;
@@ -1108,20 +1109,21 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
                                               mapper_device md,
                                               int min, int max)
 {
-    int i = 0;
+    int i, count = 0;
     mapper_router_signal rs = md->router->signals;
     while (rs) {
-        if (rs->signal->props.is_output) {
-            mapper_connection c = rs->connections;
-            while (c) {
-                if (max > 0 && i > max)
-                    break;
-                if (i >= min) {
+        for (i = 0; i < rs->num_connection_slots; i++) {
+            if (!rs->connection_slots[i])
+                continue;
+            mapper_connection c = rs->connection_slots[i]->connection;
+            if (c->props.direction == DI_OUTGOING) {
+                if (max > 0 && count > max)
+                    return;
+                if (count >= min) {
                     mapper_admin_send_connection(admin, md, c, -1,
                                                  i, ADM_CONNECTED);
                 }
-                c = c->next;
-                i++;
+                count++;
             }
         }
         rs = rs->next;
@@ -1153,6 +1155,7 @@ static int handler_device(const char *path, const char *types,
     mapper_monitor mon = admin->monitor;
     mapper_db db = mmon_get_db(mon);
     mapper_device md = admin->device;
+    int i;
 
     if (argc < 1)
         return 0;
@@ -1173,80 +1176,82 @@ static int handler_device(const char *path, const char *types,
         mapper_db_add_or_update_device_params(db, name, &params, &admin->clock.now);
     }
 
-    if (md) {
-        if (strcmp(&argv[0]->s, mdev_name(md))) {
-            trace("<%s> got /device %s\n", mdev_name(md), &argv[0]->s);
-        }
-        else {
-            // ignore own messages
-            trace("<%s> ignoring /device %s\n", mdev_name(md), &argv[0]->s);
-            return 0;
-        }
-        // Discover whether the device is linked.
-        mapper_link link =
-            mapper_router_find_link_by_remote_name(md->router, name);
-        if (!link) {
-            trace("<%s> ignoring /device '%s', no link.\n", mdev_name(md), name);
-            return 0;
-        }
-        else if (link->props.host) {
-            // already have metadata, can ignore this message
-            trace("<%s> ignoring /device '%s', link already set.\n",
-                  mdev_name(md), name);
-            return 0;
-        }
-        if (!a) {
-            trace("can't perform /linkTo, address unknown\n");
-            return 0;
-        }
-        // Find the sender's hostname
-        const char *host = lo_address_get_hostname(a);
-        const char *admin_port = lo_address_get_port(a);
-        if (!host) {
-            trace("can't perform /linkTo, host unknown\n");
-            return 0;
-        }
-        // Retrieve the port
-        int data_port;
-        if (mapper_msg_get_param_if_int(&params, AT_PORT, &data_port)) {
-            trace("can't perform /linkTo, port unknown\n");
-            return 0;
-        }
+    if (!md)
+        return 0;
 
-        mapper_router_update_link(md->router, link, host,
-                                  atoi(admin_port), data_port);
-        trace("<%s> activated router to %s -> host: %s, port: %d\n",
-              mdev_name(md), name, host, data_port);
+    if (strcmp(&argv[0]->s, mdev_name(md))) {
+        trace("<%s> got /device %s\n", mdev_name(md), &argv[0]->s);
+    }
+    else {
+        // ignore own messages
+        trace("<%s> ignoring /device %s\n", mdev_name(md), &argv[0]->s);
+        return 0;
+    }
+    // Discover whether the device is linked.
+    mapper_link link =
+        mapper_router_find_link_by_remote_name(md->router, name);
+    if (!link) {
+        trace("<%s> ignoring /device '%s', no link.\n", mdev_name(md), name);
+        return 0;
+    }
+    else if (link->props.host) {
+        // already have metadata, can ignore this message
+        trace("<%s> ignoring /device '%s', link already set.\n",
+              mdev_name(md), name);
+        return 0;
+    }
+    if (!a) {
+        trace("can't perform /linkTo, address unknown\n");
+        return 0;
+    }
+    // Find the sender's hostname
+    const char *host = lo_address_get_hostname(a);
+    const char *admin_port = lo_address_get_port(a);
+    if (!host) {
+        trace("can't perform /linkTo, host unknown\n");
+        return 0;
+    }
+    // Retrieve the port
+    int data_port;
+    if (mapper_msg_get_param_if_int(&params, AT_PORT, &data_port)) {
+        trace("can't perform /linkTo, port unknown\n");
+        return 0;
+    }
 
-        // check if we have connections waiting for this link
-        mapper_router_signal s = md->router->signals;
-        while (s) {
-            mapper_connection c = s->connections;
-            while (c) {
-                if (c->props.direction == DI_OUTGOING) {
-                    if (c->destination.link == link) {
-                        c->props.destination.device = &link->props;
-                        mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                        mapper_admin_send_connection(admin, md, c, -1, -1,
-                                                     ADM_CONNECT_TO);
-                    }
+    mapper_router_update_link(md->router, link, host,
+                              atoi(admin_port), data_port);
+    trace("<%s> activated router to %s -> host: %s, port: %d\n",
+          mdev_name(md), name, host, data_port);
+
+    // check if we have connections waiting for this link
+    mapper_router_signal rs = md->router->signals;
+    while (rs) {
+        for (i = 0; i < rs->num_connection_slots; i++) {
+            if (!rs->connection_slots[i])
+                continue;
+            mapper_connection c = rs->connection_slots[i]->connection;
+            if (c->props.direction == DI_OUTGOING) {
+                if (c->destination.link == link) {
+                    c->props.destination.device = &link->props;
+                    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                    mapper_admin_send_connection(admin, md, c, -1, -1,
+                                                 ADM_CONNECT_TO);
                 }
-                else {
-                    int i;
-                    for (i = 0; i < c->props.num_sources; i++) {
-                        if (c->sources[i].link == link) {
-                            c->props.sources[i].device = &link->props;
-                            mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                            mapper_admin_send_connection(admin, md, c,
-                                                         c->props.num_sources > 1 ? i : -1,
-                                                         -1, ADM_CONNECT_TO);
-                        }
-                    }
-                }
-                c = c->next;
             }
-            s = s->next;
+            else {
+                int j;
+                for (j = 0; j < c->props.num_sources; j++) {
+                    if (c->sources[j].link != link)
+                        continue;
+                    c->props.sources[j].device = &link->props;
+                    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                    mapper_admin_send_connection(admin, md, c,
+                                                 c->props.num_sources > 1 ? i : -1,
+                                                 -1, ADM_CONNECT_TO);
+                }
+            }
         }
+        rs = rs->next;
     }
     return 0;
 }
@@ -1804,9 +1809,21 @@ static int handler_signal_connect(const char *path, const char *types,
     num_params = mapper_msg_parse_params(&params, path, &types[dest_index+1],
                                          argc-dest_index-1, &argv[dest_index+1]);
 
+    // check if any sources are local
+    const char *src_signal_name;
+    mapper_signal src_signals[num_sources];
+    for (i = 0; i < num_sources; i++) {
+        if (prefix_cmp(&argv[i]->s, mdev_name(md), &src_signal_name)==0) {
+            // this source is a local signal
+            src_signals[i] = mdev_get_signal_by_name(md, src_signal_name, 0);
+        }
+        else
+            src_signals[i] = 0;
+    }
+
     // create a tentative connection (flavourless)
     c = mapper_router_add_connection(md->router, dest_signal, num_sources,
-                                     src_names, DI_INCOMING);
+                                     src_signals, src_names, DI_INCOMING);
 
     /* Set its properties, but don't allow overwriting local type and length */
     params.values[AT_TYPE] = 0;
@@ -1817,9 +1834,28 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_DEST_LENGTH] = 0;
     mapper_connection_set_from_message(c, &params);
 
+    if (c->status == MAPPER_READY) {
+        // Inform subscribers
+        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+
+        // Call local connection handler if it exists
+        if (md->connection_cb)
+            md->connection_cb(md, dest_signal, &c->props, MDEV_LOCAL_ESTABLISHED,
+                              md->connection_cb_userdata);
+
+        c->status = MAPPER_ACTIVE;
+        // TODO: move num_connections_in/out prop to device instead of link
+        return 0;
+    }
+
+    // TODO: check if all sources belong to same remote device, if so send together
     for (i = 0; i < num_sources; i++) {
-        // TODO: check if entire connection is local, if so stop connect protocol
-        // TODO: check if all sources belong to same remote device, if so send together
+        // do not send if is local connection
+        if (c->sources[i].local)
+            continue;
+
+        // do not send if device host/port not yet known
         if (!c->sources[i].link->props.host)
             continue;
 
@@ -1837,7 +1873,6 @@ static int handler_signal_connect_to(const char *path, const char *types,
                                      lo_arg **argv, int argc,
                                      lo_message msg, void *user_data)
 {
-    // unlike the /connect message, /connectTo is always in the form src -> dest
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal signal;
@@ -1851,9 +1886,9 @@ static int handler_signal_connect_to(const char *path, const char *types,
     if (strncmp(types, "sss", 3))
         return 0;
 
-    // old protocol: /connected src dest
-    // new protocol: /connected src1 src2 ... srcN -> dest
-    //               /connected dest <- src1 src2 ... srcN
+    // old protocol: /connectTo src dest
+    // new protocol: /connectTo src1 src2 ... srcN -> dest
+    //               /connectTo dest <- src1 src2 ... srcN
     // if we find "->" or "<-" before '@' or end of args, count sources
     if (strcmp(&argv[1]->s, "<-") == 0) {
         dest_index = 0;
@@ -1916,7 +1951,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
                 return 0;
             }
             /* Add a flavourless connection */
-            c = mapper_router_add_connection(md->router, signal, 1,
+            c = mapper_router_add_connection(md->router, signal, 1, 0,
                                              &remote_name, DI_OUTGOING);
             if (!c) {
                 trace("couldn't create mapper_connection in handler_signal_connect_to\n");
@@ -1956,7 +1991,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
             }
             /* Add a flavourless connection */
             c = mapper_router_add_connection(md->router, signal, num_sources,
-                                             sources, DI_INCOMING);
+                                             0, sources, DI_INCOMING);
             if (!c) {
                 trace("couldn't create mapper_connection in handler_signal_connect_to\n");
                 return 0;
@@ -2134,10 +2169,13 @@ static int handler_signal_connected(const char *path, const char *types,
         c = mapper_router_find_connection(md->router, signal, 1, &remote_name);
 
     if (!c) {
-        trace("error: no connection found for /connected.\n");
+        trace("<%s> no connection found for /connected.\n", mdev_name(md));
         return 0;
     }
+    if (c->is_local)
+        return 0;
 
+    // TODO: if this endpoint is connection admin, do not allow overwiting props
     int updated = mapper_connection_set_from_message(c, &params);
 
     if (c->status == MAPPER_READY) {
@@ -2169,11 +2207,11 @@ static int handler_signal_connected(const char *path, const char *types,
                               c->status == MAPPER_ACTIVE
                               ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
-        c->status = MAPPER_ACTIVE;
         if (c->props.direction == DI_OUTGOING)
             c->destination.link->props.num_connections_out++;
         else
             c->sources[slot].link->props.num_connections_in++;
+        c->status = MAPPER_ACTIVE;
     }
 
     return 0;

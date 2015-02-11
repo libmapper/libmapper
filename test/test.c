@@ -173,7 +173,6 @@ void loop()
         mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_3->props, 0, 0);
         src = &sendsig_3->props;
         mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_4->props, 0, 0);
-
         
         mmon_free(mon);
 

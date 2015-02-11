@@ -1152,15 +1152,15 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
 
 int msig_num_connections(mapper_signal sig)
 {
-    int count = 0;
+    int i, count = 0;
     mapper_router_signal rs = sig->device->router->signals;
     while (rs) {
         if (rs->signal == sig) {
-            mapper_connection c = rs->connections;
-            while (c) {
-                count++;
-                c = c->next;
+            for (i = 0; i < rs->num_connection_slots; i++) {
+                if (rs->connection_slots[i])
+                    count++;
             }
+            break;
         }
         rs = rs->next;
     }

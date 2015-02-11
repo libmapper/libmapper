@@ -743,7 +743,7 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
     if (!m)
         return;
 
-    for (i = 0; i < c->num_sources; i++)
+    for (i = 0; i < c->props.num_sources; i++)
         lo_message_add_string(m, c->props.sources[i].name);
     lo_message_add_string(m, "->");
     lo_message_add_string(m, c->props.destination.name);
@@ -775,12 +775,12 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     while (rs) {
         if (rs->signal == sig) {
             // need to disconnect
-            mapper_connection c = rs->connections;
-            while (c) {
-                mapper_connection temp = c->next;
-                send_disconnect(md->admin, c);
-                mapper_router_remove_connection(md->router, c);
-                c = temp;
+            for (i = 0; i < rs->num_connection_slots; i++) {
+                if (rs->connection_slots[i]) {
+                    mapper_connection c = rs->connection_slots[i]->connection;
+                    send_disconnect(md->admin, c);
+                    mapper_router_remove_connection(md->router, c);
+                }
             }
             break;
         }
@@ -825,12 +825,12 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     while (rs) {
         if (rs->signal == sig) {
             // need to disconnect
-            mapper_connection c = rs->connections;
-            while (c) {
-                mapper_connection temp = c->next;
-                send_disconnect(md->admin, c);
-                mapper_router_remove_connection(md->router, c);
-                c = temp;
+            for (i = 0; i < rs->num_connection_slots; i++) {
+                if (rs->connection_slots[i]) {
+                    mapper_connection c = rs->connection_slots[i]->connection;
+                    send_disconnect(md->admin, c);
+                    mapper_router_remove_connection(md->router, c);
+                }
             }
             break;
         }

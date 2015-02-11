@@ -226,12 +226,14 @@ typedef struct _mapper_link {
 
 typedef struct _mapper_connection_slot {
     // each slot can point to local signal or a connection_slot structure
-    struct _mapper_router_signal *local;
-    mapper_link link;
+    struct _mapper_connection *connection;  //!< Parent connection.
+    struct _mapper_router_signal *local;    //!< Parent signal if local
+    mapper_link link;                       //!< Remote device if not local
 
-    mapper_signal_history_t *history;   /*!< Array of value histories
-                                         *   for each signal instance. */
-    int history_size;                   //!< History size.
+    mapper_signal_history_t *history;       /*!< Array of value histories
+                                             *   for each signal instance. */
+    mapper_db_connection_slot props;
+    int history_size;                       //!< History size.
     int status;
     int calibrating;
     int cause_update;
@@ -246,9 +248,9 @@ typedef struct _mapper_connection {
     // TODO: combine id with slot_start
     struct _mapper_router *router;
     int is_admin;
+    int is_local;
     mapper_db_connection_t props;
 
-    int num_sources;
     mapper_connection_slot sources;
     mapper_connection_slot_t destination;
 
@@ -259,31 +261,12 @@ typedef struct _mapper_connection {
     mapper_signal_history_t **expr_vars;    //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
     int num_var_instances;
-
-    int status;                      /*!< 0, MAPPER_READY or MAPPER_ACTIVE. */
-
-    mapper_boundary_action bound_max; /*!< Operation for exceeded
-                                       *   upper boundary. */
-    mapper_boundary_action bound_min; /*!< Operation for exceeded
-                                       *   lower boundary. */
-
-    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
-
+    int status;
     char *expression;
-
-    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
-                                     *   expression connection */
-    int muted;                      /*!< 1 to mute mapping connection, 0
-                                     *   to unmute */
-
-    struct _mapper_connection_scope scope;
-    
-    /*! Extra properties associated with this connection. */
-    struct _mapper_string_table *extra;
+    mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
     
     struct _mapper_connection *complement;  /*!< Pointer to complement in case
                                              *   of self-connection. */
-    struct _mapper_connection *next;        //!< Next connection in the list.
 } mapper_connection_t, *mapper_connection;
 
 /*! The link_signal is a linked list containing a signal and a
@@ -300,9 +283,10 @@ typedef struct _mapper_router_signal {
                                          *   for each signal instance. */
     int history_size;                   //!< History size.
 
-    mapper_connection connections;          /*!< The first connection for
-                                             *   this signal. */
     int slot_start;
+    int num_connection_slots;
+    mapper_connection_slot *connection_slots;
+
     struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */
 } *mapper_router_signal;

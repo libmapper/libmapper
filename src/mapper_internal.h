@@ -272,6 +272,7 @@ int mapper_router_send_query(mapper_router router,
 mapper_connection mapper_router_add_connection(mapper_router router,
                                                mapper_signal sig,
                                                int num_remote_signals,
+                                               mapper_signal *remote_signals,
                                                const char **remote_signal_names,
                                                int direction);
 
