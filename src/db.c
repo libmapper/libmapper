@@ -1843,6 +1843,7 @@ static int update_connection_record_params(mapper_db_connection con,
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
     updated += update_string_if_arg(&con->expression, params, AT_EXPRESSION);
+    updated += update_int_if_arg(&con->send_as_instance, params, AT_SEND_AS_INSTANCE);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
     if ((int)mode != -1 && mode != con->mode) {
