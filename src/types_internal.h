@@ -245,7 +245,6 @@ typedef struct _mapper_connection_slot {
  *  performing mapping, the connection properties are publically
  *  defined in mapper_db.h. */
 typedef struct _mapper_connection {
-    // TODO: combine id with slot_start
     struct _mapper_router *router;
     int is_admin;
     int is_local;
@@ -253,8 +252,6 @@ typedef struct _mapper_connection {
 
     mapper_connection_slot sources;
     mapper_connection_slot_t destination;
-
-    int slot_start;
 
     // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
@@ -283,9 +280,11 @@ typedef struct _mapper_router_signal {
                                          *   for each signal instance. */
     int history_size;                   //!< History size.
 
-    int slot_start;
-    int num_connection_slots;
-    mapper_connection_slot *connection_slots;
+    int id_counter;
+    int num_outgoing_slots;
+    mapper_connection_slot *outgoing_slots;
+    int num_incoming_connections;
+    mapper_connection *incoming_connections;
 
     struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */
@@ -297,6 +296,7 @@ typedef struct _mapper_router {
                                      *   this link */
     mapper_router_signal signals;   /*!< The list of connections
                                      *   for each signal. */
+    int id_counter;
     mapper_link links;              //!< The list of links to other devices.
 } *mapper_router;
 

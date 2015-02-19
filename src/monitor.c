@@ -350,11 +350,12 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
     int i;
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        snprintf(src_name, 256, "%s%s", sources[i]->device->name,
+                 sources[i]->name);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
                                  props, props_flags);
@@ -421,11 +422,12 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
     int i;
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        snprintf(src_name, 256, "%s%s", sources[i]->device->name,
+                 sources[i]->name);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
                                            dest_name, props, props_flags);
@@ -512,11 +514,12 @@ void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
     int i;
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", sources[i]->device_name, sources[i]->name);
+        snprintf(src_name, 256, "%s%s", sources[i]->device->name,
+                 sources[i]->name);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device_name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_disconnect_signals_by_name(mon, num_sources, src_names, dest_name);
 

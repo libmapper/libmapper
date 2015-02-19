@@ -1150,19 +1150,22 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
     return i;
 }
 
+// TODO: This method may count same connection multiple times - FIX!
 int msig_num_connections(mapper_signal sig)
 {
     int i, count = 0;
     mapper_router_signal rs = sig->device->router->signals;
-    while (rs) {
-        if (rs->signal == sig) {
-            for (i = 0; i < rs->num_connection_slots; i++) {
-                if (rs->connection_slots[i])
-                    count++;
-            }
-            break;
-        }
+    while (rs && rs->signal != sig)
         rs = rs->next;
+    if (rs) {
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (rs->incoming_connections[i])
+                count++;
+        }
+        for (i = 0; i < rs->num_outgoing_slots; i++) {
+            if (rs->outgoing_slots[i])
+                count++;
+        }
     }
     return count;
 }

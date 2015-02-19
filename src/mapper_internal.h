@@ -280,14 +280,23 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
 /*! Find a connection in a router by local signal and remote signal name. */
-mapper_connection mapper_router_find_connection(mapper_router router,
-                                                mapper_signal signal,
-                                                int num_remote_signals,
-                                                const char **remote_signal_names);
+mapper_connection mapper_router_find_connection_by_names(mapper_router router,
+                                                         mapper_signal signal,
+                                                         int num_sources,
+                                                         const char **src_names);
 
-mapper_connection mapper_router_find_connection_by_slot(mapper_router router,
-                                                        mapper_signal signal,
-                                                        int *slot_number);
+mapper_connection mapper_router_find_connection_by_local_dest(mapper_router router,
+                                                              mapper_signal dest,
+                                                              int id);
+
+mapper_connection mapper_router_find_connection_by_remote_dest(mapper_router router,
+                                                               mapper_signal source,
+                                                               const char *dest,
+                                                               int id);
+
+mapper_connection_slot mapper_router_find_connection_slot(mapper_router router,
+                                                          mapper_signal signal,
+                                                          int slot_number);
 
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
@@ -412,11 +421,12 @@ void mhist_realloc(mapper_signal_history_t *history, int history_size,
 /*! Perform the connection from a value vector to a scalar.  The
  *  result of this operation should be sent to the destination.
  *  \param connection The mapping process to perform.
- *  \param slot       The slot index of the source being updated.
+ *  \param slot       The source slot being updated.
  *  \param from_value Pointer to current value of the source signal.
  *  \param to_value   Pointer to a value to receive the result.
  *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_connection_perform(mapper_connection connection, int slot,
+int mapper_connection_perform(mapper_connection connection,
+                              mapper_connection_slot slot,
                               int instance, char *typestring);
 
 int mapper_boundary_perform(mapper_connection connection,
@@ -554,30 +564,17 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                             int argc, lo_arg **argv);
 
 /*! Look up the value of a message parameter by symbolic identifier.
- *  \param msg    Structure containing parameter info.
- *  \param param  Symbolic identifier of the parameter to look for.
- *  \return       Pointer to lo_arg, or zero if not found. */
-lo_arg** mapper_msg_get_param(mapper_message_t *msg,
-                              mapper_msg_param_t param);
-
-/*! Look up the type of a message parameter by symbolic identifier.
- *  Note that it's possible the returned type string will be longer
+ *  Note that it's possible the 'types' string will be longer
  *  than the actual contents pointed to; it is up to the usage of this
- *  function to ensure it only processes the a priori expected number
- *  of parameters. The number of parameter elements can be retrieved
- *  using the function mapper_msg_get_length().
+ *  function to ensure it only processes the number of parameters indicated
+ *  by the 'length' property.
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
- *  \return       String containing type of each parameter argument. */
-const char* mapper_msg_get_type(mapper_message_t *msg,
-                                mapper_msg_param_t param);
-
-/*! Look up the vector length of a message parameter by symbolic identifier.
- *  \param msg    Structure containing parameter info.
- *  \param param  Symbolic identifier of the parameter to look for.
- *  \return       Integer containing the length of the parameter vector. */
-int mapper_msg_get_length(mapper_message_t *msg,
-                          mapper_msg_param_t param);
+ *  \param types  Location of const char pointer to receive type string.
+ *  \param length Location of int to receive param length.
+ *  \return       Pointer to lo_arg, or zero if not found. */
+lo_arg** mapper_msg_get_param(mapper_message_t *msg, mapper_msg_param_t param,
+                              const char **types, int *length);
 
 /*! Helper to get a direct parameter value only if it's a string.
  *  \param msg    Structure containing parameter info.

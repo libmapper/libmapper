@@ -51,7 +51,7 @@ void dbpause()
 
 void printdevice(mapper_db_device dev)
 {
-    printf(" └─ %s", dev->name);
+    printf(" └─ |_ %s", dev->name);
 
     int i=0;
     const char *key;
@@ -87,8 +87,7 @@ void printdevice(mapper_db_device dev)
 
 void printsignal(mapper_db_signal sig)
 {
-    printf("[%s] %s%s", sig->is_output ? "output" : "input",
-           sig->device_name, sig->name);
+    printf("[%s] %s", sig->is_output ? "output" : "input", sig->name);
 
     int i=0;
     const char *key;
@@ -256,7 +255,7 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
 
 void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
 {
-    printf("Signal %s%s ", sig->device_name, sig->name);
+    printf("Signal %s%s ", sig->device->name, sig->name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");

@@ -1014,68 +1014,62 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
         return;
     }
 
-    char local_name[1024], remote_names[1024];
+    char dest_name[1024], source_names[1024];
+    if (c->destination.local)
+        snprintf(dest_name, 1024, "%s%s", mdev_name(md),
+                 c->destination.props->name);
+    else
+        snprintf(dest_name, 1024, "%s%s", c->destination.props->device->name,
+                 c->destination.props->name);
+
     if (c->destination.props->direction == DI_INCOMING) {
-        if (c->destination.local)
-            snprintf(local_name, 1024, "%s%s", mdev_name(md),
-                     c->props.destination.name);
-        else
-            snprintf(local_name, 1024, "%s%s", c->destination.link->props.name,
-                     c->props.destination.name);
-        lo_message_add_string(m, local_name);
+        // add connection destination
+        lo_message_add_string(m, dest_name);
         lo_message_add_string(m, "<-");
     }
 
     // add connection sources
-    int i, len=0, result;
-    for (i = 0; i < c->props.num_sources; i++) {
-        if (c->sources[i].local)
-            result = snprintf(&remote_names[len], 1024-len, "%s%s",
-                              mdev_name(md), c->props.sources[i].name);
-        else if (slot == -1 || slot == i)
-            result = snprintf(&remote_names[len], 1024-len, "%s%s",
-                              c->sources[i].link->props.name,
-                              c->props.sources[i].name);
-        if (result < 0 || (len + result + 1) >= 1024) {
-            trace("Error encoding sources for combined /connected msg");
-            lo_message_free(m);
-            return;
+    if (slot >= 0) {
+        snprintf(source_names, 1024, "%s%s", c->sources[slot].props->device->name,
+                 c->sources[slot].props->name);
+        lo_message_add_string(m, source_names);
+    }
+    else {
+        int i, len = 0, result;
+        for (i = 0; i < c->props.num_sources; i++) {
+            result = snprintf(&source_names[len], 1024-len, "%s%s",
+                              c->sources[i].props->device->name,
+                              c->sources[i].props->name);
+            if (result < 0 || (len + result + 1) >= 1024) {
+                trace("Error encoding sources for combined /connected msg");
+                lo_message_free(m);
+                return;
+            }
+            lo_message_add_string(m, &source_names[len]);
+            len += result + 1;
         }
-        lo_message_add_string(m, &remote_names[len]);
-        len += result + 1;
     }
 
     if (c->destination.props->direction == DI_OUTGOING) {
+        // add connection destination
         lo_message_add_string(m, "->");
-        if (c->destination.local)
-            snprintf(local_name, 1024, "%s%s", mdev_name(md),
-                     c->props.destination.name);
-        else
-            snprintf(local_name, 1024, "%s%s", c->destination.link->props.name,
-                     c->props.destination.name);
-        lo_message_add_string(m, local_name);
+        lo_message_add_string(m, dest_name);
     }
-    else if (cmd == ADM_CONNECT_TO && c->destination.local) {
+
+    if (cmd >= ADM_DISCONNECT) {
+        lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
+        return;
+    }
+
+    if (cmd == ADM_CONNECT_TO && c->destination.local) {
         // include "extra" signal metadata
         mapper_signal sig = c->destination.local->signal;
         if (sig->props.extra)
             mapper_msg_add_value_table(m, sig->props.extra);
     }
 
-    if (cmd < ADM_DISCONNECT) {
-        // add other properties
-        mapper_connection_prepare_osc_message(m, c, -1);
-
-        if (slot != -1) {
-            lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-            lo_message_add_int32(m, slot + c->slot_start);
-        }
-
-        if (index != -1) {
-            lo_message_add_string(m, "@ID");
-            lo_message_add_int32(m, index);
-        }
-    }
+    // add other properties
+    mapper_connection_prepare_osc_message(m, c, slot);
 
     lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
     // TODO: should send bundle here since message refers to generated strings
@@ -1089,19 +1083,17 @@ static void mapper_admin_send_connections_in(mapper_admin admin,
     int i, count = 0;
     mapper_router_signal rs = md->router->signals;
     while (rs) {
-        for (i = 0; i < rs->num_connection_slots; i++) {
-            if (rs->connection_slots[i])
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (!rs->incoming_connections[i])
                 continue;
-            if (rs->connection_slots[i]->props->direction == DI_INCOMING) {
-                if (max > 0 && count > max)
-                    return;
-                if (count >= min) {
-                    mapper_connection c = rs->connection_slots[i]->connection;
-                    mapper_admin_send_connection(admin, md, c, -1,
-                                                 i, ADM_CONNECTED);
-                }
-                count++;
+            if (max > 0 && count > max)
+                return;
+            if (count >= min) {
+                mapper_admin_send_connection(admin, md,
+                                             rs->incoming_connections[i],
+                                             -1, i, ADM_CONNECTED);
             }
+            count++;
         }
         rs = rs->next;
     }
@@ -1114,19 +1106,17 @@ static void mapper_admin_send_connections_out(mapper_admin admin,
     int i, count = 0;
     mapper_router_signal rs = md->router->signals;
     while (rs) {
-        for (i = 0; i < rs->num_connection_slots; i++) {
-            if (!rs->connection_slots[i])
+        for (i = 0; i < rs->num_outgoing_slots; i++) {
+            if (!rs->outgoing_slots[i])
                 continue;
-            if (rs->connection_slots[i]->props->direction == DI_OUTGOING) {
-                if (max > 0 && count > max)
-                    return;
-                if (count >= min) {
-                    mapper_connection c = rs->connection_slots[i]->connection;
-                    mapper_admin_send_connection(admin, md, c, -1,
-                                                 i, ADM_CONNECTED);
-                }
-                count++;
+            if (max > 0 && count > max)
+                return;
+            if (count >= min) {
+                mapper_connection c = rs->outgoing_slots[i]->connection;
+                mapper_admin_send_connection(admin, md, c, -1,
+                                             i, ADM_CONNECTED);
             }
+            count++;
         }
         rs = rs->next;
     }
@@ -1157,7 +1147,7 @@ static int handler_device(const char *path, const char *types,
     mapper_monitor mon = admin->monitor;
     mapper_db db = mmon_get_db(mon);
     mapper_device md = admin->device;
-    int i;
+    int i, j;
 
     if (argc < 1)
         return 0;
@@ -1228,29 +1218,27 @@ static int handler_device(const char *path, const char *types,
     // check if we have connections waiting for this link
     mapper_router_signal rs = md->router->signals;
     while (rs) {
-        for (i = 0; i < rs->num_connection_slots; i++) {
-            if (!rs->connection_slots[i])
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (!rs->incoming_connections[i])
                 continue;
-            mapper_connection c = rs->connection_slots[i]->connection;
-            if (c->destination.props->direction == DI_OUTGOING) {
-                if (c->destination.link == link) {
-                    c->props.destination.device = &link->props;
-                    mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
-                    mapper_admin_send_connection(admin, md, c, -1, -1,
-                                                 ADM_CONNECT_TO);
-                }
-            }
-            else {
-                int j;
-                for (j = 0; j < c->props.num_sources; j++) {
-                    if (c->sources[j].link != link)
-                        continue;
-                    c->props.sources[j].device = &link->props;
+            mapper_connection c = rs->incoming_connections[i];
+            for (j = 0; j < c->props.num_sources; j++) {
+                if (c->sources[j].link == link) {
                     mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
                     mapper_admin_send_connection(admin, md, c,
-                                                 c->props.num_sources > 1 ? i : -1,
+                                                 c->props.num_sources > 1 ? j : -1,
                                                  -1, ADM_CONNECT_TO);
                 }
+            }
+        }
+        for (i = 0; i < rs->num_outgoing_slots; i++) {
+            if (!rs->outgoing_slots[i])
+                continue;
+            mapper_connection c = rs->outgoing_slots[i]->connection;
+            if (c->destination.link == link) {
+                mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                mapper_admin_send_connection(admin, md, c, -1, -1,
+                                             ADM_CONNECT_TO);
             }
         }
         rs = rs->next;
@@ -1685,6 +1673,8 @@ static int handler_device_name_probe(const char *path, const char *types,
  *      destination will provoke the creation of simple subconnections from the
  *      various sources and perform any combination signal-processing,
  *      otherwise processing metadata is forwarded to the source device.
+ *      A convergent connection is started with the message:
+ *      "/connect" "<sourceA>" "<sourceB>" ... "<sourceN>" "->" "<destination>"
  */
 
 /* Helper function to check if the prefix matches.  Like strcmp(),
@@ -1727,77 +1717,93 @@ static int handler_signal_connect(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_signal dest_signal;
-    int i = 1, num_sources = 1, dest_index = 1, num_params;
-    const char *dest_signal_name, *dest_name;
+    mapper_signal local_signal = 0;
+    int i, j, num_sources = 1, src_index = 0, dest_index = 1;
+    int num_params, param_index = 0;
 
-    if (argc < 2)
+    const char *local_signal_name = 0;
+
+    if (strncmp(types, "sss", 3))
         return 0;
 
-    if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
-        && types[1] != 'S')
-        return 0;
-
-    // protocol: /connect src1 src2 ... srcN -> dest
-    while (i < argc && (types[i] == 's' || types[i] == 'S')) {
-        if ((&argv[i]->s)[0] == '@')
-            break;
-        else if (strcmp(&argv[i]->s, "->") == 0) {
-            num_sources = i;
-            dest_index = i+1;
-            break;
+    // old protocol: /connect src dest
+    // new protocol: /connect src1 src2 ... srcN -> dest
+    //               /connect dest <- src1 src2 ... srcN
+    // if we find "->" or "<-" before '@' or end of args, count sources
+    if (strcmp(&argv[1]->s, "<-") == 0) {
+        dest_index = 0;
+        src_index = 2;
+        if (argc < 3) {
+            i = 3;
+            while (i < argc && (types[i] == 's' || types[i] == 'S')) {
+                if ((&argv[i]->s)[0] == '@')
+                    break;
+                else
+                    num_sources++;
+                i++;
+            }
         }
-        i++;
-    }
-
-    // check if we are the destination
-    if (prefix_cmp(&argv[dest_index]->s, mdev_name(md), &dest_signal_name) == 0) {
-        dest_name = &argv[dest_index]->s;
-        // we are the destination of this connection
-#ifdef DEBUG
-        printf("-- <%s> got /connect from remote signal%s",
-               mdev_name(md), num_sources > 1 ? "s" : "");
-        for (i = 0; i < num_sources; i++)
-            printf(" %s", &argv[i]->s);
-        printf(" to local signal %s\n", dest_name);
-#endif
+        param_index = src_index + num_sources;
     }
     else {
-#ifdef DEBUG
-        trace("<%s> ignoring /connect", mdev_name(md));
-        for (i = 0; i <= dest_index; i++)
-            printf(" %s", &argv[i]->s);
-        printf("\n");
-#endif
-        return 0;
+        i = 1;
+        while (i < argc && (types[i] == 's' || types[i] == 'S')) {
+            if ((&argv[i]->s)[0] == '@')
+                break;
+            else if (strcmp(&argv[i]->s, "->") == 0) {
+                num_sources = i;
+                dest_index = i+1;
+                break;
+            }
+            i++;
+        }
+        param_index = dest_index+1;
     }
 
-    // check if we have a matching signal
-    dest_signal = mdev_get_signal_by_name(md, dest_signal_name, 0);
-    if (!dest_signal) {
-        trace("<%s> no matching signal found for '%s' in /connect\n",
-              mdev_name(md), dest_signal_name);
-        return 0;
-    }
-    else if (!dest_signal->handler) {
-        trace("<%s> matching signal %s has no input handler\n",
-              mdev_name(md), dest_signal_name);
-        return 0;
-    }
-
-    const char *src_names[num_sources], *src_signal_names[num_sources];
-    for (i = 0; i < num_sources; i++) {
-        src_names[i] = &argv[i]->s;
-        src_signal_names[i] = strchr(src_names[i]+1, '/');
-        if (!src_signal_names[i]) {
-            trace("<%s> remote '%s' has no parameter in /connect.\n",
-                  mdev_name(md), src_names[i]);
+    // check if we are the destination of this connection
+    if (prefix_cmp(&argv[dest_index]->s, mdev_name(md), &local_signal_name)==0) {
+        local_signal = mdev_get_signal_by_name(md, local_signal_name, 0);
+        if (!local_signal) {
+            trace("<%s> no signal found with name '%s'.\n",
+                  mdev_name(md), local_signal_name);
             return 0;
         }
     }
 
-    mapper_connection c = mapper_router_find_connection(md->router, dest_signal,
-                                                        num_sources, src_names);
+#ifdef DEBUG
+    printf("-- <%s> %s /connect", mdev_name(md),
+           local_signal ? "got" : "ignoring");
+    if (src_index)
+        printf(" %s <-", &argv[dest_index]->s);
+    for (i = 0; i < num_sources; i++)
+        printf(" %s", &argv[src_index+i]->s);
+    if (!src_index)
+        printf(" -> %s", &argv[dest_index]->s);
+    printf("\n");
+#endif
+    if (!local_signal) {
+        return 0;
+    }
+
+    /* Safety check: if num_sources > 1, check that signal names do not appear
+     * multiple times. */
+    if (num_sources > 1) {
+        for (i = 0; i < num_sources-1; i++) {
+            for (j = i+1; j < num_sources; j++) {
+                if (strcmp(&argv[i]->s, &argv[j]->s)==0) {
+                    trace("error in /connect: multiple use of source signal.\n");
+                }
+            }
+        }
+    }
+
+    const char *src_names[num_sources];
+    for (i = 0; i < num_sources; i++) {
+        src_names[i] = &argv[src_index+i]->s;
+    }
+    mapper_connection c;
+    c = mapper_router_find_connection_by_names(md->router, local_signal,
+                                               num_sources, src_names);
 
     /* If a connection connection already exists between these signals,
      * forward the message to handler_signal_connection_modify() and stop. */
@@ -1824,7 +1830,7 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     // create a tentative connection (flavourless)
-    c = mapper_router_add_connection(md->router, dest_signal, num_sources,
+    c = mapper_router_add_connection(md->router, local_signal, num_sources,
                                      src_signals, src_names, DI_INCOMING);
 
     /* Set its properties, but don't allow overwriting local type and length */
@@ -1839,8 +1845,10 @@ static int handler_signal_connect(const char *path, const char *types,
     if (c->status == MAPPER_READY) {
         // This connection only references local signals, advance to "connected"
         // Inform subscribers
-        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        if (admin->subscribers) {
+            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
 
         // Call local connection handler if it exists
         if (md->connection_cb) {
@@ -1866,7 +1874,7 @@ static int handler_signal_connect(const char *path, const char *types,
             continue;
 
         // do not send if device host/port not yet known
-        if (!c->sources[i].link->props.host)
+        if (!c->sources[i].props->device->host)
             continue;
 
         mapper_admin_set_bundle_dest_bus(admin);
@@ -1885,13 +1893,12 @@ static int handler_signal_connect_to(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_signal signal;
+    mapper_signal local_signal = 0;
     mapper_connection c;
     int i, num_sources = 1, src_index = 0, dest_index = 1;
     int num_params, param_index = 0;
 
     const char *local_signal_name = 0;
-    const char *remote_name;
 
     if (strncmp(types, "sss", 3))
         return 0;
@@ -1930,87 +1937,39 @@ static int handler_signal_connect_to(const char *path, const char *types,
         param_index = dest_index+1;
     }
 
-    mapper_message_t params;
-    num_params = mapper_msg_parse_params(&params, path, &types[param_index],
-                                         argc-param_index, &argv[param_index]);
-
-    if (src_index) {
-        // message in the form /connectTo dest <- src1 src2 ... srcN
-        // TODO: extend to handle multiple local sources
-        for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md), &local_signal_name))
-                break;
-        }
-        if (!local_signal_name) {
-            trace("<%s> ignoring /connectTo %s %s %s\n",
-                  mdev_name(md), &argv[0]->s, &argv[1]->s, &argv[2]->s);
-            return 0;
-        }
-        signal = mdev_get_signal_by_name(md, local_signal_name, 0);
-        if (!signal) {
-            trace("<%s> no matching signal found for '%s' in /connectTo\n",
-                  mdev_name(md), &argv[src_index+i]->s);
-            return 0;
-        }
-        remote_name = &argv[dest_index]->s;
-        c = mapper_router_find_connection(md->router, signal, 1, &remote_name);
-        if (!c) {
-            /* Creation of a connection requires the type and length info. */
-            if (!params.values[AT_DEST_TYPE] || !params.values[AT_DEST_LENGTH]) {
-                trace("missing dest type or length in handler_signal_connect_to\n");
-                return 0;
-            }
-            /* Add a flavourless connection */
-            c = mapper_router_add_connection(md->router, signal, 1, 0,
-                                             &remote_name, DI_OUTGOING);
-            if (!c) {
-                trace("couldn't create mapper_connection in handler_signal_connect_to\n");
+    // check if we are an endpoint of this connection
+    if (!src_index) {
+        // check if we are the destination
+        if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+                       &local_signal_name)==0) {
+            local_signal = mdev_get_signal_by_name(md, local_signal_name, 0);
+            if (!local_signal) {
+                trace("<%s> no signal found with name '%s'.\n",
+                      mdev_name(md), local_signal_name);
                 return 0;
             }
         }
     }
     else {
-        // message in the form /connectTo src1 src2 ... srcN -> dest
-        if (!prefix_cmp(&argv[dest_index]->s, mdev_name(md), &local_signal_name) == 0) {
-            trace("<%s> ignoring /connectTo %s %s %s\n",
-                  mdev_name(md), &argv[0]->s, &argv[1]->s, &argv[2]->s);
-            return 0;
-        }
-        if (!local_signal_name) {
-            trace("<%s> string '%s' has no signal name in /connectTo.\n",
-                  mdev_name(md), &argv[dest_index]->s);
-            return 0;
-        }
-        signal = mdev_get_signal_by_name(md, local_signal_name, 0);
-        if (!signal) {
-            trace("<%s> no matching signal found for '%s' in /connectTo\n",
-                  mdev_name(md), local_signal_name);
-            return 0;
-        }
-        const char *sources[num_sources];
+        // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            sources[i] = &argv[i]->s;
-        }
-        c = mapper_router_find_connection(md->router, signal,
-                                          num_sources, sources);
-        if (!c) {
-            /* Creation of a connection requires the type and length info. */
-            if (!params.values[AT_SRC_TYPE] || !params.values[AT_SRC_LENGTH]) {
-                trace("missing src type or length in handler_signal_connect_to\n");
-                return 0;
+            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+                           &local_signal_name)) {
+                local_signal = 0;
+                break;
             }
-            /* Add a flavourless connection */
-            c = mapper_router_add_connection(md->router, signal, num_sources,
-                                             0, sources, DI_INCOMING);
-            if (!c) {
-                trace("couldn't create mapper_connection in handler_signal_connect_to\n");
-                return 0;
+            local_signal = mdev_get_signal_by_name(md, local_signal_name, 0);
+            if (!local_signal) {
+                trace("<%s> no signal found with name '%s'.\n",
+                      mdev_name(md), local_signal_name);
+                break;
             }
         }
     }
 
 #ifdef DEBUG
-    printf("-- <%s> got /connectTo", mdev_name(md));
+    printf("-- <%s> %s /connectTo", mdev_name(md),
+           local_signal ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2019,20 +1978,60 @@ static int handler_signal_connect_to(const char *path, const char *types,
         printf(" -> %s", &argv[dest_index]->s);
     printf("\n");
 #endif
-
-    /* If send_as_instance property is not set, make connection
-     * default to passing updates as instances if either source
-     * or destination signals have multiple instances. */
-    if (!params.values[AT_SEND_AS_INSTANCE]) {
-        int remote_instances = 0;
-        mapper_msg_get_param_if_int(&params, AT_INSTANCES,
-                                    &remote_instances);
-        if (remote_instances > 1 || signal->props.num_instances > 1) {
-            c->props.send_as_instance = 1;
-        }
-        else
-            c->props.send_as_instance = 0;
+    if (!local_signal) {
+        return 0;
     }
+
+    mapper_message_t params;
+    num_params = mapper_msg_parse_params(&params, path, &types[param_index],
+                                         argc-param_index, &argv[param_index]);
+
+    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'i') {
+        trace("<%s> ignoring /connectTo, no 'id' property.\n", mdev_name(md));
+        return 0;
+    }
+    int id = (*params.values[AT_ID])->i;
+
+    if (src_index) {
+        c = mapper_router_find_connection_by_remote_dest(md->router, local_signal,
+                                                         &argv[dest_index]->s, id);
+    }
+    else {
+        c = mapper_router_find_connection_by_local_dest(md->router, local_signal,
+                                                        id);
+    }
+
+    if (!c) {
+        // organize source names
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[i]->s;
+        }
+        if (src_index) {
+            // organize source signals
+            mapper_signal src_sigs[num_sources];
+            for (i = 0; i < num_sources; i++) {
+                src_sigs[i] = mdev_get_signal_by_name(md, src_names[i], 0);
+            }
+            /* Add a flavourless connection */
+            const char *dest_name = &argv[dest_index]->s;
+            c = mapper_router_add_connection(md->router, local_signal,
+                                             num_sources, src_sigs,
+                                             &dest_name, DI_OUTGOING);
+        }
+        else {
+            /* Add a flavourless connection */
+            c = mapper_router_add_connection(md->router, local_signal, num_sources,
+                                             0, src_names, DI_INCOMING);
+        }
+        if (!c) {
+            trace("couldn't create mapper_connection in handler_signal_connect_to\n");
+            return 0;
+        }
+    }
+
+    /* TODO: handle passing @numInstances prop from signals, set sensible
+     * defaults for new connections. */
 
     /* Set connection properties. */
     mapper_connection_set_from_message(c, &params);
@@ -2065,11 +2064,12 @@ static int handler_signal_connected(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
+    mapper_signal local_signal = 0;
+    mapper_connection c;
     mapper_monitor mon = admin->monitor;
     int i, num_sources = 1, src_index = 0, dest_index = 1;
     int num_params, param_index = 0, slot = 0;
     const char *local_signal_name;
-    const char *remote_signal_name, *remote_name;
 
     if (strncmp(types, "sss", 3))
         return 0;
@@ -2119,9 +2119,13 @@ static int handler_signal_connected(const char *path, const char *types,
         }
 #ifdef DEBUG
         printf("-- <monitor> got /connected");
+        if (src_index)
+            printf(" %s <-", &argv[dest_index]->s);
         for (i = 0; i < num_sources; i++)
-            printf(" %s", src_names[i]);
-        printf(" %s %s\n", src_index ? &argv[1]->s : "->", &argv[dest_index]->s);
+            printf(" %s", &argv[src_index+i]->s);
+        if (!src_index)
+            printf(" -> %s", &argv[dest_index]->s);
+        printf("\n");
 #endif
         mapper_db db = mmon_get_db(mon);
 
@@ -2135,8 +2139,39 @@ static int handler_signal_connected(const char *path, const char *types,
     // 2 scenarios: if message in form A -> B, only B interested
     //              if message in form A <- B, only B interested
 
+    // check if we are an endpoint of this connection
+    if (!src_index) {
+        // check if we are the destination
+        if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+                       &local_signal_name)==0) {
+            local_signal = mdev_get_signal_by_name(md, local_signal_name, 0);
+            if (!local_signal) {
+                trace("<%s> no signal found with name '%s'.\n",
+                      mdev_name(md), local_signal_name);
+                return 0;
+            }
+        }
+    }
+    else {
+        // check if we are a source – all sources must match!
+        for (i = 0; i < num_sources; i++) {
+            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+                           &local_signal_name)) {
+                local_signal = 0;
+                break;
+            }
+            local_signal = mdev_get_signal_by_name(md, local_signal_name, 0);
+            if (!local_signal) {
+                trace("<%s> no signal found with name '%s'.\n",
+                      mdev_name(md), local_signal_name);
+                break;
+            }
+        }
+    }
+
 #ifdef DEBUG
-    printf("-- <%s> got /connected", mdev_name(md));
+    printf("-- <%s> %s /connected", mdev_name(md),
+           local_signal ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2145,45 +2180,33 @@ static int handler_signal_connected(const char *path, const char *types,
         printf(" -> %s", &argv[dest_index]->s);
     printf("\n");
 #endif
+    if (!local_signal) {
+        return 0;
+    }
+
+    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'i') {
+        trace("<%s> ignoring /connected, no 'id' property.\n", mdev_name(md));
+        return 0;
+    }
+    int id = (*params.values[AT_ID])->i;
 
     if (src_index) {
-        // TODO: check for multiple local sources
-        if (prefix_cmp(&argv[src_index]->s, mdev_name(md), &local_signal_name))
-            return 0;
-        remote_name = &argv[dest_index]->s;
+        c = mapper_router_find_connection_by_remote_dest(md->router, local_signal,
+                                                         &argv[dest_index]->s, id);
     }
     else {
-        if (prefix_cmp(&argv[dest_index]->s, mdev_name(md), &local_signal_name))
-            return 0;
-        remote_name = &argv[src_index]->s;
+        c = mapper_router_find_connection_by_local_dest(md->router, local_signal,
+                                                        id);
     }
-    remote_signal_name = strchr(remote_name+1, '/');
-    if (!remote_signal_name)
-        return 0;
-
-    mapper_signal signal = mdev_get_signal_by_name(md, local_signal_name, 0);
-    if (!signal) {
-        trace("<%s> no matching signal found for '%s' in /connected\n",
-              mdev_name(md), local_signal_name);
-        return 0;
-    }
-
-    mapper_connection c;
-    // this connection could be part of a many-to-one mapping
-    // ... if so, "slot" parameter will be set
-    if (params.lengths[AT_SLOT] && *params.types[AT_SLOT] == 'i') {
-        slot = (*params.values[AT_SLOT])->i;
-        c = mapper_router_find_connection_by_slot(md->router, signal, &slot);
-    }
-    else
-        c = mapper_router_find_connection(md->router, signal, 1, &remote_name);
-
     if (!c) {
         trace("<%s> no connection found for /connected.\n", mdev_name(md));
         return 0;
     }
-    if (c->is_local)
+
+    if (c->is_local) {
+        // no need to update since all properties are local
         return 0;
+    }
 
     // TODO: if this endpoint is connection admin, do not allow overwiting props
     int updated = mapper_connection_set_from_message(c, &params);
@@ -2207,9 +2230,11 @@ static int handler_signal_connected(const char *path, const char *types,
         updated++;
     }
     if (c->status >= MAPPER_READY && updated) {
-        // Inform subscribers
-        mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        if (admin->subscribers) {
+            // Inform subscribers
+            mapper_admin_set_bundle_dest_subscribers(admin, SUB_DEVICE_CONNECTIONS_IN);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
 
         // Call local connection handler if it exists
         if (md->connection_cb) {
@@ -2232,9 +2257,9 @@ static int handler_signal_connected(const char *path, const char *types,
         }
 
         if (c->destination.props->direction == DI_OUTGOING)
-            c->destination.link->props.num_connections_out++;
+            c->destination.props->device->num_connections_out++;
         else
-            c->sources[slot].link->props.num_connections_in++;
+            c->sources[slot].props->device->num_connections_in++;
         c->status = MAPPER_ACTIVE;
     }
 
@@ -2295,7 +2320,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         for (i = 0; i < num_sources; i++) {
             remote_names[i] = &argv[i]->s;
         }
-        c = mapper_router_find_connection(md->router, sig, num_sources, ptr);
+        c = mapper_router_find_connection_by_names(md->router, sig, num_sources, ptr);
     }
     else if (num_sources == 1) {
         // check if we are the source
@@ -2313,7 +2338,8 @@ static int handler_signal_connection_modify(const char *path, const char *types,
                 continue;
             }
             const char *remote_name = &argv[dest_index]->s;
-            c = mapper_router_find_connection(md->router, sig, 1, &remote_name);
+            c = mapper_router_find_connection_by_names(md->router, sig,
+                                                       1, &remote_name);
             if (c)
                 break;
         }
@@ -2330,17 +2356,30 @@ static int handler_signal_connection_modify(const char *path, const char *types,
 
     int updated = mapper_connection_set_from_message(c, &params);
     if (updated) {
-        // TODO: check for self-connections,don't need to send updates
-
+        // TODO: check for self-connections, don't need to send updates
+        // TODO: may not need to inform all remote peers
         // Inform remote peer(s) of relevant changes
-//        mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
-        mapper_admin_set_bundle_dest_bus(admin);
-        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        if (c->destination.props->direction == DI_OUTGOING) {
+            mapper_admin_set_bundle_dest_mesh(admin,
+                                              c->destination.link->admin_addr);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
+        else {
+            for (i = 0; i < c->props.num_sources; i++) {
+                mapper_admin_set_bundle_dest_mesh(admin,
+                                                  c->sources[i].link->admin_addr);
+                mapper_admin_send_connection(admin, md, c,
+                                             c->props.num_sources > 1 ? i : -1,
+                                             -1, ADM_CONNECTED);
+            }
+        }
 
-        // Inform subscribers
-        mapper_admin_set_bundle_dest_subscribers(admin,
-            outgoing ? SUB_DEVICE_CONNECTIONS_OUT : SUB_DEVICE_CONNECTIONS_IN);
-        mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        if (admin->subscribers) {
+            // Inform subscribers
+            mapper_admin_set_bundle_dest_subscribers(admin,
+                outgoing ? SUB_DEVICE_CONNECTIONS_OUT : SUB_DEVICE_CONNECTIONS_IN);
+            mapper_admin_send_connection(admin, md, c, -1, -1, ADM_CONNECTED);
+        }
 
         // Call local connection handler if it exists
         if (md->connection_cb) {
@@ -2411,7 +2450,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
             continue;
         }
         const char *remote_name = &argv[dest_index]->s;
-        c = mapper_router_find_connection(md->router, sig, 1, &remote_name);
+        c = mapper_router_find_connection_by_names(md->router, sig,
+                                                   1, &remote_name);
         if (c)
             break;
 
@@ -2436,7 +2476,8 @@ static int handler_signal_disconnect(const char *path, const char *types,
         for (i = 0; i < num_sources; i++) {
             remote_names[i] = &argv[i]->s;
         }
-        c = mapper_router_find_connection(md->router, sig, num_sources, ptr);
+        c = mapper_router_find_connection_by_names(md->router, sig,
+                                                   num_sources, ptr);
         if (!c) {
             trace("<%s> ignoring /disconnect, "
                   "no connection found for '%s' %s -> '%s'\n",

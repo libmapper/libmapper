@@ -16,7 +16,7 @@ void printsignal(mapper_db_signal sig)
 {
     int i;
     eprintf("  name=%s%s, type=%c, length=%d",
-            sig->device_name, sig->name, sig->type, sig->length);
+            sig->device->name, sig->name, sig->type, sig->length);
     if (sig->unit)
         eprintf(", unit=%s", sig->unit);
     if (sig->minimum) {
@@ -210,8 +210,9 @@ int main(int argc, char **argv)
     src_sig_name = "/testdb.1/out1";
     mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb__.2/in1", &msg);
-    src_sig_name = "/testdb__.2/out2";
-    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
+
+    const char *multi_source[] = {"/testdb__.2/out1", "/testdb__.2/out2"};
+    mapper_db_add_or_update_connection_params(db, 2, multi_source,
                                               "/testdb.1/in2", &msg);
 
     /*********/

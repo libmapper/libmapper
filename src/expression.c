@@ -1448,13 +1448,17 @@ mapper_expr mapper_expr_new_from_string(const char *str,
 
     mapper_token_t tok;
 
-    // all expressions must start with assignment e.g. "y=" (ignoring spaces)
+    // ignoring spaces at start of expression
     while (str[lex_index] == ' ') lex_index++;
     if (!str[lex_index])
         {FAIL("No expression found.");}
 
     assigning = 1;
     allow_toktype = TOK_VAR | TOK_OPEN_SQUARE;
+
+#if TRACING
+    printf("parsing expression '%s'\n", str);
+#endif
 
     while (str[lex_index]) {
         GET_NEXT_TOKEN(tok);
@@ -2042,6 +2046,15 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
                          mapper_timetag_t *tt, mapper_signal_history_t *result,
                          char *typestring)
 {
+#if TRACING
+    printf("mapper_expr_evaluate('%s'->%p)\n", c->props.expression, expr);
+#endif
+    if (!expr) {
+#if TRACING
+        printf(" no expression to evaluate!\n");
+#endif
+        return 0;
+    }
     mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 
@@ -2084,11 +2097,8 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
         case TOK_VAR: {
             int idx;
 #if TRACING
-            printf("loading variable '%c'", tok->var >= VAR_X ? 'x' : 'y');
-            if (tok->var > VAR_X)
-                printf(" (slot %d)\n", tok->var-VAR_X);
-            else
-                printf("\n");
+            printf("loading variable '%c' (slot %d)\n",
+                   tok->var >= VAR_X ? 'x' : 'y', tok->var-VAR_X);
 #endif
             if (tok->var == VAR_Y) {
                 ++top;

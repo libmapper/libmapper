@@ -140,8 +140,6 @@ typedef struct _mapper_db_signal {
     mapper_db_device device;
     char *name;             /*! The name of this signal, an OSC path.  Must
                              *  start with '/'. */
-    char *device_name;      /*! The name of the device owning this signal. An
-                             *  OSC path. Must start with '/'. */
 
     char *unit;             //!< The unit of this signal, or NULL for N/A.
     void *minimum;          //!< The minimum of this signal, or NULL for N/A.
@@ -168,7 +166,7 @@ typedef struct _mapper_db_connection_slot {
     char *name;
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.
-    int index;                      //!< Slot number
+    int slot_id;                    //!< Slot ID
     int length;
     int num_instances;
     int direction;                  //!< DI_INCOMING or DI_OUTGOING

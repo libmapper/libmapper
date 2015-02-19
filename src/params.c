@@ -144,28 +144,16 @@ int mapper_msg_parse_params(mapper_message_t *msg,
     return num_params + extra_count;
 }
 
-lo_arg** mapper_msg_get_param(mapper_message_t *msg,
-                              mapper_msg_param_t param)
+lo_arg** mapper_msg_get_param(mapper_message_t *msg, mapper_msg_param_t param,
+                              const char **types, int *length)
 {
     die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
+    if (types)
+        *types = msg->types[param];
+    if (length)
+        *length = msg->lengths[param];
     return msg->values[param];
-}
-
-const char* mapper_msg_get_type(mapper_message_t *msg,
-                                mapper_msg_param_t param)
-{
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
-    return msg->types[param];
-}
-
-int mapper_msg_get_length(mapper_message_t *msg,
-                          mapper_msg_param_t param)
-{
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
-    return msg->lengths[param];
 }
 
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
@@ -174,11 +162,13 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
     die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !(*a)) return 0;
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a || !(*a))
+        return 0;
 
-    const char *t = mapper_msg_get_type(msg, param);
-    if (!t) return 0;
+    if (!t)
+        return 0;
 
     if (t[0] != 's' && t[0] != 'S')
         return 0;
@@ -192,11 +182,13 @@ const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
     die_unless(param < N_AT_PARAMS,
                "error, unknown parameter\n");
 
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !(*a)) return 0;
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a || !(*a))
+        return 0;
 
-    const char *t = mapper_msg_get_type(msg, param);
-    if (!t) return 0;
+    if (!t)
+        return 0;
 
     if ((t[0] == 's' || t[0] == 'S')
         && (&(*a)->s)[0] && (&(*a)->s)[1]==0)
@@ -216,11 +208,13 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !(*a)) return 1;
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a || !(*a))
+        return 1;
 
-    const char *t = mapper_msg_get_type(msg, param);
-    if (!t) return 1;
+    if (!t)
+        return 1;
 
     if (t[0] != 'i')
         return 1;
@@ -237,11 +231,13 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !(*a)) return 1;
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a || !(*a))
+        return 1;
 
-    const char *t = mapper_msg_get_type(msg, param);
-    if (!t) return 1;
+    if (!t)
+        return 1;
 
     if (t[0] != 'f')
         return 1;
@@ -258,11 +254,13 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
                "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !(*a)) return 1;
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a || !(*a))
+        return 1;
 
-    const char *t = mapper_msg_get_type(msg, param);
-    if (!t) return 1;
+    if (!t)
+        return 1;
 
     if (t[0] != 'd')
         return 1;
@@ -593,140 +591,33 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
-void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
-                                           int slot)
-{
-    int i;
-    mapper_db_connection props = &c->props;
-
-    if (props->mode) {
-        lo_message_add_string(m, prop_msg_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[props->mode]);
-    }
-    if (props->expression) {
-        lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
-        lo_message_add_string(m, props->expression);
-    }
-
-    if (slot == -1) {
-        if (c->status & MAPPER_READY) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
-            for (i = 0; i < props->num_sources; i++)
-                lo_message_add_char(m, props->sources[i].type);
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
-            for (i = 0; i < props->num_sources; i++)
-                lo_message_add_int32(m, props->sources[i].length);
-        }
-    }
-    else {
-        if (c->sources[slot].status & MAPPER_TYPE_KNOWN) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
-            lo_message_add_char(m, props->sources[slot].type);
-        }
-        if (c->sources[slot].status & MAPPER_LENGTH_KNOWN) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
-            lo_message_add_int32(m, props->sources[slot].length);
-        }
-    }
-
-    if (c->destination.status & MAPPER_TYPE_KNOWN) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_TYPE]);
-        lo_message_add_char(m, props->destination.type);
-    }
-    if (c->destination.status & MAPPER_LENGTH_KNOWN) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_LENGTH]);
-        lo_message_add_int32(m, props->destination.length);
-    }
-
-    // TODO: extend to multiple sources
-    if (c->props.num_sources == 1) {
-        if (props->sources[0].minimum) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
-            mapper_msg_add_typed_value(m, props->sources[0].type,
-                                       props->sources[0].length,
-                                       props->sources[0].minimum);
-        }
-
-        if (props->sources[0].maximum) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
-            mapper_msg_add_typed_value(m, props->sources[0].type,
-                                       props->sources[0].length,
-                                       props->sources[0].maximum);
-        }
-    }
-
-    if (props->destination.minimum) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_MIN]);
-        mapper_msg_add_typed_value(m, props->destination.type,
-                                   props->destination.length,
-                                   props->destination.minimum);
-    }
-
-    if (props->destination.maximum) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_MAX]);
-        mapper_msg_add_typed_value(m, props->destination.type,
-                                   props->destination.length,
-                                   props->destination.maximum);
-    }
-
-    lo_message_add_string(m, prop_msg_strings[AT_BOUND_MIN]);
-    lo_message_add_string(m, mapper_boundary_action_strings[props->bound_min]);
-    lo_message_add_string(m, prop_msg_strings[AT_BOUND_MAX]);
-    lo_message_add_string(m, mapper_boundary_action_strings[props->bound_max]);
-    lo_message_add_string(m, prop_msg_strings[AT_MUTE]);
-    lo_message_add_int32(m, props->muted);
-
-    lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
-    lo_message_add_int32(m, props->send_as_instance);
-
-    if (props->destination.index >= 0) {
-        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, props->destination.index);
-    }
-
-    // Add connection scopes
-    lo_message_add_string(m, prop_msg_strings[AT_SCOPE]);
-    if (props->scope.size) {
-        for (i = 0; i < props->scope.size; i++)
-            lo_message_add_string(m, props->scope.names[i]);
-    }
-    else
-        lo_message_add_string(m, "none");
-
-    mapper_msg_add_value_table(m, props->extra);
-}
-
 int mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
-    lo_arg **a = mapper_msg_get_param(msg, AT_DIRECTION);
-    if (!a || !*a)
-        return -1;
-    const char *str = &(*a)->s;
+    const char *str = mapper_msg_get_param_if_string(msg, AT_DIRECTION);
+    if (!str)
+        return 0;
     if (strcmp(str, "output")==0)
         return DI_OUTGOING;
-    else if (strcmp(str, "input")==0)
+    if (strcmp(str, "input")==0)
         return DI_INCOMING;
-    else if (strcmp(str, "both")==0)
+    if (strcmp(str, "both")==0)
         return DI_OUTGOING | DI_INCOMING;
-
     return 0;
 }
 
 mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
 {
-    lo_arg **a = mapper_msg_get_param(msg, AT_MODE);
-    if (!a || !*a)
+    const char *str = mapper_msg_get_param_if_string(msg, AT_MODE);
+    if (!str)
         return -1;
-
-    if (strcmp(&(*a)->s, "none") == 0)
+    if (strcmp(str, "none") == 0)
         return MO_NONE;
-    if (strcmp(&(*a)->s, "raw") == 0)
+    if (strcmp(str, "raw") == 0)
         return MO_RAW;
-    else if (strcmp(&(*a)->s, "linear") == 0)
+    if (strcmp(str, "linear") == 0)
         return MO_LINEAR;
-    else if (strcmp(&(*a)->s, "expression") == 0)
+    if (strcmp(str, "expression") == 0)
         return MO_EXPRESSION;
-
     return -1;
 }
 
@@ -735,39 +626,29 @@ mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
 {
     die_unless(param == AT_BOUND_MIN || param == AT_BOUND_MAX,
                "bad param in mapper_msg_get_boundary_action()\n");
-    lo_arg **a = mapper_msg_get_param(msg, param);
-    if (!a || !*a)
+    const char *str = mapper_msg_get_param_if_string(msg, param);
+    if (!str)
         return -1;
-
-    if (strcmp(&(*a)->s, "none") == 0)
+    if (strcmp(str, "none") == 0)
         return BA_NONE;
-    if (strcmp(&(*a)->s, "mute") == 0)
+    if (strcmp(str, "mute") == 0)
         return BA_MUTE;
-    if (strcmp(&(*a)->s, "clamp") == 0)
+    if (strcmp(str, "clamp") == 0)
         return BA_CLAMP;
-    if (strcmp(&(*a)->s, "fold") == 0)
+    if (strcmp(str, "fold") == 0)
         return BA_FOLD;
-    if (strcmp(&(*a)->s, "wrap") == 0)
+    if (strcmp(str, "wrap") == 0)
         return BA_WRAP;
-
     return -1;
 }
 
 int mapper_msg_get_mute(mapper_message_t *msg)
 {
-    lo_arg **a = mapper_msg_get_param(msg, AT_MUTE);
-    const char *t = mapper_msg_get_type(msg, AT_MUTE);
-    if (!a || !*a || !t)
+    // TODO: check if args can be LO_TRUE/LO_FALSE
+    int mute;
+    if (mapper_msg_get_param_if_int(msg, AT_MUTE, &mute))
         return -1;
-
-    if (*t == 'i')
-        return (*a)->i;
-    else if (*t == LO_TRUE)
-        return 1;
-    else if (*t == LO_FALSE)
-        return 0;
-    else
-        return -1;
+    return mute;
 }
 
 // Helper for setting property value from different lo_arg types

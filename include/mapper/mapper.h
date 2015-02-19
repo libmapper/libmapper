@@ -1014,6 +1014,15 @@ void mapper_db_remove_connection_callback(mapper_db db,
  *          iterate. */
 mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
 
+/*! Return the connection that match the given id.
+ *  \param db          The database to query.
+ *  \param device_name Name of destination device.
+ *  \param int         ID of the connection to retrieve.
+ *  \return A pointer to a structure containing information on the
+ *          found connection, or 0 if not found. */
+mapper_db_connection mapper_db_get_connection_by_dest_device_and_id(
+    mapper_db db, const char *device_name, int id);
+
 /*! Return the list of connections that touch the given device name.
  *  \param db          The database to query.
  *  \param device_name Name of the device to find.

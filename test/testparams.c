@@ -19,6 +19,8 @@ int main(int argc, char **argv)
     int port=1234, src_length=4;
     float r[4] = {1.0, 2.0, -15.0, 25.0};
     int i, j, result = 0;
+    const char *types;
+    int length;
 
     // process flags for -v verbose, -h help
     for (i = 1; i < argc; i++) {
@@ -65,9 +67,19 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    a = mapper_msg_get_param(&msg, AT_IP);
+    a = mapper_msg_get_param(&msg, AT_IP, &types, &length);
     if (!a) {
         eprintf("1: Could not get @IP param.\n");
+        result = 1;
+        goto done;
+    }
+    if (!types || types[0] != 's') {
+        eprintf("1: Type error retrieving @IP param.");
+        result = 1;
+        goto done;
+    }
+    if (length != 1) {
+        eprintf("1: Length error retrieving @IP param.");
         result = 1;
         goto done;
     }
@@ -77,9 +89,19 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    a = mapper_msg_get_param(&msg, AT_PORT);
+    a = mapper_msg_get_param(&msg, AT_PORT, &types, &length);
     if (!a) {
         eprintf("1: Could not get @port param.\n");
+        result = 1;
+        goto done;
+    }
+    if (!types || types[0] != 'i') {
+        eprintf("1: Type error retrieving @port param.");
+        result = 1;
+        goto done;
+    }
+    if (length != 1) {
+        eprintf("1: Length error retrieving @port param.");
         result = 1;
         goto done;
     }
@@ -89,17 +111,23 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    a = mapper_msg_get_param(&msg, AT_SRC_MIN);
-    int count = mapper_msg_get_length(&msg, AT_SRC_MIN);
+    a = mapper_msg_get_param(&msg, AT_SRC_MIN, &types, &length);
     if (!a) {
         eprintf("1: Could not get @src_min param.\n");
         result = 1;
         goto done;
     }
-    if (count != 4) {
-        eprintf("1: Wrong count returned for @scr_min param.\n");
+    if (!types || types[0] != 'f') {
+        eprintf("1: Type error retrieving @src_min param.");
+        result = 1;
+        goto done;
     }
-    for (i=0; i<count; i++) {
+    if (length != 4) {
+        eprintf("1: Length error retrieving @src_min param.");
+        result = 1;
+        goto done;
+    }
+    for (i=0; i<length; i++) {
         if (a[i]->f!=r[i])
             result = 1;
         eprintf("1: @src_min[%d] = %f %s\n", i, a[i]->f,
@@ -123,14 +151,24 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    a = mapper_msg_get_param(&msg, AT_PORT);
+    a = mapper_msg_get_param(&msg, AT_PORT, &types, &length);
     if (!a) {
         eprintf("2: Could not get @port param.\n");
         result = 1;
         goto done;
     }
+    if (!types || types[0] != 'i') {
+        eprintf("2: Type error retrieving @port param.");
+        result = 1;
+        goto done;
+    }
+    if (length != 1) {
+        eprintf("2: Length error retrieving @port param.");
+        result = 1;
+        goto done;
+    }
 
-    a = mapper_msg_get_param(&msg, AT_IP);
+    a = mapper_msg_get_param(&msg, AT_IP, &types, &length);
     if (a) {
         eprintf("2: Error, should not have been able to retrieve @IP param.\n");
         result = 1;

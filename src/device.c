@@ -180,7 +180,6 @@ void mdev_registered(mapper_device md)
     /* Add device name to signals. Also add device name hash to
      * locally-activated signal instances. */
     for (i = 0; i < md->props.num_inputs; i++) {
-        md->inputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->inputs[i]->id_map_length; j++) {
             if (md->inputs[i]->id_maps[j].map &&
                 md->inputs[i]->id_maps[j].map->origin == 0)
@@ -188,7 +187,6 @@ void mdev_registered(mapper_device md)
         }
     }
     for (i = 0; i < md->props.num_outputs; i++) {
-        md->outputs[i]->props.device_name = (char *)mdev_name(md);
         for (j = 0; j < md->outputs[i]->id_map_length; j++) {
             if (md->outputs[i]->id_maps[j].map &&
                 md->outputs[i]->id_maps[j].map->origin == 0)
@@ -254,12 +252,11 @@ static int handler_signal(const char *path, const char *types,
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md;
     int i = 0, j, k, count = 1, nulls = 0;
-    int index = 0, is_instance_update = 0, origin, public_id;
+    int is_instance_update = 0, instance, slot = -1;
+    int instance_group, instance_id;
     mapper_id_map map;
-    int slot = -1;
     mapper_connection c = 0;
-    mapper_connection_slot s;
-    mapper_db_connection_slot p;
+    mapper_connection_slot s = 0;
 
     if (!sig || !sig->handler || !(md = sig->device)) {
         trace("error, cannot retrieve user_data\n");
@@ -291,8 +288,8 @@ static int handler_signal(const char *path, const char *types,
             if (types[argnum+1] != 'i' || types[argnum+2] != 'i')
                 return 0;
             is_instance_update = 1;
-            origin = argv[argnum+1]->i32;
-            public_id = argv[argnum+2]->i32;
+            instance_group = argv[argnum+1]->i32;
+            instance_id = argv[argnum+2]->i32;
             argnum += 3;
         }
         else if (strcmp(&argv[argnum]->s, "@slot") == 0
@@ -311,17 +308,18 @@ static int handler_signal(const char *path, const char *types,
     if (slot >= 0) {
         // check if we have a combiner for this signal
         // retrieve connection associated with this slot
-        c = mapper_router_find_connection_by_slot(md->router, sig, &slot);
-        if (c) {
-            s = &c->sources[slot];
-            if (!s) {
-                trace("error: no slot history structure found.\n");
-            }
-            p = &c->props.sources[slot];
-            count = check_types(types, value_len, p->type, p->length);
+        s = mapper_router_find_connection_slot(md->router, sig, slot);
+        if (s) {
+            c = s->connection;
+            count = check_types(types, value_len, s->props->type,
+                                s->props->length);
         }
         else {
-            trace("error in signal handler: slot index exceeds num_sources.\n");
+            trace("error in signal handler: slot not found.\n");
+            return 0;
+        }
+        if (c->status < MAPPER_READY) {
+            trace("connection not yet ready.\n");
             return 0;
         }
     }
@@ -339,30 +337,32 @@ static int handler_signal(const char *path, const char *types,
     lo_timetag tt = lo_message_get_timestamp(msg);
 
     if (is_instance_update) {
-        index = msig_find_instance_with_remote_ids(sig, origin, public_id,
-                                                   IN_RELEASED_REMOTELY);
-        if (index < 0) {
+        instance = msig_find_instance_with_remote_ids(sig, instance_group,
+                                                      instance_id,
+                                                      IN_RELEASED_REMOTELY);
+        if (instance < 0) {
             // no instance found with this map
             if (count == 1 && nulls == value_len) {
                 // Don't activate instance just to release it again
                 return 0;
             }
             // otherwise try to init reserved/stolen instance with device map
-            index = msig_get_instance_with_remote_ids(sig, origin, public_id, 0, &tt);
+            instance = msig_get_instance_with_remote_ids(sig, instance_group,
+                                                         instance_id, 0, &tt);
             if (index < 0) {
                 trace("no local instances available for remote instance %ld:%ld\n",
-                      (long)origin, (long)public_id);
+                      (long)instance_group, (long)instance_id);
                 return 0;
             }
         }
         else {
-            if (sig->id_maps[index].status & IN_RELEASED_LOCALLY) {
+            if (sig->id_maps[instance].status & IN_RELEASED_LOCALLY) {
                 /* map was already released locally, we are only interested
                  * in release messages */
                 if (count == 1 && nulls == sig->props.length) {
                     // we can clear signal's reference to map
-                    map = sig->id_maps[index].map;
-                    sig->id_maps[index].map = 0;
+                    map = sig->id_maps[instance].map;
+                    sig->id_maps[instance].map = 0;
                     map->refcount_remote--;
                     if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
                         mdev_remove_instance_id_map(md, map);
@@ -370,21 +370,21 @@ static int handler_signal(const char *path, const char *types,
                 }
                 return 0;
             }
-            else if (!sig->id_maps[index].instance) {
+            else if (!sig->id_maps[instance].instance) {
                 trace("error: missing instance!\n");
                 return 0;
             }
         }
     }
     else {
-        index = 0;
+        instance = 0;
         if (!sig->id_maps[0].instance)
-            index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
+            instance = msig_get_instance_with_local_id(sig, 0, 1, &tt);
         if (index < 0)
             return 0;
     }
-    mapper_signal_instance si = sig->id_maps[index].instance;
-    map = sig->id_maps[index].map;
+    mapper_signal_instance si = sig->id_maps[instance].instance;
+    map = sig->id_maps[instance].map;
 
     // TODO: alter timetags for multicount updates with missing handler calls?
     if (!c) {
@@ -392,7 +392,8 @@ static int handler_signal(const char *path, const char *types,
         si->timetag.frac = tt.frac;
     }
 
-    int size = (c ? mapper_type_size(p->type) : mapper_type_size(sig->props.type));
+    int size = (s ? mapper_type_size(s->props->type)
+                : mapper_type_size(sig->props.type));
     void *out_buffer = count == 1 ? 0 : alloca(count * sig->props.length * size);
     int vals, out_count = 0;
 
@@ -403,18 +404,26 @@ static int handler_signal(const char *path, const char *types,
         // all nulls -> release instance, sig has no value, break "count"
         vals = 0;
         if (c) {
-            for (j = 0; j < p->length; j++) {
+            for (j = 0; j < s->props->length; j++) {
                 if (types[k] == 'N')
                     continue;
-                memcpy(s->history[index].value + j * size, argv[k], size);
-                memcpy(s->history[index].timetag + j * sizeof(mapper_timetag_t),
+                memcpy(s->history[instance].value + j * size, argv[k], size);
+                memcpy(s->history[instance].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (s->cause_update
-                && (vals = mapper_connection_combine(c, index))) {
-                memcpy(si->value,
-                       msig_history_value_pointer(c->destination.history[index]),
-                       mapper_type_size(sig->props.type) * sig->props.length);
+            if (s->cause_update) {
+                char typestring[c->destination.props->length];
+                if (mapper_expr_evaluate(c->expr, c, instance, &tt,
+                                         &c->destination.history[instance],
+                                         typestring)) {
+                    memcpy(si->value,
+                           msig_history_value_pointer(c->destination.history[instance]),
+                           mapper_type_size(sig->props.type) * sig->props.length);
+                }
+                else {
+                    trace("expression evaluation failed.\n")
+                    return 0;
+                }
             }
         }
         else {
@@ -435,7 +444,7 @@ static int handler_signal(const char *path, const char *types,
                 memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
                 if (is_instance_update) {
                     // TODO: handle multiple upstream devices
-                    sig->id_maps[index].status |= IN_RELEASED_REMOTELY;
+                    sig->id_maps[instance].status |= IN_RELEASED_REMOTELY;
                     map->refcount_remote--;
                     if (sig->instance_event_handler
                         && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
@@ -462,7 +471,7 @@ static int handler_signal(const char *path, const char *types,
                 else {
                     sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
                     if (!sig->props.is_output)
-                        mdev_route_signal(md, sig, index, si->value, 1, tt);
+                        mdev_route_signal(md, sig, instance, si->value, 1, tt);
                 }
                 si->has_value = 1;
             }
@@ -476,7 +485,7 @@ static int handler_signal(const char *path, const char *types,
             else {
                 sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
                 if (!sig->props.is_output)
-                    mdev_route_signal(md, sig, index, si->value, 1, tt);
+                    mdev_route_signal(md, sig, instance, si->value, 1, tt);
             }
             si->has_value = 1;
         }
@@ -485,7 +494,7 @@ static int handler_signal(const char *path, const char *types,
     if (out_count) {
         sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
         if (!sig->props.is_output)
-            mdev_route_signal(md, sig, index, out_buffer, out_count, tt);
+            mdev_route_signal(md, sig, instance, out_buffer, out_count, tt);
     }
 
     return 0;
@@ -609,6 +618,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 
     md->inputs[md->props.num_inputs - 1] = sig;
     sig->device = md;
+    sig->props.device = &md->props;
 
     lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
                          (void *) (sig));
@@ -622,7 +632,6 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     free(signal_get);
 
     if (md->registered) {
-        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
@@ -649,9 +658,9 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
     md->outputs[md->props.num_outputs - 1] = sig;
     sig->device = md;
+    sig->props.device = &md->props;
 
     if (md->registered) {
-        sig->props.device_name = (char *)mdev_name(md);
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
@@ -772,19 +781,24 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     lo_server_del_method(md->server, str, NULL);
 
     mapper_router_signal rs = md->router->signals;
-    while (rs) {
-        if (rs->signal == sig) {
-            // need to disconnect
-            for (i = 0; i < rs->num_connection_slots; i++) {
-                if (rs->connection_slots[i]) {
-                    mapper_connection c = rs->connection_slots[i]->connection;
-                    send_disconnect(md->admin, c);
-                    mapper_router_remove_connection(md->router, c);
-                }
-            }
-            break;
-        }
+    while (rs && rs->signal != sig)
         rs = rs->next;
+    if (rs) {
+        // need to disconnect
+        for (i = 0; i < rs->num_outgoing_slots; i++) {
+            if (rs->outgoing_slots[i]) {
+                mapper_connection c = rs->outgoing_slots[i]->connection;
+                send_disconnect(md->admin, c);
+                mapper_router_remove_connection(md->router, c);
+            }
+        }
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (rs->incoming_connections[i]) {
+                send_disconnect(md->admin, rs->incoming_connections[i]);
+                mapper_router_remove_connection(md->router,
+                                                rs->incoming_connections[i]);
+            }
+        }
     }
 
     if (md->registered) {
@@ -822,19 +836,24 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     }
 
     mapper_router_signal rs = md->router->signals;
-    while (rs) {
-        if (rs->signal == sig) {
-            // need to disconnect
-            for (i = 0; i < rs->num_connection_slots; i++) {
-                if (rs->connection_slots[i]) {
-                    mapper_connection c = rs->connection_slots[i]->connection;
-                    send_disconnect(md->admin, c);
-                    mapper_router_remove_connection(md->router, c);
-                }
-            }
-            break;
-        }
+    while (rs && rs->signal != sig)
         rs = rs->next;
+    if (rs) {
+        // need to disconnect
+        for (i = 0; i < rs->num_outgoing_slots; i++) {
+            if (rs->outgoing_slots[i]) {
+                mapper_connection c = rs->outgoing_slots[i]->connection;
+                send_disconnect(md->admin, c);
+                mapper_router_remove_connection(md->router, c);
+            }
+        }
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (rs->incoming_connections[i]) {
+                send_disconnect(md->admin, rs->incoming_connections[i]);
+                mapper_router_remove_connection(md->router,
+                                                rs->incoming_connections[i]);
+            }
+        }
     }
 
     if (md->registered) {
