@@ -136,7 +136,7 @@ function use_lipo()
     done
 
     mkdir -v all/python
-    for i in libmapper-0.2/examples/py_tk_gui/_pwm.so libmapper-0.2/swig/_mapper.so; do
+    for i in libmapper-$LIBMAPPER_VERSION/examples/py_tk_gui/_pwm.so libmapper-$LIBMAPPER_VERSION/swig/_mapper.so; do
         ARCHFILES=""
         for a in $ARCHES; do
             ARCHFILES="$ARCHFILES -arch $a $a/$i"
