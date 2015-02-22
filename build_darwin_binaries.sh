@@ -109,16 +109,16 @@ function rebuild_python_extentions()
     cd libmapper-$LIBMAPPER_VERSION/swig
     make mapper_wrap.c
 
-    gcc-4.2 -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../src -I../include -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c mapper_wrap.c -o mapper_wrap.o
+    gcc -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../src -I../include -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c mapper_wrap.c -o mapper_wrap.o
 
-    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _mapper.so
+    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _mapper.so
 
     cd ../examples/py_tk_gui
     make pwm_wrap.cxx
 
-    gcc-4.2 -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../../src -I../../include -I../pwm_synth -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c pwm_wrap.cxx -o pwm_wrap.o
+    gcc -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../../src -I../../include -I../pwm_synth -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c pwm_wrap.cxx -o pwm_wrap.o
 
-    gcc-4.2 -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD pwm_wrap.o ../pwm_synth/.libs/libpwm.a -lpthread -o _pwm.so -framework CoreAudio -framework CoreFoundation
+    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD pwm_wrap.o ../pwm_synth/.libs/libpwm.a -lpthread -o _pwm.so -framework CoreAudio -framework CoreFoundation
 
     cd ../../../..
 }
