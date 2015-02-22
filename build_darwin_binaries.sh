@@ -55,7 +55,7 @@ function make_arch()
     tar -xzf "$LIBLO_TAR"
 
     cd $(basename "$LIBLO_TAR" .tar.gz)
-    if ./configure CFLAGS="-arch $ARCH $SDKC" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX" LDFLAGS="-arch $ARCH $SDKC $SDKLD" --prefix=`pwd`/../install --enable-static --enable-dynamic && make && make install; then
+    if ./configure CFLAGS="-arch $ARCH $SDKC" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX" LDFLAGS="-arch $ARCH $SDKC $SDKLD" --prefix=`pwd`/../install --enable-static --enable-shared && make && make install; then
         cd ..
     else
         echo Build error in arch $ARCH
@@ -66,7 +66,7 @@ function make_arch()
 
     cd $(basename "$LIBMAPPER_TAR" .tar.gz)
     PREFIX=`pwd`/../install
-    if env PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig ./configure --enable-debug CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-dynamic; then
+    if env PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig ./configure --enable-debug CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-shared; then
 
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
