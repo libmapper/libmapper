@@ -28,7 +28,7 @@ LIBMAPPER_TAR="$1"
 LIBLO_TAR="$2"
 
 LIBMAPPER_VERSION=$(echo $LIBMAPPER_TAR|sed 's,.*libmapper-\(.*\).tar.gz,\1,')
-LIBMAPPER_MAJOR=$(echo $LIBMAPPER_VERSION|sed 's,\([0-9]\)\(\.[0-9]*\)*,\1,')
+LIBMAPPER_MAJOR=$(echo $LIBMAPPER_VERSION|sed 's,\([0-9]\)\(\.[0-9]*\)*.*,\1,')
 
 LIBLO_VERSION=$(echo $LIBLO_TAR|sed 's,.*liblo-\(.*\).tar.gz,\1,')
 LIBLO_MAJOR=$(echo $LIBLO_VERSION|sed 's,\([0-9]\)\(\.[0-9]*\)*,\1,')
