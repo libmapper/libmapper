@@ -5,7 +5,19 @@
 
 ARCHES="i386 x86_64"
 
-SDK="/Developer/SDKs/MacOSX10.5.sdk"
+if [ -d /Developer/SDKs/MacOSX10.5.sdk ]; then
+    SDKPATH="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+else
+    SDKPATH=/Developer/SDKs/
+fi
+if [ -d "$SDKPATH" ]; then
+    for i in 5 6 7 8; do
+        if [ -d "$SDKPATH/MacOSX10.$i.sdk" ]; then
+            SDK="$SDKPATH/MacOSX10.$i.sdk"
+            break
+        fi
+    done
+fi
 
 SDKC="--sysroot=$SDK"
 SDKLD="-lgcc_s.1"
