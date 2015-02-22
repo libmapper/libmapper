@@ -164,6 +164,7 @@ fi
 
 # Check for JNI
 if test x$jni_enabled = xyes; then
+   AC_MSG_CHECKING([JDK path])
    JDKPATH=
    if test -d /usr/lib/jvm/java-7-openjdk-i386; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-i386
@@ -180,6 +181,8 @@ if test x$jni_enabled = xyes; then
    AC_ARG_WITH([jdk-path],
      AS_HELP_STRING([--with-jdk-path],[specify the path to the JDK]),
      [JDKPATH="$withval"])
+
+   AC_MSG_RESULT([$JDKPATH])
 
    if test x"$JNIPATH" = x; then
      if test -f "$JDKPATH"/Headers/jni.h; then
