@@ -68,12 +68,14 @@ function make_arch()
     PREFIX=`pwd`/../install
     if env PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig ./configure --enable-debug CFLAGS="-arch $ARCH $SDKC -I$PREFIX/include" CXXFLAGS="-arch $ARCH $SDKC $SDKCXX -I$PREFIX/include" LDFLAGS="-arch $ARCH $SDKC $SDKLD -L$PREFIX/lib  -Wl,-rpath,@loader_path/Frameworks -llo" --prefix=$PREFIX --enable-static --enable-shared; then
 
+        LIBLO_DYLIB=$(ls ../install/lib/liblo.*.dylib)
+
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
             ../install/lib/liblo.dylib || exit 1
         install_name_tool \
             -id @rpath/lo.framework/Versions/$LIBLO_MAJOR/lo \
-            ../install/lib/liblo.7.dylib || exit 1
+            $LIBLO_DYLIB || exit 1
 
         if make && make install; then
             cd ..
@@ -86,12 +88,14 @@ function make_arch()
         exit 1
     fi
 
+    LIBMAPPER_DYLIB=install/lib/libmapper-*.*.dylib
+
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
         install/lib/libmapper-$LIBMAPPER_MAJOR.dylib || exit 1
     install_name_tool \
         -id @rpath/mapper.framework/Versions/$LIBMAPPER_MAJOR/mapper \
-        install/lib/libmapper-$LIBMAPPER_VERSION.dylib || exit 1
+        $LIBMAPPER_DYLIB || exit 1
 
     cd ..
 }
@@ -223,7 +227,7 @@ function make_bundles()
     mkdir -v $FRAMEWORK/Contents
     mkdir -v $FRAMEWORK/Versions
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR
-    cp -v all/lib/libmapper-$LIBMAPPER_VERSION.dylib \
+    cp -v all/lib/libmapper-$LIBMAPPER_MAJOR.dylib \
         $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
     chmod 664 $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers
