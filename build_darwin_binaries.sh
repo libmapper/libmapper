@@ -132,7 +132,7 @@ function use_lipo()
         for a in $ARCHES; do
             ARCHFILES="$ARCHFILES -arch $a $a/install/lib/$(basename $i)"
         done
-        lipo -create -output all/lib/$(basename $i) $ARCHFILES
+        lipo -create -output all/lib/$(basename $i) $ARCHFILES || exit 1
     done
 
     mkdir -v all/python
@@ -141,7 +141,7 @@ function use_lipo()
         for a in $ARCHES; do
             ARCHFILES="$ARCHFILES -arch $a $a/$i"
         done
-        lipo -create -output all/python/$(basename $i) $ARCHFILES
+        lipo -create -output all/python/$(basename $i) $ARCHFILES || exit 1
     done
 }
 
