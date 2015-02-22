@@ -173,6 +173,8 @@ if test x$jni_enabled = xyes; then
       JDKPATH=/usr/lib/jvm/java-7-openjdk-x86_64
    elif test -d /usr/lib/jvm/java-6-openjdk; then
       JDKPATH=/usr/lib/jvm/java-6-openjdk
+   elif test -x /usr/libexec/java_home; then
+      JDKPATH="$(/usr/libexec/java_home)"
    elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
       JDKPATH=/System/Library/Frameworks/JavaVM.framework
    fi
@@ -186,6 +188,10 @@ if test x$jni_enabled = xyes; then
        JNIPATH="$JDKPATH"/Headers
      elif test -f "$JDKPATH"/include/jni.h; then
        JNIPATH="$JDKPATH"/include
+     fi
+     JNIFLAGS="-I$JNIPATH"
+     if test -d "$JNIPATH"/darwin; then
+       JNIFLAGS="$JNIFLAGS -I$JNIPATH/darwin"
      fi
    fi
    if test x"$JDKBINPATH" = x; then
@@ -209,12 +215,15 @@ if test x$jni_enabled = xyes; then
      jni_enabled=no
      jni_explain="(jar not found)"
    else
-     AC_CHECK_HEADER([$JNIPATH/jni.h],
+     CFLAGS_revert="$CFLAGS"
+     CFLAGS="$CFLAGS $JNIFLAGS"
+     AC_CHECK_HEADER([jni.h],
        [jni_enabled=yes],
        [jni_enabled=no; jni_explain="(jni.h not found)"])
+     CFLAGS="$CFLAGS_revert"
      if test x$jni_enabled = xyes; then
        JNI=jni
-       AC_SUBST(JNIPATH)
+       AC_SUBST(JNIFLAGS)
        AC_SUBST(JNI)
      fi
    fi

@@ -1,6 +1,6 @@
 
 lib_LTLIBRARIES = libmapperjni-@MAJOR_VERSION@.la
-libmapperjni_@MAJOR_VERSION@_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) -I@JNIPATH@
+libmapperjni_@MAJOR_VERSION@_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) @JNIFLAGS@
 libmapperjni_@MAJOR_VERSION@_la_SOURCES = mapperjni.c
 libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
