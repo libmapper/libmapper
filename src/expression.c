@@ -533,7 +533,8 @@ static expr_func_t function_lookup(const char *s, int len)
 {
     int i;
     for (i=0; i<N_FUNCS; i++) {
-        if (strncmp(s, function_table[i].name, len)==0)
+        if (strlen(function_table[i].name) == len
+            && strncmp(s, function_table[i].name, len)==0)
             return i;
     }
     return FUNC_UNKNOWN;
@@ -543,7 +544,8 @@ static expr_vfunc_t vfunction_lookup(const char *s, int len)
 {
     int i;
     for (i=0; i<N_VFUNCS; i++) {
-        if (strncmp(s, vfunction_table[i].name, len)==0)
+        if (strlen(vfunction_table[i].name) == len
+            && strncmp(s, vfunction_table[i].name, len)==0)
             return i;
     }
     return VFUNC_UNKNOWN;
@@ -966,7 +968,8 @@ void printstack(const char *s, mapper_token_t *stack, int top)
         }
         printtoken(stack[i]);
     }
-    printf("\n");
+    if (!i)
+        printf("\n");
 }
 
 void printexpr(const char *s, mapper_expr e)
@@ -1491,9 +1494,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     }
 
                     // check if variable name matches known variable
-                    int i;
+                    int i, len;
                     for (i = 0; i < num_variables; i++) {
-                        if (strncmp(variables[i].name, str+index+1, lex_index-index-1)==0) {
+                        len = lex_index-index-1;
+                        if (strlen(variables[i].name) == len
+                            && strncmp(variables[i].name, str+index+1, len)==0) {
                             tok.var = i + N_VARS;
                             tok.datatype = variables[i].datatype;
                             tok.vector_length = variables[i].vector_length;
@@ -1877,8 +1882,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 break;
         }
 #if TRACING
-        printstack("OUTPUT STACK:", outstack, outstack_index);
-        printstack("OPERATOR STACK:", opstack, opstack_index);
+        printf("  _______________________________________________________\n");
+        printstack("   OUTPUT STACK:  ", outstack, outstack_index);
+        printstack("   OPERATOR STACK:", opstack, opstack_index);
 #endif
     }
 
@@ -1909,8 +1915,9 @@ mapper_expr mapper_expr_new_from_string(const char *str,
         {FAIL("Malformed expression (6).");}
 
 #if TRACING
-    printstack("--->OUTPUT STACK:", outstack, outstack_index);
-    printstack("--->OPERATOR STACK:", opstack, opstack_index);
+    printf("  _______________________________________________________\n");
+    printstack("   FINAL STACK:   ", outstack, outstack_index);
+    printf("  _______________________________________________________\n");
 #endif
 
     // Check for maximum vector length used in stack
@@ -2015,6 +2022,12 @@ int mapper_expr_evaluate(mapper_expr expr,
                          mapper_signal_history_t *to,
                          char *typestring)
 {
+    if (!expr) {
+#if TRACING
+        printf("-- no expression to evaluate!\n");
+#endif
+        return 0;
+    }
     mapper_signal_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 

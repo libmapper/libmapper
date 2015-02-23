@@ -463,6 +463,12 @@ int run_tests()
     result += parse_and_eval(EXPECT_SUCCESS);
     eprintf("Expected: 2\n");
 
+    /* Multiple variable declaration */
+    snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
+    setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
+    result += parse_and_eval(EXPECT_SUCCESS);
+    eprintf("Expected: %g\n", (float)src_int[0] + 1.1 - 2.2 * 3.3);
+
     /* Use of uninitialized variable */
     snprintf(str, 256, "y=x + myvariable * 10");
     setup_test('i', 1, 1, src_int, 'f', 1, 1, dest_float);
