@@ -200,11 +200,12 @@ int parse_and_eval(int expectation)
 
     token_count += e->length;
 
-    eprintf("Try evaluation once...\n");
+    eprintf("Try evaluation once... ");
     if (!mapper_expr_evaluate(e, &connection, 0, &tt_in, &outh, typestring)) {
-        eprintf("Evaluation FAILED.\n");
+        eprintf("FAILED.\n");
         goto fail;
     }
+    eprintf("OK\n");
 
     then = get_current_time();
     eprintf("Calculate expression %i times... ", iterations);

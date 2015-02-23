@@ -10,9 +10,9 @@
 #define STACK_SIZE 128
 #define N_USER_VARS 8
 #ifdef DEBUG
-#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 1
+#define TRACING 0
 #endif
 
 #define lex_error trace
@@ -527,7 +527,8 @@ static expr_func_t function_lookup(const char *s, int len)
 {
     int i;
     for (i=0; i<N_FUNCS; i++) {
-        if (strncmp(s, function_table[i].name, len)==0)
+        if (strlen(function_table[i].name) == len
+            && strncmp(s, function_table[i].name, len)==0)
             return i;
     }
     return FUNC_UNKNOWN;
@@ -537,7 +538,8 @@ static expr_vfunc_t vfunction_lookup(const char *s, int len)
 {
     int i;
     for (i=0; i<N_VFUNCS; i++) {
-        if (strncmp(s, vfunction_table[i].name, len)==0)
+        if (strlen(vfunction_table[i].name) == len
+            && strncmp(s, vfunction_table[i].name, len)==0)
             return i;
     }
     return VFUNC_UNKNOWN;
@@ -1504,9 +1506,11 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     }
 
                     // check if variable name matches known variable
-                    int i;
+                    int i, len;
                     for (i = 0; i < num_variables; i++) {
-                        if (strncmp(variables[i].name, str+index+1, lex_index-index-1)==0) {
+                        len = lex_index-index-1;
+                        if (strlen(variables[i].name) == len
+                            && strncmp(variables[i].name, str+index+1, len)==0) {
                             tok.var = i;
                             tok.datatype = variables[i].datatype;
                             tok.vector_length = variables[i].vector_length;
@@ -2046,9 +2050,6 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
                          mapper_timetag_t *tt, mapper_history result,
                          char *typestring)
 {
-#if TRACING
-    printf("mapper_expr_evaluate('%s'->%p)\n", c->props.expression, expr);
-#endif
     if (!expr) {
 #if TRACING
         printf(" no expression to evaluate!\n");
