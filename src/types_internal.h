@@ -183,7 +183,7 @@ typedef mapper_admin_t *mapper_admin;
  *  of connection expressions.
  *  @ingroup signals */
 
-typedef struct _mapper_signal_history
+typedef struct _mapper_history
 {
     char type;                      /*!< The type of this signal, specified as
                                      *   an OSC type character. */
@@ -193,7 +193,7 @@ typedef struct _mapper_signal_history
     void *value;                    /*!< Value of the signal for each sample of
                                      *   stored history. */
     mapper_timetag_t *timetag;      /*!< Timetag for each sample of stored history. */
-} mapper_signal_history_t;
+} mapper_history_t, *mapper_history;
 
 /**** Router ****/
 
@@ -230,7 +230,7 @@ typedef struct _mapper_connection_slot {
     struct _mapper_router_signal *local;    //!< Parent signal if local
     mapper_link link;                       //!< Remote device if not local
 
-    mapper_signal_history_t *history;       /*!< Array of value histories
+    mapper_history history;                 /*!< Array of value histories
                                              *   for each signal instance. */
     mapper_db_connection_slot props;
     int history_size;                       //!< History size.
@@ -255,7 +255,7 @@ typedef struct _mapper_connection {
 
     // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
-    mapper_signal_history_t **expr_vars;    //!< User variables values.
+    mapper_history *expr_vars;              //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
     int num_var_instances;
     int status;
@@ -276,9 +276,9 @@ typedef struct _mapper_router_signal {
 //    int max_output_size;                    /*!< Maximum output vector size in
 //                                             *   child connections. */
 
-    mapper_signal_history_t *history;   /*!< Array of value histories
-                                         *   for each signal instance. */
-    int history_size;                   //!< History size.
+    mapper_history history;                 /*!< Array of value histories
+                                             *   for each signal instance. */
+    int history_size;                       //!< History size.
 
     int id_counter;
     int num_outgoing_slots;

@@ -417,7 +417,7 @@ static int handler_signal(const char *path, const char *types,
                                          &c->destination.history[instance],
                                          typestring)) {
                     memcpy(si->value,
-                           msig_history_value_pointer(c->destination.history[instance]),
+                           mapper_history_value_ptr(c->destination.history[instance]),
                            mapper_type_size(sig->props.type) * sig->props.length);
                 }
                 else {

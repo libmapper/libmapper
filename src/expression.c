@@ -10,19 +10,19 @@
 #define STACK_SIZE 128
 #define N_USER_VARS 8
 #ifdef DEBUG
-#define TRACING 0 /* Set non-zero to see trace during parse & eval. */
+#define TRACING 1 /* Set non-zero to see trace during parse & eval. */
 #else
-#define TRACING 0
+#define TRACING 1
 #endif
 
 #define lex_error trace
 #define parse_error trace
 
-typedef union _mapper_signal_value {
+typedef union _mapper_value {
     float f;
     double d;
     int i32;
-} mapper_signal_value_t, mval;
+} mapper_value_t;
 
 static int mini(int x, int y)
 {
@@ -110,7 +110,7 @@ static double uniformd(double x)
     return rand() / (RAND_MAX + 1.0) * x;
 }
 
-static int alli(mapper_signal_value_t *val, int length) {
+static int alli(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].i32 == 0) {
@@ -120,7 +120,7 @@ static int alli(mapper_signal_value_t *val, int length) {
     return 1;
 }
 
-static int allf(mapper_signal_value_t *val, int length) {
+static int allf(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].f == 0) {
@@ -130,7 +130,7 @@ static int allf(mapper_signal_value_t *val, int length) {
     return 1;
 }
 
-static int alld(mapper_signal_value_t *val, int length) {
+static int alld(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].d == 0) {
@@ -141,7 +141,7 @@ static int alld(mapper_signal_value_t *val, int length) {
 }
 
 
-static int anyi(mapper_signal_value_t *val, int length) {
+static int anyi(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].i32 != 0) {
@@ -151,7 +151,7 @@ static int anyi(mapper_signal_value_t *val, int length) {
     return 0;
 }
 
-static float anyf(mapper_signal_value_t *val, int length) {
+static float anyf(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].f != 0.f) {
@@ -161,7 +161,7 @@ static float anyf(mapper_signal_value_t *val, int length) {
     return 0;
 }
 
-static double anyd(mapper_signal_value_t *val, int length) {
+static double anyd(mapper_value_t *val, int length) {
     int i;
     for (i = 0; i < length; i++) {
         if (val[i].d != 0.) {
@@ -171,7 +171,7 @@ static double anyd(mapper_signal_value_t *val, int length) {
     return 0;
 }
 
-static int sumi(mapper_signal_value_t *val, int length)
+static int sumi(mapper_value_t *val, int length)
 {
     int i, aggregate = 0;
     for (i = 0; i < length; i++) {
@@ -180,7 +180,7 @@ static int sumi(mapper_signal_value_t *val, int length)
     return aggregate;
 }
 
-static float sumf(mapper_signal_value_t *val, int length)
+static float sumf(mapper_value_t *val, int length)
 {
     int i;
     float aggregate = 0.f;
@@ -190,7 +190,7 @@ static float sumf(mapper_signal_value_t *val, int length)
     return aggregate;
 }
 
-static double sumd(mapper_signal_value_t *val, int length)
+static double sumd(mapper_value_t *val, int length)
 {
     int i;
     double aggregate = 0.;
@@ -200,17 +200,17 @@ static double sumd(mapper_signal_value_t *val, int length)
     return aggregate;
 }
 
-static float meanf(mapper_signal_value_t *val, int length)
+static float meanf(mapper_value_t *val, int length)
 {
     return sumf(val, length) / (float)length;
 }
 
-static double meand(mapper_signal_value_t *val, int length)
+static double meand(mapper_value_t *val, int length)
 {
     return sumd(val, length) / (double)length;
 }
 
-static int vmaxi(mapper_signal_value_t *val, int length)
+static int vmaxi(mapper_value_t *val, int length)
 {
     int i, max = val[0].i32;
     for (i = 1; i < length; i++) {
@@ -220,7 +220,7 @@ static int vmaxi(mapper_signal_value_t *val, int length)
     return max;
 }
 
-static float vmaxf(mapper_signal_value_t *val, int length)
+static float vmaxf(mapper_value_t *val, int length)
 {
     int i;
     float max = val[0].f;
@@ -231,7 +231,7 @@ static float vmaxf(mapper_signal_value_t *val, int length)
     return max;
 }
 
-static double vmaxd(mapper_signal_value_t *val, int length)
+static double vmaxd(mapper_value_t *val, int length)
 {
     int i;
     double max = val[0].d;
@@ -242,7 +242,7 @@ static double vmaxd(mapper_signal_value_t *val, int length)
     return max;
 }
 
-static int vmini(mapper_signal_value_t *val, int length)
+static int vmini(mapper_value_t *val, int length)
 {
     int i, min = val[0].i32;
     for (i = 1; i < length; i++) {
@@ -252,7 +252,7 @@ static int vmini(mapper_signal_value_t *val, int length)
     return min;
 }
 
-static float vminf(mapper_signal_value_t *val, int length)
+static float vminf(mapper_value_t *val, int length)
 {
     int i;
     float min = val[0].f;
@@ -263,7 +263,7 @@ static float vminf(mapper_signal_value_t *val, int length)
     return min;
 }
 
-static double vmind(mapper_signal_value_t *val, int length)
+static double vmind(mapper_value_t *val, int length)
 {
     int i;
     double min = val[0].d;
@@ -464,9 +464,9 @@ typedef float func_float_arity2(float,float);
 typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
-typedef int vfunc_int32_arity1(mapper_signal_value_t*, int);
-typedef float vfunc_float_arity1(mapper_signal_value_t*, int);
-typedef double vfunc_double_arity1(mapper_signal_value_t*, int);
+typedef int vfunc_int32_arity1(mapper_value_t*, int);
+typedef float vfunc_float_arity1(mapper_value_t*, int);
+typedef double vfunc_double_arity1(mapper_value_t*, int);
 
 typedef struct _token {
     enum {
@@ -1081,9 +1081,9 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
     e.vector_size = vector_length;
     e.variables = 0;
     e.num_variables = 0;
-    mapper_signal_history_t h;
-    // TODO: this variable should not be mapper_signal_value_t?
-    mapper_signal_value_t v;
+    mapper_history_t h;
+    // TODO: this variable should not be mapper_value_t?
+    mapper_value_t v;
     h.type = stack[length-1].datatype;
     h.value = &v;
     h.position = -1;
@@ -2013,7 +2013,7 @@ int mapper_expr_num_input_slots(mapper_expr expr)
 }
 
 #if TRACING
-static void print_stack_vector(mapper_signal_value_t *stack, char type,
+static void print_stack_vector(mapper_value_t *stack, char type,
                                int vector_length)
 {
     int i;
@@ -2043,7 +2043,7 @@ static void print_stack_vector(mapper_signal_value_t *stack, char type,
 #endif
 
 int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
-                         mapper_timetag_t *tt, mapper_signal_history_t *result,
+                         mapper_timetag_t *tt, mapper_history result,
                          char *typestring)
 {
 #if TRACING
@@ -2055,7 +2055,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
 #endif
         return 0;
     }
-    mapper_signal_value_t stack[expr->length][expr->vector_size];
+    mapper_value_t stack[expr->length][expr->vector_size];
     int dims[expr->length];
 
     int i, j, k, top = -1, count = 0, found, updated = 0;
@@ -2124,8 +2124,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
             else if (tok->var >= VAR_X) {
                 ++top;
                 dims[top] = tok->vector_length;
-                mapper_signal_history_t *h;
-                h = &c->sources[tok->var-VAR_X].history[instance];
+                mapper_history h = &c->sources[tok->var-VAR_X].history[instance];
                 idx = ((tok->history_index + h->position + h->size) % h->size);
                 if (h->type == 'd') {
                     double *v = h->value + idx * h->length * mapper_type_size(h->type);
@@ -2148,7 +2147,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
                 ++top;
                 dims[top] = tok->vector_length;
                 mapper_variable var = &expr->variables[tok->var];
-                mapper_signal_history_t *h = *c->expr_vars + (tok->var);
+                mapper_history h = *c->expr_vars + (tok->var);
                 idx = ((tok->history_index + h->position
                         + var->history_size) % var->history_size);
                 double *v = h->value + idx * var->vector_length * mapper_type_size(var->datatype);
@@ -2692,7 +2691,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
                 if (!c)
                     goto error;
                 // passed the address of an array of mapper_signal_history structs
-                mapper_signal_history_t *h = *c->expr_vars + tok->var;
+                mapper_history h = *c->expr_vars + tok->var;
                 // increment position
                 h->position = (h->position + 1) % h->size;
 
@@ -2705,7 +2704,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
 
                 // Also copy timetag from input
                 if (tt) {
-                    mapper_timetag_t *ttvar = msig_history_tt_pointer(*h);
+                    mapper_timetag_t *ttvar = mapper_history_tt_ptr(*h);
                     memcpy(ttvar, tt, sizeof(mapper_timetag_t));
                 }
             }
@@ -2777,17 +2776,17 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
         result->position = (result->position + 1) % result->size;
 
         if (result->type == 'f') {
-            float *v = msig_history_value_pointer(*result);
+            float *v = mapper_history_value_ptr(*result);
             for (i = 0; i < result->length; i++)
                 v[i] = stack[top][i].f;
         }
         else if (result->type == 'i') {
-            int *v = msig_history_value_pointer(*result);
+            int *v = mapper_history_value_ptr(*result);
             for (i = 0; i < result->length; i++)
                 v[i] = stack[top][i].i32;
         }
         else if (result->type == 'd') {
-            double *v = msig_history_value_pointer(*result);
+            double *v = mapper_history_value_ptr(*result);
             for (i = 0; i < result->length; i++)
                 v[i] = stack[top][i].d;
         }
@@ -2803,7 +2802,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
     }
     else if (tt) {
         // Also copy timetag from input
-        mapper_timetag_t *ttto = msig_history_tt_pointer(*result);
+        mapper_timetag_t *ttto = mapper_history_tt_ptr(*result);
         memcpy(ttto, tt, sizeof(mapper_timetag_t));
     }
 

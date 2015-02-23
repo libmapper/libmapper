@@ -173,8 +173,7 @@ void mapper_router_num_instances_changed(mapper_router r,
         return;
 
     // Need to allocate more instances for router signal
-    rs->history = realloc(rs->history, sizeof(struct _mapper_signal_history)
-                          * size);
+    rs->history = realloc(rs->history, sizeof(struct _mapper_history) * size);
     int i, j, k;
     for (i = rs->num_instances; i < size; i++) {
         rs->history[i].type = sig->props.type;
@@ -205,7 +204,7 @@ void mapper_router_num_instances_changed(mapper_router r,
         for (j = 0; j < c->props.num_sources; j++) {
             mapper_connection_slot s = &c->sources[i];
             if (!s->local && s->props->num_instances < size) {
-                s->history = realloc(s->history, sizeof(struct _mapper_signal_history)
+                s->history = realloc(s->history, sizeof(struct _mapper_history)
                                      * size);
                 for (k = s->props->num_instances; k < size; k++) {
                     s->history[k].type = s->props->type;
@@ -223,10 +222,10 @@ void mapper_router_num_instances_changed(mapper_router r,
 
         // check if expression variable histories need to be reallocated
         if (size > c->num_var_instances) {
-            c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
+            c->expr_vars = realloc(c->expr_vars, sizeof(mapper_history*)
                                    * size);
             for (j = c->num_var_instances; j < size; j++) {
-                c->expr_vars[j] = malloc(sizeof(struct _mapper_signal_history) *
+                c->expr_vars[j] = malloc(sizeof(struct _mapper_history) *
                                          c->num_expr_vars);
             }
             for (j = c->num_var_instances; j < size; j++) {
@@ -262,7 +261,7 @@ void mapper_router_num_instances_changed(mapper_router r,
         // check if destination history needs to be reallocated
         s = &c->destination;
         if (!s->local && s->props->num_instances < size) {
-            s->history = realloc(s->history, sizeof(struct _mapper_signal_history)
+            s->history = realloc(s->history, sizeof(struct _mapper_history)
                                  * size);
             for (j = s->props->num_instances; j < size; j++) {
                 s->history[j].type = s->props->type;
@@ -279,10 +278,10 @@ void mapper_router_num_instances_changed(mapper_router r,
 
         // check if expression variable histories need to be reallocated
         if (size > c->num_var_instances) {
-            c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
+            c->expr_vars = realloc(c->expr_vars, sizeof(mapper_history*)
                                    * size);
             for (j = c->num_var_instances; j < size; j++) {
-                c->expr_vars[j] = malloc(sizeof(struct _mapper_signal_history) *
+                c->expr_vars[j] = malloc(sizeof(struct _mapper_history) *
                                          c->num_expr_vars);
             }
             for (j = c->num_var_instances; j < size; j++) {
@@ -413,9 +412,9 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             size_t n = msig_vector_bytes(sig);
             rs->history[id].position = ((rs->history[id].position + 1)
                                         % rs->history[id].size);
-            memcpy(msig_history_value_pointer(rs->history[id]),
+            memcpy(mapper_history_value_ptr(rs->history[id]),
                    value + n * j, n);
-            memcpy(msig_history_tt_pointer(rs->history[id]),
+            memcpy(mapper_history_tt_ptr(rs->history[id]),
                    &tt, sizeof(mapper_timetag_t));
 
             // handle cases in which part of count update does not cause output
@@ -426,7 +425,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             if (!(mapper_boundary_perform(c, &s->history[id])))
                 continue;
 
-            void *result = msig_history_value_pointer(c->destination.history[id]);
+            void *result = mapper_history_value_ptr(c->destination.history[id]);
 
             if (count > 1) {
                 memcpy((char*)out_value_p + to_size * j, result, to_size);
@@ -606,8 +605,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router r,
               calloc(1, sizeof(struct _mapper_router_signal)));
         rs->signal = sig;
         rs->num_instances = sig->props.num_instances;
-        rs->history = malloc(sizeof(struct _mapper_signal_history)
-                             * rs->num_instances);
+        rs->history = malloc(sizeof(struct _mapper_history) * rs->num_instances);
         rs->num_incoming_connections = 1;
         rs->incoming_connections = malloc(sizeof(mapper_connection *));
         rs->incoming_connections[0] = 0;

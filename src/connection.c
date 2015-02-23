@@ -54,8 +54,8 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                               int instance, char *typestring)
 {
     int changed = 0, i;
-    mapper_signal_history_t *from = s->history;
-    mapper_signal_history_t *to = c->destination.history;
+    mapper_history from = s->history;
+    mapper_history to = c->destination.history;
 
     if (c->props.calibrating == 1)
     {
@@ -72,7 +72,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
          * sample sets source min and max */
         switch (s->props->type) {
             case 'f': {
-                float *v = msig_history_value_pointer(*from);
+                float *v = mapper_history_value_ptr(*from);
                 float *src_min = (float*)s->props->minimum;
                 float *src_max = (float*)s->props->maximum;
                 if (!s->calibrating) {
@@ -98,7 +98,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                 break;
             }
             case 'i': {
-                int *v = msig_history_value_pointer(*from);
+                int *v = mapper_history_value_ptr(*from);
                 int *src_min = (int*)s->props->minimum;
                 int *src_max = (int*)s->props->maximum;
                 if (!s->calibrating) {
@@ -124,7 +124,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                 break;
             }
             case 'd': {
-                double *v = msig_history_value_pointer(*from);
+                double *v = mapper_history_value_ptr(*from);
                 double *src_min = (double*)s->props->minimum;
                 double *src_max = (double*)s->props->maximum;
                 if (!s->calibrating) {
@@ -163,12 +163,12 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
     else if (c->props.mode == MO_RAW) {
         to[instance].position = 0;
         // copy value without type coercion
-        memcpy(msig_history_value_pointer(to[instance]),
-               msig_history_value_pointer(from[instance]),
+        memcpy(mapper_history_value_ptr(to[instance]),
+               mapper_history_value_ptr(from[instance]),
                msig_vector_bytes(s->local->signal));
         // copy timetag
-        memcpy(msig_history_tt_pointer(to[instance]),
-               msig_history_tt_pointer(from[instance]),
+        memcpy(mapper_history_tt_ptr(to[instance]),
+               mapper_history_tt_ptr(from[instance]),
                sizeof(mapper_timetag_t));
         for (i = 0; i < from->length; i++)
             typestring[i] = c->props.sources[0].type;
@@ -177,12 +177,11 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
 
     die_unless(c->expr!=0, "Missing expression.\n");
     return (mapper_expr_evaluate(c->expr, c, instance,
-                                 msig_history_tt_pointer(from[instance]),
+                                 mapper_history_tt_ptr(from[instance]),
                                  &to[instance], typestring));
 }
 
-int mapper_boundary_perform(mapper_connection c,
-                            mapper_signal_history_t *history)
+int mapper_boundary_perform(mapper_connection c, mapper_history history)
 {
     /* TODO: We are currently saving the processed values to output history.
      * it needs to be decided whether boundary processing should be inside the
@@ -206,7 +205,7 @@ int mapper_boundary_perform(mapper_connection c,
     }
 
     for (i = 0; i < history->length; i++) {
-        value = propval_get_double(msig_history_value_pointer(*history),
+        value = propval_get_double(mapper_history_value_ptr(*history),
                                    c->props.destination.type, i);
         dest_min = propval_get_double(c->props.destination.minimum,
                                       c->props.destination.type, i);
@@ -347,7 +346,7 @@ int mapper_boundary_perform(mapper_connection c,
                     break;
             }
         }
-        propval_set_double(msig_history_value_pointer(*history),
+        propval_set_double(mapper_history_value_ptr(*history),
                            c->props.destination.type, i, value);
     }
     return !muted;
@@ -753,7 +752,7 @@ static void init_connection_history(mapper_connection_slot slot,
     int i;
     if (slot->history)
         return;
-    slot->history = malloc(sizeof(struct _mapper_signal_history) * props->num_instances);
+    slot->history = malloc(sizeof(struct _mapper_history) * props->num_instances);
     slot->history_size = 1;
     for (i = 0; i < props->num_instances; i++) {
         slot->history[i].type = props->type;
@@ -1134,7 +1133,7 @@ void reallocate_connection_histories(mapper_connection c)
     if (new_num_vars > c->num_expr_vars) {
         for (i = 0; i < c->num_var_instances; i++) {
             c->expr_vars[i] = realloc(c->expr_vars[i], new_num_vars *
-                                      sizeof(struct _mapper_signal_history));
+                                      sizeof(struct _mapper_history));
             // initialize new variables...
             for (j=c->num_expr_vars; j<new_num_vars; j++) {
                 c->expr_vars[i][j].type = 'd';
@@ -1166,7 +1165,7 @@ void reallocate_connection_histories(mapper_connection c)
     }
 }
 
-void mhist_realloc(mapper_signal_history_t *history,
+void mhist_realloc(mapper_history history,
                    int history_size,
                    int sample_size,
                    int is_input)
@@ -1216,7 +1215,7 @@ void mhist_realloc(mapper_signal_history_t *history,
         }
         else {
             // there is overlap between new and old arrays - need to allocate new memory
-            mapper_signal_history_t temp;
+            mapper_history_t temp;
             temp.value = malloc(sample_size * history_size);
             temp.timetag = malloc(sizeof(mapper_timetag_t) * history_size);
             if (history->position < history_size) {

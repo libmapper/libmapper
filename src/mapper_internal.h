@@ -415,7 +415,7 @@ void msig_release_instance_internal(mapper_signal sig,
 
 /**** Connections ****/
 
-void mhist_realloc(mapper_signal_history_t *history, int history_size,
+void mhist_realloc(mapper_history history, int history_size,
                    int sample_size, int is_output);
 
 /*! Perform the connection from a value vector to a scalar.  The
@@ -430,7 +430,7 @@ int mapper_connection_perform(mapper_connection connection,
                               int instance, char *typestring);
 
 int mapper_boundary_perform(mapper_connection connection,
-                            mapper_signal_history_t *from_value);
+                            mapper_history from_value);
 
 int mapper_connection_combine(mapper_connection connection, int instance);
 
@@ -686,7 +686,7 @@ void printexpr(const char*, mapper_expr);
 
 int mapper_expr_evaluate(mapper_expr expr, mapper_connection connection,
                          int instance, mapper_timetag_t *tt,
-                         mapper_signal_history_t *result, char *typestring);
+                         mapper_history result, char *typestring);
 
 int mapper_expr_constant_output(mapper_expr expr);
 
@@ -827,14 +827,14 @@ inline static size_t msig_vector_bytes(mapper_signal sig)
     return mapper_type_size(sig->props.type) * sig->props.length;
 }
 
-/*! Helper to find the pointer to the current value in a mapper_signal_history_t. */
-inline static void* msig_history_value_pointer(mapper_signal_history_t h)
+/*! Helper to find the pointer to the current value in a mapper_history_t. */
+inline static void* mapper_history_value_ptr(mapper_history_t h)
 {
     return h.value + h.position * h.length * mapper_type_size(h.type);
 }
 
-/*! Helper to find the pointer to the current timetag in a mapper_signal_history_t. */
-inline static void* msig_history_tt_pointer(mapper_signal_history_t h)
+/*! Helper to find the pointer to the current timetag in a mapper_history_t. */
+inline static void* mapper_history_tt_ptr(mapper_history_t h)
 {
     return &h.timetag[h.position];
 }
