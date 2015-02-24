@@ -224,6 +224,8 @@ typedef struct _mapper_link {
 #define MAPPER_READY           0x07
 #define MAPPER_ACTIVE          0x17
 
+#define MAX_NUM_CONNECTION_SOURCES 8    // arbitrary
+
 typedef struct _mapper_connection_slot {
     // each slot can point to local signal or a connection_slot structure
     struct _mapper_connection *connection;  //!< Parent connection.

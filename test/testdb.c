@@ -102,8 +102,8 @@ int main(int argc, char **argv)
     lo_arg *args[20];
     mapper_message_t msg;
     int port=1234;
-    int one=1, two=2;
-    float zerof=0.;
+    int one_i=1, two_i=2;
+    float zero_f=0.f, one_f=1.f, two_f=2.f;
     mapper_db_t db_t, *db = &db_t;
     memset(db, 0, sizeof(db_t));
 
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
     args[5] = (lo_arg*)"localhost";
 
     if (!mapper_msg_parse_params(&msg, "/testdb.1/signal",
-                                 "sc", 2, args))
+                                 "ssssss", 6, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -148,7 +148,7 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)"output";
     
     if (!mapper_msg_parse_params(&msg, "/testdb.1/signal",
-                                 "sc", 2, args))
+                                 "ssscss", 6, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -186,18 +186,18 @@ int main(int argc, char **argv)
     args[4] = (lo_arg*)"@boundMin";
     args[5] = (lo_arg*)"clamp";
     args[6] = (lo_arg*)"@srcLength";
-    args[7] = (lo_arg*)&two;
+    args[7] = (lo_arg*)&two_i;
     args[8] = (lo_arg*)"@srcType";
     args[9] = (lo_arg*)"f";
     args[10] = (lo_arg*)"@srcMin";
-    args[11] = (lo_arg*)&zerof;
-    args[12] = (lo_arg*)&one;
+    args[11] = (lo_arg*)&zero_f;
+    args[12] = (lo_arg*)&one_f;
     args[13] = (lo_arg*)"@srcMax";
-    args[14] = (lo_arg*)&one;
-    args[15] = (lo_arg*)&two;
+    args[14] = (lo_arg*)&one_f;
+    args[15] = (lo_arg*)&two_f;
 
     if (!mapper_msg_parse_params(&msg, "/connected",
-                                 "sssssssisssfisii", 16, args))
+                                 "sssssssisssffsff", 16, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
@@ -210,6 +210,23 @@ int main(int argc, char **argv)
     src_sig_name = "/testdb.1/out1";
     mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
                                               "/testdb__.2/in1", &msg);
+
+    args[6] = (lo_arg*)"@srcLength";
+    args[7] = (lo_arg*)&one_i;
+    args[8] = (lo_arg*)&two_i;
+    args[9] = (lo_arg*)"@destLength";
+    args[10] = (lo_arg*)&one_i;
+    args[11] = (lo_arg*)"srcType";
+    args[12] = (lo_arg*)"f";
+    args[13] = (lo_arg*)"i";
+
+    if (!mapper_msg_parse_params(&msg, "/connected",
+                                 "sssssssiisisss", 14, args))
+    {
+        eprintf("5: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
 
     const char *multi_source[] = {"/testdb__.2/out1", "/testdb__.2/out2"};
     mapper_db_add_or_update_connection_params(db, 2, multi_source,
@@ -546,8 +563,8 @@ int main(int argc, char **argv)
         pcon = mapper_db_connection_next(pcon);
     }
 
-    if (count != 3) {
-        eprintf("Expected 3 records, but counted %d.\n", count);
+    if (count != 4) {
+        eprintf("Expected 4 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }

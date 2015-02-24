@@ -1715,13 +1715,14 @@ int mapper_db_connection_update_scope(mapper_connection_scope scope,
 
 /*! Update information about a given connection record based on
  *  message parameters. */
-static int update_connection_record_params(mapper_db_connection con,
-                                           mapper_message_t *params,
-                                           int slot)
+static int update_connection_record_params(mapper_db db,
+                                           mapper_db_connection con,
+                                           const char *src_name,
+                                           mapper_message_t *params)
 {
     lo_arg **args;
     const char *types;
-    int i, updated = 0, length, result;
+    int i, slot = -1, updated = 0, length, result;
     mapper_db_connection_slot s;
 
     if (!params)
@@ -1729,19 +1730,59 @@ static int update_connection_record_params(mapper_db_connection con,
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
 
+    if (!mapper_msg_get_param_if_int(params, AT_SLOT, &slot)) {
+        // if this is simple connection, "@slot" defines destination slot index
+        // if this is convergent connection, "@slot" indicates a specific source slot
+        for (i = 0; i < con->num_sources; i++) {
+            if (con->sources[i].slot_id == slot) {
+                break;
+            }
+        }
+        if (i == con->num_sources) {
+            // need to add slot
+            if (con->num_sources >= MAX_NUM_CONNECTION_SOURCES) {
+                trace("error: maximum connection sources exceeded.\n");
+                return 0;
+            }
+            con->num_sources++;
+            con->sources = realloc(con->sources,
+                                   sizeof(struct _mapper_db_connection_slot)
+                                   * con->num_sources);
+            char devname[256], *signame = strchr(src_name+1, '/');
+            int devnamelen = signame - src_name;
+            if (devnamelen >= 256) {
+                trace("error: device name length > 256 characters.\n");
+                return 0;
+            }
+            strncpy(devname, src_name, devnamelen);
+            devname[devnamelen] = 0;
+
+            // also add source signal if necessary
+            con->sources[i].signal =
+                mapper_db_add_or_update_signal_params(db, signame, devname, 0);
+            con->sources[i].name = con->sources[i].signal->name;
+            con->sources[i].device = con->sources[i].signal->device;
+            con->sources[i].signal->is_output = 1;
+        }
+        slot = i;
+    }
+
     /* @srcType */
     args = mapper_msg_get_param(params, AT_SRC_TYPE, &types, &length);
-    if (args && types && types[0] == 'c') {
+    if (args && types && (types[0] == 'c' || types[0] == 's' || types[0] == 'S')) {
+        char type;
         if (slot >= 0) {
-            if (con->sources[slot].type != (*args)->c) {
-                con->sources[slot].type = (*args)->c;
+            type = types[0] == 'c' ? (*args)->c : (&(*args)->s)[0];
+            if (con->sources[slot].type != type) {
+                con->sources[slot].type = type;
                 updated++;
             }
         }
         else if (length == con->num_sources) {
             for (i = 0; i < length; i++) {
-                if (con->sources[i].type != args[i]->c) {
-                    con->sources[i].type = args[i]->c;
+                type = types[0] == 'c' ? (args[i])->c : (&(args[i])->s)[0];
+                if (con->sources[i].type != type) {
+                    con->sources[i].type = type;
                     updated++;
                 }
             }
@@ -1920,7 +1961,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                                                                mapper_message_t *params)
 {
     mapper_db_connection con;
-    int rc = 0, updated = 0, devnamelen, i;
+    int rc = 0, updated = 0, devnamelen, i, j;
     char *signame, devname[256];
 
     /* connection could be part of larger "convergent" connection, so we will
@@ -1976,9 +2017,38 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
         con->extra = table_new();
         rc = 1;
     }
+    else if (con->num_sources < num_sources) {
+        // add one or more sources
+        for (i = 0; i < num_sources; i++) {
+            signame = strchr(src_names[i]+1, '/');
+            devnamelen = signame - src_names[i];
+            if (devnamelen > 256) {
+                return 0;
+            }
+            strncpy(devname, src_names[i], devnamelen);
+            devname[devnamelen] = 0;
+            for (j = 0; j < con->num_sources; j++) {
+                if (strcmp(devname, con->sources[j].device->name)==0
+                    && strcmp(signame, con->sources[j].signal->name)==0) {
+                    break;
+                }
+            }
+            if (j == con->num_sources) {
+                con->num_sources++;
+                con->sources = realloc(con->sources,
+                                       sizeof(struct _mapper_db_connection_slot)
+                                       * con->num_sources);
+                con->sources[j].signal =
+                    mapper_db_add_or_update_signal_params(db, signame, devname, 0);
+                con->sources[j].device = con->sources[j].signal->device;
+                con->sources[j].signal->is_output = 1;
+            }
+        }
+    }
 
     if (con) {
-        updated = update_connection_record_params(con, params, -1);
+        updated = update_connection_record_params(db, con, src_names[0],
+                                                  params);
 
         if (rc)
             list_prepend_item(con, (void**)&db->registered_connections);

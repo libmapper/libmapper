@@ -10,8 +10,6 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-#define MAX_NUM_REMOTE_SIGNALS 8    // arbitrary
-
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message m, mapper_timetag_t tt);
 
@@ -684,7 +682,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 {
     int i, ready = 1;
 
-    if (num_remote_signals > MAX_NUM_REMOTE_SIGNALS) {
+    if (num_remote_signals > MAX_NUM_CONNECTION_SOURCES) {
         trace("error: maximum number of remote signals in a connection exceeded.\n");
         return 0;
     }
