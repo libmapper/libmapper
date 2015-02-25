@@ -1295,15 +1295,23 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
 
     // Source type(s) and vector length(s)
     if (slot < 0) {
-        lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+        int known = 1;
         for (i = 0; i < props->num_sources; i++) {
-            lo_message_add_char(m, (c->sources[i].status & MAPPER_TYPE_KNOWN) ?
-                                props->sources[i].type : '?');
+            if (!(c->sources[i].status & MAPPER_LENGTH_KNOWN)
+                || !(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                known = 0;
+                break;
+            }
         }
-        lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
-        for (i = 0; i < props->num_sources; i++) {
-            lo_message_add_int32(m, (c->sources[i].status & MAPPER_LENGTH_KNOWN) ?
-                                 props->sources[i].length : '?');
+        if (known) {
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+            for (i = 0; i < props->num_sources; i++) {
+                lo_message_add_char(m, props->sources[i].type);
+            }
+            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
+            for (i = 0; i < props->num_sources; i++) {
+                lo_message_add_int32(m, props->sources[i].length);
+            }
         }
     }
     else {

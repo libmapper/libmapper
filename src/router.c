@@ -696,6 +696,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     // TODO: configure number of instances available for each slot
     c->num_var_instances = 1;
+    c->expr_vars = calloc(1, sizeof(mapper_history*));
 
     if (direction == DI_OUTGOING)
         num_remote_signals = 1;
