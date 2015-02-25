@@ -349,7 +349,7 @@ static int handler_signal(const char *path, const char *types,
             // otherwise try to init reserved/stolen instance with device map
             instance = msig_get_instance_with_remote_ids(sig, instance_group,
                                                          instance_id, 0, &tt);
-            if (index < 0) {
+            if (instance < 0) {
                 trace("no local instances available for remote instance %ld:%ld\n",
                       (long)instance_group, (long)instance_id);
                 return 0;
@@ -380,7 +380,7 @@ static int handler_signal(const char *path, const char *types,
         instance = 0;
         if (!sig->id_maps[0].instance)
             instance = msig_get_instance_with_local_id(sig, 0, 1, &tt);
-        if (index < 0)
+        if (instance < 0)
             return 0;
     }
     mapper_signal_instance si = sig->id_maps[instance].instance;
