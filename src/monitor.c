@@ -13,20 +13,6 @@
 extern const char* prop_msg_strings[N_AT_PARAMS];
 extern const char* admin_msg_strings[N_ADM_STRINGS];
 
-// Helpers: for range info to be known we also need to know data types and lengths
-#define SRC_MIN_KNOWN  (  CONNECTION_RANGE_SRC_MIN     \
-                        | CONNECTION_SRC_TYPE          \
-                        | CONNECTION_SRC_LENGTH )
-#define SRC_MAX_KNOWN  (  CONNECTION_RANGE_SRC_MAX     \
-                        | CONNECTION_SRC_TYPE          \
-                        | CONNECTION_SRC_LENGTH )
-#define DEST_MIN_KNOWN (  CONNECTION_RANGE_DEST_MIN    \
-                        | CONNECTION_DEST_TYPE         \
-                        | CONNECTION_DEST_LENGTH )
-#define DEST_MAX_KNOWN (  CONNECTION_RANGE_DEST_MAX    \
-                        | CONNECTION_DEST_TYPE         \
-                        | CONNECTION_DEST_LENGTH )
-
 /*! Internal function to get the current time. */
 static double get_current_time()
 {
@@ -280,16 +266,21 @@ void mmon_request_devices(mapper_monitor mon)
     mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
 }
 
-#define call_mapper_msg_prepare_varargs(...)    \
-    _real_call_mapper_msg_prepare_varargs(__VA_ARGS__, N_AT_PARAMS);
+#define prep_varargs(...)    \
+    _real_prep_varargs(__VA_ARGS__, N_AT_PARAMS);
 
 // simple wrapper function for building osc messages
-static void _real_call_mapper_msg_prepare_varargs(lo_message m, ...)
+static void _real_prep_varargs(lo_message m, ...)
 {
     va_list aq;
     va_start(aq, m);
     mapper_msg_prepare_varargs(m, aq);
     va_end(aq);
+}
+
+static int bitmatch(unsigned int a, unsigned int b)
+{
+    return (a & b) == b;
 }
 
 void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
@@ -312,20 +303,27 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
     lo_message_add_string(m, dest_name);
 
     if (props && flags) {
-        call_mapper_msg_prepare_varargs(m,
-            (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
-            (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
-            (flags & SRC_MIN_KNOWN) == SRC_MIN_KNOWN ? AT_SRC_MIN : -1, props,
-            (flags & SRC_MAX_KNOWN) == SRC_MAX_KNOWN ? AT_SRC_MAX : -1, props,
-            (flags & DEST_MIN_KNOWN) == DEST_MIN_KNOWN ? AT_DEST_MIN : -1, props,
-            (flags & DEST_MAX_KNOWN) == DEST_MAX_KNOWN ? AT_DEST_MAX : -1, props,
-            (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
-            (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-            (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-            (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
-             props->send_as_instance,
-            ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-             ? AT_SCOPE : -1, props->scope.names);
+        prep_varargs(m,
+                     (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
+                      props->bound_min,
+                     (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
+                      props->bound_max,
+                     bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
+                      ? AT_SRC_MIN : -1, props,
+                     bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
+                      ? AT_SRC_MAX : -1, props,
+                     bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
+                      ? AT_DEST_MIN : -1, props,
+                     bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
+                      ? AT_DEST_MAX : -1, props,
+                     (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
+                      props->expression,
+                     (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+                     (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+                     (flags & CONNECTION_SEND_AS_INSTANCE)
+                      ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
+                     ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
+                      ? AT_SCOPE : -1, props->scope.names);
     }
 
     // TODO: lookup device ip/ports, send directly?
@@ -383,20 +381,27 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
-    call_mapper_msg_prepare_varargs(m,
-        (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
-        (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
-        (flags & SRC_MIN_KNOWN) == SRC_MIN_KNOWN ? AT_SRC_MIN : -1, props,
-        (flags & SRC_MAX_KNOWN) == SRC_MAX_KNOWN ? AT_SRC_MAX : -1, props,
-        (flags & DEST_MIN_KNOWN) == DEST_MIN_KNOWN ? AT_DEST_MIN : -1, props,
-        (flags & DEST_MAX_KNOWN) == DEST_MAX_KNOWN ? AT_DEST_MAX : -1, props,
-        (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
-        (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-        (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-        (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
-         props->send_as_instance,
-        ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-         ? AT_SCOPE : -1, props->scope.names);
+    prep_varargs(m,
+                 (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
+                 props->bound_min,
+                 (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
+                 props->bound_max,
+                 bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
+                 ? AT_SRC_MIN : -1, props,
+                 bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
+                 ? AT_SRC_MAX : -1, props,
+                 bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
+                 ? AT_DEST_MIN : -1, props,
+                 bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
+                 ? AT_DEST_MAX : -1, props,
+                 (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
+                 props->expression,
+                 (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+                 (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+                 (flags & CONNECTION_SEND_AS_INSTANCE)
+                 ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
+                 ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
+                 ? AT_SCOPE : -1, props->scope.names);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
@@ -453,20 +458,27 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props,
     lo_message_add_string(m, "->");
     lo_message_add_string(m, props->destination.name);
     
-    call_mapper_msg_prepare_varargs(m,
-        (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1, props->bound_min,
-        (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1, props->bound_max,
-        (flags & SRC_MIN_KNOWN) == SRC_MIN_KNOWN ? AT_SRC_MIN : -1, props,
-        (flags & SRC_MAX_KNOWN) == SRC_MAX_KNOWN ? AT_SRC_MAX : -1, props,
-        (flags & DEST_MIN_KNOWN) == DEST_MIN_KNOWN ? AT_DEST_MIN : -1, props,
-        (flags & DEST_MAX_KNOWN) == DEST_MAX_KNOWN ? AT_DEST_MAX : -1, props,
-        (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
-        (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-        (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-        (flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1,
-        props->send_as_instance,
-        ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-        ? AT_SCOPE : -1, props->scope.names);
+    prep_varargs(m,
+                 (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
+                 props->bound_min,
+                 (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
+                 props->bound_max,
+                 bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
+                 ? AT_SRC_MIN : -1, props,
+                 bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
+                 ? AT_SRC_MAX : -1, props,
+                 bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
+                 ? AT_DEST_MIN : -1, props,
+                 bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
+                 ? AT_DEST_MAX : -1, props,
+                 (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
+                 props->expression,
+                 (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+                 (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+                 (flags & CONNECTION_SEND_AS_INSTANCE)
+                 ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
+                 ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
+                 ? AT_SCOPE : -1, props->scope.names);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);

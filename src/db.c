@@ -713,12 +713,14 @@ static int mapper_db_property_lookup(void *thestruct, table extra,
     die_unless(length!=0, "length parameter cannot be null.\n");
 
     const mapper_prop_value_t *val;
-    val = table_find_p(extra, property);
-    if (val) {
-        *type = val->type;
-        *value = val->value;
-        *length = val->length;
-        return 0;
+    if (extra) {
+        val = table_find_p(extra, property);
+        if (val) {
+            *type = val->type;
+            *value = val->value;
+            *length = val->length;
+            return 0;
+        }
     }
 
     property_table_value_t *prop;

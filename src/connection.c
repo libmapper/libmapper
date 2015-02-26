@@ -898,11 +898,6 @@ int mapper_connection_check_status(mapper_connection c)
     return c->status;
 }
 
-static int check_type(char type)
-{
-    return (type == 'i' || type == 'f' || type == 'd');
-}
-
 int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *msg)
 {
     int updated = 0;
@@ -948,7 +943,7 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
     if (!c->sources[slot].local) {
         /* Source type. */
         type = mapper_msg_get_param_if_char(msg, AT_SRC_TYPE);
-        if (type && check_type(type[0])) {
+        if (type && !check_signal_type(type[0])) {
             c->props.sources[slot].type = type[0];
             c->sources[slot].status |= MAPPER_TYPE_KNOWN;
             updated++;
@@ -965,7 +960,7 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
     if (!c->destination.local) {
         /* Destination type. */
         type = mapper_msg_get_param_if_char(msg, AT_DEST_TYPE);
-        if (type && check_type(type[0])) {
+        if (type && !check_signal_type(type[0])) {
             c->props.destination.type = type[0];
             c->destination.status |= MAPPER_TYPE_KNOWN;
             updated++;

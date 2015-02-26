@@ -53,10 +53,8 @@ mapper_signal msig_new(const char *name, int length, char type,
                        void *user_data)
 {
     int i;
-    if (length < 1) return 0;
+    if (check_signal_length(length) || check_signal_type(type)) return 0;
     if (!name) return 0;
-    if (type != 'f' && type != 'i' && type != 'd')
-        return 0;
 
     mapper_signal sig =
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));

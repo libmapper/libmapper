@@ -839,4 +839,16 @@ inline static void* mapper_history_tt_ptr(mapper_history_t h)
     return &h.timetag[h.position];
 }
 
+/*! Helper to check if a type character is valid. */
+inline static int check_signal_type(char type)
+{
+    return (type != 'i' && type != 'f' && type != 'd');
+}
+
+/*! Helper to check if a type character is valid. */
+inline static int check_signal_length(int length)
+{
+    return (length < 1 || length > MAPPER_MAX_VECTOR_LEN);
+}
+
 #endif // __MAPPER_INTERNAL_H__

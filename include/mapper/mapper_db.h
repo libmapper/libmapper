@@ -50,10 +50,10 @@ typedef struct _mapper_db_device {
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
-#define CONNECTION_RANGE_SRC_MIN    0x01
-#define CONNECTION_RANGE_SRC_MAX    0x02
-#define CONNECTION_RANGE_DEST_MIN   0x04
-#define CONNECTION_RANGE_DEST_MAX   0x08
+#define CONNECTION_SRC_MIN    0x01
+#define CONNECTION_SRC_MAX    0x02
+#define CONNECTION_DEST_MIN   0x04
+#define CONNECTION_DEST_MAX   0x08
 
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
@@ -77,22 +77,22 @@ typedef struct _mapper_db_device {
 #define CONNECTION_ALL              0xFFFFF
 
 // For range info to be known we also need to know data types and lengths
-#define CONNECTION_RANGE_SRC_MIN_KNOWN  (  CONNECTION_RANGE_SRC_MIN     \
-                                         | CONNECTION_SRC_TYPE          \
-                                         | CONNECTION_SRC_LENGTH )
-#define CONNECTION_RANGE_SRC_MAX_KNOWN  (  CONNECTION_RANGE_SRC_MAX     \
-                                         | CONNECTION_SRC_TYPE          \
-                                         | CONNECTION_SRC_LENGTH )
-#define CONNECTION_RANGE_DEST_MIN_KNOWN (  CONNECTION_RANGE_DEST_MIN   \
-                                         | CONNECTION_DEST_TYPE        \
-                                         | CONNECTION_DEST_LENGTH )
-#define CONNECTION_RANGE_DEST_MAX_KNOWN (  CONNECTION_RANGE_DEST_MAX   \
-                                         | CONNECTION_DEST_TYPE        \
-                                         | CONNECTION_DEST_LENGTH )
-#define CONNECTION_RANGE_KNOWN          (  CONNECTION_RANGE_SRC_MIN_KNOWN   \
-                                         | CONNECTION_RANGE_SRC_MAX_KNOWN   \
-                                         | CONNECTION_RANGE_DEST_MIN_KNOWN  \
-                                         | CONNECTION_RANGE_DEST_MAX_KNOWN )
+#define CONNECTION_SRC_MIN_KNOWN    (  CONNECTION_SRC_MIN     \
+                                     | CONNECTION_SRC_TYPE          \
+                                     | CONNECTION_SRC_LENGTH )
+#define CONNECTION_SRC_MAX_KNOWN    (  CONNECTION_SRC_MAX     \
+                                     | CONNECTION_SRC_TYPE          \
+                                     | CONNECTION_SRC_LENGTH )
+#define CONNECTION_DEST_MIN_KNOWN   (  CONNECTION_DEST_MIN   \
+                                     | CONNECTION_DEST_TYPE        \
+                                     | CONNECTION_DEST_LENGTH )
+#define CONNECTION_DEST_MAX_KNOWN   (  CONNECTION_DEST_MAX   \
+                                     | CONNECTION_DEST_TYPE        \
+                                     | CONNECTION_DEST_LENGTH )
+#define CONNECTION_RANGE_KNOWN      (  CONNECTION_SRC_MIN_KNOWN   \
+                                     | CONNECTION_SRC_MAX_KNOWN   \
+                                     | CONNECTION_DEST_MIN_KNOWN  \
+                                     | CONNECTION_DEST_MAX_KNOWN )
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
