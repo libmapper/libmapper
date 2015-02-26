@@ -131,6 +131,14 @@ namespace mapper {
 
         operator const void*() const
             { return value; }
+        const char *str()
+            { return (const char*)value; }
+        const int *i()
+            { return (const int*)value; }
+        const float *f()
+            { return (const float*)value; }
+        const double *d()
+            { return (const double*)value; }
         void print()
         {
             printf("%s: ", name ?: "unknown");
@@ -156,23 +164,23 @@ namespace mapper {
             { name = 0; type = 0; length = 0; owned = 0; }
     private:
         union {
-            double d;
-            float f;
-            int i;
-            char c;
+            double _d;
+            float _f;
+            int _i;
+            char _c;
         };
         int owned;
 
         void maybe_free()
             { if (owned && value) free((void*)value); owned = 0; }
         void _set(int _value)
-            { i = _value; length = 1; type = 'i'; value = &i; }
+            { _i = _value; length = 1; type = 'i'; value = &_i; }
         void _set(float _value)
-            { f = _value; length = 1; type = 'f'; value = &f; }
+            { _f = _value; length = 1; type = 'f'; value = &_f; }
         void _set(double _value)
-            { d = _value; length = 1; type = 'd'; value = &d; }
+            { _d = _value; length = 1; type = 'd'; value = &_d; }
         void _set(char _value)
-            { c = _value; length = 1; type = 'c'; value = &c; }
+            { _c = _value; length = 1; type = 'c'; value = &_c; }
         void _set(const string_type &_value)
             { value = _value; length = 1; type = 's'; }
         void _set(int _value[], int _length)
@@ -251,7 +259,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 char **temp = (char**)malloc(sizeof(char*) * length);
-                for (i = 0; i < length; i++) {
+                for (int i = 0; i < length; i++) {
                     temp[i] = (char*)_values[i].c_str();
                 }
                 value = temp;
@@ -268,7 +276,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
-                for (i = 0; i < length; i++) {
+                for (int i = 0; i < length; i++) {
                     ((char**)value)[i] = (char*)_values[i].c_str();
                 }
                 owned = 1;
@@ -294,7 +302,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
-                for (i = 0; i < length; i++) {
+                for (int i = 0; i < length; i++) {
                     ((char**)value)[i] = (char*)_value[i].c_str();
                 }
                 owned = 1;
@@ -341,9 +349,9 @@ namespace mapper {
         friend class Property;
 
         AbstractSignalProps(mapper_signal sig)
-            { signal = sig; props = msig_properties(signal); found = 1; }
+            { signal = sig; props = msig_properties(signal); }
         AbstractSignalProps(mapper_db_signal sig_db)
-            { signal = 0; props = sig_db; found = sig_db ? 1 : 0; }
+            { signal = 0; props = sig_db; }
         void set(mapper::Property *p)
         {
             if (signal)
@@ -358,7 +366,6 @@ namespace mapper {
         mapper_db_signal props;
 
     public:
-        int found;
         operator mapper_db_signal() const
             { return props; }
         using AbstractObjectProps::set;
@@ -676,9 +683,9 @@ namespace mapper {
         friend class Property;
 
         AbstractDeviceProps(mapper_device dev) : AbstractObjectProps()
-            { device = dev; props = mdev_properties(device); found = 1; }
+            { device = dev; props = mdev_properties(device); }
         AbstractDeviceProps(mapper_db_device dev_db)
-            { device = 0; props = dev_db; found = dev_db ? 1 : 0; }
+            { device = 0; props = dev_db; }
         void set(mapper::Property* p)
         {
             if (device)
@@ -693,7 +700,6 @@ namespace mapper {
         mapper_db_device props;
 
     public:
-        int found;
         operator mapper_db_device() const
             { return props; }
         using AbstractObjectProps::set;
@@ -983,36 +989,47 @@ namespace mapper {
         class Connection : AbstractObjectProps
         {
         public:
-            int found;
-            int flags;
-            char src_type;
-            char dest_type;
-            int src_length;
-            int dest_length;
-            void *src_min;
-            void *src_max;
-            void *dest_min;
-            void *dest_max;
-
             Connection(mapper_db_connection connection)
             {
                 props = connection;
-                found = connection ? 1 : 0;
+                _sources = new Slot[props->num_sources];
+                for (int i = 0; i < props->num_sources; i++) {
+                    _sources[i] = Slot(this, &props->sources[i], 1);
+                }
+                _destination = Slot(this, &props->destination, 0);
                 flags = 0;
                 owned = 0;
             }
-            Connection()
+            Connection(int num_sources=1)
             {
-                props = (mapper_db_connection)calloc(1, sizeof(mapper_db_connection_t));
+                props = ((mapper_db_connection)
+                         calloc(1, sizeof(mapper_db_connection_t)));
+                props->num_sources = num_sources;
+                props->sources = ((mapper_db_connection_slot)
+                                  calloc(1,
+                                         sizeof(struct _mapper_db_connection_slot)
+                                         * num_sources));
+                _sources = new Slot[num_sources];
+                for (int i = 0; i < num_sources; i++) {
+                    _sources[i] = Slot(this, &props->sources[i], 1);
+                }
+                _destination = Slot(this, &props->destination, 0);
                 flags = 0;
                 owned = 1;
             }
             ~Connection()
-                { if (owned && props) free(props); }
-            operator mapper_db_connection() const
             {
-                return props;
+//                delete _sources;
+                if (owned && props) {
+                    if (props->sources)
+                        free(props->sources);
+                    free(props);
+                }
             }
+            operator mapper_db_connection() const
+                { return props; }
+            int num_sources() const
+                { return props->num_sources; }
             void set(Property p) {}
             void remove(const string_type &name) {}
             void set_mode(mapper_mode_type mode)
@@ -1025,34 +1042,6 @@ namespace mapper {
             {
                 props->expression = (char*)(const char*)expression;
                 flags |= CONNECTION_EXPRESSION;
-            }
-            void set_src_min(const Property &value)
-            {
-                props->sources[0].minimum = (void*)(const void*)value;
-                props->sources[0].type = value.type;
-                props->sources[0].length = value.length;
-                flags |= (CONNECTION_RANGE_SRC_MIN_KNOWN);
-            }
-            void set_src_max(Property &value)
-            {
-                props->sources[0].maximum = (void*)(const void*)value;
-                props->sources[0].type = value.type;
-                props->sources[0].length = value.length;
-                flags |= (CONNECTION_RANGE_SRC_MAX_KNOWN);
-            }
-            void set_dest_min(Property &value)
-            {
-                props->destination.minimum = (void*)(const void*)value;
-                props->destination.type = value.type;
-                props->destination.length = value.length;
-                flags |= (CONNECTION_RANGE_DEST_MIN_KNOWN);
-            }
-            void set_dest_max(Property &value)
-            {
-                props->destination.maximum = (void*)(const void*)value;
-                props->destination.type = value.type;
-                props->destination.length = value.length;
-                flags |= (CONNECTION_RANGE_DEST_MAX_KNOWN);
             }
             Property get(const string_type &name) const
             {
@@ -1105,11 +1094,98 @@ namespace mapper {
             private:
                 mapper_db_connection *con;
             };
+            class Slot : AbstractObjectProps
+            {
+            public:
+                ~Slot() {}
+                void set(Property p) {}
+                void remove(const string_type &name) {}
+                Device device() const
+                {
+                    return Device(props->device);
+                }
+                Signal signal() const
+                {
+                    return Signal(props->signal);
+                }
+                void set_minimum(const Property &value)
+                {
+                    if (!props)
+                        return;
+                    props->minimum = (void*)(const void*)value;
+                    props->type = value.type;
+                    props->length = value.length;
+                    flags |= ((is_src ? CONNECTION_SRC_MIN_KNOWN
+                               : CONNECTION_DEST_MIN_KNOWN));
+                }
+                void set_maximum(const Property &value)
+                {
+                    if (!props)
+                        return;
+                    props->maximum = (void*)(const void*)value;
+                    props->type = value.type;
+                    props->length = value.length;
+                    flags |= ((is_src ? CONNECTION_SRC_MAX_KNOWN
+                               : CONNECTION_DEST_MAX_KNOWN));
+                }
+                Property get(const string_type &name) const
+                {
+                    if (!props)
+                        return Property();
+                    char type;
+                    const void *value;
+                    int length;
+                    if (!mapper_db_connection_slot_property_lookup(props, name,
+                                                                   &type, &value,
+                                                                   &length))
+                        return Property(name, type, value, length);
+                    else
+                        return Property();
+                }
+            protected:
+                friend class Connection;
+                Slot(const Connection *_parent, mapper_db_connection_slot slot,
+                     int _is_src)
+                {
+                    props = slot;
+                    parent = _parent;
+                    is_src = _is_src;
+                    flags = 0;
+                }
+                Slot()
+                    { props = 0; parent = 0; flags = 0; }
+                operator mapper_db_connection_slot() const
+                { return props; }
+                void set(mapper::Property *p) {}
+                int flags;
+            private:
+                mapper_db_connection_slot props;
+                const Connection *parent;
+                int is_src;
+            };
+            Slot destination() const
+                { return _destination; }
+            Slot source(int index=0) const
+                { return _sources[index]; }
         protected:
+            friend class Monitor;
             void set(mapper::Property *p) {}
+            unsigned int get_flags() const
+            {
+                if (!props)
+                    return 0;
+                unsigned int result = flags;
+                for (int i = 0; i < props->num_sources; i++)
+                    result |= _sources[i].flags;
+                result |= _destination.flags;
+                return result;
+            }
         private:
             mapper_db_connection props;
+            Slot _destination;
+            Slot *_sources;
             int owned;
+            int flags;
         };
         Connection::Iterator connections() const
         {
@@ -1219,8 +1295,8 @@ namespace mapper {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
             mmon_connect_signals_by_db_record(monitor, 1, &_src,
                                               (mapper_db_signal)dest.properties(),
-                                              props ? (mapper_db_connection)props : 0,
-                                              props ? props.flags : 0);
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
         }
         void connect(const mapper::Db::Signal &source,
                      const mapper::Db::Signal &dest,
@@ -1229,21 +1305,142 @@ namespace mapper {
             mapper_db_signal _src = (mapper_db_signal)source;
             mmon_connect_signals_by_db_record(monitor, 1, &_src,
                                               (mapper_db_signal)dest,
-                                              props ? (mapper_db_connection)props : 0,
-                                              props ? props.flags : 0);
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
         }
         void connect(const string_type &source, const string_type &dest,
                      const mapper::Db::Connection &props=0) const
         {
             const char *_src = source;
             mmon_connect_signals_by_name(monitor, 1, &_src, dest,
-                                         props ? (mapper_db_connection)props : 0,
-                                         props ? props.flags : 0);
+                                         (mapper_db_connection)props,
+                                         props.get_flags());
+        }
+        void connect(int num_sources,
+                     const mapper::Signal sources[], const mapper::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (mapper_db_signal)sources[i].properties();
+            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
+                                              (mapper_db_signal)dest.properties(),
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
+        }
+        void connect(int num_sources,
+                     const mapper::Db::Signal sources[],
+                     const mapper::Db::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (mapper_db_signal)sources[i];
+            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
+                                              (mapper_db_signal)dest,
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
+        }
+        void connect(int num_sources,
+                     const char *sources[], const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char *)sources[i];
+            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
+                                         (mapper_db_connection)props,
+                                         props.get_flags());
+        }
+        void connect(int num_sources,
+                     const std::string sources[], const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char *)sources[i].c_str();
+            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
+                                         (mapper_db_connection)props,
+                                         props.get_flags());
+        }
+        template <size_t num_sources>
+        void connect(std::array<const mapper::Signal, num_sources>& sources,
+                     const mapper::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (mapper_db_signal)sources[i].properties();
+            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
+                                              (mapper_db_signal)dest.properties(),
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
+        }
+        template <size_t num_sources>
+        void connect(std::array<const mapper::Db::Signal, num_sources>& sources,
+                     const mapper::Db::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            mapper_db_signal _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (mapper_db_signal)sources[i];
+            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
+                                              (mapper_db_signal)dest,
+                                              (mapper_db_connection)props,
+                                              props.get_flags());
+        }
+        template <size_t num_sources>
+        void connect(std::array<const char*, num_sources>& sources,
+                     const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char *)sources[i];
+            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
+                                         (mapper_db_connection)props,
+                                         props.get_flags());
+        }
+        template <size_t num_sources>
+        void connect(std::array<std::string, num_sources>& sources,
+                     const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char *)sources[i].c_str();
+            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
+                                         (mapper_db_connection)props,
+                                         props.get_flags());
+        }
+        void connect(std::vector<const mapper::Signal> sources,
+                     const mapper::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            connect(sources.size(), sources.data(), dest, props);
+        }
+        void connect(std::vector<const mapper::Db::Signal> sources,
+                     const mapper::Db::Signal &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            connect(sources.size(), sources.data(), dest, props);
+        }
+        void connect(std::vector<const char*>& sources,
+                     const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            connect(sources.size(), sources.data(), dest, props);
+        }
+        void connect(std::vector<std::string>& sources,
+                     const string_type &dest,
+                     const mapper::Db::Connection &props=0) const
+        {
+            connect(sources.size(), sources.data(), dest, props);
         }
         void modify_connection(const mapper::Db::Connection &connection) const
         {
             mmon_modify_connection(monitor, (mapper_db_connection)connection,
-                                   connection.flags);
+                                   connection.get_flags());
         }
         void modify_connection(const string_type &source,
                                const string_type &dest,
@@ -1252,7 +1449,7 @@ namespace mapper {
             const char *_src = source;
             mmon_modify_connection_by_signal_names(monitor, 1, &_src, dest,
                                                    (mapper_db_connection)props,
-                                                   props.flags);
+                                                   props.get_flags());
         }
         void modify_connection(const mapper::Signal &source,
                                const mapper::Signal &dest,
@@ -1262,7 +1459,7 @@ namespace mapper {
             mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
                                                         (mapper_db_signal)dest.properties(),
                                                         (mapper_db_connection)props,
-                                                        props.flags);
+                                                        props.get_flags());
         }
         void modify_connection(const mapper::AbstractSignalProps &source,
                                const mapper::AbstractSignalProps &dest,
@@ -1272,7 +1469,7 @@ namespace mapper {
             mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
                                                         (mapper_db_signal)dest,
                                                         (mapper_db_connection)props,
-                                                        props.flags);
+                                                        props.get_flags());
         }
         void disconnect(const mapper::Db::Connection &connection) const
         {

@@ -158,9 +158,12 @@ int main(int argc, char ** argv)
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    c.set_src_min(mapper::Property(0, d, 3));
+    c.source().set_minimum(mapper::Property(0, d, 3));
     mon.connect(dev.outputs("out2"), dev.inputs("in2"), c);
-    while (dev.num_connections_in() <= 0) { dev.poll(100); }
+    while (dev.num_connections_out() <= 0)
+    {
+        dev.poll(100);
+    }
 
     std::vector <double> v(3);
     while (i++ < 100) {
@@ -189,10 +192,17 @@ int main(int argc, char ** argv)
     }
     for (auto const &conn : mon.db().connections()) {
         std::cout << "  connection: ";
-        conn.get("src_name").print();
-        std::cout << " -> ";
-        conn.get("dest_name").print();
-        std::cout << std::endl;
+        if (conn.num_sources() > 1)
+            std::cout << "[";
+        for (int i = 0; i < conn.num_sources(); i++) {
+            std::cout << conn.source(i).device().get("name").str()
+                << conn.source(i).signal().get("name").str() << ", ";
+        }
+        std::cout << "\b\b";
+        if (conn.num_sources() > 1)
+            std::cout << "]";
+        std::cout << " -> " << conn.destination().device().get("name").str()
+        << conn.destination().signal().get("name").str() << std::endl;
     }
 
     printf("Test %s.\n", result ? "FAILED" : "PASSED");
