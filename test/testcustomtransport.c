@@ -53,11 +53,11 @@ void on_mdev_connection(mapper_device dev,
                         mapper_device_local_action_t action,
                         void *user)
 {
-    eprintf("%s connection for device %s (%s:%s -> %s), ",
+    eprintf("%s connection for device %s (%s:%s -> %s:%s), ",
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
             mdev_name(dev), mdev_name(dev), sig->props.name,
-            con->destination.name);
+            con->destination.device_name, con->destination.signal_name);
 
     if (slot == &con->destination) {
         eprintf("Source host is %s, port is %i\n",

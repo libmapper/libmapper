@@ -64,12 +64,12 @@ void printconnection(mapper_db_connection con)
         if (con->num_sources > 1)
             printf("[");
         for (i = 0; i < con->num_sources; i++)
-            printf("%s%s, ", con->sources[i].signal->device->name,
-                   con->sources[i].name);
+            printf("%s%s, ", con->sources[i].device_name,
+                   con->sources[i].signal_name);
         if (con->num_sources > 1)
             printf("\b\b], ");
-        printf("dest=%s%s\n", con->destination.signal->device->name,
-               con->destination.name);
+        printf("dest=%s%s\n", con->destination.device_name,
+               con->destination.signal_name);
     }
 }
 

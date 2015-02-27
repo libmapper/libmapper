@@ -51,7 +51,7 @@ void dbpause()
 
 void printdevice(mapper_db_device dev)
 {
-    printf(" └─ |_ %s", dev->name);
+    printf(" └─ %s", dev->name);
 
     int i=0;
     const char *key;
@@ -118,8 +118,8 @@ void printconnection(mapper_db_connection con)
     int i;
     printf(" └─ ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s%s ", con->sources[i].signal->device->name, con->sources[i].name);
-    printf("-> %s%s", con->destination.signal->device->name, con->destination.name);
+        printf("%s%s ", con->sources[i].device_name, con->sources[i].signal_name);
+    printf("-> %s%s", con->destination.device_name, con->destination.signal_name);
 
     i = 0;
     const char *key;
@@ -279,8 +279,8 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
     int i;
     printf("Connection ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s ", con->sources[i].name);
-    printf("-> %s ", con->destination.name);
+        printf("%s%s ", con->sources[i].device_name, con->sources[i].signal_name);
+    printf("-> %s%s ", con->destination.device_name, con->destination.signal_name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");

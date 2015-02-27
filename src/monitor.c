@@ -339,7 +339,7 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
                                        mapper_db_signal_t **sources,
                                        mapper_db_signal_t *dest,
                                        mapper_db_connection_t *props,
-                                       unsigned int props_flags)
+                                       unsigned int flags)
 {
     if (!mon || !num_sources || !sources || !dest)
         return;
@@ -356,7 +356,7 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
-                                 props, props_flags);
+                                 props, flags);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
@@ -418,9 +418,9 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
                                                  mapper_db_signal_t **sources,
                                                  mapper_db_signal_t *dest,
                                                  mapper_db_connection_t *props,
-                                                 unsigned int props_flags)
+                                                 unsigned int flags)
 {
-    if (!mon || !num_sources || !sources || !dest || !props || !props_flags)
+    if (!mon || !num_sources || !sources || !dest || !props || !flags)
         return;
 
     const char *src_names[num_sources];
@@ -435,7 +435,7 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
-                                           dest_name, props, props_flags);
+                                           dest_name, props, flags);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
@@ -444,50 +444,26 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
 void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props,
                             unsigned int flags)
 {
-    if (!mon || !props || !props->num_sources || !props->sources
-        || !props->destination.name)
+    if (!mon || !props || !props->num_sources || !props->sources || !flags)
         return;
 
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
-
+    const char *src_names[props->num_sources];
     int i;
+    for (i = 0; i < props->num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", props->sources[i].device_name,
+                 props->sources[i].signal_name);
+        src_names[i] = strdup(src_name);
+    }
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", props->destination.device_name,
+             props->destination.signal_name);
+
+    mmon_modify_connection_by_signal_names(mon, props->num_sources, src_names,
+                                           dest_name, props, flags);
+
     for (i = 0; i < props->num_sources; i++)
-        lo_message_add_string(m, props->sources[i].name);
-    lo_message_add_string(m, "->");
-    lo_message_add_string(m, props->destination.name);
-    
-    prep_varargs(m,
-                 (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
-                 props->bound_min,
-                 (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
-                 props->bound_max,
-                 bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
-                 ? AT_SRC_MIN : -1, props,
-                 bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
-                 ? AT_SRC_MAX : -1, props,
-                 bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
-                 ? AT_DEST_MIN : -1, props,
-                 bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
-                 ? AT_DEST_MAX : -1, props,
-                 (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
-                 props->expression,
-                 (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-                 (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-                 (flags & CONNECTION_SEND_AS_INSTANCE)
-                 ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
-                 ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-                 ? AT_SCOPE : -1, props->scope.names);
-
-    // TODO: lookup device ip/ports, send directly?
-    mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle,
-                          admin_msg_strings[ADM_CONNECTION_MODIFY], m);
-
-    /* We cannot depend on string arguments sticking around for liblo to
-     * serialize later: trigger immediate dispatch. */
-    mapper_admin_send_bundle(mon->admin);
+        free((char *)src_names[i]);
 }
 
 void mmon_disconnect_signals_by_name(mapper_monitor mon, int num_sources,
@@ -541,20 +517,25 @@ void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
 
 void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
 {
-    if (!mon || !c || !c->num_sources || !c->sources || !c->destination.name)
+    if (!mon || !c || !c->num_sources || !c->sources)
         return;
 
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
+    const char *src_names[c->num_sources];
     int i;
+    for (i = 0; i < c->num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", c->sources[i].device_name,
+                 c->sources[i].signal_name);
+        src_names[i] = strdup(src_name);
+    }
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", c->destination.device_name,
+             c->destination.signal_name);
+
+    mmon_disconnect_signals_by_name(mon, c->num_sources, src_names, dest_name);
+
     for (i = 0; i < c->num_sources; i++)
-        lo_message_add_string(m, c->sources[i].name);
-    lo_message_add_string(m, "->");
-    lo_message_add_string(m, c->destination.name);
-    // TODO: lookup device ip/ports, send directly?
-    mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
+        free((char *)src_names[i]);
 }
 
 static void on_device_autosubscribe(mapper_db_device dev,

@@ -944,16 +944,20 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         /* Source type. */
         type = mapper_msg_get_param_if_char(msg, AT_SRC_TYPE);
         if (type && !check_signal_type(type[0])) {
-            c->props.sources[slot].type = type[0];
-            c->sources[slot].status |= MAPPER_TYPE_KNOWN;
-            updated++;
+            if (type[0] != c->props.sources[slot].type) {
+                c->props.sources[slot].type = type[0];
+                c->sources[slot].status |= MAPPER_TYPE_KNOWN;
+                updated++;
+            }
         }
 
         /* Source length. */
         if (!mapper_msg_get_param_if_int(msg, AT_SRC_LENGTH, &length)) {
-            c->props.sources[slot].length = length;
-            c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
-            updated++;
+            if (length != c->props.sources[slot].length) {
+                c->props.sources[slot].length = length;
+                c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
+                updated++;
+            }
         }
     }
 
@@ -961,16 +965,20 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         /* Destination type. */
         type = mapper_msg_get_param_if_char(msg, AT_DEST_TYPE);
         if (type && !check_signal_type(type[0])) {
-            c->props.destination.type = type[0];
-            c->destination.status |= MAPPER_TYPE_KNOWN;
-            updated++;
+            if (type[0] != c->props.destination.type) {
+                c->props.destination.type = type[0];
+                c->destination.status |= MAPPER_TYPE_KNOWN;
+                updated++;
+            }
         }
 
         /* Destination length. */
         if (!mapper_msg_get_param_if_int(msg, AT_DEST_LENGTH, &length)) {
-            c->props.destination.length = length;
-            c->destination.status |= MAPPER_LENGTH_KNOWN;
-            updated++;
+            if (length != c->props.destination.length) {
+                c->props.destination.length = length;
+                c->destination.status |= MAPPER_LENGTH_KNOWN;
+                updated++;
+            }
         }
     }
 

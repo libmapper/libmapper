@@ -353,7 +353,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 if (!c->props.send_as_instance || get_in_scope(c, map->origin)) {
                     m = mapper_connection_build_message(c, 0, 1, 0, map);
                     if (m)
-                        send_or_bundle_message(s->link, p->name, m, tt);
+                        send_or_bundle_message(s->link, p->signal_name, m, tt);
                 }
             }
             else if (c->props.send_as_instance && get_in_scope(c, map->origin)) {
@@ -364,7 +364,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                     // send release to upstream
                     m = mapper_connection_build_message(c, 0, 1, 0, map);
                     if (m)
-                        send_or_bundle_message(s->link, p->name, m, tt);
+                        send_or_bundle_message(s->link, p->signal_name, m, tt);
                     if (!s->local) {
                         // also need to reset associated input memory
                         memset(s->history[id].value, 0, s->history_size *
@@ -431,7 +431,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             else {
                 m = mapper_connection_build_message(c, result, 1, typestring, map);
                 if (m)
-                    send_or_bundle_message(c->destination.link, dp->name, m, tt);
+                    send_or_bundle_message(c->destination.link, dp->signal_name, m, tt);
             }
             k++;
         }
@@ -439,7 +439,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             m = mapper_connection_build_message(c, out_value_p, k,
                                                 typestring, map);
             if (m)
-                send_or_bundle_message(c->destination.link, dp->name, m, tt);
+                send_or_bundle_message(c->destination.link, dp->signal_name, m, tt);
         }
     }
 }
@@ -483,7 +483,7 @@ int mapper_router_send_query(mapper_router r,
         // TODO: include response address as argument to allow TCP queries?
         // TODO: always use TCP for queries?
 
-        snprintf(query_string, 256, "%s/get", c->props.destination.name);
+        snprintf(query_string, 256, "%s/get", c->props.destination.signal_name);
         send_or_bundle_message(c->destination.link, query_string, m, tt);
         count++;
     }
@@ -502,7 +502,7 @@ int mapper_router_send_query(mapper_router r,
         // TODO: include response address as argument to allow TCP queries?
         // TODO: always use TCP for queries?
         for (j = 0; j < c->props.num_sources; j++) {
-            snprintf(query_string, 256, "%s/get", c->props.sources[0].name);
+            snprintf(query_string, 256, "%s/get", c->props.sources[0].signal_name);
             send_or_bundle_message(c->destination.link, query_string, m, tt);
         }
         count++;
@@ -714,7 +714,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     mapper_link link;
     char devname[256];
-    const char *devname_p = devname;
+    const char *devname_p;
     int devnamelen, scope_count = 0, local_scope = 0;
     const char *signame;
     if (direction == DI_OUTGOING) {
@@ -723,7 +723,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->sources[0].local = rs;
         c->sources[0].history = rs->history;
         c->props.sources[0].num_instances = rs->signal->props.num_instances;
-        c->props.sources[0].name = sig->props.name;
+        c->props.sources[0].signal_name = sig->props.name;
+        c->props.sources[0].device_name = mdev_name(r->device);
         c->props.sources[0].type = sig->props.type;
         c->props.sources[0].length = sig->props.length;
         c->sources[0].status = MAPPER_READY;
@@ -743,7 +744,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         }
         strncpy(devname, remote_signal_names[0], devnamelen);
         devname[devnamelen] = 0;
-        c->props.destination.name = strdup(signame);
+        c->props.destination.signal_name = strdup(signame);
         c->props.destination.num_instances = rs->signal->props.num_instances;
         c->props.destination.direction = DI_OUTGOING;
 
@@ -753,6 +754,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         else
             c->destination.link = mapper_router_add_link(r, 0, 0, 0, devname);
         c->props.destination.device = &c->destination.link->props;
+        c->props.destination.device_name = c->destination.link->props.name;
 
         // apply local scope as default
         c->props.scope.size = 1;
@@ -765,7 +767,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->destination.local = rs;
         c->destination.history = rs->history;
         c->props.destination.num_instances = rs->signal->props.num_instances;
-        c->props.destination.name = sig->props.name;
+        c->props.destination.signal_name = sig->props.name;
+        c->props.destination.device_name = mdev_name(r->device);
         c->props.destination.type = sig->props.type;
         c->props.destination.length = sig->props.length;
         c->destination.status = MAPPER_READY;
@@ -788,7 +791,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                 c->sources[i].local = rs2;
                 c->sources[i].history = rs2->history;
                 c->props.sources[i].num_instances = rs2->num_instances;
-                c->props.sources[i].name = local_signals[i]->props.name;
+                c->props.sources[i].signal_name = local_signals[i]->props.name;
+                c->props.sources[i].device_name = mdev_name(r->device);
                 c->props.sources[i].type = local_signals[i]->props.type;
                 c->props.sources[i].length = local_signals[i]->props.length;
                 c->sources[i].status = MAPPER_READY;
@@ -817,7 +821,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                 }
                 strncpy(devname, remote_signal_names[i], devnamelen);
                 devname[devnamelen] = 0;
-                c->props.sources[i].name = strdup(signame);
+                devname_p = devname;
+                c->props.sources[i].signal_name = strdup(signame);
                 c->props.sources[i].num_instances = rs->signal->props.num_instances;
                 c->props.sources[i].direction = DI_INCOMING;
 
@@ -836,6 +841,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                 c->sources[i].link = mapper_router_add_link(r, 0, 0, 0, devname_p);
 
             c->props.sources[i].device = &c->sources[i].link->props;
+            c->props.sources[i].device_name = c->sources[i].link->props.name;
             c->props.sources[i].slot_id = rs->id_counter++;
         }
         if (scope_count != num_remote_signals) {
@@ -951,8 +957,8 @@ int mapper_router_remove_connection(mapper_router r, mapper_connection c)
                                                         &c->sources[i]);
         }
         else {
-            if (c->props.sources[i].name)
-                free(c->props.sources[i].name);
+            if (c->props.sources[i].signal_name)
+                free((void*)c->props.sources[i].signal_name);
             if (c->sources[i].history) {
                 for (j = 0; j < c->props.sources[i].num_instances; j++) {
                     free(c->sources[i].history[j].value);
@@ -979,8 +985,8 @@ int mapper_router_remove_connection(mapper_router r, mapper_connection c)
                                                     &c->destination);
     }
     else {
-        if (c->props.destination.name)
-            free(c->props.destination.name);
+        if (c->props.destination.signal_name)
+            free((void*)c->props.destination.signal_name);
         if (c->destination.history) {
             for (j = 0; j < c->props.destination.num_instances; j++) {
                 free(c->destination.history->value);
@@ -1033,7 +1039,7 @@ static int match_slot(mapper_device md, mapper_connection_slot slot,
     if (strlen(local_devname) != len || strncmp(full_name, local_devname, len))
         return 1;
 
-    if (strcmp(sig_name, slot->props->name) == 0)
+    if (strcmp(sig_name, slot->props->signal_name) == 0)
         return 0;
     return 1;
 }

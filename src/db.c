@@ -568,24 +568,26 @@ static string_table_node_t dev_strings[] = {
 static mapper_string_table_t dev_table = { dev_strings, 11, 11 };
 
 static property_table_value_t slot_values[] = {
+    { 's', {1},         -1,          SLOT_OFFSET(device_name) },
     { 'i', {0},         -1,          SLOT_OFFSET(direction) },
-    { 'i', {0},         -1,          SLOT_OFFSET(length) }, /* TODO: get from db_sig? */
+    { 'i', {0},         -1,          SLOT_OFFSET(length) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
-    { 's', {1},         -1,          SLOT_OFFSET(name) }, /* TODO: get from db_sig? */
-    { 'c', {0},         -1,          SLOT_OFFSET(type) }, /* TODO: get from db_sig? */
+    { 's', {1},         -1,          SLOT_OFFSET(signal_name) },
+    { 'c', {0},         -1,          SLOT_OFFSET(type) },
 };
 
 static string_table_node_t slot_strings[] = {
-    { "direction",      &slot_values[0] },
-    { "length",         &slot_values[1] },
-    { "maximum",        &slot_values[2] },
-    { "minimum",        &slot_values[3] },
-    { "name",           &slot_values[4] },
-    { "type",           &slot_values[5] },
+    { "device_name",    &slot_values[0] },
+    { "direction",      &slot_values[1] },
+    { "length",         &slot_values[2] },
+    { "maximum",        &slot_values[3] },
+    { "minimum",        &slot_values[4] },
+    { "signal_name",    &slot_values[5] },
+    { "type",           &slot_values[6] },
 };
 
-static mapper_string_table_t slot_table = { slot_strings, 6, 6 };
+static mapper_string_table_t slot_table = { slot_strings, 7, 7 };
 
 static property_table_value_t con_values[] = {
     { 'i', {0}, -1,         CON_OFFSET(bound_max) },
@@ -1762,9 +1764,12 @@ static int update_connection_record_params(mapper_db db,
             // also add source signal if necessary
             con->sources[i].signal =
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-            con->sources[i].name = con->sources[i].signal->name;
+            con->sources[i].signal_name = con->sources[i].signal->name;
             con->sources[i].device = con->sources[i].signal->device;
+            con->sources[i].device_name = con->sources[i].device->name;
             con->sources[i].signal->is_output = 1;
+            con->sources[i].slot_id = slot;
+            i = slot;
         }
         slot = i;
     }
@@ -1969,11 +1974,15 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
     /* connection could be part of larger "convergent" connection, so we will
      * retrieve record by connection id instead of names. */
     int id;
-    if (update_int_if_arg(&id, params, AT_ID))
+    if (update_int_if_arg(&id, params, AT_ID)) {
         con = mapper_db_get_connection_by_dest_device_and_id(db, dest_name, id);
-    else
+        printf("find connection by id: %p\n", con);
+    }
+    else {
         con = mapper_db_get_connection_by_signal_full_names(db, num_sources,
                                                             src_names, dest_name);
+        printf("find connection by names: %p\n", con);
+    }
 
     if (!con) {
         con = (mapper_db_connection)
@@ -1995,9 +2004,11 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             // also add source signal if necessary
             con->sources[i].signal =
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-            con->sources[i].name = con->sources[i].signal->name;
+            con->sources[i].signal_name = con->sources[i].signal->name;
             con->sources[i].device = con->sources[i].signal->device;
+            con->sources[i].device_name = con->sources[i].device->name;
             con->sources[i].signal->is_output = 1;
+            con->sources[i].slot_id = i;
         }
         signame = strchr(dest_name+1, '/');
         devnamelen = signame - dest_name;
@@ -2012,8 +2023,9 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
         // also add destination signal if necessary
         con->destination.signal =
             mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-        con->destination.name = con->destination.signal->name;
+        con->destination.signal_name = con->destination.signal->name;
         con->destination.device = con->destination.signal->device;
+        con->destination.device_name = con->destination.device->name;
         con->destination.signal->is_input = 1;
 
         con->extra = table_new();
