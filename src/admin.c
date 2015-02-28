@@ -1729,7 +1729,7 @@ static int handler_signal_connect(const char *path, const char *types,
     if (strcmp(&argv[1]->s, "<-") == 0) {
         dest_index = 0;
         src_index = 2;
-        if (argc < 3) {
+        if (argc > 3) {
             i = 3;
             while (i < argc && (types[i] == 's' || types[i] == 'S')) {
                 if ((&argv[i]->s)[0] == '@')
@@ -1906,7 +1906,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
     if (strcmp(&argv[1]->s, "<-") == 0) {
         dest_index = 0;
         src_index = 2;
-        if (argc < 3) {
+        if (argc > 3) {
             i = 3;
             while (i < argc && (types[i] == 's' || types[i] == 'S')) {
                 if ((&argv[i]->s)[0] == '@')
@@ -2077,7 +2077,7 @@ static int handler_signal_connected(const char *path, const char *types,
     if (strcmp(&argv[1]->s, "<-") == 0) {
         dest_index = 0;
         src_index = 2;
-        if (argc < 3) {
+        if (argc > 3) {
             i = 3;
             while (i < argc && (types[i] == 's' || types[i] == 'S')) {
                 if ((&argv[i]->s)[0] == '@')
