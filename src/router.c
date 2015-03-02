@@ -855,7 +855,7 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     for (i = 0; i < num_remote_signals; i++) {
         c->sources[i].connection = c;
-        c->sources[i].cause_update = 1;
+        c->props.sources[i].cause_update = 1;
         c->sources[i].props = &c->props.sources[i];
     }
     c->destination.connection = c;

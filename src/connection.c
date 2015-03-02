@@ -157,7 +157,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
             mapper_connection_set_mode_linear(c);
     }
 
-    if (c->status != MAPPER_ACTIVE || c->props.muted || !s->cause_update) {
+    if (c->status != MAPPER_ACTIVE || c->props.muted || !s->props->cause_update) {
         return 0;
     }
     else if (c->props.mode == MO_RAW) {
@@ -1054,11 +1054,26 @@ int mapper_connection_set_from_message(mapper_connection c,
 
         /* Scopes */
         const char *types = 0;
-        int num_scopes;
-        lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_scopes);
-        if (num_scopes && types && (types[0] == 's' || types[0] == 'S'))
-            updated += mapper_db_connection_update_scope(&c->props.scope, a_scopes,
-                                                         num_scopes);
+        int num_args;
+        lo_arg **args = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_args);
+        if (num_args && types && (types[0] == 's' || types[0] == 'S'))
+            updated += mapper_db_connection_update_scope(&c->props.scope, args,
+                                                         num_args);
+
+        /* Cause Update */
+        mapper_msg_get_param(msg, AT_CAUSE_UPDATE, &types, &num_args);
+        if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (types[i] == 'T' && !c->props.sources[i].cause_update) {
+                    c->props.sources[i].cause_update = 1;
+                    updated++;
+                }
+                else if (types[i] == 'F' && c->props.sources[i].cause_update) {
+                    c->props.sources[i].cause_update = 0;
+                    updated++;
+                }
+            }
+        }
 
         /* Extra properties. */
         updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
@@ -1257,12 +1272,6 @@ void mhist_realloc(mapper_history history,
     history->size = history_size;
 }
 
-void mapper_connection_mute_slot(mapper_connection c, int slot, int muted)
-{
-    if (slot >= 0 && slot < c->props.num_sources)
-        c->sources[slot].cause_update = !muted;
-}
-
 void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
                                            int slot)
 {
@@ -1410,6 +1419,17 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
     else if (slot >= 0) {
         lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
         lo_message_add_int32(m, slot);
+    }
+
+    if (props->num_sources > 1) {
+        // Cause update
+        lo_message_add_string(m, prop_msg_strings[AT_CAUSE_UPDATE]);
+        for (i = 0; i < props->num_sources; i++) {
+            if (props->sources[i].cause_update)
+                lo_message_add_true(m);
+            else
+                lo_message_add_false(m);
+        }
     }
 
     // "Extra" properties

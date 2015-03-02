@@ -47,6 +47,12 @@ const char* prop_msg_strings[] =
                          * specific property name) */
 };
 
+inline static int type_match(const char l, const char r)
+{
+    // allow TRUE and FALSE in value vectors, otherwise enforce same type
+    return (l == r || ((l == 'T' || l == 'F') && (r == 'T' || r == 'F')));
+}
+
 int mapper_msg_parse_params(mapper_message_t *msg,
                             const char *path, const char *types,
                             int argc, lo_arg **argv)
@@ -92,7 +98,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         i--;
                         break;
                     }
-                    else if (types[i] != msg->extra_types[extra_count]) {
+                    else if (!type_match(types[i], msg->extra_types[extra_count])) {
                         trace("message %s, value vector for key %s has heterogeneous types.\n", path, &(*msg->extra_args[extra_count])->s);
                         msg->extra_lengths[extra_count] = 0;
                         break;
@@ -124,7 +130,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 i--;
                 break;
             }
-            else if (types[i] != *msg->types[j]) {
+            else if (!type_match(types[i], *msg->types[j])) {
                 trace("message %s, value vector for key %s has heterogeneous types.\n",
                       path, prop_msg_strings[j]);
                 msg->lengths[j] = 0;
@@ -383,7 +389,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
-        case AT_CAUSE_UPDATE:
         case AT_DEST_LENGTH:
         case AT_ID:
         case AT_LENGTH:
@@ -494,6 +499,15 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             con = va_arg(aq, mapper_db_connection_t*);
             mapper_msg_add_typed_value(m, 's', con->scope.size,
                                        con->scope.names);
+            break;
+        case AT_CAUSE_UPDATE:
+            con = va_arg(aq, mapper_db_connection_t*);
+            for (i = 0; i < con->num_sources; i++) {
+                if (con->sources[i].cause_update)
+                    lo_message_add_true(m);
+                else
+                    lo_message_add_false(m);
+            }
             break;
         case AT_EXTRA:
             tab = va_arg(aq, table);

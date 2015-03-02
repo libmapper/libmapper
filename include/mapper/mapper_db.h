@@ -50,30 +50,31 @@ typedef struct _mapper_db_device {
 /* Bit flags to identify which range extremities are known. If the bit
  * field is equal to RANGE_KNOWN, then all four required extremities
  * are known, and a linear connection can be calculated. */
-#define CONNECTION_SRC_MIN    0x01
-#define CONNECTION_SRC_MAX    0x02
-#define CONNECTION_DEST_MIN   0x04
-#define CONNECTION_DEST_MAX   0x08
+#define CONNECTION_SRC_MIN    0x00001
+#define CONNECTION_SRC_MAX    0x00002
+#define CONNECTION_DEST_MIN   0x00004
+#define CONNECTION_DEST_MAX   0x00008
 
 /* Bit flags to identify which fields in a mapper_db_connection
  * structure are valid.  This is only used when specifying connection
  * properties via the mmon_connect() or
  * mmon_modify_connection() functions. Should be combined with the
  * above range bitflags. */
-#define CONNECTION_BOUND_MIN        0x0010
-#define CONNECTION_BOUND_MAX        0x0020
-#define CONNECTION_EXPRESSION       0x0040
-#define CONNECTION_MODE             0x0080
-#define CONNECTION_MUTED            0x0100
-#define CONNECTION_SEND_AS_INSTANCE 0x0200
-#define CONNECTION_SRC_TYPE         0x0400
-#define CONNECTION_DEST_TYPE        0x0800
-#define CONNECTION_SRC_LENGTH       0x1000
-#define CONNECTION_DEST_LENGTH      0x2000
-#define CONNECTION_NUM_SCOPES       0x4000
-#define CONNECTION_SCOPE_NAMES      0xC000  // need to know num_scopes also
-#define CONNECTION_SCOPE_HASHES     0x14000 // need to know num_scopes also
-#define CONNECTION_SLOT             0x20000
+#define CONNECTION_BOUND_MIN        0x00010
+#define CONNECTION_BOUND_MAX        0x00020
+#define CONNECTION_CAUSE_UPDATE     0x00040
+#define CONNECTION_EXPRESSION       0x00080
+#define CONNECTION_MODE             0x00100
+#define CONNECTION_MUTED            0x00200
+#define CONNECTION_SEND_AS_INSTANCE 0x00400
+#define CONNECTION_SRC_TYPE         0x00800
+#define CONNECTION_DEST_TYPE        0x01000
+#define CONNECTION_SRC_LENGTH       0x02000
+#define CONNECTION_DEST_LENGTH      0x04000
+#define CONNECTION_NUM_SCOPES       0x08000
+#define CONNECTION_SCOPE_NAMES      0x18000 // need to know num_scopes also
+#define CONNECTION_SCOPE_HASHES     0x28000 // need to know num_scopes also
+#define CONNECTION_SLOT             0x40000
 #define CONNECTION_ALL              0xFFFFF
 
 // For range info to be known we also need to know data types and lengths
@@ -170,7 +171,8 @@ typedef struct _mapper_db_connection_slot {
     int slot_id;                    //!< Slot ID
     int length;
     int num_instances;
-    int direction;                  //!< DI_INCOMING or DI_OUTGOING
+    char direction;                 //!< DI_INCOMING or DI_OUTGOING
+    char cause_update;
     char type;
 } mapper_db_connection_slot_t, *mapper_db_connection_slot;
 

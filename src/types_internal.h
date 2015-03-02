@@ -236,9 +236,8 @@ typedef struct _mapper_connection_slot {
                                              *   for each signal instance. */
     mapper_db_connection_slot props;
     int history_size;                       //!< History size.
-    int status;
-    int calibrating;
-    int cause_update;
+    char status;
+    char calibrating;
 } mapper_connection_slot_t, *mapper_connection_slot;
 
 /*! The router_connection structure is a linked list of connections for a

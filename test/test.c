@@ -162,7 +162,7 @@ void loop()
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0, recvd;
 
-    if (autoconnect) {
+    if (!done && autoconnect) {
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig_1->props;

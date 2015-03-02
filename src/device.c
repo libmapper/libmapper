@@ -411,7 +411,7 @@ static int handler_signal(const char *path, const char *types,
                 memcpy(s->history[instance].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
             }
-            if (s->cause_update) {
+            if (s->props->cause_update) {
                 char typestring[c->destination.props->length];
                 if (mapper_expr_evaluate(c->expr, c, instance, &tt,
                                          &c->destination.history[instance],
@@ -462,7 +462,7 @@ static int handler_signal(const char *path, const char *types,
         }
 
         if (c) {
-            if (s->cause_update) {
+            if (s->props->cause_update) {
                 if (count > 1) {
                     memcpy(out_buffer + out_count * sig->props.length * size,
                            si->value, size);

@@ -302,6 +302,8 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
+    props->num_sources = num_sources;
+
     if (props && flags) {
         prep_varargs(m,
                      (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
@@ -322,8 +324,9 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
                      (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
                      (flags & CONNECTION_SEND_AS_INSTANCE)
                       ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
-                     ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-                      ? AT_SCOPE : -1, props->scope.names);
+                     (bitmatch(flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
+                      ? AT_SCOPE : -1, props->scope.names,
+                     (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
     }
 
     // TODO: lookup device ip/ports, send directly?
@@ -381,6 +384,8 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
+    props->num_sources = num_sources;
+
     prep_varargs(m,
                  (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
                  props->bound_min,
@@ -400,8 +405,9 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
                  (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
                  (flags & CONNECTION_SEND_AS_INSTANCE)
                  ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
-                 ((flags & CONNECTION_SCOPE_NAMES) && props->scope.size)
-                 ? AT_SCOPE : -1, props->scope.names);
+                 (bitmatch(flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
+                 ? AT_SCOPE : -1, props->scope.names,
+                 (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);

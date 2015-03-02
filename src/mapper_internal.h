@@ -452,9 +452,6 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
-void mapper_connection_mute_slot(mapper_connection connection,
-                                 int slot_num, int mute);
-
 int mapper_connection_get_source_info(mapper_connection connection, int slot,
                                       char *datatype, int *vector_length);
 

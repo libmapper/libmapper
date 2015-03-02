@@ -568,6 +568,7 @@ static string_table_node_t dev_strings[] = {
 static mapper_string_table_t dev_table = { dev_strings, 11, 11 };
 
 static property_table_value_t slot_values[] = {
+    { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
     { 's', {1},         -1,          SLOT_OFFSET(device_name) },
     { 'i', {0},         -1,          SLOT_OFFSET(direction) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
@@ -578,16 +579,17 @@ static property_table_value_t slot_values[] = {
 };
 
 static string_table_node_t slot_strings[] = {
-    { "device_name",    &slot_values[0] },
-    { "direction",      &slot_values[1] },
-    { "length",         &slot_values[2] },
-    { "maximum",        &slot_values[3] },
-    { "minimum",        &slot_values[4] },
-    { "signal_name",    &slot_values[5] },
-    { "type",           &slot_values[6] },
+    { "cause_update",   &slot_values[0] },
+    { "device_name",    &slot_values[1] },
+    { "direction",      &slot_values[2] },
+    { "length",         &slot_values[3] },
+    { "maximum",        &slot_values[4] },
+    { "minimum",        &slot_values[5] },
+    { "signal_name",    &slot_values[6] },
+    { "type",           &slot_values[7] },
 };
 
-static mapper_string_table_t slot_table = { slot_strings, 7, 7 };
+static mapper_string_table_t slot_table = { slot_strings, 8, 8 };
 
 static property_table_value_t con_values[] = {
     { 'i', {0}, -1,         CON_OFFSET(bound_max) },
@@ -1934,6 +1936,22 @@ static int update_connection_record_params(mapper_db db,
                 }
                 else
                     updated += result;
+            }
+        }
+    }
+
+    mapper_msg_get_param(params, AT_CAUSE_UPDATE, &types, &length);
+    if (args && types) {
+        if (length == con->num_sources) {
+            for (i = 0; i < con->num_sources; i++) {
+                if (types[i] == 'T' && !con->sources[i].cause_update) {
+                    con->sources[i].cause_update = 1;
+                    updated++;
+                }
+                else if (types[i] == 'F' && con->sources[i].cause_update) {
+                    con->sources[i].cause_update = 0;
+                    updated++;
+                }
             }
         }
     }

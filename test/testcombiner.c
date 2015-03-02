@@ -121,10 +121,14 @@ int setup_connection()
     msig_full_name(recvsig, dest_name, 512);
     const char *all_sources[2] = {src1_name, src2_name};
 
+    mapper_db_connection_slot_t slots[2];
     mapper_db_connection_t props;
+    props.sources = slots;
     props.mode = MO_EXPRESSION;
-    props.expression = "y=x0+#x1";
-    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+    props.expression = "y=x0+x1";
+    props.sources[0].cause_update = 1;
+    props.sources[1].cause_update = 0;
+    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION | CONNECTION_CAUSE_UPDATE;
 
     mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props, flags);
     mmon_free(mon);
