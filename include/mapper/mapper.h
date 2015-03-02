@@ -1224,15 +1224,15 @@ int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
 
 /*! Bit flags for coordinating monitor metadata subscriptions. Subsets of
  *  device information must also include SUB_DEVICE. */
-#define SUB_NONE                    0x00
-#define SUB_DEVICE                  0x01
-#define SUB_DEVICE_INPUTS           0x02
-#define SUB_DEVICE_OUTPUTS          0x04
-#define SUB_DEVICE_SIGNALS          SUB_DEVICE_INPUTS | SUB_DEVICE_OUTPUTS
-#define SUB_DEVICE_CONNECTIONS_IN   0x10
-#define SUB_DEVICE_CONNECTIONS_OUT  0x20
-#define SUB_DEVICE_CONNECTIONS      SUB_DEVICE_CONNECTIONS_IN | SUB_DEVICE_CONNECTIONS_OUT
-#define SUB_DEVICE_ALL              0xFF
+#define SUBSCRIBE_NONE              0x00
+#define SUBSCRIBE_DEVICE            0x01
+#define SUBSCRIBE_DEVICE_INPUTS     0x02
+#define SUBSCRIBE_DEVICE_OUTPUTS    0x04
+#define SUBSCRIBE_DEVICE_SIGNALS    SUBSCRIBE_DEVICE_INPUTS | SUBSCRIBE_DEVICE_OUTPUTS
+#define SUBSCRIBE_CONNECTIONS_IN    0x10
+#define SUBSCRIBE_CONNECTIONS_OUT   0x20
+#define SUBSCRIBE_CONNECTIONS       SUBSCRIBE_CONNECTIONS_IN | SUBSCRIBE_CONNECTIONS_OUT
+#define SUBSCRIBE_ALL               0xFF
 
 /*! Create a network monitor.
  *  \param admin               A previously allocated admin to use.  If 0, an

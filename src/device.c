@@ -633,7 +633,8 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 
     if (md->registered) {
         // Notify subscribers
-        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+        mapper_admin_set_bundle_dest_subscribers(md->admin,
+                                                 SUBSCRIBE_DEVICE_INPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
     }
 
@@ -642,7 +643,8 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
 
 // Add an output signal to a mapper device.
 mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
-                              char type, const char *unit, void *minimum, void *maximum)
+                              char type, const char *unit,
+                              void *minimum, void *maximum)
 {
     if (mdev_get_signal_by_name(md, name, 0))
         return 0;
@@ -662,7 +664,8 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 
     if (md->registered) {
         // Notify subscribers
-        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+        mapper_admin_set_bundle_dest_subscribers(md->admin,
+                                                 SUBSCRIBE_DEVICE_OUTPUTS);
         mapper_admin_send_signal(md->admin, md, sig);
     }
 
@@ -815,7 +818,8 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
 
     if (md->registered) {
         // Notify subscribers
-        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_INPUTS);
+        mapper_admin_set_bundle_dest_subscribers(md->admin,
+                                                 SUBSCRIBE_DEVICE_INPUTS);
         mapper_admin_send_signal_removed(md->admin, md, sig);
     }
 
@@ -870,7 +874,8 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
 
     if (md->registered) {
         // Notify subscribers
-        mapper_admin_set_bundle_dest_subscribers(md->admin, SUB_DEVICE_OUTPUTS);
+        mapper_admin_set_bundle_dest_subscribers(md->admin,
+                                                 SUBSCRIBE_DEVICE_OUTPUTS);
         mapper_admin_send_signal_removed(md->admin, md, sig);
     }
 

@@ -153,7 +153,7 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (*iter).full_name() << std::endl;
     }
 
-    mapper::Monitor mon(SUB_DEVICE_ALL);
+    mapper::Monitor mon(SUBSCRIBE_ALL);
     mapper::Db::Connection c;
     c.set_mode(MO_EXPRESSION);
     c.set_expression("y=x[0:1]+123");

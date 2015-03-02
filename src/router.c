@@ -708,8 +708,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                         calloc(1, sizeof(struct _mapper_db_connection_slot)
                                * num_remote_signals));
 
-    c->is_admin = (num_remote_signals > 1) ^ (direction == DI_OUTGOING);
-
+    // is_admin property will be corrected later if necessary
+    c->is_admin = 1;
     c->props.id = direction == DI_INCOMING ? r->id_counter++ : -1;
 
     mapper_link link;
@@ -1044,14 +1044,58 @@ static int match_slot(mapper_device md, mapper_connection_slot slot,
     return 1;
 }
 
-mapper_connection mapper_router_find_connection_by_names(mapper_router router,
-                                                         mapper_signal dest_sig,
+// we are looking for a specific connection
+// protocol specifies connection by N src names and 1 dest name
+//  protocol may additionally specify sub-connections with id and slot
+
+mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
+                                                         mapper_signal local_src,
+                                                         int num_sources,
+                                                         const char **src_names,
+                                                         const char *dest_name)
+{
+    // find associated router_signal
+    mapper_router_signal rs = router->signals;
+    while (rs && rs->signal != local_src)
+        rs = rs->next;
+    if (!rs)
+        return NULL;
+
+    // find associated connection
+    int i, j;
+    for (i = 0; i < rs->num_outgoing_slots; i++) {
+        if (!rs->outgoing_slots[i])
+            continue;
+        mapper_connection_slot s = rs->outgoing_slots[i];
+        mapper_connection c = s->connection;
+
+        // check destination
+        if (match_slot(router->device, &c->destination, dest_name))
+            continue;
+        // check sources
+        int found = 1;
+        for (j = 0; j < c->props.num_sources; j++) {
+            if (c->sources[j].local == rs)
+                continue;
+            if (match_slot(router->device, &c->sources[j], src_names[j])) {
+                found = 0;
+                break;
+            }
+        }
+        if (found)
+            return c;
+    }
+    return 0;
+}
+
+mapper_connection mapper_router_find_incoming_connection(mapper_router router,
+                                                         mapper_signal local_dest,
                                                          int num_sources,
                                                          const char **src_names)
 {
     // find associated router_signal
     mapper_router_signal rs = router->signals;
-    while (rs && rs->signal != dest_sig)
+    while (rs && rs->signal != local_dest)
         rs = rs->next;
     if (!rs)
         return NULL;
@@ -1064,10 +1108,10 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router router,
         mapper_connection c = rs->incoming_connections[i];
 
         // check sources
-        int found = 0;
+        int found = 1;
         for (j = 0; j < num_sources; j++) {
-            if (match_slot(router->device, &c->sources[i], src_names[j])==0) {
-                found = 1;
+            if (match_slot(router->device, &c->sources[j], src_names[j])) {
+                found = 0;
                 break;
             }
         }
@@ -1077,11 +1121,12 @@ mapper_connection mapper_router_find_connection_by_names(mapper_router router,
     return 0;
 }
 
-mapper_connection mapper_router_find_connection_by_local_dest(
-    mapper_router router, mapper_signal signal, int id)
+mapper_connection mapper_router_find_incoming_connection_id(mapper_router router,
+                                                            mapper_signal local_dest,
+                                                            int id)
 {
     mapper_router_signal rs = router->signals;
-    while (rs && rs->signal != signal)
+    while (rs && rs->signal != local_dest)
         rs = rs->next;
     if (!rs)
         return 0;
@@ -1097,12 +1142,14 @@ mapper_connection mapper_router_find_connection_by_local_dest(
     return 0;
 }
 
-mapper_connection mapper_router_find_connection_by_remote_dest(
-    mapper_router router, mapper_signal source, const char *dest_name, int id)
+mapper_connection mapper_router_find_outgoing_connection_id(mapper_router router,
+                                                            mapper_signal local_src,
+                                                            const char *dest_name,
+                                                            int id)
 {
     int i;
     mapper_router_signal rs = router->signals;
-    while (rs && rs->signal != source)
+    while (rs && rs->signal != local_src)
         rs = rs->next;
     if (!rs)
         return 0;

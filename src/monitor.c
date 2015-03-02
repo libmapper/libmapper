@@ -152,25 +152,25 @@ static void monitor_subscribe_internal(mapper_monitor mon,
     monitor_set_bundle_dest(mon, device_name);
     lo_message m = lo_message_new();
     if (m) {
-        if (subscribe_flags & SUB_DEVICE_ALL)
+        if (subscribe_flags & SUBSCRIBE_ALL)
             lo_message_add_string(m, "all");
         else {
-            if (subscribe_flags & SUB_DEVICE)
+            if (subscribe_flags & SUBSCRIBE_DEVICE)
                 lo_message_add_string(m, "device");
-            if (subscribe_flags & SUB_DEVICE_SIGNALS)
+            if (subscribe_flags & SUBSCRIBE_DEVICE_SIGNALS)
                 lo_message_add_string(m, "signals");
             else {
-                if (subscribe_flags & SUB_DEVICE_INPUTS)
+                if (subscribe_flags & SUBSCRIBE_DEVICE_INPUTS)
                     lo_message_add_string(m, "inputs");
-                else if (subscribe_flags & SUB_DEVICE_OUTPUTS)
+                else if (subscribe_flags & SUBSCRIBE_DEVICE_OUTPUTS)
                     lo_message_add_string(m, "outputs");
             }
-            if (subscribe_flags & SUB_DEVICE_CONNECTIONS)
+            if (subscribe_flags & SUBSCRIBE_CONNECTIONS)
                 lo_message_add_string(m, "connections");
             else {
-                if (subscribe_flags & SUB_DEVICE_CONNECTIONS_IN)
+                if (subscribe_flags & SUBSCRIBE_CONNECTIONS_IN)
                     lo_message_add_string(m, "connections_in");
-                else if (subscribe_flags & SUB_DEVICE_CONNECTIONS_OUT)
+                else if (subscribe_flags & SUBSCRIBE_CONNECTIONS_OUT)
                     lo_message_add_string(m, "connections_out");
             }
         }

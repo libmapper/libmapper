@@ -280,19 +280,25 @@ int mapper_router_remove_connection(mapper_router router,
                                     mapper_connection connection);
 
 /*! Find a connection in a router by local signal and remote signal name. */
-mapper_connection mapper_router_find_connection_by_names(mapper_router router,
-                                                         mapper_signal signal,
+mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
+                                                         mapper_signal local_src,
+                                                         int num_sources,
+                                                         const char **src_names,
+                                                         const char *dest_name);
+
+mapper_connection mapper_router_find_incoming_connection(mapper_router router,
+                                                         mapper_signal local_dest,
                                                          int num_sources,
                                                          const char **src_names);
 
-mapper_connection mapper_router_find_connection_by_local_dest(mapper_router router,
-                                                              mapper_signal dest,
-                                                              int id);
+mapper_connection mapper_router_find_incoming_connection_id(mapper_router router,
+                                                            mapper_signal local_dest,
+                                                            int id);
 
-mapper_connection mapper_router_find_connection_by_remote_dest(mapper_router router,
-                                                               mapper_signal source,
-                                                               const char *dest,
-                                                               int id);
+mapper_connection mapper_router_find_outgoing_connection_id(mapper_router router,
+                                                            mapper_signal local_src,
+                                                            const char *dest_name,
+                                                            int id);
 
 mapper_connection_slot mapper_router_find_connection_slot(mapper_router router,
                                                           mapper_signal signal,
@@ -440,7 +446,7 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
 
 /*! Set a connection's properties based on message parameters. */
 int mapper_connection_set_from_message(mapper_connection connection,
-                                       mapper_message_t *msg);
+                                       mapper_message_t *msg, int override);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 

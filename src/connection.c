@@ -898,7 +898,9 @@ int mapper_connection_check_status(mapper_connection c)
     return c->status;
 }
 
-int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *msg)
+// if 'override' flag is not set, only remote properties can be set
+int mapper_connection_set_from_message(mapper_connection c,
+                                       mapper_message_t *msg, int override)
 {
     int updated = 0;
     /* First record any provided parameters. */
@@ -982,99 +984,102 @@ int mapper_connection_set_from_message(mapper_connection c, mapper_message_t *ms
         }
     }
 
-    /* Range information. */
-    updated += set_range(c, msg, slot);
-    if (c->is_admin && c->props.mode == MO_LINEAR) {
-        mapper_connection_set_mode_linear(c);
-    }
+    // TODO: handle range calibration coming from remote device
+    if (!c->is_admin || override) {
+        /* Range information. */
+        updated += set_range(c, msg, slot);
+        if (c->is_admin && c->props.mode == MO_LINEAR) {
+            mapper_connection_set_mode_linear(c);
+        }
 
-    /* Muting. */
-    int muting;
-    if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
-        && c->props.muted != muting) {
-        c->props.muted = muting;
-        updated++;
-    }
-
-    /* Calibrating. */
-    int calibrating;
-    if (!mapper_msg_get_param_if_int(msg, AT_CALIBRATING, &calibrating)
-        && c->props.calibrating != calibrating) {
-        c->props.calibrating = calibrating;
-        updated++;
-    }
-
-    /* Range boundary actions. */
-    int bound_min = mapper_msg_get_boundary_action(msg, AT_BOUND_MIN);
-    if (bound_min >= 0 && c->props.bound_min != bound_min) {
-        c->props.bound_min = bound_min;
-        updated++;
-    }
-
-    int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
-    if (bound_max >= 0 && c->props.bound_max != bound_max) {
-        c->props.bound_max = bound_max;
-        updated++;
-    }
-
-    /* Instances. */
-    int send_as_instance;
-    if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
-        && c->props.send_as_instance != send_as_instance) {
-        c->props.send_as_instance = send_as_instance;
-        updated++;
-    }
-
-    /* Expression. */
-    const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-    if (expr) {
-        if (!c->props.expression) {
-            c->props.expression = strdup(expr);
+        /* Muting. */
+        int muting;
+        if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
+            && c->props.muted != muting) {
+            c->props.muted = muting;
             updated++;
         }
-        else if (strcmp(c->props.expression, expr)) {
-            if (c->is_admin) {
-                if (c->props.mode == MO_EXPRESSION) {
-                    if (!replace_expression_string(c, expr))
-                        reallocate_connection_histories(c);
-                }
-            }
-            else {
-                if (c->props.expression)
-                    free(c->props.expression);
+
+        /* Calibrating. */
+        int calibrating;
+        if (!mapper_msg_get_param_if_int(msg, AT_CALIBRATING, &calibrating)
+            && c->props.calibrating != calibrating) {
+            c->props.calibrating = calibrating;
+            updated++;
+        }
+
+        /* Range boundary actions. */
+        int bound_min = mapper_msg_get_boundary_action(msg, AT_BOUND_MIN);
+        if (bound_min >= 0 && c->props.bound_min != bound_min) {
+            c->props.bound_min = bound_min;
+            updated++;
+        }
+
+        int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
+        if (bound_max >= 0 && c->props.bound_max != bound_max) {
+            c->props.bound_max = bound_max;
+            updated++;
+        }
+
+        /* Instances. */
+        int send_as_instance;
+        if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
+            && c->props.send_as_instance != send_as_instance) {
+            c->props.send_as_instance = send_as_instance;
+            updated++;
+        }
+
+        /* Expression. */
+        const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
+        if (expr) {
+            if (!c->props.expression) {
                 c->props.expression = strdup(expr);
+                updated++;
             }
+            else if (strcmp(c->props.expression, expr)) {
+                if (c->is_admin) {
+                    if (c->props.mode == MO_EXPRESSION) {
+                        if (!replace_expression_string(c, expr))
+                            reallocate_connection_histories(c);
+                    }
+                }
+                else {
+                    if (c->props.expression)
+                        free(c->props.expression);
+                    c->props.expression = strdup(expr);
+                }
+                updated++;
+            }
+        }
+
+        /* Scopes */
+        const char *types = 0;
+        int num_scopes;
+        lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_scopes);
+        if (num_scopes && types && (types[0] == 's' || types[0] == 'S'))
+            updated += mapper_db_connection_update_scope(&c->props.scope, a_scopes,
+                                                         num_scopes);
+
+        /* Extra properties. */
+        updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
+
+        /* Now set the mode type depending on the requested type and
+         * the known properties. */
+        int mode = mapper_msg_get_mode(msg);
+        if (mode < 0) {
+            if (c->props.mode)
+                return updated;
+            else {
+                mode = MO_UNDEFINED;
+            }
+        }
+        else if (mode == MO_RAW && c->is_admin) {
+            // ignore, this is a subconnection reporting in
+        }
+        else if (mode != c->props.mode) {
+            c->props.mode = mode;
             updated++;
         }
-    }
-
-    /* Scopes */
-    const char *types = 0;
-    int num_scopes;
-    lo_arg **a_scopes = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_scopes);
-    if (num_scopes && types && (types[0] == 's' || types[0] == 'S'))
-        updated += mapper_db_connection_update_scope(&c->props.scope, a_scopes,
-                                                     num_scopes);
-
-    /* Extra properties. */
-    updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
-
-    /* Now set the mode type depending on the requested type and
-     * the known properties. */
-    int mode = mapper_msg_get_mode(msg);
-    if (mode < 0) {
-        if (c->props.mode)
-            return updated;
-        else {
-            mode = MO_UNDEFINED;
-        }
-    }
-    else if (mode == MO_RAW && c->is_admin) {
-        // ignore, this is a subconnection reporting in
-    }
-    else if (mode != c->props.mode) {
-        c->props.mode = mode;
-        updated++;
     }
     if (c->status < MAPPER_READY) {
         // check if connection is now "ready"
