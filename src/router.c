@@ -689,14 +689,13 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
     mapper_router_signal rs = find_or_add_router_signal(r, sig);
 
-    mapper_connection c = (mapper_connection)
-        calloc(1, sizeof(struct _mapper_connection));
+    mapper_connection c = ((mapper_connection)
+                           calloc(1, sizeof(struct _mapper_connection)));
     c->router = r;
     c->status = 0;
 
     // TODO: configure number of instances available for each slot
-    c->num_var_instances = 1;
-    c->expr_vars = calloc(1, sizeof(mapper_history*));
+    c->num_var_instances = sig->props.num_instances;
 
     if (direction == DI_OUTGOING)
         num_remote_signals = 1;
@@ -810,6 +809,9 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
                 // also need to add connection to lists kept by source rs
                 router_signal_store_slot(rs2, &c->sources[i]);
+
+                if (local_signals[i]->props.num_instances > c->num_var_instances)
+                    c->num_var_instances = local_signals[i]->props.num_instances;
             }
             else {
                 ready = 0;

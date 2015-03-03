@@ -32,9 +32,10 @@ char typestring[3];
 mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
 
 // signal_history structures
-mapper_connection_t connection;
-mapper_connection_slot_t source_slots[3];
 mapper_history_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
+mapper_history inh_p[3] = {&inh[0], &inh[1], &inh[2]};
+char src_types[3];
+int src_lengths[3], num_sources;
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -117,33 +118,29 @@ void print_value(char *types, int length, const void *value, int position)
         printf("\b\b");
 }
 
-void setup_test_multisource(int num_sources, char *in_types, int *in_lengths,
+void setup_test_multisource(int _num_sources, char *in_types, int *in_lengths,
                             void **in_value, char out_type, int out_length,
                             void *out_value)
 {
+    num_sources = _num_sources;
     int i;
-    connection.props.num_sources = num_sources;
-    connection.sources = source_slots;
-
-    for (i = 0; i < num_sources; i++) {
-        source_slots[i].history = &inh[i];
-        source_slots[i].history->type = in_types[i];
-        source_slots[i].history->size = 3;
-        source_slots[i].history->length = in_lengths[i];
-        source_slots[i].history->value = in_value[i];
-        source_slots[i].history->position = 0;
-        source_slots[i].history->timetag = &tt_in;
+    for (i = 0; i < _num_sources; i++) {
+        src_types[i] = in_types[i];
+        src_lengths[i] = in_lengths[i];
+        inh[i].type = in_types[i];
+        inh[i].size = 3;
+        inh[i].length = in_lengths[i];
+        inh[i].value = in_value[i];
+        inh[i].position = 0;
+        inh[i].timetag = &tt_in;
     }
 
-    connection.destination.history = &outh;
-    connection.destination.history->type = out_type;
-    connection.destination.history->size = 3;
-    connection.destination.history->length = out_length;
-    connection.destination.history->value = out_value;
-    connection.destination.history->position = -1;
-    connection.destination.history->timetag = &tt_out;
-
-    connection.expr_vars = &user_vars_p;
+    outh.type = out_type;
+    outh.size = 3;
+    outh.length = out_length;
+    outh.value = out_value;
+    outh.position = -1;
+    outh.timetag = &tt_out;
 }
 
 void setup_test(char in_type, int in_length, void *in_value,
@@ -168,11 +165,13 @@ int parse_and_eval(int expectation)
 
     eprintf("**********************************\n");
     eprintf("Parsing string '%s'\n", str);
-    if (!(e = mapper_expr_new_from_string(str, &connection))) {
+    if (!(e = mapper_expr_new_from_string(str, num_sources,
+                                          src_types, src_lengths,
+                                          outh.type, outh.length))) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
-    for (i = 0; i < connection.props.num_sources; i++) {
+    for (i = 0; i < num_sources; i++) {
         inh[i].size = mapper_expr_input_history_size(e, i);
     }
     outh.size = mapper_expr_output_history_size(e);
@@ -201,7 +200,7 @@ int parse_and_eval(int expectation)
     token_count += e->length;
 
     eprintf("Try evaluation once... ");
-    if (!mapper_expr_evaluate(e, &connection, 0, &tt_in, &outh, typestring)) {
+    if (!mapper_expr_evaluate(e, inh_p, &user_vars_p, &outh, &tt_in, typestring)) {
         eprintf("FAILED.\n");
         goto fail;
     }
@@ -211,7 +210,7 @@ int parse_and_eval(int expectation)
     eprintf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
-        mapper_expr_evaluate(e, &connection, 0, &tt_in, &outh, typestring);
+        mapper_expr_evaluate(e, inh_p, &user_vars_p, &outh, &tt_in, typestring);
     }
     now = get_current_time();
     eprintf("%g seconds.\n", now-then);

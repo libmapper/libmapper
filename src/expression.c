@@ -1088,7 +1088,7 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
     h.length = 1;
     h.size = 1;
 
-    if (!mapper_expr_evaluate(&e, 0, 0, 0, &h, 0))
+    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0, 0))
         return 0;
 
     switch (stack[length-1].datatype) {
@@ -1418,10 +1418,14 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
 }
 
 /*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack. */
-mapper_expr mapper_expr_new_from_string(const char *str,
-                                        mapper_connection connection)
+mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
+                                        const char *input_types,
+                                        const int *input_vector_lengths,
+                                        char output_type,
+                                        int output_vector_length)
 {
-    if (!str || !connection) return 0;
+    if (!str || !num_inputs || !input_types || !input_vector_lengths)
+        return 0;
 
     mapper_token_t outstack[STACK_SIZE];
     mapper_token_t opstack[STACK_SIZE];
@@ -1477,17 +1481,17 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                 // set datatype
                 if (tok.var >= VAR_X) {
                     int slot = tok.var-VAR_X;
-                    if (slot >= connection->props.num_sources)
+                    if (slot >= num_inputs)
                         {FAIL("Input slot index exceeds number of connection sources.");}
-                    tok.datatype = connection->sources[slot].history->type;
-                    tok.vector_length = connection->sources[slot].history->length;
+                    tok.datatype = input_types[slot];
+                    tok.vector_length = input_vector_lengths[slot];
                     input_vector_length = tok.vector_length;
                     tok.vector_length_locked = 1;
                     constant_output = 0;
                 }
                 else if (tok.var == VAR_Y) {
-                    tok.datatype = connection->destination.history->type;
-                    tok.vector_length = connection->destination.history->length;
+                    tok.datatype = output_type;
+                    tok.vector_length = output_vector_length;
                     tok.vector_length_locked = 1;
                 }
                 else {
@@ -1682,7 +1686,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                     if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                         {FAIL("Non-integer vector index.");}
                     if (outstack[outstack_index].var == VAR_Y) {
-                        if (tok.i >= connection->destination.history->length)
+                        if (tok.i >= output_vector_length)
                             {FAIL("Index exceeds output vector length.");}
                     }
                     else if (tok.i >= input_vector_length)
@@ -1697,7 +1701,7 @@ mapper_expr mapper_expr_new_from_string(const char *str,
                         if (tok.toktype != TOK_CONST || tok.datatype != 'i')
                             {FAIL("Malformed vector index.");}
                         if (outstack[outstack_index].var == VAR_Y) {
-                            if (tok.i >= connection->destination.history->length)
+                            if (tok.i >= output_vector_length)
                                 {FAIL("Index exceeds output vector length.");}
                         }
                         else if (tok.i >= input_vector_length)
@@ -2036,9 +2040,25 @@ static void print_stack_vector(mapper_value_t *stack, char type,
 }
 #endif
 
-int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
-                         mapper_timetag_t *tt, mapper_history result,
-                         char *typestring)
+#if TRACING
+static const char *type_name(const char type)
+{
+    switch (type) {
+        case 'd':
+            return "double";
+        case 'f':
+            return "float";
+        case 'i':
+            return "int";
+        default:
+            return 0;
+    }
+}
+#endif
+
+int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
+                         mapper_history *expr_vars, mapper_history output,
+                         mapper_timetag_t *tt, char *typestring)
 {
     if (!expr) {
 #if TRACING
@@ -2054,10 +2074,10 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
 
     // init typestring
     if (typestring)
-        memset(typestring, 'N', result->length);
+        memset(typestring, 'N', output->length);
 
     /* Increment index position of output data structure. */
-    result->position = (result->position + 1) % result->size;
+    output->position = (output->position + 1) % output->size;
 
     while (count < expr->length && tok->toktype != TOK_END) {
         switch (tok->toktype) {
@@ -2087,64 +2107,93 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
             break;
         case TOK_VAR: {
             int idx;
-#if TRACING
-            printf("loading variable '%c' (slot %d)\n",
-                   tok->var >= VAR_X ? 'x' : 'y', tok->var-VAR_X);
-#endif
             if (tok->var == VAR_Y) {
+#if TRACING
+                printf("loading variable y{%d}[%d]\n", tok->history_index,
+                       tok->vector_index);
+#endif
                 ++top;
                 dims[top] = tok->vector_length;
-                idx = ((tok->history_index + result->position
-                        + result->size) % result->size);
-                if (result->type == 'd') {
-                    double *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].d = v[i+tok->vector_index];
-                }
-                else if (result->type == 'f') {
-                    float *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].f = v[i+tok->vector_index];
-                }
-                else if (result->type == 'i') {
-                    int *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].i32 = v[i+tok->vector_index];
+                idx = ((tok->history_index + output->position
+                        + output->size) % output->size);
+                switch (output->type) {
+                    case 'd': {
+                        double *v = (output->value + idx * output->length
+                                     * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = v[i+tok->vector_index];
+                        break;
+                    }
+                    case 'f': {
+                        float *v = (output->value + idx * output->length
+                                    * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = v[i+tok->vector_index];
+                        break;
+                    }
+                    case 'i': {
+                        int *v = (output->value + idx * output->length
+                                  * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = v[i+tok->vector_index];
+                        break;
+                    }
+                    default:
+                        goto error;
                 }
             }
             else if (tok->var >= VAR_X) {
+#if TRACING
+                printf("loading variable x{%d}[%d]\n", tok->history_index,
+                       tok->vector_index);
+#endif
                 ++top;
                 dims[top] = tok->vector_length;
-                mapper_history h = &c->sources[tok->var-VAR_X].history[instance];
+                mapper_history h = input[tok->var-VAR_X];
                 idx = ((tok->history_index + h->position + h->size) % h->size);
-                if (h->type == 'd') {
-                    double *v = h->value + idx * h->length * mapper_type_size(h->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].d = v[i+tok->vector_index];
-                }
-                else if (h->type == 'f') {
-                    float *v = h->value + idx * h->length * mapper_type_size(h->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].f = v[i+tok->vector_index];
-                }
-                else if (h->type == 'i') {
-                    int *v = h->value + idx * h->length * mapper_type_size(h->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].i32 = v[i+tok->vector_index];
+                switch (h->type) {
+                    case 'd': {
+                        double *v = (h->value + idx * h->length
+                                     * mapper_type_size(h->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].d = v[i+tok->vector_index];
+                        break;
+                    }
+                    case 'f': {
+                        float *v = (h->value + idx * h->length
+                                    * mapper_type_size(h->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].f = v[i+tok->vector_index];
+                        break;
+                    }
+                    case 'i': {
+                        int *v = (h->value + idx * h->length
+                                  * mapper_type_size(h->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            stack[top][i].i32 = v[i+tok->vector_index];
+                        break;
+                    }
+                    default:
+                        goto error;
                 }
             }
-            else {
+            else if (expr_vars) {
+#if TRACING
+                printf("loading user variable %d\n", tok->var);
+#endif
                 // TODO: allow other data types?
                 ++top;
                 dims[top] = tok->vector_length;
                 mapper_variable var = &expr->variables[tok->var];
-                mapper_history h = *c->expr_vars + (tok->var);
+                mapper_history h = *expr_vars + (tok->var);
                 idx = ((tok->history_index + h->position
                         + var->history_size) % var->history_size);
                 double *v = h->value + idx * var->vector_length * mapper_type_size(var->datatype);
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].d = v[i+tok->vector_index];
             }
+            else
+                goto error;
             break;
         }
         case TOK_OP:
@@ -2650,26 +2699,36 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
 #endif
             updated++;
             if (tok->var == VAR_Y) {
-                int idx = (tok->history_index + result->position + result->size);
+                int idx = (tok->history_index + output->position + output->size);
                 if (idx < 0)
-                    idx = result->size - idx;
+                    idx = output->size - idx;
                 else
-                    idx %= result->size;
+                    idx %= output->size;
 
-                if (result->type == 'f') {
-                    float *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].f;
-                }
-                else if (result->type == 'i') {
-                    int *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].i32;
-                }
-                else if (result->type == 'd') {
-                    double *v = result->value + idx * result->length * mapper_type_size(result->type);
-                    for (i = 0; i < tok->vector_length; i++)
-                        v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].d;
+                switch (output->type) {
+                    case 'd': {
+                        double *v = (output->value + idx * output->length
+                                     * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].d;
+                        break;
+                    }
+                    case 'f': {
+                        float *v = (output->value + idx * output->length
+                                    * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].f;
+                        break;
+                    }
+                    case 'i': {
+                        int *v = (output->value + idx * output->length
+                                  * mapper_type_size(output->type));
+                        for (i = 0; i < tok->vector_length; i++)
+                            v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].i32;
+                        break;
+                    }
+                    default:
+                        goto error;
                 }
 
                 if (typestring) {
@@ -2679,10 +2738,11 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
                 }
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
-                if (!c)
+                if (!expr_vars)
                     goto error;
                 // passed the address of an array of mapper_signal_history structs
-                mapper_history h = *c->expr_vars + tok->var;
+                mapper_history h = *expr_vars + tok->var;
+
                 // increment position
                 h->position = (h->position + 1) % h->size;
 
@@ -2715,44 +2775,49 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
         }
         if (tok->casttype) {
 #if TRACING
-            printf("casting from %c to %c\n", tok->datatype, tok->casttype);
+            printf("casting from %s to %s\n", type_name(tok->datatype),
+                   type_name(tok->casttype));
 #endif
             // need to cast to a different type
-            if (tok->datatype == 'i') {
-                if (tok->casttype == 'f') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].f = (float)stack[top][i].i32;
+            switch (tok->datatype) {
+                case 'd':
+                    if (tok->casttype == 'i') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].i32 = (int)stack[top][i].d;
+                        }
                     }
-                }
-                else if (tok->casttype == 'd') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].d = (double)stack[top][i].i32;
+                    else if (tok->casttype == 'f') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].f = (float)stack[top][i].d;
+                        }
                     }
-                }
-            }
-            else if (tok->datatype == 'f') {
-                if (tok->casttype == 'i') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].i32 = (int)stack[top][i].f;
+                    break;
+                case 'f':
+                    if (tok->casttype == 'i') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].i32 = (int)stack[top][i].f;
+                        }
                     }
-                }
-                else if (tok->casttype == 'd') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].d = (double)stack[top][i].f;
+                    else if (tok->casttype == 'd') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].d = (double)stack[top][i].f;
+                        }
                     }
-                }
-            }
-            else if (tok->datatype == 'd') {
-                if (tok->casttype == 'i') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].i32 = (int)stack[top][i].d;
+                    break;
+                case 'i':
+                    if (tok->casttype == 'f') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].f = (float)stack[top][i].i32;
+                        }
                     }
-                }
-                else if (tok->casttype == 'f') {
-                    for (i = 0; i < tok->vector_length; i++) {
-                        stack[top][i].f = (float)stack[top][i].d;
+                    else if (tok->casttype == 'd') {
+                        for (i = 0; i < tok->vector_length; i++) {
+                            stack[top][i].d = (double)stack[top][i].i32;
+                        }
                     }
-                }
+                    break;
+                default:
+                    goto error;
             }
         }
         tok++;
@@ -2764,36 +2829,43 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_connection c, int instance,
          * so we need to copy to output here. */
 
         /* Increment index position of output data structure. */
-        result->position = (result->position + 1) % result->size;
+        output->position = (output->position + 1) % output->size;
 
-        if (result->type == 'f') {
-            float *v = mapper_history_value_ptr(*result);
-            for (i = 0; i < result->length; i++)
-                v[i] = stack[top][i].f;
-        }
-        else if (result->type == 'i') {
-            int *v = mapper_history_value_ptr(*result);
-            for (i = 0; i < result->length; i++)
-                v[i] = stack[top][i].i32;
-        }
-        else if (result->type == 'd') {
-            double *v = mapper_history_value_ptr(*result);
-            for (i = 0; i < result->length; i++)
-                v[i] = stack[top][i].d;
+        switch (output->type) {
+            case 'd': {
+                double *v = mapper_history_value_ptr(*output);
+                for (i = 0; i < output->length; i++)
+                    v[i] = stack[top][i].d;
+                break;
+            }
+            case 'f': {
+                float *v = mapper_history_value_ptr(*output);
+                for (i = 0; i < output->length; i++)
+                    v[i] = stack[top][i].f;
+                break;
+            }
+            case 'i': {
+                int *v = mapper_history_value_ptr(*output);
+                for (i = 0; i < output->length; i++)
+                    v[i] = stack[top][i].i32;
+                break;
+            }
+            default:
+                goto error;
         }
         return 1;
     }
 
     /* Undo position increment if nothing was updated. */
     if (!updated) {
-        --result->position;
-        if (result->position < 0)
-            result->position = result->size - 1;
+        --output->position;
+        if (output->position < 0)
+            output->position = output->size - 1;
         return 0;
     }
     else if (tt) {
         // Also copy timetag from input
-        mapper_timetag_t *ttto = mapper_history_tt_ptr(*result);
+        mapper_timetag_t *ttto = mapper_history_tt_ptr(*output);
         memcpy(ttto, tt, sizeof(mapper_timetag_t));
     }
 

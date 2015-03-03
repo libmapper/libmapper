@@ -413,8 +413,11 @@ static int handler_signal(const char *path, const char *types,
             }
             if (s->props->cause_update) {
                 char typestring[c->destination.props->length];
-                if (mapper_expr_evaluate(c->expr, c, instance, &tt,
-                                         &c->destination.history[instance],
+                mapper_history sources[c->props.num_sources];
+                for (j = 0; j < c->props.num_sources; j++)
+                    sources[j] = &c->sources[j].history[instance];
+                if (mapper_expr_evaluate(c->expr, sources, &c->expr_vars[instance],
+                                         &c->destination.history[instance], &tt,
                                          typestring)) {
                     memcpy(si->value,
                            mapper_history_value_ptr(c->destination.history[instance]),

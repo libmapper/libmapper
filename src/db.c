@@ -1994,12 +1994,10 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
     int id;
     if (update_int_if_arg(&id, params, AT_ID)) {
         con = mapper_db_get_connection_by_dest_device_and_id(db, dest_name, id);
-        printf("find connection by id: %p\n", con);
     }
     else {
         con = mapper_db_get_connection_by_signal_full_names(db, num_sources,
                                                             src_names, dest_name);
-        printf("find connection by names: %p\n", con);
     }
 
     if (!con) {

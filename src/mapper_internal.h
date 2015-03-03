@@ -670,8 +670,11 @@ double propval_get_double(void *value, const char type, int index);
 
 /**** Expression parser/evaluator ****/
 
-mapper_expr mapper_expr_new_from_string(const char *str,
-                                        mapper_connection connection);
+mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
+                                        const char *input_types,
+                                        const int *input_vector_lengths,
+                                        char output_type,
+                                        int output_vector_length);
 
 int mapper_expr_input_history_size(mapper_expr expr, int index);
 
@@ -687,9 +690,9 @@ int mapper_expr_variable_vector_length(mapper_expr expr, int index);
 void printexpr(const char*, mapper_expr);
 #endif
 
-int mapper_expr_evaluate(mapper_expr expr, mapper_connection connection,
-                         int instance, mapper_timetag_t *tt,
-                         mapper_history result, char *typestring);
+int mapper_expr_evaluate(mapper_expr expr, mapper_history *sources,
+                         mapper_history *expr_vars, mapper_history result,
+                         mapper_timetag_t *tt, char *typestring);
 
 int mapper_expr_constant_output(mapper_expr expr);
 

@@ -176,9 +176,13 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
     }
 
     die_unless(c->expr!=0, "Missing expression.\n");
-    return (mapper_expr_evaluate(c->expr, c, instance,
+    mapper_history sources[c->props.num_sources];
+    for (i = 0; i < c->props.num_sources; i++)
+        sources[i] = &c->sources[i].history[instance];
+    return (mapper_expr_evaluate(c->expr,
+                                 sources, &c->expr_vars[instance], &to[instance],
                                  mapper_history_tt_ptr(from[instance]),
-                                 &to[instance], typestring));
+                                 typestring));
 }
 
 int mapper_boundary_perform(mapper_connection c, mapper_history history)
@@ -412,7 +416,18 @@ static int replace_expression_string(mapper_connection c,
     if (c->expr && c->props.expression && strcmp(c->props.expression, expr_str)==0)
         return 1;
 
-    mapper_expr expr = mapper_expr_new_from_string(expr_str, c);
+    int i;
+    char source_types[c->props.num_sources];
+    int source_lengths[c->props.num_sources];
+    for (i = 0; i < c->props.num_sources; i++) {
+        source_types[i] = c->props.sources[i].type;
+        source_lengths[i] = c->props.sources[i].length;
+    }
+    mapper_expr expr = mapper_expr_new_from_string(expr_str,
+                                                   c->props.num_sources,
+                                                   source_types, source_lengths,
+                                                   c->props.destination.type,
+                                                   c->props.destination.length);
 
     if (!expr)
         return 1;
@@ -888,6 +903,10 @@ int mapper_connection_check_status(mapper_connection c)
         }
         if (!c->destination.local) {
             init_connection_history(&c->destination, &c->props.destination);
+        }
+        if (!c->expr_vars) {
+            c->expr_vars = calloc(1, sizeof(mapper_history)
+                                  * c->num_var_instances);
         }
         if (c->is_admin) {
             apply_mode(c);
