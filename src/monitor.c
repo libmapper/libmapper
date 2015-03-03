@@ -302,9 +302,8 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
-    props->num_sources = num_sources;
-
     if (props && flags) {
+        props->num_sources = num_sources;
         prep_varargs(m,
                      (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
                       props->bound_min,
