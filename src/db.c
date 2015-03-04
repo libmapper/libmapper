@@ -1719,6 +1719,16 @@ int mapper_db_connection_update_scope(mapper_connection_scope scope,
     return updated;
 }
 
+static int compare_slot_names(const void *l, const void *r)
+{
+    int result = strcmp(((mapper_db_connection_slot)l)->device_name,
+                        ((mapper_db_connection_slot)r)->device_name);
+    if (result == 0)
+        return strcmp(((mapper_db_connection_slot)l)->signal_name,
+                      ((mapper_db_connection_slot)r)->signal_name);
+    return result;
+}
+
 /*! Update information about a given connection record based on
  *  message parameters. */
 static int update_connection_record_params(mapper_db db,
@@ -1771,7 +1781,10 @@ static int update_connection_record_params(mapper_db db,
             con->sources[i].device_name = con->sources[i].device->name;
             con->sources[i].signal->is_output = 1;
             con->sources[i].slot_id = slot;
-            i = slot;
+
+            // slots should be in alphabetical order
+            qsort(con->sources, con->num_sources,
+                  sizeof(mapper_db_connection_slot_t), compare_slot_names);
         }
         slot = i;
     }
@@ -1992,7 +2005,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
     /* connection could be part of larger "convergent" connection, so we will
      * retrieve record by connection id instead of names. */
     int id;
-    if (update_int_if_arg(&id, params, AT_ID)) {
+    if (!mapper_msg_get_param_if_int(params, AT_ID, &id)) {
         con = mapper_db_get_connection_by_dest_device_and_id(db, dest_name, id);
     }
     else {
@@ -2168,9 +2181,9 @@ mapper_db_connection mapper_db_get_connection_by_dest_device_and_id(
     int devnamelen = signame ? signame - device_name : strlen(device_name);
 
     while (con) {
-        if (strlen(con->destination.device->name) == devnamelen
-            && strncmp(con->destination.device->name, device_name, devnamelen)==0
-            && con->id == id)
+        if (con->id == id
+            && strlen(con->destination.device->name) == devnamelen
+            && strncmp(con->destination.device->name, device_name, devnamelen)==0)
             return con;
         con = list_get_next(con);
     }

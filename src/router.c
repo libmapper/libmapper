@@ -1046,10 +1046,6 @@ static int match_slot(mapper_device md, mapper_connection_slot slot,
     return 1;
 }
 
-// we are looking for a specific connection
-// protocol specifies connection by N src names and 1 dest name
-//  protocol may additionally specify sub-connections with id and slot
-
 mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
                                                          mapper_signal local_src,
                                                          int num_sources,
@@ -1061,7 +1057,7 @@ mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
     while (rs && rs->signal != local_src)
         rs = rs->next;
     if (!rs)
-        return NULL;
+        return 0;
 
     // find associated connection
     int i, j;
@@ -1100,7 +1096,7 @@ mapper_connection mapper_router_find_incoming_connection(mapper_router router,
     while (rs && rs->signal != local_dest)
         rs = rs->next;
     if (!rs)
-        return NULL;
+        return 0;
 
     // find associated connection
     int i, j;

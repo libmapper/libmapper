@@ -1,4 +1,4 @@
-
+#include <ctype.h>
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
@@ -408,10 +408,41 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
     return m;
 }
 
+static char *fix_expression_source_order(int num, int *order,
+                                         const char *expr_str)
+{
+    int i, li = 0, ri = 0;
+
+    char expr_temp[256];
+    while (li < 255 && expr_str[ri]) {
+        if (expr_str[ri] == 'x' && isdigit(expr_str[ri+1])) {
+            expr_temp[li++] = 'x';
+            ri++;
+            int index = atoi(expr_str+ri);
+            if (index >= num)
+                return 0;
+            while (isdigit(expr_str[ri]))
+                ri++;
+            for (i = 0; i < 3; i++) {
+                if (order[i] == index) {
+                    snprintf(expr_temp+li, 256-li, "%d", i);
+                    li += strlen(expr_temp+li);
+                }
+            }
+        }
+        else {
+            expr_temp[li] = expr_str[ri];
+            ri++;
+            li++;
+        }
+        expr_temp[li] = 0;
+    }
+    return strdup(expr_temp);
+}
+
 /* Helper to replace a connection's expression only if the given string
  * parses successfully. Returns 0 on success, non-zero on error. */
-static int replace_expression_string(mapper_connection c,
-                                     const char *expr_str)
+static int replace_expression_string(mapper_connection c, const char *expr_str)
 {
     if (c->expr && c->props.expression && strcmp(c->props.expression, expr_str)==0)
         return 1;
@@ -919,7 +950,8 @@ int mapper_connection_check_status(mapper_connection c)
 
 // if 'override' flag is not set, only remote properties can be set
 int mapper_connection_set_from_message(mapper_connection c,
-                                       mapper_message_t *msg, int override)
+                                       mapper_message_t *msg,
+                                       int *order, int override)
 {
     int updated = 0;
     /* First record any provided parameters. */
@@ -1051,23 +1083,29 @@ int mapper_connection_set_from_message(mapper_connection c,
         /* Expression. */
         const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
         if (expr) {
-            if (!c->props.expression) {
-                c->props.expression = strdup(expr);
-                updated++;
-            }
-            else if (strcmp(c->props.expression, expr)) {
-                if (c->is_admin) {
-                    if (c->props.mode == MO_EXPRESSION) {
-                        if (!replace_expression_string(c, expr))
-                            reallocate_connection_histories(c);
+            // expression may need to be modified to match ordered sources
+            char *new_expr = fix_expression_source_order(c->props.num_sources,
+                                                         order, expr);
+            if (new_expr) {
+                if (!c->props.expression) {
+                    c->props.expression = strdup(new_expr);
+                    updated++;
+                }
+                else if (strcmp(c->props.expression, new_expr)) {
+                    if (c->is_admin) {
+                        if (c->props.mode == MO_EXPRESSION) {
+                            if (!replace_expression_string(c, new_expr))
+                                reallocate_connection_histories(c);
+                        }
                     }
+                    else {
+                        if (c->props.expression)
+                            free(c->props.expression);
+                        c->props.expression = strdup(new_expr);
+                    }
+                    updated++;
                 }
-                else {
-                    if (c->props.expression)
-                        free(c->props.expression);
-                    c->props.expression = strdup(expr);
-                }
-                updated++;
+                free(new_expr);
             }
         }
 

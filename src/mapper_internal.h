@@ -446,7 +446,8 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
 
 /*! Set a connection's properties based on message parameters. */
 int mapper_connection_set_from_message(mapper_connection connection,
-                                       mapper_message_t *msg, int override);
+                                       mapper_message_t *msg,
+                                       int *order, int override);
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 

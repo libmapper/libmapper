@@ -65,6 +65,28 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
                 num, path, msg);
 }
 
+static int alphabetise_names(int num, lo_arg **names, int *order)
+{
+    if (!num || !names || !order)
+        return 1;
+    int i, j, result = 1;
+    for (i = 0; i < num; i++)
+        order[i] = i;
+    for (i = 1; i < num; i++) {
+        j = i-1;
+        while (j >= 0 && ((result = strcmp(&names[order[j]]->s,
+                                          &names[order[j+1]]->s)) > 0)) {
+            int temp = order[j];
+            order[j] = order[j+1];
+            order[j+1] = temp;
+            j--;
+        }
+        if (result == 0)
+            return 1;
+    }
+    return 0;
+}
+
 const char* admin_msg_strings[] =
 {
     "/combine",                 /* ADM_COMBINE */
@@ -1764,7 +1786,7 @@ static int handler_signal_connect(const char *path, const char *types,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal local_signal = 0;
-    int i, j, num_sources, src_index, dest_index, num_params, param_index;
+    int i, num_sources, src_index, dest_index, num_params, param_index;
 
     const char *local_signal_name = 0;
 
@@ -1798,21 +1820,15 @@ static int handler_signal_connect(const char *path, const char *types,
         return 0;
     }
 
-    /* Safety check: if num_sources > 1, check that signal names do not appear
-     * multiple times. */
-    if (num_sources > 1) {
-        for (i = 0; i < num_sources-1; i++) {
-            for (j = i+1; j < num_sources; j++) {
-                if (strcmp(&argv[i]->s, &argv[j]->s)==0) {
-                    trace("error in /connect: multiple use of source signal.\n");
-                }
-            }
-        }
+    // ensure names are in alphabetical order
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
+        return 0;
     }
-
     const char *src_names[num_sources];
     for (i = 0; i < num_sources; i++) {
-        src_names[i] = &argv[src_index+i]->s;
+        src_names[i] = &argv[src_index+order[i]]->s;
     }
     mapper_connection c;
     c = mapper_router_find_incoming_connection(md->router, local_signal,
@@ -1834,7 +1850,7 @@ static int handler_signal_connect(const char *path, const char *types,
     const char *src_signal_name;
     mapper_signal src_signals[num_sources];
     for (i = 0; i < num_sources; i++) {
-        if (prefix_cmp(&argv[i]->s, mdev_name(md), &src_signal_name)==0) {
+        if (prefix_cmp(src_names[i], mdev_name(md), &src_signal_name)==0) {
             // this source is a local signal
             src_signals[i] = mdev_get_signal_by_name(md, src_signal_name, 0);
         }
@@ -1853,7 +1869,7 @@ static int handler_signal_connect(const char *path, const char *types,
     params.values[AT_SRC_LENGTH] = 0;
     params.values[AT_DEST_TYPE] = 0;
     params.values[AT_DEST_LENGTH] = 0;
-    mapper_connection_set_from_message(c, &params, 1);
+    mapper_connection_set_from_message(c, &params, order, 1);
 
     if (c->status == MAPPER_READY) {
         // This connection only references local signals, advance to "connected"
@@ -1878,6 +1894,17 @@ static int handler_signal_connect(const char *path, const char *types,
         c->status = MAPPER_ACTIVE;
         // TODO: move num_connections_in/out prop to device instead of link
         return 0;
+    }
+    else {
+        for (i = 0; i < c->props.num_sources; i++) {
+            mapper_link link = c->sources[i].link;
+            if (link && link->admin_addr) {
+                mapper_admin_set_bundle_dest_mesh(admin, link->admin_addr);
+                mapper_admin_send_connection(admin, md, c,
+                                             c->props.num_sources > 1 ? i : -1,
+                                             -1, ADM_CONNECT_TO);
+            }
+        }
     }
 
     // TODO: check if all sources belong to same remote device, if so send together
@@ -1981,11 +2008,17 @@ static int handler_signal_connect_to(const char *path, const char *types,
                                                       id);
     }
 
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
+        return 0;
+    }
+
     if (!c) {
-        // organize source names
+        // ensure names are in alphabetical order
         const char *src_names[num_sources];
         for (i = 0; i < num_sources; i++) {
-            src_names[i] = &argv[i]->s;
+            src_names[i] = &argv[src_index+order[i]]->s;
         }
         if (src_index) {
             // organize source signals
@@ -2014,7 +2047,7 @@ static int handler_signal_connect_to(const char *path, const char *types,
      * defaults for new connections. */
 
     /* Set connection properties. */
-    mapper_connection_set_from_message(c, &params, 1);
+    mapper_connection_set_from_message(c, &params, order, 1);
 
     if (c->status == MAPPER_READY) {
         if (c->destination.props->direction == DI_OUTGOING) {
@@ -2055,15 +2088,17 @@ static int handler_signal_connected(const char *path, const char *types,
     if (!num_sources)
         return 0;
 
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
+        return 0;
+    }
+
     mapper_message_t params;
     num_params = mapper_msg_parse_params(&params, path, &types[param_index],
                             argc-param_index, &argv[param_index]);
 
     if (mon) {
-        const char *src_names[num_sources];
-        for (i = 0; i < num_sources; i++) {
-            src_names[i] = &argv[src_index+i]->s;
-        }
 #ifdef DEBUG
         printf("-- <monitor> got /connected");
         if (src_index)
@@ -2074,8 +2109,11 @@ static int handler_signal_connected(const char *path, const char *types,
             printf(" -> %s", &argv[dest_index]->s);
         printf("\n");
 #endif
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[src_index+order[i]]->s;
+        }
         mapper_db db = mmon_get_db(mon);
-
         mapper_db_add_or_update_connection_params(db, num_sources, src_names,
                                                   &argv[dest_index]->s, &params);
     }
@@ -2156,7 +2194,7 @@ static int handler_signal_connected(const char *path, const char *types,
     }
 
     // TODO: if this endpoint is connection admin, do not allow overwiting props
-    int updated = mapper_connection_set_from_message(c, &params, 0);
+    int updated = mapper_connection_set_from_message(c, &params, order, 0);
 
     if (c->status == MAPPER_READY) {
         // Inform remote peer(s)
@@ -2234,9 +2272,14 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     if (!num_sources)
         return 0;
 
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
+        return 0;
+    }
     const char *src_names[num_sources];
     for (i = 0; i < num_sources; i++) {
-        src_names[i] = &argv[src_index+i]->s;
+        src_names[i] = &argv[src_index+order[i]]->s;
     }
 
     // check if we are the destination
@@ -2254,7 +2297,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+            if (prefix_cmp(src_names[i], mdev_name(md),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
@@ -2297,7 +2340,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
     num_params = mapper_msg_parse_params(&params, path, &types[param_index],
                                          argc-param_index, &argv[param_index]);
 
-    int updated = mapper_connection_set_from_message(c, &params, 1);
+    int updated = mapper_connection_set_from_message(c, &params, order, 1);
 
     // TODO: check for self-connections, don't need to send updates
 
@@ -2367,9 +2410,14 @@ static int handler_signal_disconnect(const char *path, const char *types,
     if (!num_sources)
         return 0;
 
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
+        return 0;
+    }
     const char *src_names[num_sources];
     for (i = 0; i < num_sources; i++) {
-        src_names[i] = &argv[src_index+i]->s;
+        src_names[i] = &argv[src_index+order[i]]->s;
     }
 
     // check if we are the destination
@@ -2387,7 +2435,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+            if (prefix_cmp(src_names[i], mdev_name(md),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
@@ -2475,32 +2523,21 @@ static int handler_signal_disconnected(const char *path, const char *types,
     // TODO: devices should check if they are target, clean up old connections
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    int i = 1, num_sources = 1, dest_index = 1;
+    int i, num_sources, src_index, dest_index;
 
-    if (argc < 2)
+    num_sources = parse_signal_names(types, argv, argc, &src_index,
+                                     &dest_index, 0);
+    if (!num_sources)
         return 0;
 
-    if (types[0] != 's' && types[0] != 'S' && types[1] != 's'
-        && types[1] != 'S')
+    int order[num_sources];
+    if (alphabetise_names(num_sources, &argv[src_index], order)) {
+        trace("error in /connect: multiple use of source signal.");
         return 0;
-
-    while (i < argc && (types[i] == 's' || types[i] == 'S')) {
-        // old protocol: /connect src dest
-        // new protocol: /connect src1 src2 ... srcN -> dest
-        // if we find "->" before '@' or end of args, count inputs
-        if ((&argv[i]->s)[0] == '@')
-            break;
-        else if (strcmp(&argv[i]->s, "->") == 0) {
-            num_sources = i;
-            dest_index = i+1;
-            break;
-        }
-        i++;
     }
-
     const char *src_names[num_sources];
     for (i=0; i<num_sources; i++) {
-        src_names[i] = &argv[i]->s;
+        src_names[i] = &argv[src_index+order[i]]->s;
     }
     const char *dest_name = &argv[dest_index]->s;
 
