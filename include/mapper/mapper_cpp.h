@@ -96,8 +96,8 @@ namespace mapper {
         friend class Property;
         virtual void set(mapper::Property *p) = 0;
     public:
-        virtual void set(mapper::Property p) = 0;
-        virtual void remove(const string_type &name) = 0;
+        virtual AbstractProps& set(mapper::Property p) = 0;
+        virtual AbstractProps& remove(const string_type &name) = 0;
     };
 
     class Property
@@ -322,24 +322,24 @@ namespace mapper {
     protected:
         virtual void set(mapper::Property *p) = 0;
     public:
-        virtual void set(mapper::Property p) = 0;
+        virtual AbstractObjectProps& set(mapper::Property p) = 0;
         virtual Property get(const string_type &name) const = 0;
 
         Property operator [] (const string_type key)
             { return get(key); }
 
         template <typename T>
-        void set(const string_type &_name, T _value)
-            { set(Property(_name, _value)); }
+        AbstractObjectProps& set(const string_type &_name, T _value)
+            { set(Property(_name, _value)); return (*this); }
         template <typename T>
-        void set(const string_type &_name, T& _value, int _length)
-            { set(Property(_name, _value, _length)); }
+        AbstractObjectProps& set(const string_type &_name, T& _value, int _length)
+            { set(Property(_name, _value, _length)); return (*this); }
         template <typename T>
-        void set(const string_type &_name, std::vector<T> _value)
-            { set(Property(_name, _value)); }
+        AbstractObjectProps& set(const string_type &_name, std::vector<T> _value)
+            { set(Property(_name, _value)); return (*this); }
         template <typename T>
-        void set(const string_type &_name, char _type, T& _value, int _length)
-            { set(Property(_name, _type, _value, _length)); }
+        AbstractObjectProps& set(const string_type &_name, char _type, T& _value, int _length)
+            { set(Property(_name, _type, _value, _length)); return (*this); }
     };
 
     class AbstractSignalProps : public AbstractObjectProps
@@ -369,10 +369,10 @@ namespace mapper {
         operator mapper_db_signal() const
             { return props; }
         using AbstractObjectProps::set;
-        void set(mapper::Property p)
-            { set(&p); }
-        void remove(const string_type &name)
-            { if (signal) msig_remove_property(signal, name); }
+        AbstractSignalProps& set(mapper::Property p)
+            { set(&p); return (*this); }
+        AbstractSignalProps& remove(const string_type &name)
+            { if (signal) msig_remove_property(signal, name); return (*this); }
         Property get(const string_type &name) const
         {
             char type;
@@ -439,145 +439,184 @@ namespace mapper {
             { return signal; }
 
         // TODO: check if data type is correct in update!
-        void update(void *value, int count)
-            { msig_update(signal, value, count, MAPPER_NOW); }
-        void update(void *value, int count, Timetag tt)
-            { msig_update(signal, value, count, *tt); }
-        void update(int value)
-            { msig_update_int(signal, value); }
-        void update(float value)
-            { msig_update_float(signal, value); }
-        void update(double value)
-            { msig_update_double(signal, value); }
-        void update(int *value, int count=0)
+        Signal update(void *value, int count)
+            { msig_update(signal, value, count, MAPPER_NOW); return (*this); }
+        Signal update(void *value, int count, Timetag tt)
+            { msig_update(signal, value, count, *tt); return (*this); }
+        Signal update(int value)
+            { msig_update_int(signal, value); return (*this); }
+        Signal update(float value)
+            { msig_update_float(signal, value); return (*this); }
+        Signal update(double value)
+            { msig_update_double(signal, value); return (*this); }
+        Signal update(int *value, int count=0)
         {
             if (props->type == 'i')
                 msig_update(signal, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update(float *value, int count=0)
+        Signal update(float *value, int count=0)
         {
             if (props->type == 'f')
                 msig_update(signal, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update(double *value, int count=0)
+        Signal update(double *value, int count=0)
         {
             if (props->type == 'd')
                 msig_update(signal, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update(int *value, Timetag tt)
+        Signal update(int *value, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update(signal, value, 1, *tt);
+            return (*this);
         }
-        void update(float *value, Timetag tt)
+        Signal update(float *value, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update(signal, value, 1, *tt);
+            return (*this);
         }
-        void update(double *value, Timetag tt)
+        Signal update(double *value, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update(signal, value, 1, *tt);
+            return (*this);
         }
-        void update(int *value, int count, Timetag tt)
+        Signal update(int *value, int count, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update(signal, value, count, *tt);
+            return (*this);
         }
-        void update(float *value, int count, Timetag tt)
+        Signal update(float *value, int count, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update(signal, value, count, *tt);
+            return (*this);
         }
-        void update(double *value, int count, Timetag tt)
+        Signal update(double *value, int count, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update(signal, value, count, *tt);
+            return (*this);
         }
-        void update(std::vector <int> value)
+        Signal update(std::vector <int> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
+            return (*this);
         }
-        void update(std::vector <float> value)
+        Signal update(std::vector <float> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
+            return (*this);
         }
-        void update(std::vector <double> value)
+        Signal update(std::vector <double> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
+            return (*this);
         }
-        void update(std::vector <int> value, Timetag tt)
+        Signal update(std::vector <int> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
+            return (*this);
         }
-        void update(std::vector <float> value, Timetag tt)
+        Signal update(std::vector <float> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
+            return (*this);
         }
-        void update(std::vector <double> value, Timetag tt)
+        Signal update(std::vector <double> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, void *value, int count)
-            { msig_update_instance(signal, instance_id, value, count, MAPPER_NOW); }
-        void update_instance(int instance_id, void *value, int count, Timetag tt)
-            { msig_update_instance(signal, instance_id, value, count, *tt); }
-        void update_instance(int instance_id, int value)
-            { msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW); }
-        void update_instance(int instance_id, float value)
-            { msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW); }
-        void update_instance(int instance_id, double value)
-            { msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW); }
-        void update_instance(int instance_id, int *value, int count=0)
+        Signal update_instance(int instance_id, void *value, int count)
+        {
+            msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
+            return (*this);
+        }
+        Signal update_instance(int instance_id, void *value, int count, Timetag tt)
+        {
+            msig_update_instance(signal, instance_id, value, count, *tt);
+            return (*this);
+        }
+        Signal update_instance(int instance_id, int value)
+        {
+            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
+            return (*this);
+        }
+        Signal update_instance(int instance_id, float value)
+        {
+            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
+            return (*this);
+        }
+        Signal update_instance(int instance_id, double value)
+        {
+            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
+            return (*this);
+        }
+        Signal update_instance(int instance_id, int *value, int count=0)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update_instance(int instance_id, float *value, int count=0)
+        Signal update_instance(int instance_id, float *value, int count=0)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update_instance(int instance_id, double *value, int count=0)
+        Signal update_instance(int instance_id, double *value, int count=0)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
+            return (*this);
         }
-        void update_instance(int instance_id, int *value, Timetag tt)
+        Signal update_instance(int instance_id, int *value, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, float *value, Timetag tt)
+        Signal update_instance(int instance_id, float *value, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, double *value, Timetag tt)
+        Signal update_instance(int instance_id, double *value, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, int *value, int count, Timetag tt)
+        Signal update_instance(int instance_id, int *value, int count, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, count, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, float *value, int count, Timetag tt)
+        Signal update_instance(int instance_id, float *value, int count, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, count, *tt);
+            return (*this);
         }
-        void update_instance(int instance_id, double *value, int count, Timetag tt)
+        Signal update_instance(int instance_id, double *value, int count, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, count, *tt);
+            return (*this);
         }
         void *value() const
             { return msig_value(signal, 0); }
@@ -591,16 +630,22 @@ namespace mapper {
             { return msig_query_remotes(signal, MAPPER_NOW); }
         int query_remotes(Timetag tt) const
             { return msig_query_remotes(signal, *tt); }
-        void reserve_instances(int num)
-            { msig_reserve_instances(signal, num, 0, 0); }
-        void reserve_instances(int num, int *instance_ids, void **user_data)
-            { msig_reserve_instances(signal, num, instance_ids, user_data); }
-        void release_instance(int instance_id)
-            { msig_release_instance(signal, instance_id, MAPPER_NOW); }
-        void release_instance(int instance_id, Timetag tt)
-            { msig_release_instance(signal, instance_id, *tt); }
-        void remove_instance(int instance_id)
-            { msig_remove_instance(signal, instance_id); }
+        Signal reserve_instances(int num)
+            { msig_reserve_instances(signal, num, 0, 0); return (*this); }
+        Signal reserve_instances(int num, int *instance_ids, void **user_data)
+        {
+            msig_reserve_instances(signal, num, instance_ids, user_data);
+            return (*this);
+        }
+        Signal release_instance(int instance_id)
+        {
+            msig_release_instance(signal, instance_id, MAPPER_NOW);
+            return (*this);
+        }
+        Signal release_instance(int instance_id, Timetag tt)
+            { msig_release_instance(signal, instance_id, *tt); return (*this); }
+        Signal remove_instance(int instance_id)
+            { msig_remove_instance(signal, instance_id); return (*this); }
         int oldest_active_instance(int *instance_id)
             { return msig_get_oldest_active_instance(signal, instance_id); }
         int newest_active_instance(int *instance_id)
@@ -611,19 +656,28 @@ namespace mapper {
             { return msig_num_reserved_instances(signal); }
         int active_instance_id(int index) const
             { return msig_active_instance_id(signal, index); }
-        void set_instance_allocation_mode(mapper_instance_allocation_type mode)
-            { msig_set_instance_allocation_mode(signal, mode); }
+        Signal set_instance_allocation_mode(mapper_instance_allocation_type mode)
+            { msig_set_instance_allocation_mode(signal, mode); return (*this); }
         mapper_instance_allocation_type get_instance_allocation_mode() const
             { return msig_get_instance_allocation_mode(signal); }
-        void set_instance_event_callback(mapper_signal_instance_event_handler h,
+        Signal set_instance_event_callback(mapper_signal_instance_event_handler h,
                                          int flags, void *user_data)
-            { msig_set_instance_event_callback(signal, h, flags, user_data); }
-        void set_instance_data(int instance_id, void *user_data)
-            { msig_set_instance_data(signal, instance_id, user_data); }
+        {
+            msig_set_instance_event_callback(signal, h, flags, user_data);
+            return (*this);
+        }
+        Signal set_instance_data(int instance_id, void *user_data)
+        {
+            msig_set_instance_data(signal, instance_id, user_data);
+            return (*this);
+        }
         void *instance_data(int instance_id) const
             { return msig_get_instance_data(signal, instance_id); }
-        void set_callback(mapper_signal_update_handler *handler, void *user_data)
-            { msig_set_callback(signal, handler, user_data); }
+        Signal set_callback(mapper_signal_update_handler *handler, void *user_data)
+        {
+            msig_set_callback(signal, handler, user_data);
+            return (*this);
+        }
         int num_connections() const
             { return msig_num_connections(signal); }
         std::string full_name() const
@@ -632,21 +686,21 @@ namespace mapper {
             msig_full_name(signal, str, 64);
             return std::string(str);
         }
-        void set_minimum(void *value)
-            { msig_set_minimum(signal, value); }
-        void set_maximum(void *value)
-            { msig_set_maximum(signal, value); }
-        void set_rate(int rate)
-            { msig_set_rate(signal, rate); }
-        class Props : public AbstractSignalProps
+        Signal set_minimum(void *value)
+            { msig_set_minimum(signal, value); return (*this); }
+        Signal set_maximum(void *value)
+            { msig_set_maximum(signal, value); return (*this); }
+        Signal set_rate(int rate)
+            { msig_set_rate(signal, rate); return (*this); }
+        class Properties : public AbstractSignalProps
         {
         public:
-            Props(mapper_signal s) : AbstractSignalProps(s) {}
+            Properties(mapper_signal s) : AbstractSignalProps(s) {}
         };
-        Props properties() const
-            { return Props(signal); }
+        Properties properties() const
+            { return Properties(signal); }
         Property property(const string_type name)
-            { return Props(signal).get(name); }
+            { return Properties(signal).get(name); }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -686,7 +740,7 @@ namespace mapper {
             { device = dev; props = mdev_properties(device); }
         AbstractDeviceProps(mapper_db_device dev_db)
             { device = 0; props = dev_db; }
-        void set(mapper::Property* p)
+        void set(mapper::Property *p)
         {
             if (device)
                 mdev_set_property(device, p->name, p->type,
@@ -703,10 +757,10 @@ namespace mapper {
         operator mapper_db_device() const
             { return props; }
         using AbstractObjectProps::set;
-        void set(mapper::Property p)
-            { set(&p); }
-        void remove(const string_type &name)
-            { if (device) mdev_remove_property(device, name); }
+        AbstractDeviceProps& set(mapper::Property p)
+            { set(&p); return (*this); }
+        AbstractDeviceProps& remove(const string_type &name)
+            { if (device) mdev_remove_property(device, name); return (*this); }
         Property get(const string_type &name) const
         {
             char type;
@@ -782,28 +836,30 @@ namespace mapper {
                                          minimum, maximum, handler, user_data));
         }
         Signal add_output(const string_type &name, int length, char type,
-                          const string_type &unit, void *minimum, void *maximum)
+                          const string_type &unit, void *minimum=0, void *maximum=0)
         {
             return Signal(mdev_add_output(device, name, length, type, unit,
                                           minimum, maximum));
         }
-        void remove_input(Signal input)
-            { if (input) mdev_remove_input(device, input); }
-        void remove_input(const string_type &name)
+        Device& remove_input(Signal input)
+            { if (input) mdev_remove_input(device, input); return (*this); }
+        Device& remove_input(const string_type &name)
         {
-            if (!name)
-                return;
-            mapper_signal input = mdev_get_input_by_name(device, name, 0);
-            mdev_remove_input(device, input);
+            if (name) {
+                mapper_signal input = mdev_get_input_by_name(device, name, 0);
+                mdev_remove_input(device, input);
+            }
+            return (*this);
         }
-        void remove_output(Signal output)
-            { if (output) mdev_remove_output(device, output); }
-        void remove_output(const string_type &name)
+        Device& remove_output(Signal output)
+            { if (output) mdev_remove_output(device, output); return (*this); }
+        Device& remove_output(const string_type &name)
         {
-            if (!name)
-                return;
-            mapper_signal output = mdev_get_output_by_name(device, name, 0);
-            mdev_remove_output(device, output);
+            if (name) {
+                mapper_signal output = mdev_get_output_by_name(device, name, 0);
+                mdev_remove_output(device, output);
+            }
+            return (*this);
         }
         int num_inputs() const
             { return mdev_num_inputs(device); }
@@ -831,23 +887,23 @@ namespace mapper {
             { return Signal(mdev_get_output_by_name(device, name, index)); }
         Signal outputs(int index) const
             { return Signal(mdev_get_output_by_index(device, index)); }
-        class Props : public AbstractDeviceProps
+        class Properties : public AbstractDeviceProps
         {
         public:
-            Props(mapper_device d) : AbstractDeviceProps(d) {}
+            Properties(mapper_device d) : AbstractDeviceProps(d) {}
         };
-        Props properties() const
-            { return Props(device); }
+        Properties properties() const
+            { return Properties(device); }
         Property property(const string_type name)
-            { return Props(device).get(name); }
+            { return Properties(device).get(name); }
         int poll(int block_ms=0) const
             { return mdev_poll(device, block_ms); }
         int num_fds() const
             { return mdev_num_fds(device); }
         int fds(int *fds, int num) const
             { return mdev_get_fds(device, fds, num); }
-        void service_fd(int fd)
-            { mdev_service_fd(device, fd); }
+        Device& service_fd(int fd)
+            { mdev_service_fd(device, fd); return (*this); }
         bool ready() const
             { return mdev_ready(device); }
         std::string name() const
@@ -868,9 +924,12 @@ namespace mapper {
             { mdev_send_queue(device, *tt); }
 //        lo::Server get_lo_server()
 //            { return lo::Server(mdev_get_lo_server(device)); }
-        void set_connection_callback(mapper_device_connection_handler handler,
-                                     void *user_data)
-            { mdev_set_connection_callback(device, handler, user_data); }
+        Device& set_connection_callback(mapper_device_connection_handler handler,
+                                        void *user_data)
+        {
+            mdev_set_connection_callback(device, handler, user_data);
+            return (*this);
+        }
         Timetag now()
         {
             mapper_timetag_t tt;
@@ -891,20 +950,28 @@ namespace mapper {
         }
         ~Db()
         {}
-        void flush()
+        Db& flush()
         {
             mmon_flush_db(monitor, mmon_get_timeout(monitor), 0);
+            return (*this);
         }
-        void flush(int timeout_sec, int quiet=0)
-            { mmon_flush_db(monitor, timeout_sec, quiet); }
-
+        Db& flush(int timeout_sec, int quiet=0)
+        {
+            mmon_flush_db(monitor, timeout_sec, quiet);
+            return (*this);
+        }
         // db_devices
-        void add_device_callback(mapper_db_device_handler *handler,
-                                 void *user_data)
-            { mapper_db_add_device_callback(db, handler, user_data); }
-        void remove_device_callback(mapper_db_device_handler *handler,
+        Db& add_device_callback(mapper_db_device_handler *handler, void *user_data)
+        {
+            mapper_db_add_device_callback(db, handler, user_data);
+            return (*this);
+        }
+        Db& remove_device_callback(mapper_db_device_handler *handler,
                                     void *user_data)
-            { mapper_db_remove_device_callback(db, handler, user_data); }
+        {
+            mapper_db_remove_device_callback(db, handler, user_data);
+            return (*this);
+        }
 
         class Device : public AbstractDeviceProps
         {
@@ -925,12 +992,18 @@ namespace mapper {
         }
 
         // db_signals
-        void add_signal_callback(mapper_db_signal_handler *handler,
-                                 void *user_data)
-            { mapper_db_add_signal_callback(db, handler, user_data); }
-        void remove_signal_callback(mapper_db_signal_handler *handler,
-                                    void *user_data)
-            { mapper_db_remove_signal_callback(db, handler, user_data); }
+        Db& add_signal_callback(mapper_db_signal_handler *handler,
+                                void *user_data)
+        {
+            mapper_db_add_signal_callback(db, handler, user_data);
+            return (*this);
+        }
+        Db& remove_signal_callback(mapper_db_signal_handler *handler,
+                                   void *user_data)
+        {
+            mapper_db_remove_signal_callback(db, handler, user_data);
+            return (*this);
+        }
 
         class Signal : public AbstractSignalProps
         {
@@ -980,23 +1053,33 @@ namespace mapper {
         }
 
         // db connections
-        void add_connection_callback(mapper_db_connection_handler *handler,
-                                     void *user_data)
-            { mapper_db_add_connection_callback(db, handler, user_data); }
-        void remove_connection_callback(mapper_db_connection_handler *handler,
-                                        void *user_data)
-            { mapper_db_remove_connection_callback(db, handler, user_data); }
+        Db& add_connection_callback(mapper_db_connection_handler *handler,
+                                    void *user_data)
+        {
+            mapper_db_add_connection_callback(db, handler, user_data);
+            return (*this);
+        }
+        Db& remove_connection_callback(mapper_db_connection_handler *handler,
+                                       void *user_data)
+        {
+            mapper_db_remove_connection_callback(db, handler, user_data);
+            return (*this);
+        }
         class Connection : AbstractObjectProps
         {
         public:
             Connection(mapper_db_connection connection)
             {
                 props = connection;
-                _sources = new Slot[props->num_sources];
-                for (int i = 0; i < props->num_sources; i++) {
-                    _sources[i] = Slot(this, &props->sources[i], 1);
+                if (props) {
+                    _sources = new Slot[props->num_sources];
+                    for (int i = 0; i < props->num_sources; i++) {
+                        _sources[i] = Slot(this, &props->sources[i], 1);
+                    }
+                    _destination = Slot(this, &props->destination, 0);
                 }
-                _destination = Slot(this, &props->destination, 0);
+                else
+                    _sources = 0;
                 owned = 0;
             }
             Connection(int num_sources=1)
@@ -1028,18 +1111,26 @@ namespace mapper {
                 { return props; }
             int num_sources() const
                 { return props->num_sources; }
-            void set(Property p) {}
-            void remove(const string_type &name) {}
-            void set_mode(mapper_mode_type mode)
-                { props->mode = mode; props->flags |= CONNECTION_MODE; }
-            void set_bound_min(mapper_boundary_action bound_min)
-                { props->bound_min = bound_min; props->flags |= CONNECTION_BOUND_MIN; }
-            void set_bound_max(mapper_boundary_action bound_max)
-                { props->bound_max = bound_max; props->flags |= CONNECTION_BOUND_MAX; }
-            void set_expression(const string_type &expression)
+            Connection& set_mode(mapper_mode_type mode)
+            {
+                props->mode = mode; props->flags |= CONNECTION_MODE;
+                return (*this);
+            }
+            Connection& set_bound_min(mapper_boundary_action bound_min)
+            {
+                props->bound_min = bound_min; props->flags |= CONNECTION_BOUND_MIN;
+                return (*this);
+            }
+            Connection& set_bound_max(mapper_boundary_action bound_max)
+            {
+                props->bound_max = bound_max; props->flags |= CONNECTION_BOUND_MAX;
+                return (*this);
+            }
+            Connection& set_expression(const string_type &expression)
             {
                 props->expression = (char*)(const char*)expression;
                 props->flags |= CONNECTION_EXPRESSION;
+                return (*this);
             }
             Property get(const string_type &name) const
             {
@@ -1096,8 +1187,6 @@ namespace mapper {
             {
             public:
                 ~Slot() {}
-                void set(Property p) {}
-                void remove(const string_type &name) {}
                 Device device() const
                 {
                     return Device(props->device);
@@ -1106,23 +1195,25 @@ namespace mapper {
                 {
                     return Signal(props->signal);
                 }
-                void set_minimum(const Property &value)
+                Slot& set_minimum(const Property &value)
                 {
-                    if (!props)
-                        return;
-                    props->minimum = (void*)(const void*)value;
-                    props->type = value.type;
-                    props->length = value.length;
-                    props->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                    if (props) {
+                        props->minimum = (void*)(const void*)value;
+                        props->type = value.type;
+                        props->length = value.length;
+                        props->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                    }
+                    return (*this);
                 }
-                void set_maximum(const Property &value)
+                Slot& set_maximum(const Property &value)
                 {
-                    if (!props)
-                        return;
-                    props->maximum = (void*)(const void*)value;
-                    props->type = value.type;
-                    props->length = value.length;
-                    props->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                    if (props) {
+                        props->maximum = (void*)(const void*)value;
+                        props->type = value.type;
+                        props->length = value.length;
+                        props->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                    }
+                    return (*this);
                 }
                 Property get(const string_type &name) const
                 {
@@ -1151,8 +1242,10 @@ namespace mapper {
                 Slot()
                     { props = 0; parent = 0; flags = 0; }
                 operator mapper_db_connection_slot() const
-                { return props; }
+                    { return props; }
                 void set(mapper::Property *p) {}
+                Slot& set(mapper::Property p) { return (*this); }
+                Slot& remove(const string_type &name) { return (*this); }
                 int flags;
             private:
                 mapper_db_connection_slot props;
@@ -1166,6 +1259,8 @@ namespace mapper {
         protected:
             friend class Monitor;
             void set(mapper::Property *p) {}
+            Connection& set(Property p) { set(&p); return (*this); }
+            Connection& remove(const string_type &name) { return (*this); }
         private:
             mapper_db_connection props;
             Slot _destination;
@@ -1259,48 +1354,63 @@ namespace mapper {
             { if (monitor) mmon_free(monitor); }
         int poll(int block_ms=0)
             { return mmon_poll(monitor, block_ms); }
-        Db db() const
+        const Db db() const
             { return Db(monitor); }
-        void request_devices() const
-            { mmon_request_devices(monitor); }
-        void subscribe(const string_type &device_name, int flags, int timeout)
-            { mmon_subscribe(monitor, device_name, flags, timeout); }
-        void unsubscribe(const string_type &device_name)
-            { mmon_unsubscribe(monitor, device_name); }
-        void autosubscribe(int flags) const
-            { mmon_autosubscribe(monitor, flags); }
+        const Monitor& request_devices() const
+        {
+            mmon_request_devices(monitor);
+            return (*this);
+        }
+        const Monitor& subscribe(const string_type &device_name, int flags, int timeout)
+        {
+            mmon_subscribe(monitor, device_name, flags, timeout);
+            return (*this);
+        }
+        const Monitor& unsubscribe(const string_type &device_name)
+        {
+            mmon_unsubscribe(monitor, device_name);
+            return (*this);
+        }
+        const Monitor& autosubscribe(int flags) const
+        {
+            mmon_autosubscribe(monitor, flags);
+            return (*this);
+        }
         // TODO: handle connections with multiple inputs
         // array/vector of const char
         // array/vector of std::string
         // array/vector of mapper::Signal
         // array/vector of mapper::Db::Signal
-        void connect(const mapper::Signal &source, const mapper::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(const mapper::Signal &source, const mapper::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
             mmon_connect_signals_by_db_record(monitor, 1, &_src,
                                               (mapper_db_signal)dest.properties(),
                                               (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(const mapper::Db::Signal &source,
-                     const mapper::Db::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(const mapper::Db::Signal &source,
+                               const mapper::Db::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
             mmon_connect_signals_by_db_record(monitor, 1, &_src,
                                               (mapper_db_signal)dest,
                                               (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(const string_type &source, const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(const string_type &source, const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             const char *_src = source;
             mmon_connect_signals_by_name(monitor, 1, &_src, dest,
                                          (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(int num_sources,
-                     const mapper::Signal sources[], const mapper::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(int num_sources,
+                               const mapper::Signal sources[], const mapper::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
@@ -1308,11 +1418,12 @@ namespace mapper {
             mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
                                               (mapper_db_signal)dest.properties(),
                                               (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(int num_sources,
-                     const mapper::Db::Signal sources[],
-                     const mapper::Db::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(int num_sources,
+                               const mapper::Db::Signal sources[],
+                               const mapper::Db::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
@@ -1320,31 +1431,34 @@ namespace mapper {
             mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
                                               (mapper_db_signal)dest,
                                               (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(int num_sources,
-                     const char *sources[], const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(int num_sources,
+                               const char *sources[], const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i];
             mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
                                          (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(int num_sources,
-                     const std::string sources[], const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(int num_sources,
+                               const std::string sources[], const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i].c_str();
             mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
                                          (mapper_db_connection)props);
+            return (*this);
         }
         template <size_t num_sources>
-        void connect(std::array<const mapper::Signal, num_sources>& sources,
-                     const mapper::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::array<const mapper::Signal, num_sources>& sources,
+                               const mapper::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
@@ -1352,11 +1466,12 @@ namespace mapper {
             mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
                                               (mapper_db_signal)dest.properties(),
                                               (mapper_db_connection)props);
+            return (*this);
         }
         template <size_t num_sources>
-        void connect(std::array<const mapper::Db::Signal, num_sources>& sources,
-                     const mapper::Db::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::array<const mapper::Db::Signal, num_sources>& sources,
+                               const mapper::Db::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
@@ -1364,106 +1479,121 @@ namespace mapper {
             mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
                                               (mapper_db_signal)dest,
                                               (mapper_db_connection)props);
+            return (*this);
         }
         template <size_t num_sources>
-        void connect(std::array<const char*, num_sources>& sources,
-                     const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::array<const char*, num_sources>& sources,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i];
             mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
                                          (mapper_db_connection)props);
+            return (*this);
         }
         template <size_t num_sources>
-        void connect(std::array<std::string, num_sources>& sources,
-                     const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::array<std::string, num_sources>& sources,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i].c_str();
             mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
                                          (mapper_db_connection)props);
+            return (*this);
         }
-        void connect(std::vector<const mapper::Signal> sources,
-                     const mapper::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::vector<const mapper::Signal> sources,
+                               const mapper::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             connect(sources.size(), sources.data(), dest, props);
+            return (*this);
         }
-        void connect(std::vector<const mapper::Db::Signal> sources,
-                     const mapper::Db::Signal &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::vector<const mapper::Db::Signal> sources,
+                               const mapper::Db::Signal &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             connect(sources.size(), sources.data(), dest, props);
+            return (*this);
         }
-        void connect(std::vector<const char*>& sources,
-                     const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::vector<const char*>& sources,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             connect(sources.size(), sources.data(), dest, props);
+            return (*this);
         }
-        void connect(std::vector<std::string>& sources,
-                     const string_type &dest,
-                     const mapper::Db::Connection &props=0) const
+        const Monitor& connect(std::vector<std::string>& sources,
+                               const string_type &dest,
+                               const mapper::Db::Connection &props=0) const
         {
             connect(sources.size(), sources.data(), dest, props);
+            return (*this);
         }
-        void modify_connection(const mapper::Db::Connection &connection) const
+        const Monitor& modify_connection(const mapper::Db::Connection &connection) const
         {
             mmon_modify_connection(monitor, (mapper_db_connection)connection);
+            return (*this);
         }
-        void modify_connection(const string_type &source,
-                               const string_type &dest,
-                               const mapper::Db::Connection &props) const
+        const Monitor& modify_connection(const string_type &source,
+                                         const string_type &dest,
+                                         const mapper::Db::Connection &props) const
         {
             const char *_src = source;
             mmon_modify_connection_by_signal_names(monitor, 1, &_src, dest,
                                                    (mapper_db_connection)props);
+            return (*this);
         }
-        void modify_connection(const mapper::Signal &source,
-                               const mapper::Signal &dest,
-                               const mapper::Db::Connection &props) const
+        const Monitor& modify_connection(const mapper::Signal &source,
+                                         const mapper::Signal &dest,
+                                         const mapper::Db::Connection &props) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
             mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
                                                         (mapper_db_signal)dest.properties(),
                                                         (mapper_db_connection)props);
+            return (*this);
         }
-        void modify_connection(const mapper::AbstractSignalProps &source,
-                               const mapper::AbstractSignalProps &dest,
-                               const mapper::Db::Connection &props) const
+        const Monitor& modify_connection(const mapper::AbstractSignalProps &source,
+                                         const mapper::AbstractSignalProps &dest,
+                                         const mapper::Db::Connection &props) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
             mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
                                                         (mapper_db_signal)dest,
                                                         (mapper_db_connection)props);
+            return (*this);
         }
-        void disconnect(const mapper::Db::Connection &connection) const
+        const Monitor& disconnect(const mapper::Db::Connection &connection) const
         {
             mmon_remove_connection(monitor, (mapper_db_connection)connection);
+            return (*this);
         }
-        void disconnect(const string_type &source,
-                        const string_type &dest) const
+        const Monitor& disconnect(const string_type &source,
+                                  const string_type &dest) const
         {
             const char *_src = source;
             mmon_disconnect_signals_by_name(monitor, 1, &_src, dest);
+            return (*this);
         }
-        void disconnect(const mapper::Signal &source,
-                        const mapper::Signal &dest) const
+        const Monitor& disconnect(const mapper::Signal &source,
+                                  const mapper::Signal &dest) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
             mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
                                                  (mapper_db_signal)dest.properties());
+            return (*this);
         }
-        void disconnect(const mapper::Db::Signal &source,
-                        const mapper::Db::Signal &dest) const
+        const Monitor& disconnect(const mapper::Db::Signal &source,
+                                  const mapper::Db::Signal &dest) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
             mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
                                                  (mapper_db_signal)dest);
+            return (*this);
         }
     private:
         mapper_monitor monitor;

@@ -86,7 +86,8 @@ int main(int argc, char ** argv)
     std::cout << "  num_connections_out: " << dev.num_connections_out() << std::endl;
 
     // access properties through the db_device
-    dev.properties().get("name").print();
+    mapper::Device::Properties props = dev.properties();
+    props.get("name").print();
     std::cout << std::endl;
 
     int value[] = {1,2,3,4,5,6};
@@ -155,8 +156,7 @@ int main(int argc, char ** argv)
 
     mapper::Monitor mon(SUBSCRIBE_ALL);
     mapper::Db::Connection c;
-    c.set_mode(MO_EXPRESSION);
-    c.set_expression("y=x[0:1]+123");
+    c.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     c.source().set_minimum(mapper::Property(0, d, 3));
     mon.connect(dev.outputs("out2"), dev.inputs("in2"), c);
