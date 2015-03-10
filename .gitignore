@@ -36,6 +36,7 @@ examples/py_tk_gui/pwm.py
 examples/py_tk_gui/setup.py
 jni/Mapper/NativeLib.java
 jni/*.h
+jni/*.log
 jni/libmapper-0.jar
 libmapper-0.2.tar.gz
 libmapper-0.pc
