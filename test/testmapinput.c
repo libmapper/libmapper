@@ -120,12 +120,12 @@ void loop()
         // connect input to another input on same device
         msig_full_name(inputs[0], src_name, 1024);
         msig_full_name(inputs[1], dest_name, 1024);
-        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0, 0);
+        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0);
 
         // connect input to an input on another device
         msig_full_name(inputs[1], src_name, 1024);
         msig_full_name(inputs[2], dest_name, 1024);
-        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0, 0);
+        mmon_connect_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0);
 
         // wait until connection has been established
         while (!done && mdev_num_connections_out(devices[0]) < 2) {

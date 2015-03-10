@@ -113,10 +113,10 @@ int create_connections()
 
     mapper_db_signal src = &sendsig->props;
     mmon_connect_signals_by_db_record(mon, 1, &src,
-                                      &recvsig->props, 0, 0);
+                                      &recvsig->props, 0);
     src = &sendsig1->props;
     mmon_connect_signals_by_db_record(mon, 1, &src,
-                                      &recvsig1->props, 0, 0);
+                                      &recvsig1->props, 0);
 
     // wait until connection has been established
     while (!done && !mdev_num_connections_out(source)) {

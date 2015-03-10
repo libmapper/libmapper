@@ -286,8 +286,7 @@ static int bitmatch(unsigned int a, unsigned int b)
 void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
                                   const char **source_names,
                                   const char *dest_name,
-                                  mapper_db_connection_t *props,
-                                  unsigned int flags)
+                                  mapper_db_connection_t *props)
 {
     if (!mon || !num_sources || !source_names || !dest_name)
         return;
@@ -296,36 +295,40 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
     if (!m)
         return;
 
-    int i;
+    int i, src_extrema = 0;
     for (i = 0; i < num_sources; i++)
         lo_message_add_string(m, source_names[i]);
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
-    if (props && flags) {
+    if (props && props->flags) {
         props->num_sources = num_sources;
+        if (props->sources) {
+            for (i = 0; i < num_sources; i++)
+                src_extrema |= props->sources[i].flags;
+        }
         prep_varargs(m,
-                     (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
+                     (props->flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
                       props->bound_min,
-                     (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
+                     (props->flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
                       props->bound_max,
-                     bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
+                     bitmatch(src_extrema, CONNECTION_SLOT_MIN_KNOWN)
                       ? AT_SRC_MIN : -1, props,
-                     bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
+                     bitmatch(src_extrema, CONNECTION_SLOT_MAX_KNOWN)
                       ? AT_SRC_MAX : -1, props,
-                     bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
+                     bitmatch(props->destination.flags, CONNECTION_SLOT_MIN_KNOWN)
                       ? AT_DEST_MIN : -1, props,
-                     bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
+                     bitmatch(props->destination.flags, CONNECTION_SLOT_MAX_KNOWN)
                       ? AT_DEST_MAX : -1, props,
-                     (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
+                     (props->flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
                       props->expression,
-                     (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-                     (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-                     (flags & CONNECTION_SEND_AS_INSTANCE)
+                     (props->flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+                     (props->flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+                     (props->flags & CONNECTION_SEND_AS_INSTANCE)
                       ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
-                     (bitmatch(flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
+                     (bitmatch(props->flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
                       ? AT_SCOPE : -1, props->scope.names,
-                     (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
+                     (props->flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
     }
 
     // TODO: lookup device ip/ports, send directly?
@@ -340,8 +343,7 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
 void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
                                        mapper_db_signal_t **sources,
                                        mapper_db_signal_t *dest,
-                                       mapper_db_connection_t *props,
-                                       unsigned int flags)
+                                       mapper_db_connection_t *props)
 {
     if (!mon || !num_sources || !sources || !dest)
         return;
@@ -358,7 +360,7 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
-                                 props, flags);
+                                 props);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
@@ -367,46 +369,50 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
 void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
                                             const char **source_names,
                                             const char *dest_name,
-                                            mapper_db_connection_t *props,
-                                            unsigned int flags)
+                                            mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !source_names || !dest_name || !props || !flags)
+    if (!mon || !num_sources || !source_names
+        || !dest_name || !props)
         return;
 
     lo_message m = lo_message_new();
     if (!m)
         return;
 
-    int i;
+    int i, src_extrema = 0;
     for (i = 0; i < num_sources; i++)
         lo_message_add_string(m, source_names[i]);
     lo_message_add_string(m, "->");
     lo_message_add_string(m, dest_name);
 
     props->num_sources = num_sources;
+    if (props->sources) {
+        for (i = 0; i < num_sources; i++)
+            src_extrema |= props->sources[i].flags;
+    }
 
     prep_varargs(m,
-                 (flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
+                 (props->flags & CONNECTION_BOUND_MIN) ? AT_BOUND_MIN : -1,
                  props->bound_min,
-                 (flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
+                 (props->flags & CONNECTION_BOUND_MAX) ? AT_BOUND_MAX : -1,
                  props->bound_max,
-                 bitmatch(flags, CONNECTION_SRC_MIN_KNOWN)
+                 bitmatch(src_extrema, CONNECTION_SLOT_MIN_KNOWN)
                  ? AT_SRC_MIN : -1, props,
-                 bitmatch(flags, CONNECTION_SRC_MAX_KNOWN)
+                 bitmatch(src_extrema, CONNECTION_SLOT_MAX_KNOWN)
                  ? AT_SRC_MAX : -1, props,
-                 bitmatch(flags, CONNECTION_DEST_MIN_KNOWN)
+                 bitmatch(props->destination.flags, CONNECTION_SLOT_MIN_KNOWN)
                  ? AT_DEST_MIN : -1, props,
-                 bitmatch(flags, CONNECTION_DEST_MAX_KNOWN)
+                 bitmatch(props->destination.flags, CONNECTION_SLOT_MAX_KNOWN)
                  ? AT_DEST_MAX : -1, props,
-                 (flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
+                 (props->flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1,
                  props->expression,
-                 (flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-                 (flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-                 (flags & CONNECTION_SEND_AS_INSTANCE)
+                 (props->flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
+                 (props->flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
+                 (props->flags & CONNECTION_SEND_AS_INSTANCE)
                  ? AT_SEND_AS_INSTANCE : -1, props->send_as_instance,
-                 (bitmatch(flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
+                 (bitmatch(props->flags, CONNECTION_SCOPE_NAMES) && props->scope.size)
                  ? AT_SCOPE : -1, props->scope.names,
-                 (flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
+                 (props->flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
@@ -422,10 +428,9 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
                                                  int num_sources,
                                                  mapper_db_signal_t **sources,
                                                  mapper_db_signal_t *dest,
-                                                 mapper_db_connection_t *props,
-                                                 unsigned int flags)
+                                                 mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !sources || !dest || !props || !flags)
+    if (!mon || !num_sources || !sources || !dest || !props || !props->flags)
         return;
 
     const char *src_names[num_sources];
@@ -440,16 +445,15 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
 
     mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
-                                           dest_name, props, flags);
+                                           dest_name, props);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props,
-                            unsigned int flags)
+void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
 {
-    if (!mon || !props || !props->num_sources || !props->sources || !flags)
+    if (!mon || !props || !props->num_sources || !props->sources || !props->flags)
         return;
 
     const char *src_names[props->num_sources];
@@ -465,7 +469,7 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props,
              props->destination.signal_name);
 
     mmon_modify_connection_by_signal_names(mon, props->num_sources, src_names,
-                                           dest_name, props, flags);
+                                           dest_name, props);
 
     for (i = 0; i < props->num_sources; i++)
         free((char *)src_names[i]);

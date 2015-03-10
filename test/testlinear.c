@@ -112,15 +112,17 @@ int setup_connection()
     src_slot.maximum = &src_max;
     src_slot.length = 1;
     src_slot.type = 'f';
+    src_slot.flags = CONNECTION_SLOT_RANGE_KNOWN;
     props.destination.minimum = &dest_min;
     props.destination.maximum = &dest_max;
     props.destination.length = 1;
     props.destination.type = 'f';
+    props.destination.flags = CONNECTION_SLOT_RANGE_KNOWN;
     props.mode = MO_LINEAR;
+    props.flags = CONNECTION_MODE;
 
     mapper_db_signal src = &sendsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props,
-                                      CONNECTION_RANGE_KNOWN | CONNECTION_MODE);
+    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
 
     // Wait until connection has been established
     while (!done && !mdev_num_connections_out(source)) {

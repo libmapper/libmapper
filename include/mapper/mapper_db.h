@@ -47,53 +47,39 @@ typedef struct _mapper_db_device {
     struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which range extremities are known. If the bit
- * field is equal to RANGE_KNOWN, then all four required extremities
- * are known, and a linear connection can be calculated. */
-#define CONNECTION_SRC_MIN    0x00001
-#define CONNECTION_SRC_MAX    0x00002
-#define CONNECTION_DEST_MIN   0x00004
-#define CONNECTION_DEST_MAX   0x00008
-
-/* Bit flags to identify which fields in a mapper_db_connection
- * structure are valid.  This is only used when specifying connection
- * properties via the mmon_connect() or
- * mmon_modify_connection() functions. Should be combined with the
- * above range bitflags. */
-#define CONNECTION_BOUND_MIN        0x00010
-#define CONNECTION_BOUND_MAX        0x00020
-#define CONNECTION_CAUSE_UPDATE     0x00040
-#define CONNECTION_EXPRESSION       0x00080
-#define CONNECTION_MODE             0x00100
-#define CONNECTION_MUTED            0x00200
-#define CONNECTION_SEND_AS_INSTANCE 0x00400
-#define CONNECTION_SRC_TYPE         0x00800
-#define CONNECTION_DEST_TYPE        0x01000
-#define CONNECTION_SRC_LENGTH       0x02000
-#define CONNECTION_DEST_LENGTH      0x04000
-#define CONNECTION_NUM_SCOPES       0x08000
-#define CONNECTION_SCOPE_NAMES      0x18000 // need to know num_scopes also
-#define CONNECTION_SCOPE_HASHES     0x28000 // need to know num_scopes also
-#define CONNECTION_SLOT             0x40000
-#define CONNECTION_ALL              0xFFFFF
+/* Bit flags to identify which range extremities are known. If the bit field is
+ * equal to RANGE_KNOWN, then all four required extremities are known, and a
+ * linear connection can be calculated. */
+#define CONNECTION_SLOT_MIN         0x1
+#define CONNECTION_SLOT_MAX         0x2
+#define CONNECTION_SLOT_TYPE        0x4
+#define CONNECTION_SLOT_LENGTH      0x8
 
 // For range info to be known we also need to know data types and lengths
-#define CONNECTION_SRC_MIN_KNOWN    (  CONNECTION_SRC_MIN     \
-                                     | CONNECTION_SRC_TYPE          \
-                                     | CONNECTION_SRC_LENGTH )
-#define CONNECTION_SRC_MAX_KNOWN    (  CONNECTION_SRC_MAX     \
-                                     | CONNECTION_SRC_TYPE          \
-                                     | CONNECTION_SRC_LENGTH )
-#define CONNECTION_DEST_MIN_KNOWN   (  CONNECTION_DEST_MIN   \
-                                     | CONNECTION_DEST_TYPE        \
-                                     | CONNECTION_DEST_LENGTH )
-#define CONNECTION_DEST_MAX_KNOWN   (  CONNECTION_DEST_MAX   \
-                                     | CONNECTION_DEST_TYPE        \
-                                     | CONNECTION_DEST_LENGTH )
-#define CONNECTION_RANGE_KNOWN      (  CONNECTION_SRC_MIN_KNOWN   \
-                                     | CONNECTION_SRC_MAX_KNOWN   \
-                                     | CONNECTION_DEST_MIN_KNOWN  \
-                                     | CONNECTION_DEST_MAX_KNOWN )
+#define CONNECTION_SLOT_MIN_KNOWN   (  CONNECTION_SLOT_MIN     \
+                                     | CONNECTION_SLOT_TYPE          \
+                                     | CONNECTION_SLOT_LENGTH )
+#define CONNECTION_SLOT_MAX_KNOWN   (  CONNECTION_SLOT_MAX     \
+                                     | CONNECTION_SLOT_TYPE          \
+                                     | CONNECTION_SLOT_LENGTH )
+#define CONNECTION_SLOT_RANGE_KNOWN (  CONNECTION_SLOT_MIN_KNOWN   \
+                                     | CONNECTION_SLOT_MAX_KNOWN)
+
+/* Bit flags to identify which fields in a mapper_db_connection structure are
+ * valid.  This is only used when specifying connection properties via the
+ * mmon_connect() or mmon_modify_connection() functions. */
+#define CONNECTION_BOUND_MIN        0x001
+#define CONNECTION_BOUND_MAX        0x002
+#define CONNECTION_CAUSE_UPDATE     0x004
+#define CONNECTION_EXPRESSION       0x008
+#define CONNECTION_MODE             0x010
+#define CONNECTION_MUTED            0x020
+#define CONNECTION_NUM_SCOPES       0x040
+#define CONNECTION_SEND_AS_INSTANCE 0x080
+#define CONNECTION_SCOPE_NAMES      0x140 // need to know num_scopes also
+#define CONNECTION_SCOPE_HASHES     0x240 // need to know num_scopes also
+#define CONNECTION_SLOT             0x400
+#define CONNECTION_ALL              0xFFF
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
@@ -130,9 +116,9 @@ typedef enum _mapper_instance_allocation_type {
 } mapper_instance_allocation_type;
 
 typedef struct _mapper_connection_scope {
-    int size;                           //!< The number of connection scopes.
     uint32_t *hashes;                   //!< Array of connection scope hashes.
     char **names;                       //!< Array of connection scope names.
+    int size;                           //!< The number of connection scopes.
 } mapper_connection_scope_t, *mapper_connection_scope;
 
 /*! A record that describes properties of a signal.
@@ -171,6 +157,7 @@ typedef struct _mapper_db_connection_slot {
     int slot_id;                    //!< Slot ID
     int length;
     int num_instances;
+    int flags;
     char direction;                 //!< DI_INCOMING or DI_OUTGOING
     char cause_update;
     char type;
@@ -179,31 +166,29 @@ typedef struct _mapper_db_connection_slot {
 /*! A record that describes the properties of a connection mapping.
  *  @ingroup connectiondb */
 typedef struct _mapper_db_connection {
-    int id;                         //!< Connection index
-    int num_sources;
     mapper_db_connection_slot sources;
     mapper_db_connection_slot_t destination;
-
-    mapper_boundary_action bound_max; /*!< Operation for exceeded
-                                       *   upper boundary. */
-    mapper_boundary_action bound_min; /*!< Operation for exceeded
-                                       *   lower boundary. */
-
-    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
-
-    char *expression;
-
-    mapper_mode_type mode;          /*!< Bypass, linear, calibrate, or
-                                     *   expression connection */
-    int muted;                      /*!< 1 to mute mapping connection, 0
-                                     *   to unmute */
-
-    int calibrating;
 
     struct _mapper_connection_scope scope;
 
     /*! Extra properties associated with this connection. */
     struct _mapper_string_table *extra;
+
+    char *expression;
+
+    mapper_boundary_action bound_max;   /*!< Operation for exceeded
+                                         *   upper boundary. */
+    mapper_boundary_action bound_min;   /*!< Operation for exceeded
+                                         *   lower boundary. */
+    int send_as_instance;               //!< 1 to send as instance, 0 otherwise.
+    mapper_mode_type mode;              /*!< Bypass, linear, calibrate, or
+                                         *   expression connection */
+    int muted;                          /*!< 1 to mute mapping connection, 0
+                                         *   to unmute */
+    int calibrating;
+    int id;                         //!< Connection index
+    int num_sources;
+    int flags;
 } mapper_db_connection_t, *mapper_db_connection;
 
 typedef struct _mapper_db_batch_request

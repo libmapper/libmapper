@@ -1312,17 +1312,16 @@ void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
  *  \param sources        Array of source signal data structures.
  *  \param dest           Destination signal data structure.
  *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
+ *                        requested properties of this connection. The 'flags'
+ *                        variable of this structure is used to indicate which
+ *                        properties in the provided mapper_db_connection_t
+ *                        should be applied to the connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mmon_connect_signals_by_db_record(mapper_monitor mon,
                                        int num_sources,
                                        mapper_db_signal_t **sources,
                                        mapper_db_signal_t *dest,
-                                       mapper_db_connection_t *properties,
-                                       unsigned int property_flags);
+                                       mapper_db_connection_t *properties);
 
 /*! Interface to add a connection between two signals.
  *  \param mon The monitor to use for sending the message.
@@ -1330,28 +1329,27 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon,
  *  \param sources        Array of source signal names.
  *  \param dest           Destination signal name.
  *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
+ *                        requested properties of this connection. The 'flags'
+ *                        variable of this structure is used to indicate which
+ *                        properties in the provided mapper_db_connection_t
+ *                        should be applied to the connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mmon_connect_signals_by_name(mapper_monitor mon,
                                   int num_sources,
                                   const char **sources,
                                   const char *dest,
-                                  mapper_db_connection_t *properties,
-                                  unsigned int property_flags);
+                                  mapper_db_connection_t *properties);
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
  *  \param connection     A modified data structure specifying the connection
- *                        properties.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t have been altered.
- *                        See the flags prefixed by CONNECTION_ in mapper_db.h */
+ *                        properties. The 'flags'
+ *                        variable of this structure is used to indicate which
+ *                        properties in the provided mapper_db_connection_t
+ *                        should be applied to the connection. See the flags
+ *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mmon_modify_connection(mapper_monitor mon,
-                            mapper_db_connection_t *connection,
-                            unsigned int property_flags);
+                            mapper_db_connection_t *connection);
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
@@ -1359,17 +1357,16 @@ void mmon_modify_connection(mapper_monitor mon,
  *  \param source         Array of source signal names.
  *  \param dest           Destination name.
  *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
+ *                        requested properties of this connection. The 'flags'
+ *                        variable of this structure is used to indicate which
+ *                        properties in the provided mapper_db_connection_t
+ *                        should be applied to the connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mmon_modify_connection_by_signal_names(mapper_monitor mon,
                                             int num_sources,
                                             const char **sources,
                                             const char *dest,
-                                            mapper_db_connection_t *properties,
-                                            unsigned int property_flags);
+                                            mapper_db_connection_t *properties);
 
 /*! Interface to modify a connection between two signals.
  *  \param mon            The monitor to use for sending the message.
@@ -1377,17 +1374,16 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon,
  *  \param sources        Array of source signal data structures.
  *  \param dest           Destination signal data structure.
  *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
+ *                        requested properties of this connection. The 'flags'
+ *                        variable of this structure is used to indicate which
+ *                        properties in the provided mapper_db_connection_t
+ *                        should be applied to the connection. See the flags
  *                        prefixed by CONNECTION_ in mapper_db.h. */
 void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
                                                  int num_sources,
                                                  mapper_db_signal_t **sources,
                                                  mapper_db_signal_t *dest,
-                                                 mapper_db_connection_t *properties,
-                                                 unsigned int property_flags);
+                                                 mapper_db_connection_t *properties);
 
 /*! Interface to remove a connection between two signals.
  *  \param mon          The monitor to use for sending the message.

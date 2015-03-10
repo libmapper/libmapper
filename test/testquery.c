@@ -148,14 +148,14 @@ int setup_connections()
     mapper_db_signal src;
     for (int i = 0; i < 2; i++) {
         src = &sendsig[i]->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[i]->props, 0, 0);
+        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[i]->props, 0);
     }
 
     // swap the last two signals to mix up signal vector lengths
     src = &sendsig[2]->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[3]->props, 0, 0);
+    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[3]->props, 0);
     src = &sendsig[3]->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[2]->props, 0, 0);
+    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[2]->props, 0);
 
     i = 0;
     // wait until connection has been established

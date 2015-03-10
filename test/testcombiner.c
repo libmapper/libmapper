@@ -128,9 +128,9 @@ int setup_connection()
     props.expression = "y=x0+x1";
     props.sources[0].cause_update = 1;
     props.sources[1].cause_update = 0;
-    int flags = CONNECTION_MODE | CONNECTION_EXPRESSION | CONNECTION_CAUSE_UPDATE;
+    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION | CONNECTION_CAUSE_UPDATE;
 
-    mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props, flags);
+    mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props);
     mmon_free(mon);
 
     // wait until connections have been established

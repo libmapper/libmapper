@@ -101,11 +101,13 @@ int setup_connection()
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_connection_t props;
+    props.sources = 0;
+    props.destination.flags = 0;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x*10";
+    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
     mapper_db_signal src = &sendsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props,
-                                      CONNECTION_MODE | CONNECTION_EXPRESSION);
+    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
 
     // wait until connection has been established
     while (!done && !mdev_num_connections_out(source)) {
