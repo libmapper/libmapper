@@ -288,7 +288,8 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
                                   const char *dest_name,
                                   mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !source_names || !dest_name)
+    if (!mon || !num_sources || !source_names || !dest_name
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -345,7 +346,8 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
                                        mapper_db_signal_t *dest,
                                        mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !sources || !dest)
+    if (!mon || !num_sources || !sources || !dest
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     const char *src_names[num_sources];
@@ -371,8 +373,8 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
                                             const char *dest_name,
                                             mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !source_names
-        || !dest_name || !props)
+    if (!mon || !num_sources || !source_names || !dest_name || !props
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -430,7 +432,8 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
                                                  mapper_db_signal_t *dest,
                                                  mapper_db_connection_t *props)
 {
-    if (!mon || !num_sources || !sources || !dest || !props || !props->flags)
+    if (!mon || !num_sources || !sources || !dest || !props || !props->flags
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     const char *src_names[num_sources];
@@ -478,7 +481,8 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
 void mmon_disconnect_signals_by_name(mapper_monitor mon, int num_sources,
                                      const char **sources, const char *dest)
 {
-    if (!mon || !num_sources || !sources || !dest)
+    if (!mon || !num_sources || !sources || !dest
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -504,7 +508,8 @@ void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
                                           mapper_db_signal_t **sources,
                                           mapper_db_signal_t *dest)
 {
-    if (!mon || !num_sources || !sources || !dest)
+    if (!mon || !num_sources || !sources || !dest
+        || num_sources > MAX_NUM_CONNECTION_SOURCES)
         return;
 
     const char *src_names[num_sources];
