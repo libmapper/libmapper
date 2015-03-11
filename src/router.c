@@ -877,7 +877,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         // all reference signals are local
         c->is_local = 1;
         c->is_admin = 1;
-        c->status = MAPPER_READY;
         link = c->sources[0].link;
         c->destination.link = link;
         link->props.num_connections_in++;
