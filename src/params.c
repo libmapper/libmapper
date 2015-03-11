@@ -451,7 +451,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
             for (i = 0; i < con->num_sources; i++) {
-                if (con->sources[i].flags == CONNECTION_SLOT_MIN_KNOWN
+                if ((con->sources[i].flags & CONNECTION_SLOT_MIN_KNOWN)
+                    == CONNECTION_SLOT_MIN_KNOWN
                     && con->sources[i].minimum)
                     mapper_msg_add_typed_value(m, con->sources[i].type,
                                                con->sources[i].length,
@@ -463,7 +464,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
             for (i = 0; i < con->num_sources; i++) {
-                if (con->sources[i].flags == CONNECTION_SLOT_MAX_KNOWN
+                if ((con->sources[i].flags & CONNECTION_SLOT_MAX_KNOWN)
+                    == CONNECTION_SLOT_MAX_KNOWN
                     && con->sources[i].maximum)
                     mapper_msg_add_typed_value(m, con->sources[i].type,
                                                con->sources[i].length,
