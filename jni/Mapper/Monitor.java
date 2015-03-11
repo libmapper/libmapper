@@ -7,24 +7,23 @@ import Mapper.Db.*;
 public class Monitor
 {
     /*! Bit flags for coordinating monitor metadata subscriptions. */
-    public static final int SUB_NONE                    = 0x00;
-    public static final int SUB_DEVICE                  = 0x01;
-    public static final int SUB_DEVICE_INPUTS           = 0x03;
-    public static final int SUB_DEVICE_OUTPUTS          = 0x05;
-    public static final int SUB_DEVICE_SIGNALS          = 0x07;
-    public static final int SUB_DEVICE_LINKS            = 0x09;
-    public static final int SUB_DEVICE_CONNECTIONS_IN   = 0x21;
-    public static final int SUB_DEVICE_CONNECTIONS_OUT  = 0x41;
-    public static final int SUB_DEVICE_CONNECTIONS      = 0x61;
-    public static final int SUB_DEVICE_ALL              = 0xFF;
+    public static final int SUBSCRIBE_NONE              = 0x00;
+    public static final int SUBSCRIBE_DEVICE            = 0x01;
+    public static final int SUBSCRIBE_DEVICE_INPUTS     = 0x02;
+    public static final int SUBSCRIBE_DEVICE_OUTPUTS    = 0x04;
+    public static final int SUBSCRIBE_DEVICE_SIGNALS    = 0x06;
+    public static final int SUBSCRIBE_CONNECTIONS_IN    = 0x10;
+    public static final int SUBSCRIBE_CONNECTIONS_OUT   = 0x20;
+    public static final int SUBSCRIBE_CONNECTIONS       = 0x30;
+    public static final int SUBSCRIBE_ALL               = 0xFF;
 
     public Monitor(int autosubscribeFlags) {
         _monitor = mmon_new(autosubscribeFlags);
-        Db = this.new Db(mmon_get_db(_monitor));
+        Db = new Db(mmon_get_db(_monitor));
     }
     public Monitor() {
         _monitor = mmon_new(0);
-        Db = this.new Db(mmon_get_db(_monitor));
+        Db = new Db(mmon_get_db(_monitor));
     }
 
     public void free() {
@@ -34,7 +33,11 @@ public class Monitor
     }
 
     public int poll(int timeout) {
-        return mmon_poll(_monitor, timeout);
+        int foo = mmon_poll(_monitor, timeout);
+        return foo;
+    }
+    public int poll() {
+        return this.poll(0);
     }
 
     public class Db {
@@ -48,7 +51,6 @@ public class Monitor
             _db = d;
             _device_cb = null;
             _signal_cb = null;
-            _link_cb = null;
             _connection_cb = null;
         }
 
@@ -93,21 +95,6 @@ public class Monitor
         }
         private native void mdb_remove_signal_callback(long db, Mapper.Db.SignalListener handler);
 
-        public void addLinkCallback(Mapper.Db.LinkListener handler)
-        {
-            if (handler != _link_cb)
-                mdb_remove_link_callback(_db, _link_cb);
-            mdb_add_link_callback(_db, handler);
-            _link_cb = handler;
-        }
-        private native void mdb_add_link_callback(long _p, Mapper.Db.LinkListener handler);
-
-        public void removeLinkCallback(Mapper.Db.LinkListener handler)
-        {
-            mdb_remove_link_callback(_db, handler);
-        }
-        private native void mdb_remove_link_callback(long db, Mapper.Db.LinkListener handler);
-
         public void addConnectionCallback(Mapper.Db.ConnectionListener handler)
         {
             if (handler != _connection_cb)
@@ -132,13 +119,15 @@ public class Monitor
         public native Mapper.Db.Signal getInput(String deviceName,
                                                 String signalName);
         private native long mdb_inputs(long db, String deviceName);
-        public Mapper.Db.SignalCollection inputs() {
+        public Mapper.Db.SignalCollection inputs()
+        {
             long _s = mdb_inputs(_db, null);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+            return new Mapper.Db.SignalCollection(_s);
         }
-        public Mapper.Db.SignalCollection inputs(String deviceName) {
+        public Mapper.Db.SignalCollection inputs(String deviceName)
+        {
             long _s = mdb_inputs(_db, deviceName);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+            return new Mapper.Db.SignalCollection(_s);
         }
         public native Mapper.Db.SignalCollection matchInputs(String deviceName,
                                                              String signalPattern);
@@ -147,34 +136,82 @@ public class Monitor
         public native Mapper.Db.Signal getOutput(String deviceName,
                                                  String signalName);
         private native long mdb_outputs(long db, String deviceName);
-        public Mapper.Db.SignalCollection outputs() {
+        public Mapper.Db.SignalCollection outputs()
+        {
             long _s = mdb_outputs(_db, null);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+            return new Mapper.Db.SignalCollection(_s);
         }
-        public Mapper.Db.SignalCollection outputs(String deviceName) {
+        public Mapper.Db.SignalCollection outputs(String deviceName)
+        {
             long _s = mdb_outputs(_db, deviceName);
-            return (_s == 0) ? null : new Mapper.Db.SignalCollection(_s);
+            return new Mapper.Db.SignalCollection(_s);
         }
         public native Mapper.Db.SignalCollection matchOutputs(String deviceName,
                                                               String signalPattern);
 
-        // Db.Link
-        public native Mapper.Db.Link getLink(String srcName, String destName);
-        private native Mapper.Db.LinkCollection mdb_links(long db, String deviceName);
-        public Mapper.Db.LinkCollection links(String deviceName)
-            { return mdb_links(_db, deviceName); }
-        public Mapper.Db.LinkCollection links()
-            { return mdb_links(_db, null); }
-
         // Db.Connection
-        private native Mapper.Db.ConnectionCollection mdb_connections(
-            long db, String deviceName);
-        public Mapper.Db.ConnectionCollection connections(String deviceName)
-            { return mdb_connections(_db, deviceName); }
+        private native long mdb_connections(long db, String deviceName);
         public Mapper.Db.ConnectionCollection connections()
-            { return mdb_connections(_db, null); }
-        public native Mapper.Db.ConnectionCollection connections(
-            Mapper.Db.SignalCollection src, Mapper.Db.SignalCollection dest);
+        {
+            long _c = mdb_connections(_db, null);
+            return new Mapper.Db.ConnectionCollection(_c);
+        }
+        public Mapper.Db.ConnectionCollection connections(String deviceName)
+        {
+            long _c = mdb_connections(_db, deviceName);
+            return new Mapper.Db.ConnectionCollection(_c);
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Device device)
+        {
+            long _c = mdb_connections(_db, device.name());
+            return new Mapper.Db.ConnectionCollection(_c);
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Db.Device device)
+        {
+            long _c = mdb_connections(_db, device.name());
+            return new Mapper.Db.ConnectionCollection(_c);
+        }
+
+        public native Mapper.Db.ConnectionCollection connections(Mapper.Db.SignalCollection src,
+                                                                 Mapper.Db.SignalCollection dest);
+        public native Mapper.Db.ConnectionCollection connections(String[] srcDevice,
+                                                                 String destDevice);
+        public Mapper.Db.ConnectionCollection connections(String source, String dest)
+        {
+            String[] sources = {source};
+            return this.connections(sources, dest);
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Device[] sources,
+                                                          Mapper.Device dest)
+        {
+            int length = sources.length;
+            String[] srcNames = new String[length];
+            for (int i = 0; i < length; i++)
+                srcNames[i] = sources[i].name();
+            return this.connections(srcNames, dest.name());
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Device source,
+                                                          Mapper.Device dest)
+        {
+            Mapper.Device[] sources = {source};
+            return this.connections(sources, dest);
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Db.Device[] sources,
+                                                          Mapper.Db.Device dest)
+        {
+            int length = sources.length;
+            String[] srcNames = new String[length];
+            for (int i = 0; i < length; i++)
+                srcNames[i] = sources[i].name();
+            return this.connections(srcNames, dest.name());
+        }
+        public Mapper.Db.ConnectionCollection connections(Mapper.Db.Device source,
+                                                          Mapper.Db.Device dest)
+        {
+            Mapper.Db.Device[] sources = {source};
+            return this.connections(sources, dest);
+        }
+
         private native Mapper.Db.ConnectionCollection mdb_connections_by_src(
             long db, String deviceName, String signalName);
         public Mapper.Db.ConnectionCollection connectionsBySrc(String signalName)
@@ -182,6 +219,11 @@ public class Monitor
         public Mapper.Db.ConnectionCollection connectionsBySrc(String deviceName,
                                                                String signalName)
             { return mdb_connections_by_src(_db, deviceName, signalName); }
+        public Mapper.Db.ConnectionCollection connectionsBySrc(Mapper.Device.Signal signal)
+            { return mdb_connections_by_src(_db, null, signal.fullName()); }
+        public Mapper.Db.ConnectionCollection connectionsBySrc(Mapper.Db.Signal signal)
+            { return mdb_connections_by_src(_db, null, signal.fullName()); }
+
         private native Mapper.Db.ConnectionCollection mdb_connections_by_dest(
             long db, String deviceName, String signalName);
         public Mapper.Db.ConnectionCollection connectionsByDest(String signalName)
@@ -189,10 +231,31 @@ public class Monitor
         public Mapper.Db.ConnectionCollection connectionsByDest(String deviceName,
                                                                 String signalName)
             { return mdb_connections_by_dest(_db, deviceName, signalName); }
-        public native Mapper.Db.Connection connectionBySignals(String srcName,
-                                                               String destName);
-        public native Mapper.Db.ConnectionCollection connectionsByDevices(
-            String srcDevice, String destDevice);
+        public Mapper.Db.ConnectionCollection connectionsByDest(Mapper.Device.Signal signal)
+            { return mdb_connections_by_dest(_db, null, signal.fullName()); }
+        public Mapper.Db.ConnectionCollection connectionsByDest(Mapper.Db.Signal signal)
+            { return mdb_connections_by_dest(_db, null, signal.fullName()); }
+
+        public native Mapper.Db.Connection connection(String[] srcNames,
+                                                      String destName);
+        public Mapper.Db.Connection connection(Mapper.Device.Signal[] sources,
+                                               Mapper.Device.Signal dest)
+        {
+            int length = sources.length;
+            String[] srcNames = new String[length];
+            for (int i = 0; i < length; i++)
+                srcNames[i] = sources[i].fullName();
+            return this.connection(srcNames, dest.fullName());
+        }
+        public Mapper.Db.Connection connection(Mapper.Db.Signal[] sources,
+                                               Mapper.Db.Signal dest)
+        {
+            int length = sources.length;
+            String[] srcNames = new String[length];
+            for (int i = 0; i < length; i++)
+                srcNames[i] = sources[i].fullName();
+            return this.connection(srcNames, dest.fullName());
+        }
 
         private long _db;
         private Monitor _monitor;
@@ -200,7 +263,6 @@ public class Monitor
         // TODO: enable multiple listeners
         private Mapper.Db.DeviceListener _device_cb;
         private Mapper.Db.SignalListener _signal_cb;
-        private Mapper.Db.LinkListener _link_cb;
         private Mapper.Db.ConnectionListener _connection_cb;
     };
 
@@ -214,79 +276,99 @@ public class Monitor
         mmon_unsubscribe(_monitor, deviceName);
     }
 
-    public void link(Mapper.Device sourceDevice, Mapper.Device destDevice)
-    {
-        mmon_link(_monitor, sourceDevice, destDevice, null);
-    }
-    public void link(Mapper.Device sourceDevice, Mapper.Device destDevice,
-                     Mapper.Db.Link props)
-    {
-        mmon_link(_monitor, sourceDevice, destDevice, props);
-    }
-    public void link(Mapper.Db.Device sourceDevice, Mapper.Db.Device destDevice)
-    {
-        mmon_link(_monitor, sourceDevice, destDevice, null);
-    }
-    public void link(Mapper.Db.Device sourceDevice, Mapper.Db.Device destDevice,
-                     Mapper.Db.Link props)
-    {
-        mmon_link(_monitor, sourceDevice, destDevice, props);
-    }
-
-    public void unlink(Mapper.Device source, Mapper.Device dest)
-    {
-        mmon_unlink(_monitor, source, dest);
-    }
-    public void unlink(Mapper.Db.Device source, Mapper.Db.Device dest)
-    {
-        mmon_unlink(_monitor, source, dest);
-    }
-
     public void connect(Mapper.Device.Signal source, Mapper.Device.Signal dest)
     {
-        mmon_connect_or_mod_sigs(_monitor, source, dest, null, 0);
+        Mapper.Device.Signal[] sources = {source};
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, null, 0);
+    }
+    public void connect(Mapper.Device.Signal[] sources, Mapper.Device.Signal dest)
+    {
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, null, 0);
     }
     public void connect(Mapper.Device.Signal source, Mapper.Device.Signal dest,
                         Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod_sigs(_monitor, source, dest, props, 0);
+        Mapper.Device.Signal[] sources = {source};
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, props, 0);
+    }
+    public void connect(Mapper.Device.Signal[] sources, Mapper.Device.Signal dest,
+                        Mapper.Db.Connection props)
+    {
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, props, 0);
     }
     public void connect(Mapper.Db.Signal source, Mapper.Db.Signal dest)
     {
-        mmon_connect_or_mod_db_sigs(_monitor, source, dest, null, 0);
+        Mapper.Db.Signal[] sources = {source};
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, null, 0);
+    }
+    public void connect(Mapper.Db.Signal[] sources, Mapper.Db.Signal dest)
+    {
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, null, 0);
     }
     public void connect(Mapper.Db.Signal source, Mapper.Db.Signal dest,
                         Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod_db_sigs(_monitor, source, dest, props, 0);
+        Mapper.Db.Signal[] sources = {source};
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, props, 0);
+    }
+    public void connect(Mapper.Db.Signal[] sources, Mapper.Db.Signal dest,
+                        Mapper.Db.Connection props)
+    {
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, props, 0);
     }
 
     public void disconnect(Mapper.Db.Connection connection)
     {
         mmon_disconnect(_monitor, connection);
     }
-    public void disconnect(Mapper.Device.Signal source, Mapper.Device.Signal dest)
+    public void disconnect(Mapper.Device.Signal source,
+                           Mapper.Device.Signal dest)
     {
-        mmon_disconnect_sigs(_monitor, source, dest);
+        Mapper.Device.Signal[] sources = {source};
+        mmon_disconnect_sigs(_monitor, sources, dest);
     }
-    public void disconnect(Mapper.Db.Signal source, Mapper.Db.Signal dest)
+    public void disconnect(Mapper.Device.Signal[] sources,
+                           Mapper.Device.Signal dest)
     {
-        mmon_disconnect_db_sigs(_monitor, source, dest);
+        mmon_disconnect_sigs(_monitor, sources, dest);
+    }
+    public void disconnect(Mapper.Db.Signal source,
+                           Mapper.Db.Signal dest)
+    {
+        Mapper.Db.Signal[] sources = {source};
+        mmon_disconnect_db_sigs(_monitor, sources, dest);
+    }
+    public void disconnect(Mapper.Db.Signal[] sources,
+                           Mapper.Db.Signal dest)
+    {
+        mmon_disconnect_db_sigs(_monitor, sources, dest);
     }
 
-    public void modifyConnection(Mapper.Db.Connection connection)
-    {
-        mmon_modify_connection(_monitor, connection);
-    }
-    public void modifyConnection(Mapper.Device.Signal source, Mapper.Device.Signal dest,
+    public void modifyConnection(Mapper.Device.Signal source,
+                                 Mapper.Device.Signal dest,
                                  Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod_sigs(_monitor, source, dest, props, 1);
+        Mapper.Device.Signal[] sources = {source};
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, props, 1);
     }
-    public void modifyConnection(Mapper.Db.Signal source, Mapper.Db.Signal dest,
+    public void modifyConnection(Mapper.Device.Signal[] sources,
+                                 Mapper.Device.Signal dest,
                                  Mapper.Db.Connection props)
     {
-        mmon_connect_or_mod_db_sigs(_monitor, source, dest, props, 1);
+        mmon_connect_or_mod_sigs(_monitor, sources, dest, props, 1);
+    }
+    public void modifyConnection(Mapper.Db.Signal source,
+                                 Mapper.Db.Signal dest,
+                                 Mapper.Db.Connection props)
+    {
+        Mapper.Db.Signal[] sources = {source};
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, props, 1);
+    }
+    public void modifyConnection(Mapper.Db.Signal[] sources,
+                                 Mapper.Db.Signal dest,
+                                 Mapper.Db.Connection props)
+    {
+        mmon_connect_or_mod_db_sigs(_monitor, sources, dest, props, 1);
     }
 
     public void autosubscribe(int autosubscribeFlags)
@@ -316,33 +398,25 @@ public class Monitor
     private native void mmon_subscribe(long mon, String device_name,
                                        int subscribe_flags, int timeout);
     private native void mmon_unsubscribe(long mon, String device_name);
-    private native void mmon_link(long mon, Mapper.Device source,
-                                  Mapper.Device dest, Mapper.Db.Link props);
-    private native void mmon_link(long mon, Mapper.Db.Device source,
-                                  Mapper.Db.Device dest, Mapper.Db.Link props);
-    private native void mmon_unlink(long mon, Mapper.Device source,
-                                    Mapper.Device dest);
-    private native void mmon_unlink(long mon, Mapper.Db.Device source,
-                                    Mapper.Db.Device dest);
     private native void mmon_connect_or_mod_sigs(long mon,
-                                                 Mapper.Device.Signal source,
+                                                 Mapper.Device.Signal[] sources,
                                                  Mapper.Device.Signal dest,
                                                  Mapper.Db.Connection props,
                                                  int modify);
     private native void mmon_connect_or_mod_db_sigs(long mon,
-                                                    Mapper.Db.Signal source,
+                                                    Mapper.Db.Signal[] sources,
                                                     Mapper.Db.Signal dest,
                                                     Mapper.Db.Connection props,
                                                     int modify);
-    private native void mmon_modify_connection(long mon,
-                                               Mapper.Db.Connection connection);
+//    private native void mmon_modify_connection(long mon,
+//                                               Mapper.Db.Connection connection);
     private native void mmon_disconnect(long mon,
                                         Mapper.Db.Connection connection);
     private native void mmon_disconnect_sigs(long mon,
-                                             Mapper.Device.Signal source,
+                                             Mapper.Device.Signal[] sources,
                                              Mapper.Device.Signal dest);
     private native void mmon_disconnect_db_sigs(long mon,
-                                                Mapper.Db.Signal source,
+                                                Mapper.Db.Signal[] sources,
                                                 Mapper.Db.Signal dest);
     private native void mmon_autosubscribe(long mon, int autosubscribe_flags);
     private native TimeTag mmon_now(long mon);

@@ -7,8 +7,7 @@ import Mapper.Db.*;
 
 public class Device
 {
-    /*! The set of possible actions on a local device link or
-     *  connection. */
+    /*! The set of possible actions on a local connection. */
     public static final int MDEV_LOCAL_ESTABLISHED  = 0;
     public static final int MDEV_LOCAL_MODIFIED     = 1;
     public static final int MDEV_LOCAL_DESTROYED    = 2;
@@ -267,11 +266,6 @@ public class Device
         return mdev_num_outputs(_device);
     }
 
-    public int numLinks()
-    {
-        return mdev_num_links(_device);
-    }
-
     public int numConnectionsIn()
     {
         return mdev_num_connections_in(_device);
@@ -379,11 +373,18 @@ public class Device
     private native long mdev_new(String name, int port);
     private native void mdev_free(long _d);
     private native int mdev_poll(long _d, int timeout);
+
+    public native Signal addInput(String name, int length, char type, String unit,
+                                  PropertyValue minimum, PropertyValue maximum,
+                                  InputListener handler);
+
+    public native Signal addOutput(String name, int length, char type, String unit,
+                                   PropertyValue minimum, PropertyValue maximum);
     private native void mdev_remove_input(long _d, long _sig);
     private native void mdev_remove_output(long _d, long _sig);
+
     private native int mdev_num_inputs(long _d);
     private native int mdev_num_outputs(long _d);
-    private native int mdev_num_links(long _d);
     private native int mdev_num_connections_in(long _d);
     private native int mdev_num_connections_out(long _d);
     private native long mdev_get_input_by_name(long _d, String name,
@@ -392,6 +393,7 @@ public class Device
                                                 Integer index);
     private native long mdev_get_input_by_index(long _d, int index);
     private native long mdev_get_output_by_index(long _d, int index);
+
     public native Mapper.Db.Device properties();
     private native void mdev_set_property(long _d, String property,
                                           PropertyValue p);
@@ -403,16 +405,10 @@ public class Device
     private native String mdev_interface(long _d);
     private native int mdev_ordinal(long _d);
     private native int mdev_id(long _d);
+
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);
     private native TimeTag mdev_now(long _d);
-
-    public native Signal addInput(String name, int length, char type, String unit,
-                                  PropertyValue minimum, PropertyValue maximum,
-                                  InputListener handler);
-
-    public native Signal addOutput(String name, int length, char type, String unit,
-                                   PropertyValue minimum, PropertyValue maximum);
 
     private long _device;
     public boolean valid() {

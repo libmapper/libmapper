@@ -28,6 +28,8 @@ public class Signal
     public String deviceName() { return _device_name; }
     private native String mdb_signal_get_device_name(long p);
 
+    public String fullName() { return this.deviceName()+this.name(); }
+
 	boolean _is_output;
     public boolean isOutput() { return _is_output; }
     private native boolean mdb_signal_get_is_output(long p);

@@ -16,7 +16,6 @@ public class Device
 
         _n_inputs = mdb_device_get_num_inputs(_devprops);
         _n_outputs = mdb_device_get_num_outputs(_devprops);
-        _n_links = mdb_device_get_num_links(_devprops);
         _n_connections_in = mdb_device_get_num_connections_in(_devprops);
         _n_connections_out = mdb_device_get_num_connections_out(_devprops);
         _version = mdb_device_get_version(_devprops);
@@ -45,10 +44,6 @@ public class Device
     int _n_outputs;
     public int munOutputs() { return _n_outputs; }
     private native int mdb_device_get_num_outputs(long p);
-
-    int _n_links;
-    public int numLinks() { return _n_links; }
-    private native int mdb_device_get_num_links(long p);
 
     int _n_connections_in;
     public int numConnectionsIn() { return _n_connections_in; }

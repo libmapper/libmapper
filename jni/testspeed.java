@@ -8,7 +8,7 @@ class testspeed {
 
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
-        final Monitor mon = new Monitor(Mapper.Monitor.SUB_DEVICE_ALL);
+        final Monitor mon = new Monitor(Mapper.Monitor.SUBSCRIBE_ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -41,9 +41,6 @@ class testspeed {
             dev.poll(100);
         }
         System.out.println("Device is ready.");
-
-        mon.link(dev, dev);
-        while (dev.numLinks() <= 0) { dev.poll(100); }
 
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         mon.connect(out, in, null);

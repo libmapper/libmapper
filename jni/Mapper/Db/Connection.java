@@ -14,85 +14,154 @@ public class Connection
 
     /*! Describes the connection mode. */
     public static final int MO_UNDEFINED  = 0;
-    public static final int MO_BYPASS     = 1;
-    public static final int MO_LINEAR     = 2;
-    public static final int MO_EXPRESSION = 3;
-    public static final int MO_CALIBRATE  = 4;
+    public static final int MO_NONE       = 1;
+    public static final int MO_RAW        = 2;
+    public static final int MO_LINEAR     = 3;
+    public static final int MO_EXPRESSION = 4;
 
     /*! Describes the voice-stealing mode for instances. */
     public static final int IN_UNDEFINED    = 0;
     public static final int IN_STEAL_OLDEST = 1;
     public static final int IN_STEAL_NEWEST = 2;
 
+    public class Slot {
+        private Slot(long s) {
+            _slotprops = s;
+
+            causeUpdate = mdb_connection_slot_get_cause_update(_slotprops);
+            direction = mdb_connection_slot_get_direction(_slotprops);
+            deviceName = mdb_connection_slot_get_device_name(_slotprops);
+            length = mdb_connection_slot_get_length(_slotprops);
+            maximum = mdb_connection_slot_get_max(_slotprops);
+            minimum = mdb_connection_slot_get_min(_slotprops);
+            signalName = mdb_connection_slot_get_signal_name(_slotprops);
+            type = mdb_connection_slot_get_type(_slotprops);
+        }
+        private Slot(String name) {
+            causeUpdate = -1;
+            direction = -1;
+            length = -1;
+            maximum = null;
+            minimum = null;
+            type = 0;
+            if (name != null) {
+                int slashindex = name.indexOf('/', 1);
+                deviceName = name.substring(0, slashindex);
+                signalName = name.substring(slashindex, name.length());
+            }
+            else {
+                deviceName = null;
+                signalName = null;
+            }
+        }
+
+        public int causeUpdate;
+        private native int mdb_connection_slot_get_cause_update(long p);
+
+        public int direction;
+        private native int mdb_connection_slot_get_direction(long p);
+
+        public String deviceName;
+        private native String mdb_connection_slot_get_device_name(long p);
+
+        public int length;
+        private native int mdb_connection_slot_get_length(long p);
+
+        public PropertyValue maximum;
+        private native PropertyValue mdb_connection_slot_get_max(long p);
+
+        public PropertyValue minimum;
+        private native PropertyValue mdb_connection_slot_get_min(long p);
+
+        public String signalName;
+        private native String mdb_connection_slot_get_signal_name(long p);
+
+        public char type;
+        private native char mdb_connection_slot_get_type(long p);
+
+        private long _slotprops;
+    };
+
     public Connection(long conprops) {
         _conprops = conprops;
 
-        srcName = mdb_connection_get_src_name(_conprops);
-        destName = mdb_connection_get_dest_name(_conprops);
-
-        srcType = mdb_connection_get_src_type(_conprops);
-        destType = mdb_connection_get_dest_type(_conprops);
-
-        srcLength = mdb_connection_get_src_length(_conprops);
-        destLength = mdb_connection_get_dest_length(_conprops);
-
         boundMin = mdb_connection_get_bound_min(_conprops);
         boundMax = mdb_connection_get_bound_max(_conprops);
-
-        srcMin = mdb_connection_get_src_min(_conprops);
-        srcMax = mdb_connection_get_src_max(_conprops);
-        destMin = mdb_connection_get_dest_min(_conprops);
-        destMax = mdb_connection_get_dest_max(_conprops);
-
-        mode = mdb_connection_get_mode(_conprops);
         expression = mdb_connection_get_expression(_conprops);
+        id = mdb_connection_get_id(_conprops);
+        mode = mdb_connection_get_mode(_conprops);
+        muted = mdb_connection_get_muted(_conprops);
+        numScopes = mdb_connection_get_num_scopes(_conprops);
+        numSources = mdb_connection_get_num_sources(_conprops);
+        scopeNames = mdb_connection_get_scope_names(_conprops);
         sendAsInstance = mdb_connection_get_send_as_instance(_conprops);
 
-        numScopes = mdb_connection_get_num_scopes(_conprops);
-        scopeNames = mdb_connection_get_scope_names(_conprops);
+        sources = new Slot[numSources];
+        for (int i = 0; i < numSources; i++)
+            sources[i] = new Slot(mdb_connection_get_source_ptr(_conprops, i));
+        source = sources[0];
+        destination = new Slot(mdb_connection_get_dest_ptr(_conprops));
+    }
+
+    public Connection(String[] _srcNames, String _destName) {
+        boundMin = -1;
+        boundMax = -1;
+        expression = null;
+        id = -1;
+        mode = -1;
+        muted = -1;
+        numScopes = 0;
+        numSources = _srcNames.length;
+        scopeNames = null;
+        sendAsInstance = 0;
+
+        sources = new Slot[numSources];
+        for (int i = 0; i < numSources; i++)
+            sources[i] = new Slot(_srcNames[i]);
+        source = sources[0];
+        destination = new Slot(_destName);
     }
 
     public Connection(String _srcName, String _destName) {
-        srcName = _srcName;
-        destName = _destName;
-        srcType = 0;
-        destType = 0;
-        srcLength = -1;
-        destLength = -1;
         boundMin = -1;
         boundMax = -1;
-        srcMin = null;
-        srcMax = null;
-        destMin = null;
-        destMax = null;
-        mode = -1;
         expression = null;
-        sendAsInstance = 0;
+        id = -1;
+        mode = -1;
+        muted = -1;
         numScopes = 0;
+        numSources = 1;
         scopeNames = null;
+        sendAsInstance = 0;
+
+        sources = new Slot[1];
+        sources[0] = new Slot(_srcName);
+        source = sources[0];
+        destination = new Slot(_destName);
+    }
+
+    public Connection(int _numSources) {
+        boundMin = -1;
+        boundMax = -1;
+        expression = null;
+        id = -1;
+        mode = -1;
+        muted = -1;
+        numScopes = 0;
+        numSources = _numSources;
+        scopeNames = null;
+        sendAsInstance = 0;
+
+        sources = new Slot[numSources];
+        for (int i = 0; i < numSources; i++)
+            sources[i] = new Slot(null);
+        source = sources[0];
+        destination = new Slot(null);
     }
 
     public Connection() {
-        this(null, null);
+        this(1);
     }
-
-    public String srcName;
-    private native String mdb_connection_get_src_name(long p);
-
-    public String destName;
-    private native String mdb_connection_get_dest_name(long p);
-
-    public char srcType;
-    private native char mdb_connection_get_src_type(long p);
-
-    public char destType;
-    private native char mdb_connection_get_dest_type(long p);
-
-    public int srcLength;
-    private native int mdb_connection_get_src_length(long p);
-
-    public int destLength;
-    private native int mdb_connection_get_dest_length(long p);
 
     public int boundMin;
     private native int mdb_connection_get_bound_min(long p);
@@ -100,38 +169,53 @@ public class Connection
     public int boundMax;
     private native int mdb_connection_get_bound_max(long p);
 
-    public PropertyValue srcMin;
-    private native PropertyValue mdb_connection_get_src_min(long p);
+    public String expression;
+    private native String mdb_connection_get_expression(long p);
 
-    public PropertyValue srcMax;
-    private native PropertyValue mdb_connection_get_src_max(long p);
-
-    public PropertyValue destMin;
-    private native PropertyValue mdb_connection_get_dest_min(long p);
-
-    public PropertyValue destMax;
-    private native PropertyValue mdb_connection_get_dest_max(long p);
+    public int id;
+    private native int mdb_connection_get_id(long p);
 
     public int mode;
     private native int mdb_connection_get_mode(long p);
 
-    public String expression;
-    private native String mdb_connection_get_expression(long p);
-
-    public int sendAsInstance;
-    private native int mdb_connection_get_send_as_instance(long p);
+    public int muted;
+    private native int mdb_connection_get_muted(long p);
 
     public int numScopes;
     private native int mdb_connection_get_num_scopes(long p);
 
+    public int numSources;
+    private native int mdb_connection_get_num_sources(long p);
+
     public PropertyValue scopeNames;
     private native PropertyValue mdb_connection_get_scope_names(long p);
+
+    public int sendAsInstance;
+    private native int mdb_connection_get_send_as_instance(long p);
 
     public PropertyValue property(String property) {
         return mapper_db_connection_property_lookup(_conprops, property);
     }
     private native PropertyValue mapper_db_connection_property_lookup(
         long p, String property);
+
+    private native long mdb_connection_get_source_ptr(long p, int i);
+    private native long mdb_connection_get_dest_ptr(long p);
+
+    private Slot getSource(int index)
+    {
+        if (index > numSources)
+            return null;
+        return sources[index];
+    }
+    private Slot getDest()
+    {
+        return destination;
+    }
+
+    public Slot[] sources;
+    public Slot source;
+    public Slot destination;
 
     private long _conprops;
 }

@@ -4,11 +4,13 @@ package Mapper.Db;
 import java.util.Iterator;
 
 public class SignalIterator implements Iterator<Mapper.Db.Signal> {
-    public SignalIterator(long sigprops_p) {
+    public SignalIterator(long sigprops_p)
+    {
         _sigprops_p = sigprops_p;
     }
 
-    protected void finalize() {
+    protected void finalize()
+    {
         mdb_signal_done(_sigprops_p);
     }
     private native void mdb_signal_done(long ptr);

@@ -51,15 +51,12 @@ class testreverse {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.link(dev, dev);
-        while (dev.numLinks() <= 0) { dev.poll(100); }
-
         mon.connect(inp1, out1);
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 100;
         while (i >= 0) {
-            System.out.println("\nUpdating input to ["+i+"]");
+            System.out.println("Updating input to ["+i+"]");
             inp1.update(new int[] {i});
             dev.poll(100);
             --i;

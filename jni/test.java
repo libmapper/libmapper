@@ -7,7 +7,7 @@ import java.util.Iterator;
 class test {
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
-        final Monitor mon = new Monitor(Mapper.Monitor.SUB_DEVICE_ALL);
+        final Monitor mon = new Monitor(Mapper.Monitor.SUBSCRIBE_ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -28,19 +28,17 @@ class test {
 
         mon.Db.addSignalCallback(new Mapper.Db.SignalListener() {
             public void onEvent(Mapper.Db.Signal s, int event) {
-                System.out.println("db onEvent() for signal "+s.name());
-            }});
-
-        mon.Db.addLinkCallback(new Mapper.Db.LinkListener() {
-            public void onEvent(Mapper.Db.Link l, int event) {
-                System.out.println("db onEvent() for link "
-                                   +l.name1()+" -> "+l.name2());
+                System.out.println("db onEvent() for signal "+s.fullName());
             }});
 
         mon.Db.addConnectionCallback(new Mapper.Db.ConnectionListener() {
             public void onEvent(Mapper.Db.Connection c, int event) {
-                System.out.println("db onEvent() for connection "
-                                   +c.srcName+" -> "+c.destName+" @expr "
+                System.out.print("db onEvent() for connection ");
+                for (int i = 0; i < c.numSources; i++)
+                    System.out.print(c.sources[i].deviceName
+                                     +c.sources[i].signalName+" ");
+                System.out.println("-> "+c.destination.deviceName
+                                   +c.destination.signalName+" @expr "
                                    +c.expression);
             }});
 
@@ -109,17 +107,15 @@ class test {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.link(dev, dev);
-        while (dev.numLinks() <= 0) { dev.poll(100); }
-
         Mapper.Db.Connection c = new Mapper.Db.Connection();
         c.mode = Mapper.Db.Connection.MO_EXPRESSION;
         c.expression = "y=x*100";
-        c.srcMin = new PropertyValue(15);
-        c.srcMax = new PropertyValue(-15);
-        c.destMax = new PropertyValue(1000);
-        c.destMin = new PropertyValue(-2000);
+        c.source.minimum = new PropertyValue(15);
+        c.source.maximum = new PropertyValue(-15);
+        c.destination.maximum = new PropertyValue(1000);
+        c.destination.minimum = new PropertyValue(-2000);
         mon.connect(out1, inp1, c);
+
         while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
 
         int i = 0;
@@ -204,16 +200,13 @@ class test {
                 System.out.print("  Signal has value: " + ar[0]);
             else
                 System.out.print("  Signal has no value.");
-
             if (i == 50) {
                 Mapper.Db.Connection mod = new Mapper.Db.Connection();
                 mod.expression = "y=x*-100";
-                System.out.println("Should be connecting "+dev.name()+out1.name()+" -> "+dev.name()+inp1.name());
                 mon.modifyConnection(out1, inp1, mod);
             }
-
             dev.poll(50);
-            mon.poll(50);
+            mon.poll();
             i++;
         }
 
@@ -231,14 +224,14 @@ class test {
             System.out.println("  signal: " + s.name());
         }
 
-        Mapper.Db.LinkCollection links = mon.Db.links();
-        for (Mapper.Db.Link l : links) {
-            System.out.println("  link: "+ l.name1() + " -> " + l.name2());
-        }
-
         Mapper.Db.ConnectionCollection cons = mon.Db.connections();
         for (Mapper.Db.Connection cc : cons) {
-            System.out.println("  connection: "+ cc.srcName + " -> " + cc.destName);
+            System.out.print("  connection: ");
+            for (i = 0; i < cc.numSources; i++)
+                System.out.print(cc.sources[i].deviceName
+                                 +cc.sources[i].signalName+" ");
+            System.out.println("-> "+cc.destination.deviceName
+                               +cc.destination.signalName);
         }
 
         System.out.println();
