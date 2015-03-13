@@ -9,8 +9,6 @@ extern "C" {
 #include <mapper/mapper_types.h>
 
 #define MAPPER_NOW ((mapper_timetag_t){0L,1L})
-#define DI_OUTGOING 0x1
-#define DI_INCOMING 0x2
 
 /*! \mainpage libmapper
 
@@ -39,6 +37,13 @@ typedef mapper_db_signal mapper_signal_props;
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
 struct _mapper_connection;
+
+/*! The set of possible directions for a signal or connection slot. */
+typedef enum {
+    DI_OUTGOING = 0x01,
+    DI_INCOMING = 0x02,
+    DI_BOTH     = 0x03,
+} mapper_direction_t;
 
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
@@ -304,6 +309,11 @@ void msig_set_maximum(mapper_signal sig, void *maximum);
  *  \param rate     A rate for this signal in samples/second, or zero
  *                  for non-periodic signals. */
 void msig_set_rate(mapper_signal sig, float rate);
+
+/*! Set the direction of a signal.
+ *  \param sig      The signal to operate on.
+ *  \param rate     DI_OUTGOING, DI_INCOMING, or DI_BOTH. */
+void msig_set_direction(mapper_signal sig, mapper_direction_t direction);
 
 /*! Get a signal's property structure.
  *  \param sig  The signal to operate on.

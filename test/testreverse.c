@@ -34,25 +34,20 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
                    mapper_timetag_t *timetag)
 {
     int i;
+    eprintf("--> %s got ", props->name);
     if (value) {
         if (props->type == 'f') {
-            eprintf("--> %s got ", props->is_output ?
-                    "source" : "destination");
             for (i = 0; i < props->length * count; i++)
                 eprintf("%f ", ((float*)value)[i]);
             eprintf("\n");
         }
         else if (props->type == 'i') {
-            eprintf("--> %s got ", props->is_output ?
-                    "source" : "destination");
             for (i = 0; i < props->length * count; i++)
                 eprintf("%i ", ((int*)value)[i]);
             eprintf("\n");
         }
     }
     else {
-        eprintf("--> %s got ", props->is_output ?
-                "source" : "destination");
         for (i = 0; i < props->length * count; i++)
             eprintf("NIL ");
         eprintf("\n");

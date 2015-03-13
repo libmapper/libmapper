@@ -41,6 +41,11 @@ public class Device
         public static final int IN_STEAL_OLDEST                     = 1;
         public static final int IN_STEAL_NEWEST                     = 2;
 
+        /*! Describes the directionality of signals. */
+        public static final int DI_OUTGOING = 1;
+        public static final int DI_INCOMING = 2;
+        public static final int DI_BOTH     = 3;
+
         private Signal(long s, Device d) { _signal = s; _device = d; }
 
         public String name()
@@ -53,10 +58,10 @@ public class Device
             checkDevice();
             return msig_full_name(_signal);
         }
-        public boolean isOutput()
+        public int direction()
         {
             checkDevice();
-            return msig_is_output(_signal);
+            return msig_direction(_signal);
         }
         public void setMinimum(PropertyValue p) {
             checkDevice();
@@ -83,7 +88,7 @@ public class Device
 
         private native String msig_full_name(long sig);
         private native String msig_name(long sig);
-        private native boolean msig_is_output(long sig);
+        private native int msig_direction(long sig);
         private native void msig_set_rate(long sig, double rate);
         public native Mapper.Db.Signal properties();
         private native void msig_set_property(long sig, String property,
@@ -217,11 +222,12 @@ public class Device
             if (_index==null) {
                 _index = new Integer(-1);
                 long msig = 0;
-                if (isOutput())
+                int direction = direction();
+                if (direction == DI_OUTGOING || direction == DI_BOTH)
                     msig = mdev_get_output_by_name(_device._device,
                                                    msig_name(_signal),
                                                    _index);
-                else
+                else if (direction == DI_INCOMING)
                     msig = mdev_get_input_by_name(_device._device,
                                                   msig_name(_signal),
                                                   _index);

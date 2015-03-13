@@ -47,7 +47,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig, int instanc
 }
 
 mapper_signal msig_new(const char *name, int length, char type,
-                       int is_output, const char *unit,
+                       int direction, const char *unit,
                        void *minimum, void *maximum,
                        mapper_signal_update_handler *handler,
                        void *user_data)
@@ -60,11 +60,10 @@ mapper_signal msig_new(const char *name, int length, char type,
         (mapper_signal) calloc(1, sizeof(struct _mapper_signal));
 
     mapper_db_signal_init(&sig->props, type, length, name, unit);
-    if (is_output)
-        sig->props.is_output = 1;
+    sig->props.direction = direction;
     sig->handler = handler;
     if (handler)
-        sig->props.is_input = 1;
+        sig->props.direction |= DI_INCOMING;
     sig->props.num_instances = 0;
     sig->has_complete_value = calloc(1, length / 8 + 1);
     for (i = 0; i < length; i++) {
@@ -110,6 +109,8 @@ void msig_free(mapper_signal sig)
         free(sig->props.maximum);
     if (sig->props.name)
         free((char*)sig->props.name);
+    if (sig->props.description)
+        free(sig->props.description);
     if (sig->props.unit)
         free((char*)sig->props.unit);
     if (sig->has_complete_value)
@@ -760,7 +761,8 @@ void msig_release_instance_internal(mapper_signal sig,
         mdev_remove_instance_id_map(sig->device, smap->map);
         smap->map = 0;
     }
-    else if (sig->props.is_output || smap->status & IN_RELEASED_REMOTELY) {
+    else if ((sig->props.direction & DI_OUTGOING)
+             || smap->status & IN_RELEASED_REMOTELY) {
         // TODO: consider multiple upstream source instances?
         smap->map = 0;
     }
@@ -1050,6 +1052,11 @@ void msig_set_rate(mapper_signal sig, float rate)
     sig->props.rate = rate;
 }
 
+void msig_set_direction(mapper_signal sig, mapper_direction_t direction)
+{
+    sig->props.direction = direction;
+}
+
 mapper_signal_props msig_properties(mapper_signal sig)
 {
     return &sig->props;
@@ -1058,7 +1065,7 @@ mapper_signal_props msig_properties(mapper_signal sig)
 void msig_set_property(mapper_signal sig, const char *property,
                        char type, void *value, int length)
 {
-    if (strcmp(property, "device_name") == 0 ||
+    if (strcmp(property, "direction") == 0 ||
         strcmp(property, "name") == 0 ||
         strcmp(property, "type") == 0 ||
         strcmp(property, "length") == 0 ||

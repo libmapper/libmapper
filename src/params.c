@@ -10,8 +10,8 @@ const char* prop_msg_strings[] =
 {
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
-    "@causeUpdate",     /* AT_CAUSE_UPDATE */
     "@calibrating",     /* AT_CALIBRATING */
+    "@causeUpdate",     /* AT_CAUSE_UPDATE */
     "@destLength",      /* AT_DEST_LENGTH */
     "@destMax",         /* AT_DEST_MAX */
     "@destMin",         /* AT_DEST_MIN */
@@ -222,10 +222,15 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
     if (!t)
         return 1;
 
-    if (t[0] != 'i')
+    if (t[0] == 'i')
+        *value = (*a)->i;
+    else if (t[0] == 'T')
+        *value = 1;
+    else if (t[0] == 'F')
+        *value = 0;
+    else
         return 1;
 
-    *value = (*a)->i;
     return 0;
 }
 
@@ -398,7 +403,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_NUM_OUTPUTS:
         case AT_PORT:
         case AT_REV:
-        case AT_SEND_AS_INSTANCE:
         case AT_SLOT:
         case AT_SRC_LENGTH:
             i = va_arg(aq, int);
@@ -486,18 +490,20 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                                        con->destination.length,
                                        con->destination.maximum);
             break;
+        case AT_CALIBRATING:
         case AT_MUTE:
             i = va_arg(aq, int);
-            lo_message_add_int32(m, i!=0);
+            if (i)
+                lo_message_add_true(m);
+            else
+                lo_message_add_false(m);
             break;
         case AT_DIRECTION:
             sig = va_arg(aq, mapper_signal);
-            if (sig->props.is_output) {
-                if (sig->handler)
-                    lo_message_add_string(m, "both");
-                else
-                    lo_message_add_string(m, "output");
-            }
+            if (sig->props.direction == DI_BOTH)
+                lo_message_add_string(m, "both");
+            else if (sig->props.direction == DI_OUTGOING)
+                lo_message_add_string(m, "output");
             else
                 lo_message_add_string(m, "input");
             break;
@@ -513,6 +519,15 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             con = va_arg(aq, mapper_db_connection_t*);
             mapper_msg_add_typed_value(m, 's', con->scope.size,
                                        con->scope.names);
+            break;
+        case AT_SEND_AS_INSTANCE:
+            con = va_arg(aq, mapper_db_connection_t*);
+            for (i = 0; i < con->num_sources; i++) {
+                if (con->sources[i].send_as_instance)
+                    lo_message_add_true(m);
+                else
+                    lo_message_add_false(m);
+            }
             break;
         case AT_CAUSE_UPDATE:
             con = va_arg(aq, mapper_db_connection_t*);
@@ -629,7 +644,7 @@ int mapper_msg_get_signal_direction(mapper_message_t *msg)
     if (strcmp(str, "input")==0)
         return DI_INCOMING;
     if (strcmp(str, "both")==0)
-        return DI_OUTGOING | DI_INCOMING;
+        return DI_BOTH;
     return 0;
 }
 
@@ -672,7 +687,6 @@ mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
 
 int mapper_msg_get_mute(mapper_message_t *msg)
 {
-    // TODO: check if args can be LO_TRUE/LO_FALSE
     int mute;
     if (mapper_msg_get_param_if_int(msg, AT_MUTE, &mute))
         return -1;

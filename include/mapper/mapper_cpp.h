@@ -692,6 +692,8 @@ namespace mapper {
             { msig_set_maximum(signal, value); return (*this); }
         Signal set_rate(int rate)
             { msig_set_rate(signal, rate); return (*this); }
+        Signal set_direction(mapper_direction_t direction)
+            { msig_set_direction(signal, direction); return (*this); }
         class Properties : public AbstractSignalProps
         {
         public:
@@ -1213,6 +1215,18 @@ namespace mapper {
                         props->length = value.length;
                         props->flags |= CONNECTION_SLOT_MAX_KNOWN;
                     }
+                    return (*this);
+                }
+                Slot& set_cause_update(bool value)
+                {
+                    if (props)
+                        props->cause_update = (int)value;
+                    return (*this);
+                }
+                Slot& set_send_as_instance(bool value)
+                {
+                    if (props)
+                        props->send_as_instance = (int)value;
                     return (*this);
                 }
                 Property get(const string_type &name) const

@@ -378,8 +378,8 @@ typedef struct _mapper_monitor {
 typedef enum {
     AT_BOUND_MAX,
     AT_BOUND_MIN,
-    AT_CAUSE_UPDATE,
     AT_CALIBRATING,
+    AT_CAUSE_UPDATE,
     AT_DEST_LENGTH,
     AT_DEST_MAX,
     AT_DEST_MIN,

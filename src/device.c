@@ -57,6 +57,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
 
     md->props.identifier = strdup(name_prefix);
     md->props.name = 0;
+    md->props.description = 0;
     md->props.name_hash = 0;
     md->ordinal.value = 1;
     md->ordinal.locked = 0;
@@ -160,6 +161,8 @@ void mdev_free(mapper_device md)
         free(md->props.identifier);
     if (md->props.name)
         free(md->props.name);
+    if (md->props.description)
+        free(md->props.description);
     if (md->props.host)
         free(md->props.host);
     if (md->admin) {
@@ -472,9 +475,9 @@ static int handler_signal(const char *path, const char *types,
                     out_count++;
                 }
                 else {
-                    sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
-                    if (!sig->props.is_output)
+                    if (!(sig->props.direction & DI_OUTGOING))
                         mdev_route_signal(md, sig, instance, si->value, 1, tt);
+                    sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
                 }
                 si->has_value = 1;
             }
@@ -486,18 +489,18 @@ static int handler_signal(const char *path, const char *types,
                 out_count++;
             }
             else {
-                sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
-                if (!sig->props.is_output)
+                if (!(sig->props.direction & DI_OUTGOING))
                     mdev_route_signal(md, sig, instance, si->value, 1, tt);
+                sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
             }
             si->has_value = 1;
         }
     }
 
     if (out_count) {
-        sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
-        if (!sig->props.is_output)
+        if (!(sig->props.direction & DI_OUTGOING))
             mdev_route_signal(md, sig, instance, out_buffer, out_count, tt);
+        sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
     }
 
     return 0;
@@ -609,7 +612,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     if (mdev_get_signal_by_name(md, name, 0))
         return 0;
     char *signal_get = 0;
-    mapper_signal sig = msig_new(name, length, type, 0, unit, minimum,
+    mapper_signal sig = msig_new(name, length, type, DI_INCOMING, unit, minimum,
                                  maximum, handler, user_data);
     if (!sig)
         return 0;
@@ -651,7 +654,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 {
     if (mdev_get_signal_by_name(md, name, 0))
         return 0;
-    mapper_signal sig = msig_new(name, length, type, 1, unit, minimum,
+    mapper_signal sig = msig_new(name, length, type, DI_OUTGOING, unit, minimum,
                                  maximum, 0, 0);
     if (!sig)
         return 0;
@@ -678,7 +681,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
 void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
 {
     // TODO: handle adding and removing input signal methods also?
-    if (!sig->props.is_output)
+    if (!(sig->props.direction & DI_OUTGOING))
         return;
 
     char *path = 0;
@@ -720,7 +723,7 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
 
 void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal sig)
 {
-    if (!sig->props.is_output)
+    if (!(sig->props.direction & DI_OUTGOING))
         return;
 
     // TODO: use normal release message?
@@ -1313,15 +1316,34 @@ mapper_device_props mdev_properties(mapper_device dev)
 void mdev_set_property(mapper_device dev, const char *property,
                        char type, void *value, int length)
 {
-    if (strcmp(property, "name") == 0 ||
-        strcmp(property, "host") == 0 ||
+    if (strcmp(property, "host") == 0 ||
+        strcmp(property, "libversion") == 0 ||
+        strcmp(property, "name") == 0 ||
+        strcmp(property, "num_connections_in") == 0 ||
+        strcmp(property, "num_connections_out") == 0 ||
+        strcmp(property, "num_inputs") == 0 ||
+        strcmp(property, "num_outputs") == 0 ||
         strcmp(property, "port") == 0 ||
-        strcmp(property, "user_data") == 0) {
+        strcmp(property, "synced") == 0 ||
+        strcmp(property, "user_data") == 0 ||
+        strcmp(property, "version") == 0) {
         trace("Cannot set locked device property '%s'\n", property);
         return;
     }
-    mapper_table_add_or_update_typed_value(dev->props.extra, property,
-                                           type, value, length);
+    else if (strcmp(property, "description")==0) {
+        if (type == 's' && length == 1) {
+            if (dev->props.description)
+                free(dev->props.description);
+            dev->props.description = strdup((const char*)value);
+        }
+        else if (!value || !length) {
+            if (dev->props.description)
+                free(dev->props.description);
+        }
+    }
+    else
+        mapper_table_add_or_update_typed_value(dev->props.extra, property,
+                                               type, value, length);
 }
 
 int mdev_property_lookup(mapper_device dev, const char *property,

@@ -1038,13 +1038,13 @@ JNIEXPORT jstring JNICALL Java_Mapper_Device_00024Signal_msig_1name
         return 0;
 }
 
-JNIEXPORT jboolean JNICALL Java_Mapper_Device_00024Signal_msig_1is_1output
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_msig_1direction
   (JNIEnv *env, jobject obj, jlong s)
 {
     mapper_signal sig=(mapper_signal)ptr_jlong(s);
     if (sig) {
         mapper_db_signal p = msig_properties(sig);
-        return p->is_output;
+        return p->direction;
     }
     return 0;
 }
@@ -2655,11 +2655,11 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Signal_mdb_1signal_1get_1device_1name
     return (*env)->NewStringUTF(env, props->device->name);
 }
 
-JNIEXPORT jboolean JNICALL Java_Mapper_Db_Signal_mdb_1signal_1get_1is_1output
+JNIEXPORT jint JNICALL Java_Mapper_Db_Signal_mdb_1signal_1get_1direction
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_signal props = (mapper_db_signal)ptr_jlong(p);
-    return props->is_output!=0;
+    return props->direction;
 }
 
 JNIEXPORT jchar JNICALL Java_Mapper_Db_Signal_mdb_1signal_1get_1type
@@ -2801,6 +2801,13 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1s
     return build_PropertyValue(env, props->type, props->minimum, props->length);
 }
 
+JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1send_1as_1instance
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    return props->send_as_instance;
+}
+
 JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1signal_1name
   (JNIEnv *env, jobject obj, jlong p)
 {
@@ -2883,13 +2890,6 @@ JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1scope_
     if (!size)
         return 0;
     return build_PropertyValue(env, 's', props->scope.names, size);
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1send_1as_1instance
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
-    return props->send_as_instance;
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mapper_1db_1connection_1property_1lookup

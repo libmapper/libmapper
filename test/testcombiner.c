@@ -128,7 +128,8 @@ int setup_connection()
     props.expression = "y=x0+x1";
     props.sources[0].cause_update = 1;
     props.sources[1].cause_update = 0;
-    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION | CONNECTION_CAUSE_UPDATE;
+    props.sources[0].flags = props.sources[1].flags = CONNECTION_SLOT_CAUSE_UPDATE;
+    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
 
     mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props);
     mmon_free(mon);

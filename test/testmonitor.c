@@ -87,7 +87,21 @@ void printdevice(mapper_db_device dev)
 
 void printsignal(mapper_db_signal sig)
 {
-    printf("[%s] %s", sig->is_output ? "output" : "input", sig->name);
+    switch (sig->direction) {
+        case DI_BOTH:
+            printf("[both]   ");
+            break;
+        case DI_OUTGOING:
+            printf("[output] ");
+            break;
+        case DI_INCOMING:
+            printf("[input]  ");
+            break;
+        default:
+            printf("[??????] ");
+            break;
+    }
+    printf("%s", sig->name);
 
     int i=0;
     const char *key;
@@ -113,13 +127,43 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
+void printslot(mapper_db_connection_slot slot)
+{
+    printf("%s%s", slot->device_name, slot->signal_name);
+    int i = 0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_db_connection_slot_property_index(slot, i++, &key, &type,
+                                                    &val, &length))
+    {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed these
+        if (strcmp(key, "device_name")==0 || strcmp(key, "signal_name")==0)
+            continue;
+
+        die_unless(val!=0, "returned zero value\n");
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
+    }
+}
+
 void printconnection(mapper_db_connection con)
 {
     int i;
     printf(" └─ ");
-    for (i = 0; i < con->num_sources; i++)
-        printf("%s%s ", con->sources[i].device_name, con->sources[i].signal_name);
-    printf("-> %s%s", con->destination.device_name, con->destination.signal_name);
+    for (i = 0; i < con->num_sources; i++) {
+        printf("source[%d]: ", i);
+        printslot(&con->sources[i]);
+        printf("\n    ");
+    }
+    printf("destination: ");
+    printslot(&con->destination);
+    printf("\n    properties: ");
 
     i = 0;
     const char *key;
@@ -131,22 +175,18 @@ void printconnection(mapper_db_connection con)
     {
         die_unless(val!=0, "returned zero value\n");
 
-        // already printed these
-        if (strcmp(key, "src_name")==0
-            || strcmp(key, "dest_name")==0)
-            continue;
-
         if (length) {
-            printf(", %s=", key);
+            printf("%s=", key);
             if (strcmp(key, "mode")==0)
                 printf("%s", mode_strings[*((int*)val)]);
             else if (strncmp(key, "bound", 5)==0)
                 printf("%s", bound_strings[*((int*)val)]);
             else
                 mapper_prop_pp(type, length, val);
+            printf(", ");
         }
     }
-    printf("\n");
+    printf("\b\b\n");
 }
 
 /*! Creation of a local dummy device. */

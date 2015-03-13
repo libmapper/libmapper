@@ -350,13 +350,14 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                     memset(s->history[id].timetag, 0, s->history_size *
                            sizeof(mapper_timetag_t));
                 }
-                if (!c->props.send_as_instance || get_in_scope(c, map->origin)) {
+                if (!p->send_as_instance)
+                    m = mapper_connection_build_message(c, 0, 1, 0, 0);
+                else if (get_in_scope(c, map->origin))
                     m = mapper_connection_build_message(c, 0, 1, 0, map);
-                    if (m)
-                        send_or_bundle_message(s->link, p->signal_name, m, tt);
-                }
+                if (m)
+                    send_or_bundle_message(s->link, p->signal_name, m, tt);
             }
-            else if (c->props.send_as_instance && get_in_scope(c, map->origin)) {
+            else if (s->props->send_as_instance && get_in_scope(c, map->origin)) {
                 // TODO: handle multiple sources at same device
                 for (j = 0; j < c->props.num_sources; j++) {
                     s = &c->sources[i];
@@ -394,7 +395,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
         int in_scope = get_in_scope(c, map->origin);
         if ((s->props->direction == DI_INCOMING)
-            || (c->props.send_as_instance && !in_scope)) {
+            || (s->props->send_as_instance && !in_scope)) {
             continue;
         }
 
@@ -429,15 +430,16 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 memcpy((char*)out_value_p + to_size * j, result, to_size);
             }
             else {
-                m = mapper_connection_build_message(c, result, 1, typestring, map);
+                m = mapper_connection_build_message(c, result, 1, typestring,
+                                                    sp->send_as_instance ? map : 0);
                 if (m)
                     send_or_bundle_message(c->destination.link, dp->signal_name, m, tt);
             }
             k++;
         }
-        if (count > 1 && (!c->props.send_as_instance || in_scope)) {
-            m = mapper_connection_build_message(c, out_value_p, k,
-                                                typestring, map);
+        if (count > 1 && (!s->props->send_as_instance || in_scope)) {
+            m = mapper_connection_build_message(c, out_value_p, k, typestring,
+                                                sp->send_as_instance ? map : 0);
             if (m)
                 send_or_bundle_message(c->destination.link, dp->signal_name, m, tt);
         }
@@ -858,18 +860,20 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     for (i = 0; i < num_remote_signals; i++) {
         c->sources[i].connection = c;
         c->props.sources[i].cause_update = 1;
+        c->props.sources[i].send_as_instance = c->props.sources[i].num_instances > 1;
         c->sources[i].props = &c->props.sources[i];
     }
     c->destination.connection = c;
     c->destination.props = &c->props.destination;
     c->props.destination.slot_id = -1;
+    c->props.destination.cause_update = 1;
+    c->props.destination.send_as_instance = c->props.destination.num_instances > 1;
 
     c->props.mode = MO_UNDEFINED;
     c->props.expression = 0;
     c->props.bound_min = BA_NONE;
     c->props.bound_max = BA_NONE;
     c->props.muted = 0;
-    c->props.send_as_instance = (rs->num_instances > 1);
 
     c->props.extra = table_new();
 

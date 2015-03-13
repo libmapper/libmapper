@@ -393,7 +393,7 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
             lo_message_add_nil(m);
     }
 
-    if (props->send_as_instance && id_map) {
+    if (id_map) {
         lo_message_add_string(m, "@instance");
         lo_message_add_int32(m, id_map->origin);
         lo_message_add_int32(m, id_map->public);
@@ -1055,8 +1055,10 @@ int mapper_connection_set_from_message(mapper_connection c,
         int calibrating;
         if (!mapper_msg_get_param_if_int(msg, AT_CALIBRATING, &calibrating)
             && c->props.calibrating != calibrating) {
-            c->props.calibrating = calibrating;
-            updated++;
+            if (c->destination.props->minimum && c->destination.props->maximum) {
+                c->props.calibrating = calibrating;
+                updated++;
+            }
         }
 
         /* Range boundary actions. */
@@ -1069,14 +1071,6 @@ int mapper_connection_set_from_message(mapper_connection c,
         int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
         if (bound_max >= 0 && c->props.bound_max != bound_max) {
             c->props.bound_max = bound_max;
-            updated++;
-        }
-
-        /* Instances. */
-        int send_as_instance;
-        if (!mapper_msg_get_param_if_int(msg, AT_SEND_AS_INSTANCE, &send_as_instance)
-            && c->props.send_as_instance != send_as_instance) {
-            c->props.send_as_instance = send_as_instance;
             updated++;
         }
 
@@ -1116,6 +1110,21 @@ int mapper_connection_set_from_message(mapper_connection c,
         if (num_args && types && (types[0] == 's' || types[0] == 'S'))
             updated += mapper_db_connection_update_scope(&c->props.scope, args,
                                                          num_args);
+
+        /* Instances. */
+        mapper_msg_get_param(msg, AT_SEND_AS_INSTANCE, &types, &num_args);
+        if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (types[i] == 'T' && !c->props.sources[i].send_as_instance) {
+                    c->props.sources[i].send_as_instance = 1;
+                    updated++;
+                }
+                else if (types[i] == 'F' && c->props.sources[i].send_as_instance) {
+                    c->props.sources[i].send_as_instance = 0;
+                    updated++;
+                }
+            }
+        }
 
         /* Cause Update */
         mapper_msg_get_param(msg, AT_CAUSE_UPDATE, &types, &num_args);
@@ -1359,8 +1368,8 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         lo_message_add_string(m, mapper_mode_type_strings[props->mode]);
     }
 
+    // Expression string
     if (slot < 0) {
-        // Expression string
         if (props->expression) {
             lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
             lo_message_add_string(m, props->expression);
@@ -1451,11 +1460,17 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
 
     // Muting
     lo_message_add_string(m, prop_msg_strings[AT_MUTE]);
-    lo_message_add_int32(m, props->muted);
+    if (props->muted)
+        lo_message_add_true(m);
+    else
+        lo_message_add_false(m);
 
-    // Send as Instance
-    lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
-    lo_message_add_int32(m, props->send_as_instance);
+    // Calibrating
+    lo_message_add_string(m, prop_msg_strings[AT_CALIBRATING]);
+    if (props->calibrating)
+        lo_message_add_true(m);
+    else
+        lo_message_add_false(m);
 
     // Connection scopes
     lo_message_add_string(m, prop_msg_strings[AT_SCOPE]);
@@ -1478,8 +1493,17 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         lo_message_add_int32(m, slot);
     }
 
+    // Send as Instance
+    lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
+    for (i = 0; i < props->num_sources; i++) {
+        if (props->sources[i].send_as_instance)
+            lo_message_add_true(m);
+        else
+            lo_message_add_false(m);
+    }
+
+    // Cause update
     if (props->num_sources > 1) {
-        // Cause update
         lo_message_add_string(m, prop_msg_strings[AT_CAUSE_UPDATE]);
         for (i = 0; i < props->num_sources; i++) {
             if (props->sources[i].cause_update)

@@ -510,7 +510,8 @@ typedef struct {
  * type as the signal's type".  The lookup and index functions will
  * return the sig->type instead of the value's type. */
 static property_table_value_t sig_values[] = {
-    { 'i', {0},        -1,         SIG_OFFSET(is_output) },
+    { 's', {1},        -1,         SIG_OFFSET(description) },
+    { 'i', {0},        -1,         SIG_OFFSET(direction) },
     { 'i', {0},        -1,         SIG_OFFSET(length) },
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(maximum) },
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(minimum) },
@@ -523,20 +524,22 @@ static property_table_value_t sig_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t sig_strings[] = {
-    { "direction",   &sig_values[0] },
-    { "length",      &sig_values[1] },
-    { "max",         &sig_values[2] },
-    { "min",         &sig_values[3] },
-    { "name",        &sig_values[4] },
-    { "rate",        &sig_values[5] },
-    { "type",        &sig_values[6] },
-    { "unit",        &sig_values[7] },
-    { "user_data",   &sig_values[8] },
+    { "description", &sig_values[0] },
+    { "direction",   &sig_values[1] },
+    { "length",      &sig_values[2] },
+    { "max",         &sig_values[3] },
+    { "min",         &sig_values[4] },
+    { "name",        &sig_values[5] },
+    { "rate",        &sig_values[6] },
+    { "type",        &sig_values[7] },
+    { "unit",        &sig_values[8] },
+    { "user_data",   &sig_values[9] },
 };
 
-static mapper_string_table_t sig_table = { sig_strings, 9, 9 };
+static mapper_string_table_t sig_table = { sig_strings, 10, 10 };
 
 static property_table_value_t dev_values[] = {
+    { 's', {1}, -1, DEV_OFFSET(description) },
     { 's', {1}, -1, DEV_OFFSET(host) },
     { 's', {1}, -1, DEV_OFFSET(lib_version) },
     { 's', {1}, -1, DEV_OFFSET(name) },
@@ -552,41 +555,42 @@ static property_table_value_t dev_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t dev_strings[] = {
-    { "host",                &dev_values[0] },
-    { "lib_version",         &dev_values[1] },
-    { "name",                &dev_values[2] },
-    { "num_connections_in",  &dev_values[3] },
-    { "num_connections_out", &dev_values[4] },
-    { "num_inputs",          &dev_values[5] },
-    { "num_outputs",         &dev_values[6] },
-    { "port",                &dev_values[7] },
-    { "synced",              &dev_values[8] },
-    { "user_data",           &dev_values[9] },
-    { "version",             &dev_values[10] },
+    { "description",         &dev_values[0] },
+    { "host",                &dev_values[1] },
+    { "lib_version",         &dev_values[2] },
+    { "name",                &dev_values[3] },
+    { "num_connections_in",  &dev_values[4] },
+    { "num_connections_out", &dev_values[5] },
+    { "num_inputs",          &dev_values[6] },
+    { "num_outputs",         &dev_values[7] },
+    { "port",                &dev_values[8] },
+    { "synced",              &dev_values[9] },
+    { "user_data",           &dev_values[10] },
+    { "version",             &dev_values[11] },
 };
 
-static mapper_string_table_t dev_table = { dev_strings, 11, 11 };
+static mapper_string_table_t dev_table = { dev_strings, 12, 12 };
 
 static property_table_value_t slot_values[] = {
     { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
     { 's', {1},         -1,          SLOT_OFFSET(device_name) },
-    { 'i', {0},         -1,          SLOT_OFFSET(direction) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
+    { 'i', {0},         -1,          SLOT_OFFSET(send_as_instance) },
     { 's', {1},         -1,          SLOT_OFFSET(signal_name) },
     { 'c', {0},         -1,          SLOT_OFFSET(type) },
 };
 
 static string_table_node_t slot_strings[] = {
-    { "cause_update",   &slot_values[0] },
-    { "device_name",    &slot_values[1] },
-    { "direction",      &slot_values[2] },
-    { "length",         &slot_values[3] },
-    { "maximum",        &slot_values[4] },
-    { "minimum",        &slot_values[5] },
-    { "signal_name",    &slot_values[6] },
-    { "type",           &slot_values[7] },
+    { "cause_update",     &slot_values[0] },
+    { "device_name",      &slot_values[1] },
+    { "length",           &slot_values[2] },
+    { "maximum",          &slot_values[3] },
+    { "minimum",          &slot_values[4] },
+    { "send_as_instance", &slot_values[5] },
+    { "signal_name",      &slot_values[6] },
+    { "type",             &slot_values[7] },
 };
 
 static mapper_string_table_t slot_table = { slot_strings, 8, 8 };
@@ -601,7 +605,6 @@ static property_table_value_t con_values[] = {
     { 'i', {0}, -1,         CON_OFFSET(scope.size) },
     { 'i', {0}, -1,         CON_OFFSET(num_sources) },
     { 's', {1}, NUM_SCOPES, CON_OFFSET(scope.names) },
-    { 'i', {0}, -1,         CON_OFFSET(send_as_instance) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -615,10 +618,9 @@ static string_table_node_t con_strings[] = {
     { "num_scopes",         &con_values[6] },
     { "num_sources",        &con_values[7] },
     { "scope_names",        &con_values[8] },
-    { "send_as_instance",   &con_values[9] },
 };
 
-static mapper_string_table_t con_table = { con_strings, 10, 10 };
+static mapper_string_table_t con_table = { con_strings, 9, 9 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -876,6 +878,8 @@ static void db_remove_device_internal(mapper_db db, mapper_db_device dev,
 
     if (dev->name)
         free(dev->name);
+    if (dev->description)
+        free(dev->description);
     if (dev->host)
         free(dev->host);
     if (dev->lib_version)
@@ -984,10 +988,21 @@ void mapper_db_dump(mapper_db db)
     mapper_db_signal sig = db->registered_signals;
     printf("Registered signals:\n");
     while (sig) {
-        printf("  name=%s%s (%s%s%s)\n", sig->device->name, sig->name,
-               sig->is_input ? "input" : "",
-               sig->is_input && sig->is_output ? ", " : "",
-               sig->is_output ? "output" : "");
+        printf("  name=%s%s ", sig->device->name, sig->name);
+        switch (sig->direction) {
+            case DI_BOTH:
+                printf("(input/output)\n");
+                break;
+            case DI_OUTGOING:
+                printf("(output)\n");
+                break;
+            case DI_INCOMING:
+                printf("(input)\n");
+                break;
+            default:
+                printf("(unknown)");
+                break;
+        }
         sig = list_get_next(sig);
     }
 
@@ -1153,12 +1168,8 @@ static int update_signal_record_params(mapper_db_signal sig,
     }
 
     int direction = mapper_msg_get_signal_direction(params);
-    if ((direction & DI_OUTGOING) != sig->is_output) {
-        sig->is_output = direction & DI_OUTGOING;
-        updated++;
-    }
-    if ((direction & DI_INCOMING) != sig->is_input) {
-        sig->is_input = direction & DI_INCOMING;
+    if (direction && direction != sig->direction) {
+        sig->direction = direction;
         updated++;
     }
 
@@ -1207,20 +1218,19 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
             }
         }
     }
-
     return sig;
 }
 
 void mapper_db_signal_init(mapper_db_signal sig, char type, int length,
                            const char *name, const char *unit)
 {
-    sig->is_output = 0;
-    sig->is_input = 0;
+    sig->direction = 0;
     sig->type = type;
     sig->length = length;
     sig->unit = unit ? strdup(unit) : 0;
     sig->extra = table_new();
     sig->minimum = sig->maximum = 0;
+    sig->description = 0;
 
     if (!name)
         return;
@@ -1269,9 +1279,9 @@ static int cmp_query_signals(void *context_data, mapper_db_signal sig)
 {
     const char direction = *((const char*)context_data);
     if (direction == 'i')
-        return sig->is_input;
+        return sig->direction & DI_INCOMING;
     else
-        return sig->is_output;
+        return sig->direction & DI_OUTGOING;
 }
 
 mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db)
@@ -1329,9 +1339,11 @@ static int cmp_query_signal_exact_device_name(void *context_data,
     const char direction = *((const char*)context_data
                              + strlen(device_name) + 1);
     if (direction == 'i')
-        return sig->is_input && strcmp(device_name, sig->device->name)==0;
+        return ((sig->direction & DI_INCOMING)
+                && strcmp(device_name, sig->device->name)==0);
     else if (direction == 'o')
-        return sig->is_output && strcmp(device_name, sig->device->name)==0;
+        return ((sig->direction & DI_OUTGOING)
+                && strcmp(device_name, sig->device->name)==0);
     else
         return strcmp(device_name, sig->device->name)==0;
 }
@@ -1398,7 +1410,7 @@ mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
         return 0;
 
     while (sig) {
-        if (sig->is_input
+        if ((sig->direction & DI_INCOMING)
             && strcmp(sig->device->name, device_name)==0
             && strcmp(sig->name, signal_name)==0)
             return sig;
@@ -1415,7 +1427,7 @@ mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
         return 0;
 
     while (sig) {
-        if (sig->is_output
+        if ((sig->direction & DI_OUTGOING)
             && strcmp(sig->device->name, device_name)==0
             && strcmp(sig->name, signal_name)==0)
             return sig;
@@ -1452,10 +1464,12 @@ static int cmp_match_signal_device_name(void *context_data,
     const char direction = *((const char *)signal_pattern
                              + strlen(signal_pattern)+ 1);
     if (direction == 'i')
-        return (sig->is_input && strcmp(device_name, sig->device->name)==0
+        return ((sig->direction & DI_INCOMING)
+                && strcmp(device_name, sig->device->name)==0
                 && strstr(sig->name, signal_pattern));
     else if (direction == 'o')
-        return (sig->is_output && strcmp(device_name, sig->device->name)==0
+        return ((sig->direction & DI_OUTGOING)
+                && strcmp(device_name, sig->device->name)==0
                 && strstr(sig->name, signal_pattern));
     else
         return (strcmp(device_name, sig->device->name)==0
@@ -1544,6 +1558,8 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
 
     if (sig->name)
         free(sig->name);
+    if (sig->description)
+        free(sig->description);
     if (sig->unit)
         free(sig->unit);
     if (sig->minimum)
@@ -1779,7 +1795,6 @@ static int update_connection_record_params(mapper_db db,
             con->sources[i].signal_name = con->sources[i].signal->name;
             con->sources[i].device = con->sources[i].signal->device;
             con->sources[i].device_name = con->sources[i].device->name;
-            con->sources[i].signal->is_output = 1;
             con->sources[i].slot_id = slot;
 
             // slots should be in alphabetical order
@@ -1953,7 +1968,8 @@ static int update_connection_record_params(mapper_db db,
         }
     }
 
-    mapper_msg_get_param(params, AT_CAUSE_UPDATE, &types, &length);
+    /* @causeUpdate */
+    args = mapper_msg_get_param(params, AT_CAUSE_UPDATE, &types, &length);
     if (args && types) {
         if (length == con->num_sources) {
             for (i = 0; i < con->num_sources; i++) {
@@ -1969,8 +1985,24 @@ static int update_connection_record_params(mapper_db db,
         }
     }
 
+    /* @sendAsInstance */
+    args = mapper_msg_get_param(params, AT_SEND_AS_INSTANCE, &types, &length);
+    if (args && types) {
+        if (length == con->num_sources) {
+            for (i = 0; i < con->num_sources; i++) {
+                if (types[i] == 'T' && !con->sources[i].send_as_instance) {
+                    con->sources[i].send_as_instance = 1;
+                    updated++;
+                }
+                else if (types[i] == 'F' && con->sources[i].send_as_instance) {
+                    con->sources[i].send_as_instance = 0;
+                    updated++;
+                }
+            }
+        }
+    }
+
     updated += update_string_if_arg(&con->expression, params, AT_EXPRESSION);
-    updated += update_int_if_arg(&con->send_as_instance, params, AT_SEND_AS_INSTANCE);
 
     mapper_mode_type mode = mapper_msg_get_mode(params);
     if ((int)mode != -1 && mode != con->mode) {
@@ -2036,8 +2068,8 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             con->sources[i].signal_name = con->sources[i].signal->name;
             con->sources[i].device = con->sources[i].signal->device;
             con->sources[i].device_name = con->sources[i].device->name;
-            con->sources[i].signal->is_output = 1;
             con->sources[i].slot_id = i;
+            con->sources[i].cause_update = 1;
         }
         signame = strchr(dest_name+1, '/');
         devnamelen = signame - dest_name;
@@ -2055,7 +2087,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
         con->destination.signal_name = con->destination.signal->name;
         con->destination.device = con->destination.signal->device;
         con->destination.device_name = con->destination.device->name;
-        con->destination.signal->is_input = 1;
+        con->destination.cause_update = 1;
 
         con->extra = table_new();
         rc = 1;
@@ -2084,7 +2116,6 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                 con->sources[j].signal =
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
                 con->sources[j].device = con->sources[j].signal->device;
-                con->sources[j].signal->is_output = 1;
             }
         }
     }

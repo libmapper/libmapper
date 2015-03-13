@@ -436,8 +436,8 @@ int main(int argc, char **argv)
         psig = mapper_db_signal_next(psig);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 1) {
+        eprintf("Expected 1 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -529,8 +529,8 @@ int main(int argc, char **argv)
         psig = mapper_db_signal_next(psig);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 1) {
+        eprintf("Expected 1 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }

@@ -24,6 +24,11 @@ public class Connection
     public static final int IN_STEAL_OLDEST = 1;
     public static final int IN_STEAL_NEWEST = 2;
 
+    /*! Describes the directionality of connection slots. */
+    public static final int DI_OUTGOING = 1;
+    public static final int DI_INCOMING = 2;
+    public static final int DI_BOTH     = 3;
+
     public class Slot {
         private Slot(long s) {
             _slotprops = s;
@@ -34,15 +39,17 @@ public class Connection
             length = mdb_connection_slot_get_length(_slotprops);
             maximum = mdb_connection_slot_get_max(_slotprops);
             minimum = mdb_connection_slot_get_min(_slotprops);
+            sendAsInstance = mdb_connection_slot_get_send_as_instance(_slotprops);
             signalName = mdb_connection_slot_get_signal_name(_slotprops);
             type = mdb_connection_slot_get_type(_slotprops);
         }
         private Slot(String name) {
             causeUpdate = -1;
-            direction = -1;
+            direction = 0;
             length = -1;
             maximum = null;
             minimum = null;
+            sendAsInstance = -1;
             type = 0;
             if (name != null) {
                 int slashindex = name.indexOf('/', 1);
@@ -73,6 +80,9 @@ public class Connection
         public PropertyValue minimum;
         private native PropertyValue mdb_connection_slot_get_min(long p);
 
+        public int sendAsInstance;
+        private native int mdb_connection_slot_get_send_as_instance(long p);
+
         public String signalName;
         private native String mdb_connection_slot_get_signal_name(long p);
 
@@ -94,7 +104,6 @@ public class Connection
         numScopes = mdb_connection_get_num_scopes(_conprops);
         numSources = mdb_connection_get_num_sources(_conprops);
         scopeNames = mdb_connection_get_scope_names(_conprops);
-        sendAsInstance = mdb_connection_get_send_as_instance(_conprops);
 
         sources = new Slot[numSources];
         for (int i = 0; i < numSources; i++)
@@ -113,7 +122,6 @@ public class Connection
         numScopes = 0;
         numSources = _srcNames.length;
         scopeNames = null;
-        sendAsInstance = 0;
 
         sources = new Slot[numSources];
         for (int i = 0; i < numSources; i++)
@@ -132,7 +140,6 @@ public class Connection
         numScopes = 0;
         numSources = 1;
         scopeNames = null;
-        sendAsInstance = 0;
 
         sources = new Slot[1];
         sources[0] = new Slot(_srcName);
@@ -150,7 +157,6 @@ public class Connection
         numScopes = 0;
         numSources = _numSources;
         scopeNames = null;
-        sendAsInstance = 0;
 
         sources = new Slot[numSources];
         for (int i = 0; i < numSources; i++)
@@ -189,9 +195,6 @@ public class Connection
 
     public PropertyValue scopeNames;
     private native PropertyValue mdb_connection_get_scope_names(long p);
-
-    public int sendAsInstance;
-    private native int mdb_connection_get_send_as_instance(long p);
 
     public PropertyValue property(String property) {
         return mapper_db_connection_property_lookup(_conprops, property);

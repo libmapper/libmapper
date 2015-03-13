@@ -27,6 +27,7 @@ typedef struct _mapper_db_device {
                                  *   this device. */
     char *name;                 /*!< The full name for this
                                  *   device, or zero. */
+    char *description;
     int ordinal;
     uint32_t name_hash;         /*!< CRC-32 hash of full device name
                                  *   in the form <name>.<ordinal> */
@@ -50,19 +51,21 @@ typedef struct _mapper_db_device {
 /* Bit flags to identify which range extremities are known. If the bit field is
  * equal to RANGE_KNOWN, then all four required extremities are known, and a
  * linear connection can be calculated. */
-#define CONNECTION_SLOT_MIN         0x1
-#define CONNECTION_SLOT_MAX         0x2
-#define CONNECTION_SLOT_TYPE        0x4
-#define CONNECTION_SLOT_LENGTH      0x8
+#define CONNECTION_SLOT_MIN              0x01
+#define CONNECTION_SLOT_MAX              0x02
+#define CONNECTION_SLOT_TYPE             0x04
+#define CONNECTION_SLOT_LENGTH           0x08
+#define CONNECTION_SLOT_CAUSE_UPDATE     0x10
+#define CONNECTION_SLOT_SEND_AS_INSTANCE 0x20
 
 // For range info to be known we also need to know data types and lengths
-#define CONNECTION_SLOT_MIN_KNOWN   (  CONNECTION_SLOT_MIN     \
-                                     | CONNECTION_SLOT_TYPE          \
+#define CONNECTION_SLOT_MIN_KNOWN   (  CONNECTION_SLOT_MIN      \
+                                     | CONNECTION_SLOT_TYPE     \
                                      | CONNECTION_SLOT_LENGTH )
-#define CONNECTION_SLOT_MAX_KNOWN   (  CONNECTION_SLOT_MAX     \
-                                     | CONNECTION_SLOT_TYPE          \
+#define CONNECTION_SLOT_MAX_KNOWN   (  CONNECTION_SLOT_MAX      \
+                                     | CONNECTION_SLOT_TYPE     \
                                      | CONNECTION_SLOT_LENGTH )
-#define CONNECTION_SLOT_RANGE_KNOWN (  CONNECTION_SLOT_MIN_KNOWN   \
+#define CONNECTION_SLOT_RANGE_KNOWN (  CONNECTION_SLOT_MIN_KNOWN\
                                      | CONNECTION_SLOT_MAX_KNOWN)
 
 /* Bit flags to identify which fields in a mapper_db_connection structure are
@@ -70,15 +73,13 @@ typedef struct _mapper_db_device {
  * mmon_connect() or mmon_modify_connection() functions. */
 #define CONNECTION_BOUND_MIN        0x001
 #define CONNECTION_BOUND_MAX        0x002
-#define CONNECTION_CAUSE_UPDATE     0x004
-#define CONNECTION_EXPRESSION       0x008
-#define CONNECTION_MODE             0x010
-#define CONNECTION_MUTED            0x020
-#define CONNECTION_NUM_SCOPES       0x040
-#define CONNECTION_SEND_AS_INSTANCE 0x080
-#define CONNECTION_SCOPE_NAMES      0x140 // need to know num_scopes also
-#define CONNECTION_SCOPE_HASHES     0x240 // need to know num_scopes also
-#define CONNECTION_SLOT             0x400
+#define CONNECTION_EXPRESSION       0x004
+#define CONNECTION_MODE             0x008
+#define CONNECTION_MUTED            0x010
+#define CONNECTION_NUM_SCOPES       0x020
+#define CONNECTION_SCOPE_NAMES      0x060 // need to know num_scopes also
+#define CONNECTION_SCOPE_HASHES     0x090 // need to know num_scopes also
+#define CONNECTION_SLOT             0x100
 #define CONNECTION_ALL              0xFFF
 
 /*! Describes what happens when the range boundaries are
@@ -129,6 +130,7 @@ typedef struct _mapper_db_signal {
                              *  start with '/'. */
 
     char *unit;             //!< The unit of this signal, or NULL for N/A.
+    char *description;
     void *minimum;          //!< The minimum of this signal, or NULL for N/A.
     void *maximum;          //!< The maximum of this signal, or NULL for N/A.
 
@@ -139,8 +141,7 @@ typedef struct _mapper_db_signal {
 
     float rate;             //!< The update rate, or 0 for non-periodic signals.
     int id;                 //!< Signal index.
-    int is_output;       	//!< Flag to indicate whether signal is source.
-    int is_input;       	//!< Flag to indicate whether signal is destination.
+    int direction;       	//!< DI_OUTGOING / DI_INCOMING / DI_BOTH
     int length;             //!< Length of the signal vector, or 1 for scalars.
     int num_instances;      //!< Number of instances.
     char type;              /*! The type of this signal, specified as an OSC type
@@ -158,8 +159,9 @@ typedef struct _mapper_db_connection_slot {
     int length;
     int num_instances;
     int flags;
-    char direction;                 //!< DI_INCOMING or DI_OUTGOING
-    char cause_update;
+    int direction;                  //!< DI_INCOMING or DI_OUTGOING
+    int cause_update;               //!< 1 to cause update, 0 otherwise.
+    int send_as_instance;           //!< 1 to send as instance, 0 otherwise.
     char type;
 } mapper_db_connection_slot_t, *mapper_db_connection_slot;
 
@@ -180,13 +182,12 @@ typedef struct _mapper_db_connection {
                                          *   upper boundary. */
     mapper_boundary_action bound_min;   /*!< Operation for exceeded
                                          *   lower boundary. */
-    int send_as_instance;               //!< 1 to send as instance, 0 otherwise.
     mapper_mode_type mode;              /*!< Bypass, linear, calibrate, or
                                          *   expression connection */
     int muted;                          /*!< 1 to mute mapping connection, 0
                                          *   to unmute */
     int calibrating;
-    int id;                         //!< Connection index
+    int id;                             //!< Connection index
     int num_sources;
     int flags;
 } mapper_db_connection_t, *mapper_db_connection;

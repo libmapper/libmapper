@@ -5,13 +5,18 @@ import Mapper.PropertyValue;
 
 public class Signal
 {
+    /*! Describes the directionality of signals. */
+    public static final int DI_OUTGOING = 1;
+    public static final int DI_INCOMING = 2;
+    public static final int DI_BOTH     = 3;
+
     public Signal(long sigprops) {
         _sigprops = sigprops;
 
         _name = mdb_signal_get_name(_sigprops);
         _device_name = mdb_signal_get_device_name(_sigprops);
 
-        _is_output = mdb_signal_get_is_output(_sigprops);
+        _direction = mdb_signal_get_direction(_sigprops);
         _type = mdb_signal_get_type(_sigprops);
         _length = mdb_signal_get_length(_sigprops);
         _unit = mdb_signal_get_unit(_sigprops);
@@ -30,9 +35,9 @@ public class Signal
 
     public String fullName() { return this.deviceName()+this.name(); }
 
-	boolean _is_output;
-    public boolean isOutput() { return _is_output; }
-    private native boolean mdb_signal_get_is_output(long p);
+	int _direction;
+    public int direction() { return _direction; }
+    private native int mdb_signal_get_direction(long p);
 
     char _type;
     public char type() { return _type; }
