@@ -35,7 +35,7 @@ def print_instance_ids():
     print phrase
 
 src = mapper.device("src")
-outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
+outsig = src.add_output("/outsig", 1, 'f', None, 0, 100)
 outsig.reserve_instances(5)
 
 dest = mapper.device("dest")
@@ -49,15 +49,12 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 monitor = mapper.monitor()
-
-monitor.link('%s' %src.name, '%s' %dest.name)
-while not src.num_links:
-    src.poll(10)
-    dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
-monitor.poll()
+while not src.num_connections_out:
+    src.poll(10)
+    dest.poll(10)
 
 for i in range(100):
     r = random.randint(0,5)

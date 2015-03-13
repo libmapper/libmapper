@@ -21,15 +21,12 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 monitor = mapper.monitor()
-
-monitor.link('%s' %src.name, '%s' %dest.name)
-while not src.num_links:
-    src.poll(10)
-    dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig.name),
                 '%s%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
-monitor.poll()
+while not src.num_connections_out:
+    src.poll(10)
+    dest.poll(10)
 
 for i in range(100):
     print 'updating destination to', i, '-->'

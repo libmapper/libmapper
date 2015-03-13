@@ -18,18 +18,15 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 monitor = mapper.monitor()
-
-monitor.link('%s' %src.name, '%s' %dest.name)
-while not src.num_links:
-    src.poll(10)
-    dest.poll(10)
 monitor.connect('%s%s' %(src.name, outsig1.name),
                 '%s%s' %(dest.name, insig1.name),
                 {'mode': mapper.MO_LINEAR})
 monitor.connect('%s%s' %(src.name, outsig2.name),
                 '%s%s' %(dest.name, insig2.name),
                 {'mode': mapper.MO_LINEAR})
-monitor.poll()
+while not src.num_connections_out:
+    src.poll(10)
+    dest.poll(10)
 
 for i in range(10):
     now = src.now()

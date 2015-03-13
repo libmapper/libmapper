@@ -35,6 +35,36 @@
 %typemap(freearg) (int num_int, int *argv) {
     if ($2) free($2);
 }
+%typemap(in) (int num_sources, const char **sources) {
+    int i;
+    if (PyList_Check($input)) {
+        $1 = PyList_Size($input);
+        $2 = (char **) malloc($1*sizeof(char*));
+        for (i = 0; i < $1; i++) {
+            PyObject *s = PyList_GetItem($input,i);
+            if (PyString_Check(s)) {
+                $2[i] = PyString_AsString(s);
+            }
+            else {
+                free($2);
+                PyErr_SetString(PyExc_ValueError,
+                                "List items must be string.");
+                return NULL;
+            }
+        }
+    }
+    else if (PyString_Check($input)) {
+        $1 = 1;
+        $2 = (char**) malloc(sizeof(char*));
+        $2[0] = PyString_AsString($input);
+    }
+    else {
+        return NULL;
+    }
+}
+%typemap(freearg) (int num_sources, const char **sources) {
+    if ($2) free($2);
+}
 %typemap(in) maybePropVal %{
     propval *val = alloca(sizeof(*val));
     if ($input == Py_None)
@@ -97,90 +127,27 @@
     return o;
  }
 
-%typemap(in) mapper_db_link_with_flags_t* %{
-    mapper_db_link_with_flags_t *p = alloca(sizeof(*p));
-    $1 = 0;
-    if (PyDict_Check($input)) {
-        memset(p, 0, sizeof(mapper_db_link_with_flags_t));
-        PyObject *keys = PyDict_Keys($input);
-        if (keys) {
-            int i = PyList_GET_SIZE(keys), k;
-            for (i=i-1; i>=0; --i) {
-                PyObject *o = PyList_GetItem(keys, i);
-                if (PyString_Check(o)) {
-                    PyObject *v = PyDict_GetItem($input, o);
-                    char *s = PyString_AsString(o);
-                    if (strcmp(s, "name1")==0) {
-                        if (PyString_Check(v))
-                            p->props.name1 = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "name2")==0) {
-                        if (PyString_Check(v))
-                            p->props.name2 = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "host1")==0) {
-                        if (PyString_Check(v))
-                            p->props.host1 = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "port1")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode))
-                            p->props.port1 = k;
-                    }
-                    else if (strcmp(s, "host2")==0) {
-                        if (PyString_Check(v))
-                            p->props.host2 = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "port2")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode))
-                            p->props.port2 = k;
-                    }
-                }
-            }
-            Py_DECREF(keys);
-            $1 = p;
-        }
+%typemap(freearg) (int, mapper_db_connection_slot_t*) {
+    if ($1) {
+        if ($1->device_name)
+            free((char*)$1->device_name);
+        if ($1->signal_name)
+            free((char*)$1->signal_name);
+        if ($1->minimum)
+            free($1->minimum);
+        if ($1->maximum)
+            free($1->maximum);
     }
-    else {
-        SWIG_exception_fail(SWIG_TypeError,
-                            "argument $argnum must be 'dict'");
-    }
- %}
+}
 
-%typemap(in) mapper_db_connection_with_flags_t* %{
-    mapper_db_connection_with_flags_t *p = alloca(sizeof(*p));
-    p->props.src_length = 0;
-    p->props.dest_length = 0;
-    p->props.src_type = 0;
-    p->props.dest_type = 0;
+%typemap(in) mapper_db_connection_t* %{
+    mapper_db_connection_t *p = alloca(sizeof(mapper_db_connection_t));
     $1 = 0;
     if (PyDict_Check($input)) {
-        memset(p, 0, sizeof(mapper_db_connection_with_flags_t));
+        memset(p, 0, sizeof(mapper_db_connection_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
-            // first try to retrieve src_type, dest_type if provided
             int i = PyList_GET_SIZE(keys), k;
-            for (i=i-1; i>=0; --i) {
-                PyObject *o = PyList_GetItem(keys, i);
-                if (PyString_Check(o)) {
-                    PyObject *v = PyDict_GetItem($input, o);
-                    char *s = PyString_AsString(o);
-                    if (strcmp(s, "src_type")==0) {
-                        if (PyString_Check(v))
-                            p->props.src_type = PyString_AsString(v)[0];
-                        if (p->props.dest_type)
-                            continue;
-                    }
-                    else if (strcmp(s, "dest_type")==0) {
-                        if (PyString_Check(v))
-                            p->props.dest_type = PyString_AsString(v)[0];
-                        if (p->props.src_type)
-                            continue;
-                    }
-                }
-            }
-            i = PyList_GET_SIZE(keys);
             for (i=i-1; i>=0; --i) {
                 PyObject *o = PyList_GetItem(keys, i);
                 if (PyString_Check(o)) {
@@ -189,27 +156,27 @@
                     if (strcmp(s, "bound_max")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p->props.bound_max = k;
+                            p->bound_max = k;
                             p->flags |= CONNECTION_BOUND_MAX;
                         }
                     }
                     else if (strcmp(s, "bound_min")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p->props.bound_min = k;
+                            p->bound_min = k;
                             p->flags |= CONNECTION_BOUND_MIN;
                         }
                     }
                     else if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
-                            p->props.expression = PyString_AsString(v);
+                            p->expression = PyString_AsString(v);
                             p->flags |= CONNECTION_EXPRESSION;
                         }
                     }
                     else if (strcmp(s, "mode")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
-                            p->props.mode = k;
+                            p->mode = k;
                             p->flags |= CONNECTION_MODE;
                         }
                     }
@@ -228,121 +195,55 @@
                                 k = -1;
                         }
                         if (k>-1) {
-                            p->props.muted = k;
+                            p->muted = k;
                             p->flags |= CONNECTION_MUTED;
-                        }
-                    }
-                    else if (   strcmp(s, "src_name")==0
-                             || strcmp(s, "src_names")==0) {
-                        // could be array or single string
-                        if (PyString_Check(v)) {
-                            p->props.num_sources = 1;
-                            char *src_name = PyString_AsString(v);
-                            p->props.src_names = &src_name;
-                        }
-                        else if (PyList_Check(v)) {
-                            p->props.num_sources = PyList_Size(v);
-                            p->props.src_names = malloc(p->props.num_sources
-                                                        * sizeof(char *));
-                            for (k=0; k<p->props.num_sources; k++) {
-                                PyObject *element = PySequence_GetItem(v, k);
-                                if (!PyString_Check(element)) {
-                                    p->props.num_sources = 0;
-                                    for (--k; k>=0; k--)
-                                        free(p->props.src_names[k]);
-                                    free(p->props.src_names);
-                                    break;
-                                }
-                                p->props.src_names[k] =
-                                    strdup(PyString_AsString(element));
-                            }
-                        }
-                    }
-                    else if (strcmp(s, "dest_name")==0) {
-                        if (PyString_Check(v))
-                            p->props.dest_name = PyString_AsString(v);
-                    }
-                    else if (strcmp(s, "src_min")==0) {
-                        alloc_and_copy_maybe_vector(v, &p->props.src_type,
-                                                    &p->props.src_min,
-                                                    &p->props.src_length);
-                        if (p->props.src_min) {
-                            p->flags |= CONNECTION_SRC_LENGTH;
-                            p->flags |= CONNECTION_SRC_TYPE;
-                        }
-                    }
-                    else if (strcmp(s, "src_max")==0) {
-                        alloc_and_copy_maybe_vector(v, &p->props.src_type,
-                                                    &p->props.src_max,
-                                                    &p->props.src_length);
-                        if (p->props.src_max) {
-                            p->flags |= CONNECTION_SRC_LENGTH;
-                            p->flags |= CONNECTION_SRC_TYPE;
-                        }
-                    }
-                    else if (strcmp(s, "dest_min")==0) {
-                        alloc_and_copy_maybe_vector(v, &p->props.dest_type,
-                                                    &p->props.dest_min,
-                                                    &p->props.dest_length);
-                        if (p->props.dest_min) {
-                            p->flags |= CONNECTION_DEST_LENGTH;
-                            p->flags |= CONNECTION_DEST_TYPE;
-                        }
-                    }
-                    else if (strcmp(s, "dest_max")==0) {
-                        alloc_and_copy_maybe_vector(v, &p->props.dest_type,
-                                                    &p->props.dest_max,
-                                                    &p->props.dest_length);
-                        if (p->props.dest_max) {
-                            p->flags |= CONNECTION_DEST_LENGTH;
-                            p->flags |= CONNECTION_DEST_TYPE;
-                        }
-                    }
-                    else if (strcmp(s, "send_as_instance")==0) {
-                        k = -1;
-                        if (v == Py_True)
-                            k = 1;
-                        else if (v == Py_False) {
-                            k = 0;
-                        }
-                        else {
-                            int ecode = SWIG_AsVal_int(v, &k);
-                            if (SWIG_IsOK(ecode))
-                                k = k!=0;
-                            else
-                                k = -1;
-                        }
-                        if (k>-1) {
-                            p->props.send_as_instance = k;
-                            p->flags |= CONNECTION_SEND_AS_INSTANCE;
                         }
                     }
                     else if (strcmp(s, "scope_names")==0) {
                         // could be array or single string
                         if (PyString_Check(v)) {
-                            p->props.scope.size = 1;
+                            p->scope.size = 1;
                             char *scope = PyString_AsString(v);
-                            p->props.scope.names = &scope;
+                            p->scope.names = &scope;
                         }
                         else if (PyList_Check(v)) {
-                            p->props.scope.size = PyList_Size(v);
-                            p->props.scope.names = malloc(p->props.scope.size
-                                                          * sizeof(char *));
-                            for (k=0; k<p->props.scope.size; k++) {
+                            p->scope.size = PyList_Size(v);
+                            p->scope.names = malloc(p->scope.size
+                                                    * sizeof(char *));
+                            for (k=0; k<p->scope.size; k++) {
                                 PyObject *element = PySequence_GetItem(v, k);
                                 if (!PyString_Check(element)) {
-                                    p->props.scope.size = 0;
+                                    p->scope.size = 0;
                                     for (--k; k>=0; k--)
-                                        free(p->props.scope.names[k]);
-                                    free(p->props.scope.names);
+                                        free(p->scope.names[k]);
+                                    free(p->scope.names);
                                     break;
                                 }
-                                p->props.scope.names[k] =
+                                p->scope.names[k] =
                                     strdup(PyString_AsString(element));
                             }
                         }
-                        if (p->props.scope.size > 0)
+                        if (p->scope.size > 0)
                             p->flags |= CONNECTION_SCOPE_NAMES;
+                    }
+                    else if (strcmp(s, "source")==0 || strcmp(s, "sources")==0) {
+                        if (PyList_Check(v)) {
+                            p->num_sources = PyList_Size(v);
+                            p->sources = calloc(1, p->num_sources *
+                                                sizeof(mapper_db_connection_slot_t));
+                            for (k = 0; k < p->num_sources; k++) {
+                                PyObject *element = PySequence_GetItem(v, k);
+                                py_to_slot(element, &p->sources[k]);
+                            }
+                        }
+                        else {
+                            p->num_sources = 1;
+                            p->sources = calloc(1, sizeof(mapper_db_connection_slot_t));
+                            py_to_slot(v, &p->sources[0]);
+                        }
+                    }
+                    else if (strcmp(s, "dest")==0 || strcmp(s, "destination")==0) {
+                        py_to_slot(v, &p->destination);
                     }
                 }
             }
@@ -350,27 +251,16 @@
             $1 = p;
         }
     }
-    else {
-        SWIG_exception_fail(SWIG_TypeError, "argument $argnum must be 'dict'");
-    }
  %}
 
-%typemap(freearg) mapper_db_connection_with_flags_t* {
+%typemap(freearg) mapper_db_connection_t* {
     if ($1) {
-        if ($1->props.src_min)
-            free($1->props.src_min);
-        if ($1->props.src_max)
-            free($1->props.src_max);
-        if ($1->props.dest_min)
-            free($1->props.dest_min);
-        if ($1->props.dest_max)
-            free($1->props.dest_max);
-        if ($1->props.scope.size > 1) {
+        if ($1->scope.size > 1) {
             int i;
-            for (i=0; i<$1->props.scope.size; i++) {
-                free($1->props.scope.names[i]);
+            for (i=0; i<$1->scope.size; i++) {
+                free($1->scope.names[i]);
             }
-            free($1->props.scope.names);
+            free($1->scope.names);
         }
     }
 }
@@ -432,25 +322,6 @@
     return connection_to_py($1);
  }
 
-%typemap(out) mapper_db_link_t ** {
-    if ($1) {
-        // Return the dict and an opaque pointer.
-        // The pointer will be hidden by a Python generator interface.
-        PyObject *o = link_to_py(*$1);
-        if (o!=Py_None)
-            $result = Py_BuildValue("(Ol)", o, $1);
-        else
-            $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
-    else {
-        $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
- }
-
-%typemap(out) mapper_db_link {
-    return link_to_py($1);
- }
-
 %{
 #include <mapper_internal.h>
 
@@ -478,7 +349,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
     PyObject *v = 0;
     if (length > 1)
         v = PyList_New(length);
-    
+
     switch (type) {
         case 's':
         {
@@ -828,6 +699,29 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
     return o;
 }
 
+static PyObject *slot_to_py(mapper_db_connection_slot slot)
+{
+    if (!slot) return Py_None;
+    PyObject *o = PyDict_New();
+    if (!o)
+        return Py_None;
+    int i=0;
+    const char *property;
+    char type;
+    const void *value;
+    int length;
+    while (!mapper_db_connection_slot_property_index(slot, i, &property,
+                                                     &type, &value, &length)) {
+        PyObject *v = 0;
+        if ((v = prop_to_py(type, length, value))) {
+            PyDict_SetItemString(o, property, v);
+            Py_DECREF(v);
+        }
+        i++;
+    }
+    return o;
+}
+
 static PyObject *connection_to_py(mapper_db_connection_t *con)
 {
     if (!con) return Py_None;
@@ -841,8 +735,7 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
         const void *value;
         int length;
         while (!mapper_db_connection_property_index(con, i, &property,
-                                                    &type, &value, &length))
-        {
+                                                    &type, &value, &length)) {
             PyObject *v = 0;
             if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
@@ -850,35 +743,98 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
             }
             i++;
         }
+        PyObject *srcs = 0;
+        if (con->num_sources > 1) {
+            srcs = PyList_New(con->num_sources);
+            for (i = 0; i < con->num_sources; i++) {
+                PyList_SetItem(srcs, i, slot_to_py(&con->sources[i]));
+            }
+        }
+        else if (con->num_sources == 1)
+            srcs = slot_to_py(&con->sources[0]);
+        PyDict_SetItemString(o, "sources", srcs);
+        PyDict_SetItemString(o, "destination", slot_to_py(&con->destination));
     }
     return o;
 }
 
-static PyObject *link_to_py(mapper_db_link_t *link)
-{
-    if (!link) return Py_None;
-    PyObject *o = PyDict_New();
-    if (!o)
-        return Py_None;
-    else {
-        int i=0;
-        const char *property;
-        char type;
-        const void *value;
-        int length;
-        while (!mapper_db_link_property_index(link, i, &property,
-                                              &type, &value, &length))
-        {
-            PyObject *v = 0;
-            if ((v = prop_to_py(type, length, value))) {
-                PyDict_SetItemString(o, property, v);
-                Py_DECREF(v);
-            }
-            i++;
-        }
+static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
+    if (!PyDict_Check(input)) {
+        return;
     }
-    return o;
+    PyObject *keys = PyDict_Keys(input);
+    if (keys) {
+        // first try to retrieve type if provided
+        int i = PyList_GET_SIZE(keys);
+        for (i=i-1; i>=0; --i) {
+            PyObject *o = PyList_GetItem(keys, i);
+            if (PyString_Check(o)) {
+                PyObject *v = PyDict_GetItem(input, o);
+                char *s = PyString_AsString(o);
+                if (strcmp(s, "type")==0) {
+                    if (PyString_Check(v))
+                    slot->type = PyString_AsString(v)[0];
+                }
+            }
+        }
+        i = PyList_GET_SIZE(keys);
+        for (i=i-1; i>=0; --i) {
+            PyObject *o = PyList_GetItem(keys, i);
+            if (PyString_Check(o)) {
+                PyObject *v = PyDict_GetItem(input, o);
+                char *s = PyString_AsString(o);
+                if (strcmp(s, "device_name")==0 && PyString_Check(v)) {
+                    slot->device_name = PyString_AsString(v);
+                }
+                if (strcmp(s, "signal_name")==0 && PyString_Check(v)) {
+                    slot->signal_name = PyString_AsString(v);
+                }
+                else if (strcmp(s, "min")==0 || strcmp(s, "minimum")==0) {
+                    alloc_and_copy_maybe_vector(v, &slot->type, &slot->minimum,
+                                                &slot->length);
+                    if (slot->minimum) {
+                        slot->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                    }
+                }
+                else if (strcmp(s, "max")==0 || strcmp(s, "maximum")==0) {
+                    alloc_and_copy_maybe_vector(v, &slot->type, &slot->maximum,
+                                                &slot->length);
+                    if (slot->maximum) {
+                        slot->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                    }
+                }
+                else if (strcmp(s, "cause_update")==0) {
+                    int cause_update = -1;
+                    if (v == Py_True)
+                        cause_update = 1;
+                    else if (v == Py_False)
+                        cause_update = 0;
+                    else if (PyInt_Check(v))
+                        cause_update = PyInt_AsLong(v);
+                    if (cause_update > -1) {
+                        slot->cause_update = cause_update;
+                        slot->flags |= CONNECTION_SLOT_CAUSE_UPDATE;
+                    }
+                }
+                else if (strcmp(s, "send_as_instance")==0) {
+                    int send_as_instance = -1;
+                    if (v == Py_True)
+                        send_as_instance = 1;
+                    else if (v == Py_False)
+                        send_as_instance = 0;
+                    else if (PyInt_Check(v))
+                        send_as_instance = PyInt_AsLong(v);
+                    if (send_as_instance > -1) {
+                        slot->send_as_instance = send_as_instance;
+                        slot->flags |= CONNECTION_SLOT_SEND_AS_INSTANCE;
+                    }
+                }
+            }
+        }
+        Py_DECREF(keys);
+    }
 }
+
 
 /* Note: We want to call the signal object 'signal', but there is
  * already a function in the C standard library called signal().
@@ -989,36 +945,16 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a device link handler is called. */
-static void device_link_handler_py(mapper_device dev,
-                                   mapper_db_link link,
-                                   mapper_device_local_action_t action,
-                                   void *user)
-{
-    PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOi", device_to_py(&dev->props),
-                                      link_to_py(link), action);
-    if (!arglist) {
-        printf("[mapper] Could not build arglist (device_link_handler_py).\n");
-        return;
-    }
-    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
-    Py_DECREF(arglist);
-    Py_XDECREF(result);
-    _save = PyEval_SaveThread();
-}
-
 /* Wrapper for callback back to python when a device connection handler is called. */
 static void device_connection_handler_py(mapper_device dev,
-                                         mapper_db_link link,
                                          mapper_signal signal,
                                          mapper_db_connection connection,
+                                         mapper_db_connection_slot slot,
                                          mapper_device_local_action_t action,
                                          void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOOOi", device_to_py(&dev->props),
-                                      link_to_py(link),
+    PyObject *arglist = Py_BuildValue("OOOi", device_to_py(&dev->props),
                                       signal_to_py(&signal->props),
                                       connection_to_py(connection), action);
     if (!arglist) {
@@ -1126,17 +1062,6 @@ static int coerce_prop(maybePropVal val, char type)
 typedef int* maybeInt;
 typedef int booltype;
 
-typedef struct {
-    mapper_db_link_t props;
-    int flags;
-} mapper_db_link_with_flags_t;
-
-typedef struct {
-    mapper_db_connection_t props;
-    int flags;
-} mapper_db_connection_with_flags_t;
-
-
 /* Wrapper for callback back to python when a mapper_db_device handler
  * is called. */
 static void device_db_handler_py(mapper_db_device record,
@@ -1192,24 +1117,6 @@ static void connection_db_handler_py(mapper_db_connection record,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_db_link handler
- * is called. */
-static void link_db_handler_py(mapper_db_link record,
-                               mapper_db_action_t action,
-                               void *user)
-{
-    PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", link_to_py(record), action);
-    if (!arglist) {
-        printf("[mapper] Could not build arglist (link_db_handler_py).\n");
-        return;
-    }
-    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
-    Py_DECREF(arglist);
-    Py_XDECREF(result);
-    _save = PyEval_SaveThread();
-}
-
 %}
 
 typedef enum _mapper_boundary_action {
@@ -1229,10 +1136,8 @@ typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_NONE,
     MO_RAW,
-    MO_BYPASS,       //!< Direct throughput
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression
-    MO_CALIBRATE,    //!< Calibrate to source signal
     N_MAPPER_MODE_TYPES
 } mapper_mode_type;
 
@@ -1254,17 +1159,23 @@ typedef enum {
     IN_OVERFLOW             = 0x08  //!< No instances left.
 } msig_instance_event_t;
 
+/*! The set of possible directions for a signal or connection slot. */
+typedef enum {
+    DI_OUTGOING = 0x01,
+    DI_INCOMING = 0x02,
+    DI_BOTH     = 0x03,
+} mapper_direction_t;
+
 /*! Possible monitor auto-subscribe settings. */
-%constant int SUB_NONE                    = 0x00;
-%constant int SUB_DEVICE                  = 0x01;
-%constant int SUB_DEVICE_INPUTS           = 0x03;
-%constant int SUB_DEVICE_OUTPUTS          = 0x05;
-%constant int SUB_DEVICE_SIGNALS          = 0x07;
-%constant int SUB_DEVICE_LINKS            = 0x09;
-%constant int SUB_DEVICE_CONNECTIONS_IN   = 0x21;
-%constant int SUB_DEVICE_CONNECTIONS_OUT  = 0x41;
-%constant int SUB_DEVICE_CONNECTIONS      = 0x61;
-%constant int SUB_DEVICE_ALL              = 0xFF;
+%constant int SUBSCRIBE_NONE            = 0x00;
+%constant int SUBSCRIBE_DEVICE          = 0x01;
+%constant int SUBSCRIBE_DEVICE_INPUTS   = 0x02;
+%constant int SUBSCRIBE_DEVICE_OUTPUTS  = 0x04;
+%constant int SUBSCRIBE_DEVICE_SIGNALS  = 0x06;
+%constant int SUBSCRIBE_CONNECTIONS_IN  = 0x10;
+%constant int SUBSCRIBE_CONNECTIONS_OUT = 0x20;
+%constant int SUBSCRIBE_CONNECTIONS     = 0x30;
+%constant int SUBSCRIBE_ALL             = 0xFF;
 
 /*! The set of possible actions on a database record, used
  *  to inform callbacks of what is happening to a record. */
@@ -1277,8 +1188,8 @@ typedef enum {
 
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
-    MDEV_LOCAL_DESTROYED,
     MDEV_LOCAL_MODIFIED,
+    MDEV_LOCAL_DESTROYED,
 } mapper_device_local_action_t;
 
 typedef struct _device {} device;
@@ -1500,7 +1411,6 @@ typedef struct _admin {} admin;
     unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
     int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
     int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
-    int get_num_links() { return mdev_num_links((mapper_device)$self); }
     int get_num_connections_in()
         { return mdev_num_connections_in((mapper_device)$self); }
     int get_num_connections_out()
@@ -1547,16 +1457,6 @@ typedef struct _admin {} admin;
         mapper_timetag_set_double(&tt, timetag);
         mdev_send_queue((mapper_device)$self, tt);
     }
-    void set_link_callback(PyObject *PyFunc=0) {
-        void *h = 0;
-        if (PyFunc) {
-            h = device_link_handler_py;
-            Py_XINCREF(PyFunc);
-        }
-        else
-            Py_XDECREF(((mapper_device)$self)->link_cb_userdata);
-        mdev_set_link_callback((mapper_device)$self, h, PyFunc);
-    }
     void set_connection_callback(PyObject *PyFunc=0) {
         void *h = 0;
         if (PyFunc) {
@@ -1575,7 +1475,6 @@ typedef struct _admin {} admin;
         ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
-        num_links = property(get_num_links)
         num_connections_in = property(get_num_connections_in)
         num_connections_out = property(get_num_connections_out)
         def __propgetter(self):
@@ -1618,7 +1517,7 @@ typedef struct _admin {} admin;
             msig_update(sig, 0, 1, tt);
             return;
         }
-        else if (val->length < sig->props.length ||
+        else if ( val->length < sig->props.length ||
                  (val->length % sig->props.length) != 0) {
             printf("Signal update requires multiples of %i values.\n",
                    sig->props.length);
@@ -1800,9 +1699,9 @@ typedef struct _admin {} admin;
     }
     int get_length() { return ((mapper_signal)$self)->props.length; }
     char get_type() { return ((mapper_signal)$self)->props.type; }
-    booltype get_is_output() { return ((mapper_signal)$self)->props.is_output; }
+    int get_direction() { return ((mapper_signal)$self)->props.direction; }
     const char* get_device_name() {
-        return ((mapper_signal)$self)->props.device_name;
+        return ((mapper_signal)$self)->props.device->name;
     }
     const char* get_unit() {
         return ((mapper_signal)$self)->props.unit;
@@ -1827,7 +1726,7 @@ typedef struct _admin {} admin;
         full_name = property(get_full_name)
         length = property(get_length)
         type = property(get_type)
-        is_output = property(get_is_output)
+        direction = property(get_direction)
         device_name = property(get_device_name)
         unit = property(get_unit)
         def __propgetter(self):
@@ -1880,112 +1779,32 @@ typedef struct _admin {} admin;
     void request_devices() {
         mmon_request_devices((mapper_monitor)$self);
     }
-    void link(const char *source, const char *dest,
-              mapper_db_link_with_flags_t *properties=0) {
-        if (!source || !dest)
+    void connect(int num_sources, const char **sources, const char *dest,
+                 mapper_db_connection_t *properties=0) {
+        if (!sources || !dest)
             return;
         if (properties) {
-            mmon_link_devices_by_name((mapper_monitor)$self, source, dest,
-                                      &properties->props, properties->flags);
+            mmon_connect_signals_by_name((mapper_monitor)$self, num_sources,
+                                         sources, dest, properties);
         }
         else
-            mmon_link_devices_by_name((mapper_monitor)$self, source, dest, 0, 0);
+            mmon_connect_signals_by_name((mapper_monitor)$self, num_sources,
+                                         sources, dest, 0);
     }
-//    void link(device *source, device *dest,
-//              mapper_db_link_with_flags_t *properties=0) {
-//        if (!source || !dest)
-//            return;
-//        if (properties) {
-//            mmon_link_devices_by_db_record((mapper_monitor)$self,
-//                                           mdev_properties((mapper_device)source),
-//                                           mdev_properties((mapper_device)dest),
-//                                           &properties->props, properties->flags);
-//        }
-//        else
-//            mmon_link_devices_by_db_record((mapper_monitor)$self,
-//                                           mdev_properties((mapper_device)source),
-//                                           mdev_properties((mapper_device)dest), 0, 0);
-//    }
-    void unlink(const char *source, const char *dest) {
-        if (!source || !dest)
+    void modify_connection(int num_sources, const char **sources, const char *dest,
+                           mapper_db_connection_t *properties) {
+        if (!sources || !dest || !properties)
             return;
-        mmon_unlink_devices_by_name((mapper_monitor)$self, source, dest);
+        mmon_modify_connection_by_signal_names((mapper_monitor)$self,
+                                               num_sources, sources,
+                                               dest, properties);
     }
-//    void unlink(device *source, device *dest) {
-//        if (!source || !dest)
-//            return;
-//        mmon_unlink_devices_by_db_record((mapper_monitor)$self,
-//                                         mdev_properties((mapper_device)source),
-//                                         mdev_properties((mapper_device)dest));
-//    }
-    void connect(const char *source, const char *dest,
-                 mapper_db_connection_with_flags_t *properties=0) {
-        if (!source || !dest)
+    void disconnect(int num_sources, const char **sources, const char *dest) {
+        if (!sources || !dest)
             return;
-        if (properties) {
-            mmon_connect_signals_by_name((mapper_monitor)$self, 1, &source, dest,
-                                         &properties->props, properties->flags);
-        }
-        else
-            mmon_connect_signals_by_name((mapper_monitor)$self, 1,
-                                         &source, dest, 0, 0);
+        mmon_disconnect_signals_by_name((mapper_monitor)$self, num_sources,
+                                        sources, dest);
     }
-//    void connect(int num_sources, const char **sources, const char *dest,
-//                 mapper_db_connection_with_flags_t *properties=0) {
-//        if (!source || !dest)
-//            return;
-//        if (properties) {
-//            mmon_connect_signals_by_name((mapper_monitor)$self, source, dest,
-//                                         &properties->props, properties->flags);
-//        }
-//        else
-//            mmon_connect_signals_by_name((mapper_monitor)$self,
-//                                         source, dest, 0, 0);
-//    }
-//    void connect(signal *source, signal *dest,
-//                 mapper_db_connection_with_flags_t *properties=0) {
-//        if (!source || !dest)
-//            return;
-//        if (properties) {
-//            mmon_connect_signals_by_db_record((mapper_monitor)$self,
-//                                              msig_properties((mapper_signal)source),
-//                                              msig_properties((mapper_signal)dest),
-//                                              &properties->props, properties->flags);
-//        }
-//        else
-//            mmon_connect_signals_by_db_record((mapper_monitor)$self,
-//                                              msig_properties((mapper_signal)source),
-//                                              msig_properties((mapper_signal)dest), 0, 0);
-//    }
-    void modify_connection(const char *source, const char *dest,
-                           mapper_db_connection_with_flags_t *properties) {
-        if (!source || !dest || !properties)
-            return;
-        mmon_modify_connection_by_signal_names((mapper_monitor)$self, 1, &source,
-                                               dest, &properties->props,
-                                               properties->flags);
-    }
-//    void modify_connection(signal *source, signal *dest,
-//                           mapper_db_connection_with_flags_t *properties) {
-//        if (!source || !dest || !properties)
-//            return;
-//        mmon_modify_connection_by_db_signals((mapper_monitor)$self,
-//                                             msig_properties((mapper_signal)source),
-//                                             msig_properties((mapper_signal)dest),
-//                                             &properties->props, properties->flags);
-//    }
-    void disconnect(const char *source, const char *dest) {
-        if (!source || !dest)
-            return;
-        mmon_disconnect_signals_by_name((mapper_monitor)$self, 1, &source, dest);
-    }
-//    void disconnect(signal *source, signal *dest) {
-//        if (!source || !dest)
-//            return;
-//        mmon_disconnect_signals_by_db_record((mapper_monitor)$self,
-//                                             msig_properties((mapper_signal)source),
-//                                             msig_properties((mapper_signal)dest));
-//    }
     double now() {
         mapper_timetag_t tt;
         mmon_now((mapper_monitor)$self, &tt);
@@ -2028,16 +1847,6 @@ typedef struct _admin {} admin;
     void remove_connection_callback(PyObject *PyFunc) {
         mapper_db_remove_connection_callback((mapper_db)$self,
                                              connection_db_handler_py, PyFunc);
-        Py_XDECREF(PyFunc);
-    }
-    void add_link_callback(PyObject *PyFunc) {
-        Py_XINCREF(PyFunc);
-        mapper_db_add_link_callback((mapper_db)$self,
-                                    link_db_handler_py, PyFunc);
-    }
-    void remove_link_callback(PyObject *PyFunc) {
-        mapper_db_remove_link_callback((mapper_db)$self,
-                                       link_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     mapper_db_device device(const char *device_name) {
@@ -2156,21 +1965,6 @@ typedef struct _admin {} admin;
     mapper_db_connection_t **connection_next(long iterator) {
         return mapper_db_connection_next((mapper_db_connection_t**)iterator);
     }
-    mapper_db_link_t **__get_links() {
-        return mapper_db_get_all_links((mapper_db)$self);
-    }
-    mapper_db_link_t **__get_links(const char *dev_name) {
-        return mapper_db_get_links_by_device_name((mapper_db)$self, dev_name);
-    }
-    mapper_db_link link(const char *src_device_name,
-                        const char *dest_device_name) {
-        return mapper_db_get_link_by_device_names((mapper_db)$self,
-                                                  src_device_name,
-                                                  dest_device_name);
-    }
-    mapper_db_link_t **link_next(long iterator) {
-        return mapper_db_link_next((mapper_db_link_t**)iterator);
-    }
     %pythoncode {
         def make_iterator(first, next):
             def it(self, *args):
@@ -2199,7 +1993,6 @@ typedef struct _admin {} admin;
             get_connections_by_device_and_signal_names, connection_next)
         connections_by_src_dest_device_names = make_iterator(
             get_connections_by_src_dest_device_names, connection_next)
-        links = make_iterator(__get_links, link_next)
     }
 }
 
