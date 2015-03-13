@@ -695,16 +695,18 @@ static int mapper_db_property_index(void *thestruct, table extra,
         }
     }
 
-    index -= j;
-    mapper_prop_value_t *val;
-    val = table_value_at_index_p(extra, index);
-    if (val) {
-        if (property)
-            *property = table_key_at_index(extra, index);
-        *type = val->type;
-        *value = val->value;
-        *length = val->length;
-        return 0;
+    if (extra) {
+        index -= j;
+        mapper_prop_value_t *val;
+        val = table_value_at_index_p(extra, index);
+        if (val) {
+            if (property)
+                *property = table_key_at_index(extra, index);
+            *type = val->type;
+            *value = val->value;
+            *length = val->length;
+            return 0;
+        }
     }
 
     return 1;
