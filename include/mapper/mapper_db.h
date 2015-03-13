@@ -43,6 +43,7 @@ typedef struct _mapper_db_device {
 
     mapper_timetag_t timetag;
     mapper_timetag_t synced; //!< Timestamp of last sync.
+    int subscribed;
 
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;

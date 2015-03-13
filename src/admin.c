@@ -2629,11 +2629,14 @@ static int handler_sync(const char *path,
 
     mapper_db_device reg = 0;
     if (types[0] == 's' || types[0] == 'S') {
-        if ((reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s)))
+        if ((reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s))) {
             mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
-        else if (mon->autosubscribe) {
+        }
+        if (mon->autosubscribe && (!reg || !reg->subscribed)) {
             // only create device record after requesting more information
             mmon_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
+            if (reg)
+                reg->subscribed = 1;
         }
     }
     else if (types[0] == 'i') {
