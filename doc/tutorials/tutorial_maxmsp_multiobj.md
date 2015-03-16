@@ -30,7 +30,7 @@ up in most GUIs.
 
 You can also provide arbitrary properties to your device using jitter-style
 properties.  By default, libmapper will try to guess which network
-interface to use for mapping, defaulting to the local loopback interface
+interface to use for mapping, defaulting to the local loopback interface if
 ethernet or wifi is not available.  You can force the object to use a
 particular interface by using the `@interface` property.
 
@@ -70,9 +70,20 @@ Signals
 
 Now that we have created a device, we only need to know how to
 add signals in order to give our program some input/output functionality.
+  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to create and update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
@@ -242,6 +253,9 @@ To specify a string property of a signal:
 
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are: 
-`device_name` `direction` `length` `name` `type`
 
-for devices, they are: `host` `port` `name`
+    length, max/maximum, min/minimum, name, type, user_data
+
+for devices, they are:
+
+    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version

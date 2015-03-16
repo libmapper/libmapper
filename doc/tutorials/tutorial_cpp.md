@@ -1,10 +1,9 @@
 Using libmapper and C++
 ============
 
-C++ bindings are supplied
+C++ headers are supplied for _libmapper_:
 
     #include <mapper/mapper_cpp.h>
-
 
 Devices
 =======
@@ -13,7 +12,8 @@ Creating a device
 -----------------
 
 To create a _libmapper_ device, it is necessary to provide a few
-parameters the constructor:
+parameters the constructor, which is overloaded to accept either
+arguments of either `const char*` or C++ `std::string`:
 
     mapper::Device dev( const char *name, mapper.Admin admin );
     mapper::Device dev( std::string name, mapper.Admin admin );
@@ -87,16 +87,27 @@ Signals
 
 Now that we know how to create a device, poll it, and free it, we only
 need to know how to add signals in order to give our program some
-input/output functionality.
+input/output functionality.  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-A signal requires a bit more information than a device, much of which
-is optional:
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.  A signal requires a bit more information than
+a device, much of which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
@@ -271,7 +282,11 @@ Receiving signals
 
 Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
-pair to test out the provided mapping functionality.
+pair to test out the provided mapping functionality. The current value
+and timestamp for a signal can be retrieved at any time by calling
+the function `value()` on your signal object, however for event-driven
+applications you may want to be informed of new values as they are
+received or generated.
 
 As mentioned above, the `add_input()` function takes an optional
 `handler` and `user_data`.  This is a function that will be called
@@ -365,7 +380,7 @@ The important qualities of signal instances in _libmapper_ are:
   share a common understanding of the relatonships between instances
   when they are mapped.
 * **map once for all instances**: one mapping connection serves to
-  map all of its instances.
+  map all of a signal's instances.
 
 All signals possess one instance by default. If you would like to reserve
 more instances you can use:
@@ -480,11 +495,11 @@ you can call it like this:
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are:
 
-    device_name, direction, length, max, min, name, type, unit, user_data;
+    length, max/maximum, min/minimum, name, type, user_data
 
 for devices, they are:
 
-    host, port, name, user_data.
+    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
 
 By the way, if you query or set signal properties using these
 keywords, you will get or modify the same information that is

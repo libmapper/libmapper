@@ -22,7 +22,6 @@ If you take a look at the API documentation, there is a section called
 * Device database
 * Signal database
 * Connections database
-* Links database
 * Monitors
 
 For this tutorial, the only sections to pay attention to are Devices
@@ -151,16 +150,27 @@ Signals
 
 Now that we know how to create a device, poll it, and free it, we only
 need to know how to add signals in order to give our program some
-input/output functionality.
+input/output functionality.  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-A signal requires a bit more information than a device, much of which
-is optional:
+We'll start with creating a "output", so we will first talk about how
+to update output signals.  A signal requires a bit more information than
+a device, much of which is optional:
 
     mapper_signal mdev_add_input( mapper_device dev,
                                   const char *name,
@@ -239,8 +249,8 @@ for it.  To recap, let's review the code so far:
     
     mdev_free( my_sender );
 
-Note that although you have a pointer to the mapper_signal structure,
-which was retuned by `mdev_add_output`, its memory is "owned" by the
+Note that although you have a pointer to the mapper_signal structure
+(which was returned by `mdev_add_output()`), its memory is "owned" by the
 device.  In other words, you should not worry about freeing its
 memory - this will happen automatically when the device is destroyed.
 It is possible to retrieve a device's inputs or outputs by name or by
@@ -338,13 +348,16 @@ Receiving signals
 
 Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
-pair to test out the provided mapping functionality.
+pair to test out the provided mapping functionality. The current value
+and timestamp for a signal can be retrieved at any time by calling
+`msig_value()`, however for event-driven applications you may want to
+be informed of new values as they are received or generated.
 
-As mentioned above, the `mdev_add_input` function takes an optional
+As mentioned above, the `mdev_add_input()` function takes an optional
 `handler` and `user_data`.  This is a function that will be called
 whenever the value of that signal changes.  To create a receiver for a
 synthesizer parameter "pulse width" (given as a ratio between 0 and
-1), specify a handler when calling `mdev_add_input`.  We'll imagine
+1), specify a handler when calling `mdev_add_input()`.  We'll imagine
 there is some C++ synthesizer implemented as a class `Synthesizer`
 which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
@@ -581,11 +594,11 @@ string:
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are:
 
-    device_name, direction, length, max, min, name, type, unit, user_data;
+    length, max/maximum, min/minimum, name, type, user_data
 
 for devices, they are:
 
-    host, port, name, user_data.
+    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
 
 By the way, if you query or set signal properties using these
 keywords, you will get or modify the same information that is

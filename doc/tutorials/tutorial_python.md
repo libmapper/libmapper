@@ -23,7 +23,6 @@ The libmapper API is is divided into the following sections:
 * Device database
 * Signal database
 * Connections database
-* Links database
 * Monitors
 
 For this tutorial, the only sections to pay attention to are Devices
@@ -124,16 +123,28 @@ Signals
 
 Now that we know how to create a device and poll it, we only
 need to know how to add signals in order to give our program some
-input/output functionality.
+input/output functionality.  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-A signal requires a bit more information than a device, much of which
-is optional:
+
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.  A signal requires a bit more information than
+a device, much of which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
@@ -502,11 +513,11 @@ To specify a string property of a signal:
 In general you can use any property name not already in use by the
 device or signal data structure.  Reserved words for signals are:
 
-    device_name, direction, length, max, min, name, type, unit, user_data
+    length, max/maximum, min/minimum, name, type, user_data
 
 for devices, they are:
 
-    host, port, name, user_data
+    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
 
 By the way, if you query or set signal properties using these
 keywords, you will get or modify the same information that is
