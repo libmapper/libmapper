@@ -312,18 +312,30 @@ static int handler_signal(const char *path, const char *types,
         // check if we have a combiner for this signal
         // retrieve connection associated with this slot
         s = mapper_router_find_connection_slot(md->router, sig, slot);
-        if (s) {
-            c = s->connection;
-            count = check_types(types, value_len, s->props->type,
-                                s->props->length);
-        }
-        else {
+        if (!s) {
             trace("error in signal handler: slot not found.\n");
             return 0;
         }
+        c = s->connection;
         if (c->status < MAPPER_READY) {
-            trace("connection not yet ready.\n");
+            trace("error: in signal handler: connection not yet ready.\n");
             return 0;
+        }
+        if (!c->expr) {
+            trace("error in signal handler: missing expression.\n");
+            return 0;
+        }
+        if (nulls) {
+            trace("error: incomplete value vector in convergent connection.");
+            return 0;
+        }
+        if (c->props.process_location == MAPPER_DESTINATION) {
+            count = check_types(types, value_len, s->props->type, s->props->length);
+        }
+        else {
+            // value has already been processed at source device
+            c = 0;
+            count = check_types(types, value_len, sig->props.type, sig->props.length);
         }
     }
     else {
@@ -362,7 +374,7 @@ static int handler_signal(const char *path, const char *types,
             if (sig->id_maps[instance].status & IN_RELEASED_LOCALLY) {
                 /* map was already released locally, we are only interested
                  * in release messages */
-                if (count == 1 && nulls == sig->props.length) {
+                if (count == 1 && nulls == value_len) {
                     // we can clear signal's reference to map
                     map = sig->id_maps[instance].map;
                     sig->id_maps[instance].map = 0;
@@ -400,16 +412,42 @@ static int handler_signal(const char *path, const char *types,
     void *out_buffer = count == 1 ? 0 : alloca(count * sig->props.length * size);
     int vals, out_count = 0;
 
+    // TODO: copy values to buffer first, check if expr and boundary actions output
+
     /* As currently implemented, instance release messages cannot be embedded in
      * multi-count messages. */
+    if (nulls == value_len && si->has_value) {
+        // protocol: update with all nulls sets signal has_value to 0
+        si->has_value = 0;
+        memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
+        if (is_instance_update) {
+            // TODO: handle multiple upstream devices
+            sig->id_maps[instance].status |= IN_RELEASED_REMOTELY;
+            map->refcount_remote--;
+            if (sig->instance_event_handler
+                && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
+                sig->instance_event_handler(sig, &sig->props, map->local,
+                                            IN_UPSTREAM_RELEASE, &tt);
+            }
+            else {
+                /* Do not call mdev_route_signal() here, since we don't know if
+                 * the local signal instance will actually be released. */
+                sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+            }
+        }
+        else {
+            /* Do not call mdev_route_signal() here, since we don't know if
+             * the local signal instance will actually be released. */
+            sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+        }
+        return 0;
+    }
     for (i = 0, k = 0; i < count; i++) {
         // check if each update will result in a handler call
         // all nulls -> release instance, sig has no value, break "count"
         vals = 0;
         if (c) {
             for (j = 0; j < s->props->length; j++) {
-                if (types[k] == 'N')
-                    continue;
                 memcpy(s->history[instance].value + j * size, argv[k], size);
                 memcpy(s->history[instance].timetag + j * sizeof(mapper_timetag_t),
                        &tt, sizeof(mapper_timetag_t));
@@ -419,17 +457,29 @@ static int handler_signal(const char *path, const char *types,
                 mapper_history sources[c->props.num_sources];
                 for (j = 0; j < c->props.num_sources; j++)
                     sources[j] = &c->sources[j].history[instance];
-                if (mapper_expr_evaluate(c->expr, sources, &c->expr_vars[instance],
-                                         &c->destination.history[instance], &tt,
-                                         typestring)) {
-                    memcpy(si->value,
-                           mapper_history_value_ptr(c->destination.history[instance]),
-                           mapper_type_size(sig->props.type) * sig->props.length);
+                if (!mapper_expr_evaluate(c->expr, sources, &c->expr_vars[instance],
+                                          &c->destination.history[instance], &tt,
+                                          typestring)) {
+                    continue;
                 }
-                else {
-                    trace("expression evaluation failed.\n")
-                    return 0;
+
+                // TODO: mapper_boundary_perform()
+
+                void *target = mapper_history_value_ptr(c->destination.history[instance]);
+                for (j = 0; j < c->destination.props->length; j++) {
+                    if (typestring[j] == 'N')
+                        continue;
+                    memcpy(si->value + j * size, target + j * size, size);
+                    si->has_value_flags[j / 8] |= 1 << (j % 8);
+                    vals++;
                 }
+                if (memcmp(si->has_value_flags, sig->has_complete_value,
+                           sig->props.length / 8 + 1)==0) {
+                    si->has_value = 1;
+                }
+            }
+            else {
+                continue;
             }
         }
         else {
@@ -441,48 +491,12 @@ static int handler_signal(const char *path, const char *types,
                 vals++;
             }
             if (memcmp(si->has_value_flags, sig->has_complete_value,
-                       sig->props.length / 8 + 1)==0)
-                si->has_value = 1;
-
-            if (vals == 0 && si->has_value) {
-                // protocol: update with all nulls sets signal has_value to 0
-                si->has_value = 0;
-                memset(si->has_value_flags, 0, sig->props.length / 8 + 1);
-                if (is_instance_update) {
-                    // TODO: handle multiple upstream devices
-                    sig->id_maps[instance].status |= IN_RELEASED_REMOTELY;
-                    map->refcount_remote--;
-                    if (sig->instance_event_handler
-                        && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                        sig->instance_event_handler(sig, &sig->props, map->local,
-                                                    IN_UPSTREAM_RELEASE, &tt);
-                    }
-                    else
-                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
-                }
-                else
-                    sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
-                /* Do not call mdev_route_signal() here, since we don't know if
-                 * the local signal instance will actually be released. */
-            }
-        }
-
-        if (c) {
-            if (s->props->cause_update) {
-                if (count > 1) {
-                    memcpy(out_buffer + out_count * sig->props.length * size,
-                           si->value, size);
-                    out_count++;
-                }
-                else {
-                    if (!(sig->props.direction & DI_OUTGOING))
-                        mdev_route_signal(md, sig, instance, si->value, 1, tt);
-                    sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
-                }
+                       sig->props.length / 8 + 1)==0) {
                 si->has_value = 1;
             }
         }
-        else if (si->has_value) {
+
+        if (si->has_value) {
             if (count > 1) {
                 memcpy(out_buffer + out_count * sig->props.length * size,
                        si->value, size);
@@ -493,7 +507,6 @@ static int handler_signal(const char *path, const char *types,
                     mdev_route_signal(md, sig, instance, si->value, 1, tt);
                 sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
             }
-            si->has_value = 1;
         }
     }
 

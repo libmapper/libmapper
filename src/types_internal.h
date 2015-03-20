@@ -218,11 +218,14 @@ typedef struct _mapper_link {
     struct _mapper_link *next;          //!< Next link in the list.
 } *mapper_link;
 
-#define MAPPER_TYPE_KNOWN      0x01
-#define MAPPER_LENGTH_KNOWN    0x02
-#define MAPPER_LINK_KNOWN      0x04
-#define MAPPER_READY           0x07
-#define MAPPER_ACTIVE          0x17
+#define MAPPER_TYPE_KNOWN   0x01
+#define MAPPER_LENGTH_KNOWN 0x02
+#define MAPPER_LINK_KNOWN   0x04
+#define MAPPER_READY        0x07
+#define MAPPER_ACTIVE       0x17
+
+#define MAPPER_SOURCE       0x01
+#define MAPPER_DESTINATION  0x02
 
 #define MAX_NUM_CONNECTION_SOURCES 8    // arbitrary
 
@@ -259,7 +262,9 @@ typedef struct _mapper_connection {
     mapper_history *expr_vars;              //!< User variables values.
     int num_expr_vars;                      //!< Number of user variables.
     int num_var_instances;
+
     int status;
+    int one_source;
     char *expression;
     mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
     
@@ -376,10 +381,10 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_BOUND_MAX,
-    AT_BOUND_MIN,
     AT_CALIBRATING,
     AT_CAUSE_UPDATE,
+    AT_DEST_BOUND_MAX,
+    AT_DEST_BOUND_MIN,
     AT_DEST_LENGTH,
     AT_DEST_MAX,
     AT_DEST_MIN,
@@ -400,11 +405,14 @@ typedef enum {
     AT_NUM_INPUTS,
     AT_NUM_OUTPUTS,
     AT_PORT,
+    AT_PROCESS,
     AT_RATE,
     AT_REV,
     AT_SCOPE,
     AT_SEND_AS_INSTANCE,
     AT_SLOT,
+    AT_SRC_BOUND_MAX,
+    AT_SRC_BOUND_MIN,
     AT_SRC_LENGTH,
     AT_SRC_MAX,
     AT_SRC_MIN,

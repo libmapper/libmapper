@@ -123,13 +123,14 @@ int setup_connection()
 
     mapper_db_connection_slot_t slots[2];
     mapper_db_connection_t props;
+    props.destination.flags = 0;
     props.sources = slots;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x0+x1";
+    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
     props.sources[0].cause_update = 1;
     props.sources[1].cause_update = 0;
-    props.sources[0].flags = props.sources[1].flags = CONNECTION_SLOT_CAUSE_UPDATE;
-    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+    props.sources[0].flags = props.sources[1].flags = CONNECTION_CAUSE_UPDATE;
 
     mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props);
     mmon_free(mon);
@@ -175,9 +176,11 @@ void loop()
 
         eprintf("Updating signals: %s = %i, %s = %f\n",
                 sendsig[0][0]->props.name, i,
-                sendsig[1][1]->props.name, i * 2.f);
+                sendsig[0][1]->props.name, i * 2.f);
         msig_update_int(sendsig[0][0], i);
+        msig_update_int(sendsig[1][0], i);
         f = i * 2;
+        msig_update_float(sendsig[0][1], f);
         msig_update_float(sendsig[1][1], f);
 
         sent++;

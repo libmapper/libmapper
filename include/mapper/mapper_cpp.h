@@ -1115,17 +1115,8 @@ namespace mapper {
                 { return props->num_sources; }
             Connection& set_mode(mapper_mode_type mode)
             {
-                props->mode = mode; props->flags |= CONNECTION_MODE;
-                return (*this);
-            }
-            Connection& set_bound_min(mapper_boundary_action bound_min)
-            {
-                props->bound_min = bound_min; props->flags |= CONNECTION_BOUND_MIN;
-                return (*this);
-            }
-            Connection& set_bound_max(mapper_boundary_action bound_max)
-            {
-                props->bound_max = bound_max; props->flags |= CONNECTION_BOUND_MAX;
+                props->mode = mode;
+                props->flags |= CONNECTION_MODE;
                 return (*this);
             }
             Connection& set_expression(const string_type &expression)
@@ -1197,13 +1188,25 @@ namespace mapper {
                 {
                     return Signal(props->signal);
                 }
+                Slot& set_bound_min(mapper_boundary_action bound_min)
+                {
+                    props->bound_min = bound_min;
+                    props->flags |= CONNECTION_BOUND_MIN;
+                    return (*this);
+                }
+                Slot& set_bound_max(mapper_boundary_action bound_max)
+                {
+                    props->bound_max = bound_max;
+                    props->flags |= CONNECTION_BOUND_MAX;
+                    return (*this);
+                }
                 Slot& set_minimum(const Property &value)
                 {
                     if (props) {
                         props->minimum = (void*)(const void*)value;
                         props->type = value.type;
                         props->length = value.length;
-                        props->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                        props->flags |= CONNECTION_MIN_KNOWN;
                     }
                     return (*this);
                 }
@@ -1213,7 +1216,7 @@ namespace mapper {
                         props->maximum = (void*)(const void*)value;
                         props->type = value.type;
                         props->length = value.length;
-                        props->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                        props->flags |= CONNECTION_MAX_KNOWN;
                     }
                     return (*this);
                 }

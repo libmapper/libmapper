@@ -112,12 +112,12 @@ int setup_connection()
     src_slot.maximum = &src_max;
     src_slot.length = 1;
     src_slot.type = 'f';
-    src_slot.flags = CONNECTION_SLOT_RANGE_KNOWN;
+    src_slot.flags = CONNECTION_RANGE_KNOWN;
     props.destination.minimum = &dest_min;
     props.destination.maximum = &dest_max;
     props.destination.length = 1;
     props.destination.type = 'f';
-    props.destination.flags = CONNECTION_SLOT_RANGE_KNOWN;
+    props.destination.flags = CONNECTION_RANGE_KNOWN;
     props.mode = MO_LINEAR;
     props.flags = CONNECTION_MODE;
 

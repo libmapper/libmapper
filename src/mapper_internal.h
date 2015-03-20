@@ -435,13 +435,14 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_connection_slot slot,
                               int instance, char *typestring);
 
-int mapper_boundary_perform(mapper_connection connection,
-                            mapper_history from_value);
+int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s);
 
 int mapper_connection_combine(mapper_connection connection, int instance);
 
-lo_message mapper_connection_build_message(mapper_connection c, void *value,
-                                           int length, char *typestring,
+lo_message mapper_connection_build_message(mapper_connection c,
+                                           mapper_connection_slot s,
+                                           void *value, int length,
+                                           char *typestring,
                                            mapper_id_map id_map);
 
 /*! Set a connection's properties based on message parameters. */
@@ -449,9 +450,15 @@ int mapper_connection_set_from_message(mapper_connection connection,
                                        mapper_message_t *msg,
                                        int *order, int override);
 
+const char *mapper_get_param_string(mapper_msg_param_t param);
+
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound);
 
+mapper_boundary_action mapper_get_boundary_action_from_string(const char *string);
+
 const char *mapper_get_mode_type_string(mapper_mode_type mode);
+
+mapper_mode_type mapper_get_mode_type_from_string(const char *string);
 
 int mapper_connection_get_source_info(mapper_connection connection, int slot,
                                       char *datatype, int *vector_length);

@@ -2144,8 +2144,8 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             }
             else if (tok->var >= VAR_X) {
 #if TRACING
-                printf("loading variable x{%d}[%d]\n", tok->history_index,
-                       tok->vector_index);
+                printf("loading variable x%d{%d}[%d]\n", tok->var-VAR_X,
+                       tok->history_index, tok->vector_index);
 #endif
                 ++top;
                 dims[top] = tok->vector_length;

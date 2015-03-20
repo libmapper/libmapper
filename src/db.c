@@ -572,6 +572,8 @@ static string_table_node_t dev_strings[] = {
 static mapper_string_table_t dev_table = { dev_strings, 12, 12 };
 
 static property_table_value_t slot_values[] = {
+    { 'i', {0},         -1,          SLOT_OFFSET(bound_max) },
+    { 'i', {0},         -1,          SLOT_OFFSET(bound_min) },
     { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
     { 's', {1},         -1,          SLOT_OFFSET(device_name) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
@@ -583,44 +585,44 @@ static property_table_value_t slot_values[] = {
 };
 
 static string_table_node_t slot_strings[] = {
-    { "cause_update",     &slot_values[0] },
-    { "device_name",      &slot_values[1] },
-    { "length",           &slot_values[2] },
-    { "maximum",          &slot_values[3] },
-    { "minimum",          &slot_values[4] },
-    { "send_as_instance", &slot_values[5] },
-    { "signal_name",      &slot_values[6] },
-    { "type",             &slot_values[7] },
+    { "bound_max",        &slot_values[0] },
+    { "bound_min",        &slot_values[1] },
+    { "cause_update",     &slot_values[2] },
+    { "device_name",      &slot_values[3] },
+    { "length",           &slot_values[4] },
+    { "maximum",          &slot_values[5] },
+    { "minimum",          &slot_values[6] },
+    { "send_as_instance", &slot_values[7] },
+    { "signal_name",      &slot_values[8] },
+    { "type",             &slot_values[9] },
 };
 
-static mapper_string_table_t slot_table = { slot_strings, 8, 8 };
+static mapper_string_table_t slot_table = { slot_strings, 10, 10 };
 
 static property_table_value_t con_values[] = {
-    { 'i', {0}, -1,         CON_OFFSET(bound_max) },
-    { 'i', {0}, -1,         CON_OFFSET(bound_min) },
     { 's', {1}, -1,         CON_OFFSET(expression) },
     { 'i', {0}, -1,         CON_OFFSET(id) },
     { 'i', {0}, -1,         CON_OFFSET(mode) },
     { 'i', {0}, -1,         CON_OFFSET(muted) },
     { 'i', {0}, -1,         CON_OFFSET(scope.size) },
     { 'i', {0}, -1,         CON_OFFSET(num_sources) },
+    { 'i', {0}, -1,         CON_OFFSET(process_location) },
     { 's', {1}, NUM_SCOPES, CON_OFFSET(scope.names) },
 };
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t con_strings[] = {
-    { "bound_max",          &con_values[0] },
-    { "bound_min",          &con_values[1] },
-    { "expression",         &con_values[2] },
-    { "id",                 &con_values[3] },
-    { "mode",               &con_values[4] },
-    { "muted",              &con_values[5] },
-    { "num_scopes",         &con_values[6] },
-    { "num_sources",        &con_values[7] },
-    { "scope_names",        &con_values[8] },
+    { "expression",         &con_values[0] },
+    { "id",                 &con_values[1] },
+    { "mode",               &con_values[2] },
+    { "muted",              &con_values[3] },
+    { "num_scopes",         &con_values[4] },
+    { "num_sources",        &con_values[5] },
+    { "process_at",         &con_values[6] },
+    { "scope_names",        &con_values[7] },
 };
 
-static mapper_string_table_t con_table = { con_strings, 9, 9 };
+static mapper_string_table_t con_table = { con_strings, 8, 8 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -1020,15 +1022,23 @@ void mapper_db_dump(mapper_db db)
                    con->sources[i].signal->name);
         if (con->num_sources > 1)
             printf("\b\b], ");
-        printf("dest_name=%s%s,\n"
-               "      bound_max=%s, bound_min=%s,\n"
-               "      expression=%s, mode=%s, muted=%d\n",
-               con->destination.signal->name, con->destination.signal->name,
-               mapper_get_boundary_action_string(con->bound_max),
-               mapper_get_boundary_action_string(con->bound_min),
-               con->expression,
-               mapper_get_mode_type_string(con->mode),
-               con->muted);
+        printf("dest_name=%s%s,\n",
+               con->destination.signal->name, con->destination.signal->name);
+        printf("\n      mode='%s', ", mapper_get_mode_type_string(con->mode));
+        printf("\n      expression='%s', ", con->expression);
+        printf("      bound_max=");
+        for (i=0; i<con->num_sources; i++)
+            printf("'%s', ",
+                   mapper_get_boundary_action_string(con->sources[i].bound_max));
+        printf("'%s'\n",
+               mapper_get_boundary_action_string(con->destination.bound_max));
+        printf("\n      bound_min=");
+        for (i=0; i<con->num_sources; i++)
+            printf("'%s', ",
+                   mapper_get_boundary_action_string(con->sources[i].bound_min));
+        printf("'%s'\n",
+               mapper_get_boundary_action_string(con->destination.bound_min));
+        printf("\n      muted=%d", con->muted);
         for (i=0; i<con->num_sources; i++) {
             if (con->sources[i].minimum) {
                 printf("      src_min[%d]=", i);
@@ -1853,19 +1863,6 @@ static int update_connection_record_params(mapper_db db,
     /* @destLength */
     updated += update_int_if_arg(&con->destination.length, params, AT_DEST_LENGTH);
 
-    mapper_boundary_action bound;
-    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MAX);
-    if ((int)bound != -1 && bound != con->bound_max) {
-        con->bound_max = bound;
-        updated++;
-    }
-
-    bound = mapper_msg_get_boundary_action(params, AT_BOUND_MIN);
-    if ((int)bound != -1 && bound != con->bound_min) {
-        con->bound_min = bound;
-        updated++;
-    }
-
     /* @srcMax */
     args = mapper_msg_get_param(params, AT_SRC_MAX, &types, &length);
     if (args && types) {
@@ -1970,46 +1967,132 @@ static int update_connection_record_params(mapper_db db,
         }
     }
 
+    /* Range boundary actions */
+    args = mapper_msg_get_param(params, AT_SRC_BOUND_MAX, &types, &length);
+    if (args && types) {
+        mapper_boundary_action bound_max;
+        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
+            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_max != con->sources[slot].bound_max) {
+                con->sources[slot].bound_max = bound_max;
+                updated++;
+            }
+        }
+        else if (length == con->num_sources) {
+            for (i = 0; i < con->num_sources; i++) {
+                if (types[i] != 's' && types[i] != 'S')
+                    continue;
+                bound_max = mapper_get_boundary_action_from_string(&args[i]->s);
+                if (bound_max != con->sources[i].bound_max) {
+                    con->sources[i].bound_max = bound_max;
+                    updated++;
+                }
+            }
+        }
+    }
+    args = mapper_msg_get_param(params, AT_SRC_BOUND_MIN, &types, &length);
+    if (args && types) {
+        mapper_boundary_action bound_min;
+        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
+            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_min != con->sources[slot].bound_min) {
+                con->sources[slot].bound_min = bound_min;
+                updated++;
+            }
+        }
+        else if (length == con->num_sources) {
+            for (i = 0; i < con->num_sources; i++) {
+                if (types[i] != 's' && types[i] != 'S')
+                    continue;
+                bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
+                if (bound_min != con->sources[i].bound_min) {
+                    con->sources[i].bound_min = bound_min;
+                    updated++;
+                }
+            }
+        }
+    }
+    args = mapper_msg_get_param(params, AT_DEST_BOUND_MAX, &types, &length);
+    if (args && types) {
+        mapper_boundary_action bound_max;
+        if (types[0] == 's' || types[0] == 'S') {
+            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_max != con->destination.bound_max) {
+                con->destination.bound_max = bound_max;
+                updated++;
+            }
+        }
+    }
+    args = mapper_msg_get_param(params, AT_SRC_BOUND_MIN, &types, &length);
+    if (args && types) {
+        mapper_boundary_action bound_min;
+        if (types[0] == 's' || types[0] == 'S') {
+            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_min != con->destination.bound_min) {
+                con->destination.bound_min = bound_min;
+                updated++;
+            }
+        }
+    }
+
     /* @causeUpdate */
     args = mapper_msg_get_param(params, AT_CAUSE_UPDATE, &types, &length);
-    if (args && types) {
-        if (length == con->num_sources) {
-            for (i = 0; i < con->num_sources; i++) {
-                if (types[i] == 'T' && !con->sources[i].cause_update) {
-                    con->sources[i].cause_update = 1;
-                    updated++;
-                }
-                else if (types[i] == 'F' && con->sources[i].cause_update) {
-                    con->sources[i].cause_update = 0;
-                    updated++;
-                }
+    if (args && types && (length == con->num_sources)) {
+        int cause_update;
+        for (i = 0; i < con->num_sources; i++) {
+            cause_update = (types[i] == 'T');
+            if (con->sources[i].cause_update != cause_update) {
+                con->sources[i].cause_update = cause_update;
+                updated++;
             }
         }
     }
 
     /* @sendAsInstance */
     args = mapper_msg_get_param(params, AT_SEND_AS_INSTANCE, &types, &length);
-    if (args && types) {
-        if (length == con->num_sources) {
-            for (i = 0; i < con->num_sources; i++) {
-                if (types[i] == 'T' && !con->sources[i].send_as_instance) {
-                    con->sources[i].send_as_instance = 1;
-                    updated++;
-                }
-                else if (types[i] == 'F' && con->sources[i].send_as_instance) {
-                    con->sources[i].send_as_instance = 0;
-                    updated++;
-                }
+    if (args && types && (length == con->num_sources)) {
+        int send_as_instance;
+        for (i = 0; i < con->num_sources; i++) {
+            send_as_instance = (types[i] == 'T');
+            if (con->sources[i].send_as_instance != send_as_instance) {
+                con->sources[i].send_as_instance = send_as_instance;
+                updated++;
             }
         }
     }
 
-    updated += update_string_if_arg(&con->expression, params, AT_EXPRESSION);
+    /* Mode */
+    args = mapper_msg_get_param(params, AT_MODE, &types, &length);
+    if (args && types && (types[0] == 's' || types[0] == 'S')) {
+        mapper_mode_type mode = mapper_get_mode_type_from_string(&args[0]->s);
+        if (con->mode != mode) {
+            con->mode = mode;
+            updated++;
+        }
+    }
 
-    mapper_mode_type mode = mapper_msg_get_mode(params);
-    if ((int)mode != -1 && mode != con->mode) {
-        con->mode = mode;
-        updated++;
+    /* Expression */
+    args = mapper_msg_get_param(params, AT_EXPRESSION, &types, &length);
+    if (args && types && (types[0] == 's' || types[0] == 'S')) {
+        if (!con->expression || strcmp(con->expression, &args[0]->s)) {
+            con->expression = realloc(con->expression, strlen(&args[0]->s)+1);
+            strcpy(con->expression, &args[0]->s);
+            updated++;
+        }
+    }
+
+    /* Processing location */
+    args = mapper_msg_get_param(params, AT_PROCESS, &types, &length);
+    if (args && types && (types[0] == 's' || types[0] == 'S')) {
+        int at_source = (strcmp(&args[0]->s, "source")==0);
+        if (at_source && con->process_location == MAPPER_DESTINATION) {
+            con->process_location = MAPPER_SOURCE;
+            updated++;
+        }
+        else if (!at_source && con->process_location == MAPPER_SOURCE) {
+            con->process_location = MAPPER_DESTINATION;
+            updated++;
+        }
     }
 
     int mute = mapper_msg_get_mute(params);
@@ -2737,6 +2820,14 @@ void mapper_db_remove_connections_by_query(mapper_db db,
     }
 }
 
+static void free_slot(mapper_db_connection_slot s)
+{
+    if (s->minimum)
+        free(s->minimum);
+    if (s->maximum)
+        free(s->maximum);
+}
+
 void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 {
     int i;
@@ -2752,25 +2843,19 @@ void mapper_db_remove_connection(mapper_db db, mapper_db_connection con)
 
     if (con->sources) {
         for (i = 0; i < con->num_sources; i++) {
-            if (con->sources[i].minimum)
-                free(con->sources[i].minimum);
-            if (con->sources[i].maximum)
-                free(con->sources[i].maximum);
+            free_slot(&con->sources[i]);
         }
         free(con->sources);
     }
-    if (con->destination.minimum)
-        free(con->destination.minimum);
-    if (con->destination.maximum)
-        free(con->destination.maximum);
-    if (con->expression)
-        free(con->expression);
+    free_slot(&con->destination);
     if (con->scope.size && con->scope.names) {
         for (i=0; i<con->scope.size; i++)
             free(con->scope.names[i]);
         free(con->scope.names);
         free(con->scope.hashes);
     }
+    if (con->expression)
+        free(con->expression);
     if (con->extra)
         table_free(con->extra, 1);
     list_remove_item(con, (void**)&db->registered_connections);

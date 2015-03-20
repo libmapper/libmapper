@@ -9,47 +9,11 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-extern const char* prop_msg_strings[N_AT_PARAMS];
-
 /*! Function prototypes. */
 static void reallocate_connection_histories(mapper_connection c);
 static int mapper_connection_set_mode_linear(mapper_connection c);
 
-const char* mapper_boundary_action_strings[] =
-{
-    "none",        /* BA_NONE */
-    "mute",        /* BA_MUTE */
-    "clamp",       /* BA_CLAMP */
-    "fold",        /* BA_FOLD */
-    "wrap",        /* BA_WRAP */
-};
-
-const char* mapper_mode_type_strings[] =
-{
-    NULL,          /* MO_UNDEFINED */
-    "none",        /* MO_NONE */
-    "raw",         /* MO_RAW */
-    "linear",      /* MO_LINEAR */
-    "expression",  /* MO_EXPRESSION */
-};
-
-const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
-{
-    die_unless(bound < N_MAPPER_BOUNDARY_ACTIONS,
-               "called mapper_get_boundary_action_string() with "
-               "bad parameter.\n");
-
-    return mapper_boundary_action_strings[bound];
-}
-
-const char *mapper_get_mode_type_string(mapper_mode_type mode)
-{
-    die_unless(mode < N_MAPPER_MODE_TYPES,
-               "called mapper_get_mode_type_string() with bad parameter.\n");
-
-    return mapper_mode_type_strings[mode];
-}
-
+// only called for outgoing connections
 int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                               int instance, char *typestring)
 {
@@ -57,7 +21,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
     mapper_history from = s->history;
     mapper_history to = c->destination.history;
 
-    if (c->props.calibrating == 1)
+    if (s->props->calibrating == 1)
     {
         if (!s->props->minimum) {
             s->props->minimum = malloc(s->props->length *
@@ -157,10 +121,10 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
             mapper_connection_set_mode_linear(c);
     }
 
-    if (c->status != MAPPER_ACTIVE || c->props.muted || !s->props->cause_update) {
+    if (c->status != MAPPER_ACTIVE || c->props.muted) {
         return 0;
     }
-    else if (c->props.mode == MO_RAW) {
+    else if (c->props.process_location == MAPPER_DESTINATION) {
         to[instance].position = 0;
         // copy value without type coercion
         memcpy(mapper_history_value_ptr(to[instance]),
@@ -175,7 +139,11 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
         return 1;
     }
 
-    die_unless(c->expr!=0, "Missing expression.\n");
+    if (!c->expr) {
+        trace("error: missing expression.\n");
+        return 0;
+    }
+
     mapper_history sources[c->props.num_sources];
     for (i = 0; i < c->props.num_sources; i++)
         sources[i] = &c->sources[i].history[instance];
@@ -185,7 +153,7 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                                  typestring));
 }
 
-int mapper_boundary_perform(mapper_connection c, mapper_history history)
+int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
 {
     /* TODO: We are currently saving the processed values to output history.
      * it needs to be decided whether boundary processing should be inside the
@@ -196,32 +164,27 @@ int mapper_boundary_perform(mapper_connection c, mapper_history history)
     double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
-    if (c->props.bound_min == BA_NONE && c->props.bound_max == BA_NONE) {
+    if (s->bound_min == BA_NONE && s->bound_max == BA_NONE) {
         return 1;
     }
-    if (!c->props.destination.minimum
-        && (c->props.bound_min != BA_NONE || c->props.bound_max == BA_WRAP)) {
+    if (!s->minimum && (s->bound_min != BA_NONE || s->bound_max == BA_WRAP)) {
         return 1;
     }
-    if (!c->props.destination.maximum
-        && (c->props.bound_max != BA_NONE || c->props.bound_min == BA_WRAP)) {
+    if (!s->maximum && (s->bound_max != BA_NONE || s->bound_min == BA_WRAP)) {
         return 1;
     }
 
     for (i = 0; i < history->length; i++) {
-        value = propval_get_double(mapper_history_value_ptr(*history),
-                                   c->props.destination.type, i);
-        dest_min = propval_get_double(c->props.destination.minimum,
-                                      c->props.destination.type, i);
-        dest_max = propval_get_double(c->props.destination.maximum,
-                                      c->props.destination.type, i);
+        value = propval_get_double(mapper_history_value_ptr(*history), s->type, i);
+        dest_min = propval_get_double(s->minimum, s->type, i);
+        dest_max = propval_get_double(s->maximum, s->type, i);
         if (dest_min < dest_max) {
-            bound_min = c->props.bound_min;
-            bound_max = c->props.bound_max;
+            bound_min = s->bound_min;
+            bound_max = s->bound_max;
         }
         else {
-            bound_min = c->props.bound_max;
-            bound_max = c->props.bound_min;
+            bound_min = s->bound_max;
+            bound_max = s->bound_min;
             swap = dest_max;
             dest_max = dest_min;
             dest_min = swap;
@@ -350,19 +313,22 @@ int mapper_boundary_perform(mapper_connection c, mapper_history history)
                     break;
             }
         }
-        propval_set_double(mapper_history_value_ptr(*history),
-                           c->props.destination.type, i, value);
+        propval_set_double(mapper_history_value_ptr(*history), s->type, i, value);
     }
     return !muted;
 }
 
 /*! Build a value update message for a given connection. */
-lo_message mapper_connection_build_message(mapper_connection c, void *value,
-                                           int count, char *typestring,
+lo_message mapper_connection_build_message(mapper_connection c,
+                                           mapper_connection_slot s,
+                                           void *value, int count,
+                                           char *typestring,
                                            mapper_id_map id_map)
 {
     mapper_db_connection props = &c->props;
-    int i, length = props->destination.length * count;
+    int i;
+    int length = ((props->process_location == MAPPER_SOURCE)
+                  ? props->destination.length * count : s->props->length * count);
 
     lo_message m = lo_message_new();
     if (!m)
@@ -399,10 +365,10 @@ lo_message mapper_connection_build_message(mapper_connection c, void *value,
         lo_message_add_int32(m, id_map->public);
     }
 
-    if (props->destination.slot_id >= 0) {
+    if (props->process_location == MAPPER_DESTINATION) {
         // add slot
         lo_message_add_string(m, "@slot");
-        lo_message_add_int32(m, props->destination.slot_id);
+        lo_message_add_int32(m, s->props->slot_id);
     }
 
     return m;
@@ -446,7 +412,8 @@ static int replace_expression_string(mapper_connection c, const char *expr_str)
 {
     if (c->expr && c->props.expression && strcmp(c->props.expression, expr_str)==0)
         return 1;
-
+    if (c->status < MAPPER_READY)
+        return 1;
     int i;
     char source_types[c->props.num_sources];
     int source_lengths[c->props.num_sources];
@@ -462,6 +429,19 @@ static int replace_expression_string(mapper_connection c, const char *expr_str)
 
     if (!expr)
         return 1;
+
+    // expression update may force processing location to change
+    // e.g. if expression combines signals from different devices
+    // e.g. if expression refers to current/past value of destination
+    int output_history_size = mapper_expr_output_history_size(expr);
+    if (output_history_size > 1 && c->props.process_location == MAPPER_SOURCE) {
+        c->props.process_location = MAPPER_DESTINATION;
+        // copy expression string but do not execute it
+        if (c->props.expression)
+            free(c->props.expression);
+        c->props.expression = strdup(expr_str);
+        return 1;
+    }
 
     if (c->expr)
         mapper_expr_free(c->expr);
@@ -592,11 +572,32 @@ static int mapper_connection_set_mode_linear(mapper_connection c)
 
     // If everything is successful, replace the connection's expression.
     if (e) {
-        if (!replace_expression_string(c, e)) {
-            reallocate_connection_histories(c);
-            c->props.mode = MO_LINEAR;
-            return 0;
+        int should_compile = 0;
+        if (c->props.process_location == MAPPER_DESTINATION) {
+            // check if destination is local
+            if (c->destination.local)
+                should_compile = 1;
         }
+        else {
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (c->sources[i].local)
+                    should_compile = 1;
+            }
+        }
+        if (should_compile) {
+            if (!replace_expression_string(c, e))
+                reallocate_connection_histories(c);
+        }
+        else {
+            if (!c->props.expression)
+                c->props.expression = strdup(e);
+            else if (strcmp(c->props.expression, e)) {
+                free(c->props.expression);
+                c->props.expression = strdup(e);
+            }
+        }
+        c->props.mode = MO_LINEAR;
+        return 0;
     }
     return 1;
 }
@@ -607,31 +608,64 @@ void mapper_connection_set_mode_expression(mapper_connection c,
     if (c->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
         return;
 
-    if (replace_expression_string(c, expr))
+    int i, should_compile = 0;
+    if (c->props.process_location == MAPPER_DESTINATION) {
+        // check if destination is local
+        if (c->destination.local)
+            should_compile = 1;
+    }
+    else {
+        for (i = 0; i < c->props.num_sources; i++) {
+            if (c->sources[i].local)
+                should_compile = 1;
+        }
+    }
+    if (should_compile) {
+        if (!replace_expression_string(c, expr)) {
+            reallocate_connection_histories(c);
+            c->props.mode = MO_EXPRESSION;
+        }
+        else
+            return;
+    }
+    else {
+        if (!c->props.expression)
+            c->props.expression = strdup(expr);
+        else if (strcmp(c->props.expression, expr)) {
+            free(c->props.expression);
+            c->props.expression = strdup(expr);
+        }
+        c->props.mode = MO_EXPRESSION;
         return;
+    }
 
-    c->props.mode = MO_EXPRESSION;
-    reallocate_connection_histories(c);
-    /* TODO: Special case: if we are the receiver and the new expression
+    /* Special case: if we are the receiver and the new expression
      * evaluates to a constant we can update immediately. */
     /* TODO: should call handler for all instances updated
      * through this connection. */
-//    if (mapper_expr_constant_output(c->expr) && !c->props.send_as_instance) {
-//        int index = 0;
-//        mapper_timetag_t now;
-//        mapper_clock clock;
-//        mapper_clock_now(&c->router->device->admin->clock, &now);
-//
-//        // evaluate expression
-//        mapper_expr_evaluate(c->expr, c, 0, &now, &c->destination.history, 0);
-//
-//        // call handler if it exists
-//        if (c->destination.direction == DI_INCOMING && c->destination.local) {
-//            mapper_signal sig = c->destination.local->signal;
-//            if (sig->handler)
-//                sig->handler(sig, &sig->props, 0, si->value, 1, &now);
-//        }
-//    }
+    int send_as_instance = 0;
+    for (i = 0; i < c->props.num_sources; i++) {
+        if (c->props.sources[i].send_as_instance) {
+            send_as_instance = 1;
+            break;
+        }
+    }
+    send_as_instance += c->props.destination.send_as_instance;
+    if (mapper_expr_constant_output(c->expr) && !send_as_instance) {
+        mapper_timetag_t now;
+        mapper_clock_now(&c->router->device->admin->clock, &now);
+
+        // evaluate expression
+        mapper_expr_evaluate(c->expr, 0, 0, c->destination.history, &now, 0);
+
+        // call handler if it exists
+        if (c->destination.local) {
+            mapper_signal sig = c->destination.local->signal;
+            if (sig->handler)
+                sig->handler(sig, &sig->props, 0,
+                             &c->destination.history[0].value, 1, &now);
+        }
+    }
 }
 
 /* Helper to check if type is a number. */
@@ -652,30 +686,45 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
 {
     lo_arg **args = NULL;
     const char *types = NULL;
-    int i, length = 0, updated = 0, result;
+    int i, j, length = 0, updated = 0, result;
 
     if (!c || c->props.num_sources > 1)
         return 0;
+
+    mapper_connection_slot s = (slot >= 0) ? &c->sources[slot] : 0;
+
+    // calculate value vector length for all sources
+    int total_length = 0;
+    if (slot < 0) {
+        for (i = 0; i < c->props.num_sources; i++) {
+            if (!(c->sources[i].status & MAPPER_LENGTH_KNOWN)) {
+                total_length = 0;
+                break;
+            }
+            total_length += c->props.sources[i].length;
+        }
+    }
 
     /* The logic here is to first try to use information from the
      * message, starting with @srcMax, @srcMin, @destMax, @destMin.
      * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
-    int out = (c->props.destination.direction == DI_OUTGOING);
+    // TODO: handle 'NULL' values for minima/maxima without failing
 
-    if ((c->sources[slot].status & MAPPER_TYPE_KNOWN)
-        && (c->sources[slot].status & MAPPER_LENGTH_KNOWN)) {
-        /* source maxima */
-        args = mapper_msg_get_param(msg, AT_SRC_MAX, &types, &length);
-        if (args && types && is_number_type(types[0])) {
-            if (length == c->props.sources[slot].length) {
-                if (!c->props.sources[slot].maximum)
-                    c->props.sources[slot].maximum = calloc(1, length
-                                                            * c->props.sources[0].type);
-                for (i=0; i<length; i++) {
-                    result = propval_set_from_lo_arg(c->props.sources[slot].maximum,
-                                                     c->props.sources[slot].type,
+    /* source maxima */
+    args = mapper_msg_get_param(msg, AT_SRC_MAX, &types, &length);
+    if (args && types && is_number_type(types[0])) {
+        if (s) {
+            if (!s->local && (s->status & MAPPER_TYPE_KNOWN)
+                && (s->status & MAPPER_LENGTH_KNOWN)
+                && (length == s->props->length)) {
+                if (!s->props->maximum)
+                    s->props->maximum = calloc(1, length
+                                               * mapper_type_size(s->props->type));
+                for (i = 0; i < length; i++) {
+                    result = propval_set_from_lo_arg(s->props->maximum,
+                                                     s->props->type,
                                                      args[i], types[i], i);
                     if (result == -1) {
                         break;
@@ -685,22 +734,69 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                 }
             }
         }
+        else {
+            if (total_length && total_length == length) {
+                int offset = 0;
+                for (i = 0; i < c->props.num_sources; i++) {
+                    if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                        offset += c->props.sources[i].length;
+                        continue;
+                    }
+                    if (!c->props.sources[i].maximum)
+                        c->props.sources[i].maximum = calloc(1, c->props.sources[i].length
+                                                             * mapper_type_size(c->props.sources[i].type));
+                    for (j = 0; j < c->props.sources[i].length; j++) {
+                        result = propval_set_from_lo_arg(c->props.sources[i].maximum,
+                                                         c->props.sources[i].type,
+                                                         args[offset], types[offset],
+                                                         j);
+                        offset++;
+                    }
+                }
+            }
+        }
+    }
 
-        /* source minima */
-        args = mapper_msg_get_param(msg, AT_SRC_MIN, &types, &length);
-        if (args && types && is_number_type(types[0])) {
-            if (length == c->props.sources[slot].length) {
-                if (!c->props.sources[slot].minimum)
-                    c->props.sources[slot].minimum = calloc(1, length * c->props.sources[0].type);
-                for (i=0; i<length; i++) {
-                    result = propval_set_from_lo_arg(c->props.sources[slot].minimum,
-                                                     c->props.sources[slot].type,
+    /* source minima */
+    args = mapper_msg_get_param(msg, AT_SRC_MIN, &types, &length);
+    if (args && types && is_number_type(types[0])) {
+        if (s) {
+            if (!s->local && (s->status & MAPPER_TYPE_KNOWN)
+                && (s->status & MAPPER_LENGTH_KNOWN)
+                && (length == s->props->length)) {
+                if (!s->props->minimum)
+                    s->props->minimum = calloc(1, length
+                                               * mapper_type_size(s->props->type));
+                for (i = 0; i < length; i++) {
+                    result = propval_set_from_lo_arg(s->props->minimum,
+                                                     s->props->type,
                                                      args[i], types[i], i);
                     if (result == -1) {
                         break;
                     }
                     else
                         updated += result;
+                }
+            }
+        }
+        else {
+            if (total_length && total_length == length) {
+                int offset = 0;
+                for (i = 0; i < c->props.num_sources; i++) {
+                    if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                        offset += c->props.sources[i].length;
+                        continue;
+                    }
+                    if (!c->props.sources[i].minimum)
+                        c->props.sources[i].minimum = calloc(1, c->props.sources[i].length
+                                                             * mapper_type_size(c->props.sources[i].type));
+                    for (j = 0; j < c->props.sources[i].length; j++) {
+                        result = propval_set_from_lo_arg(c->props.sources[i].minimum,
+                                                         c->props.sources[i].type,
+                                                         args[offset], types[offset],
+                                                         j);
+                        offset++;
+                    }
                 }
             }
         }
@@ -726,7 +822,6 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                 }
             }
         }
-
         /* destination minimum */
         args = mapper_msg_get_param(msg, AT_DEST_MIN, &types, &length);
         if (args && types && is_number_type(types[0])) {
@@ -748,42 +843,35 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
     }
 
     /* Signal */
-    mapper_signal sig = 0;
-    if (out && c->sources[slot].local)
-        sig = c->sources[slot].local->signal;
-    else if (!out && c->destination.local)
-        sig = c->destination.local->signal;
-    if (!sig)
-        return updated;
-
-    if (out) {
-        if (!c->props.sources[slot].minimum && sig->props.minimum)
-        {
-            c->props.sources[slot].minimum = malloc(msig_vector_bytes(sig));
-            memcpy(c->props.sources[slot].minimum, sig->props.minimum,
-                   msig_vector_bytes(sig));
-            updated++;
-        }
-        if (!c->props.sources[slot].maximum && sig->props.maximum)
-        {
-            c->props.sources[slot].maximum = malloc(msig_vector_bytes(sig));
-            memcpy(c->props.sources[slot].maximum, sig->props.maximum,
-                   msig_vector_bytes(sig));
-            updated++;
+    for (i = 0; i < c->props.num_sources; i++) {
+        if (c->sources[i].local) {
+            mapper_signal sig = c->sources[i].local->signal;
+            if (!c->props.sources[i].maximum && sig->props.maximum) {
+                c->props.sources[i].maximum = malloc(msig_vector_bytes(sig));
+                memcpy(c->props.sources[i].maximum, sig->props.maximum,
+                       msig_vector_bytes(sig));
+                updated++;
+            }
+            if (!c->props.sources[i].minimum && sig->props.minimum) {
+                c->props.sources[i].minimum = malloc(msig_vector_bytes(sig));
+                memcpy(c->props.sources[i].minimum, sig->props.minimum,
+                       msig_vector_bytes(sig));
+                updated++;
+            }
         }
     }
-    else {
-        if (!c->props.destination.minimum && sig->props.minimum)
-        {
-            c->props.destination.minimum = malloc(msig_vector_bytes(sig));
-            memcpy(c->props.destination.minimum, sig->props.minimum,
+
+    if (c->destination.local) {
+        mapper_signal sig = c->destination.local->signal;
+        if (!c->props.destination.maximum && sig->props.maximum) {
+            c->props.destination.maximum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.destination.maximum, sig->props.maximum,
                    msig_vector_bytes(sig));
             updated++;
         }
-        if (!c->props.destination.maximum && sig->props.maximum)
-        {
-            c->props.destination.maximum = malloc(msig_vector_bytes(sig));
-            memcpy(c->props.destination.maximum, sig->props.maximum,
+        if (!c->props.destination.minimum && sig->props.minimum) {
+            c->props.destination.minimum = malloc(msig_vector_bytes(sig));
+            memcpy(c->props.destination.minimum, sig->props.minimum,
                    msig_vector_bytes(sig));
             updated++;
         }
@@ -815,8 +903,7 @@ static void apply_mode(mapper_connection c)
 {
     switch (c->props.mode) {
         case MO_RAW:
-            if (!c->is_admin)
-                mapper_connection_set_mode_raw(c);
+            mapper_connection_set_mode_raw(c);
             break;
         case MO_LINEAR:
             if (mapper_connection_set_mode_linear(c))
@@ -939,9 +1026,7 @@ int mapper_connection_check_status(mapper_connection c)
             c->expr_vars = calloc(1, sizeof(mapper_history)
                                   * c->num_var_instances);
         }
-        if (c->is_admin) {
-            apply_mode(c);
-        }
+        apply_mode(c);
         return 1;
     }
 
@@ -954,6 +1039,9 @@ int mapper_connection_set_from_message(mapper_connection c,
                                        int *order, int override)
 {
     int updated = 0;
+    lo_arg **args;
+    const char *types = 0;
+    int num_args;
     /* First record any provided parameters. */
 
     int id;
@@ -963,53 +1051,87 @@ int mapper_connection_set_from_message(mapper_connection c,
         updated++;
     }
 
-    int i, slot = 0;
-    if (!mapper_msg_get_param_if_int(msg, AT_SLOT, &slot)) {
-        // if this is simple connection, "@slot" defines destination slot index
-        // if this is convergent connection, "@slot" indicates a specific source slot
+    int i, slot = -1;
+    args = mapper_msg_get_param(msg, AT_SLOT, &types, &num_args);
+    if (args && types) {
         if (c->destination.local) {
-            // find slot index
-            for (i = 0; i < c->props.num_sources; i++) {
-                if (c->sources[i].props->slot_id == slot) {
-                    slot = i;
-                    break;
+            if (num_args == 1 && types[0] == 'i') {
+                // find slot index
+                for (i = 0; i < c->props.num_sources; i++) {
+                    if (c->sources[i].props->slot_id == args[0]->i) {
+                        slot = i;
+                        break;
+                    }
+                }
+                if (i == c->props.num_sources) {
+                    trace("error: slot index not found.\n");
+                    return 0;
                 }
             }
-            if (i == c->props.num_sources) {
-                trace("error: slot index not found.\n");
-                return 0;
-            }
         }
-        else {
-            if (slot != c->destination.props->slot_id) {
-                c->destination.props->slot_id = slot;
-                c->is_admin = 0;
-                updated++;
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (types[i] != 'i')
+                    continue;
+                c->props.sources[i].slot_id = args[i]->i;
             }
-            slot = 0;
         }
     }
 
     const char *type = 0;
-    int length;
-
-    if (!c->sources[slot].local) {
-        /* Source type. */
-        type = mapper_msg_get_param_if_char(msg, AT_SRC_TYPE);
-        if (type && !check_signal_type(type[0])) {
-            if (type[0] != c->props.sources[slot].type) {
-                c->props.sources[slot].type = type[0];
-                c->sources[slot].status |= MAPPER_TYPE_KNOWN;
-                updated++;
+    /* source type */
+    args = mapper_msg_get_param(msg, AT_SRC_TYPE, &types, &num_args);
+    if (args && types && (types[0] == 'c' || types[0] == 's' || types[0] == 'S')) {
+        char type;
+        if (slot >= 0) {
+            if (!c->sources[slot].local) {
+                type = types[0] == 'c' ? (*args)->c : (&(*args)->s)[0];
+                if (c->props.sources[slot].type != type) {
+                    c->props.sources[slot].type = type;
+                    c->sources[slot].status |= MAPPER_TYPE_KNOWN;
+                    updated++;
+                }
             }
         }
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (c->sources[i].local)
+                    continue;
+                if (types[i] != 'c' && types[i] != 's' && types[i] != 'S')
+                    continue;
+                type = types[i] == 'c' ? (args[i])->c : (&(args[i])->s)[0];
+                if (c->props.sources[i].type != type) {
+                    c->props.sources[i].type = type;
+                    c->sources[i].status |= MAPPER_TYPE_KNOWN;
+                    updated++;
+                }
+            }
+        }
+    }
 
-        /* Source length. */
-        if (!mapper_msg_get_param_if_int(msg, AT_SRC_LENGTH, &length)) {
-            if (length != c->props.sources[slot].length) {
-                c->props.sources[slot].length = length;
-                c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
-                updated++;
+    /* source length */
+    args = mapper_msg_get_param(msg, AT_SRC_LENGTH, &types, &num_args);
+    if (args && types && types[0] == 'i') {
+        if (slot >= 0) {
+            if (!c->sources[slot].local) {
+                if (c->props.sources[slot].length != (*args)->i) {
+                    c->props.sources[slot].length = (*args)->i;
+                    c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
+                    updated++;
+                }
+            }
+        }
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (c->sources[i].local)
+                    continue;
+                if (types[i] != 'i')
+                    continue;
+                if (c->props.sources[i].length != args[i]->i) {
+                    c->props.sources[i].length = args[i]->i;
+                    c->sources[i].status |= MAPPER_LENGTH_KNOWN;
+                    updated++;
+                }
             }
         }
     }
@@ -1026,9 +1148,9 @@ int mapper_connection_set_from_message(mapper_connection c,
         }
 
         /* Destination length. */
-        if (!mapper_msg_get_param_if_int(msg, AT_DEST_LENGTH, &length)) {
-            if (length != c->props.destination.length) {
-                c->props.destination.length = length;
+        if (!mapper_msg_get_param_if_int(msg, AT_DEST_LENGTH, &num_args)) {
+            if (num_args != c->props.destination.length) {
+                c->props.destination.length = num_args;
                 c->destination.status |= MAPPER_LENGTH_KNOWN;
                 updated++;
             }
@@ -1036,150 +1158,259 @@ int mapper_connection_set_from_message(mapper_connection c,
     }
 
     // TODO: handle range calibration coming from remote device
-    if (!c->is_admin || override) {
-        /* Range information. */
-        updated += set_range(c, msg, slot);
-        if (c->is_admin && c->props.mode == MO_LINEAR) {
+    /* Range information. */
+    if (set_range(c, msg, slot)) {
+        // TODO: may need to set linear expression without being admin
+        if (c->props.mode == MO_LINEAR)
             mapper_connection_set_mode_linear(c);
-        }
+        updated++;
+    }
 
-        /* Muting. */
-        int muting;
-        if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
-            && c->props.muted != muting) {
-            c->props.muted = muting;
-            updated++;
-        }
+    /* Muting. */
+    int muting;
+    if (!mapper_msg_get_param_if_int(msg, AT_MUTE, &muting)
+        && c->props.muted != muting) {
+        c->props.muted = muting;
+        updated++;
+    }
 
-        /* Calibrating. */
+    /* Calibrating. */
+    args = mapper_msg_get_param(msg, AT_CALIBRATING, &types, &num_args);
+    if (args && types) {
         int calibrating;
-        if (!mapper_msg_get_param_if_int(msg, AT_CALIBRATING, &calibrating)
-            && c->props.calibrating != calibrating) {
-            if (c->destination.props->minimum && c->destination.props->maximum) {
-                c->props.calibrating = calibrating;
+        if (slot >= 0) {
+            calibrating = (types[0] == 'T');
+            if (c->sources[slot].props->calibrating != calibrating) {
+                c->sources[slot].props->calibrating = calibrating;
                 updated++;
             }
         }
-
-        /* Range boundary actions. */
-        int bound_min = mapper_msg_get_boundary_action(msg, AT_BOUND_MIN);
-        if (bound_min >= 0 && c->props.bound_min != bound_min) {
-            c->props.bound_min = bound_min;
-            updated++;
-        }
-
-        int bound_max = mapper_msg_get_boundary_action(msg, AT_BOUND_MAX);
-        if (bound_max >= 0 && c->props.bound_max != bound_max) {
-            c->props.bound_max = bound_max;
-            updated++;
-        }
-
-        /* Expression. */
-        const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
-        if (expr) {
-            // expression may need to be modified to match ordered sources
-            char *new_expr = fix_expression_source_order(c->props.num_sources,
-                                                         order, expr);
-            if (new_expr) {
-                if (!c->props.expression) {
-                    c->props.expression = strdup(new_expr);
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                calibrating = (types[i] == 'T');
+                if (c->sources[i].props->calibrating != calibrating) {
+                    c->sources[i].props->calibrating = calibrating;
                     updated++;
                 }
-                else if (strcmp(c->props.expression, new_expr)) {
-                    if (c->is_admin) {
-                        if (c->props.mode == MO_EXPRESSION) {
-                            if (!replace_expression_string(c, new_expr))
-                                reallocate_connection_histories(c);
-                        }
+            }
+        }
+    }
+
+    /* Range boundary actions */
+    args = mapper_msg_get_param(msg, AT_SRC_BOUND_MAX, &types, &num_args);
+    if (args && types) {
+        int bound_max;
+        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
+            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_max >= 0
+                && bound_max != c->props.sources[slot].bound_max) {
+                c->props.sources[slot].bound_max = bound_max;
+                updated++;
+            }
+        }
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (types[i] != 's' && types[i] != 'S')
+                    continue;
+                bound_max = mapper_get_boundary_action_from_string(&args[i]->s);
+                if (bound_max >= 0
+                    && bound_max != c->props.sources[i].bound_max) {
+                    c->props.sources[i].bound_max = bound_max;
+                    updated++;
+                }
+            }
+        }
+    }
+    args = mapper_msg_get_param(msg, AT_SRC_BOUND_MIN, &types, &num_args);
+    if (args && types) {
+        int bound_min;
+        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
+            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_min >= 0
+                && bound_min != c->props.sources[slot].bound_min) {
+                c->props.sources[slot].bound_min = bound_min;
+                updated++;
+            }
+        }
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                if (types[i] != 's' && types[i] != 'S')
+                    continue;
+                bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
+                if (bound_min >= 0
+                    && bound_min != c->props.sources[i].bound_min) {
+                    c->props.sources[i].bound_min = bound_min;
+                    updated++;
+                }
+            }
+        }
+    }
+    args = mapper_msg_get_param(msg, AT_DEST_BOUND_MAX, &types, &num_args);
+    if (args && types) {
+        int bound_max;
+        if (types[0] == 's' || types[0] == 'S') {
+            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
+            if (bound_max >= 0
+                && bound_max != c->props.destination.bound_max) {
+                c->props.destination.bound_max = bound_max;
+                updated++;
+            }
+        }
+    }
+    args = mapper_msg_get_param(msg, AT_DEST_BOUND_MIN, &types, &num_args);
+    if (args && types) {
+        int bound_min;
+        if (types[0] == 's' || types[0] == 'S') {
+            bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
+            if (bound_min >= 0
+                && bound_min != c->props.destination.bound_min) {
+                c->props.destination.bound_min = bound_min;
+                updated++;
+            }
+        }
+    }
+
+    /* Processing location. */
+    args = mapper_msg_get_param(msg, AT_PROCESS, &types, &num_args);
+    if (args && types && (types[0] == 's' || types[0] == 'S')) {
+        int at_source = (strcmp(&args[0]->s, "source") == 0);
+        if (at_source && !c->one_source) {
+            /* Processing must take place at destination if connection
+             * includes source signals from different devices. */
+            at_source = 0;
+        }
+        if (at_source && c->props.process_location == MAPPER_DESTINATION) {
+            c->props.process_location = MAPPER_SOURCE;
+            updated++;
+        }
+        else if (!at_source && c->props.process_location == MAPPER_SOURCE) {
+            c->props.process_location = MAPPER_DESTINATION;
+            updated++;
+        }
+    }
+
+    /* Expression. */
+    const char *expr = mapper_msg_get_param_if_string(msg, AT_EXPRESSION);
+    if (expr) {
+        if (strstr(expr, "y{-")) {
+            c->props.process_location = MAPPER_DESTINATION;
+        }
+        int should_compile = 0;
+        if (c->props.process_location == MAPPER_DESTINATION) {
+            // check if destination is local
+            if (c->destination.local)
+                should_compile = 1;
+        }
+        else {
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (c->sources[i].local)
+                    should_compile = 1;
+            }
+        }
+        if (should_compile) {
+            if (c->props.num_sources == 1 || slot < 0) {
+                // expression may need to be modified to match ordered sources
+                char *new_expr = fix_expression_source_order(c->props.num_sources,
+                                                             order, expr);
+                if (new_expr) {
+                    if ((c->sources[i].status & MAPPER_LENGTH_KNOWN)
+                        && (c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                        if (!replace_expression_string(c, new_expr))
+                            reallocate_connection_histories(c);
                     }
                     else {
-                        if (c->props.expression)
+                        // check if process_location needs to change
+                        if (!c->props.expression)
+                            c->props.expression = strdup(new_expr);
+                        else if (strcmp(c->props.expression, new_expr)) {
                             free(c->props.expression);
-                        c->props.expression = strdup(new_expr);
+                            c->props.expression = strdup(new_expr);
+                        }
                     }
-                    updated++;
                 }
-                free(new_expr);
             }
         }
+        else {
+            if (!c->props.expression)
+                c->props.expression = strdup(expr);
+            else if (strcmp(c->props.expression, expr)) {
+                free(c->props.expression);
+                c->props.expression = strdup(expr);
+            }
+        }
+    }
 
-        /* Scopes */
-        const char *types = 0;
-        int num_args;
-        lo_arg **args = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_args);
-        if (num_args && types && (types[0] == 's' || types[0] == 'S'))
-            updated += mapper_db_connection_update_scope(&c->props.scope, args,
-                                                         num_args);
+    /* Scopes */
+    args = mapper_msg_get_param(msg, AT_SCOPE, &types, &num_args);
+    if (num_args && types && (types[0] == 's' || types[0] == 'S'))
+        updated += mapper_db_connection_update_scope(&c->props.scope, args,
+                                                     num_args);
+    /* Instances. */
+    args = mapper_msg_get_param(msg, AT_SEND_AS_INSTANCE, &types, &num_args);
+    if (args && types) {
+        int send_as_instance;
+        if (slot >= 0) {
+            send_as_instance = (types[0] == 'T');
+            if (c->props.sources[slot].send_as_instance != send_as_instance) {
+                c->props.sources[slot].send_as_instance = send_as_instance;
+                updated++;
+            }
+        }
+        else if (num_args == c->props.num_sources) {
+            for (i = 0; i < num_args; i++) {
+                send_as_instance = (types[i] == 'T');
+                if (c->props.sources[i].send_as_instance != send_as_instance) {
+                    c->props.sources[i].send_as_instance = send_as_instance;
+                    updated++;
+                }
+            }
+        }
+    }
 
-        /* Instances. */
-        mapper_msg_get_param(msg, AT_SEND_AS_INSTANCE, &types, &num_args);
+    /* Cause Update */
+    args = mapper_msg_get_param(msg, AT_CAUSE_UPDATE, &types, &num_args);
+    if (args && types) {
+        int cause_update;
         if (num_args == c->props.num_sources) {
             for (i = 0; i < num_args; i++) {
-                if (types[i] == 'T' && !c->props.sources[i].send_as_instance) {
-                    c->props.sources[i].send_as_instance = 1;
-                    updated++;
-                }
-                else if (types[i] == 'F' && c->props.sources[i].send_as_instance) {
-                    c->props.sources[i].send_as_instance = 0;
+                cause_update = (types[i] == 'T');
+                if (c->props.sources[i].cause_update != cause_update) {
+                    c->props.sources[i].cause_update = cause_update;
                     updated++;
                 }
             }
         }
+    }
 
-        /* Cause Update */
-        mapper_msg_get_param(msg, AT_CAUSE_UPDATE, &types, &num_args);
-        if (num_args == c->props.num_sources) {
-            for (i = 0; i < num_args; i++) {
-                if (types[i] == 'T' && !c->props.sources[i].cause_update) {
-                    c->props.sources[i].cause_update = 1;
-                    updated++;
-                }
-                else if (types[i] == 'F' && c->props.sources[i].cause_update) {
-                    c->props.sources[i].cause_update = 0;
-                    updated++;
-                }
-            }
-        }
+    /* Extra properties. */
+    updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
 
-        /* Extra properties. */
-        updated += mapper_msg_add_or_update_extra_params(c->props.extra, msg);
-
-        /* Now set the mode type depending on the requested type and
-         * the known properties. */
-        int mode = mapper_msg_get_mode(msg);
-        if (mode < 0) {
-            if (c->props.mode)
-                return updated;
-            else {
-                mode = MO_UNDEFINED;
-            }
-        }
-        else if (mode == MO_RAW && c->is_admin) {
-            // ignore, this is a subconnection reporting in
-        }
-        else if (mode != c->props.mode) {
+    /* Mode */
+    args = mapper_msg_get_param(msg, AT_MODE, &types, &num_args);
+    if (args && types && (types[0] == 's' || types[0] == 'S')) {
+        int mode = mapper_get_mode_type_from_string(&args[0]->s);
+        if (mode != c->props.mode) {
             c->props.mode = mode;
             updated++;
         }
     }
+
     if (c->status < MAPPER_READY) {
         // check if connection is now "ready"
         mapper_connection_check_status(c);
     }
-    else if (updated && c->is_admin)
+    else if (updated) {
         apply_mode(c);
+    }
 
     return updated;
 }
 
+/* TODO: figuring out the correct number of instances for the user variables
+ * is a bit tricky... for now we will use the maximum. */
 void reallocate_connection_histories(mapper_connection c)
 {
     int i, j;
-
-    // If there is no expression, then no memory needs to be
-    // reallocated.
-    if (!c->expr)
-        return;
 
     mapper_connection_slot s;
     mapper_db_connection_slot p;
@@ -1187,9 +1418,14 @@ void reallocate_connection_histories(mapper_connection c)
 
     // Reallocate source histories
     for (i = 0; i < c->props.num_sources; i++) {
-        history_size = mapper_expr_input_history_size(c->expr, i);
         s = &c->sources[i];
         p = &c->props.sources[i];
+
+        // If there is no expression, then no memory needs to be reallocated.
+        if (!c->expr)
+            continue;
+
+        history_size = mapper_expr_input_history_size(c->expr, i);
         if (history_size > s->history_size) {
             size_t sample_size = mapper_type_size(p->type) * p->length;;
             for (j = 0; j < p->num_instances; j++) {
@@ -1200,56 +1436,86 @@ void reallocate_connection_histories(mapper_connection c)
         else if (history_size < s->history_size) {
             // Do nothing for now...
         }
+
+        // reallocate user variable histories
+        int new_num_vars = mapper_expr_num_variables(c->expr);
+        if (new_num_vars > c->num_expr_vars) {
+            for (i = 0; i < c->num_var_instances; i++) {
+                c->expr_vars[i] = realloc(c->expr_vars[i], new_num_vars *
+                                          sizeof(struct _mapper_history));
+                // initialize new variables...
+                for (j = c->num_expr_vars; j < new_num_vars; j++) {
+                    c->expr_vars[i][j].type = 'd';
+                    c->expr_vars[i][j].length = 0;
+                    c->expr_vars[i][j].size = 0;
+                    c->expr_vars[i][j].value = 0;
+                    c->expr_vars[i][j].timetag = 0;
+                    c->expr_vars[i][j].position = -1;
+                }
+                for (j = 0; j < new_num_vars; j++) {
+                    int history_size = mapper_expr_variable_history_size(c->expr, j);
+                    int vector_length = mapper_expr_variable_vector_length(c->expr, j);
+                    mhist_realloc(c->expr_vars[i]+j, history_size,
+                                  vector_length * sizeof(double), 0);
+                    (c->expr_vars[i]+j)->length = vector_length;
+                    (c->expr_vars[i]+j)->size = history_size;
+                    (c->expr_vars[i]+j)->position = -1;
+                }
+            }
+            c->num_expr_vars = new_num_vars;
+        }
+        else if (new_num_vars < c->num_expr_vars) {
+            // Do nothing for now...
+        }
     }
 
     history_size = mapper_expr_output_history_size(c->expr);
     s = &c->destination;
     p = &c->props.destination;
-    // reallocate output histories
-    if (history_size > s->history_size) {
-        int sample_size = mapper_type_size(p->type) * p->length;
-        for (i = 0; i < p->num_instances; i++) {
-            mhist_realloc(&s->history[i], history_size, sample_size, 0);
-        }
-        s->history_size = history_size;
-    }
-    else if (history_size < s->history_size) {
-        // Do nothing for now...
-    }
 
-    // reallocate user variable histories
-    int new_num_vars = mapper_expr_num_variables(c->expr);
-    if (new_num_vars > c->num_expr_vars) {
-        for (i = 0; i < c->num_var_instances; i++) {
-            c->expr_vars[i] = realloc(c->expr_vars[i], new_num_vars *
-                                      sizeof(struct _mapper_history));
-            // initialize new variables...
-            for (j=c->num_expr_vars; j<new_num_vars; j++) {
-                c->expr_vars[i][j].type = 'd';
-                c->expr_vars[i][j].length = 0;
-                c->expr_vars[i][j].size = 0;
-                c->expr_vars[i][j].value = 0;
-                c->expr_vars[i][j].timetag = 0;
-                c->expr_vars[i][j].position = -1;
+    // If there is no expression, then no memory needs to be reallocated.
+    if (c->expr) {
+        // reallocate output histories
+        if (history_size > s->history_size) {
+            int sample_size = mapper_type_size(p->type) * p->length;
+            for (i = 0; i < p->num_instances; i++) {
+                mhist_realloc(&s->history[i], history_size, sample_size, 0);
             }
+            s->history_size = history_size;
         }
-        c->num_expr_vars = new_num_vars;
-    }
-    else if (new_num_vars < c->num_expr_vars) {
-        // Do nothing for now...
-    }
+        else if (history_size < s->history_size) {
+            // Do nothing for now...
+        }
 
-    /* TODO: figuring out the correct number of instances for the user variables
-     * is a bit tricky... for now we will use the maximum. */
-    for (i = 0; i < c->num_var_instances; i++) {
-        for (j = 0; j < new_num_vars; j++) {
-            int history_size = mapper_expr_variable_history_size(c->expr, j);
-            int vector_length = mapper_expr_variable_vector_length(c->expr, j);
-            mhist_realloc(c->expr_vars[i]+j, history_size,
-                          vector_length * sizeof(double), 0);
-            (c->expr_vars[i]+j)->length = vector_length;
-            (c->expr_vars[i]+j)->size = history_size;
-            (c->expr_vars[i]+j)->position = -1;
+        // reallocate user variable histories
+        int new_num_vars = mapper_expr_num_variables(c->expr);
+        if (new_num_vars > c->num_expr_vars) {
+            for (i = 0; i < c->num_var_instances; i++) {
+                c->expr_vars[i] = realloc(c->expr_vars[i], new_num_vars *
+                                          sizeof(struct _mapper_history));
+                // initialize new variables...
+                for (j = c->num_expr_vars; j < new_num_vars; j++) {
+                    c->expr_vars[i][j].type = 'd';
+                    c->expr_vars[i][j].length = 0;
+                    c->expr_vars[i][j].size = 0;
+                    c->expr_vars[i][j].value = 0;
+                    c->expr_vars[i][j].timetag = 0;
+                    c->expr_vars[i][j].position = -1;
+                }
+                for (j = 0; j < new_num_vars; j++) {
+                    int history_size = mapper_expr_variable_history_size(c->expr, j);
+                    int vector_length = mapper_expr_variable_vector_length(c->expr, j);
+                    mhist_realloc(c->expr_vars[i]+j, history_size,
+                                  vector_length * sizeof(double), 0);
+                    (c->expr_vars[i]+j)->length = vector_length;
+                    (c->expr_vars[i]+j)->size = history_size;
+                    (c->expr_vars[i]+j)->position = -1;
+                }
+            }
+            c->num_expr_vars = new_num_vars;
+        }
+        else if (new_num_vars < c->num_expr_vars) {
+            // Do nothing for now...
         }
     }
 }
@@ -1355,25 +1621,24 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
     mapper_db_connection props = &c->props;
 
     // Connection id
-    lo_message_add_string(m, prop_msg_strings[AT_ID]);
+    lo_message_add_string(m, mapper_get_param_string(AT_ID));
     lo_message_add_int32(m, c->props.id);
 
     // Connection mode
-    if (slot >= 0) {
-        lo_message_add_string(m, prop_msg_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[MO_RAW]);
-    }
-    else if (props->mode) {
-        lo_message_add_string(m, prop_msg_strings[AT_MODE]);
-        lo_message_add_string(m, mapper_mode_type_strings[props->mode]);
-    }
+    lo_message_add_string(m, mapper_get_param_string(AT_MODE));
+    lo_message_add_string(m, mapper_get_mode_type_string(props->mode));
+
+    // Processing location
+    lo_message_add_string(m, mapper_get_param_string(AT_PROCESS));
+    if (props->process_location == MAPPER_SOURCE)
+        lo_message_add_string(m, "source");
+    else
+        lo_message_add_string(m, "destination");
 
     // Expression string
-    if (slot < 0) {
-        if (props->expression) {
-            lo_message_add_string(m, prop_msg_strings[AT_EXPRESSION]);
-            lo_message_add_string(m, props->expression);
-        }
+    if (props->expression) {
+        lo_message_add_string(m, mapper_get_param_string(AT_EXPRESSION));
+        lo_message_add_string(m, props->expression);
     }
 
     // Source type(s) and vector length(s)
@@ -1387,11 +1652,11 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
             }
         }
         if (known) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_TYPE));
             for (i = 0; i < props->num_sources; i++) {
                 lo_message_add_char(m, props->sources[i].type);
             }
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_LENGTH));
             for (i = 0; i < props->num_sources; i++) {
                 lo_message_add_int32(m, props->sources[i].length);
             }
@@ -1399,39 +1664,39 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
     }
     else {
         if (c->sources[slot].status & MAPPER_TYPE_KNOWN) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_TYPE]);
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_TYPE));
             lo_message_add_char(m, props->sources[slot].type);
         }
         if (c->sources[slot].status & MAPPER_LENGTH_KNOWN) {
-            lo_message_add_string(m, prop_msg_strings[AT_SRC_LENGTH]);
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_LENGTH));
             lo_message_add_int32(m, props->sources[slot].length);
         }
     }
 
     // Destination type
     if (c->destination.status & MAPPER_TYPE_KNOWN) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_TYPE]);
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_TYPE));
         lo_message_add_char(m, props->destination.type);
     }
 
     // Destination vector length
     if (c->destination.status & MAPPER_LENGTH_KNOWN) {
-        lo_message_add_string(m, prop_msg_strings[AT_DEST_LENGTH]);
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_LENGTH));
         lo_message_add_int32(m, props->destination.length);
     }
 
-    if (slot < 0 && props->mode != MO_RAW) {
+    if (slot < 0) {
         // TODO: extend to multiple sources
         if (c->props.num_sources == 1) {
             if (props->sources[0].minimum) {
-                lo_message_add_string(m, prop_msg_strings[AT_SRC_MIN]);
+                lo_message_add_string(m, mapper_get_param_string(AT_SRC_MIN));
                 mapper_msg_add_typed_value(m, props->sources[0].type,
                                            props->sources[0].length,
                                            props->sources[0].minimum);
             }
 
             if (props->sources[0].maximum) {
-                lo_message_add_string(m, prop_msg_strings[AT_SRC_MAX]);
+                lo_message_add_string(m, mapper_get_param_string(AT_SRC_MAX));
                 mapper_msg_add_typed_value(m, props->sources[0].type,
                                            props->sources[0].length,
                                            props->sources[0].maximum);
@@ -1439,41 +1704,68 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         }
 
         if (props->destination.minimum) {
-            lo_message_add_string(m, prop_msg_strings[AT_DEST_MIN]);
+            lo_message_add_string(m, mapper_get_param_string(AT_DEST_MIN));
             mapper_msg_add_typed_value(m, props->destination.type,
                                        props->destination.length,
                                        props->destination.minimum);
         }
 
         if (props->destination.maximum) {
-            lo_message_add_string(m, prop_msg_strings[AT_DEST_MAX]);
+            lo_message_add_string(m, mapper_get_param_string(AT_DEST_MAX));
             mapper_msg_add_typed_value(m, props->destination.type,
                                        props->destination.length,
                                        props->destination.maximum);
         }
-
-        lo_message_add_string(m, prop_msg_strings[AT_BOUND_MIN]);
-        lo_message_add_string(m, mapper_boundary_action_strings[props->bound_min]);
-        lo_message_add_string(m, prop_msg_strings[AT_BOUND_MAX]);
-        lo_message_add_string(m, mapper_boundary_action_strings[props->bound_max]);
     }
 
+    // Boundary actions
+    lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MIN));
+    if (slot >= 0) {
+        lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_min));
+    }
+    else {
+        for (i = 0; i < props->num_sources; i++)
+            lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[i].bound_min));
+    }
+    lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MAX));
+    if (slot >= 0) {
+        lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_max));
+    }
+    else {
+        for (i = 0; i < props->num_sources; i++)
+            lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[i].bound_max));
+    }
+    lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MIN));
+    lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_min));
+    lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MAX));
+    lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_max));
+
     // Muting
-    lo_message_add_string(m, prop_msg_strings[AT_MUTE]);
+    lo_message_add_string(m, mapper_get_param_string(AT_MUTE));
     if (props->muted)
         lo_message_add_true(m);
     else
         lo_message_add_false(m);
 
     // Calibrating
-    lo_message_add_string(m, prop_msg_strings[AT_CALIBRATING]);
-    if (props->calibrating)
-        lo_message_add_true(m);
-    else
-        lo_message_add_false(m);
+    lo_message_add_string(m, mapper_get_param_string(AT_CALIBRATING));
+    if (slot >= 0) {
+        if (props->sources[slot].calibrating)
+            lo_message_add_true(m);
+        else
+            lo_message_add_false(m);
+    }
+    else {
+        for (i = 0; i < props->num_sources; i++) {
+            if (props->sources[i].calibrating)
+                lo_message_add_true(m);
+            else
+                lo_message_add_false(m);
+        }
+    }
 
     // Connection scopes
-    lo_message_add_string(m, prop_msg_strings[AT_SCOPE]);
+    lo_message_add_string(m, mapper_get_param_string(AT_SCOPE));
     if (props->scope.size) {
         for (i = 0; i < props->scope.size; i++)
             lo_message_add_string(m, props->scope.names[i]);
@@ -1482,29 +1774,36 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         lo_message_add_string(m, "none");
 
     // Connection slot
-    if (props->destination.direction == DI_OUTGOING) {
-        if (props->destination.slot_id >= 0) {
-            lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-            lo_message_add_int32(m, props->destination.slot_id);
-        }
+    lo_message_add_string(m, mapper_get_param_string(AT_SLOT));
+    if (slot >= 0) {
+        lo_message_add_int32(m, props->sources[slot].slot_id);
     }
-    else if (slot >= 0) {
-        lo_message_add_string(m, prop_msg_strings[AT_SLOT]);
-        lo_message_add_int32(m, slot);
+    else {
+        for (i = 0; i < props->num_sources; i++) {
+            lo_message_add_int32(m, props->sources[i].slot_id);
+        }
     }
 
     // Send as Instance
-    lo_message_add_string(m, prop_msg_strings[AT_SEND_AS_INSTANCE]);
-    for (i = 0; i < props->num_sources; i++) {
-        if (props->sources[i].send_as_instance)
+    lo_message_add_string(m, mapper_get_param_string(AT_SEND_AS_INSTANCE));
+    if (slot >= 0) {
+        if (props->sources[slot].send_as_instance)
             lo_message_add_true(m);
         else
             lo_message_add_false(m);
     }
+    else {
+        for (i = 0; i < props->num_sources; i++) {
+            if (props->sources[i].send_as_instance)
+                lo_message_add_true(m);
+            else
+                lo_message_add_false(m);
+        }
+    }
 
     // Cause update
     if (props->num_sources > 1) {
-        lo_message_add_string(m, prop_msg_strings[AT_CAUSE_UPDATE]);
+        lo_message_add_string(m, mapper_get_param_string(AT_CAUSE_UPDATE));
         for (i = 0; i < props->num_sources; i++) {
             if (props->sources[i].cause_update)
                 lo_message_add_true(m);

@@ -8,10 +8,10 @@
 
 const char* prop_msg_strings[] =
 {
-    "@boundMax",        /* AT_BOUND_MAX */
-    "@boundMin",        /* AT_BOUND_MIN */
     "@calibrating",     /* AT_CALIBRATING */
     "@causeUpdate",     /* AT_CAUSE_UPDATE */
+    "@destBoundMax",    /* AT_DEST_BOUND_MAX */
+    "@destBoundMin",    /* AT_DEST_BOUND_MIN */
     "@destLength",      /* AT_DEST_LENGTH */
     "@destMax",         /* AT_DEST_MAX */
     "@destMin",         /* AT_DEST_MIN */
@@ -32,11 +32,14 @@ const char* prop_msg_strings[] =
     "@numInputs",       /* AT_NUM_INPUTS */
     "@numOutputs",      /* AT_NUM_OUTPUTS */
     "@port",            /* AT_PORT */
+    "@processAt",       /* AT_PROCESS */
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@slot",            /* AT_SLOT */
+    "@srcBoundMax",     /* AT_SRC_BOUND_MAX */
+    "@srcBoundMin",     /* AT_SRC_BOUND_MIN */
     "@srcLength",       /* AT_SRC_LENGTH */
     "@srcMax",          /* AT_SRC_MAX */
     "@srcMin",          /* AT_SRC_MIN */
@@ -45,6 +48,23 @@ const char* prop_msg_strings[] =
     "@units",           /* AT_UNITS */
     "",                 /* AT_EXTRA (special case, does not represent a
                          * specific property name) */
+};
+
+const char* mapper_boundary_action_strings[] =
+{
+    "none",        /* BA_NONE */
+    "mute",        /* BA_MUTE */
+    "clamp",       /* BA_CLAMP */
+    "fold",        /* BA_FOLD */
+    "wrap",        /* BA_WRAP */
+};
+
+const char* mapper_mode_type_strings[] =
+{
+    NULL,          /* MO_UNDEFINED */
+    "raw",         /* MO_RAW */
+    "linear",      /* MO_LINEAR */
+    "expression",  /* MO_EXPRESSION */
 };
 
 inline static int type_match(const char l, const char r)
@@ -61,8 +81,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 
     /* Sanity check: complain loudly and quit string if number of
      * strings and params doesn't match up. */
-    die_unless(sizeof(prop_msg_strings)/sizeof(const char*)
-               == N_AT_PARAMS,
+    die_unless(sizeof(prop_msg_strings)/sizeof(const char*) == N_AT_PARAMS,
                "libmapper ERROR: wrong number of known parameters\n");
 
     memset(msg, 0, sizeof(mapper_message_t));
@@ -99,7 +118,9 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                         break;
                     }
                     else if (!type_match(types[i], msg->extra_types[extra_count])) {
-                        trace("message %s, value vector for key %s has heterogeneous types.\n", path, &(*msg->extra_args[extra_count])->s);
+                        trace("message %s, value vector for key %s has "
+                              "heterogeneous types.\n", path,
+                              &(*msg->extra_args[extra_count])->s);
                         msg->extra_lengths[extra_count] = 0;
                         break;
                     }
@@ -131,8 +152,8 @@ int mapper_msg_parse_params(mapper_message_t *msg,
                 break;
             }
             else if (!type_match(types[i], *msg->types[j])) {
-                trace("message %s, value vector for key %s has heterogeneous types.\n",
-                      path, prop_msg_strings[j]);
+                trace("message %s, value vector for key %s has heterogeneous "
+                      "types.\n", path, prop_msg_strings[j]);
                 msg->lengths[j] = 0;
                 break;
             }
@@ -153,8 +174,7 @@ int mapper_msg_parse_params(mapper_message_t *msg,
 lo_arg** mapper_msg_get_param(mapper_message_t *msg, mapper_msg_param_t param,
                               const char **types, int *length)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     if (types)
         *types = msg->types[param];
     if (length)
@@ -165,8 +185,7 @@ lo_arg** mapper_msg_get_param(mapper_message_t *msg, mapper_msg_param_t param,
 const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
                                            mapper_msg_param_t param)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
 
     const char *t;
     lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
@@ -185,8 +204,7 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
                                          mapper_msg_param_t param)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
 
     const char *t;
     lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
@@ -210,8 +228,7 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
                                 mapper_msg_param_t param,
                                 int *value)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
     const char *t;
@@ -238,8 +255,7 @@ int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
     const char *t;
@@ -261,8 +277,7 @@ int mapper_msg_get_param_if_double(mapper_message_t *msg,
                                    mapper_msg_param_t param,
                                    double *value)
 {
-    die_unless(param < N_AT_PARAMS,
-               "error, unknown parameter\n");
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
     const char *t;
@@ -366,7 +381,7 @@ void mapper_msg_add_typed_value(lo_message m, char type, int length, void *value
 void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 {
     char *s;
-    int i;
+    int i, j;
     char t[] = " ";
     table tab;
     mapper_signal sig;
@@ -390,6 +405,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, prop_msg_strings[pa]);
 
         switch (pa) {
+        case AT_EXPRESSION:
         case AT_IP:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
@@ -435,28 +451,57 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             break;
         case AT_MODE:
             i = va_arg(aq, int);
-            if (i >= 0 && i < N_MAPPER_MODE_TYPES)
+            if (i >= 1 && i < N_MAPPER_MODE_TYPES)
                 lo_message_add_string(m, mapper_mode_type_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
             break;
-        case AT_EXPRESSION:
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
+        case AT_SRC_BOUND_MAX:
+            con = va_arg(aq, mapper_db_connection_t*);
+            for (i = 0; i < con->num_sources; i++) {
+                if (!con->sources) {
+                    lo_message_add_string(m, "unknown");
+                    continue;
+                }
+                j = con->sources[i].bound_max;
+                if (j >= 0 && j < N_MAPPER_BOUNDARY_ACTIONS)
+                    lo_message_add_string(m, mapper_boundary_action_strings[j]);
+                else
+                    lo_message_add_string(m, "unknown");
+            }
             break;
-        case AT_BOUND_MIN:
-        case AT_BOUND_MAX:
+        case AT_SRC_BOUND_MIN:
+            con = va_arg(aq, mapper_db_connection_t*);
+            for (i = 0; i < con->num_sources; i++) {
+                if (!con->sources) {
+                    lo_message_add_string(m, "unknown");
+                    continue;
+                }
+                j = con->sources[i].bound_min;
+                if (j >= 0 && j < N_MAPPER_BOUNDARY_ACTIONS)
+                    lo_message_add_string(m, mapper_boundary_action_strings[j]);
+                else
+                    lo_message_add_string(m, "unknown");
+            }
+            j = con->destination.bound_min;
+            if (j >= 0 && j < N_MAPPER_BOUNDARY_ACTIONS)
+                lo_message_add_string(m, mapper_boundary_action_strings[j]);
+            else
+                lo_message_add_string(m, "unknown");
+            break;
+        case AT_DEST_BOUND_MAX:
+        case AT_DEST_BOUND_MIN:
             i = va_arg(aq, int);
             if (i >= 0 && i < N_MAPPER_BOUNDARY_ACTIONS)
-                lo_message_add_string(m, mapper_boundary_action_strings[i]);
+                lo_message_add_string(m, mapper_boundary_action_strings[j]);
             else
                 lo_message_add_string(m, "unknown");
             break;
         case AT_SRC_MIN:
             con = va_arg(aq, mapper_db_connection_t*);
             for (i = 0; i < con->num_sources; i++) {
-                if ((con->sources[i].flags & CONNECTION_SLOT_MIN_KNOWN)
-                    == CONNECTION_SLOT_MIN_KNOWN
+                if ((con->sources[i].flags & CONNECTION_MIN_KNOWN)
+                    == CONNECTION_MIN_KNOWN
                     && con->sources[i].minimum)
                     mapper_msg_add_typed_value(m, con->sources[i].type,
                                                con->sources[i].length,
@@ -468,8 +513,8 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_SRC_MAX:
             con = va_arg(aq, mapper_db_connection_t*);
             for (i = 0; i < con->num_sources; i++) {
-                if ((con->sources[i].flags & CONNECTION_SLOT_MAX_KNOWN)
-                    == CONNECTION_SLOT_MAX_KNOWN
+                if ((con->sources[i].flags & CONNECTION_MAX_KNOWN)
+                    == CONNECTION_MAX_KNOWN
                     && con->sources[i].maximum)
                     mapper_msg_add_typed_value(m, con->sources[i].type,
                                                con->sources[i].length,
@@ -634,6 +679,14 @@ void mapper_msg_prepare_params(lo_message m,
     }
 }
 
+const char *mapper_get_param_string(mapper_msg_param_t param)
+{
+    die_unless(param < N_AT_PARAMS,
+               "called mapper_get_param_string() with bad parameter.\n");
+
+    return prop_msg_strings[param];
+}
+
 int mapper_msg_get_signal_direction(mapper_message_t *msg)
 {
     const char *str = mapper_msg_get_param_if_string(msg, AT_DIRECTION);
@@ -648,41 +701,44 @@ int mapper_msg_get_signal_direction(mapper_message_t *msg)
     return 0;
 }
 
-mapper_mode_type mapper_msg_get_mode(mapper_message_t *msg)
+const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 {
-    const char *str = mapper_msg_get_param_if_string(msg, AT_MODE);
+    die_unless(bound < N_MAPPER_BOUNDARY_ACTIONS,
+               "called mapper_get_boundary_action_string() with "
+               "bad parameter.\n");
+
+    return mapper_boundary_action_strings[bound];
+}
+
+mapper_boundary_action mapper_get_boundary_action_from_string(const char *str)
+{
     if (!str)
         return -1;
-    if (strcmp(str, "none") == 0)
-        return MO_NONE;
-    if (strcmp(str, "raw") == 0)
-        return MO_RAW;
-    if (strcmp(str, "linear") == 0)
-        return MO_LINEAR;
-    if (strcmp(str, "expression") == 0)
-        return MO_EXPRESSION;
+    int i;
+    for (i = 0; i < N_MAPPER_BOUNDARY_ACTIONS; i++) {
+        if (strcmp(str, mapper_boundary_action_strings[i])==0)
+            return i;
+    }
     return -1;
 }
 
-mapper_boundary_action mapper_msg_get_boundary_action(mapper_message_t *msg,
-                                                      mapper_msg_param_t param)
+const char *mapper_get_mode_type_string(mapper_mode_type mode)
 {
-    die_unless(param == AT_BOUND_MIN || param == AT_BOUND_MAX,
-               "bad param in mapper_msg_get_boundary_action()\n");
-    const char *str = mapper_msg_get_param_if_string(msg, param);
+    if (mode <= 0 || mode > N_MAPPER_MODE_TYPES)
+        return "unknown";
+    return mapper_mode_type_strings[mode];
+}
+
+mapper_mode_type mapper_get_mode_type_from_string(const char *str)
+{
     if (!str)
-        return -1;
-    if (strcmp(str, "none") == 0)
-        return BA_NONE;
-    if (strcmp(str, "mute") == 0)
-        return BA_MUTE;
-    if (strcmp(str, "clamp") == 0)
-        return BA_CLAMP;
-    if (strcmp(str, "fold") == 0)
-        return BA_FOLD;
-    if (strcmp(str, "wrap") == 0)
-        return BA_WRAP;
-    return -1;
+        return MO_UNDEFINED;
+    int i;
+    for (i = MO_UNDEFINED+1; i < N_MAPPER_MODE_TYPES; i++) {
+        if (strcmp(str, mapper_mode_type_strings[i])==0)
+            return i;
+    }
+    return MO_UNDEFINED;
 }
 
 int mapper_msg_get_mute(mapper_message_t *msg)
