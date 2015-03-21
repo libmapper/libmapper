@@ -778,8 +778,9 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->props.destination.direction = DI_OUTGOING;
 
         link = mapper_router_find_link_by_remote_name(r, devname);
-        if (link)
+        if (link) {
             c->destination.link = link;
+        }
         else
             c->destination.link = mapper_router_add_link(r, 0, 0, 0, devname);
         c->props.destination.device = &c->destination.link->props;
@@ -859,8 +860,9 @@ mapper_connection mapper_router_add_connection(mapper_router r,
             }
 
             link = mapper_router_find_link_by_remote_name(r, devname_p);
-            if (link)
+            if (link) {
                 c->sources[i].link = link;
+            }
             else
                 c->sources[i].link = mapper_router_add_link(r, 0, 0, 0, devname_p);
 
@@ -931,29 +933,10 @@ static void check_link(mapper_router r, mapper_link l)
     // TODO: no connections, we can remove link
 }
 
-static void mapper_router_signal_remove_connection_slot(mapper_router r,
-                                                        mapper_router_signal rs,
-                                                        mapper_connection_slot s)
+void mapper_router_remove_signal(mapper_router r, mapper_router_signal rs)
 {
-    if (!r || !rs || !s)
-        return;
-
-    int i, count = 0;
-    for (i = 0; i < rs->num_outgoing_slots; i++) {
-        if (rs->outgoing_slots[i] == s)
-            rs->outgoing_slots[i] = 0;
-        else if (rs->outgoing_slots[i])
-            count++;
-    }
-    // check if router_signal has incoming connections
-    for (i = 0; i < rs->num_incoming_connections; i++) {
-        if (rs->incoming_connections[i])
-            count++;
-    }
-
-    if (!count) {
+    if (r && rs) {
         // No connections remaining – we can remove the router_signal also
-        // TODO: wait a bit? perhaps more connections are pending...
         mapper_router_signal *rstemp = &r->signals;
         while (*rstemp) {
             if (*rstemp == rs) {
@@ -974,22 +957,14 @@ static void mapper_router_signal_remove_connection_slot(mapper_router r,
     }
 }
 
-static void free_slot(mapper_router r, mapper_connection_slot s)
+static void free_slot_memory(mapper_connection_slot s)
 {
     int i;
     if (s->props->minimum)
         free(s->props->minimum);
     if (s->props->maximum)
         free(s->props->maximum);
-    if (s->link) {
-        // TODO: check for multiple sources from same device
-        s->link->props.num_connections_in--;
-        check_link(r, s->link);
-    }
-    if (s->local) {
-        mapper_router_signal_remove_connection_slot(r, s->local, s);
-    }
-    else {
+    if (!s->local) {
         if (s->props->signal_name)
             free((void*)s->props->signal_name);
         if (s->history) {
@@ -1009,15 +984,41 @@ int mapper_router_remove_connection(mapper_router r, mapper_connection c)
     if (!c)
         return 1;
 
-    // free connection source structures
+    // remove connection and slots from router_signal lists if necessary
+    if (c->destination.local) {
+        mapper_router_signal rs = c->destination.local;
+        for (i = 0; i < rs->num_incoming_connections; i++) {
+            if (rs->incoming_connections[i] == c) {
+                rs->incoming_connections[i] = 0;
+            }
+        }
+        if (c->status >= MAPPER_READY && c->destination.link) {
+            c->destination.link->props.num_connections_in--;
+            check_link(r, c->destination.link);
+        }
+    }
+    else if (c->status >= MAPPER_READY && c->destination.link) {
+        c->destination.link->props.num_connections_out--;
+        check_link(r, c->destination.link);
+    }
+    free_slot_memory(&c->destination);
     for (i = 0; i < c->props.num_sources; i++) {
-        free_slot(r, &c->sources[i]);
+        if (c->sources[i].local) {
+            mapper_router_signal rs = c->sources[i].local;
+            for (j = 0; j < rs->num_outgoing_slots; j++) {
+                if (rs->outgoing_slots[j] == &c->sources[i]) {
+                    rs->outgoing_slots[j] = 0;
+                }
+            }
+        }
+        if (c->status >= MAPPER_READY && c->sources[i].link) {
+            c->sources[i].link->props.num_connections_in--;
+            check_link(r, c->sources[i].link);
+        }
+        free_slot_memory(&c->sources[i]);
     }
     free(c->sources);
     free(c->props.sources);
-
-    // free connection destination structures
-    free_slot(r, &c->destination);
 
     // free buffers associated with user-defined expression variables
     for (i = 0; i < c->num_var_instances; i++) {

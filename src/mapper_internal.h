@@ -252,6 +252,8 @@ void mapper_router_update_link(mapper_router router, mapper_link link,
 
 void mapper_router_remove_link(mapper_router router, mapper_link link);
 
+void mapper_router_remove_signal(mapper_router router, mapper_router_signal rs);
+
 void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
                                          int size);
@@ -531,6 +533,10 @@ void mapper_db_remove_input_by_name(mapper_db db, const char *dev_name,
 /*! Remove a named output signal from the database if it exists. */
 void mapper_db_remove_output_by_name(mapper_db db, const char *dev_name,
                                      const char *sig_name);
+
+/*! Remove signals in the provided query. */
+void mapper_db_remove_signals_by_query(mapper_db db,
+                                       mapper_db_signal_t **s);
 
 /*! Remove signals in the provided query. */
 void mapper_db_remove_inputs_by_query(mapper_db db,

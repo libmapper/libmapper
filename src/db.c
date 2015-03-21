@@ -865,11 +865,8 @@ static void db_remove_device_internal(mapper_db db, mapper_db_device dev,
     mapper_db_remove_connections_by_query(db,
         mapper_db_get_connections_by_device_name(db, dev->name));
 
-    mapper_db_remove_inputs_by_query(db,
-        mapper_db_get_inputs_by_device_name(db, dev->name));
-
-    mapper_db_remove_outputs_by_query(db,
-        mapper_db_get_outputs_by_device_name(db, dev->name));
+    mapper_db_remove_signals_by_query(db,
+        mapper_db_get_signals_by_device_name(db, dev->name));
 
     if (!quiet) {
         fptr_list cb = db->device_callbacks;
@@ -1358,6 +1355,25 @@ static int cmp_query_signal_exact_device_name(void *context_data,
                 && strcmp(device_name, sig->device->name)==0);
     else
         return strcmp(device_name, sig->device->name)==0;
+}
+
+mapper_db_signal_t **mapper_db_get_signals_by_device_name(
+    mapper_db db, const char *device_name)
+{
+    mapper_db_signal sig = db->registered_signals;
+    if (!sig)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_signal_exact_device_name,
+        device_name, "a", 0);
+
+    lh->self = sig;
+
+    if (cmp_query_signal_exact_device_name(&lh->query_context->data, sig))
+        return (mapper_db_signal*)&lh->self;
+
+    return (mapper_db_signal*)dynamic_query_continuation(lh);
 }
 
 mapper_db_signal_t **mapper_db_get_inputs_by_device_name(

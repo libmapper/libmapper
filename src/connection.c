@@ -1027,7 +1027,6 @@ int mapper_connection_check_status(mapper_connection c)
                                   * c->num_var_instances);
         }
         apply_mode(c);
-        return 1;
     }
 
     return c->status;
@@ -1327,6 +1326,7 @@ int mapper_connection_set_from_message(mapper_connection c,
                             c->props.expression = strdup(new_expr);
                         }
                     }
+                    free(new_expr);
                 }
             }
         }

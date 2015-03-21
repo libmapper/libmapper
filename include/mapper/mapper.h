@@ -862,6 +862,16 @@ mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db);
  *          or zero if none.  Use mapper_db_signal_next() to iterate. */
 mapper_db_signal_t **mapper_db_get_all_outputs(mapper_db db);
 
+/*! Return the list of signals for a given device.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to match for signals.  Must
+ *                     be exact, including the leading '/'.
+ *  \return A double-pointer to the first item in the list of
+ *          signals, or zero if none.  Use mapper_db_signal_next() to
+ *          iterate. */
+mapper_db_signal_t **mapper_db_get_signals_by_device_name(
+    mapper_db db, const char *device_name);
+
 /*! Return the list of inputs for a given device.
  *  \param db          The database to query.
  *  \param device_name Name of the device to match for outputs.  Must

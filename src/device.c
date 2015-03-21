@@ -59,8 +59,13 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->props.name = 0;
     md->props.description = 0;
     md->props.name_hash = 0;
+    md->props.lib_version = PACKAGE_VERSION;
     md->ordinal.value = 1;
     md->ordinal.locked = 0;
+    int i;
+    for (i = 0; i < 8; i++) {
+        md->ordinal.suggestion[i] = 0.;
+    }
     md->registered = 0;
     md->active_id_map = 0;
     md->reserve_id_map = 0;
@@ -123,13 +128,14 @@ void mdev_free(mapper_device md)
         mapper_router_remove_link(md->router, md->router->links);
 
     if (md->outputs) {
-        for (i = 0; i < md->props.num_outputs; i++)
-            msig_free(md->outputs[i]);
+        while (md->props.num_outputs) {
+            mdev_remove_output(md, md->outputs[0]);
+        }
         free(md->outputs);
     }
     if (md->inputs) {
-        for (i = 0; i < md->props.num_inputs; i++) {
-            msig_free(md->inputs[i]);
+        while (md->props.num_inputs) {
+            mdev_remove_input(md, md->inputs[0]);
         }
         free(md->inputs);
     }
@@ -447,11 +453,12 @@ static int handler_signal(const char *path, const char *types,
         // all nulls -> release instance, sig has no value, break "count"
         vals = 0;
         if (c) {
-            for (j = 0; j < s->props->length; j++) {
-                memcpy(s->history[instance].value + j * size, argv[k], size);
-                memcpy(s->history[instance].timetag + j * sizeof(mapper_timetag_t),
-                       &tt, sizeof(mapper_timetag_t));
-            }
+            s->history[instance].position = ((s->history[instance].position + 1)
+                                             % s->history[instance].size);
+            memcpy(mapper_history_value_ptr(s->history[instance]),
+                   argv[i*count], size * s->props->length);
+            memcpy(mapper_history_tt_ptr(s->history[instance]),
+                   &tt, sizeof(mapper_timetag_t));
             if (s->props->cause_update) {
                 char typestring[c->destination.props->length];
                 mapper_history sources[c->props.num_sources];
@@ -494,6 +501,7 @@ static int handler_signal(const char *path, const char *types,
                        sig->props.length / 8 + 1)==0) {
                 si->has_value = 1;
             }
+            memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
         }
 
         if (si->has_value) {
@@ -833,6 +841,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
                                                 rs->incoming_connections[i]);
             }
         }
+        mapper_router_remove_signal(md->router, rs);
     }
 
     if (md->registered) {
@@ -889,6 +898,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
                                                 rs->incoming_connections[i]);
             }
         }
+        mapper_router_remove_signal(md->router, rs);
     }
 
     if (md->registered) {
