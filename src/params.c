@@ -483,11 +483,6 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 else
                     lo_message_add_string(m, "unknown");
             }
-            j = con->destination.bound_min;
-            if (j >= 0 && j < N_MAPPER_BOUNDARY_ACTIONS)
-                lo_message_add_string(m, mapper_boundary_action_strings[j]);
-            else
-                lo_message_add_string(m, "unknown");
             break;
         case AT_DEST_BOUND_MAX:
         case AT_DEST_BOUND_MIN:
