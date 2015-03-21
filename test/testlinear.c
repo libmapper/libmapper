@@ -29,9 +29,10 @@ mapper_signal recvsig = 0;
 int sent = 0;
 int received = 0;
 
-int setup_source()
+int setup_source(char *iface)
 {
-    source = mdev_new("testsend", 0, 0);
+    mapper_admin admin = mapper_admin_new(iface, 0, 0);
+    source = mdev_new("testsend", 0, admin);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -51,9 +52,11 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
+        mapper_admin admin = source->admin;
         eprintf("Freeing source.. ");
         fflush(stdout);
         mdev_free(source);
+        mapper_admin_free(admin);
         eprintf("ok\n");
     }
 }
@@ -68,9 +71,10 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
     received++;
 }
 
-int setup_destination()
+int setup_destination(char *iface)
 {
-    destination = mdev_new("testrecv", 0, 0);
+    mapper_admin admin = mapper_admin_new(iface, 0, 0);
+    destination = mdev_new("testrecv", 0, admin);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -91,9 +95,11 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
+        mapper_admin admin = destination->admin;
         eprintf("Freeing destination.. ");
         fflush(stdout);
         mdev_free(destination);
+        mapper_admin_free(admin);
         eprintf("ok\n");
     }
 }
@@ -148,10 +154,10 @@ void loop()
 {
     eprintf("Polling device..\n");
     int i = 0;
-    while ((!terminate || i < 50) && !done) {
+    while ((!terminate || i < 5) && !done) {
         mdev_poll(source, 0);
         eprintf("Updating signal %s to %f\n",
-               sendsig->props.name, (i * 1.0f));
+                sendsig->props.name, (i * 1.0f));
         msig_update_float(sendsig, (i * 1.0f));
         sent++;
         mdev_poll(destination, 100);
@@ -172,6 +178,7 @@ void ctrlc(int signal)
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
+    char *iface = 0;
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
@@ -192,6 +199,13 @@ int main(int argc, char **argv)
                     case 't':
                         terminate = 1;
                         break;
+                    case '-':
+                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -201,13 +215,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_destination(iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_source(iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
