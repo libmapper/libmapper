@@ -1876,6 +1876,12 @@ static int handler_signal_connect(const char *path, const char *types,
 
     if (c->status == MAPPER_READY) {
         // This connection only references local signals, advance to "connected"
+
+        // TODO: move num_connections_in/out prop to device instead of link
+        c->status = MAPPER_ACTIVE;
+        c->destination.link->props.num_connections_out++;
+        c->destination.link->props.num_connections_in++;
+
         // Inform subscribers
         if (admin->subscribers) {
             mapper_admin_set_bundle_dest_subscribers(admin, SUBSCRIBE_CONNECTIONS_IN);
@@ -1893,9 +1899,6 @@ static int handler_signal_connect(const char *path, const char *types,
                               c->destination.props, MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
         }
-
-        c->status = MAPPER_ACTIVE;
-        // TODO: move num_connections_in/out prop to device instead of link
         return 0;
     }
 
@@ -2520,6 +2523,7 @@ static int handler_signal_disconnect(const char *path, const char *types,
 
     /* The connection is removed. */
     mapper_router_remove_connection(md->router, c);
+    // TODO: remove empty router_signals
     return 0;
 }
 

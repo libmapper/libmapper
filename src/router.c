@@ -920,8 +920,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
         c->is_admin = 1;
         link = c->sources[0].link;
         c->destination.link = link;
-        link->props.num_connections_in++;
-        link->props.num_connections_out += num_sources;
     }
     return c;
 }
