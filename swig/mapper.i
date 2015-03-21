@@ -153,21 +153,7 @@
                 if (PyString_Check(o)) {
                     PyObject *v = PyDict_GetItem($input, o);
                     char *s = PyString_AsString(o);
-                    if (strcmp(s, "bound_max")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode)) {
-                            p->bound_max = k;
-                            p->flags |= CONNECTION_BOUND_MAX;
-                        }
-                    }
-                    else if (strcmp(s, "bound_min")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode)) {
-                            p->bound_min = k;
-                            p->flags |= CONNECTION_BOUND_MIN;
-                        }
-                    }
-                    else if (strcmp(s, "expression")==0) {
+                    if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
                             p->expression = PyString_AsString(v);
                             p->flags |= CONNECTION_EXPRESSION;
@@ -793,14 +779,14 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                     alloc_and_copy_maybe_vector(v, &slot->type, &slot->minimum,
                                                 &slot->length);
                     if (slot->minimum) {
-                        slot->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                        slot->flags |= CONNECTION_MIN_KNOWN;
                     }
                 }
                 else if (strcmp(s, "max")==0 || strcmp(s, "maximum")==0) {
                     alloc_and_copy_maybe_vector(v, &slot->type, &slot->maximum,
                                                 &slot->length);
                     if (slot->maximum) {
-                        slot->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                        slot->flags |= CONNECTION_MAX_KNOWN;
                     }
                 }
                 else if (strcmp(s, "cause_update")==0) {
@@ -813,7 +799,7 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                         cause_update = PyInt_AsLong(v);
                     if (cause_update > -1) {
                         slot->cause_update = cause_update;
-                        slot->flags |= CONNECTION_SLOT_CAUSE_UPDATE;
+                        slot->flags |= CONNECTION_CAUSE_UPDATE;
                     }
                 }
                 else if (strcmp(s, "send_as_instance")==0) {
@@ -826,7 +812,21 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                         send_as_instance = PyInt_AsLong(v);
                     if (send_as_instance > -1) {
                         slot->send_as_instance = send_as_instance;
-                        slot->flags |= CONNECTION_SLOT_SEND_AS_INSTANCE;
+                        slot->flags |= CONNECTION_SEND_AS_INSTANCE;
+                    }
+                }
+                else if (strcmp(s, "bound_max")==0 && PyInt_Check(v)) {
+                    int bound = PyInt_AsLong(v);
+                    if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
+                        slot->bound_max = bound;
+                        slot->flags |= CONNECTION_BOUND_MAX;
+                    }
+                }
+                else if (strcmp(s, "bound_min")==0 && PyInt_Check(v)) {
+                    int bound = PyInt_AsLong(v);
+                    if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
+                        slot->bound_min = bound;
+                        slot->flags |= CONNECTION_BOUND_MIN;
                     }
                 }
             }
@@ -1134,7 +1134,6 @@ typedef enum _mapper_boundary_action {
  *  @ingroup connectiondb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
-    MO_NONE,
     MO_RAW,
     MO_LINEAR,       //!< Linear scaling
     MO_EXPRESSION,   //!< Expression

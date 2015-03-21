@@ -79,15 +79,13 @@ for i in range(1000):
                     '%s%s' %(dev.name, "/insig"),
                     {'mode': mapper.MO_EXPRESSION,
                      'expression': 'y=x',
-                     'source': {'minimum': [1,2,3,4]},
-                     'bound_min': mapper.BA_WRAP,
-                     'bound_max': mapper.BA_CLAMP})
+                     'source': {'minimum': [1,2,3,4],
+                                'bound_min': mapper.BA_WRAP,
+                                'bound_max': mapper.BA_CLAMP}})
         # test sending multi-source connection
         mon.connect(['/foo/foo','/foo/foo1'], '/bar/bar',
                     {'mode': mapper.MO_EXPRESSION,
-                    'expression': 'y=x',
-                    'bound_min': mapper.BA_WRAP,
-                    'bound_max': mapper.BA_CLAMP})
+                    'expression': 'y=x'})
     if i==500:
         mon.modify_connection('%s%s' %(dev.name, "/outsig"),
                               '%s%s' %(dev.name, "/insig"),
