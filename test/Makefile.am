@@ -121,4 +121,4 @@ tests: all
 	echo Running testmonitor and testsignals; ./testmonitor -t & ./testsignals
 
 memtest: all
-	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper-0.2.dylib valgrind --leakcheck=full ./.libs/$$i -qt; then exit 1; fi; done
+	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper-0.2.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
