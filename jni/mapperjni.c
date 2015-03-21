@@ -1793,7 +1793,6 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
                            mapper_db_connection_slot cslot, jobject *min_field,
                            jobject *max_field)
 {
-    cslot->flags = 0;
     if (!jslot)
         return;
 
@@ -1801,9 +1800,23 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
     if (!slotcls)
         return;
 
+    // bound_min
+    jfieldID fid = (*env)->GetFieldID(env, slotcls, "boundMin", "I");
+    if (fid) {
+        cslot->bound_min = (*env)->GetIntField(env, jslot, fid);
+        if ((int)cslot->bound_min >= 0)
+            cslot->flags |= CONNECTION_BOUND_MIN;
+    }
+    // bound_max
+    fid = (*env)->GetFieldID(env, slotcls, "boundMax", "I");
+    if (fid) {
+        cslot->bound_max = (*env)->GetIntField(env, jslot, fid);
+        if ((int)cslot->bound_max >= 0)
+            cslot->flags |= CONNECTION_BOUND_MAX;
+    }
+
     // minimum
-    jfieldID fid = (*env)->GetFieldID(env, slotcls, "minimum",
-                                      "LMapper/PropertyValue;");
+    fid = (*env)->GetFieldID(env, slotcls, "minimum", "LMapper/PropertyValue;");
     if (fid) {
         *min_field = (*env)->GetObjectField(env, jslot, fid);
         if (*min_field) {
@@ -1811,13 +1824,12 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
                                                        &cslot->minimum,
                                                        &cslot->type);
             if (cslot->length)
-                cslot->flags |= CONNECTION_SLOT_MIN_KNOWN;
+                cslot->flags |= CONNECTION_MIN_KNOWN;
         }
     }
 
     // maximum
-    fid = (*env)->GetFieldID(env, slotcls, "maximum",
-                             "LMapper/PropertyValue;");
+    fid = (*env)->GetFieldID(env, slotcls, "maximum", "LMapper/PropertyValue;");
     if (fid) {
         *max_field = (*env)->GetObjectField(env, jslot, fid);
         if (*max_field) {
@@ -1833,7 +1845,7 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
                     // check if length and type match, abort or cast otherwise
                     cslot->length = length;
                     cslot->type = type;
-                    cslot->flags |= CONNECTION_SLOT_MAX_KNOWN;
+                    cslot->flags |= CONNECTION_MAX_KNOWN;
                 }
             }
         }
@@ -1849,12 +1861,14 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
     // don't bother letting user define signal types or lengths (will be overwritten)
     mapper_db_connection_t cprops;
     cprops.flags = 0;
+    cprops.destination.flags = 0;
     mapper_db_connection_slot_t sourceslots[num_sources];
     cprops.sources = sourceslots;
     jstring expr_jstr = 0;
     jobject src_min_field[num_sources], src_max_field[num_sources];
     int i;
     for (i = 0; i < num_sources; i++) {
+        cprops.sources[i].flags = 0;
         src_min_field[i] = NULL;
         src_max_field[i] = NULL;
     }
@@ -1863,22 +1877,9 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
     if (jprops) {
         jclass cls = (*env)->GetObjectClass(env, jprops);
         if (cls) {
-            // bound_min
-            jfieldID fid = (*env)->GetFieldID(env, cls, "boundMin", "I");
-            if (fid) {
-                cprops.bound_min = (*env)->GetIntField(env, jprops, fid);
-                if ((int)cprops.bound_min >= 0)
-                    cprops.flags |= CONNECTION_BOUND_MIN;
-            }
-            // bound_max
-            fid = (*env)->GetFieldID(env, cls, "boundMax", "I");
-            if (fid) {
-                cprops.bound_max = (*env)->GetIntField(env, jprops, fid);
-                if ((int)cprops.bound_max >= 0)
-                    cprops.flags |= CONNECTION_BOUND_MAX;
-            }
             // expression
-            fid = (*env)->GetFieldID(env, cls, "expression", "Ljava/lang/String;");
+            jfieldID fid = (*env)->GetFieldID(env, cls, "expression",
+                                              "Ljava/lang/String;");
             if (fid) {
                 expr_jstr = (*env)->GetObjectField(env, jprops, fid);
                 if (expr_jstr) {
@@ -2753,6 +2754,20 @@ JNIEXPORT jlong JNICALL Java_Mapper_Db_SignalIterator_mdb_1signal_1next
 
 /**** Mapper_Db_Connection_Slot.h ****/
 
+JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1bound_1min
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    return props->bound_min;
+}
+
+JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1bound_1max
+(JNIEnv *env, jobject obj, jlong p)
+{
+    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    return props->bound_max;
+}
+
 JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1cause_1update
   (JNIEnv *env, jobject obj, jlong p)
 {
@@ -2823,20 +2838,6 @@ JNIEXPORT jchar JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slo
 }
 
 /**** Mapper_Db_Connection.h ****/
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1bound_1min
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
-    return props->bound_min;
-}
-
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1bound_1max
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
-    return props->bound_max;
-}
 
 JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1expression
   (JNIEnv *env, jobject obj, jlong p)

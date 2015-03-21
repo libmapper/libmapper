@@ -14,10 +14,9 @@ public class Connection
 
     /*! Describes the connection mode. */
     public static final int MO_UNDEFINED  = 0;
-    public static final int MO_NONE       = 1;
-    public static final int MO_RAW        = 2;
-    public static final int MO_LINEAR     = 3;
-    public static final int MO_EXPRESSION = 4;
+    public static final int MO_RAW        = 1;
+    public static final int MO_LINEAR     = 2;
+    public static final int MO_EXPRESSION = 3;
 
     /*! Describes the voice-stealing mode for instances. */
     public static final int IN_UNDEFINED    = 0;
@@ -33,6 +32,8 @@ public class Connection
         private Slot(long s) {
             _slotprops = s;
 
+            boundMin = mdb_connection_slot_get_bound_min(_slotprops);
+            boundMax = mdb_connection_slot_get_bound_max(_slotprops);
             causeUpdate = mdb_connection_slot_get_cause_update(_slotprops);
             direction = mdb_connection_slot_get_direction(_slotprops);
             deviceName = mdb_connection_slot_get_device_name(_slotprops);
@@ -44,6 +45,8 @@ public class Connection
             type = mdb_connection_slot_get_type(_slotprops);
         }
         private Slot(String name) {
+            boundMin = -1;
+            boundMax = -1;
             causeUpdate = -1;
             direction = 0;
             length = -1;
@@ -61,6 +64,12 @@ public class Connection
                 signalName = null;
             }
         }
+
+        public int boundMin;
+        private native int mdb_connection_slot_get_bound_min(long p);
+
+        public int boundMax;
+        private native int mdb_connection_slot_get_bound_max(long p);
 
         public int causeUpdate;
         private native int mdb_connection_slot_get_cause_update(long p);
@@ -95,8 +104,6 @@ public class Connection
     public Connection(long conprops) {
         _conprops = conprops;
 
-        boundMin = mdb_connection_get_bound_min(_conprops);
-        boundMax = mdb_connection_get_bound_max(_conprops);
         expression = mdb_connection_get_expression(_conprops);
         id = mdb_connection_get_id(_conprops);
         mode = mdb_connection_get_mode(_conprops);
@@ -113,8 +120,6 @@ public class Connection
     }
 
     public Connection(String[] _srcNames, String _destName) {
-        boundMin = -1;
-        boundMax = -1;
         expression = null;
         id = -1;
         mode = -1;
@@ -131,8 +136,6 @@ public class Connection
     }
 
     public Connection(String _srcName, String _destName) {
-        boundMin = -1;
-        boundMax = -1;
         expression = null;
         id = -1;
         mode = -1;
@@ -148,8 +151,6 @@ public class Connection
     }
 
     public Connection(int _numSources) {
-        boundMin = -1;
-        boundMax = -1;
         expression = null;
         id = -1;
         mode = -1;
@@ -168,12 +169,6 @@ public class Connection
     public Connection() {
         this(1);
     }
-
-    public int boundMin;
-    private native int mdb_connection_get_bound_min(long p);
-
-    public int boundMax;
-    private native int mdb_connection_get_bound_max(long p);
 
     public String expression;
     private native String mdb_connection_get_expression(long p);
