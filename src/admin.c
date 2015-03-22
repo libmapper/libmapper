@@ -696,8 +696,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->props.name_hash == md->props.name_hash
-            || !link->props.host) {
+        if (link->props.name_hash == md->props.name_hash) {
             // don't bother sending pings to self or if link not ready
             link = link->next;
             continue;
@@ -705,7 +704,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
         mapper_sync_clock sync = &link->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
-        if (md->link_timeout_sec && elapsed > md->link_timeout_sec) {
+        if ((md->link_timeout_sec && elapsed > md->link_timeout_sec)) {
             if (sync->response.message_id > 0) {
                 trace("<%s> Lost contact with linked device %s "
                       "(%d seconds since sync).\n", mdev_name(md),
@@ -724,7 +723,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
                 mapper_router_remove_link(md->router, link);
             }
         }
-        else {
+        else if (link->props.host) {
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
             lo_message_add_int32(m, mdev_id(md));
@@ -1777,6 +1776,20 @@ static int parse_signal_names(const char *types, lo_arg **argv, int argc,
         if (param_index)
             *param_index = *dest_index+1;
     }
+
+    // check that all signal names are well formed
+    for (i = 0; i < num_sources; i++) {
+        if ((&argv[*src_index+i]->s)[0] != '/'
+            || !strchr((&argv[*src_index+i]->s)+1, '/')) {
+            trace("malformed source signal name '%s'.\n", &argv[*src_index+i]->s);
+            return 0;
+        }
+    }
+    if ((&argv[*dest_index]->s)[0] != '/'
+        || !strchr((&argv[*dest_index]->s)+1, '/')) {
+        trace("malformed destination signal name '%s'.\n", &argv[*dest_index]->s);
+        return 0;
+    }
     return num_sources;
 }
 
@@ -1826,7 +1839,7 @@ static int handler_signal_connect(const char *path, const char *types,
     // ensure names are in alphabetical order
     int order[num_sources];
     if (alphabetise_names(num_sources, &argv[src_index], order)) {
-        trace("error in /connect: multiple use of source signal.");
+        trace("error in /connect: multiple use of source signal.\n");
         return 0;
     }
     const char *src_names[num_sources];

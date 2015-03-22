@@ -154,7 +154,7 @@ void loop()
 {
     eprintf("Polling device..\n");
     int i = 0;
-    while ((!terminate || i < 5) && !done) {
+    while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 0);
         eprintf("Updating signal %s to %f\n",
                 sendsig->props.name, (i * 1.0f));

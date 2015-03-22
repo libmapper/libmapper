@@ -83,6 +83,9 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     l->clock.new = 1;
     l->clock.sent.message_id = 0;
     l->clock.response.message_id = -1;
+    mapper_clock_t *clock = &router->device->admin->clock;
+    mapper_clock_now(clock, &clock->now);
+    l->clock.response.timetag.sec = clock->now.sec + 10;
 
     l->next = router->links;
     router->links = l;
@@ -127,13 +130,16 @@ void mapper_router_remove_link(mapper_router router, mapper_link link)
                 continue;
             for (j = 0; j < c->props.num_sources; j++) {
                 if (c->sources[j].link == link) {
-                    // TODO: free connection
+                    mapper_router_remove_connection(router, c);
                 }
             }
         }
         for (i = 0; i < rs->num_outgoing_slots; i++) {
-            if (rs->outgoing_slots[i] && rs->outgoing_slots[i]->link == link) {
-                // TODO: free connection
+            if (!rs->outgoing_slots[i])
+                continue;
+            if (rs->outgoing_slots[i]->link == link) {
+                mapper_router_remove_connection(router,
+                                                rs->outgoing_slots[i]->connection);
             }
         }
         rs = rs->next;
@@ -223,18 +229,18 @@ void mapper_router_num_instances_changed(mapper_router r,
         if (size > c->num_var_instances) {
             c->expr_vars = realloc(c->expr_vars, sizeof(mapper_history*) * size);
             for (j = c->num_var_instances; j < size; j++) {
-                c->expr_vars[j] = malloc(sizeof(struct _mapper_history) *
-                                         c->num_expr_vars);
+                c->expr_vars[j] = malloc(sizeof(struct _mapper_history)
+                                         * c->num_expr_vars);
                 for (k = 0; k < c->num_expr_vars; k++) {
                     c->expr_vars[j][k].type = c->expr_vars[0][k].type;
                     c->expr_vars[j][k].length = c->expr_vars[0][k].length;
                     c->expr_vars[j][k].size = c->expr_vars[0][k].size;
                     c->expr_vars[j][k].position = -1;
-                    c->expr_vars[j][k].value = calloc(1, sizeof(double) *
-                                                      c->expr_vars[j][k].length *
-                                                      c->expr_vars[j][k].size);
-                    c->expr_vars[j][k].timetag = calloc(1, sizeof(mapper_timetag_t) *
-                                                        c->expr_vars[j][k].size);
+                    c->expr_vars[j][k].value = calloc(1, sizeof(double)
+                                                      * c->expr_vars[j][k].length
+                                                      * c->expr_vars[j][k].size);
+                    c->expr_vars[j][k].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                                        * c->expr_vars[j][k].size);
                 }
             }
             c->num_var_instances = size;
@@ -261,18 +267,18 @@ void mapper_router_num_instances_changed(mapper_router r,
             c->expr_vars = realloc(c->expr_vars, sizeof(mapper_history*)
                                    * size);
             for (j = c->num_var_instances; j < size; j++) {
-                c->expr_vars[j] = malloc(sizeof(struct _mapper_history) *
-                                         c->num_expr_vars);
+                c->expr_vars[j] = malloc(sizeof(struct _mapper_history)
+                                         * c->num_expr_vars);
                 for (k = 0; k < c->num_expr_vars; k++) {
                     c->expr_vars[j][k].type = c->expr_vars[0][k].type;
                     c->expr_vars[j][k].length = c->expr_vars[0][k].length;
                     c->expr_vars[j][k].size = c->expr_vars[0][k].size;
                     c->expr_vars[j][k].position = -1;
-                    c->expr_vars[j][k].value = calloc(1, sizeof(double) *
-                                                      c->expr_vars[j][k].length *
-                                                      c->expr_vars[j][k].size);
-                    c->expr_vars[j][k].timetag = calloc(1, sizeof(mapper_timetag_t) *
-                                                        c->expr_vars[j][k].size);
+                    c->expr_vars[j][k].value = calloc(1, sizeof(double)
+                                                      * c->expr_vars[j][k].length
+                                                      * c->expr_vars[j][k].size);
+                    c->expr_vars[j][k].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                                        * c->expr_vars[j][k].size);
                 }
             }
             c->num_var_instances = size;
@@ -322,10 +328,10 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
     if (!value) {
         // reset associated input memory for this instance
         rs->history[id].position = -1;
-        memset(rs->history[id].value, 0, rs->history_size *
-               msig_vector_bytes(rs->signal));
-        memset(rs->history[id].timetag, 0, rs->history_size *
-               sizeof(mapper_timetag_t));
+        memset(rs->history[id].value, 0, rs->history_size
+               * msig_vector_bytes(rs->signal));
+        memset(rs->history[id].timetag, 0, rs->history_size
+               * sizeof(mapper_timetag_t));
         mapper_connection_slot s;
         mapper_db_connection_slot p;
         for (i = 0; i < rs->num_outgoing_slots; i++) {
@@ -344,10 +350,10 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 if (!s->local) {
                     // also need to reset associated output memory
                     s->history[id].position= -1;
-                    memset(s->history[id].value, 0, s->history_size *
-                           p->length * mapper_type_size(p->type));
-                    memset(s->history[id].timetag, 0, s->history_size *
-                           sizeof(mapper_timetag_t));
+                    memset(s->history[id].value, 0, s->history_size
+                           * p->length * mapper_type_size(p->type));
+                    memset(s->history[id].timetag, 0, s->history_size
+                           * sizeof(mapper_timetag_t));
                 }
                 if (!p->send_as_instance)
                     m = mapper_connection_build_message(c, s, 0, 1, 0, 0);
@@ -376,10 +382,10 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                     send_or_bundle_message(s->link, p->signal_name, m, tt);
                 if (!s->local) {
                     // also need to reset associated input memory
-                    memset(s->history[id].value, 0, s->history_size *
-                           p->length * mapper_type_size(p->type));
-                    memset(s->history[id].timetag, 0, s->history_size *
-                           sizeof(mapper_timetag_t));
+                    memset(s->history[id].value, 0, s->history_size
+                           * p->length * mapper_type_size(p->type));
+                    memset(s->history[id].timetag, 0, s->history_size
+                           * sizeof(mapper_timetag_t));
                 }
             }
         }
@@ -926,6 +932,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
 static void check_link(mapper_router r, mapper_link l)
 {
+    if (!r || !l)
+        return;
     if (l->props.num_connections_in || l->props.num_connections_out)
         return;
     // TODO: no connections, we can remove link
@@ -1019,14 +1027,16 @@ int mapper_router_remove_connection(mapper_router r, mapper_connection c)
     free(c->props.sources);
 
     // free buffers associated with user-defined expression variables
-    for (i = 0; i < c->num_var_instances; i++) {
-        if (c->num_expr_vars) {
-            for (j = 0; j < c->num_expr_vars; j++) {
-                free(c->expr_vars[i][j].value);
-                free(c->expr_vars[i][j].timetag);
+    if (c->num_expr_vars) {
+        for (i = 0; i < c->num_var_instances; i++) {
+            if (c->num_expr_vars) {
+                for (j = 0; j < c->num_expr_vars; j++) {
+                    free(c->expr_vars[i][j].value);
+                    free(c->expr_vars[i][j].timetag);
+                }
             }
+            free(c->expr_vars[i]);
         }
-        free(c->expr_vars[i]);
     }
     if (c->expr_vars)
         free(c->expr_vars);
