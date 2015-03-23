@@ -332,7 +332,7 @@ static int handler_signal(const char *path, const char *types,
             return 0;
         }
         if (nulls) {
-            trace("error: incomplete value vector in convergent connection.");
+            trace("error: incomplete value vector in convergent connection.\n");
             return 0;
         }
         if (c->props.process_location == MAPPER_DESTINATION) {

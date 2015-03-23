@@ -345,22 +345,22 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 continue;
 
             if (s->props->direction == DI_OUTGOING) {
-                s = &c->destination;
-                p = &c->props.destination;
+                mapper_connection_slot ds = &c->destination;
+                mapper_db_connection_slot dp = &c->props.destination;
                 if (!s->local) {
                     // also need to reset associated output memory
-                    s->history[id].position= -1;
-                    memset(s->history[id].value, 0, s->history_size
-                           * p->length * mapper_type_size(p->type));
-                    memset(s->history[id].timetag, 0, s->history_size
+                    ds->history[id].position= -1;
+                    memset(ds->history[id].value, 0, ds->history_size
+                           * dp->length * mapper_type_size(dp->type));
+                    memset(ds->history[id].timetag, 0, ds->history_size
                            * sizeof(mapper_timetag_t));
                 }
-                if (!p->send_as_instance)
+                if (!s->props->send_as_instance)
                     m = mapper_connection_build_message(c, s, 0, 1, 0, 0);
                 else if (get_in_scope(c, map->origin))
                     m = mapper_connection_build_message(c, s, 0, 1, 0, map);
                 if (m)
-                    send_or_bundle_message(s->link, p->signal_name, m, tt);
+                    send_or_bundle_message(c->destination.link, dp->signal_name, m, tt);
             }
         }
         // also need to release incoming connection instances
