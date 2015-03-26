@@ -333,6 +333,10 @@ void mapper_receiver_free(mapper_receiver receiver);
 int mapper_receiver_set_from_message(mapper_receiver receiver,
                                      mapper_message_t *msg);
 
+void mapper_receiver_num_instances_changed(mapper_receiver r,
+                                           mapper_signal sig,
+                                           int size);
+
 void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_signal sig,
                                  int instance_index,

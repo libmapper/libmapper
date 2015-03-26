@@ -82,6 +82,71 @@ int mapper_receiver_set_from_message(mapper_receiver r, mapper_message_t *msg)
     return mapper_msg_add_or_update_extra_params(r->props.extra, msg);
 }
 
+void mapper_receiver_num_instances_changed(mapper_receiver r,
+                                           mapper_signal sig,
+                                           int size)
+{
+    // check if we have a reference to this signal
+    mapper_receiver_signal rs = r->signals;
+    while (rs) {
+        if (rs->signal == sig)
+            break;
+        rs = rs->next;
+    }
+
+    if (!rs) {
+        // The signal is not mapped through this receiver.
+        return;
+    }
+
+    if (size <= rs->num_instances)
+        return;
+
+    // Need to allocate more instances
+    rs->history = realloc(rs->history, sizeof(struct _mapper_signal_history)
+                          * size);
+    int i, j;
+    for (i=rs->num_instances; i<size; i++) {
+        rs->history[i].type = sig->props.type;
+        rs->history[i].length = sig->props.length;
+        rs->history[i].size = rs->history_size;
+        rs->history[i].value = calloc(1, msig_vector_bytes(sig)
+                                      * rs->history_size);
+        rs->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                        * rs->history_size);
+        rs->history[i].position = -1;
+    }
+
+    // reallocate connection instances
+    mapper_connection c = rs->connections;
+    while (c) {
+        c->expr_vars = realloc(c->expr_vars, sizeof(mapper_signal_history_t*)
+                               * size);
+        for (i = rs->num_instances; i < size; i++) {
+            c->expr_vars[i] = malloc(sizeof(struct _mapper_signal_history) *
+                                     c->num_expr_vars);
+        }
+        if (rs->num_instances > 0 && c->num_expr_vars > 0) {
+            for (i=rs->num_instances; i<size; i++) {
+                for (j=0; j<c->num_expr_vars; j++) {
+                    c->expr_vars[i][j].type = c->expr_vars[0][j].type;
+                    c->expr_vars[i][j].length = c->expr_vars[0][j].length;
+                    c->expr_vars[i][j].size = c->expr_vars[0][j].size;
+                    c->expr_vars[i][j].position = -1;
+                    c->expr_vars[i][j].value = calloc(1, sizeof(double) *
+                                                      c->expr_vars[i][j].length *
+                                                      c->expr_vars[i][j].size);
+                    c->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t) *
+                                                        c->expr_vars[i][j].size);
+                }
+            }
+        }
+        c = c->next;
+    }
+
+    rs->num_instances = size;
+}
+
 void mapper_receiver_send_update(mapper_receiver r,
                                  mapper_signal sig,
                                  int instance_index,
@@ -236,6 +301,10 @@ mapper_connection mapper_receiver_add_connection(mapper_receiver r,
     int len = strlen(src_name) + 5;
     c->props.query_name = malloc(len);
     snprintf(c->props.query_name, len, "%s%s", src_name, "/got");
+
+    // allocate expr_vars in case receiver-side processing is used
+    c->expr_vars = calloc(1, sizeof(mapper_signal_history_t*) * rs->num_instances);
+    c->num_expr_vars = 0;
 
     // add new connection to this signal's list
     c->next = rs->connections;

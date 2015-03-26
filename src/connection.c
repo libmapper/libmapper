@@ -1117,11 +1117,6 @@ void reallocate_connection_histories(mapper_connection c,
     mapper_signal sig = c->parent->signal;
     int i, j;
 
-    // At least for now, exit if this is an input signal
-    if (!sig->props.is_output) {
-        return;
-    }
-
     // If there is no expression, then no memory needs to be
     // reallocated.
     if (!c->expr)

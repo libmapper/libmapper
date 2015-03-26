@@ -982,10 +982,15 @@ void mdev_num_instances_changed(mapper_device md,
     if (!md)
         return;
 
-    mapper_router r = md->routers;
-    while (r) {
-        mapper_router_num_instances_changed(r, sig, size);
-        r = r->next;
+    mapper_router rt = md->routers;
+    while (rt) {
+        mapper_router_num_instances_changed(rt, sig, size);
+        rt = rt->next;
+    }
+    mapper_receiver rc = md->receivers;
+    while (rc) {
+        mapper_receiver_num_instances_changed(rc, sig, size);
+        rc = rc->next;
     }
 }
 

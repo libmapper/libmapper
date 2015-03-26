@@ -2675,9 +2675,11 @@ int mapper_expr_evaluate(mapper_expr expr,
                     v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].d;
 
                 // Also copy timetag from input
-                mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
-                mapper_timetag_t *ttvar = msig_history_tt_pointer(*h);
-                memcpy(ttvar, ttfrom, sizeof(mapper_timetag_t));
+                if (from) {
+                    mapper_timetag_t *ttfrom = msig_history_tt_pointer(*from);
+                    mapper_timetag_t *ttvar = msig_history_tt_pointer(*h);
+                    memcpy(ttvar, ttfrom, sizeof(mapper_timetag_t));
+                }
             }
 
             /* If assignment was history initialization, move expression start

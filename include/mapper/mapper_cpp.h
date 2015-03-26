@@ -100,6 +100,8 @@ namespace mapper {
             { mapper_timetag_set_double(&timetag, seconds); }
         operator mapper_timetag_t*()
             { return &timetag; }
+        operator double()
+            { return mapper_timetag_get_double(timetag); }
     private:
         mapper_timetag_t timetag;
     };
