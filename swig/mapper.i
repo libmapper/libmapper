@@ -1296,15 +1296,6 @@ typedef struct _admin {} admin;
                       maybePropVal maximum=0, PyObject *PyFunc=0)
     {
         int i;
-        void *h = 0;
-        PyObject **callbacks = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            callbacks = malloc(2 * sizeof(PyObject*));
-            callbacks[0] = PyFunc;
-            callbacks[1] = 0;
-            Py_INCREF(PyFunc);
-        }
         void *pmn=0, *pmx=0;
         int pmn_coerced=0, pmx_coerced=0;
         if (type == 'f')
@@ -1364,6 +1355,19 @@ typedef struct _admin {} admin;
                     pmx_coerced = 1;
                 }
             }
+        }
+        else {
+            printf("Signal types must be 'i' or 'f'\n");
+            return 0;
+        }
+        void *h = 0;
+        PyObject **callbacks = 0;
+        if (PyFunc) {
+            h = msig_handler_py;
+            callbacks = malloc(2 * sizeof(PyObject*));
+            callbacks[0] = PyFunc;
+            callbacks[1] = 0;
+            Py_INCREF(PyFunc);
         }
         mapper_signal msig = mdev_add_input((mapper_device)$self, name,
                                             length, type, unit, pmn, pmx,
@@ -1438,6 +1442,10 @@ typedef struct _admin {} admin;
                     pmx_coerced = 1;
                 }
             }
+        }
+        else {
+            printf("Signal types must be 'i' or 'f'\n");
+            return 0;
         }
         mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
                                              type, unit, pmn, pmx);
