@@ -278,11 +278,6 @@ static void _real_prep_varargs(lo_message m, ...)
     va_end(aq);
 }
 
-static int bitmatch(unsigned int a, unsigned int b)
-{
-    return (a & b) == b;
-}
-
 void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
                                   const char **source_names,
                                   const char *dest_name,

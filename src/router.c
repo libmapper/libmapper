@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -414,12 +413,11 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
         mapper_db_connection_slot sp = s->props;
         mapper_db_connection_slot dp = &c->props.destination;
-        int to_length = ((c->props.process_location == MAPPER_SOURCE)
-                         ? sp->length : dp->length);
-        int to_size = ((c->props.process_location == MAPPER_SOURCE)
-                       ? mapper_type_size(sp->type) * sp->length
-                       : mapper_type_size(dp->type) * dp->length);
-        char typestring[to_length];
+        mapper_db_connection_slot to = (c->props.process_location
+                                        == MAPPER_SOURCE ? sp : dp);
+        int to_size = mapper_type_size(to->type) * to->length;
+        char typestring[to->length];
+        memset(typestring, to->type, to->length);
         k = 0;
         for (j = 0; j < count; j++) {
             // copy input history
@@ -431,7 +429,8 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             memcpy(mapper_history_tt_ptr(rs->history[id]),
                    &tt, sizeof(mapper_timetag_t));
 
-            if (!(mapper_boundary_perform(&s->history[id], sp))) {
+            if ((mapper_boundary_perform(&s->history[id], sp,
+                                         typestring + to->length * k))) {
                 // back up position index
                 --s->history[id].position;
                 if (s->history[id].position < 0)
@@ -444,7 +443,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
             // handle cases in which part of count update does not cause output
             if (!(mapper_connection_perform(c, s, instance,
-                                            typestring + to_length * k)))
+                                            typestring + to->length * k)))
                 continue;
 
             void *result = mapper_history_value_ptr(c->destination.history[id]);
@@ -629,6 +628,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router r,
         rs->signal = sig;
         rs->num_instances = sig->props.num_instances;
         rs->history = malloc(sizeof(struct _mapper_history) * rs->num_instances);
+        rs->history_size = 1;
         rs->num_incoming_connections = 1;
         rs->incoming_connections = malloc(sizeof(mapper_connection *));
         rs->incoming_connections[0] = 0;

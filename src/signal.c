@@ -325,7 +325,6 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
             // Claim id map locally, add id map to device and link from signal
             map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
-            map->refcount_local = 1;
         }
         else {
             map->refcount_local++;
@@ -373,7 +372,6 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
             // Claim id map locally add id map to device and link from signal
             map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
                                            sig->device->id_counter++);
-            map->refcount_local = 1;
         }
         else {
             map->refcount_local++;
@@ -445,6 +443,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_
             si->is_active = 1;
             msig_init_instance(si);
             i = msig_add_id_map(sig, si, map);
+            map->refcount_local++;
             map->refcount_remote++;
 
             if (sig->instance_event_handler &&
@@ -511,6 +510,7 @@ int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_
             si->is_active = 1;
             msig_init_instance(si);
             i = msig_add_id_map(sig, si, map);
+            map->refcount_local++;
             map->refcount_remote++;
 
             if (sig->instance_event_handler &&

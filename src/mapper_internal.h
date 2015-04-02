@@ -437,7 +437,8 @@ int mapper_connection_perform(mapper_connection connection,
                               mapper_connection_slot slot,
                               int instance, char *typestring);
 
-int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s);
+int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
+                            char *typestring);
 
 int mapper_connection_combine(mapper_connection connection, int instance);
 
@@ -869,6 +870,12 @@ inline static int check_signal_type(char type)
 inline static int check_signal_length(int length)
 {
     return (length < 1 || length > MAPPER_MAX_VECTOR_LEN);
+}
+
+/*! Helper to check if bitfields match completely. */
+inline static int bitmatch(unsigned int a, unsigned int b)
+{
+    return (a & b) == b;
 }
 
 #endif // __MAPPER_INTERNAL_H__

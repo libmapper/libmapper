@@ -153,11 +153,9 @@ int mapper_connection_perform(mapper_connection c, mapper_connection_slot s,
                                  typestring));
 }
 
-int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
+int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
+                            char *typestring)
 {
-    /* TODO: We are currently saving the processed values to output history.
-     * it needs to be decided whether boundary processing should be inside the
-     * feedback loop when past samples are called in expressions. */
     int i, muted = 0;
 
     double value;
@@ -165,16 +163,20 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
     mapper_boundary_action bound_min, bound_max;
 
     if (s->bound_min == BA_NONE && s->bound_max == BA_NONE) {
-        return 1;
+        return 0;
     }
     if (!s->minimum && (s->bound_min != BA_NONE || s->bound_max == BA_WRAP)) {
-        return 1;
+        return 0;
     }
     if (!s->maximum && (s->bound_max != BA_NONE || s->bound_min == BA_WRAP)) {
-        return 1;
+        return 0;
     }
 
     for (i = 0; i < history->length; i++) {
+        if (typestring[i] == 'N') {
+            muted++;
+            continue;
+        }
         value = propval_get_double(mapper_history_value_ptr(*history), s->type, i);
         dest_min = propval_get_double(s->minimum, s->type, i);
         dest_max = propval_get_double(s->maximum, s->type, i);
@@ -194,7 +196,8 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
             switch (bound_min) {
                 case BA_MUTE:
                     // need to prevent value from being sent at all
-                    muted = 1;
+                    typestring[i] = 'N';
+                    muted++;
                     break;
                 case BA_CLAMP:
                     // clamp value to range minimum
@@ -209,7 +212,8 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
                         switch (bound_max) {
                             case BA_MUTE:
                                 // need to prevent value from being sent at all
-                                muted = 1;
+                                typestring[i] = 'N';
+                                muted++;
                                 break;
                             case BA_CLAMP:
                                 // clamp value to range minimum
@@ -256,7 +260,8 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
             switch (bound_max) {
                 case BA_MUTE:
                     // need to prevent value from being sent at all
-                    muted = 1;
+                    typestring[i] = 'N';
+                    muted++;
                     break;
                 case BA_CLAMP:
                     // clamp value to range maximum
@@ -271,7 +276,8 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
                         switch (bound_min) {
                             case BA_MUTE:
                                 // need to prevent value from being sent at all
-                                muted = 1;
+                                typestring[i] = 'N';
+                                muted++;
                                 break;
                             case BA_CLAMP:
                                 // clamp value to range minimum
@@ -315,7 +321,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s)
         }
         propval_set_double(mapper_history_value_ptr(*history), s->type, i, value);
     }
-    return !muted;
+    return (muted == history->length);
 }
 
 /*! Build a value update message for a given connection. */
@@ -733,6 +739,9 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                         updated += result;
                 }
             }
+            else {
+                // TODO: set tentative type and length props, update later
+            }
         }
         else {
             if (total_length && total_length == length) {
@@ -777,6 +786,9 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                     else
                         updated += result;
                 }
+            }
+            else {
+                // TODO: set tentative type and length props, update later
             }
         }
         else {
@@ -1432,6 +1444,8 @@ void reallocate_connection_histories(mapper_connection c)
                 mhist_realloc(&s->history[j], history_size, sample_size, 1);
             }
             s->history_size = history_size;
+            if (s->local)
+                s->local->history_size = history_size;
         }
         else if (history_size < s->history_size) {
             // Do nothing for now...
@@ -1482,6 +1496,8 @@ void reallocate_connection_histories(mapper_connection c)
                 mhist_realloc(&s->history[i], history_size, sample_size, 0);
             }
             s->history_size = history_size;
+            if (s->local)
+                s->local->history_size = history_size;
         }
         else if (history_size < s->history_size) {
             // Do nothing for now...
