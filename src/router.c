@@ -944,11 +944,12 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
 static void check_link(mapper_router r, mapper_link l)
 {
-    if (!r || !l)
-        return;
-    if (l->props.num_connections_in || l->props.num_connections_out)
-        return;
-    // TODO: no connections, we can remove link
+    /* We could remove link the link here if it has no associated connections,
+     * however under normal usage it is likely that users will add new
+     * connections after deleting the old ones. If we remove the link
+     * immediately it will have to be re-established in this scenario, so we
+     * will allow the admin house-keeping routines to clean up empty links
+     * after the link ping timeout period. */
 }
 
 void mapper_router_remove_signal(mapper_router r, mapper_router_signal rs)
@@ -1008,6 +1009,7 @@ int mapper_router_remove_connection(mapper_router r, mapper_connection c)
         for (i = 0; i < rs->num_incoming_connections; i++) {
             if (rs->incoming_connections[i] == c) {
                 rs->incoming_connections[i] = 0;
+                break;
             }
         }
         if (c->status >= MAPPER_READY && c->destination.link) {

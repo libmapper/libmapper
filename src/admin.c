@@ -692,38 +692,50 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     mapper_admin_bundle_message(admin, ADM_SYNC, 0, "si", mdev_name(md),
                                 md->props.version);
 
-    int elapsed;
+    int elapsed, connections;
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
         if (link->props.name_hash == md->props.name_hash) {
-            // don't bother sending pings to self or if link not ready
+            // don't bother sending pings to self
             link = link->next;
             continue;
         }
+        connections = (link->props.num_connections_in
+                       + link->props.num_connections_out);
         mapper_sync_clock sync = &link->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
         if ((md->link_timeout_sec && elapsed > md->link_timeout_sec)) {
             if (sync->response.message_id > 0) {
-                trace("<%s> Lost contact with linked device %s "
-                      "(%d seconds since sync).\n", mdev_name(md),
-                      link->props.name, elapsed);
+                if (connections) {
+                    trace("<%s> Lost contact with linked device %s "
+                          "(%d seconds since sync).\n", mdev_name(md),
+                          link->props.name, elapsed);
+                }
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
                 sync->response.timetag.sec = clock->now.sec;
             }
             else {
-                trace("<%s> Removing link to unresponsive device %s "
-                      "(%d seconds since warning).\n", mdev_name(md),
-                      link->props.name, elapsed);
-                // TODO: release related connections, call local handlers and inform subscribers
-
+                if (connections) {
+                    trace("<%s> Removing link to unresponsive device %s "
+                          "(%d seconds since warning).\n", mdev_name(md),
+                          link->props.name, elapsed);
+                    /* TODO: release related connections, call local handlers
+                     * and inform subscribers. */
+                }
+                else {
+                    trace("<%s> Removing link to unconnected device %s.\n",
+                          mdev_name(md), link->props.name);
+                }
                 // remove related data structures
                 mapper_router_remove_link(md->router, link);
             }
         }
-        else if (link->props.host) {
+        else if (link->props.host && connections) {
+            /* Only send pings if this link has associated connections, ensuring
+             * empty links are removed after the ping timeout. */
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
             lo_message_add_int32(m, mdev_id(md));
