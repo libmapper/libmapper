@@ -456,7 +456,7 @@ static int handler_signal(const char *path, const char *types,
                     return 0;
                 }
                 if (is_instance_update) {
-                    sig->id_maps[map_index].status |= IN_RELEASED_LOCALLY;
+                    sig->id_maps[map_index].status |= IN_RELEASED_REMOTELY;
                     map->refcount_remote--;
                     if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
                         mdev_remove_instance_id_map(md, map);
