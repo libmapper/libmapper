@@ -488,7 +488,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_DEST_BOUND_MIN:
             i = va_arg(aq, int);
             if (i >= 0 && i < N_MAPPER_BOUNDARY_ACTIONS)
-                lo_message_add_string(m, mapper_boundary_action_strings[j]);
+                lo_message_add_string(m, mapper_boundary_action_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
             break;

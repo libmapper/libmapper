@@ -1272,7 +1272,7 @@ int mapper_connection_set_from_message(mapper_connection c,
     if (args && types) {
         int bound_min;
         if (types[0] == 's' || types[0] == 'S') {
-            bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
+            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
             if (bound_min >= 0
                 && bound_min != c->props.destination.bound_min) {
                 c->props.destination.bound_min = bound_min;

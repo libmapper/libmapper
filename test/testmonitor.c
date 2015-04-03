@@ -147,7 +147,10 @@ void printslot(mapper_db_connection_slot slot)
         die_unless(val!=0, "returned zero value\n");
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            if (strncmp(key, "bound", 5)==0)
+                printf("%s", bound_strings[*((int*)val)]);
+            else
+                mapper_prop_pp(type, length, val);
         }
     }
 }
@@ -179,8 +182,6 @@ void printconnection(mapper_db_connection con)
             printf("%s=", key);
             if (strcmp(key, "mode")==0)
                 printf("%s", mode_strings[*((int*)val)]);
-            else if (strncmp(key, "bound", 5)==0)
-                printf("%s", bound_strings[*((int*)val)]);
             else
                 mapper_prop_pp(type, length, val);
             printf(", ");

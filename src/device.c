@@ -522,11 +522,11 @@ static int handler_signal(const char *path, const char *types,
                                           typestring)) {
                     continue;
                 }
-                // TODO: do not attempt to run boundary_perform on null vector elements
-//                if (mapper_boundary_perform(&c->destination.history[si->index],
-//                                            &c->props.destination, typestring)) {
-//                    continue;
-//                }
+                // TODO: check if expression has triggered instance-release
+                if (mapper_boundary_perform(&c->destination.history[si->index],
+                                            &c->props.destination, typestring)) {
+                    continue;
+                }
                 void *result = mapper_history_value_ptr(c->destination.history[si->index]);
                 vals = 0;
                 for (j = 0; j < c->destination.props->length; j++) {

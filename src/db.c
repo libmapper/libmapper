@@ -2039,7 +2039,7 @@ static int update_connection_record_params(mapper_db db,
             }
         }
     }
-    args = mapper_msg_get_param(params, AT_SRC_BOUND_MIN, &types, &length);
+    args = mapper_msg_get_param(params, AT_DEST_BOUND_MIN, &types, &length);
     if (args && types) {
         mapper_boundary_action bound_min;
         if (types[0] == 's' || types[0] == 'S') {

@@ -414,10 +414,10 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
         mapper_db_connection_slot sp = s->props;
         mapper_db_connection_slot dp = &c->props.destination;
         mapper_db_connection_slot to = (c->props.process_location
-                                        == MAPPER_SOURCE ? sp : dp);
+                                        == MAPPER_SOURCE ? dp : sp);
         int to_size = mapper_type_size(to->type) * to->length;
-        char typestring[to->length];
-        memset(typestring, to->type, to->length);
+        char typestring[to->length * count];
+        memset(typestring, to->type, to->length * count);
         k = 0;
         for (j = 0; j < count; j++) {
             // copy input history
@@ -429,6 +429,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             memcpy(mapper_history_tt_ptr(rs->history[id]),
                    &tt, sizeof(mapper_timetag_t));
 
+            // process source boundary behaviour
             if ((mapper_boundary_perform(&s->history[id], sp,
                                          typestring + to->length * k))) {
                 // back up position index
@@ -441,10 +442,21 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             if (!sp->cause_update)
                 continue;
 
-            // handle cases in which part of count update does not cause output
             if (!(mapper_connection_perform(c, s, instance,
                                             typestring + to->length * k)))
                 continue;
+
+            if (c->props.process_location == MAPPER_SOURCE) {
+                // also process destination boundary behaviour
+                if ((mapper_boundary_perform(&c->destination.history[id], dp,
+                                             typestring + to->length * k))) {
+                    // back up position index
+                    --c->destination.history[id].position;
+                    if (c->destination.history[id].position < 0)
+                        c->destination.history[id].position = c->destination.history[id].size - 1;
+                    continue;
+                }
+            }
 
             void *result = mapper_history_value_ptr(c->destination.history[id]);
 
