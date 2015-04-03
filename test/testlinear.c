@@ -37,9 +37,9 @@ int setup_source(char *iface)
         goto error;
     eprintf("source created.\n");
 
-    float mn=0, mx=1;
+    int mn=0, mx=1;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    sendsig = mdev_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
 
     eprintf("Output signal /outsig registered.\n");
     eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
@@ -106,7 +106,7 @@ void cleanup_destination()
 
 int setup_connection()
 {
-    float src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
+    float src_min = 0., src_max = 100., dest_min = -10., dest_max = 10.;
 
     mapper_monitor mon = mmon_new(source->admin, 0);
 
@@ -156,9 +156,9 @@ void loop()
     int i = 0;
     while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 0);
-        eprintf("Updating signal %s to %f\n",
-                sendsig->props.name, (i * 1.0f));
-        msig_update_float(sendsig, (i * 1.0f));
+        eprintf("Updating signal %s to %d\n",
+                sendsig->props.name, i);
+        msig_update_int(sendsig, i);
         sent++;
         mdev_poll(destination, 100);
         i++;

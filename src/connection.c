@@ -716,15 +716,19 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
      * Next priority is already-known properties of the connection.
      * Lastly, we fill in source range from the signal. */
 
-    // TODO: handle 'NULL' values for minima/maxima without failing
-
     /* source maxima */
     args = mapper_msg_get_param(msg, AT_SRC_MAX, &types, &length);
     if (args && types && is_number_type(types[0])) {
         if (s) {
-            if (!s->local && (s->status & MAPPER_TYPE_KNOWN)
-                && (s->status & MAPPER_LENGTH_KNOWN)
-                && (length == s->props->length)) {
+            if (!(s->status & MAPPER_TYPE_KNOWN)) {
+                s->props->type = types[0];
+                s->status |= MAPPER_TYPE_KNOWN;
+            }
+            if (!(s->status & MAPPER_LENGTH_KNOWN)) {
+                s->props->length = length;
+                s->status |= MAPPER_LENGTH_KNOWN;
+            }
+            if (length == s->props->length) {
                 if (!s->props->maximum)
                     s->props->maximum = calloc(1, length
                                                * mapper_type_size(s->props->type));
@@ -739,28 +743,48 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                         updated += result;
                 }
             }
-            else {
-                // TODO: set tentative type and length props, update later
+        }
+        else if (c->props.num_sources == 1) {
+            if (!(c->sources[0].status & MAPPER_TYPE_KNOWN)) {
+                c->sources[0].props->type = types[0];
+                c->sources[0].status |= MAPPER_TYPE_KNOWN;
+            }
+            if (!(c->sources[0].status & MAPPER_LENGTH_KNOWN)) {
+                c->sources[0].props->length = length;
+                c->sources[0].status |= MAPPER_LENGTH_KNOWN;
+            }
+            if (length == c->sources[0].props->length) {
+                if (!c->sources[0].props->maximum)
+                    c->sources[0].props->maximum = calloc(1, length
+                                                          * mapper_type_size(c->sources[0].props->type));
+                for (i = 0; i < length; i++) {
+                    result = propval_set_from_lo_arg(c->sources[0].props->maximum,
+                                                     c->sources[0].props->type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        break;
+                    }
+                    else
+                        updated += result;
+                }
             }
         }
-        else {
-            if (total_length && total_length == length) {
-                int offset = 0;
-                for (i = 0; i < c->props.num_sources; i++) {
-                    if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
-                        offset += c->props.sources[i].length;
-                        continue;
-                    }
-                    if (!c->props.sources[i].maximum)
-                        c->props.sources[i].maximum = calloc(1, c->props.sources[i].length
-                                                             * mapper_type_size(c->props.sources[i].type));
-                    for (j = 0; j < c->props.sources[i].length; j++) {
-                        result = propval_set_from_lo_arg(c->props.sources[i].maximum,
-                                                         c->props.sources[i].type,
-                                                         args[offset], types[offset],
-                                                         j);
-                        offset++;
-                    }
+        else if (total_length && total_length == length) {
+            int offset = 0;
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                    offset += c->props.sources[i].length;
+                    continue;
+                }
+                if (!c->props.sources[i].maximum)
+                    c->props.sources[i].maximum = calloc(1, c->props.sources[i].length
+                                                         * mapper_type_size(c->props.sources[i].type));
+                for (j = 0; j < c->props.sources[i].length; j++) {
+                    result = propval_set_from_lo_arg(c->props.sources[i].maximum,
+                                                     c->props.sources[i].type,
+                                                     args[offset], types[offset],
+                                                     j);
+                    offset++;
                 }
             }
         }
@@ -770,9 +794,15 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
     args = mapper_msg_get_param(msg, AT_SRC_MIN, &types, &length);
     if (args && types && is_number_type(types[0])) {
         if (s) {
-            if (!s->local && (s->status & MAPPER_TYPE_KNOWN)
-                && (s->status & MAPPER_LENGTH_KNOWN)
-                && (length == s->props->length)) {
+            if (!(s->status & MAPPER_TYPE_KNOWN)) {
+                s->props->type = types[0];
+                s->status |= MAPPER_TYPE_KNOWN;
+            }
+            if (!(s->status & MAPPER_LENGTH_KNOWN)) {
+                s->props->length = length;
+                s->status |= MAPPER_LENGTH_KNOWN;
+            }
+            if (length == s->props->length) {
                 if (!s->props->minimum)
                     s->props->minimum = calloc(1, length
                                                * mapper_type_size(s->props->type));
@@ -787,28 +817,48 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
                         updated += result;
                 }
             }
-            else {
-                // TODO: set tentative type and length props, update later
+        }
+        else if (c->props.num_sources == 1) {
+            if (!(c->sources[0].status & MAPPER_TYPE_KNOWN)) {
+                c->sources[0].props->type = types[0];
+                c->sources[0].status |= MAPPER_TYPE_KNOWN;
+            }
+            if (!(c->sources[0].status & MAPPER_LENGTH_KNOWN)) {
+                c->sources[0].props->length = length;
+                c->sources[0].status |= MAPPER_LENGTH_KNOWN;
+            }
+            if (length == c->sources[0].props->length) {
+                if (!c->sources[0].props->minimum)
+                    c->sources[0].props->minimum = calloc(1, length
+                                                          * mapper_type_size(c->sources[0].props->type));
+                for (i = 0; i < length; i++) {
+                    result = propval_set_from_lo_arg(c->sources[0].props->minimum,
+                                                     c->sources[0].props->type,
+                                                     args[i], types[i], i);
+                    if (result == -1) {
+                        break;
+                    }
+                    else
+                        updated += result;
+                }
             }
         }
-        else {
-            if (total_length && total_length == length) {
-                int offset = 0;
-                for (i = 0; i < c->props.num_sources; i++) {
-                    if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
-                        offset += c->props.sources[i].length;
-                        continue;
-                    }
-                    if (!c->props.sources[i].minimum)
-                        c->props.sources[i].minimum = calloc(1, c->props.sources[i].length
-                                                             * mapper_type_size(c->props.sources[i].type));
-                    for (j = 0; j < c->props.sources[i].length; j++) {
-                        result = propval_set_from_lo_arg(c->props.sources[i].minimum,
-                                                         c->props.sources[i].type,
-                                                         args[offset], types[offset],
-                                                         j);
-                        offset++;
-                    }
+        else if (total_length && total_length == length) {
+            int offset = 0;
+            for (i = 0; i < c->props.num_sources; i++) {
+                if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                    offset += c->props.sources[i].length;
+                    continue;
+                }
+                if (!c->props.sources[i].minimum)
+                    c->props.sources[i].minimum = calloc(1, c->props.sources[i].length
+                                                         * mapper_type_size(c->props.sources[i].type));
+                for (j = 0; j < c->props.sources[i].length; j++) {
+                    result = propval_set_from_lo_arg(c->props.sources[i].minimum,
+                                                     c->props.sources[i].type,
+                                                     args[offset], types[offset],
+                                                     j);
+                    offset++;
                 }
             }
         }
@@ -1044,6 +1094,74 @@ int mapper_connection_check_status(mapper_connection c)
     return c->status;
 }
 
+static void upgrade_extrema_memory(mapper_db_connection_slot slot,
+                                   char type, int length)
+{
+    int i;
+    if (slot->minimum) {
+        void *new_mem = calloc(1, length * mapper_type_size(type));
+        switch (slot->type) {
+            case 'i':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((int*)slot->minimum)[i],
+                                            'i', i);
+                }
+                break;
+            case 'f':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((float*)slot->minimum)[i],
+                                            'f', i);
+                }
+                break;
+            case 'd':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((double*)slot->minimum)[i],
+                                            'd', i);
+                }
+                break;
+            default:
+                break;
+        }
+        free(slot->minimum);
+        slot->minimum = new_mem;
+    }
+    if (slot->maximum) {
+        void *new_mem = calloc(1, length * mapper_type_size(type));
+        switch (slot->type) {
+            case 'i':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((int*)slot->minimum)[i],
+                                            'i', i);
+                }
+                break;
+            case 'f':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((float*)slot->minimum)[i],
+                                            'f', i);
+                }
+                break;
+            case 'd':
+                for (i = 0; i < length; i++) {
+                    propval_set_from_lo_arg(new_mem, type,
+                                            (lo_arg*)&((double*)slot->minimum)[i],
+                                            'd', i);
+                }
+                break;
+            default:
+                break;
+        }
+        free(slot->maximum);
+        slot->maximum = new_mem;
+    }
+    slot->type = type;
+    slot->length= length;
+}
+
 // if 'override' flag is not set, only remote properties can be set
 int mapper_connection_set_from_message(mapper_connection c,
                                        mapper_message_t *msg,
@@ -1097,9 +1215,15 @@ int mapper_connection_set_from_message(mapper_connection c,
         if (slot >= 0) {
             if (!c->sources[slot].local) {
                 type = types[0] == 'c' ? (*args)->c : (&(*args)->s)[0];
-                if (c->props.sources[slot].type != type) {
+                if (!(c->sources[slot].status & MAPPER_TYPE_KNOWN)) {
                     c->props.sources[slot].type = type;
                     c->sources[slot].status |= MAPPER_TYPE_KNOWN;
+                    updated++;
+                }
+                else if (c->props.sources[slot].type != type) {
+                    // type may have been tentatively set for min or max properties
+                    upgrade_extrema_memory(&c->props.sources[slot], type,
+                                           c->props.sources[slot].length);
                     updated++;
                 }
             }
@@ -1111,9 +1235,14 @@ int mapper_connection_set_from_message(mapper_connection c,
                 if (types[i] != 'c' && types[i] != 's' && types[i] != 'S')
                     continue;
                 type = types[i] == 'c' ? (args[i])->c : (&(args[i])->s)[0];
-                if (c->props.sources[i].type != type) {
+                if (!(c->sources[i].status & MAPPER_TYPE_KNOWN)) {
                     c->props.sources[i].type = type;
                     c->sources[i].status |= MAPPER_TYPE_KNOWN;
+                    updated++;
+                }
+                else if (c->props.sources[i].type != type) {
+                    upgrade_extrema_memory(&c->props.sources[i], type,
+                                           c->props.sources[i].length);
                     updated++;
                 }
             }
@@ -1125,9 +1254,15 @@ int mapper_connection_set_from_message(mapper_connection c,
     if (args && types && types[0] == 'i') {
         if (slot >= 0) {
             if (!c->sources[slot].local) {
-                if (c->props.sources[slot].length != (*args)->i) {
+                if (!(c->sources[slot].status & MAPPER_LENGTH_KNOWN)) {
                     c->props.sources[slot].length = (*args)->i;
                     c->sources[slot].status |= MAPPER_LENGTH_KNOWN;
+                    updated++;
+                }
+                else if (c->props.sources[slot].length != (*args)->i) {
+                    upgrade_extrema_memory(&c->props.sources[slot],
+                                           c->props.sources[slot].type,
+                                           (*args)->i);
                     updated++;
                 }
             }
@@ -1138,10 +1273,15 @@ int mapper_connection_set_from_message(mapper_connection c,
                     continue;
                 if (types[i] != 'i')
                     continue;
-                if (c->props.sources[i].length != args[i]->i) {
+                if (!(c->sources[i].status & MAPPER_LENGTH_KNOWN)) {
                     c->props.sources[i].length = args[i]->i;
                     c->sources[i].status |= MAPPER_LENGTH_KNOWN;
                     updated++;
+                }
+                else if (c->props.sources[i].length != args[i]->i) {
+                    upgrade_extrema_memory(&c->props.sources[i],
+                                           c->props.sources[i].type,
+                                           args[i]->i);
                 }
             }
         }
