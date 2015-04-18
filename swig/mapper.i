@@ -1120,13 +1120,12 @@ static void connection_db_handler_py(mapper_db_connection record,
 %}
 
 typedef enum _mapper_boundary_action {
-    BA_NONE,    /*!< Value is passed through unchanged. This is the
-                 *   default. */
-    BA_MUTE,    //!< Value is muted.
-    BA_CLAMP,   //!< Value is limited to the boundary.
-    BA_FOLD,    //!< Value continues in opposite direction.
-    BA_WRAP,    /*!< Value appears as modulus offset at the opposite
-                 *   boundary. */
+    BA_UNDEFINED,   //!< Not yet defined
+    BA_NONE,        //!< Value is passed through unchanged. This is the default.
+    BA_MUTE,        //!< Value is muted.
+    BA_CLAMP,       //!< Value is limited to the boundary.
+    BA_FOLD,        //!< Value continues in opposite direction.
+    BA_WRAP,        //!< Value appears as modulus offset at the opposite boundary.
     N_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 

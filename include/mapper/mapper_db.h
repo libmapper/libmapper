@@ -85,6 +85,7 @@ typedef struct _mapper_db_device {
  *  exceeded.
  *  @ingroup connectiondb */
 typedef enum _mapper_boundary_action {
+    BA_UNDEFINED,
     BA_NONE,    /*!< Value is passed through unchanged. This is the
                  *   default. */
     BA_MUTE,    //!< Value is muted.

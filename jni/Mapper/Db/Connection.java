@@ -6,11 +6,12 @@ import Mapper.PropertyValue;
 public class Connection
 {
     /*! Describes what happens when the range boundaries are exceeded. */
-    public static final int BA_NONE  = 0;
-    public static final int BA_MUTE  = 1;
-    public static final int BA_CLAMP = 2;
-    public static final int BA_FOLD  = 3;
-    public static final int BA_WRAP  = 4;
+    public static final int BA_UNDEFINED = 0;
+    public static final int BA_NONE      = 1;
+    public static final int BA_MUTE      = 2;
+    public static final int BA_CLAMP     = 3;
+    public static final int BA_FOLD      = 4;
+    public static final int BA_WRAP      = 5;
 
     /*! Describes the connection mode. */
     public static final int MO_UNDEFINED  = 0;
