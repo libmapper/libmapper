@@ -1206,6 +1206,14 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
         // also add device record if necessary
         sig->device = mapper_db_add_or_update_device_params(db, device_name, 0, 0);
 
+        if (params) {
+            int direction = mapper_msg_get_signal_direction(params);
+            if (direction & DI_INCOMING)
+                sig->device->num_inputs++;
+            if (direction & DI_OUTGOING)
+                sig->device->num_outputs++;
+        }
+
         // Defaults (int, length=1)
         mapper_db_signal_init(sig, 'i', 1, name, 0);
         rc = 1;
@@ -1585,6 +1593,11 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
         h(sig, MDB_REMOVE, cb->context);
         cb = cb->next;
     }
+
+    if (sig->direction & DI_INCOMING)
+        sig->device->num_inputs--;
+    if (sig->direction & DI_OUTGOING)
+        sig->device->num_outputs--;
 
     if (sig->name)
         free(sig->name);

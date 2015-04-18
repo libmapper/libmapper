@@ -87,21 +87,21 @@ void printdevice(mapper_db_device dev)
 
 void printsignal(mapper_db_signal sig)
 {
+    printf("%s, direction=", sig->name);
     switch (sig->direction) {
         case DI_BOTH:
-            printf("[both]   ");
+            printf("both");
             break;
         case DI_OUTGOING:
-            printf("[output] ");
+            printf("output");
             break;
         case DI_INCOMING:
-            printf("[input]  ");
+            printf("input");
             break;
         default:
-            printf("[??????] ");
+            printf("unknown");
             break;
     }
-    printf("%s", sig->name);
 
     int i=0;
     const char *key;
