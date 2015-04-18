@@ -2111,7 +2111,7 @@ static int handler_signal_connected(const char *path, const char *types,
     mapper_signal local_signal = 0;
     mapper_connection c;
     mapper_monitor mon = admin->monitor;
-    int i, num_sources, src_index, dest_index, num_params, param_index, slot = 0;
+    int i, num_sources, src_index, dest_index, num_params, param_index;
     const char *local_signal_name;
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
@@ -2237,18 +2237,21 @@ static int handler_signal_connected(const char *path, const char *types,
             mapper_admin_set_bundle_dest_mesh(admin,
                                               c->destination.link->admin_addr);
             mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+            c->destination.link->props.num_connections_out++;
         }
         else {
             if (c->one_source) {
                 mapper_admin_set_bundle_dest_mesh(admin,
                                                   c->sources[0].link->admin_addr);
                 mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECTED);
+                c->sources[0].link->props.num_connections_in++;
             }
             else {
                 for (i = 0; i < c->props.num_sources; i++) {
                     mapper_admin_set_bundle_dest_mesh(admin,
                                                       c->sources[i].link->admin_addr);
                     mapper_admin_send_connection(admin, md, c, i, ADM_CONNECTED);
+                    c->sources[i].link->props.num_connections_in++;
                 }
             }
         }
@@ -2280,11 +2283,6 @@ static int handler_signal_connected(const char *path, const char *types,
                                   md->connection_cb_userdata);
             }
         }
-
-        if (c->destination.props->direction == DI_OUTGOING)
-            c->destination.props->device->num_connections_out++;
-        else
-            c->sources[slot].props->device->num_connections_in++;
         c->status = MAPPER_ACTIVE;
     }
 
@@ -2621,8 +2619,8 @@ static int handler_device_ping(const char *path, const char *types,
             double offset = mapper_timetag_difference(now, then) - latency;
 
             if (latency < 0) {
-                trace("error: latency cannot be < 0");
-                return 0;
+                trace("error: latency cannot be < 0 (%f).\n", latency);
+                latency = 0;
             }
 
             if (link->clock.new == 1) {
