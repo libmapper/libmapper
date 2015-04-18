@@ -1711,13 +1711,13 @@ static uint32_t update_connection_hash(mapper_db_connection c)
 {
     if (c->hash)
         return c->hash;
-    c->hash = crc32(0L, (const Bytef *)c->destination.signal_name,
+    c->hash = crc32(0L, (const Bytef *)c->destination.device_name,
                     strlen(c->destination.device_name));
     c->hash = crc32(0L, (const Bytef *)c->destination.signal_name,
                     strlen(c->destination.signal_name));
     int i;
     for (i = 0; i < c->num_sources; i++) {
-        c->hash = crc32(c->hash, (const Bytef *)c->sources[i].signal_name,
+        c->hash = crc32(c->hash, (const Bytef *)c->sources[i].device_name,
                         strlen(c->sources[i].device_name));
         c->hash = crc32(c->hash, (const Bytef *)c->sources[i].signal_name,
                         strlen(c->sources[i].signal_name));
