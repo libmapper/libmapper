@@ -46,6 +46,7 @@ m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
 m4/lt~obsolete.m4
+NEWS
 src/config.h
 src/config.h.in
 src/stamp-h1
@@ -56,18 +57,29 @@ swig/mapper_wrap.c
 swig/setup.py
 test/test
 test/testadmin
+test/testconvergent
+test/testcpp
+test/testcustomtransport
 test/testdb
 test/testdynamic
 test/testexpression
 test/testinstance
 test/testlinear
 test/testmany
+test/testmapinput
 test/testmonitor
 test/testparams
 test/testparser
 test/testprops
 test/testquery
+test/testqueue
+test/testrate
 test/testrecv
+test/testreverse
+test/testselect
 test/testsend
+test/testsignals
+test/testspeed
+test/testsync
 test/testvector
 
