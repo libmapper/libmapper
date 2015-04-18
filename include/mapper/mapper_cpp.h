@@ -396,6 +396,12 @@ namespace mapper {
             else
                 return Property();
         }
+        std::string name() const
+            { return std::string(props->name); }
+        char type() const
+            { return props->type; }
+        int length() const
+            { return props->length; }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -786,6 +792,12 @@ namespace mapper {
             else
                 return Property();
         }
+        std::string name() const
+            { return std::string(props->name); }
+        int num_outputs() const
+            { return props->num_outputs; }
+        int num_inputs() const
+            { return props->num_inputs; }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -952,24 +964,25 @@ namespace mapper {
         }
         ~Db()
         {}
-        Db& flush()
+        const Db& flush() const
         {
             mmon_flush_db(monitor, mmon_get_timeout(monitor), 0);
             return (*this);
         }
-        Db& flush(int timeout_sec, int quiet=0)
+        const Db& flush(int timeout_sec, int quiet=0) const
         {
             mmon_flush_db(monitor, timeout_sec, quiet);
             return (*this);
         }
         // db_devices
-        Db& add_device_callback(mapper_db_device_handler *handler, void *user_data)
+        const Db& add_device_callback(mapper_db_device_handler *handler,
+                                      void *user_data) const
         {
             mapper_db_add_device_callback(db, handler, user_data);
             return (*this);
         }
-        Db& remove_device_callback(mapper_db_device_handler *handler,
-                                    void *user_data)
+        const Db& remove_device_callback(mapper_db_device_handler *handler,
+                                         void *user_data) const
         {
             mapper_db_remove_device_callback(db, handler, user_data);
             return (*this);
@@ -994,14 +1007,14 @@ namespace mapper {
         }
 
         // db_signals
-        Db& add_signal_callback(mapper_db_signal_handler *handler,
-                                void *user_data)
+        const Db& add_signal_callback(mapper_db_signal_handler *handler,
+                                      void *user_data) const
         {
             mapper_db_add_signal_callback(db, handler, user_data);
             return (*this);
         }
-        Db& remove_signal_callback(mapper_db_signal_handler *handler,
-                                   void *user_data)
+        const Db& remove_signal_callback(mapper_db_signal_handler *handler,
+                                         void *user_data) const
         {
             mapper_db_remove_signal_callback(db, handler, user_data);
             return (*this);
@@ -1014,14 +1027,14 @@ namespace mapper {
         };
 
         Signal input(const string_type &device_name,
-                     const string_type &signal_name)
+                     const string_type &signal_name) const
         {
             return Signal(
                 mapper_db_get_input_by_device_and_signal_names(db, device_name,
                                                                signal_name));
         }
         Signal output(const string_type &device_name,
-                      const string_type &signal_name)
+                      const string_type &signal_name) const
         {
             return Signal(
                 mapper_db_get_output_by_device_and_signal_names(db, device_name,
@@ -1055,14 +1068,14 @@ namespace mapper {
         }
 
         // db connections
-        Db& add_connection_callback(mapper_db_connection_handler *handler,
-                                    void *user_data)
+        const Db& add_connection_callback(mapper_db_connection_handler *handler,
+                                          void *user_data) const
         {
             mapper_db_add_connection_callback(db, handler, user_data);
             return (*this);
         }
-        Db& remove_connection_callback(mapper_db_connection_handler *handler,
-                                       void *user_data)
+        const Db& remove_connection_callback(mapper_db_connection_handler *handler,
+                                             void *user_data) const
         {
             mapper_db_remove_connection_callback(db, handler, user_data);
             return (*this);
@@ -1113,12 +1126,16 @@ namespace mapper {
                 { return props; }
             int num_sources() const
                 { return props->num_sources; }
+            mapper_mode_type mode() const
+                { return props->mode; }
             Connection& set_mode(mapper_mode_type mode)
             {
                 props->mode = mode;
                 props->flags |= CONNECTION_MODE;
                 return (*this);
             }
+            std::string expression() const
+                { return std::string(props->expression); }
             Connection& set_expression(const string_type &expression)
             {
                 props->expression = (char*)(const char*)expression;
@@ -1148,6 +1165,8 @@ namespace mapper {
                 else
                     return Property();
             }
+            int hash() const
+                { return props->hash; }
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
@@ -1188,17 +1207,31 @@ namespace mapper {
                 {
                     return Signal(props->signal);
                 }
+                std::string signal_name() const
+                    { return std::string(props ? props->signal_name : 0); }
+                mapper_boundary_action bound_min() const
+                    { return props ? props->bound_min : (mapper_boundary_action)-1; }
                 Slot& set_bound_min(mapper_boundary_action bound_min)
                 {
                     props->bound_min = bound_min;
                     props->flags |= CONNECTION_BOUND_MIN;
                     return (*this);
                 }
+                mapper_boundary_action bound_max() const
+                    { return props ? props->bound_max : (mapper_boundary_action)-1; }
                 Slot& set_bound_max(mapper_boundary_action bound_max)
                 {
                     props->bound_max = bound_max;
                     props->flags |= CONNECTION_BOUND_MAX;
                     return (*this);
+                }
+                Property minimum() const
+                {
+                    if (props && props->minimum)
+                        return Property("minimum", props->type,
+                                        props->minimum, props->length);
+                    else
+                        return Property();
                 }
                 Slot& set_minimum(const Property &value)
                 {
@@ -1210,6 +1243,14 @@ namespace mapper {
                     }
                     return (*this);
                 }
+                Property maximum() const
+                {
+                    if (props && props->maximum)
+                        return Property("maximum", props->type,
+                                        props->maximum, props->length);
+                    else
+                        return Property();
+                }
                 Slot& set_maximum(const Property &value)
                 {
                     if (props) {
@@ -1220,12 +1261,16 @@ namespace mapper {
                     }
                     return (*this);
                 }
+                bool cause_update() const
+                    { return props ? props->cause_update : -1; }
                 Slot& set_cause_update(bool value)
                 {
                     if (props)
                         props->cause_update = (int)value;
                     return (*this);
                 }
+                bool send_as_instance() const
+                    { return props ? props->send_as_instance : -1; }
                 Slot& set_send_as_instance(bool value)
                 {
                     if (props)
@@ -1284,6 +1329,8 @@ namespace mapper {
             Slot *_sources;
             int owned;
         };
+        Connection connection(int hash) const
+            { return mapper_db_get_connection_by_hash(db, hash); }
         Connection::Iterator connections() const
         {
             return Connection::Iterator(

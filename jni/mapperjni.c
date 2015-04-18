@@ -2524,6 +2524,33 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections_1by_1dest
     return consobj;
 }
 
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_connection_1by_1hash
+  (JNIEnv *env, jobject obj, jlong p, jint hash)
+{
+    mapper_db db = (mapper_db)ptr_jlong(p);
+    if (!db) return 0;
+    return jlong_ptr(mapper_db_get_connection_by_hash(db, hash));
+}
+
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_connection_1by_1names
+  (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jstring dest)
+{
+    mapper_db db = (mapper_db)ptr_jlong(p);
+    if (!db || !sources || !dest) return 0;
+
+    int i, num_sources = (*env)->GetArrayLength(env, sources);
+    jstring jstrings[num_sources];
+    const char *cstrings[num_sources];
+    for (i = 0; i < num_sources; i++) {
+        jstrings[i] = (jstring) (*env)->GetObjectArrayElement(env, sources, i);
+        cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
+    }
+    const char *dest_name = (*env)->GetStringUTFChars(env, dest, 0);
+    return jlong_ptr(mapper_db_get_connection_by_signal_full_names(db, num_sources,
+                                                                   cstrings,
+                                                                   dest_name));
+}
+
 /**** Mapper_Db_Device.h ****/
 
 JNIEXPORT jstring JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1name

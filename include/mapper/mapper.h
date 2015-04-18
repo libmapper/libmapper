@@ -1034,6 +1034,14 @@ void mapper_db_remove_connection_callback(mapper_db db,
  *          iterate. */
 mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
 
+/*! Return the connection that match the given connection hash.
+ *  \param db          The database to query.
+ *  \param hash        Connection hash.
+ *  \return A pointer to a structure containing information on the
+ *          found connection, or 0 if not found. */
+mapper_db_connection mapper_db_get_connection_by_hash(mapper_db db,
+                                                      uint32_t hash);
+
 /*! Return the connection that match the given id.
  *  \param db          The database to query.
  *  \param device_name Name of destination device.

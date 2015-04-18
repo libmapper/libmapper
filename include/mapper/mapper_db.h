@@ -191,6 +191,7 @@ typedef struct _mapper_db_connection {
     int num_sources;
     int process_location;               //!< 1 for source, 0 for destination
     int flags;
+    uint32_t hash;
 } mapper_db_connection_t, *mapper_db_connection;
 
 typedef struct _mapper_db_batch_request

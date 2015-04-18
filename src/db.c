@@ -601,6 +601,7 @@ static mapper_string_table_t slot_table = { slot_strings, 10, 10 };
 
 static property_table_value_t con_values[] = {
     { 's', {1}, -1,         CON_OFFSET(expression) },
+    { 'i', {0}, -1,         CON_OFFSET(hash)},
     { 'i', {0}, -1,         CON_OFFSET(id) },
     { 'i', {0}, -1,         CON_OFFSET(mode) },
     { 'i', {0}, -1,         CON_OFFSET(muted) },
@@ -613,16 +614,17 @@ static property_table_value_t con_values[] = {
 /* This table must remain in alphabetical order. */
 static string_table_node_t con_strings[] = {
     { "expression",         &con_values[0] },
-    { "id",                 &con_values[1] },
-    { "mode",               &con_values[2] },
-    { "muted",              &con_values[3] },
-    { "num_scopes",         &con_values[4] },
-    { "num_sources",        &con_values[5] },
-    { "process_at",         &con_values[6] },
-    { "scope_names",        &con_values[7] },
+    { "hash",               &con_values[1] },
+    { "id",                 &con_values[2] },
+    { "mode",               &con_values[3] },
+    { "muted",              &con_values[4] },
+    { "num_scopes",         &con_values[5] },
+    { "num_sources",        &con_values[6] },
+    { "process_at",         &con_values[7] },
+    { "scope_names",        &con_values[8] },
 };
 
-static mapper_string_table_t con_table = { con_strings, 8, 8 };
+static mapper_string_table_t con_table = { con_strings, 9, 9 };
 
 /* Generic index and lookup functions to which the above tables would
  * be passed. These are called for specific types below. */
@@ -1692,6 +1694,24 @@ void mapper_db_remove_outputs_by_query(mapper_db db,
 
 /**** Connection records ****/
 
+static uint32_t update_connection_hash(mapper_db_connection c)
+{
+    if (c->hash)
+        return c->hash;
+    c->hash = crc32(0L, (const Bytef *)c->destination.signal_name,
+                    strlen(c->destination.device_name));
+    c->hash = crc32(0L, (const Bytef *)c->destination.signal_name,
+                    strlen(c->destination.signal_name));
+    int i;
+    for (i = 0; i < c->num_sources; i++) {
+        c->hash = crc32(c->hash, (const Bytef *)c->sources[i].signal_name,
+                        strlen(c->sources[i].device_name));
+        c->hash = crc32(c->hash, (const Bytef *)c->sources[i].signal_name,
+                        strlen(c->sources[i].signal_name));
+    }
+    return c->hash;
+}
+
 static int mapper_db_connection_add_scope(mapper_connection_scope scope,
                                           const char *name)
 {
@@ -1830,6 +1850,7 @@ static int update_connection_record_params(mapper_db db,
                   sizeof(mapper_db_connection_slot_t), compare_slot_names);
         }
         slot = i;
+        update_connection_hash(con);
     }
 
     /* @srcType */
@@ -2192,6 +2213,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
 
         con->extra = table_new();
         rc = 1;
+        update_connection_hash(con);
     }
     else if (con->num_sources < num_sources) {
         // add one or more sources
@@ -2219,6 +2241,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                 con->sources[j].device = con->sources[j].signal->device;
             }
         }
+        update_connection_hash(con);
     }
 
     if (con) {
@@ -2300,6 +2323,20 @@ void mapper_db_remove_connection_callback(mapper_db db,
                                           void *user)
 {
     remove_callback(&db->connection_callbacks, h, user);
+}
+
+mapper_db_connection mapper_db_get_connection_by_hash(mapper_db db,
+                                                      uint32_t hash)
+{
+    mapper_db_connection con = db->registered_connections;
+    if (!con)
+        return 0;
+    while (con) {
+        if (con->hash == hash)
+            return con;
+        con = list_get_next(con);
+    }
+    return 0;
 }
 
 mapper_db_connection mapper_db_get_connection_by_dest_device_and_id(

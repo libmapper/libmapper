@@ -236,8 +236,16 @@ public class Monitor
         public Mapper.Db.ConnectionCollection connectionsByDest(Mapper.Db.Signal signal)
             { return mdb_connections_by_dest(_db, null, signal.fullName()); }
 
-        public native Mapper.Db.Connection connection(String[] srcNames,
-                                                      String destName);
+        private native long connection_by_hash(long db, int hash);
+        public Mapper.Db.Connection connection(int hash)
+            { return new Mapper.Db.Connection(connection_by_hash(_db, hash)); }
+        private native long connection_by_names(long db, String[] srcNames,
+                                                String destName);
+        public Mapper.Db.Connection connection(String[] srcNames, String destName)
+        {
+            return new Mapper.Db.Connection(connection_by_names(_db, srcNames,
+                                                                destName));
+        }
         public Mapper.Db.Connection connection(Mapper.Device.Signal[] sources,
                                                Mapper.Device.Signal dest)
         {
@@ -245,7 +253,8 @@ public class Monitor
             String[] srcNames = new String[length];
             for (int i = 0; i < length; i++)
                 srcNames[i] = sources[i].fullName();
-            return this.connection(srcNames, dest.fullName());
+            return new Mapper.Db.Connection(connection_by_names(_db, srcNames,
+                                                                dest.fullName()));
         }
         public Mapper.Db.Connection connection(Mapper.Db.Signal[] sources,
                                                Mapper.Db.Signal dest)
@@ -254,7 +263,8 @@ public class Monitor
             String[] srcNames = new String[length];
             for (int i = 0; i < length; i++)
                 srcNames[i] = sources[i].fullName();
-            return this.connection(srcNames, dest.fullName());
+            return new Mapper.Db.Connection(connection_by_names(_db, srcNames,
+                                                                dest.fullName()));
         }
 
         private long _db;

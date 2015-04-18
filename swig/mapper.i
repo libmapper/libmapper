@@ -1961,6 +1961,9 @@ typedef struct _admin {} admin;
         return mapper_db_get_connections_by_src_dest_device_names(
             (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
     }
+    mapper_db_connection connection_by_hash(int hash) {
+        return mapper_db_get_connection_by_hash((mapper_db)$self, hash);
+    }
     mapper_db_connection_t **connection_next(long iterator) {
         return mapper_db_connection_next((mapper_db_connection_t**)iterator);
     }
