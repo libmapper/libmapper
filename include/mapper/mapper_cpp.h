@@ -402,36 +402,6 @@ namespace mapper {
             { return props->type; }
         int length() const
             { return props->length; }
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
-        {
-        public:
-            Iterator(mapper_db_signal *s)
-                { sig = s; }
-            ~Iterator()
-                { mapper_db_signal_done(sig); }
-            operator mapper_db_signal*() const
-                { return sig; }
-            bool operator==(const Iterator& rhs)
-                { return (sig == rhs.sig); }
-            bool operator!=(const Iterator& rhs)
-                { return (sig != rhs.sig); }
-            Iterator& operator++()
-            {
-                if (sig != NULL)
-                    sig = mapper_db_signal_next(sig);
-                return (*this);
-            }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
-            AbstractSignalProps operator*()
-                { return AbstractSignalProps(*sig); }
-            Iterator begin()
-                { return Iterator(sig); }
-            Iterator end()
-                { return Iterator(0); }
-        private:
-            mapper_db_signal *sig;
-        };
     };
 
     class Signal
@@ -798,36 +768,6 @@ namespace mapper {
             { return props->num_outputs; }
         int num_inputs() const
             { return props->num_inputs; }
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
-        {
-        public:
-            Iterator(mapper_db_device *d)
-                { dev = d; }
-            ~Iterator()
-                { mapper_db_device_done(dev); }
-            operator mapper_db_device*() const
-                { return dev; }
-            bool operator==(const Iterator& rhs)
-                { return (dev == rhs.dev); }
-            bool operator!=(const Iterator& rhs)
-                { return (dev != rhs.dev); }
-            Iterator& operator++()
-                {
-                    if (dev != NULL)
-                        dev = mapper_db_device_next(dev);
-                    return (*this);
-                }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
-            AbstractDeviceProps operator*()
-                { return AbstractDeviceProps(*dev); }
-            Iterator begin()
-                { return Iterator(dev); }
-            Iterator end()
-                { return Iterator(0); }
-        private:
-            mapper_db_device *dev;
-        };
     };
 
     class Device
@@ -992,6 +932,36 @@ namespace mapper {
         {
         public:
             Device(mapper_db_device d) : AbstractDeviceProps(d) {}
+            class Iterator : public std::iterator<std::input_iterator_tag, int>
+            {
+            public:
+                Iterator(mapper_db_device *d)
+                    { dev = d; }
+                ~Iterator()
+                    { mapper_db_device_done(dev); }
+                operator mapper_db_device*() const
+                    { return dev; }
+                bool operator==(const Iterator& rhs)
+                    { return (dev == rhs.dev); }
+                bool operator!=(const Iterator& rhs)
+                    { return (dev != rhs.dev); }
+                Iterator& operator++()
+                {
+                    if (dev != NULL)
+                        dev = mapper_db_device_next(dev);
+                    return (*this);
+                }
+                Iterator operator++(int)
+                    { Iterator tmp(*this); operator++(); return tmp; }
+                Device operator*()
+                    { return Device(*dev); }
+                Iterator begin()
+                    { return Iterator(dev); }
+                Iterator end()
+                    { return Iterator(0); }
+            private:
+                mapper_db_device *dev;
+            };
         };
 
         Device device(const string_type &name) const
@@ -1024,6 +994,41 @@ namespace mapper {
         {
         public:
             Signal(mapper_db_signal s) : AbstractSignalProps(s) {}
+            Device device() const
+            {
+                mapper_db_signal s = (mapper_db_signal)(*this);
+                return Db::Device(s->device);
+            }
+            class Iterator : public std::iterator<std::input_iterator_tag, int>
+            {
+            public:
+                Iterator(mapper_db_signal *s)
+                    { sig = s; }
+                ~Iterator()
+                    { mapper_db_signal_done(sig); }
+                operator mapper_db_signal*() const
+                    { return sig; }
+                bool operator==(const Iterator& rhs)
+                    { return (sig == rhs.sig); }
+                bool operator!=(const Iterator& rhs)
+                    { return (sig != rhs.sig); }
+                Iterator& operator++()
+                {
+                    if (sig != NULL)
+                        sig = mapper_db_signal_next(sig);
+                    return (*this);
+                }
+                Iterator operator++(int)
+                    { Iterator tmp(*this); operator++(); return tmp; }
+                Signal operator*()
+                    { return Signal(*sig); }
+                Iterator begin()
+                    { return Iterator(sig); }
+                Iterator end()
+                    { return Iterator(0); }
+            private:
+                mapper_db_signal *sig;
+            };
         };
 
         Signal input(const string_type &device_name,
