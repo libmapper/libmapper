@@ -1,6 +1,86 @@
 
 # libmapper NEWS
 
+Changes from 0.3 to 0.4
+-----------------------
+Released _________
+
+This is still a development release, and includes many API changes,
+improvements, and new features since 0.3.
+
+They are summarized very briefly here:
+
+  * _Monitor subscriptions_. The API and underlying protocol for
+  synchronizing monitors has been switched to a subscription-with-lease
+  model.
+  * automatic recovery of memory from dropped links, e.g. when the peer device crashes
+  * removal of links from public API
+    * automatic device linking
+  * _Language bindings_
+    * added C++ headers (still not quite complete)
+    * improved consistency between Python and Java bindings
+    * added monitor and db functions to Java bindings
+  * _Expression parser and evaluator_.
+    * vector indexing
+    * user-defined variables
+    * filter initialization
+    * vector functions (any/all/min/max/mean?)
+    * expression optimization
+  * _Convergent mapping_. Convergent or many-to-one mapping refers to
+  scenarios in which multiple source signals are connected to the same
+  destination signal. Prior to 0.4, libmapper would allow a naïve
+  implementation of convergent mapping: multiple sources could be
+  connected to a given destination, however their values would overwrite
+  each other at each source update. Starting with version 0.4, three
+  other methods for convergent mapping are also available:
+    * _updating specific vector elements or element ranges_. By using
+    the vector indexing functionality mentioned above, parts of vector
+    destinations can be updated by different sources; vectors updates
+    are now null-padded so elements not addressed in the expression
+    property will not be overwritten
+    * _destination value reference_. References to past values of the
+    destination in the expression string (e.g. _y=y{-1}+x_) now refer
+    to the _actual value_ of the destination signal rather than the
+    output of the expression. If the past behaviour is desired, a
+    user-defined variable can be used to cache the expression output
+    (e.g. _foo=foo{-1}+x; y=foo_). Note that if the destination value
+    is referenced in the expression string libmapper will automatically
+    move signal processing to the destination device.
+    * _multi-source connections_. Finally, libmapper connections can
+    now be created with multiple source signals, and expressions used
+    to combine the source values arbitrarily. To support this
+    functionality, the endpoints of connections are now represented
+    using the mapper_db_connection_slot data structure; each connection
+    has a single destination slot and at least one source slot. The
+    `range` property of connections has been transformed into separate
+    `minimum` and `maximum` properties of the connection slots. If all
+    source slots belong to the same device, signal processing will be
+    handled by the source device, otherwise the destination will handle
+    evaluation of the expression.
+
+  * protocol changes
+    * monitor subscriptions
+    * null-padding
+    * explicit connection direction
+    * explicit instance indexing
+  * file format
+    * no more links
+  * _Connection modes_. The connection modes `MO_BYPASS`, `MO_REVERSE`
+  and `MO_CALIBRATE` have been removed; only `MO_LINEAR` and
+  `MO_EXPRESSION` remain. It was decided that calling a mode bypass
+  was misleading since libmapper was automatically adding type coercion
+  and vector padding as needed; connections between signals without
+  known extrema now default to `MO_EXPRESSION` with an automatically-
+  generated expression taking into account vector-length mismatches.
+  "Reverse" connections are now handled with explicit connection
+  directions (which incidentally also supports connections from one
+  "input" signal to another "input" signal); `calibrating` is now a
+  separate property of a connection
+
+Additional changes:
+
+  * faster/more efficient device and monitor polling using select()
+
 Changes from 0.2 to 0.3
 -----------------------
 
