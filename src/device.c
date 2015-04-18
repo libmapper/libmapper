@@ -919,8 +919,8 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
     int i, len = 0, result;
     for (i = 0; i < c->props.num_sources; i++) {
         result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          c->sources[i].props->device_name,
-                          c->sources[i].props->signal_name);
+                          c->sources[i].props->signal->device->name,
+                          c->sources[i].props->signal->name);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for combined /connected msg");
             lo_message_free(m);
@@ -930,8 +930,8 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
         len += result + 1;
     }
     lo_message_add_string(m, "->");
-    snprintf(dest_name, 1024, "%s%s", c->destination.props->device_name,
-             c->destination.props->signal_name);
+    snprintf(dest_name, 1024, "%s%s", c->destination.props->signal->device->name,
+             c->destination.props->signal->name);
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
     mapper_admin_send_bundle(admin);
 }

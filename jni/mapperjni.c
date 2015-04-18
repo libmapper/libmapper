@@ -2813,7 +2813,7 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1s
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->device_name);
+    return (*env)->NewStringUTF(env, props->signal->device->name);
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1length
@@ -2854,7 +2854,7 @@ JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1s
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->signal_name);
+    return (*env)->NewStringUTF(env, props->signal->name);
 }
 
 JNIEXPORT jchar JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1type

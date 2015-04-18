@@ -57,15 +57,17 @@ void on_mdev_connection(mapper_device dev,
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
             mdev_name(dev), mdev_name(dev), sig->props.name,
-            con->destination.device_name, con->destination.signal_name);
+            con->destination.signal->device->name, con->destination.signal->name);
 
     if (slot == &con->destination) {
         eprintf("Source host is %s, port is %i\n",
-                con->sources[0].device->host, con->sources[0].device->port);
+                con->sources[0].signal->device->host,
+                con->sources[0].signal->device->port);
     }
     else {
         eprintf("Destination host is %s, port is %i\n",
-                con->destination.device->host, con->destination.device->port);
+                con->destination.signal->device->host,
+                con->destination.signal->device->port);
     }
 
     if (action == MDEV_LOCAL_DESTROYED) {
@@ -121,7 +123,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = con->destination.device->host;
+    const char *host = con->destination.signal->device->host;
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 

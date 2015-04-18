@@ -1046,8 +1046,8 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
     }
 
     char dest_name[1024], source_names[1024];
-    snprintf(dest_name, 1024, "%s%s", c->destination.props->device_name,
-             c->destination.props->signal_name);
+    snprintf(dest_name, 1024, "%s%s", c->destination.props->signal->device->name,
+             c->destination.props->signal->name);
 
     if (c->destination.props->direction == DI_INCOMING) {
         // add connection destination
@@ -1057,16 +1057,16 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
 
     // add connection sources
     if (slot >= 0) {
-        snprintf(source_names, 1024, "%s%s", c->sources[slot].props->device_name,
-                 c->sources[slot].props->signal_name);
+        snprintf(source_names, 1024, "%s%s", c->sources[slot].props->signal->device->name,
+                 c->sources[slot].props->signal->name);
         lo_message_add_string(m, source_names);
     }
     else {
         int i, len = 0, result;
         for (i = 0; i < c->props.num_sources; i++) {
             result = snprintf(&source_names[len], 1024-len, "%s%s",
-                              c->sources[i].props->device_name,
-                              c->sources[i].props->signal_name);
+                              c->sources[i].props->signal->device->name,
+                              c->sources[i].props->signal->name);
             if (result < 0 || (len + result + 1) >= 1024) {
                 trace("Error encoding sources for combined /connected msg");
                 lo_message_free(m);
@@ -1928,7 +1928,7 @@ static int handler_signal_connect(const char *path, const char *types,
     }
 
     if (c->one_source && !c->sources[0].local
-        && c->sources[0].props->device->host) {
+        && c->sources[0].props->signal->device->host) {
         mapper_admin_set_bundle_dest_bus(admin);
         mapper_admin_send_connection(admin, md, c, -1, ADM_CONNECT_TO);
     }

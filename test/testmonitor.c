@@ -129,7 +129,7 @@ void printsignal(mapper_db_signal sig)
 
 void printslot(mapper_db_connection_slot slot)
 {
-    printf("%s%s", slot->device_name, slot->signal_name);
+    printf("%s%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
     const char *key;
     char type;
@@ -234,29 +234,30 @@ void loop()
 
         printf("Registered devices and signals:\n");
         mapper_db_device *pdev = mapper_db_get_all_devices(db);
-        mapper_db_device *next;
+        mapper_db_signal *next;
         while (pdev) {
             printf(" |\n");
             printdevice(*pdev);
-            next = mapper_db_device_next(pdev);
 
             int numsigs = (*pdev)->num_outputs;
             mapper_db_signal *psig =
                 mapper_db_get_outputs_by_device_name(db, (*pdev)->name);
             while (psig) {
-                printf(" %s  %s", next ? "|" : " ", --numsigs ? "├─" : "└─");
+                next = mapper_db_signal_next(psig);
+                printf("    %s ", next ? "├─" : "└─");
                 printsignal(*psig);
-                psig = mapper_db_signal_next(psig);
+                psig = next;
             }
             numsigs = (*pdev)->num_inputs;
             psig = mapper_db_get_inputs_by_device_name(db, (*pdev)->name);
             while (psig) {
-                printf(" %s  %s", next ? "|" : " ", --numsigs ? "├─" : "└─");
+                next = mapper_db_signal_next(psig);
+                printf("    %s ", next ? "├─" : "└─");
                 printsignal(*psig);
-                psig = mapper_db_signal_next(psig);
+                psig = next;
             }
 
-            pdev = next;
+            pdev = mapper_db_device_next(pdev);
         }
 
         printf("------------------------------\n");
@@ -320,8 +321,10 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
     int i;
     printf("Connection ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s%s ", con->sources[i].device_name, con->sources[i].signal_name);
-    printf("-> %s%s ", con->destination.device_name, con->destination.signal_name);
+        printf("%s%s ", con->sources[i].signal->device->name,
+               con->sources[i].signal->name);
+    printf("-> %s%s ", con->destination.signal->device->name,
+           con->destination.signal->name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");

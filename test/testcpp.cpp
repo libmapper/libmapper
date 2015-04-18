@@ -195,14 +195,14 @@ int main(int argc, char ** argv)
         if (conn.num_sources() > 1)
             std::cout << "[";
         for (int i = 0; i < conn.num_sources(); i++) {
-            std::cout << conn.source(i).get("device_name").str()
-                << conn.source(i).get("signal_name").str() << ", ";
+            std::cout << conn.source(i).signal().device().name()
+                << conn.source(i).signal().name() << ", ";
         }
         std::cout << "\b\b";
         if (conn.num_sources() > 1)
             std::cout << "]";
-        std::cout << " -> " << conn.destination().get("device_name").str()
-        << conn.destination().get("signal_name").str() << std::endl;
+        std::cout << " -> " << conn.destination().signal().device().name()
+            << conn.destination().signal().name() << std::endl;
     }
 
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

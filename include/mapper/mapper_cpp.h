@@ -1204,16 +1204,8 @@ namespace mapper {
             {
             public:
                 ~Slot() {}
-                Device device() const
-                {
-                    return Device(props->device);
-                }
                 Signal signal() const
-                {
-                    return Signal(props->signal);
-                }
-                std::string signal_name() const
-                    { return std::string(props ? props->signal_name : 0); }
+                    { return Signal(props->signal); }
                 mapper_boundary_action bound_min() const
                     { return props ? props->bound_min : (mapper_boundary_action)-1; }
                 Slot& set_bound_min(mapper_boundary_action bound_min)

@@ -452,13 +452,13 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
     int i;
     for (i = 0; i < props->num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", props->sources[i].device_name,
-                 props->sources[i].signal_name);
+        snprintf(src_name, 256, "%s%s", props->sources[i].signal->device->name,
+                 props->sources[i].signal->name);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", props->destination.device_name,
-             props->destination.signal_name);
+    snprintf(dest_name, 256, "%s%s", props->destination.signal->device->name,
+             props->destination.signal->name);
 
     mmon_modify_connection_by_signal_names(mon, props->num_sources, src_names,
                                            dest_name, props);
@@ -527,13 +527,13 @@ void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
     int i;
     for (i = 0; i < c->num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", c->sources[i].device_name,
-                 c->sources[i].signal_name);
+        snprintf(src_name, 256, "%s%s", c->sources[i].signal->device->name,
+                 c->sources[i].signal->name);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", c->destination.device_name,
-             c->destination.signal_name);
+    snprintf(dest_name, 256, "%s%s", c->destination.signal->device->name,
+             c->destination.signal->name);
 
     mmon_disconnect_signals_by_name(mon, c->num_sources, src_names, dest_name);
 

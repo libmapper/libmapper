@@ -149,9 +149,6 @@ typedef struct _mapper_db_signal {
 
 typedef struct _mapper_db_connection_slot {
     mapper_db_signal signal;
-    mapper_db_device device;
-    const char *signal_name;
-    const char *device_name;
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.
     int slot_id;                    //!< Slot ID
