@@ -205,7 +205,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                     break;
                 case BA_FOLD:
                     // fold value around range minimum
-                    difference = fabsf(value - dest_min);
+                    difference = fabs(value - dest_min);
                     value = dest_min + difference;
                     if (value > dest_max) {
                         // value now exceeds range maximum!
@@ -221,7 +221,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                                 break;
                             case BA_FOLD:
                                 // both boundary actions are set to fold!
-                                difference = fabsf(value - dest_max);
+                                difference = fabs(value - dest_max);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
@@ -233,7 +233,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                                 break;
                             case BA_WRAP:
                                 // wrap value back from range minimum
-                                difference = fabsf(value - dest_max);
+                                difference = fabs(value - dest_max);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
@@ -246,7 +246,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                     break;
                 case BA_WRAP:
                     // wrap value back from range maximum
-                    difference = fabsf(value - dest_min);
+                    difference = fabs(value - dest_min);
                     modulo_difference = difference
                         - (int)(difference / total_range) * total_range;
                     value = dest_max - modulo_difference;
@@ -269,7 +269,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                     break;
                 case BA_FOLD:
                     // fold value around range maximum
-                    difference = fabsf(value - dest_max);
+                    difference = fabs(value - dest_max);
                     value = dest_max - difference;
                     if (value < dest_min) {
                         // value now exceeds range minimum!
@@ -285,7 +285,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                                 break;
                             case BA_FOLD:
                                 // both boundary actions are set to fold!
-                                difference = fabsf(value - dest_min);
+                                difference = fabs(value - dest_min);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
@@ -297,7 +297,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                                 break;
                             case BA_WRAP:
                                 // wrap value back from range maximum
-                                difference = fabsf(value - dest_min);
+                                difference = fabs(value - dest_min);
                                 modulo_difference = difference
                                     - ((int)(difference / total_range)
                                        * total_range);
@@ -310,7 +310,7 @@ int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
                     break;
                 case BA_WRAP:
                     // wrap value back from range minimum
-                    difference = fabsf(value - dest_max);
+                    difference = fabs(value - dest_max);
                     modulo_difference = difference
                         - (int)(difference / total_range) * total_range;
                     value = dest_min + modulo_difference;
