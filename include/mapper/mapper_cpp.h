@@ -2,6 +2,11 @@
 #ifndef _MAPPER_CPP_H_
 #define _MAPPER_CPP_H_
 
+#ifdef signals
+#define signalz signals
+#undef signals
+#endif
+
 #include <mapper/mapper.h>
 #include <mapper/mapper_types.h>
 #include <mapper/mapper_db.h>
@@ -1660,5 +1665,10 @@ namespace mapper {
         mapper_monitor monitor;
     };
 };
+
+#ifdef signalz
+#define signals signalz
+#undef signalz
+#endif
 
 #endif // _MAPPER_CPP_H_
