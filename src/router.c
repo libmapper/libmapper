@@ -806,7 +806,6 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
         // apply local scope as default
         c->props.scope.names[0] = strdup(mdev_name(r->device));
-        c->props.scope.hashes = (uint32_t *) malloc(sizeof(uint32_t));
         c->props.scope.hashes[0] = mdev_id(r->device);
     }
     else {
