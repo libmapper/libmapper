@@ -142,7 +142,7 @@
             $1 = p;
         }
     }
-    else {
+    else if ($input != Py_None) {
         SWIG_exception_fail(SWIG_TypeError,
                             "argument $argnum must be 'dict'");
     }
@@ -331,7 +331,7 @@
             $1 = p;
         }
     }
-    else {
+    else if ($input != Py_None) {
         SWIG_exception_fail(SWIG_TypeError, "argument $argnum must be 'dict'");
     }
  %}
