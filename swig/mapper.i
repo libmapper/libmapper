@@ -129,10 +129,6 @@
 
 %typemap(freearg) (int, mapper_db_connection_slot_t*) {
     if ($1) {
-        if ($1->device_name)
-            free((char*)$1->device_name);
-        if ($1->signal_name)
-            free((char*)$1->signal_name);
         if ($1->minimum)
             free($1->minimum);
         if ($1->maximum)
@@ -769,13 +765,7 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
             if (PyString_Check(o)) {
                 PyObject *v = PyDict_GetItem(input, o);
                 char *s = PyString_AsString(o);
-                if (strcmp(s, "device_name")==0 && PyString_Check(v)) {
-                    slot->device_name = PyString_AsString(v);
-                }
-                if (strcmp(s, "signal_name")==0 && PyString_Check(v)) {
-                    slot->signal_name = PyString_AsString(v);
-                }
-                else if (strcmp(s, "min")==0 || strcmp(s, "minimum")==0) {
+                if (strcmp(s, "min")==0 || strcmp(s, "minimum")==0) {
                     alloc_and_copy_maybe_vector(v, &slot->type, &slot->minimum,
                                                 &slot->length);
                     if (slot->minimum) {

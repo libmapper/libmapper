@@ -37,15 +37,13 @@ public class Connection
             boundMax = mdb_connection_slot_get_bound_max(_slotprops);
             causeUpdate = mdb_connection_slot_get_cause_update(_slotprops);
             direction = mdb_connection_slot_get_direction(_slotprops);
-            deviceName = mdb_connection_slot_get_device_name(_slotprops);
             length = mdb_connection_slot_get_length(_slotprops);
             maximum = mdb_connection_slot_get_max(_slotprops);
             minimum = mdb_connection_slot_get_min(_slotprops);
             sendAsInstance = mdb_connection_slot_get_send_as_instance(_slotprops);
-            signalName = mdb_connection_slot_get_signal_name(_slotprops);
             type = mdb_connection_slot_get_type(_slotprops);
         }
-        private Slot(String name) {
+        private Slot() {
             boundMin = -1;
             boundMax = -1;
             causeUpdate = -1;
@@ -55,15 +53,6 @@ public class Connection
             minimum = null;
             sendAsInstance = -1;
             type = 0;
-            if (name != null) {
-                int slashindex = name.indexOf('/', 1);
-                deviceName = name.substring(0, slashindex);
-                signalName = name.substring(slashindex, name.length());
-            }
-            else {
-                deviceName = null;
-                signalName = null;
-            }
         }
 
         public int boundMin;
@@ -78,9 +67,6 @@ public class Connection
         public int direction;
         private native int mdb_connection_slot_get_direction(long p);
 
-        public String deviceName;
-        private native String mdb_connection_slot_get_device_name(long p);
-
         public int length;
         private native int mdb_connection_slot_get_length(long p);
 
@@ -93,8 +79,10 @@ public class Connection
         public int sendAsInstance;
         private native int mdb_connection_slot_get_send_as_instance(long p);
 
-        public String signalName;
-        private native String mdb_connection_slot_get_signal_name(long p);
+        public Signal signal() {
+            return new Signal(mdb_connection_slot_get_signal(_slotprops));
+        }
+        private native long mdb_connection_slot_get_signal(long p);
 
         public char type;
         private native char mdb_connection_slot_get_type(long p);
@@ -120,37 +108,6 @@ public class Connection
         destination = new Slot(mdb_connection_get_dest_ptr(_conprops));
     }
 
-    public Connection(String[] _srcNames, String _destName) {
-        expression = null;
-        id = -1;
-        mode = -1;
-        muted = -1;
-        numScopes = 0;
-        numSources = _srcNames.length;
-        scopeNames = null;
-
-        sources = new Slot[numSources];
-        for (int i = 0; i < numSources; i++)
-            sources[i] = new Slot(_srcNames[i]);
-        source = sources[0];
-        destination = new Slot(_destName);
-    }
-
-    public Connection(String _srcName, String _destName) {
-        expression = null;
-        id = -1;
-        mode = -1;
-        muted = -1;
-        numScopes = 0;
-        numSources = 1;
-        scopeNames = null;
-
-        sources = new Slot[1];
-        sources[0] = new Slot(_srcName);
-        source = sources[0];
-        destination = new Slot(_destName);
-    }
-
     public Connection(int _numSources) {
         expression = null;
         id = -1;
@@ -162,9 +119,9 @@ public class Connection
 
         sources = new Slot[numSources];
         for (int i = 0; i < numSources; i++)
-            sources[i] = new Slot(null);
+            sources[i] = new Slot();
         source = sources[0];
-        destination = new Slot(null);
+        destination = new Slot();
     }
 
     public Connection() {

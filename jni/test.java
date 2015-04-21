@@ -35,11 +35,9 @@ class test {
             public void onEvent(Mapper.Db.Connection c, int event) {
                 System.out.print("db onEvent() for connection ");
                 for (int i = 0; i < c.numSources; i++)
-                    System.out.print(c.sources[i].deviceName
-                                     +c.sources[i].signalName+" ");
-                System.out.println("-> "+c.destination.deviceName
-                                   +c.destination.signalName+" @expr "
-                                   +c.expression);
+                    System.out.print(c.sources[i].signal().fullName()+" ");
+                System.out.println("-> "+c.destination.signal().fullName()
+                                   +" @expr "+c.expression);
             }});
 
         Mapper.Device.Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz",
@@ -228,10 +226,8 @@ class test {
         for (Mapper.Db.Connection cc : cons) {
             System.out.print("  connection: ");
             for (i = 0; i < cc.numSources; i++)
-                System.out.print(cc.sources[i].deviceName
-                                 +cc.sources[i].signalName+" ");
-            System.out.println("-> "+cc.destination.deviceName
-                               +cc.destination.signalName);
+                System.out.print(cc.sources[i].signal().fullName()+" ");
+            System.out.println("-> "+cc.destination.signal().fullName());
         }
 
         System.out.println();

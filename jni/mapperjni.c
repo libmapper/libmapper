@@ -2809,13 +2809,6 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot
     return props->direction;
 }
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1device_1name
-  (JNIEnv *env, jobject obj, jlong p)
-{
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->signal->device->name);
-}
-
 JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1length
   (JNIEnv *env, jobject obj, jlong p)
 {
@@ -2850,11 +2843,13 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot
     return props->send_as_instance;
 }
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1signal_1name
+JNIEXPORT jlong JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1signal
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
-    return (*env)->NewStringUTF(env, props->signal->name);
+    if (!props)
+        return 0;
+    return jlong_ptr(props->signal);
 }
 
 JNIEXPORT jchar JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1type
