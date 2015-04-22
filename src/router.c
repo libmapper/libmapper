@@ -908,8 +908,8 @@ mapper_connection mapper_router_add_connection(mapper_router r,
     c->props.destination.slot_id = -1;
     c->props.destination.cause_update = 1;
     c->props.destination.send_as_instance = c->props.destination.num_instances > 1;
-    c->props.destination.bound_min = BA_NONE;
-    c->props.destination.bound_max = BA_NONE;
+    c->props.destination.bound_min = c->props.destination.bound_max = BA_NONE;
+    c->props.destination.minimum = c->props.destination.maximum = 0;
 
     c->props.muted = 0;
     c->props.mode = MO_UNDEFINED;

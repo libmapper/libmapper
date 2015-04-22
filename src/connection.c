@@ -694,7 +694,7 @@ static int set_range(mapper_connection c, mapper_message_t *msg, int slot)
     const char *types = NULL;
     int i, j, length = 0, updated = 0, result;
 
-    if (!c || c->props.num_sources > 1)
+    if (!c)
         return 0;
 
     mapper_connection_slot s = (slot >= 0) ? &c->sources[slot] : 0;
@@ -1841,37 +1841,50 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         lo_message_add_int32(m, props->destination.length);
     }
 
-    if (slot < 0) {
+    if (slot >= 0) {
+        if (props->sources[slot].minimum) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_MIN));
+            mapper_msg_add_typed_value(m, props->sources[slot].type,
+                                       props->sources[slot].length,
+                                       props->sources[slot].minimum);
+        }
+
+        if (props->sources[slot].maximum) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_MAX));
+            mapper_msg_add_typed_value(m, props->sources[slot].type,
+                                       props->sources[slot].length,
+                                       props->sources[slot].maximum);
+        }
+    }
+    else if (c->props.num_sources == 1) {
         // TODO: extend to multiple sources
-        if (c->props.num_sources == 1) {
-            if (props->sources[0].minimum) {
-                lo_message_add_string(m, mapper_get_param_string(AT_SRC_MIN));
-                mapper_msg_add_typed_value(m, props->sources[0].type,
-                                           props->sources[0].length,
-                                           props->sources[0].minimum);
-            }
-
-            if (props->sources[0].maximum) {
-                lo_message_add_string(m, mapper_get_param_string(AT_SRC_MAX));
-                mapper_msg_add_typed_value(m, props->sources[0].type,
-                                           props->sources[0].length,
-                                           props->sources[0].maximum);
-            }
+        if (props->sources[0].minimum) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_MIN));
+            mapper_msg_add_typed_value(m, props->sources[0].type,
+                                       props->sources[0].length,
+                                       props->sources[0].minimum);
         }
 
-        if (props->destination.minimum) {
-            lo_message_add_string(m, mapper_get_param_string(AT_DEST_MIN));
-            mapper_msg_add_typed_value(m, props->destination.type,
-                                       props->destination.length,
-                                       props->destination.minimum);
+        if (props->sources[0].maximum) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_MAX));
+            mapper_msg_add_typed_value(m, props->sources[0].type,
+                                       props->sources[0].length,
+                                       props->sources[0].maximum);
         }
+    }
 
-        if (props->destination.maximum) {
-            lo_message_add_string(m, mapper_get_param_string(AT_DEST_MAX));
-            mapper_msg_add_typed_value(m, props->destination.type,
-                                       props->destination.length,
-                                       props->destination.maximum);
-        }
+    if (props->destination.minimum) {
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_MIN));
+        mapper_msg_add_typed_value(m, props->destination.type,
+                                   props->destination.length,
+                                   props->destination.minimum);
+    }
+
+    if (props->destination.maximum) {
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_MAX));
+        mapper_msg_add_typed_value(m, props->destination.type,
+                                   props->destination.length,
+                                   props->destination.maximum);
     }
 
     // Boundary actions
