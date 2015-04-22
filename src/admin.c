@@ -1084,6 +1084,11 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
     }
 
     if (cmd >= ADM_DISCONNECT) {
+        // add slot number if appropriate
+        if (slot >= 0) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SLOT));
+            lo_message_add_int32(m, slot);
+        }
         lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
         return;
     }
@@ -2508,14 +2513,14 @@ static int handler_signal_disconnect(const char *path, const char *types,
         // inform remote peer(s)
         if (!c->destination.local) {
             mapper_admin_set_bundle_dest_mesh(admin, c->destination.link->admin_addr);
-            mapper_admin_send_connection(admin, md, c, -1, ADM_DISCONNECTED);
+            mapper_admin_send_connection(admin, md, c, -1, ADM_DISCONNECT);
         }
         else {
             for (i = 0; i < c->props.num_sources; i++) {
                 if (c->sources[i].local)
                     continue;
                 mapper_admin_set_bundle_dest_mesh(admin, c->sources[i].link->admin_addr);
-                mapper_admin_send_connection(admin, md, c, i, ADM_DISCONNECTED);
+                mapper_admin_send_connection(admin, md, c, i, ADM_DISCONNECT);
             }
         }
     }
@@ -2580,9 +2585,8 @@ static int handler_signal_disconnected(const char *path, const char *types,
 
 #ifdef DEBUG
     printf("-- <monitor> got /disconnected");
-    for (i = 0; i < num_sources; i++)
+    for (i = 0; i < num_sources+2; i++)
         printf(" %s", &argv[i]->s);
-    printf(" -> %s\n", &argv[dest_index]->s);
 #endif
 
     mapper_db_remove_connection(db,
