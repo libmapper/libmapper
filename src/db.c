@@ -1833,10 +1833,6 @@ static int update_connection_record_params(mapper_db db,
                 trace("error: maximum connection sources exceeded.\n");
                 return 0;
             }
-            con->num_sources++;
-            con->sources = realloc(con->sources,
-                                   sizeof(struct _mapper_db_connection_slot)
-                                   * con->num_sources);
             char devname[256], *signame = strchr(src_name+1, '/');
             int devnamelen = signame - src_name;
             if (devnamelen >= 256) {
@@ -1846,11 +1842,17 @@ static int update_connection_record_params(mapper_db db,
             strncpy(devname, src_name, devnamelen);
             devname[devnamelen] = 0;
 
+            con->num_sources++;
+            con->sources = realloc(con->sources,
+                                   sizeof(struct _mapper_db_connection_slot)
+                                   * con->num_sources);
+
             // also add source signal if necessary
             con->sources[i].signal =
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
             con->sources[i].signal->device = con->sources[i].signal->device;
             con->sources[i].slot_id = slot;
+            con->sources[i].minimum = con->sources[i].maximum = 0;
 
             // slots should be in alphabetical order
             qsort(con->sources, con->num_sources,
@@ -2196,6 +2198,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
             con->sources[i].slot_id = i;
             con->sources[i].cause_update = 1;
+            con->sources[i].minimum = con->sources[i].maximum = 0;
         }
         signame = strchr(dest_name+1, '/');
         devnamelen = signame - dest_name;
@@ -2239,6 +2242,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                                        * con->num_sources);
                 con->sources[j].signal =
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
+                con->sources[j].minimum = con->sources[j].maximum = 0;
             }
         }
         update_connection_hash(con);
