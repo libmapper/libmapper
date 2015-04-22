@@ -92,12 +92,6 @@ void mdev_free(mapper_device md)
     if (!md)
         return;
 
-    if (md->registered) {
-        // A registered device must tell the network it is leaving.
-        mapper_admin_set_bundle_dest_bus(md->admin);
-        mapper_admin_bundle_message(md->admin, ADM_LOGOUT, 0, "s", mdev_name(md));
-    }
-
     // First release active instances
     mapper_signal sig;
     if (md->outputs) {
@@ -134,6 +128,12 @@ void mdev_free(mapper_device md)
             mdev_remove_input(md, md->inputs[0]);
         }
         free(md->inputs);
+    }
+
+    if (md->registered) {
+        // A registered device must tell the network it is leaving.
+        mapper_admin_set_bundle_dest_bus(md->admin);
+        mapper_admin_bundle_message(md->admin, ADM_LOGOUT, 0, "s", mdev_name(md));
     }
 
     // Links reference parent signals so release them first
@@ -932,6 +932,7 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
     lo_message_add_string(m, "->");
     snprintf(dest_name, 1024, "%s%s", c->destination.props->signal->device->name,
              c->destination.props->signal->name);
+    lo_message_add_string(m, dest_name);
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
     mapper_admin_send_bundle(admin);
 }
