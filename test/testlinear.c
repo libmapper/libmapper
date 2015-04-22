@@ -123,7 +123,8 @@ int setup_connection()
     props.destination.maximum = &dest_max;
     props.destination.length = 1;
     props.destination.type = 'f';
-    props.destination.flags = CONNECTION_RANGE_KNOWN;
+    props.destination.bound_min = BA_FOLD;
+    props.destination.flags = CONNECTION_RANGE_KNOWN | CONNECTION_BOUND_MIN;
     props.mode = MO_LINEAR;
     props.flags = CONNECTION_MODE;
 

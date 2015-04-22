@@ -1353,7 +1353,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         int bound_max;
         if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
             bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max >= 0
+            if (bound_max != BA_UNDEFINED
                 && bound_max != c->props.sources[slot].bound_max) {
                 c->props.sources[slot].bound_max = bound_max;
                 updated++;
@@ -1364,7 +1364,7 @@ int mapper_connection_set_from_message(mapper_connection c,
                 if (types[i] != 's' && types[i] != 'S')
                     continue;
                 bound_max = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_max >= 0
+                if (bound_max != BA_UNDEFINED
                     && bound_max != c->props.sources[i].bound_max) {
                     c->props.sources[i].bound_max = bound_max;
                     updated++;
@@ -1377,7 +1377,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         int bound_min;
         if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
             bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min >= 0
+            if (bound_min != BA_UNDEFINED
                 && bound_min != c->props.sources[slot].bound_min) {
                 c->props.sources[slot].bound_min = bound_min;
                 updated++;
@@ -1388,7 +1388,7 @@ int mapper_connection_set_from_message(mapper_connection c,
                 if (types[i] != 's' && types[i] != 'S')
                     continue;
                 bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_min >= 0
+                if (bound_min != BA_UNDEFINED
                     && bound_min != c->props.sources[i].bound_min) {
                     c->props.sources[i].bound_min = bound_min;
                     updated++;
@@ -1401,7 +1401,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         int bound_max;
         if (types[0] == 's' || types[0] == 'S') {
             bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max >= 0
+            if (bound_max != BA_UNDEFINED
                 && bound_max != c->props.destination.bound_max) {
                 c->props.destination.bound_max = bound_max;
                 updated++;
@@ -1413,7 +1413,7 @@ int mapper_connection_set_from_message(mapper_connection c,
         int bound_min;
         if (types[0] == 's' || types[0] == 'S') {
             bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min >= 0
+            if (bound_min != BA_UNDEFINED
                 && bound_min != c->props.destination.bound_min) {
                 c->props.destination.bound_min = bound_min;
                 updated++;

@@ -52,7 +52,6 @@ const char* prop_msg_strings[] =
 
 const char* mapper_boundary_action_strings[] =
 {
-    NULL,          /* BA_UNDEFINED */
     "none",        /* BA_NONE */
     "mute",        /* BA_MUTE */
     "clamp",       /* BA_CLAMP */
@@ -465,7 +464,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                     continue;
                 }
                 j = con->sources[i].bound_max;
-                if (j >= 1 && j < N_MAPPER_BOUNDARY_ACTIONS)
+                if (j > BA_UNDEFINED && j < N_MAPPER_BOUNDARY_ACTIONS)
                     lo_message_add_string(m, mapper_boundary_action_strings[j]);
                 else
                     lo_message_add_string(m, "unknown");
@@ -479,7 +478,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                     continue;
                 }
                 j = con->sources[i].bound_min;
-                if (j >= 1 && j < N_MAPPER_BOUNDARY_ACTIONS)
+                if (j > BA_UNDEFINED && j < N_MAPPER_BOUNDARY_ACTIONS)
                     lo_message_add_string(m, mapper_boundary_action_strings[j]);
                 else
                     lo_message_add_string(m, "unknown");
@@ -488,7 +487,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
         case AT_DEST_BOUND_MAX:
         case AT_DEST_BOUND_MIN:
             i = va_arg(aq, int);
-            if (i >= 1 && i < N_MAPPER_BOUNDARY_ACTIONS)
+            if (i > BA_UNDEFINED && i < N_MAPPER_BOUNDARY_ACTIONS)
                 lo_message_add_string(m, mapper_boundary_action_strings[i]);
             else
                 lo_message_add_string(m, "unknown");
@@ -697,7 +696,7 @@ int mapper_msg_get_signal_direction(mapper_message_t *msg)
 
 const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 {
-    if (bound <= 0 || bound < N_MAPPER_BOUNDARY_ACTIONS)
+    if (bound <= BA_UNDEFINED || bound > N_MAPPER_BOUNDARY_ACTIONS)
         return "unknown";
     return mapper_boundary_action_strings[bound];
 }
@@ -705,13 +704,13 @@ const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
 mapper_boundary_action mapper_get_boundary_action_from_string(const char *str)
 {
     if (!str)
-        return -1;
+        return BA_UNDEFINED;
     int i;
     for (i = BA_UNDEFINED+1; i < N_MAPPER_BOUNDARY_ACTIONS; i++) {
         if (strcmp(str, mapper_boundary_action_strings[i])==0)
             return i;
     }
-    return -1;
+    return BA_UNDEFINED;
 }
 
 const char *mapper_get_mode_type_string(mapper_mode_type mode)
@@ -942,7 +941,7 @@ void mapper_prop_pp(char type, int length, const void *value)
     }
 
     if (length > 1)
-        printf("\b\b]");
+        printf("\b\b] \b");
     else
-        printf("\b\b");
+        printf("\b\b \b");
 }

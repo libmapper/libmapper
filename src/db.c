@@ -2019,7 +2019,8 @@ static int update_connection_record_params(mapper_db db,
         mapper_boundary_action bound_max;
         if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
             bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max != con->sources[slot].bound_max) {
+            if (bound_max != BA_UNDEFINED
+                && bound_max != con->sources[slot].bound_max) {
                 con->sources[slot].bound_max = bound_max;
                 updated++;
             }
@@ -2029,7 +2030,8 @@ static int update_connection_record_params(mapper_db db,
                 if (types[i] != 's' && types[i] != 'S')
                     continue;
                 bound_max = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_max != con->sources[i].bound_max) {
+                if (bound_max != BA_UNDEFINED
+                    && bound_max != con->sources[i].bound_max) {
                     con->sources[i].bound_max = bound_max;
                     updated++;
                 }
@@ -2041,7 +2043,8 @@ static int update_connection_record_params(mapper_db db,
         mapper_boundary_action bound_min;
         if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
             bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min != con->sources[slot].bound_min) {
+            if (bound_min != BA_UNDEFINED
+                && bound_min != con->sources[slot].bound_min) {
                 con->sources[slot].bound_min = bound_min;
                 updated++;
             }
@@ -2051,7 +2054,8 @@ static int update_connection_record_params(mapper_db db,
                 if (types[i] != 's' && types[i] != 'S')
                     continue;
                 bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_min != con->sources[i].bound_min) {
+                if (bound_min != BA_UNDEFINED
+                    && bound_min != con->sources[i].bound_min) {
                     con->sources[i].bound_min = bound_min;
                     updated++;
                 }
@@ -2063,7 +2067,8 @@ static int update_connection_record_params(mapper_db db,
         mapper_boundary_action bound_max;
         if (types[0] == 's' || types[0] == 'S') {
             bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max != con->destination.bound_max) {
+            if (bound_max != BA_UNDEFINED
+                && bound_max != con->destination.bound_max) {
                 con->destination.bound_max = bound_max;
                 updated++;
             }
@@ -2074,7 +2079,8 @@ static int update_connection_record_params(mapper_db db,
         mapper_boundary_action bound_min;
         if (types[0] == 's' || types[0] == 'S') {
             bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min != con->destination.bound_min) {
+            if (bound_min != BA_UNDEFINED
+                && bound_min != con->destination.bound_min) {
                 con->destination.bound_min = bound_min;
                 updated++;
             }
