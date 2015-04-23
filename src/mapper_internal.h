@@ -671,7 +671,7 @@ void mapper_msg_add_typed_value(lo_message m, char type,
 
 /*! Prepare a lo_message for sending based on a connection struct. */
 void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
-                                           int slot);
+                                           int slot, int suppress_remote_props);
 
 /*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,

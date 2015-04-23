@@ -1101,7 +1101,7 @@ static void mapper_admin_send_connection(mapper_admin admin, mapper_device md,
     }
 
     // add other properties
-    mapper_connection_prepare_osc_message(m, c, slot);
+    mapper_connection_prepare_osc_message(m, c, slot, (cmd == ADM_CONNECT_TO));
 
     lo_bundle_add_message(admin->bundle, admin_msg_strings[cmd], m);
     // TODO: should send bundle here since message refers to generated strings

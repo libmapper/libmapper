@@ -1760,8 +1760,15 @@ void mhist_realloc(mapper_history history,
     history->size = history_size;
 }
 
+inline static void message_add_bool(lo_message m, int value) {
+    if (value)
+        lo_message_add_true(m);
+    else
+        lo_message_add_false(m);
+}
+
 void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
-                                           int slot)
+                                           int slot, int suppress_remote_props)
 {
     /* if message being sent upstream:
      *      - could be part of convergent connection
@@ -1818,7 +1825,7 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
             }
         }
     }
-    else {
+    else if (c->sources[slot].local || !suppress_remote_props) {
         if (c->sources[slot].status & MAPPER_TYPE_KNOWN) {
             lo_message_add_string(m, mapper_get_param_string(AT_SRC_TYPE));
             lo_message_add_char(m, props->sources[slot].type);
@@ -1829,16 +1836,18 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
         }
     }
 
-    // Destination type
-    if (c->destination.status & MAPPER_TYPE_KNOWN) {
-        lo_message_add_string(m, mapper_get_param_string(AT_DEST_TYPE));
-        lo_message_add_char(m, props->destination.type);
-    }
+    if (c->destination.local || !suppress_remote_props) {
+        // Destination type
+        if (c->destination.status & MAPPER_TYPE_KNOWN) {
+            lo_message_add_string(m, mapper_get_param_string(AT_DEST_TYPE));
+            lo_message_add_char(m, props->destination.type);
+        }
 
-    // Destination vector length
-    if (c->destination.status & MAPPER_LENGTH_KNOWN) {
-        lo_message_add_string(m, mapper_get_param_string(AT_DEST_LENGTH));
-        lo_message_add_int32(m, props->destination.length);
+        // Destination vector length
+        if (c->destination.status & MAPPER_LENGTH_KNOWN) {
+            lo_message_add_string(m, mapper_get_param_string(AT_DEST_LENGTH));
+            lo_message_add_int32(m, props->destination.length);
+        }
     }
 
     if (slot >= 0) {
@@ -1888,49 +1897,48 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
     }
 
     // Boundary actions
-    lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MIN));
     if (slot >= 0) {
-        lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_min));
+        if (c->sources[slot].local || !suppress_remote_props)  {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MIN));
+            lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_min));
+        }
     }
-    else {
+    else if (!suppress_remote_props || !c->one_source || c->sources[0].local) {
+        lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MIN));
         for (i = 0; i < props->num_sources; i++)
             lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[i].bound_min));
     }
-    lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MAX));
+
     if (slot >= 0) {
-        lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_max));
+        if (c->sources[slot].local || !suppress_remote_props) {
+            lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MAX));
+            lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[slot].bound_max));
+        }
     }
-    else {
+    else if (!suppress_remote_props || !c->one_source || c->sources[0].local) {
+        lo_message_add_string(m, mapper_get_param_string(AT_SRC_BOUND_MAX));
         for (i = 0; i < props->num_sources; i++)
             lo_message_add_string(m, mapper_get_boundary_action_string(props->sources[i].bound_max));
     }
-    lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MIN));
-    lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_min));
-    lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MAX));
-    lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_max));
+
+    if (c->destination.local || !suppress_remote_props) {
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MIN));
+        lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_min));
+        lo_message_add_string(m, mapper_get_param_string(AT_DEST_BOUND_MAX));
+        lo_message_add_string(m, mapper_get_boundary_action_string(props->destination.bound_max));
+    }
 
     // Muting
     lo_message_add_string(m, mapper_get_param_string(AT_MUTE));
-    if (props->muted)
-        lo_message_add_true(m);
-    else
-        lo_message_add_false(m);
+    message_add_bool(m, props->muted);
 
     // Calibrating
     lo_message_add_string(m, mapper_get_param_string(AT_CALIBRATING));
-    if (slot >= 0) {
-        if (props->sources[slot].calibrating)
-            lo_message_add_true(m);
-        else
-            lo_message_add_false(m);
-    }
+    if (slot >= 0)
+        message_add_bool(m, props->sources[slot].calibrating);
     else {
-        for (i = 0; i < props->num_sources; i++) {
-            if (props->sources[i].calibrating)
-                lo_message_add_true(m);
-            else
-                lo_message_add_false(m);
-        }
+        for (i = 0; i < props->num_sources; i++)
+            message_add_bool(m, props->sources[i].calibrating);
     }
 
     // Connection scopes
@@ -1955,29 +1963,21 @@ void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
 
     // Send as Instance
     lo_message_add_string(m, mapper_get_param_string(AT_SEND_AS_INSTANCE));
-    if (slot >= 0) {
-        if (props->sources[slot].send_as_instance)
-            lo_message_add_true(m);
-        else
-            lo_message_add_false(m);
-    }
+    if (slot >= 0)
+        message_add_bool(m, props->sources[slot].send_as_instance);
     else {
-        for (i = 0; i < props->num_sources; i++) {
-            if (props->sources[i].send_as_instance)
-                lo_message_add_true(m);
-            else
-                lo_message_add_false(m);
-        }
+        for (i = 0; i < props->num_sources; i++)
+            message_add_bool(m, props->sources[i].send_as_instance);
     }
 
     // Cause update
     if (props->num_sources > 1) {
         lo_message_add_string(m, mapper_get_param_string(AT_CAUSE_UPDATE));
-        for (i = 0; i < props->num_sources; i++) {
-            if (props->sources[i].cause_update)
-                lo_message_add_true(m);
-            else
-                lo_message_add_false(m);
+        if (slot >= 0)
+            message_add_bool(m, props->sources[slot].cause_update);
+        else {
+            for (i = 0; i < props->num_sources; i++)
+                message_add_bool(m, props->sources[i].cause_update);
         }
     }
 
