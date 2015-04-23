@@ -34,11 +34,19 @@ const char *mode_strings[] =
 
 const char *bound_strings[] =
 {
+    "undefined",
     "none",
     "mute",
     "clamp",
     "fold",
     "wrap"
+};
+
+const char *process_location_strings[] =
+{
+    "undefined",
+    "source",
+    "destination"
 };
 
 void dbpause()
@@ -182,6 +190,8 @@ void printconnection(mapper_db_connection con)
             printf("%s=", key);
             if (strcmp(key, "mode")==0)
                 printf("%s", mode_strings[*((int*)val)]);
+            else if (strcmp(key, "process_at")==0)
+                printf("%s", process_location_strings[*((int*)val)]);
             else
                 mapper_prop_pp(type, length, val);
             printf(", ");

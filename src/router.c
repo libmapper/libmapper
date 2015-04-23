@@ -440,7 +440,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 continue;
             }
 
-            if (!sp->cause_update)
+            if (c->props.process_location == MAPPER_SOURCE && !sp->cause_update)
                 continue;
 
             if (!(mapper_connection_perform(c, s, instance,

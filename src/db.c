@@ -2125,11 +2125,11 @@ static int update_connection_record_params(mapper_db db,
     args = mapper_msg_get_param(params, AT_PROCESS, &types, &length);
     if (args && types && (types[0] == 's' || types[0] == 'S')) {
         int at_source = (strcmp(&args[0]->s, "source")==0);
-        if (at_source && con->process_location == MAPPER_DESTINATION) {
+        if (at_source && con->process_location != MAPPER_SOURCE) {
             con->process_location = MAPPER_SOURCE;
             updated++;
         }
-        else if (!at_source && con->process_location == MAPPER_SOURCE) {
+        else if (!at_source && con->process_location != MAPPER_DESTINATION) {
             con->process_location = MAPPER_DESTINATION;
             updated++;
         }

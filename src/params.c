@@ -52,6 +52,7 @@ const char* prop_msg_strings[] =
 
 const char* mapper_boundary_action_strings[] =
 {
+    NULL,          /* BA_UNDEFINED */
     "none",        /* BA_NONE */
     "mute",        /* BA_MUTE */
     "clamp",       /* BA_CLAMP */
