@@ -50,6 +50,18 @@ static const char *skip_slash(const char *string)
     return string;
 }
 
+static int extract_signal_name(const char *string, char **signameptr)
+{
+    if (!string)
+        return 0;
+    char *signame = strchr(string+1, '/');
+    if (!signame || (signame - string) < 2) // devname must be >= 2 chars
+        return 0;
+    if (signameptr)
+        *signameptr = signame;
+    return (signame - string);
+}
+
 #define LIST_HEADER_SIZE (sizeof(list_header_t)-sizeof(int[1]))
 
 /*! Reserve memory for a list item.  Reserves an extra pointer at the
@@ -1819,47 +1831,23 @@ static int update_connection_record_params(mapper_db db,
 
     updated += update_int_if_arg(&con->id, params, AT_ID);
 
-    if (!mapper_msg_get_param_if_int(params, AT_SLOT, &slot)) {
-        // if this is simple connection, "@slot" defines destination slot index
-        // if this is convergent connection, "@slot" indicates a specific source slot
+    if (con->num_sources == 1)
+        slot = 0;
+    else if (src_name) {
+        // retrieve slot
         for (i = 0; i < con->num_sources; i++) {
-            if (con->sources[i].slot_id == slot) {
+            if (strcmp(con->sources[i].signal->name, src_name) == 0) {
+                slot = i;
                 break;
             }
         }
-        if (i == con->num_sources) {
-            // need to add slot
-            if (con->num_sources >= MAX_NUM_CONNECTION_SOURCES) {
-                trace("error: maximum connection sources exceeded.\n");
-                return 0;
-            }
-            char devname[256], *signame = strchr(src_name+1, '/');
-            int devnamelen = signame - src_name;
-            if (devnamelen >= 256) {
-                trace("error: device name length > 256 characters.\n");
-                return 0;
-            }
-            strncpy(devname, src_name, devnamelen);
-            devname[devnamelen] = 0;
+    }
 
-            con->num_sources++;
-            con->sources = realloc(con->sources,
-                                   sizeof(struct _mapper_db_connection_slot)
-                                   * con->num_sources);
-
-            // also add source signal if necessary
-            con->sources[i].signal =
-                mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-            con->sources[i].signal->device = con->sources[i].signal->device;
-            con->sources[i].slot_id = slot;
-            con->sources[i].minimum = con->sources[i].maximum = 0;
-
-            // slots should be in alphabetical order
-            qsort(con->sources, con->num_sources,
-                  sizeof(mapper_db_connection_slot_t), compare_slot_names);
-        }
-        slot = i;
-        update_connection_hash(con);
+    /* @slot */
+    int slot_id;
+    if (!mapper_msg_get_param_if_int(params, AT_SLOT, &slot_id)) {
+        if (slot >= 0)
+            con->sources[i].slot_id = slot_id;
     }
 
     /* @srcType */
@@ -2167,6 +2155,11 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                                                                const char *dest_name,
                                                                mapper_message_t *params)
 {
+    if (num_sources >= MAX_NUM_CONNECTION_SOURCES) {
+        trace("error: maximum connection sources exceeded.\n");
+        return 0;
+    }
+
     mapper_db_connection con;
     int rc = 0, updated = 0, devnamelen, i, j;
     char *signame, devname[256];
@@ -2190,10 +2183,11 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                         calloc(1, sizeof(struct _mapper_db_connection_slot)
                                * num_sources));
         for (i = 0; i < num_sources; i++) {
-            signame = strchr(src_names[i]+1, '/');
-            devnamelen = signame - src_names[i];
-            if (devnamelen >= 256) {
-                // TODO: clean up partially-built record
+            devnamelen = extract_signal_name(src_names[i], &signame);
+            if (!devnamelen || devnamelen >= 256) {
+                trace("error extracting device name\n");
+                // clean up partially-built record
+                list_remove_item(con, (void**)&db->registered_connections);
                 return 0;
             }
             strncpy(devname, src_names[i], devnamelen);
@@ -2206,10 +2200,11 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             con->sources[i].cause_update = 1;
             con->sources[i].minimum = con->sources[i].maximum = 0;
         }
-        signame = strchr(dest_name+1, '/');
-        devnamelen = signame - dest_name;
-        if (devnamelen >= 256) {
-            // TODO: clean up partially-built record
+        devnamelen = extract_signal_name(dest_name, &signame);
+        if (!devnamelen || devnamelen >= 256) {
+            trace("error extracting device name\n");
+            // clean up partially-built record
+            list_remove_item(con, (void**)&db->registered_connections);
             return 0;
         }
         strncpy(devname, dest_name, devnamelen);
@@ -2228,9 +2223,9 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
     else if (con->num_sources < num_sources) {
         // add one or more sources
         for (i = 0; i < num_sources; i++) {
-            signame = strchr(src_names[i]+1, '/');
-            devnamelen = signame - src_names[i];
-            if (devnamelen > 256) {
+            devnamelen = extract_signal_name(src_names[i], &signame);
+            if (!devnamelen || devnamelen >= 256) {
+                trace("error extracting device name\n");
                 return 0;
             }
             strncpy(devname, src_names[i], devnamelen);
@@ -2238,6 +2233,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             for (j = 0; j < con->num_sources; j++) {
                 if (strcmp(devname, con->sources[j].signal->device->name)==0
                     && strcmp(signame, con->sources[j].signal->name)==0) {
+                    con->sources[j].slot_id = i;
                     break;
                 }
             }
@@ -2248,15 +2244,20 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
                                        * con->num_sources);
                 con->sources[j].signal =
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
+                con->sources[j].slot_id = i;
+                con->sources[j].cause_update = 1;
                 con->sources[j].minimum = con->sources[j].maximum = 0;
             }
         }
+        // slots should be in alphabetical order
+        qsort(con->sources, con->num_sources,
+              sizeof(mapper_db_connection_slot_t), compare_slot_names);
         update_connection_hash(con);
     }
 
     if (con) {
-        updated = update_connection_record_params(db, con, src_names[0],
-                                                  params);
+        updated = update_connection_record_params(db, con, num_sources > 1
+                                                  ? 0 : src_names[0], params);
 
         if (rc)
             list_prepend_item(con, (void**)&db->registered_connections);
@@ -2373,9 +2374,9 @@ mapper_db_connection mapper_db_get_connection_by_dest_device_and_id(
 static int cmp_query_get_connections_by_device_name(void *context_data,
                                                     mapper_db_connection con)
 {
-    // TODO: need to extract actual device name from string
     const char *devname = (const char*)context_data;
-    unsigned int len = strlen(devname);
+    // extract actual device name from string
+    unsigned int len = extract_signal_name(devname, 0);
     int i;
     for (i = 0; i < con->num_sources; i++) {
         if (strlen(con->sources[i].signal->device->name+1) == len
@@ -2411,8 +2412,6 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_name(
 static int cmp_query_get_connections_by_src_dest_device_names(
     void *context_data, mapper_db_connection con)
 {
-    // TODO: need to extract actual devices name from connection record
-    // to avoid risk of erroneous substring matches
     int i, offset;
     const char *num_sources_str = (const char*)context_data;
     offset = strlen(num_sources_str) + 1;
@@ -2507,8 +2506,8 @@ static int cmp_query_get_connections_by_src_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
     const char *fullname = (const char*) context_data;
-    const char *signame = strchr(fullname+1, '/');
-    int i, len = signame - fullname;
+    char *signame;
+    int i, len = extract_signal_name(fullname, &signame);
 
     for (i = 0; i < con->num_sources; i++) {
         if (strlen(con->sources[i].signal->device->name+1) == len
@@ -2575,8 +2574,8 @@ static int cmp_query_get_connections_by_dest_device_and_signal_names(
     void *context_data, mapper_db_connection con)
 {
     const char *fullname = (const char*) context_data;
-    const char *signame = strchr(fullname+1, '/');
-    int len = signame - fullname;
+    char *signame;
+    int len = extract_signal_name(fullname, &signame);
     return (strlen(con->destination.signal->device->name+1) == len
             && strncmp(con->destination.signal->device->name+1, fullname, len)==0
             && strcmp(con->destination.signal->name, signame)==0);
@@ -2613,14 +2612,13 @@ mapper_db_connection mapper_db_get_connection_by_signal_full_names(
     if (!con)
         return 0;
 
-    const char *signame;
+    char *signame;
     int devnamelen;
     while (con) {
         if (con->num_sources == num_sources) {
             int matched = 0;
             for (i=0; i<num_sources; i++) {
-                signame = strchr(src_names[i]+1, '/');
-                devnamelen = signame - src_names[i];
+                devnamelen = extract_signal_name(src_names[i], &signame);
                 for (j=0; j<num_sources; j++) {
                     if (strlen(con->sources[j].signal->device->name) == devnamelen
                         && strncmp(con->sources[j].signal->device->name,
@@ -2633,8 +2631,7 @@ mapper_db_connection mapper_db_get_connection_by_signal_full_names(
                 }
             }
             if (matched == num_sources) {
-                signame = strchr(dest_name+1, '/');
-                devnamelen = signame - dest_name;
+                devnamelen = extract_signal_name(dest_name, &signame);
                 if (strlen(con->destination.signal->device->name) == devnamelen
                     && strncmp(con->destination.signal->device->name,
                                dest_name, devnamelen)==0
@@ -2652,8 +2649,8 @@ static int cmp_query_get_connections_by_device_and_signal_name(
     void *context_data, mapper_db_connection con)
 {
     const char *fullname = (const char*) context_data;
-    const char *signame = strchr(fullname+1, '/');
-    int i, len = signame - fullname;
+    char *signame;
+    int i, len = extract_signal_name(fullname, &signame);
     for (i = 0; i < con->num_sources; i++) {
         if (strlen(con->sources[i].signal->device->name+1) == len
             && strncmp(con->sources[i].signal->device->name+1, fullname, len)==0
@@ -2697,12 +2694,12 @@ static int cmp_query_get_connections_by_device_and_signal_names(
     if (con->num_sources != num_sources)
         return 0;
 
-    const char *fullname, *signame;
+    const char *fullname;
+    char *signame;
     for (i = 0; i < num_sources; i++) {
         fullname = (const char *)context_data + offset;
         // slash already skipped
-        signame = strchr(fullname, '/');
-        len = signame - fullname;
+        len = extract_signal_name(fullname, &signame);
         if (strlen(con->sources[i].signal->device->name+1) != len
             || strncmp(con->sources[i].signal->device->name+1, fullname, len)
             || strcmp(con->sources[i].signal->name, signame))
@@ -2711,8 +2708,7 @@ static int cmp_query_get_connections_by_device_and_signal_names(
     }
     fullname = (const char *)context_data + offset;
     // slash already skipped
-    signame = strchr(fullname, '/');
-    len = signame - fullname;
+    len = extract_signal_name(fullname, &signame);
     return (strlen(con->destination.signal->device->name+1) == len
             && strncmp(con->destination.signal->device->name+1, fullname, len)==0
             && strcmp(con->destination.signal->name, signame)==0);
