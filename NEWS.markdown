@@ -43,7 +43,7 @@ They are summarized very briefly here:
     to the _actual value_ of the destination signal rather than the
     output of the expression. If the past behaviour is desired, a
     user-defined variable can be used to cache the expression output
-    (e.g. _foo=foo{-1}+x; y=foo_). Note that if the destination value
+    (e.g. _foo=foo+x; y=foo_). Note that if the destination value
     is referenced in the expression string libmapper will automatically
     move signal processing to the destination device.
     * _multi-source connections_. Finally, libmapper connections can
