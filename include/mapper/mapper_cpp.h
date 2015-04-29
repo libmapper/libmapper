@@ -99,7 +99,7 @@ namespace mapper {
     {
     protected:
         friend class Property;
-        virtual void set(mapper::Property *p) = 0;
+        virtual AbstractProps& set(mapper::Property *p) = 0;
     public:
         virtual AbstractProps& set(mapper::Property p) = 0;
         virtual AbstractProps& remove(const string_type &name) = 0;
@@ -125,14 +125,29 @@ namespace mapper {
             { maybe_free(); }
 
         template <typename T>
-        void set(T _value)
-            { maybe_free(); _set(_value); if (parent) parent->set(this); }
+        Property& set(T _value)
+        {
+            maybe_free();
+            _set(_value);
+            if (parent) parent->set(this);
+            return (*this);
+        }
         template <typename T>
-        void set(T& _value, int _length)
-            { maybe_free(); _set(_value, _length); if (parent) parent->set(this); }
+        Property& set(T& _value, int _length)
+        {
+            maybe_free();
+            _set(_value, _length);
+            if (parent) parent->set(this);
+            return (*this);
+        }
         template <typename T>
-        void set(std::vector<T> _value)
-            { maybe_free(); _set(_value); if (parent) parent->set(this); }
+        Property& set(std::vector<T> _value)
+        {
+            maybe_free();
+            _set(_value);
+            if (parent) parent->set(this);
+            return (*this);
+        }
 
         operator const void*() const
             { return value; }
@@ -325,7 +340,7 @@ namespace mapper {
     class AbstractObjectProps : public AbstractProps
     {
     protected:
-        virtual void set(mapper::Property *p) = 0;
+        virtual AbstractObjectProps& set(mapper::Property *p) = 0;
     public:
         virtual AbstractObjectProps& set(mapper::Property p) = 0;
         virtual Property get(const string_type &name) const = 0;
@@ -357,13 +372,14 @@ namespace mapper {
             { signal = sig; props = msig_properties(signal); }
         AbstractSignalProps(mapper_db_signal sig_db)
             { signal = 0; props = sig_db; }
-        void set(mapper::Property *p)
+        AbstractSignalProps& set(mapper::Property *p)
         {
             if (signal)
                 msig_set_property(signal, p->name, p->type,
                                   p->type == 's' && p->length == 1
                                   ? (void*)&p->value : (void*)p->value,
                                   p->length);
+            return (*this);
         }
 
     private:
@@ -420,180 +436,180 @@ namespace mapper {
             { return signal; }
 
         // TODO: check if data type is correct in update!
-        Signal update(void *value, int count)
+        Signal& update(void *value, int count)
             { msig_update(signal, value, count, MAPPER_NOW); return (*this); }
-        Signal update(void *value, int count, Timetag tt)
+        Signal& update(void *value, int count, Timetag tt)
             { msig_update(signal, value, count, *tt); return (*this); }
-        Signal update(int value)
+        Signal& update(int value)
             { msig_update_int(signal, value); return (*this); }
-        Signal update(float value)
+        Signal& update(float value)
             { msig_update_float(signal, value); return (*this); }
-        Signal update(double value)
+        Signal& update(double value)
             { msig_update_double(signal, value); return (*this); }
-        Signal update(int *value, int count=0)
+        Signal& update(int *value, int count=0)
         {
             if (props->type == 'i')
                 msig_update(signal, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update(float *value, int count=0)
+        Signal& update(float *value, int count=0)
         {
             if (props->type == 'f')
                 msig_update(signal, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update(double *value, int count=0)
+        Signal& update(double *value, int count=0)
         {
             if (props->type == 'd')
                 msig_update(signal, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update(int *value, Timetag tt)
+        Signal& update(int *value, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update(signal, value, 1, *tt);
             return (*this);
         }
-        Signal update(float *value, Timetag tt)
+        Signal& update(float *value, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update(signal, value, 1, *tt);
             return (*this);
         }
-        Signal update(double *value, Timetag tt)
+        Signal& update(double *value, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update(signal, value, 1, *tt);
             return (*this);
         }
-        Signal update(int *value, int count, Timetag tt)
+        Signal& update(int *value, int count, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update(signal, value, count, *tt);
             return (*this);
         }
-        Signal update(float *value, int count, Timetag tt)
+        Signal& update(float *value, int count, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update(signal, value, count, *tt);
             return (*this);
         }
-        Signal update(double *value, int count, Timetag tt)
+        Signal& update(double *value, int count, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update(signal, value, count, *tt);
             return (*this);
         }
-        Signal update(std::vector <int> value)
+        Signal& update(std::vector <int> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
-        Signal update(std::vector <float> value)
+        Signal& update(std::vector <float> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
-        Signal update(std::vector <double> value)
+        Signal& update(std::vector <double> value)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
-        Signal update(std::vector <int> value, Timetag tt)
+        Signal& update(std::vector <int> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
             return (*this);
         }
-        Signal update(std::vector <float> value, Timetag tt)
+        Signal& update(std::vector <float> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
             return (*this);
         }
-        Signal update(std::vector <double> value, Timetag tt)
+        Signal& update(std::vector <double> value, Timetag tt)
         {
             msig_update(signal, &value[0],
                         value.size() / props->length, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, void *value, int count)
+        Signal& update_instance(int instance_id, void *value, int count)
         {
             msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, void *value, int count, Timetag tt)
+        Signal& update_instance(int instance_id, void *value, int count, Timetag tt)
         {
             msig_update_instance(signal, instance_id, value, count, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, int value)
+        Signal& update_instance(int instance_id, int value)
         {
             msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, float value)
+        Signal& update_instance(int instance_id, float value)
         {
             msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, double value)
+        Signal& update_instance(int instance_id, double value)
         {
             msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, int *value, int count=0)
+        Signal& update_instance(int instance_id, int *value, int count=0)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, float *value, int count=0)
+        Signal& update_instance(int instance_id, float *value, int count=0)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, double *value, int count=0)
+        Signal& update_instance(int instance_id, double *value, int count=0)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
             return (*this);
         }
-        Signal update_instance(int instance_id, int *value, Timetag tt)
+        Signal& update_instance(int instance_id, int *value, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, float *value, Timetag tt)
+        Signal& update_instance(int instance_id, float *value, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, double *value, Timetag tt)
+        Signal& update_instance(int instance_id, double *value, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, 1, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, int *value, int count, Timetag tt)
+        Signal& update_instance(int instance_id, int *value, int count, Timetag tt)
         {
             if (props->type == 'i')
                 msig_update_instance(signal, instance_id, value, count, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, float *value, int count, Timetag tt)
+        Signal& update_instance(int instance_id, float *value, int count, Timetag tt)
         {
             if (props->type == 'f')
                 msig_update_instance(signal, instance_id, value, count, *tt);
             return (*this);
         }
-        Signal update_instance(int instance_id, double *value, int count, Timetag tt)
+        Signal& update_instance(int instance_id, double *value, int count, Timetag tt)
         {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, count, *tt);
@@ -611,21 +627,21 @@ namespace mapper {
             { return msig_query_remotes(signal, MAPPER_NOW); }
         int query_remotes(Timetag tt) const
             { return msig_query_remotes(signal, *tt); }
-        Signal reserve_instances(int num)
+        Signal& reserve_instances(int num)
             { msig_reserve_instances(signal, num, 0, 0); return (*this); }
-        Signal reserve_instances(int num, int *instance_ids, void **user_data)
+        Signal& reserve_instances(int num, int *instance_ids, void **user_data)
         {
             msig_reserve_instances(signal, num, instance_ids, user_data);
             return (*this);
         }
-        Signal release_instance(int instance_id)
+        Signal& release_instance(int instance_id)
         {
             msig_release_instance(signal, instance_id, MAPPER_NOW);
             return (*this);
         }
-        Signal release_instance(int instance_id, Timetag tt)
+        Signal& release_instance(int instance_id, Timetag tt)
             { msig_release_instance(signal, instance_id, *tt); return (*this); }
-        Signal remove_instance(int instance_id)
+        Signal& remove_instance(int instance_id)
             { msig_remove_instance(signal, instance_id); return (*this); }
         int oldest_active_instance(int *instance_id)
             { return msig_get_oldest_active_instance(signal, instance_id); }
@@ -637,24 +653,24 @@ namespace mapper {
             { return msig_num_reserved_instances(signal); }
         int active_instance_id(int index) const
             { return msig_active_instance_id(signal, index); }
-        Signal set_instance_allocation_mode(mapper_instance_allocation_type mode)
+        Signal& set_instance_allocation_mode(mapper_instance_allocation_type mode)
             { msig_set_instance_allocation_mode(signal, mode); return (*this); }
         mapper_instance_allocation_type get_instance_allocation_mode() const
             { return msig_get_instance_allocation_mode(signal); }
-        Signal set_instance_event_callback(mapper_signal_instance_event_handler h,
-                                         int flags, void *user_data)
+        Signal& set_instance_event_callback(mapper_signal_instance_event_handler h,
+                                            int flags, void *user_data)
         {
             msig_set_instance_event_callback(signal, h, flags, user_data);
             return (*this);
         }
-        Signal set_instance_data(int instance_id, void *user_data)
+        Signal& set_instance_data(int instance_id, void *user_data)
         {
             msig_set_instance_data(signal, instance_id, user_data);
             return (*this);
         }
         void *instance_data(int instance_id) const
             { return msig_get_instance_data(signal, instance_id); }
-        Signal set_callback(mapper_signal_update_handler *handler, void *user_data)
+        Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
         {
             msig_set_callback(signal, handler, user_data);
             return (*this);
@@ -667,13 +683,13 @@ namespace mapper {
             msig_full_name(signal, str, 64);
             return std::string(str);
         }
-        Signal set_minimum(void *value)
+        Signal& set_minimum(void *value)
             { msig_set_minimum(signal, value); return (*this); }
-        Signal set_maximum(void *value)
+        Signal& set_maximum(void *value)
             { msig_set_maximum(signal, value); return (*this); }
-        Signal set_rate(int rate)
+        Signal& set_rate(int rate)
             { msig_set_rate(signal, rate); return (*this); }
-        Signal set_direction(mapper_direction_t direction)
+        Signal& set_direction(mapper_direction_t direction)
             { msig_set_direction(signal, direction); return (*this); }
         class Properties : public AbstractSignalProps
         {
@@ -723,13 +739,14 @@ namespace mapper {
             { device = dev; props = mdev_properties(device); }
         AbstractDeviceProps(mapper_db_device dev_db)
             { device = 0; props = dev_db; }
-        void set(mapper::Property *p)
+        AbstractDeviceProps& set(mapper::Property *p)
         {
             if (device)
                 mdev_set_property(device, p->name, p->type,
                                   p->type == 's' && p->length == 1 ?
                                   (void*)&p->value : (void*)p->value,
                                   p->length);
+            return (*this);
         }
 
     private:
@@ -877,10 +894,10 @@ namespace mapper {
             { return mdev_interface(device); }
         int ordinal() const
             { return mdev_ordinal(device); }
-        void start_queue(Timetag tt) const
-            { mdev_start_queue(device, *tt); }
-        void send_queue(Timetag tt) const
-            { mdev_send_queue(device, *tt); }
+        Device& start_queue(Timetag tt)
+            { mdev_start_queue(device, *tt); return (*this); }
+        Device& send_queue(Timetag tt)
+            { mdev_send_queue(device, *tt); return (*this); }
 //        lo::Server get_lo_server()
 //            { return lo::Server(mdev_get_lo_server(device)); }
         Device& set_connection_callback(mapper_device_connection_handler handler,
@@ -1307,7 +1324,7 @@ namespace mapper {
                     { props = 0; parent = 0; flags = 0; }
                 operator mapper_db_connection_slot() const
                     { return props; }
-                void set(mapper::Property *p) {}
+                Slot& set(mapper::Property *p) { return (*this); }
                 Slot& set(mapper::Property p) { return (*this); }
                 Slot& remove(const string_type &name) { return (*this); }
                 int flags;
@@ -1322,7 +1339,7 @@ namespace mapper {
                 { return _sources[index]; }
         protected:
             friend class Monitor;
-            void set(mapper::Property *p) {}
+            Connection& set(mapper::Property *p) { return (*this); }
             Connection& set(Property p) { set(&p); return (*this); }
             Connection& remove(const string_type &name) { return (*this); }
         private:
