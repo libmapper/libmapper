@@ -1762,12 +1762,12 @@ static int mapper_db_connection_add_scope(mapper_connection_scope scope,
 static int mapper_db_connection_remove_scope(mapper_connection_scope scope,
                                              int index)
 {
-    int j;
+    int i;
 
     free(scope->names[index]);
-    for (j=index+1; j<scope->size; j++) {
-        scope->names[j-1] = scope->names[j];
-        scope->hashes[j-1] = scope->hashes[j];
+    for (i = index+1; i < scope->size; i++) {
+        scope->names[i-1] = scope->names[i];
+        scope->hashes[i-1] = scope->hashes[i];
     }
     scope->size--;
     scope->names = realloc(scope->names, scope->size * sizeof(char *));
@@ -1847,7 +1847,7 @@ static int update_connection_record_params(mapper_db db,
     int slot_id;
     if (!mapper_msg_get_param_if_int(params, AT_SLOT, &slot_id)) {
         if (slot >= 0)
-            con->sources[i].slot_id = slot_id;
+            con->sources[slot].slot_id = slot_id;
     }
 
     /* @srcType */
@@ -1905,8 +1905,7 @@ static int update_connection_record_params(mapper_db db,
             if (length == s->length) {
                 if (!s->maximum)
                     s->maximum = calloc(1, length * mapper_type_size(s->type));
-                int j;
-                for (j = 0; j < length; j++) {
+                for (i = 0; i < length; i++) {
                     result = propval_set_from_lo_arg(s->maximum, s->type,
                                                      args[i], types[i], i);
                 }
@@ -1917,8 +1916,7 @@ static int update_connection_record_params(mapper_db db,
             if (length == s->length) {
                 if (!s->maximum)
                     s->maximum = calloc(1, length * mapper_type_size(s->type));
-                int j;
-                for (j = 0; j < length; j++) {
+                for (i = 0; i < length; i++) {
                     result = propval_set_from_lo_arg(s->maximum, s->type,
                                                      args[i], types[i], i);
                 }
@@ -1937,8 +1935,7 @@ static int update_connection_record_params(mapper_db db,
             if (length == s->length) {
                 if (!s->minimum)
                     s->minimum = calloc(1, length * mapper_type_size(s->type));
-                int j;
-                for (j = 0; j < length; j++) {
+                for (i = 0; i < length; i++) {
                     result = propval_set_from_lo_arg(s->minimum, s->type,
                                                      args[i], types[i], i);
                 }
@@ -1949,8 +1946,7 @@ static int update_connection_record_params(mapper_db db,
             if (length == s->length) {
                 if (!s->minimum)
                     s->minimum = calloc(1, length * mapper_type_size(s->type));
-                int j;
-                for (j = 0; j < length; j++) {
+                for (i = 0; i < length; i++) {
                     result = propval_set_from_lo_arg(s->minimum, s->type,
                                                      args[i], types[i], i);
                 }
@@ -1968,13 +1964,11 @@ static int update_connection_record_params(mapper_db db,
         if (length == s->length) {
             if (!s->maximum)
                 s->maximum = calloc(1, length * mapper_type_size(s->type));
-            int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(s->maximum, s->type,
                                                  args[i], types[i], i);
-                if (result == -1) {
+                if (result == -1)
                     break;
-                }
                 else
                     updated += result;
             }
@@ -1988,13 +1982,11 @@ static int update_connection_record_params(mapper_db db,
         if (length == s->length) {
             if (!s->minimum)
                 s->minimum = calloc(1, length * mapper_type_size(s->type));
-            int i;
             for (i=0; i<length; i++) {
                 result = propval_set_from_lo_arg(s->minimum, s->type,
                                                  args[i], types[i], i);
-                if (result == -1) {
+                if (result == -1)
                     break;
-                }
                 else
                     updated += result;
             }
