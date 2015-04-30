@@ -272,25 +272,16 @@ typedef struct _mapper_connection {
                                              *   of self-connection. */
 } mapper_connection_t, *mapper_connection;
 
-/*! The link_signal is a linked list containing a signal and a
+/*! The router_signal is a linked list containing a signal and a
  *  list of connections.  TODO: This should be replaced with a more
  *  efficient approach such as a hash table or search tree. */
 typedef struct _mapper_router_signal {
     struct _mapper_router *link;            //!< The parent link.
     struct _mapper_signal *signal;          //!< The associated signal.
-    int num_instances;                      //!< Number of instances allocated.
-//    int max_output_size;                    /*!< Maximum output vector size in
-//                                             *   child connections. */
-
-    mapper_history history;                 /*!< Array of value histories
-                                             *   for each signal instance. */
-    int history_size;                       //!< History size.
 
     int id_counter;
-    int num_outgoing_slots;
-    mapper_connection_slot *outgoing_slots;
-    int num_incoming_connections;
-    mapper_connection *incoming_connections;
+    int num_slots;
+    mapper_connection_slot *slots;
 
     struct _mapper_router_signal *next;     /*!< The next signal connection
                                              *   in the list. */

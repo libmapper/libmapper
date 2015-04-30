@@ -569,6 +569,8 @@ int mapper_db_flush(mapper_db db, uint32_t current_time,
                     uint32_t timeout, int quiet);
 
 /**** Messages ****/
+/*! Parse the device and signal names from an OSC path. */
+int mapper_parse_names(const char *string, char **devnameptr, char **signameptr);
 
 /*! Parse a message based on an OSC path and parameters.
  *  \param msg    Structure to receive parameter info.

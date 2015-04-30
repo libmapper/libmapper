@@ -36,6 +36,9 @@ static double get_current_time()
 mapper_device mdev_new(const char *name_prefix, int port,
                        mapper_admin admin)
 {
+    if (!name_prefix)
+        return 0;
+
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
 
@@ -51,6 +54,14 @@ mapper_device mdev_new(const char *name_prefix, int port,
     mdev_start_server(md, port);
 
     if (!md->admin || !md->server) {
+        mdev_free(md);
+        return NULL;
+    }
+
+    if (name_prefix[0] == '/')
+        name_prefix++;
+    if (strchr(name_prefix, '/')) {
+        trace("error: character '/' is not permitted in device name.\n");
         mdev_free(md);
         return NULL;
     }
@@ -781,12 +792,12 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
     sig->device = md;
     sig->props.device = &md->props;
 
-    lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
+    lo_server_add_method(md->server, sig->props.path, NULL, handler_signal,
                          (void *) (sig));
 
-    int len = strlen(sig->props.name) + 5;
+    int len = strlen(sig->props.path) + 5;
     signal_get = (char*) realloc(signal_get, len);
-    snprintf(signal_get, len, "%s%s", sig->props.name, "/get");
+    snprintf(signal_get, len, "%s%s", sig->props.path, "/get");
     lo_server_add_method(md->server, signal_get, NULL,
                          handler_query, (void *) (sig));
 
@@ -840,15 +851,15 @@ void mdev_add_signal_methods(mapper_device md, mapper_signal sig)
         return;
 
     char *path = 0;
-    lo_server_add_method(md->server, sig->props.name, NULL, handler_signal,
+    lo_server_add_method(md->server, sig->props.path, NULL, handler_signal,
                          (void *) (sig));
 
-    int len = strlen(sig->props.name) + 5;
+    int len = strlen(sig->props.path) + 5;
     path = (char*) realloc(path, len);
-    snprintf(path, len, "%s%s", sig->props.name, "/get");
+    snprintf(path, len, "%s%s", sig->props.path, "/get");
     lo_server_add_method(md->server, path, NULL,
                          handler_query, (void *) (sig));
-    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    snprintf(path, len, "%s%s", sig->props.path, "/got");
     lo_server_add_method(md->server, path, NULL, handler_signal,
                          (void *) (sig));
 
@@ -869,9 +880,9 @@ void mdev_remove_signal_methods(mapper_device md, mapper_signal sig)
     if (i==md->props.num_outputs)
         return;
 
-    len = (int) strlen(sig->props.name) + 5;
+    len = (int) strlen(sig->props.path) + 5;
     path = (char*) realloc(path, len);
-    snprintf(path, len, "%s%s", sig->props.name, "/got");
+    snprintf(path, len, "%s%s", sig->props.path, "/got");
     lo_server_del_method(md->server, path, NULL);
     md->n_output_callbacks --;
 }
@@ -882,7 +893,7 @@ void mdev_add_instance_release_request_callback(mapper_device md, mapper_signal 
         return;
 
     // TODO: use normal release message?
-    lo_server_add_method(md->server, sig->props.name, "iiF",
+    lo_server_add_method(md->server, sig->props.path, "iiF",
                          handler_instance_release_request, (void *) (sig));
     md->n_output_callbacks ++;
 }
@@ -898,7 +909,7 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     }
     if (i==md->props.num_outputs)
         return;
-    lo_server_del_method(md->server, sig->props.name, "iiF");
+    lo_server_del_method(md->server, sig->props.path, "iiF");
     md->n_output_callbacks --;
 }
 
@@ -920,7 +931,7 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
     for (i = 0; i < c->props.num_sources; i++) {
         result = snprintf(&source_names[len], 1024-len, "%s%s",
                           c->sources[i].props->signal->device->name,
-                          c->sources[i].props->signal->name);
+                          c->sources[i].props->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for combined /connected msg");
             lo_message_free(m);
@@ -931,7 +942,7 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
     }
     lo_message_add_string(m, "->");
     snprintf(dest_name, 1024, "%s%s", c->destination.props->signal->device->name,
-             c->destination.props->signal->name);
+             c->destination.props->signal->path);
     lo_message_add_string(m, dest_name);
     lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
     mapper_admin_send_bundle(admin);
@@ -951,10 +962,10 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         md->inputs[n] = md->inputs[n+1];
     }
 
-    lo_server_del_method(md->server, sig->props.name, NULL);
+    lo_server_del_method(md->server, sig->props.path, NULL);
 
     char str[1024];
-    snprintf(str, 1024, "%s/get", sig->props.name);
+    snprintf(str, 1024, "%s/get", sig->props.path);
     lo_server_del_method(md->server, str, NULL);
 
     mapper_router_signal rs = md->router->signals;
@@ -962,18 +973,11 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         rs = rs->next;
     if (rs) {
         // need to disconnect
-        for (i = 0; i < rs->num_outgoing_slots; i++) {
-            if (rs->outgoing_slots[i]) {
-                mapper_connection c = rs->outgoing_slots[i]->connection;
+        for (i = 0; i < rs->num_slots; i++) {
+            if (rs->slots[i]) {
+                mapper_connection c = rs->slots[i]->connection;
                 send_disconnect(md->admin, c);
                 mapper_router_remove_connection(md->router, c);
-            }
-        }
-        for (i = 0; i < rs->num_incoming_connections; i++) {
-            if (rs->incoming_connections[i]) {
-                send_disconnect(md->admin, rs->incoming_connections[i]);
-                mapper_router_remove_connection(md->router,
-                                                rs->incoming_connections[i]);
             }
         }
         mapper_router_remove_signal(md->router, rs);
@@ -1006,12 +1010,12 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     }
     if (sig->handler) {
         char str[1024];
-        snprintf(str, 1024, "%s/got", sig->props.name);
+        snprintf(str, 1024, "%s/got", sig->props.path);
         lo_server_del_method(md->server, str, NULL);
     }
     if (sig->instance_event_handler &&
         (sig->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
-        lo_server_del_method(md->server, sig->props.name, "iiF");
+        lo_server_del_method(md->server, sig->props.path, "iiF");
     }
 
     mapper_router_signal rs = md->router->signals;
@@ -1019,18 +1023,11 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         rs = rs->next;
     if (rs) {
         // need to disconnect
-        for (i = 0; i < rs->num_outgoing_slots; i++) {
-            if (rs->outgoing_slots[i]) {
-                mapper_connection c = rs->outgoing_slots[i]->connection;
+        for (i = 0; i < rs->num_slots; i++) {
+            if (rs->slots[i]) {
+                mapper_connection c = rs->slots[i]->connection;
                 send_disconnect(md->admin, c);
                 mapper_router_remove_connection(md->router, c);
-            }
-        }
-        for (i = 0; i < rs->num_incoming_connections; i++) {
-            if (rs->incoming_connections[i]) {
-                send_disconnect(md->admin, rs->incoming_connections[i]);
-                mapper_router_remove_connection(md->router,
-                                                rs->incoming_connections[i]);
             }
         }
         mapper_router_remove_signal(md->router, rs);
@@ -1108,11 +1105,8 @@ mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
         return 0;
 
     slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->props.num_inputs; i++)
-    {
-        if (strcmp(md->inputs[i]->props.name + 1,
-                   name + slash)==0)
-        {
+    for (i=0; i<md->props.num_inputs; i++) {
+        if (strcmp(md->inputs[i]->props.name, name + slash)==0) {
             if (index)
                 *index = i;
             return md->inputs[i];
@@ -1129,11 +1123,8 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
         return 0;
 
     slash = name[0]=='/' ? 1 : 0;
-    for (i=0; i<md->props.num_outputs; i++)
-    {
-        if (strcmp(md->outputs[i]->props.name + 1,
-                   name + slash)==0)
-        {
+    for (i=0; i<md->props.num_outputs; i++) {
+        if (strcmp(md->outputs[i]->props.name, name + slash)==0) {
             if (index)
                 *index = i;
             return md->outputs[i];
@@ -1373,20 +1364,20 @@ void mdev_start_server(mapper_device md, int starting_port)
         trace("bound to port %i\n", md->props.port);
 
         for (i = 0; i < md->props.num_inputs; i++) {
-            lo_server_add_method(md->server, md->inputs[i]->props.name, NULL,
+            lo_server_add_method(md->server, md->inputs[i]->props.path, NULL,
                                  handler_signal, (void *) (md->inputs[i]));
 
-            int len = (int) strlen(md->inputs[i]->props.name) + 5;
+            int len = (int) strlen(md->inputs[i]->props.path) + 5;
             path = (char*) realloc(path, len);
-            snprintf(path, len, "%s%s", md->inputs[i]->props.name, "/get");
+            snprintf(path, len, "%s%s", md->inputs[i]->props.path, "/get");
             lo_server_add_method(md->server, path, NULL, handler_query,
                                  (void *) (md->inputs[i]));
         }
         for (i = 0; i < md->props.num_outputs; i++) {
             if (md->outputs[i]->handler) {
-                int len = (int) strlen(md->outputs[i]->props.name) + 5;
+                int len = (int) strlen(md->outputs[i]->props.path) + 5;
                 path = (char*) realloc(path, len);
-                snprintf(path, len, "%s%s", md->outputs[i]->props.name, "/got");
+                snprintf(path, len, "%s%s", md->outputs[i]->props.path, "/got");
                 lo_server_add_method(md->server, path, NULL, handler_signal,
                                      (void *) (md->outputs[i]));
                 md->n_output_callbacks ++;
@@ -1394,7 +1385,7 @@ void mdev_start_server(mapper_device md, int starting_port)
             if (md->outputs[i]->instance_event_handler &&
                 (md->outputs[i]->instance_event_flags & IN_DOWNSTREAM_RELEASE)) {
                 lo_server_add_method(md->server,
-                                     md->outputs[i]->props.name,
+                                     md->outputs[i]->props.path,
                                      "iiF",
                                      handler_instance_release_request,
                                      (void *) (md->outputs[i]));
@@ -1416,7 +1407,7 @@ const char *mdev_name(mapper_device md)
     unsigned int len = strlen(md->props.identifier) + 6;
     md->props.name = (char *) malloc(len);
     md->props.name[0] = 0;
-    snprintf(md->props.name, len, "/%s.%d", md->props.identifier,
+    snprintf(md->props.name, len, "%s.%d", md->props.identifier,
              md->ordinal.value);
     return md->props.name;
 }

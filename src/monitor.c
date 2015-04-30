@@ -147,7 +147,7 @@ static void monitor_subscribe_internal(mapper_monitor mon,
                                        int version)
 {
     char cmd[1024];
-    snprintf(cmd, 1024, "%s/subscribe", device_name);
+    snprintf(cmd, 1024, "/%s/subscribe", device_name);
 
     monitor_set_bundle_dest(mon, device_name);
     lo_message m = lo_message_new();
@@ -235,7 +235,7 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
     while (*s) {
         if (strcmp((*s)->name, device_name)==0) {
             if (send_message) {
-                snprintf(cmd, 1024, "%s/unsubscribe", device_name);
+                snprintf(cmd, 1024, "/%s/unsubscribe", device_name);
                 monitor_set_bundle_dest(mon, device_name);
                 lo_message m = lo_message_new();
                 if (!m)
@@ -349,11 +349,11 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
         snprintf(src_name, 256, "%s%s", sources[i]->device->name,
-                 sources[i]->name);
+                 sources[i]->path);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
     mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
                                  props);
@@ -430,11 +430,11 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
         snprintf(src_name, 256, "%s%s", sources[i]->device->name,
-                 sources[i]->name);
+                 sources[i]->path);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
     mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
                                            dest_name, props);
@@ -453,12 +453,12 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
     for (i = 0; i < props->num_sources; i++) {
         char src_name[256];
         snprintf(src_name, 256, "%s%s", props->sources[i].signal->device->name,
-                 props->sources[i].signal->name);
+                 props->sources[i].signal->path);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", props->destination.signal->device->name,
-             props->destination.signal->name);
+             props->destination.signal->path);
 
     mmon_modify_connection_by_signal_names(mon, props->num_sources, src_names,
                                            dest_name, props);
@@ -506,11 +506,11 @@ void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
     for (i = 0; i < num_sources; i++) {
         char src_name[256];
         snprintf(src_name, 256, "%s%s", sources[i]->device->name,
-                 sources[i]->name);
+                 sources[i]->path);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->name);
+    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
     mmon_disconnect_signals_by_name(mon, num_sources, src_names, dest_name);
 
@@ -528,12 +528,12 @@ void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
     for (i = 0; i < c->num_sources; i++) {
         char src_name[256];
         snprintf(src_name, 256, "%s%s", c->sources[i].signal->device->name,
-                 c->sources[i].signal->name);
+                 c->sources[i].signal->path);
         src_names[i] = strdup(src_name);
     }
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", c->destination.signal->device->name,
-             c->destination.signal->name);
+             c->destination.signal->path);
 
     mmon_disconnect_signals_by_name(mon, c->num_sources, src_names, dest_name);
 

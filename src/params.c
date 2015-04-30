@@ -74,6 +74,36 @@ inline static int type_match(const char l, const char r)
     return (l == r || ((l == 'T' || l == 'F') && (r == 'T' || r == 'F')));
 }
 
+inline static const char *skip_slash(const char *string)
+{
+    return string + (string && string[0]=='/');
+}
+
+int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
+{
+    if (!string)
+        return 0;
+    const char *devname = skip_slash(string);
+    if (!devname || devname[0] == '/')
+        return 0;
+    if (devnameptr)
+        *devnameptr = (char*) devname;
+    char *signame = strchr(devname+1, '/');
+    if (!signame) {
+        if (signameptr)
+            *signameptr = 0;
+        return strlen(devname);
+    }
+    if (!++signame) {
+        if (signameptr)
+            *signameptr = 0;
+        return strlen(devname)-1;
+    }
+    if (signameptr)
+        *signameptr = signame;
+    return (signame - devname - 1);
+}
+
 int mapper_msg_parse_params(mapper_message_t *msg,
                             const char *path, const char *types,
                             int argc, lo_arg **argv)

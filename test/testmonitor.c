@@ -307,7 +307,7 @@ void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
 
 void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
 {
-    printf("Signal %s%s ", sig->device->name, sig->name);
+    printf("Signal %s/%s ", sig->device->name, sig->name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
@@ -331,9 +331,9 @@ void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
     int i;
     printf("Connection ");
     for (i = 0; i < con->num_sources; i++)
-        printf("%s%s ", con->sources[i].signal->device->name,
+        printf("%s/%s ", con->sources[i].signal->device->name,
                con->sources[i].signal->name);
-    printf("-> %s%s ", con->destination.signal->device->name,
+    printf("-> %s/%s ", con->destination.signal->device->name,
            con->destination.signal->name);
     switch (a) {
     case MDB_NEW:

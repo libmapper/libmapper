@@ -1077,13 +1077,9 @@ int mapper_connection_check_status(mapper_connection c)
         // allocate memory for connection history
         // TODO: should we wait for link information also?
         for (i = 0; i < c->props.num_sources; i++) {
-            if (!c->sources[i].local) {
-                init_connection_history(&c->sources[i], &c->props.sources[i]);
-            }
+            init_connection_history(&c->sources[i], &c->props.sources[i]);
         }
-        if (!c->destination.local) {
-            init_connection_history(&c->destination, &c->props.destination);
-        }
+        init_connection_history(&c->destination, &c->props.destination);
         if (!c->expr_vars) {
             c->expr_vars = calloc(1, sizeof(mapper_history)
                                   * c->num_var_instances);
@@ -1584,8 +1580,6 @@ void reallocate_connection_histories(mapper_connection c)
                 mhist_realloc(&s->history[j], history_size, sample_size, 1);
             }
             s->history_size = history_size;
-            if (s->local)
-                s->local->history_size = history_size;
         }
         else if (history_size < s->history_size) {
             // Do nothing for now...
@@ -1636,8 +1630,6 @@ void reallocate_connection_histories(mapper_connection c)
                 mhist_realloc(&s->history[i], history_size, sample_size, 0);
             }
             s->history_size = history_size;
-            if (s->local)
-                s->local->history_size = history_size;
         }
         else if (history_size < s->history_size) {
             // Do nothing for now...

@@ -93,7 +93,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_signal sig = msig_new("/test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
+    mapper_signal sig = msig_new("test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
     mapper_db_signal sigprop = msig_properties(sig);
 
     /* Test that default parameters are all listed. */
@@ -329,7 +329,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking value: '%s' ... ", (char*)val);
-    if (strcmp((char*)val, "/test")) {
+    if (strcmp((char*)val, "test")) {
         eprintf("ERROR (expected '%s')\n", str);
         result = 1;
         goto cleanup;

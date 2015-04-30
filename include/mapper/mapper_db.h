@@ -125,8 +125,8 @@ typedef struct _mapper_connection_scope {
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal {
     mapper_db_device device;
-    char *name;             /*! The name of this signal, an OSC path.  Must
-                             *  start with '/'. */
+    char *path;             /*! OSC path.  Must start with '/'. */
+    char *name;             /*! The name of this signal. */
 
     char *unit;             //!< The unit of this signal, or NULL for N/A.
     char *description;

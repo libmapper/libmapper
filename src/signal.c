@@ -1,5 +1,6 @@
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -107,8 +108,8 @@ void msig_free(mapper_signal sig)
         free(sig->props.minimum);
     if (sig->props.maximum)
         free(sig->props.maximum);
-    if (sig->props.name)
-        free((char*)sig->props.name);
+    if (sig->props.path)
+        free((char*)sig->props.path);
     if (sig->props.description)
         free(sig->props.description);
     if (sig->props.unit)
@@ -1011,11 +1012,10 @@ int msig_full_name(mapper_signal sig, char *name, int len)
     int mdlen = strlen(mdname);
     if (mdlen >= len)
         return 0;
-    if ((mdlen + strlen(sig->props.name)) > len)
+    if ((mdlen + strlen(sig->props.name) + 1) > len)
         return 0;
 
-    strncpy(name, mdname, len);
-    strncat(name, sig->props.name, len);
+    snprintf(name, len, "%s%s", mdname, sig->props.path);
     return strlen(name);
 }
 
@@ -1158,7 +1158,6 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
     return i;
 }
 
-// TODO: This method may count same connection multiple times - FIX!
 int msig_num_connections(mapper_signal sig)
 {
     int i, count = 0;
@@ -1166,12 +1165,8 @@ int msig_num_connections(mapper_signal sig)
     while (rs && rs->signal != sig)
         rs = rs->next;
     if (rs) {
-        for (i = 0; i < rs->num_incoming_connections; i++) {
-            if (rs->incoming_connections[i])
-                count++;
-        }
-        for (i = 0; i < rs->num_outgoing_slots; i++) {
-            if (rs->outgoing_slots[i])
+        for (i = 0; i < rs->num_slots; i++) {
+            if (rs->slots[i])
                 count++;
         }
     }

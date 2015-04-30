@@ -303,18 +303,18 @@ namespace mapper {
             }
         }
         void _set(std::vector<int> _value)
-            { value = _value.data(); length = _value.size(); type = 'i'; }
+            { value = _value.data(); length = (int)_value.size(); type = 'i'; }
         void _set(std::vector<float> _value)
-            { value = _value.data(); length = _value.size(); type = 'f'; }
+            { value = _value.data(); length = (int)_value.size(); type = 'f'; }
         void _set(std::vector<double> _value)
-            { value = _value.data(); length = _value.size(); type = 'd'; }
+            { value = _value.data(); length = (int)_value.size(); type = 'd'; }
         void _set(std::vector<char> _value)
-            { value = _value.data(); length = _value.size(); type = 'c'; }
+            { value = _value.data(); length = (int)_value.size(); type = 'c'; }
         void _set(std::vector<const char*>& _value)
-            { value = _value.data(); length = _value.size(); type = 's'; }
+            { value = _value.data(); length = (int)_value.size(); type = 's'; }
         void _set(std::vector<std::string>& _value)
         {
-            length = _value.size();
+            length = (int)_value.size();
             type = 's';
             if (length == 1) {
                 value = _value[0].c_str();
@@ -503,37 +503,37 @@ namespace mapper {
         Signal& update(std::vector <int> value)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, MAPPER_NOW);
+                        (int)value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
         Signal& update(std::vector <float> value)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, MAPPER_NOW);
+                        (int)value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
         Signal& update(std::vector <double> value)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, MAPPER_NOW);
+                        (int)value.size() / props->length, MAPPER_NOW);
             return (*this);
         }
         Signal& update(std::vector <int> value, Timetag tt)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, *tt);
+                        (int)value.size() / props->length, *tt);
             return (*this);
         }
         Signal& update(std::vector <float> value, Timetag tt)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, *tt);
+                        (int)value.size() / props->length, *tt);
             return (*this);
         }
         Signal& update(std::vector <double> value, Timetag tt)
         {
             msig_update(signal, &value[0],
-                        value.size() / props->length, *tt);
+                        (int)value.size() / props->length, *tt);
             return (*this);
         }
         Signal& update_instance(int instance_id, void *value, int count)
@@ -1592,28 +1592,28 @@ namespace mapper {
                                const mapper::Signal &dest,
                                const mapper::Db::Connection &props=0) const
         {
-            connect(sources.size(), sources.data(), dest, props);
+            connect((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
         const Monitor& connect(std::vector<const mapper::Db::Signal> sources,
                                const mapper::Db::Signal &dest,
                                const mapper::Db::Connection &props=0) const
         {
-            connect(sources.size(), sources.data(), dest, props);
+            connect((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
         const Monitor& connect(std::vector<const char*>& sources,
                                const string_type &dest,
                                const mapper::Db::Connection &props=0) const
         {
-            connect(sources.size(), sources.data(), dest, props);
+            connect((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
         const Monitor& connect(std::vector<std::string>& sources,
                                const string_type &dest,
                                const mapper::Db::Connection &props=0) const
         {
-            connect(sources.size(), sources.data(), dest, props);
+            connect((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
         const Monitor& modify_connection(const mapper::Db::Connection &connection) const
