@@ -1887,7 +1887,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 {FAIL("Unknown token type.");}
                 break;
         }
-#if TRACING
+#if (TRACING && DEBUG)
         printstack("OUTPUT STACK:", outstack, outstack_index);
         printstack("OPERATOR STACK:", opstack, opstack_index);
 #endif
@@ -1919,7 +1919,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
         {FAIL("Malformed expression (6).");}
 
-#if TRACING
+#if (TRACING && DEBUG)
     printstack("--->OUTPUT STACK:", outstack, outstack_index);
     printstack("--->OPERATOR STACK:", opstack, opstack_index);
 #endif
