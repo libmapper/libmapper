@@ -1478,7 +1478,6 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                                  | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
                 break;
             case TOK_VAR:
-                // set datatype
                 if (tok.var >= VAR_X) {
                     int slot = tok.var-VAR_X;
                     if (slot >= num_inputs)
@@ -2078,6 +2077,9 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 
     /* Increment index position of output data structure. */
     output->position = (output->position + 1) % output->size;
+
+    for (i = 0; i < expr->num_variables; i++)
+        expr->variables[i].assigned = 0;
 
     while (count < expr->length && tok->toktype != TOK_END) {
         switch (tok->toktype) {
@@ -2690,12 +2692,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
         case TOK_ASSIGNMENT:
 #if TRACING
             if (tok->var == VAR_Y)
-                printf("assigning values to y_%c%d{%i}[%i]\n", tok->datatype,
-                       tok->vector_length, tok->history_index, tok->vector_index);
+                printf("assigning values to y{%i}[%i] (%s x %d)\n",
+                       tok->history_index, tok->vector_index,
+                       type_name(tok->datatype), tok->vector_length);
             else
-                printf("assigning values to var%d_%c%d{%i}[%i]\n", tok->var,
-                       tok->datatype, tok->vector_length, tok->history_index,
-                       tok->vector_index);
+                printf("assigning values to %s{%i}[%i] (%s x %d)\n",
+                       expr->variables[tok->var].name, tok->history_index,
+                       tok->vector_index, type_name(tok->datatype),
+                       tok->vector_length);
 #endif
             updated++;
             if (tok->var == VAR_Y) {
@@ -2758,6 +2762,8 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     mapper_timetag_t *ttvar = mapper_history_tt_ptr(*h);
                     memcpy(ttvar, tt, sizeof(mapper_timetag_t));
                 }
+
+                expr->variables[tok->var].assigned = 1;
             }
             else
                 goto error;
@@ -2867,6 +2873,18 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
         // Also copy timetag from input
         mapper_timetag_t *ttto = mapper_history_tt_ptr(*output);
         memcpy(ttto, tt, sizeof(mapper_timetag_t));
+    }
+
+    for (i = 0; i < expr->num_variables; i++) {
+        if (expr->variables[i].assigned) {
+#if TRACING
+            printf("incrementing position for variable %s\n",
+                   expr->variables[i].name);
+#endif
+            // increment position
+            mapper_history h = *expr_vars + i;
+            h->position = (h->position + 1) % h->size;
+        }
     }
 
     return 1;
