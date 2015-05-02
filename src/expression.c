@@ -1661,19 +1661,6 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 while (opstack_index >= 0 && opstack[opstack_index].toktype == TOK_OP
                        && op_table[opstack[opstack_index].op].precedence >=
                        op_table[tok.op].precedence) {
-                    /* If operands are constants, we will pop operators of equal
-                     * precendence to the output stack to allow precomputation,
-                     * otherwise only pop operators with greater precedence.
-                     * This results in a more efficient representation. */
-                    int i, consts_only = 1;
-                    for (i = 0; i < op_table[opstack[opstack_index].op].arity; i++) {
-                        if (outstack[outstack_index-i].toktype != TOK_CONST)
-                            consts_only = 0;
-                    }
-                    if (!consts_only
-                        && op_table[opstack[opstack_index].op].precedence ==
-                        op_table[tok.op].precedence)
-                        break;
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 PUSH_TO_OPERATOR(tok);

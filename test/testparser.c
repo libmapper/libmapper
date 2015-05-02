@@ -526,7 +526,7 @@ int run_tests()
     setup_test('i', 1, src_int, 'f', 1, dest_float);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
-    eprintf("Expected: %g\n", (float)src_int[0] + 3.5);
+    eprintf("Expected: %g\n", (float)src_int[0] + 1.1 - 2.2 * 3.3);
 
     /* Malformed variable declaration */
     snprintf(str, 256, "y=x + myvariable * 10");
