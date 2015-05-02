@@ -586,6 +586,26 @@ int run_tests()
         return 1;
     eprintf("Expected: [4, 7]\n");
 
+    /* Functions with memory: ema() */
+    snprintf(str, 256, "y=x-ema(x,0.1)+2");
+    setup_test('i', 1, src_int, 'f', 1, dest_float);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: ->2\n");
+
+    /* Functions with memory: schmidt() */
+    snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
+    setup_test('i', 1, src_int, 'f', 1, dest_float);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    if (iterations < 80)
+        eprintf("Expected: %d\n", iterations);
+    else {
+        int cycles = (iterations-20) / 60;
+        int remainder = (iterations-20) % 60;
+        eprintf("Expected: %d\n", (cycles % 2) ? 80 - remainder : 20 + remainder);
+    }
+
     return 0;
 }
 

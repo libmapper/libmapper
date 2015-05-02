@@ -274,6 +274,26 @@ static double vmind(mapper_value_t *val, int length)
     return min;
 }
 
+static float emaf(float memory, float val, float weight)
+{
+    return val * weight + memory * (1 - weight);
+}
+
+static double emad(double memory, double val, double weight)
+{
+    return val * weight + memory * (1 - weight);
+}
+
+static float schmittf(float memory, float val, float low, float high)
+{
+    return memory ? val > low : val >= high;
+}
+
+static double schmittd(double memory, double val, double low, double high)
+{
+    return memory ? val > low : val >= high;
+}
+
 typedef enum {
     VAR_UNKNOWN=-1,
     VAR_Y=N_USER_VARS,
@@ -296,6 +316,7 @@ typedef enum {
     FUNC_COS,
     FUNC_COSH,
     FUNC_E,
+    FUNC_EMA,
     FUNC_EXP,
     FUNC_EXP2,
     FUNC_FLOOR,
@@ -311,6 +332,7 @@ typedef enum {
     FUNC_PI,
     FUNC_POW,
     FUNC_ROUND,
+    FUNC_SCHMITT,
     FUNC_SIN,
     FUNC_SINH,
     FUNC_SQRT,
@@ -324,47 +346,50 @@ typedef enum {
 
 static struct {
     const char *name;
-    unsigned int arity;
+    const char arity;
+    const char memory;
     void *func_int32;
     void *func_float;
     void *func_double;
 } function_table[] = {
-    { "abs",      1,    abs,        fabsf,      fabs        },
-    { "acos",     1,    0,          acosf,      acos        },
-    { "acosh",    1,    0,          acoshf,     acosh       },
-    { "asin",     1,    0,          asinf,      asin        },
-    { "asinh",    1,    0,          asinhf,     asinh       },
-    { "atan",     1,    0,          atanf,      atan        },
-    { "atan2",    2,    0,          atan2f,     atan2       },
-    { "atanh",    1,    0,          atanhf,     atanh       },
-    { "cbrt",     1,    0,          cbrtf,      cbrt        },
-    { "ceil",     1,    0,          ceilf,      ceil        },
-    { "cos",      1,    0,          cosf,       cos         },
-    { "cosh",     1,    0,          coshf,      cosh        },
-    { "e",        0,    0,          ef,         ed          },
-    { "exp",      1,    0,          expf,       exp         },
-    { "exp2",     1,    0,          exp2f,      exp2        },
-    { "floor",    1,    0,          floorf,     floor       },
-    { "hypot",    2,    0,          hypotf,     hypot       },
-    { "hzToMidi", 1,    0,          hzToMidif,  hzToMidid   },
-    { "log",      1,    0,          logf,       log         },
-    { "log10",    1,    0,          log10f,     log10       },
-    { "log2",     1,    0,          log2f,      log2        },
-    { "logb",     1,    0,          logbf,      logb        },
-    { "max",      2,    maxi,       maxf,       maxd        },
-    { "midiToHz", 1,    0,          midiToHzf,  midiToHzd   },
-    { "min",      2,    mini,       minf,       mind        },
-    { "pi",       0,    0,          pif,        pid         },
-    { "pow",      2,    0,          powf,       pow         },
-    { "round",    1,    0,          roundf,     round       },
-    { "sin",      1,    0,          sinf,       sin         },
-    { "sinh",     1,    0,          sinhf,      sinh        },
-    { "sqrt",     1,    0,          sqrtf,      sqrt        },
-    { "tan",      1,    0,          tanf,       tan         },
-    { "tanh",     1,    0,          tanhf,      tanh        },
-    { "trunc",    1,    0,          truncf,     trunc       },
+    { "abs",        1,  0,  abs,    fabsf,      fabs        },
+    { "acos",       1,  0,  0,      acosf,      acos        },
+    { "acosh",      1,  0,  0,      acoshf,     acosh       },
+    { "asin",       1,  0,  0,      asinf,      asin        },
+    { "asinh",      1,  0,  0,      asinhf,     asinh       },
+    { "atan",       1,  0,  0,      atanf,      atan        },
+    { "atan2",      2,  0,  0,      atan2f,     atan2       },
+    { "atanh",      1,  0,  0,      atanhf,     atanh       },
+    { "cbrt",       1,  0,  0,      cbrtf,      cbrt        },
+    { "ceil",       1,  0,  0,      ceilf,      ceil        },
+    { "cos",        1,  0,  0,      cosf,       cos         },
+    { "cosh",       1,  0,  0,      coshf,      cosh        },
+    { "e",          0,  0,  0,      ef,         ed          },
+    { "ema",        3,  1,  0,      emaf,       emad        },
+    { "exp",        1,  0,  0,      expf,       exp         },
+    { "exp2",       1,  0,  0,      exp2f,      exp2        },
+    { "floor",      1,  0,  0,      floorf,     floor       },
+    { "hypot",      2,  0,  0,      hypotf,     hypot       },
+    { "hzToMidi",   1,  0,  0,      hzToMidif,  hzToMidid   },
+    { "log",        1,  0,  0,      logf,       log         },
+    { "log10",      1,  0,  0,      log10f,     log10       },
+    { "log2",       1,  0,  0,      log2f,      log2        },
+    { "logb",       1,  0,  0,      logbf,      logb        },
+    { "max",        2,  0,  maxi,   maxf,       maxd        },
+    { "midiToHz",   1,  0,  0,      midiToHzf,  midiToHzd   },
+    { "min",        2,  0,  mini,   minf,       mind        },
+    { "pi",         0,  0,  0,      pif,        pid         },
+    { "pow",        2,  0,  0,      powf,       pow         },
+    { "round",      1,  0,  0,      roundf,     round       },
+    { "schmitt",    4,  1,  0,      schmittf,   schmittd    },
+    { "sin",        1,  0,  0,      sinf,       sin         },
+    { "sinh",       1,  0,  0,      sinhf,      sinh        },
+    { "sqrt",       1,  0,  0,      sqrtf,      sqrt        },
+    { "tan",        1,  0,  0,      tanf,       tan         },
+    { "tanh",       1,  0,  0,      tanhf,      tanh        },
+    { "trunc",      1,  0,  0,      truncf,     trunc       },
     /* place functions which should never be precomputed below this point */
-    { "uniform",  1,    0,          uniformf,   uniformd    },
+    { "uniform",    1,  0,  0,      uniformf,   uniformd    },
 };
 
 typedef enum {
@@ -461,9 +486,13 @@ typedef int func_int32_arity2(int,int);
 typedef float func_float_arity0();
 typedef float func_float_arity1(float);
 typedef float func_float_arity2(float,float);
+typedef float func_float_arity3(float,float,float);
+typedef float func_float_arity4(float,float,float,float);
 typedef double func_double_arity0();
 typedef double func_double_arity1(double);
 typedef double func_double_arity2(double,double);
+typedef double func_double_arity3(double,double,double);
+typedef double func_double_arity4(double,double,double,double);
 typedef int vfunc_int32_arity1(mapper_value_t*, int);
 typedef float vfunc_float_arity1(mapper_value_t*, int);
 typedef double vfunc_double_arity1(mapper_value_t*, int);
@@ -485,8 +514,9 @@ typedef struct _token {
         TOK_COMMA           = 0x0800,
         TOK_COLON           = 0x1000,
         TOK_SEMICOLON       = 0x2000,
-        TOK_ASSIGNMENT      = 0x4000,
-        TOK_VECTORIZE,
+        TOK_VECTORIZE       = 0x4000,
+        TOK_ASSIGNMENT      = 0x8000,
+        TOK_ASSIGN_USE,
         TOK_END,
     } toktype;
     union {
@@ -524,22 +554,46 @@ typedef struct _variable {
 
 static expr_func_t function_lookup(const char *s, int len)
 {
-    int i;
+    int i, j;
     for (i=0; i<N_FUNCS; i++) {
         if (strlen(function_table[i].name) == len
-            && strncmp(s, function_table[i].name, len)==0)
-            return i;
+            && strncmp(s, function_table[i].name, len)==0) {
+            if (!function_table[i].arity)
+                return i;
+            // also check for parenthesis
+            j = strlen(function_table[i].name);
+            while (s[j]) {
+                if (s[j] == '(')
+                    return i;
+                else if (s[j] != ' ')
+                    return FUNC_UNKNOWN;
+                j++;
+            }
+            break;
+        }
     }
     return FUNC_UNKNOWN;
 }
 
 static expr_vfunc_t vfunction_lookup(const char *s, int len)
 {
-    int i;
+    int i, j;
     for (i=0; i<N_VFUNCS; i++) {
         if (strlen(vfunction_table[i].name) == len
-            && strncmp(s, vfunction_table[i].name, len)==0)
-            return i;
+            && strncmp(s, vfunction_table[i].name, len)==0) {
+            if (vfunction_table[i].arity)
+                return i;
+            // also check for parenthesis
+            j = strlen(vfunction_table[i].name);
+            while (s[j]) {
+                if (s[j] == '(')
+                    return i;
+                else if (s[j] != ' ')
+                    return VFUNC_UNKNOWN;
+                j++;
+            }
+            break;
+        }
     }
     return VFUNC_UNKNOWN;
 }
@@ -932,6 +986,7 @@ void printtoken(mapper_token_t tok)
             snprintf(tokstr, 32, "%s()", vfunction_table[tok.func].name);
             break;
         case TOK_ASSIGNMENT:
+        case TOK_ASSIGN_USE:
             if (tok.var == VAR_Y)
                 snprintf(tokstr, 32, "ASSIGN_TO:y{%d}[%d]->[%d]",
                          tok.history_index, tok.assignment_offset,
@@ -953,7 +1008,7 @@ void printtoken(mapper_token_t tok)
     printf("%c[%d]", tok.datatype, tok.vector_length);
     if (tok.vector_length_locked)
         printf("L");
-    if (tok.toktype != TOK_ASSIGNMENT && tok.casttype)
+    if (tok.toktype < TOK_ASSIGNMENT && tok.casttype)
         printf("->%c", tok.casttype);
     printf("\n");
 }
@@ -999,7 +1054,7 @@ static char promote_token_datatype(mapper_token_t *tok, char type)
     if (tok->datatype == type)
         return type;
 
-    if (tok->toktype == TOK_ASSIGNMENT) {
+    if (tok->toktype >= TOK_ASSIGNMENT) {
         if (tok->var >= VAR_Y) {
             // typecasting is not possible
             return tok->datatype;
@@ -1134,6 +1189,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             can_precompute = 0;
             break;
         case TOK_ASSIGNMENT:
+        case TOK_ASSIGN_USE:
             arity = 1;
             can_precompute = 0;
             break;
@@ -1196,14 +1252,26 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
             }
             else
                 skip--;
-            if (stack[i].toktype == TOK_OP)
-                skip += op_table[stack[i].op].arity;
-            else if (stack[i].toktype == TOK_FUNC)
-                skip += function_table[stack[i].func].arity;
-            else if (stack[i].toktype == TOK_VFUNC)
-                skip += vfunction_table[stack[i].func].arity;
-            else if (stack[i].toktype == TOK_VECTORIZE)
-                skip += stack[i].arity;
+
+            switch (stack[i].toktype) {
+                case TOK_OP:
+                    skip += op_table[stack[i].op].arity;
+                    break;
+                case TOK_FUNC:
+                    skip += function_table[stack[i].func].arity;
+                    break;
+                case TOK_VFUNC:
+                    skip += vfunction_table[stack[i].func].arity;
+                    break;
+                case TOK_VECTORIZE:
+                    skip += stack[i].arity;
+                    break;
+                case TOK_ASSIGN_USE:
+                    skip++;
+                    break;
+                default:
+                    break;
+            }
         }
 
         if (depth)
@@ -1250,17 +1318,20 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
         /* walk down stack distance of arity again, promoting datatypes
          * and vector lengths */
         i = top;
-        if (stack[top].toktype == TOK_VECTORIZE) {
-            skip = stack[top].arity;
-            depth = 0;
-        }
-        else if (stack[top].toktype == TOK_VFUNC) {
-            skip = 1;
-            depth = 0;
-        }
-        else {
-            skip = 0;
-            depth = arity;
+        switch (stack[top].toktype) {
+            case TOK_VECTORIZE:
+                skip = stack[top].arity;
+                depth = 0;
+                break;
+            case TOK_VFUNC:
+            case TOK_ASSIGN_USE:
+                skip = 1;
+                depth = 0;
+                break;
+            default:
+                skip = 0;
+                depth = arity;
+                break;
         }
         type = promote_token_datatype(&stack[i], type);
         while (--i >= 0) {
@@ -1287,22 +1358,32 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                 }
             }
 
-            if (stack[i].toktype == TOK_OP) {
-                if (skip > 0)
-                    skip += op_table[stack[i].op].arity;
-                else
-                    depth += op_table[stack[i].op].arity;
+            switch (stack[i].toktype) {
+                case TOK_OP:
+                    if (skip > 0)
+                        skip += op_table[stack[i].op].arity;
+                    else
+                        depth += op_table[stack[i].op].arity;
+                    break;
+                case TOK_FUNC:
+                    if (skip > 0)
+                        skip += function_table[stack[i].func].arity;
+                    else
+                        depth += function_table[stack[i].func].arity;
+                    break;
+                case TOK_VFUNC:
+                    skip = 2;
+                    break;
+                case TOK_VECTORIZE:
+                    skip = stack[i].arity + 1;
+                    break;
+                case TOK_ASSIGN_USE:
+                    skip++;
+                    depth++;
+                    break;
+                default:
+                    break;
             }
-            else if (stack[i].toktype == TOK_FUNC) {
-                if (skip > 0)
-                    skip += function_table[stack[i].func].arity;
-                else
-                    depth += function_table[stack[i].func].arity;
-            }
-            else if (stack[i].toktype == TOK_VFUNC)
-                skip = 2;
-            else if (stack[i].toktype == TOK_VECTORIZE)
-                skip = stack[i].arity + 1;
 
             if (skip > 0)
                 skip--;
@@ -1379,6 +1460,20 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
         memcpy(&stack[i], &temp[i], sizeof(mapper_token_t));
 
     return 0;
+}
+
+static int find_variable_by_name(mapper_variable_t *variables, int num_variables,
+                                 const char *name, int namelen)
+{
+    // check if variable name matches known variable
+    int i;
+    for (i = 0; i < num_variables; i++) {
+        if (strlen(variables[i].name) == namelen
+            && strncmp(variables[i].name, name, namelen)==0) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /* Macros to help express stack operations in parser. */
@@ -1502,20 +1597,15 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                             c = str[index];
                     }
 
-                    // check if variable name matches known variable
-                    int i, len;
-                    for (i = 0; i < num_variables; i++) {
-                        len = lex_index-index-1;
-                        if (strlen(variables[i].name) == len
-                            && strncmp(variables[i].name, str+index+1, len)==0) {
-                            tok.var = i;
-                            tok.datatype = variables[i].datatype;
-                            tok.vector_length = variables[i].vector_length;
-                            break;
-                        }
+                    int len = lex_index-index-1;
+                    int i = find_variable_by_name(variables, num_variables,
+                                                  str+index+1, len);
+                    if (i >= 0) {
+                        tok.var = i;
+                        tok.datatype = variables[i].datatype;
+                        tok.vector_length = variables[i].vector_length;
                     }
-
-                    if (i == num_variables) {
+                    else {
                         if (num_variables >= N_USER_VARS)
                             {FAIL("Maximum number of variables exceeded.");}
                         // need to store new variable
@@ -1549,6 +1639,33 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     tok.datatype = 'i';
                 else
                     tok.datatype = 'f';
+                mapper_token_t newtok;
+                if (function_table[tok.func].memory) {
+                    // add assignment token
+                    if (num_variables >= N_USER_VARS)
+                        {FAIL("Maximum number of variables exceeded.");}
+                    char varname[6];
+                    do {
+                        snprintf(varname, 6, "var%2d", abs(rand()));
+                    } while (find_variable_by_name(variables, num_variables,
+                                                   varname, 6) >= 0);
+                    // need to store new variable
+                    variables[num_variables].name = strdup(varname);
+                    variables[num_variables].datatype = 'd';
+                    variables[num_variables].vector_length = 1;
+                    variables[num_variables].history_size = 1;
+                    variables[num_variables].assigned = 1;
+
+                    newtok.toktype = TOK_ASSIGN_USE;
+                    newtok.var = num_variables;
+                    num_variables++;
+                    newtok.datatype = 'd';
+                    newtok.vector_length = 1;
+                    newtok.history_index = 0;
+                    newtok.vector_index = 0;
+                    newtok.assignment_offset = 0;
+                    PUSH_TO_OPERATOR(newtok);
+                }
                 PUSH_TO_OPERATOR(tok);
                 if (!function_table[tok.func].arity) {
                     POP_OPERATOR_TO_OUTPUT();
@@ -1560,6 +1677,11 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                                      | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
                 if (tok.func >= FUNC_UNIFORM)
                     constant_output = 0;
+                if (function_table[tok.func].memory) {
+                    newtok.toktype = TOK_VAR;
+                    newtok.history_index = -1;
+                    PUSH_TO_OUTPUT(newtok);
+                }
                 break;
             case TOK_VFUNC:
                 if (vfunction_table[tok.func].func_int32)
@@ -1602,6 +1724,9 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 else if (opstack[opstack_index].toktype == TOK_VFUNC)
+                    POP_OPERATOR_TO_OUTPUT();
+                // special case: if stack[top] is tok_assignment, pop to output
+                if (opstack[opstack_index].toktype == TOK_ASSIGN_USE)
                     POP_OPERATOR_TO_OUTPUT();
                 allow_toktype = (TOK_OP | TOK_COLON | TOK_SEMICOLON | TOK_COMMA
                                  | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE);
@@ -1647,8 +1772,8 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 }
                 if (opstack_index > 0)
                     {FAIL("Malformed expression (4).");}
-                // check if last expression was assigned correcty
-                if (outstack[outstack_index].toktype != TOK_ASSIGNMENT)
+                // check if last expression was assigned correctly
+                if (outstack[outstack_index].toktype < TOK_ASSIGNMENT)
                     {FAIL("Malformed expression (5).");}
                 if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
                     {FAIL("Malformed expression (6).");}
@@ -1889,21 +2014,26 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
     }
 
     // finish popping operators to output, check for unbalanced parentheses
-    while (opstack_index >= 0 && opstack[opstack_index].toktype != TOK_ASSIGNMENT) {
+    while (opstack_index >= 0 && opstack[opstack_index].toktype < TOK_ASSIGNMENT) {
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
             {FAIL("Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
     }
     // pop assignment operator(s) to output
     while (opstack_index >= 0) {
-        if (opstack[opstack_index].toktype != TOK_ASSIGNMENT)
-            {FAIL("Malformed expression (5).");}
+        if (!opstack_index && opstack[opstack_index].toktype < TOK_ASSIGNMENT)
+            {FAIL("Malformed expression (7).");}
         PUSH_TO_OUTPUT(opstack[opstack_index]);
+        if (outstack[outstack_index].toktype == TOK_ASSIGN_USE
+            && check_assignment_types_and_lengths(outstack, outstack_index) == -1) {
+            // check vector length and type
+            {FAIL("Malformed expression (8).");}
+        }
         POP_OPERATOR();
     }
     // check vector length and type
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
-        {FAIL("Malformed expression (6).");}
+        {FAIL("Malformed expression (9).");}
 
 #if (TRACING && DEBUG)
     printstack("--->OUTPUT STACK:", outstack, outstack_index);
@@ -2553,7 +2683,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 #if TRACING
             printf("%s%c(", function_table[tok->func].name, tok->datatype);
             for (i = 0; i < function_table[tok->func].arity; i++) {
-                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                print_stack_vector(stack[top+i], tok->datatype, tok->vector_length);
                 printf(", ");
             }
             printf("%s)", function_table[tok->func].arity ? "\b\b" : "");
@@ -2563,7 +2693,8 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].f = ((func_float_arity0*)function_table[tok->func].func_float)();
+                        stack[top][i].f = ((func_float_arity0*)
+                                           function_table[tok->func].func_float)();
                     break;
                 case 1:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2573,7 +2704,23 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     break;
                 case 2:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].f = ((func_float_arity2*)function_table[tok->func].func_float)(stack[top][i].f, stack[top+1][i].f);
+                        stack[top][i].f = (((func_float_arity2*)
+                                            function_table[tok->func].func_float)
+                                           (stack[top][i].f, stack[top+1][i].f));
+                    break;
+                case 3:
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].f = (((func_float_arity3*)
+                                            function_table[tok->func].func_float)
+                                           (stack[top][i].f, stack[top+1][i].f,
+                                            stack[top+2][i].f));
+                    break;
+                case 4:
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].f = (((func_float_arity4*)
+                                            function_table[tok->func].func_float)
+                                           (stack[top][i].f, stack[top+1][i].f,
+                                            stack[top+2][i].f, stack[top+3][i].f));
                     break;
                 default: goto error;
                 }
@@ -2582,15 +2729,20 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].i32 = ((func_int32_arity0*)function_table[tok->func].func_int32)();
+                        stack[top][i].i32 = ((func_int32_arity0*)
+                                             function_table[tok->func].func_int32)();
                     break;
                 case 1:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].i32 = ((func_int32_arity1*)function_table[tok->func].func_int32)(stack[top][i].i32);
+                        stack[top][i].i32 = (((func_int32_arity1*)
+                                              function_table[tok->func].func_int32)
+                                             (stack[top][i].i32));
                     break;
                 case 2:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].i32 = ((func_int32_arity2*)function_table[tok->func].func_int32)(stack[top][i].i32, stack[top+1][i].i32);
+                        stack[top][i].i32 = (((func_int32_arity2*)
+                                              function_table[tok->func].func_int32)
+                                             (stack[top][i].i32, stack[top+1][i].i32));
                     break;
                 default: goto error;
                 }
@@ -2599,15 +2751,34 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].d = ((func_double_arity0*)function_table[tok->func].func_double)();
+                        stack[top][i].d = ((func_double_arity0*)
+                                           function_table[tok->func].func_double)();
                     break;
                 case 1:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].d = ((func_double_arity1*)function_table[tok->func].func_double)(stack[top][i].d);
+                        stack[top][i].d = (((func_double_arity1*)
+                                            function_table[tok->func].func_double)
+                                           (stack[top][i].d));
                     break;
                 case 2:
                     for (i = 0; i < tok->vector_length; i++)
-                        stack[top][i].d = ((func_double_arity2*)function_table[tok->func].func_double)(stack[top][i].d, stack[top+1][i].d);
+                        stack[top][i].d = (((func_double_arity2*)
+                                            function_table[tok->func].func_double)
+                                           (stack[top][i].d, stack[top+1][i].d));
+                    break;
+                case 3:
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].d = (((func_double_arity3*)
+                                            function_table[tok->func].func_double)
+                                           (stack[top][i].d, stack[top+1][i].d,
+                                            stack[top+2][i].d));
+                    break;
+                case 4:
+                    for (i = 0; i < tok->vector_length; i++)
+                        stack[top][i].d = (((func_double_arity4*)
+                                            function_table[tok->func].func_double)
+                                           (stack[top][i].d, stack[top+1][i].d,
+                                            stack[top+2][i].d, stack[top+3][i].d));
                     break;
                 default: goto error;
                 }
@@ -2706,6 +2877,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 #endif
             break;
         case TOK_ASSIGNMENT:
+        case TOK_ASSIGN_USE:
 #if TRACING
             if (tok->var == VAR_Y)
                 printf("assigning values to y{%i}[%i] (%s x %d)\n",
@@ -2795,7 +2967,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             break;
         default: goto error;
         }
-        if (tok->casttype && tok->toktype != TOK_ASSIGNMENT) {
+        if (tok->casttype && tok->toktype < TOK_ASSIGNMENT) {
 #if TRACING
             printf("casting from %s to %s\n", type_name(tok->datatype),
                    type_name(tok->casttype));
