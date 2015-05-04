@@ -137,7 +137,7 @@ void printsignal(mapper_db_signal sig)
 
 void printslot(mapper_db_connection_slot slot)
 {
-    printf("%s%s", slot->signal->device->name, slot->signal->name);
+    printf("%s/%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
     const char *key;
     char type;
@@ -244,27 +244,26 @@ void loop()
 
         printf("Registered devices and signals:\n");
         mapper_db_device *pdev = mapper_db_get_all_devices(db);
-        mapper_db_signal *next;
+        mapper_db_signal *psig, temp;
         while (pdev) {
             printf(" |\n");
             printdevice(*pdev);
 
             int numsigs = (*pdev)->num_outputs;
-            mapper_db_signal *psig =
-                mapper_db_get_outputs_by_device_name(db, (*pdev)->name);
+            psig = mapper_db_get_outputs_by_device_name(db, (*pdev)->name);
             while (psig) {
-                next = mapper_db_signal_next(psig);
-                printf("    %s ", next ? "├─" : "└─");
-                printsignal(*psig);
-                psig = next;
+                temp = *psig;
+                psig = mapper_db_signal_next(psig);
+                printf("    %s ", psig ? "├─" : "└─");
+                printsignal(temp);
             }
             numsigs = (*pdev)->num_inputs;
             psig = mapper_db_get_inputs_by_device_name(db, (*pdev)->name);
             while (psig) {
-                next = mapper_db_signal_next(psig);
-                printf("    %s ", next ? "├─" : "└─");
-                printsignal(*psig);
-                psig = next;
+                temp = *psig;
+                psig = mapper_db_signal_next(psig);
+                printf("    %s ", temp ? "├─" : "└─");
+                printsignal(temp);
             }
 
             pdev = mapper_db_device_next(pdev);
