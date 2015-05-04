@@ -527,24 +527,8 @@ void mapper_db_remove_device_by_name(mapper_db db, const char *name);
 void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
                                      const char *sig_name);
 
-/*! Remove a named input signal from the database if it exists. */
-void mapper_db_remove_input_by_name(mapper_db db, const char *dev_name,
-                                    const char *sig_name);
-
-/*! Remove a named output signal from the database if it exists. */
-void mapper_db_remove_output_by_name(mapper_db db, const char *dev_name,
-                                     const char *sig_name);
-
 /*! Remove signals in the provided query. */
 void mapper_db_remove_signals_by_query(mapper_db db,
-                                       mapper_db_signal_t **s);
-
-/*! Remove signals in the provided query. */
-void mapper_db_remove_inputs_by_query(mapper_db db,
-                                      mapper_db_signal_t **s);
-
-/*! Remove signals in the provided query. */
-void mapper_db_remove_outputs_by_query(mapper_db db,
                                        mapper_db_signal_t **s);
 
 /*! Remove connections in the provided query. */
