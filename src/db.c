@@ -2125,7 +2125,7 @@ mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
             strncpy(devname, devnamep, devnamelen);
             devname[devnamelen] = 0;
             for (j = 0; j < con->num_sources; j++) {
-                if (strlen(con->sources[i].signal->device->name) == devnamelen
+                if (strlen(con->sources[j].signal->device->name) == devnamelen
                     && strcmp(devname, con->sources[j].signal->device->name)==0
                     && strcmp(signame, con->sources[j].signal->name)==0) {
                     con->sources[j].slot_id = i;
