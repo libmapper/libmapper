@@ -70,8 +70,6 @@ struct _mapper_device {
     int n_alloc_outputs;
     int n_output_callbacks;
     int version;
-    int flags;    /*!< Bitflags indicating if information has already been
-                   *   sent in a given polling step. */
     mapper_router router;
 
     int signal_slot_counter;

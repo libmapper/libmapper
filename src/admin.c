@@ -231,8 +231,7 @@ static int get_interface_addr(const char* pref,
         // is the data-sending port, not the admin bus port.
 
         if (sa->sin_family == AF_INET && ifap->ifa_flags & IFF_UP
-            && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0)
-        {
+            && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0) {
             ifchosen = ifap;
             if (pref && strcmp(ifap->ifa_name, pref)==0)
                 break;
@@ -349,8 +348,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
 {
     int i;
     char fullpath[256];
-    for (i=0; i < N_DEVICE_HANDLERS; i++)
-    {
+    for (i=0; i < N_DEVICE_HANDLERS; i++) {
         snprintf(fullpath, 256,
                  admin_msg_strings[device_handlers[i].str_index],
                  mdev_name(admin->device));
@@ -370,8 +368,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
 static void mapper_admin_add_monitor_methods(mapper_admin admin)
 {
     int i;
-    for (i=0; i < N_MONITOR_HANDLERS; i++)
-    {
+    for (i=0; i < N_MONITOR_HANDLERS; i++) {
         lo_server_add_method(admin->bus_server,
                              admin_msg_strings[monitor_handlers[i].str_index],
                              monitor_handlers[i].types,
@@ -390,8 +387,7 @@ static void mapper_admin_add_monitor_methods(mapper_admin admin)
 static void mapper_admin_remove_monitor_methods(mapper_admin admin)
 {
     int i, j;
-    for (i=0; i < N_MONITOR_HANDLERS; i++)
-    {
+    for (i=0; i < N_MONITOR_HANDLERS; i++) {
         // make sure method isn't also used by a device
         if (admin->device) {
             int found = 0;
@@ -631,8 +627,7 @@ static void mapper_admin_probe_device_name(mapper_admin admin,
 void mapper_admin_add_device(mapper_admin admin, mapper_device dev)
 {
     /* Initialize data structures */
-    if (dev)
-    {
+    if (dev) {
         admin->device = dev;
         mapper_clock_init(&admin->clock);
 
@@ -774,9 +769,6 @@ int mapper_admin_poll(mapper_admin admin)
     // send out any cached messages
     mapper_admin_send_bundle(admin);
 
-    if (md)
-        md->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
-
     while (count < 10 && (lo_server_recv_noblock(admin->bus_server, 0)
            + lo_server_recv_noblock(admin->mesh_server, 0))) {
         count++;
@@ -799,8 +791,7 @@ int mapper_admin_poll(mapper_admin admin)
 
         /* If we are ready to register the device, add the needed message
          * handlers. */
-        if (md->ordinal.locked)
-        {
+        if (md->ordinal.locked) {
             mdev_registered(md);
 
             /* Send registered msg. */
@@ -812,7 +803,6 @@ int mapper_admin_poll(mapper_admin admin)
 
             trace("</%s.?::%p> registered as <%s>\n",
                   md->props.identifier, admin, mdev_name(md));
-            md->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
         }
     }
     else {
@@ -959,8 +949,6 @@ static void mapper_admin_send_device(mapper_admin admin,
 {
     if (!device)
         return;
-    if (device->flags & FLAGS_SENT_DEVICE_INFO)
-        return;
 
     mapper_admin_bundle_message(
         admin, ADM_DEVICE, 0, "s", mdev_name(device),
@@ -972,8 +960,6 @@ static void mapper_admin_send_device(mapper_admin admin,
         AT_NUM_CONNECTIONS_OUT, mdev_num_connections_out(device),
         AT_REV, device->props.version,
         AT_EXTRA, device->props.extra);
-
-    device->flags |= FLAGS_SENT_DEVICE_INFO;
 }
 
 void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
@@ -1411,8 +1397,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
 
     // bring new subscriber up to date
     mapper_admin_set_bundle_dest_mesh(admin, address);
-    if (flags)
-        mapper_admin_send_device(admin, admin->device);
+    mapper_admin_send_device(admin, admin->device);
     if (flags & SUBSCRIBE_DEVICE_INPUTS)
         mapper_admin_send_inputs(admin, admin->device, -1, -1);
     if (flags & SUBSCRIBE_DEVICE_OUTPUTS)

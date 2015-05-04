@@ -82,7 +82,6 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->reserve_id_map = 0;
     md->id_counter = 0;
     md->props.extra = table_new();
-    md->flags = 0;
     md->signal_slot_counter = -1;
 
     md->router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
@@ -231,9 +230,6 @@ static void grow_ptr_array(void **array, int length, int *size)
 static void mdev_increment_version(mapper_device md)
 {
     md->props.version ++;
-    if (md->registered) {
-        md->flags |= FLAGS_DEVICE_ATTRIBS_CHANGED;
-    }
 }
 
 static int check_types(const char *types, int len, char type, int vector_len)
