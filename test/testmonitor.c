@@ -168,11 +168,17 @@ void printconnection(mapper_db_connection con)
     int i;
     printf(" └─ ");
     for (i = 0; i < con->num_sources; i++) {
-        printf("source[%d]: ", i);
-        printslot(&con->sources[i]);
-        printf("\n    ");
+        printf("%s/%s ", con->sources[i].signal->device->name,
+               con->sources[i].signal->device->name);
     }
-    printf("destination: ");
+    printf("-> %s/%s\n", con->destination.signal->device->name,
+           con->destination.signal->name);
+    for (i = 0; i < con->num_sources; i++) {
+        printf("    source[%d]: ", i);
+        printslot(&con->sources[i]);
+        printf("\n");
+    }
+    printf("    destination: ");
     printslot(&con->destination);
     printf("\n    properties: ");
 
@@ -243,30 +249,29 @@ void loop()
         fflush(stdout);
 
         printf("Registered devices and signals:\n");
-        mapper_db_device *pdev = mapper_db_get_all_devices(db);
-        mapper_db_signal *psig, temp;
+        mapper_db_device *pdev = mapper_db_get_all_devices(db), tempdev;
+        mapper_db_signal *psig, tempsig;
         while (pdev) {
-            printf(" |\n");
-            printdevice(*pdev);
+            tempdev = *pdev;
+            pdev = mapper_db_device_next(pdev);
+            printdevice(tempdev);
 
-            int numsigs = (*pdev)->num_outputs;
-            psig = mapper_db_get_outputs_by_device_name(db, (*pdev)->name);
+            int numsigs = tempdev->num_outputs;
+            psig = mapper_db_get_outputs_by_device_name(db, tempdev->name);
             while (psig) {
-                temp = *psig;
+                tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
-                printsignal(temp);
+                printsignal(tempsig);
             }
-            numsigs = (*pdev)->num_inputs;
-            psig = mapper_db_get_inputs_by_device_name(db, (*pdev)->name);
+            numsigs = tempdev->num_inputs;
+            psig = mapper_db_get_inputs_by_device_name(db, tempdev->name);
             while (psig) {
-                temp = *psig;
+                tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
-                printf("    %s ", temp ? "├─" : "└─");
-                printsignal(temp);
+                printf("    %s ", psig ? "├─" : "└─");
+                printsignal(tempsig);
             }
-
-            pdev = mapper_db_device_next(pdev);
         }
 
         printf("------------------------------\n");

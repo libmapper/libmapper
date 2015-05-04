@@ -102,6 +102,10 @@ void mdev_free(mapper_device md)
     if (!md)
         return;
 
+    // free any queued outgoing admin messages
+    lo_bundle_free_messages(md->admin->bundle);
+    md->admin->bundle = 0;
+
     // First release active instances
     mapper_signal sig;
     if (md->outputs) {
