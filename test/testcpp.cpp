@@ -87,64 +87,85 @@ int main(int argc, char ** argv)
 
     // access properties through the db_device
     mapper::Device::Properties props = dev.properties();
-    props.get("name").print();
-    std::cout << std::endl;
+    std::cout << "name: " << (const char*)props.get("name") << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.properties().set("foo", value, 6);
-    dev.properties().get("foo").print();
+    const int *tempi = dev.properties().get("foo");
+    std::cout << "foo: ";
+    for (i = 0; i < 6; i++)
+        std::cout << tempi[i] << " ";
     std::cout << std::endl;
 
     // can also access properties like this
-    dev.property("name").print();
-    std::cout << std::endl;
+    std::cout << "name: " << (const char*)dev.property("name") << std::endl;
 
     // test std::array<std::string>
-    std::array<std::string, 3> array1 = {{"one", "two", "three"}};
-    dev.property("foo").set(array1);
-    dev.property("foo").print();
+    std::cout << "set and get std::array<std::string>: ";
+    std::array<std::string, 3> a1 = {{"one", "two", "three"}};
+    dev.property("foo").set(a1);
+    const std::array<std::string, 8> a2 = dev.property("foo");
+    for (i = 0; i < 8; i++)
+        std::cout << a2[i] << " ";
     std::cout << std::endl;
 
     // test std::array<const char*>
-    std::array<const char*, 3> array2 = {{"four", "five", "six"}};
-    dev.property("foo").set(array2);
-    dev.property("foo").print();
+    std::cout << "set and get std::array<const char*>: ";
+    std::array<const char*, 3> a3 = {{"four", "five", "six"}};
+    dev.property("foo").set(a3);
+    std::array<const char*, 3> a4 = dev.property("foo");
+    for (i = 0; i < a4.size(); i++)
+        std::cout << a4[i] << " ";
     std::cout << std::endl;
 
     // test plain array of const char*
-    const char* array3[3] = {"seven", "eight", "nine"};
-    dev.property("foo").set(array3, 3);
-    dev.property("foo").print();
-    std::cout << std::endl;
+    std::cout << "set and get const char*[]: ";
+    const char* a5[3] = {"seven", "eight", "nine"};
+    dev.property("foo").set(a5, 3);
+    const char **a6 = dev.property("foo");
+    std::cout << a6[0] << " " << a6[1] << " " << a6[2] << std::endl;
+
+    // test plain array of float
+    std::cout << "set and get float[]: ";
+    float a7[3] = {7.7f, 8.8f, 9.9f};
+    dev.property("foo").set(a7, 3);
+    const float *a8 = dev.property("foo");
+    std::cout << a8[0] << " " << a8[1] << " " << a8[2] << std::endl;
 
     // test std::vector<const char*>
-    const char *array4[3] = {"ten", "eleven", "twelve"};
-    std::vector<const char*> vector1(array4, std::end(array4));
-    dev.property("foo").set(vector1);
-    dev.property("foo").print();
+    std::cout << "set and get std::vector<const char*>: ";
+    const char *a9[3] = {"ten", "eleven", "twelve"};
+    std::vector<const char*> v1(a9, std::end(a9));
+    dev.property("foo").set(v1);
+    std::vector<const char*> v2 = dev.property("foo");
+    std::cout << "foo: ";
+    for (std::vector<const char*>::iterator it = v2.begin(); it != v2.end(); ++it)
+        std::cout << *it << " ";
     std::cout << std::endl;
 
     // test std::vector<std::string>
-    const char *array5[3] = {"thirteen", "14", "15"};
-    std::vector<std::string> vector2(array5, std::end(array5));
-    dev.property("foo").set(vector2);
-    dev.property("foo").print();
+    std::cout << "set and get std::vector<std::string>: ";
+    const char *a10[3] = {"thirteen", "14", "15"};
+    std::vector<std::string> v3(a10, std::end(a10));
+    dev.property("foo").set(v3);
+    std::vector<std::string> v4 = dev.property("foo");
+    std::cout << "foo: ";
+    for (std::vector<std::string>::iterator it = v4.begin(); it != v4.end(); ++it)
+        std::cout << *it << " ";
     std::cout << std::endl;
 
     mapper::Property p("temp", "tempstring");
     dev.properties().set(p);
-    dev.property("temp").print();
-    std::cout << std::endl;
+    std::cout << p.name << ": " << (const char*)p << std::endl;
 
     // access property using overloaded index operator
-    dev.properties()["temp"].print();
-    std::cout << std::endl;
+    std::cout << "temp: " << (const char*)dev.properties()["temp"] << std::endl;
 
     dev.properties().remove("foo");
-    dev.properties().get("foo").print();
-    std::cout << std::endl;
+    std::cout << "foo: " << dev.properties().get("foo").value
+        << " (should be 0x0)" << std::endl;
 
-    std::cout << "signal " << sig.full_name() << std::endl;
+    std::cout << "signal: " << sig.full_name() << std::endl;
 
     for (int i = 0; i < dev.num_inputs(); i++) {
         std::cout << "input: " << dev.inputs(i).full_name() << std::endl;
@@ -160,8 +181,8 @@ int main(int argc, char ** argv)
     double d[3] = {1., 2., 3.};
     c.source().set_minimum(mapper::Property(0, d, 3));
     mon.connect(dev.outputs("out2"), dev.inputs("in2"), c);
-    while (dev.num_connections_out() <= 0)
-    {
+
+    while (dev.num_connections_out() <= 0) {
         dev.poll(100);
     }
 
@@ -176,19 +197,13 @@ int main(int argc, char ** argv)
     // check db records 
     std::cout << "db records:" << std::endl;
     for (auto const &device : mon.db().devices()) {
-        std::cout << "  device: ";
-        device.get("name").print();
-        std::cout << std::endl;
+        std::cout << "  device: " << (const char*)device.get("name") << std::endl;
     }
     for (auto const &signal : mon.db().inputs()) {
-        std::cout << "  input signal: ";
-        signal.get("name").print();
-        std::cout << std::endl;
+        std::cout << "  input signal: " << (const char*)signal.get("name") << std::endl;
     }
     for (auto const &signal : mon.db().outputs()) {
-        std::cout << "  output signal: ";
-        signal.get("name").print();
-        std::cout << std::endl;
+        std::cout << "  output signal: " << (const char*)signal.get("name") << std::endl;
     }
     for (auto const &conn : mon.db().connections()) {
         std::cout << "  connection: ";

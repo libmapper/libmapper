@@ -149,20 +149,81 @@ namespace mapper {
             return (*this);
         }
 
-        operator const void*() const
-            { return value; }
-        const char *str()
-            { return (const char*)value; }
-        const int *i()
-            { return (const int*)value; }
-        const float *f()
-            { return (const float*)value; }
-        const double *d()
-            { return (const double*)value; }
-        void print()
+        template <typename T>
+        operator const T() const
+            { return *(const T*)value; }
+        template <typename T>
+        operator const T*() const
+            { return (const T*)value; }
+        operator const char**() const
+            { return (const char**)value; }
+        template <typename T, size_t N>
+        operator const std::array<T, N>() const
         {
-            printf("%s: ", name ?: "unknown");
-            mapper_prop_pp(type, length, value);
+            std::array<T, N> temp_a;
+            for (int i = 0; i < N && i < length; i++)
+                temp_a[i] = ((T*)value)[i];
+            return temp_a;
+        }
+        template <size_t N>
+        operator const std::array<const char *, N>() const
+        {
+            std::array<const char*, N> temp_a;
+            if (length == 1)
+                temp_a[0] = (const char*)value;
+            else {
+                const char **tempp = (const char**)value;
+                for (int i = 0; i < N && i < length; i++) {
+                    temp_a[i] = tempp[i];
+                }
+            }
+            return temp_a;
+        }
+        template <size_t N>
+        operator const std::array<std::string, N>() const
+        {
+            std::array<std::string, N> temp_a;
+            if (length == 1)
+                temp_a[0] = std::string((const char*)value);
+            else {
+                const char **tempp = (const char**)value;
+                for (int i = 0; i < N && i < length; i++) {
+                    temp_a[i] = std::string(tempp[i]);
+                }
+            }
+            return temp_a;
+        }
+        template <typename T>
+        operator const std::vector<T>() const
+        {
+            std::vector<T> temp_v;
+            for (int i = 0; i < length; i++)
+                temp_v.push_back(((T*)value)[i]);
+            return temp_v;
+        }
+        operator const std::vector<const char *>() const
+        {
+            std::vector<const char*> temp_v;
+            if (length == 1)
+                temp_v.push_back((const char*)value);
+            else {
+                const char **tempp = (const char**)value;
+                for (int i = 0; i < length; i++)
+                    temp_v.push_back(tempp[i]);
+            }
+            return temp_v;
+        }
+        operator const std::vector<std::string>() const
+        {
+            std::vector<std::string> temp_v;
+            if (length == 1)
+                temp_v.push_back(std::string((const char*)value));
+            else {
+                const char **tempp = (const char**)value;
+                for (int i = 0; i < length; i++)
+                    temp_v.push_back(std::string(tempp[i]));
+            }
+            return temp_v;
         }
         const char *name;
         char type;
