@@ -960,7 +960,7 @@ static int match_slot(mapper_device md, mapper_connection_slot slot,
     if (strlen(local_devname) != len || strncmp(full_name, local_devname, len))
         return 1;
 
-    if (strcmp(sig_name, slot->props->signal->name) == 0)
+    if (strcmp(sig_name+1, slot->props->signal->name) == 0)
         return 0;
     return 1;
 }

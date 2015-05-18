@@ -2340,7 +2340,7 @@ static int handler_signal_connection_modify(const char *path, const char *types,
         printf(" -> %s", &argv[dest_index]->s);
     printf("\n");
 #endif
-    if (!local_signal) {
+    if (!c) {
         return 0;
     }
 
