@@ -9,18 +9,18 @@ mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]
 
 src = mapper.device("src")
-outsig = src.add_output("/outsig1", 10, 'i', None, mins, maxs)
+outsig = src.add_output("outsig1", 10, 'i', None, mins, maxs)
 
 dest = mapper.device("dest")
-insig = dest.add_input("/insig1", 10, 'f', None, mins, maxs, h)
+insig = dest.add_input("insig1", 10, 'f', None, mins, maxs, h)
 
 while not src.ready() or not dest.ready():
     src.poll(10)
     dest.poll(10)
 
 monitor = mapper.monitor()
-monitor.connect('%s%s' %(src.name, outsig.name),
-                '%s%s' %(dest.name, insig.name),
+monitor.connect('%s/%s' %(src.name, outsig.name),
+                '%s/%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
 while not src.num_connections_out:
     src.poll(10)

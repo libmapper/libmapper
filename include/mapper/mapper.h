@@ -635,6 +635,7 @@ typedef void mapper_device_connection_handler(mapper_device dev,
                                               mapper_signal sig,
                                               mapper_db_connection connection,
                                               mapper_db_connection_slot slot,
+                                              mapper_direction_t direction,
                                               mapper_device_local_action_t action,
                                               void *user);
 

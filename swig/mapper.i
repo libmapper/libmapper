@@ -692,6 +692,10 @@ static PyObject *slot_to_py(mapper_db_connection_slot slot)
     char type;
     const void *value;
     int length;
+    char full_name[256];
+    snprintf(full_name, 256, "%s/%s", slot->signal->name,
+             slot->signal->device->name);
+    PyDict_SetItemString(o, "name", prop_to_py('s', 1, full_name));
     while (!mapper_db_connection_slot_property_index(slot, i, &property,
                                                      &type, &value, &length)) {
         PyObject *v = 0;
@@ -940,13 +944,15 @@ static void device_connection_handler_py(mapper_device dev,
                                          mapper_signal signal,
                                          mapper_db_connection connection,
                                          mapper_db_connection_slot slot,
+                                         mapper_direction_t direction,
                                          mapper_device_local_action_t action,
                                          void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOOi", device_to_py(&dev->props),
+    PyObject *arglist = Py_BuildValue("OOOii", device_to_py(&dev->props),
                                       signal_to_py(&signal->props),
-                                      connection_to_py(connection), action);
+                                      connection_to_py(connection), direction,
+                                      action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_connection_handler_py).\n");
         return;

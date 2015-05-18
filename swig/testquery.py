@@ -10,19 +10,19 @@ def h(sig, id, f, timetag):
         print sig, f
 
 src = mapper.device("src")
-outsig = src.add_output("/outsig", 1, 'f', None, 0, 1000)
+outsig = src.add_output("outsig", 1, 'f', None, 0, 1000)
 outsig.set_callback(h)
 
 dest = mapper.device("dest")
-insig = dest.add_input("/insig", 1, 'f', None, 0, 1, h)
+insig = dest.add_input("insig", 1, 'f', None, 0, 1, h)
 
 while not src.ready() or not dest.ready():
     src.poll()
     dest.poll(10)
 
 monitor = mapper.monitor()
-monitor.connect('%s%s' %(src.name, outsig.name),
-                '%s%s' %(dest.name, insig.name),
+monitor.connect('%s/%s' %(src.name, outsig.name),
+                '%s/%s' %(dest.name, insig.name),
                 {'mode': mapper.MO_LINEAR})
 while not src.num_connections_out:
     src.poll(10)

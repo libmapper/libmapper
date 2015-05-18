@@ -1887,11 +1887,13 @@ static int handler_signal_connect(const char *path, const char *types,
         if (md->connection_cb) {
             for (i = 0; i < c->props.num_sources; i++) {
                 md->connection_cb(md, c->sources[i].local->signal, &c->props,
-                                  c->sources[i].props, MDEV_LOCAL_ESTABLISHED,
+                                  c->sources[i].props, DI_OUTGOING,
+                                  MDEV_LOCAL_ESTABLISHED,
                                   md->connection_cb_userdata);
             }
             md->connection_cb(md, c->destination.local->signal, &c->props,
-                              c->destination.props, MDEV_LOCAL_ESTABLISHED,
+                              c->destination.props, DI_INCOMING,
+                              MDEV_LOCAL_ESTABLISHED,
                               md->connection_cb_userdata);
         }
         return 0;
@@ -2243,7 +2245,7 @@ static int handler_signal_connected(const char *path, const char *types,
             for (i = 0; i < c->props.num_sources; i++) {
                 if (c->sources[i].local) {
                     md->connection_cb(md, c->sources[i].local->signal, &c->props,
-                                      c->sources[i].props,
+                                      c->sources[i].props, DI_OUTGOING,
                                       c->status == MAPPER_ACTIVE
                                       ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
                                       md->connection_cb_userdata);
@@ -2251,7 +2253,7 @@ static int handler_signal_connected(const char *path, const char *types,
             }
             if (c->destination.local) {
                 md->connection_cb(md, c->destination.local->signal, &c->props,
-                                  c->destination.props,
+                                  c->destination.props, DI_INCOMING,
                                   c->status == MAPPER_ACTIVE
                                   ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
                                   md->connection_cb_userdata);
@@ -2390,12 +2392,14 @@ static int handler_signal_connection_modify(const char *path, const char *types,
             for (i = 0; i < c->props.num_sources; i++) {
                 if (c->sources[i].local)
                     md->connection_cb(md, c->sources[i].local->signal, &c->props,
-                                      c->sources[i].props, MDEV_LOCAL_MODIFIED,
+                                      c->sources[i].props, DI_OUTGOING,
+                                      MDEV_LOCAL_MODIFIED,
                                       md->connection_cb_userdata);
             }
             if (c->destination.local) {
                 md->connection_cb(md, c->destination.local->signal, &c->props,
-                                  c->destination.props, MDEV_LOCAL_MODIFIED,
+                                  c->destination.props, DI_INCOMING,
+                                  MDEV_LOCAL_MODIFIED,
                                   md->connection_cb_userdata);
             }
         }
@@ -2510,11 +2514,13 @@ static int handler_signal_disconnect(const char *path, const char *types,
         for (i = 0; i < c->props.num_sources; i++)
             if (c->sources[i].local)
                 md->connection_cb(md, c->sources[i].local->signal, &c->props,
-                                  c->sources[i].props, MDEV_LOCAL_DESTROYED,
+                                  c->sources[i].props, DI_OUTGOING,
+                                  MDEV_LOCAL_DESTROYED,
                                   md->connection_cb_userdata);
         if (c->destination.local)
             md->connection_cb(md, c->destination.local->signal, &c->props,
-                              c->destination.props, MDEV_LOCAL_DESTROYED,
+                              c->destination.props, DI_INCOMING,
+                              MDEV_LOCAL_DESTROYED,
                               md->connection_cb_userdata);
     }
 

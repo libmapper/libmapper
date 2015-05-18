@@ -50,6 +50,7 @@ void on_mdev_connection(mapper_device dev,
                         mapper_signal sig,
                         mapper_db_connection con,
                         mapper_db_connection_slot slot,
+                        mapper_direction_t direction,
                         mapper_device_local_action_t action,
                         void *user)
 {
@@ -59,7 +60,7 @@ void on_mdev_connection(mapper_device dev,
             mdev_name(dev), mdev_name(dev), sig->props.name,
             con->destination.signal->device->name, con->destination.signal->name);
 
-    if (slot == &con->destination) {
+    if (direction == DI_OUTGOING) {
         eprintf("Source host is %s, port is %i\n",
                 con->sources[0].signal->device->host,
                 con->sources[0].signal->device->port);
