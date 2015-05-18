@@ -254,16 +254,6 @@ namespace mapper {
 
         void maybe_free()
             { if (owned && value) free((void*)value); owned = 0; }
-        void _set(int _value)
-            { _i = _value; length = 1; type = 'i'; value = &_i; }
-        void _set(float _value)
-            { _f = _value; length = 1; type = 'f'; value = &_f; }
-        void _set(double _value)
-            { _d = _value; length = 1; type = 'd'; value = &_d; }
-        void _set(char _value)
-            { _c = _value; length = 1; type = 'c'; value = &_c; }
-        void _set(const string_type &_value)
-            { value = _value; length = 1; type = 's'; }
         void _set(int _value[], int _length)
             { value = _value; length = _length; type = 'i'; }
         void _set(float _value[], int _length)
@@ -274,58 +264,14 @@ namespace mapper {
             { value = _value; length = _length; type = 'c'; }
         void _set(const char *_value[], int _length)
             { value = _value; length = _length; type = 's'; }
-        template <size_t N>
-        void _set(std::array<int, N>& _value)
+        template <typename T>
+        void _set(T _value)
+            { _set(&_value, 1); }
+        template <typename T, size_t N>
+        void _set(std::array<T,N>& _value)
         {
-            if (!_value.empty()) {
-                value = _value.data();
-                length = N;
-                type = 'i';
-            }
-            else
-                length = 0;
-        }
-        template <size_t N>
-        void _set(std::array<float, N>& _value)
-        {
-            if (!_value.empty()) {
-                value = _value.data();
-                length = N;
-                type = 'f';
-            }
-            else
-                length = 0;
-        }
-        template <size_t N>
-        void _set(std::array<double, N>& _value)
-        {
-            if (!_value.empty()) {
-                value = _value.data();
-                length = N;
-                type = 'd';
-            }
-            else
-                length = 0;
-        }
-        template <size_t N>
-        void _set(std::array<char, N>& _value)
-        {
-            if (!_value.empty()) {
-                value = _value.data();
-                length = N;
-                type = 'c';
-            }
-            else
-                length = 0;
-        }
-        template <size_t N>
-        void _set(std::array<const char*, N>& _value)
-        {
-            if (!_value.empty()) {
-                value = _value.data();
-                length = N;
-                type = 's';
-            }
+            if (!_value.empty())
+                _set(_value.data(), N);
             else
                 length = 0;
         }
@@ -363,16 +309,9 @@ namespace mapper {
                 owned = 1;
             }
         }
-        void _set(std::vector<int> _value)
-            { value = _value.data(); length = (int)_value.size(); type = 'i'; }
-        void _set(std::vector<float> _value)
-            { value = _value.data(); length = (int)_value.size(); type = 'f'; }
-        void _set(std::vector<double> _value)
-            { value = _value.data(); length = (int)_value.size(); type = 'd'; }
-        void _set(std::vector<char> _value)
-            { value = _value.data(); length = (int)_value.size(); type = 'c'; }
-        void _set(std::vector<const char*>& _value)
-            { value = _value.data(); length = (int)_value.size(); type = 's'; }
+        template <typename T>
+        void _set(std::vector<T> _value)
+            { _set(_value.data(), (int)_value.size()); }
         void _set(std::vector<std::string>& _value)
         {
             length = (int)_value.size();
@@ -491,171 +430,49 @@ namespace mapper {
     public:
         Signal(mapper_signal sig)
             { signal = sig; props = msig_properties(signal); }
-        ~Signal()
-            { ; }
+        ~Signal() { ; }
+
         operator mapper_signal() const
             { return signal; }
 
-        // TODO: check if data type is correct in update!
-        Signal& update(void *value, int count)
-            { msig_update(signal, value, count, MAPPER_NOW); return (*this); }
         Signal& update(void *value, int count, Timetag tt)
             { msig_update(signal, value, count, *tt); return (*this); }
-        Signal& update(int value)
-            { msig_update_int(signal, value); return (*this); }
-        Signal& update(float value)
-            { msig_update_float(signal, value); return (*this); }
-        Signal& update(double value)
-            { msig_update_double(signal, value); return (*this); }
-        Signal& update(int *value, int count=0)
-        {
-            if (props->type == 'i')
-                msig_update(signal, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(float *value, int count=0)
-        {
-            if (props->type == 'f')
-                msig_update(signal, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(double *value, int count=0)
-        {
-            if (props->type == 'd')
-                msig_update(signal, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(int *value, Timetag tt)
-        {
-            if (props->type == 'i')
-                msig_update(signal, value, 1, *tt);
-            return (*this);
-        }
-        Signal& update(float *value, Timetag tt)
-        {
-            if (props->type == 'f')
-                msig_update(signal, value, 1, *tt);
-            return (*this);
-        }
-        Signal& update(double *value, Timetag tt)
-        {
-            if (props->type == 'd')
-                msig_update(signal, value, 1, *tt);
-            return (*this);
-        }
         Signal& update(int *value, int count, Timetag tt)
         {
-            if (props->type == 'i')
-                msig_update(signal, value, count, *tt);
+            if (props->type == 'i') msig_update(signal, value, count, *tt);
             return (*this);
         }
         Signal& update(float *value, int count, Timetag tt)
         {
-            if (props->type == 'f')
-                msig_update(signal, value, count, *tt);
+            if (props->type == 'f') msig_update(signal, value, count, *tt);
             return (*this);
         }
         Signal& update(double *value, int count, Timetag tt)
         {
-            if (props->type == 'd')
-                msig_update(signal, value, count, *tt);
+            if (props->type == 'd') msig_update(signal, value, count, *tt);
             return (*this);
         }
-        Signal& update(std::vector <int> value)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(std::vector <float> value)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(std::vector <double> value)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update(std::vector <int> value, Timetag tt)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, *tt);
-            return (*this);
-        }
-        Signal& update(std::vector <float> value, Timetag tt)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, *tt);
-            return (*this);
-        }
-        Signal& update(std::vector <double> value, Timetag tt)
-        {
-            msig_update(signal, &value[0],
-                        (int)value.size() / props->length, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, void *value, int count)
-        {
-            msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
-            return (*this);
-        }
+        template <typename T>
+        Signal& update(T value)
+            { return update(&value, 1, 0); }
+        template <typename T>
+        Signal& update(T* value)
+            { return update(value, 1, 0); }
+        template <typename T, int count>
+        Signal& update(T* value)
+            { return update(value, count, 0); }
+        template <typename T>
+        Signal& update(T* value, Timetag tt)
+            { return update(value, 1, tt); }
+        template <typename T, size_t N>
+        Signal& update(std::array<T,N> value)
+            { return update(&value[0], N / props->length, 0); }
+        template <typename T>
+        Signal& update(std::vector<T> value, Timetag tt=0)
+            { return update(&value[0], (int)value.size() / props->length, *tt); }
         Signal& update_instance(int instance_id, void *value, int count, Timetag tt)
         {
             msig_update_instance(signal, instance_id, value, count, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, int value)
-        {
-            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, float value)
-        {
-            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, double value)
-        {
-            msig_update_instance(signal, instance_id, &value, 1, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, int *value, int count=0)
-        {
-            if (props->type == 'i')
-                msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, float *value, int count=0)
-        {
-            if (props->type == 'f')
-                msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, double *value, int count=0)
-        {
-            if (props->type == 'd')
-                msig_update_instance(signal, instance_id, value, count, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, int *value, Timetag tt)
-        {
-            if (props->type == 'i')
-                msig_update_instance(signal, instance_id, value, 1, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, float *value, Timetag tt)
-        {
-            if (props->type == 'f')
-                msig_update_instance(signal, instance_id, value, 1, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, double *value, Timetag tt)
-        {
-            if (props->type == 'd')
-                msig_update_instance(signal, instance_id, value, 1, *tt);
             return (*this);
         }
         Signal& update_instance(int instance_id, int *value, int count, Timetag tt)
@@ -675,6 +492,26 @@ namespace mapper {
             if (props->type == 'd')
                 msig_update_instance(signal, instance_id, value, count, *tt);
             return (*this);
+        }
+        template <typename T>
+        Signal& update_instance(int instance_id, T value, int count=0)
+            { return update_instance(instance_id, &value, 1, 0); }
+        template <typename T>
+        Signal& update_instance(int instance_id, T* value, int count=0)
+            { return update_instance(instance_id, value, count, 0); }
+        template <typename T>
+        Signal& update_instance(int instance_id, T* value, Timetag tt)
+            { return update_instance(instance_id, value, 1, tt); }
+        template <typename T, size_t N>
+        Signal& update_instance(int instance_id, std::array<T,N> value, Timetag tt=0)
+        {
+            return update_instance(instance_id, &value[0], N / props->length, tt);
+        }
+        template <typename T>
+        Signal& update_instance(int instance_id, std::vector<T> value, Timetag tt=0)
+        {
+            return update_instance(instance_id, &value[0],
+                                   value.size()/props->length, tt);
         }
         void *value() const
             { return msig_value(signal, 0); }
@@ -732,10 +569,7 @@ namespace mapper {
         void *instance_data(int instance_id) const
             { return msig_get_instance_data(signal, instance_id); }
         Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
-        {
-            msig_set_callback(signal, handler, user_data);
-            return (*this);
-        }
+            { msig_set_callback(signal, handler, user_data); return (*this); }
         int num_connections() const
             { return msig_num_connections(signal); }
         std::string full_name() const
