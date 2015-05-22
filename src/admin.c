@@ -615,7 +615,7 @@ static void mapper_admin_probe_device_name(mapper_admin admin,
     snprintf(name, 256, "%s.%d", device->props.identifier, device->ordinal.value);
 
     /* Calculate a hash from the name and store it in id.value */
-    device->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
+    device->props.hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     /* For the same reason, we can't use mapper_admin_send()
      * here. */
@@ -691,7 +691,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->props.name_hash == md->props.name_hash) {
+        if (link->props.hash == md->props.hash) {
             // don't bother sending pings to self
             link = link->next;
             continue;
@@ -1590,7 +1590,7 @@ static int handler_device_name_registered(const char *path, const char *types,
     }
     else {
         hash = crc32(0L, (const Bytef *)name, strlen(name));
-        if (hash == md->props.name_hash) {
+        if (hash == md->props.hash) {
             if (argc > 1) {
                 if (types[1] == 'i')
                     temp_id = argv[1]->i;
@@ -1639,7 +1639,7 @@ static int handler_device_name_probe(const char *path, const char *types,
           md->props.identifier, admin, name, temp_id);
 
     hash = crc32(0L, (const Bytef *)name, strlen(name));
-    if (hash == md->props.name_hash) {
+    if (hash == md->props.hash) {
         if (md->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
@@ -2654,7 +2654,7 @@ static int handler_sync(const char *path,
         }
     }
     else if (types[0] == 'i') {
-        if ((reg = mapper_db_get_device_by_name_hash(&mon->db, argv[0]->i)))
+        if ((reg = mapper_db_get_device_by_hash(&mon->db, argv[0]->i)))
             mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
     }
 

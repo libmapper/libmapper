@@ -69,7 +69,7 @@ mapper_device mdev_new(const char *name_prefix, int port,
     md->props.identifier = strdup(name_prefix);
     md->props.name = 0;
     md->props.description = 0;
-    md->props.name_hash = 0;
+    md->props.hash = 0;
     md->props.lib_version = PACKAGE_VERSION;
     md->ordinal.value = 1;
     md->ordinal.locked = 0;
@@ -206,14 +206,14 @@ void mdev_registered(mapper_device md)
         for (j = 0; j < md->inputs[i]->id_map_length; j++) {
             if (md->inputs[i]->id_maps[j].map &&
                 md->inputs[i]->id_maps[j].map->origin == 0)
-                md->inputs[i]->id_maps[j].map->origin = md->props.name_hash;
+                md->inputs[i]->id_maps[j].map->origin = md->props.hash;
         }
     }
     for (i = 0; i < md->props.num_outputs; i++) {
         for (j = 0; j < md->outputs[i]->id_map_length; j++) {
             if (md->outputs[i]->id_maps[j].map &&
                 md->outputs[i]->id_maps[j].map->origin == 0)
-                md->outputs[i]->id_maps[j].map->origin = md->props.name_hash;
+                md->outputs[i]->id_maps[j].map->origin = md->props.hash;
         }
     }
 }
@@ -1415,7 +1415,7 @@ const char *mdev_name(mapper_device md)
 unsigned int mdev_id(mapper_device md)
 {
     if (md->registered)
-        return md->props.name_hash;
+        return md->props.hash;
     else
         return 0;
 }

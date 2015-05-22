@@ -681,6 +681,8 @@ namespace mapper {
         }
         std::string name() const
             { return std::string(props->name); }
+        uint32_t hash() const
+            { return props->hash; }
         int num_outputs() const
             { return props->num_outputs; }
         int num_inputs() const
@@ -884,7 +886,7 @@ namespace mapper {
         Device device(const string_type &name) const
             { return Device(mapper_db_get_device_by_name(db, name)); }
         Device device(uint32_t hash) const
-            { return Device(mapper_db_get_device_by_name_hash(db, hash)); }
+            { return Device(mapper_db_get_device_by_hash(db, hash)); }
         Device::Iterator devices() const
             { return Device::Iterator(mapper_db_get_all_devices(db)); }
         Device::Iterator devices(const string_type &pattern) const

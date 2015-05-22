@@ -29,7 +29,7 @@ typedef struct _mapper_db_device {
                                  *   device, or zero. */
     char *description;
     int ordinal;
-    uint32_t name_hash;         /*!< CRC-32 hash of full device name
+    uint32_t hash;              /*!< CRC-32 hash of full device name
                                  *   in the form <name>.<ordinal> */
     char *host;                 //!< Device network host name.
     int port;                   //!< Device network port.

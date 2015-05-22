@@ -772,7 +772,7 @@ static int update_device_record_params(mapper_db_device reg,
 
     updated += update_string_if_different(&reg->name, no_slash);
     if (updated)
-        reg->name_hash = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
+        reg->hash = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
 
     if (current_time)
         mapper_timetag_cpy(&reg->synced, *current_time);
@@ -905,12 +905,11 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
     return 0;
 }
 
-mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
-                                                   uint32_t name_hash)
+mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint32_t hash)
 {
     mapper_db_device reg = db->registered_devices;
     while (reg) {
-        if (name_hash == reg->name_hash)
+        if (hash == reg->hash)
             return reg;
         reg = list_get_next(reg);
     }

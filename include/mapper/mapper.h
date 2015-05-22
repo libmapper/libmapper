@@ -746,11 +746,10 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db,
                                               const char *device_name);
 
 /*! Look up information for a registered device using a hash of its name.
- *  \param db          The database to query.
- *  \param name_hash   CRC-32 name hash of the device to find in the database.
- *  \return            Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
-                                                   uint32_t name_hash);
+ *  \param db   The database to query.
+ *  \param hash CRC-32 name hash of the device to find in the database.
+ *  \return     Information about the device, or zero if not found. */
+mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint32_t hash);
 
 /*! Return the list of devices with a substring in their name.
  *  \param db             The database to query.

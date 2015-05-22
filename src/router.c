@@ -12,11 +12,11 @@
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message m, mapper_timetag_t tt);
 
-static int get_in_scope(mapper_connection c, uint32_t name_hash)
+static int get_in_scope(mapper_connection c, uint32_t hash)
 {
     int i;
     for (i=0; i<c->props.scope.size; i++) {
-        if (c->props.scope.hashes[i] == name_hash ||
+        if (c->props.scope.hashes[i] == hash ||
             c->props.scope.hashes[i] == 0)
             return 1;
     }
@@ -63,7 +63,7 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     }
     name += (name[0]=='/');
     l->props.name = strdup(name);
-    l->props.name_hash = crc32(0L, (const Bytef *)name, strlen(name));
+    l->props.hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     l->device = router->device;
     l->props.num_connections_in = 0;
@@ -1151,11 +1151,11 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
 }
 
 mapper_link mapper_router_find_link_by_remote_hash(mapper_router router,
-                                                   uint32_t name_hash)
+                                                   uint32_t hash)
 {
     mapper_link l = router->links;
     while (l) {
-        if (name_hash == l->props.name_hash)
+        if (hash == l->props.hash)
             return l;
         l = l->next;
     }
