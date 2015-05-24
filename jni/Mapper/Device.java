@@ -7,7 +7,7 @@ import Mapper.Db.*;
 
 public class Device
 {
-    /*! The set of possible actions on a local connection. */
+    /*! The set of possible actions on a local mapping. */
     public static final int MDEV_LOCAL_ESTABLISHED  = 0;
     public static final int MDEV_LOCAL_MODIFIED     = 1;
     public static final int MDEV_LOCAL_DESTROYED    = 2;
@@ -130,7 +130,7 @@ public class Device
         public native void setInstanceAllocationMode(int mode);
         public native int instanceAllocationMode();
 
-        public native int numConnections();
+        public native int numMaps();
 
         public native void updateInstance(int instanceId,
                                           int value, TimeTag tt);
@@ -272,14 +272,14 @@ public class Device
         return mdev_num_outputs(_device);
     }
 
-    public int numConnectionsIn()
+    public int numIncomingMaps()
     {
-        return mdev_num_connections_in(_device);
+        return mdev_num_incoming_maps(_device);
     }
 
-    public int numConnectionsOut()
+    public int numOutgoingMaps()
     {
-        return mdev_num_connections_out(_device);
+        return mdev_num_outgoing_maps(_device);
     }
 
     public Signal getInput(String name)
@@ -391,8 +391,8 @@ public class Device
 
     private native int mdev_num_inputs(long _d);
     private native int mdev_num_outputs(long _d);
-    private native int mdev_num_connections_in(long _d);
-    private native int mdev_num_connections_out(long _d);
+    private native int mdev_num_incoming_maps(long _d);
+    private native int mdev_num_outgoing_maps(long _d);
     private native long mdev_get_input_by_name(long _d, String name,
                                                Integer index);
     private native long mdev_get_output_by_name(long _d, String name,

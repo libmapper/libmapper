@@ -42,9 +42,8 @@ class testspeed {
         }
         System.out.println("Device is ready.");
 
-        Mapper.Db.Connection c = new Mapper.Db.Connection();
-        mon.connect(out, in, null);
-        while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
+        mon.map(out, in);
+        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
 
         mon.free();
 

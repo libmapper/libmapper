@@ -7,28 +7,25 @@ libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
 	$(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
 JHEADERS = Mapper_Device.h Mapper_Device_Signal.h Mapper_Db_Signal.h        \
-           Mapper_Db_Device.h Mapper_Db_Connection.h                        \
-           Mapper_Db_Connection_Slot.h Mapper_Monitor.h Mapper_Monitor_Db.h \
-           Mapper_Db_DeviceIterator.h Mapper_Db_SignalIterator.h            \
-           Mapper_Db_ConnectionIterator.h
+           Mapper_Db_Device.h Mapper_Db_Map.h Mapper_Db_Map_Slot.h          \
+           Mapper_Monitor.h Mapper_Monitor_Db.h Mapper_Db_DeviceIterator.h  \
+           Mapper_Db_SignalIterator.h Mapper_Db_MapIterator.h
 
 JFLAGS = -source 1.5 -target 1.5
 JCLASSES = Mapper/NativeLib.class Mapper/Device.class                       \
            Mapper/PropertyValue.class Mapper/TimeTag.class                  \
            Mapper/InputListener.class Mapper/InstanceEventListener.class    \
            Mapper/Monitor.class Mapper/Db/Device.class                      \
-           Mapper/Db/Signal.class Mapper/Db/Connection.class                \
+           Mapper/Db/Signal.class Mapper/Db/Map.class                       \
            Mapper/Db/DeviceListener.class Mapper/Db/SignalListener.class    \
-           Mapper/Db/ConnectionListener.class                               \
-           Mapper/Db/DeviceCollection.class Mapper/Db/DeviceIterator.class  \
-           Mapper/Db/SignalCollection.class Mapper/Db/SignalIterator.class  \
-           Mapper/Db/ConnectionCollection.class                             \
-           Mapper/Db/ConnectionIterator.class
+           Mapper/Db/MapListener.class Mapper/Db/DeviceCollection.class     \
+           Mapper/Db/DeviceIterator.class Mapper/Db/SignalCollection.class  \
+           Mapper/Db/SignalIterator.class Mapper/Db/MapCollection.class     \
+           Mapper/Db/MapIterator.class
 
 JCLASSESINTERNAL = Mapper/Device$$Signal.class Mapper/Device$$1.class       \
                    Mapper/Monitor$$Db.class Mapper/Monitor$$1.class         \
-                   Mapper/Db/Connection$$Slot.class                         \
-                   Mapper/Db/Connection$$1.class                            \
+                   Mapper/Db/Map$$Slot.class Mapper/Db/Map$$1.class         \
                    Mapper/PropertyValue$$PropertyException.class
 
 JJAVA = $(JCLASSES:%.class=%.java)

@@ -51,8 +51,8 @@ class testreverse {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.connect(inp1, out1);
-        while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
+        mon.map(inp1, out1);
+        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
 
         int i = 100;
         while (i >= 0) {

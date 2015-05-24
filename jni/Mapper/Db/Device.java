@@ -16,8 +16,8 @@ public class Device
 
         _n_inputs = mdb_device_get_num_inputs(_devprops);
         _n_outputs = mdb_device_get_num_outputs(_devprops);
-        _n_connections_in = mdb_device_get_num_connections_in(_devprops);
-        _n_connections_out = mdb_device_get_num_connections_out(_devprops);
+        _n_maps_in = mdb_device_get_num_incoming_maps(_devprops);
+        _n_maps_out = mdb_device_get_num_outgoing_maps(_devprops);
         _version = mdb_device_get_version(_devprops);
     }
 
@@ -45,13 +45,13 @@ public class Device
     public int munOutputs() { return _n_outputs; }
     private native int mdb_device_get_num_outputs(long p);
 
-    int _n_connections_in;
-    public int numConnectionsIn() { return _n_connections_in; }
-    private native int mdb_device_get_num_connections_in(long p);
+    int _n_maps_in;
+    public int numIncomingMaps() { return _n_maps_in; }
+    private native int mdb_device_get_num_incoming_maps(long p);
 
-    int _n_connections_out;
-    public int numConnectionsOut() { return _n_connections_out; }
-    private native int mdb_device_get_num_connections_out(long p);
+    int _n_maps_out;
+    public int numOutgoingMaps() { return _n_maps_out; }
+    private native int mdb_device_get_num_outgoing_maps(long p);
 
     int _version;
     public int version() { return _version; }

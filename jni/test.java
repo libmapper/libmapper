@@ -22,22 +22,22 @@ class test {
             });
 
         mon.Db.addDeviceCallback(new Mapper.Db.DeviceListener() {
-            public void onEvent(Mapper.Db.Device d, int event) {
-                System.out.println("db onEvent() for device "+d.name());
+            public void onEvent(Mapper.Db.Device dev, int event) {
+                System.out.println("db onEvent() for device "+dev.name());
             }});
 
         mon.Db.addSignalCallback(new Mapper.Db.SignalListener() {
-            public void onEvent(Mapper.Db.Signal s, int event) {
-                System.out.println("db onEvent() for signal "+s.fullName());
+            public void onEvent(Mapper.Db.Signal sig, int event) {
+                System.out.println("db onEvent() for signal "+sig.fullName());
             }});
 
-        mon.Db.addConnectionCallback(new Mapper.Db.ConnectionListener() {
-            public void onEvent(Mapper.Db.Connection c, int event) {
-                System.out.print("db onEvent() for connection ");
-                for (int i = 0; i < c.numSources; i++)
-                    System.out.print(c.sources[i].signal().fullName()+" ");
-                System.out.println("-> "+c.destination.signal().fullName()
-                                   +" @expr "+c.expression);
+        mon.Db.addMapCallback(new Mapper.Db.MapListener() {
+            public void onEvent(Mapper.Db.Map map, int event) {
+                System.out.print("db onEvent() for map ");
+                for (int i = 0; i < map.numSources; i++)
+                    System.out.print(map.sources[i].signal().fullName()+" ");
+                System.out.println("-> "+map.destination.signal().fullName()
+                                   +" @expr "+map.expression);
             }});
 
         Mapper.Device.Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz",
@@ -105,16 +105,16 @@ class test {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        Mapper.Db.Connection c = new Mapper.Db.Connection();
-        c.mode = Mapper.Db.Connection.MO_EXPRESSION;
-        c.expression = "y=x*100";
-        c.source.minimum = new PropertyValue(15);
-        c.source.maximum = new PropertyValue(-15);
-        c.destination.maximum = new PropertyValue(1000);
-        c.destination.minimum = new PropertyValue(-2000);
-        mon.connect(out1, inp1, c);
+        Mapper.Db.Map m = new Mapper.Db.Map();
+        m.mode = Mapper.Db.Map.MO_EXPRESSION;
+        m.expression = "y=x*100";
+        m.source.minimum = new PropertyValue(15);
+        m.source.maximum = new PropertyValue(-15);
+        m.destination.maximum = new PropertyValue(1000);
+        m.destination.minimum = new PropertyValue(-2000);
+        mon.map(out1, inp1, m);
 
-        while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
+        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
 
         int i = 0;
         double [] ar = new double [] {0};
@@ -199,9 +199,9 @@ class test {
             else
                 System.out.print("  Signal has no value.");
             if (i == 50) {
-                Mapper.Db.Connection mod = new Mapper.Db.Connection();
+                Mapper.Db.Map mod = new Mapper.Db.Map();
                 mod.expression = "y=x*-100";
-                mon.modifyConnection(out1, inp1, mod);
+                mon.modifyMap(out1, inp1, mod);
             }
             dev.poll(50);
             mon.poll();
@@ -222,17 +222,17 @@ class test {
             System.out.println("  signal: " + s.name());
         }
 
-        Mapper.Db.ConnectionCollection cons = mon.Db.connections();
-        for (Mapper.Db.Connection cc : cons) {
-            System.out.print("  connection: ");
-            for (i = 0; i < cc.numSources; i++)
-                System.out.print(cc.sources[i].signal().fullName()+" ");
-            System.out.println("-> "+cc.destination.signal().fullName());
+        Mapper.Db.MapCollection maps = mon.Db.maps();
+        for (Mapper.Db.Map mm : maps) {
+            System.out.print("  mapping: ");
+            for (i = 0; i < mm.numSources; i++)
+                System.out.print(mm.sources[i].signal().fullName()+" ");
+            System.out.println("-> "+mm.destination.signal().fullName());
         }
 
         System.out.println();
-        System.out.println("Number of connections from "
-                           + out1.name() + ": " + out1.numConnections());
+        System.out.println("Number of maps from "
+                           + out1.name() + ": " + out1.numMaps());
 
         System.out.println(inp1.name() + " oldest instance is "
                            + inp1.oldestActiveInstance());

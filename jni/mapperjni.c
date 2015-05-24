@@ -154,14 +154,14 @@ static mapper_db_signal get_db_signal_from_jobject(JNIEnv *env, jobject obj)
     return 0;
 }
 
-static mapper_db_connection get_db_connection_from_jobject(JNIEnv *env, jobject obj)
+static mapper_db_map get_db_map_from_jobject(JNIEnv *env, jobject obj)
 {
     jclass cls = (*env)->GetObjectClass(env, obj);
     if (cls) {
         jfieldID val = (*env)->GetFieldID(env, cls, "_conprops", "J");
         if (val) {
             jlong s = (*env)->GetLongField(env, obj, val);
-            return (mapper_db_connection)ptr_jlong(s);
+            return (mapper_db_map)ptr_jlong(s);
         }
     }
     return 0;
@@ -758,18 +758,18 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1outputs
     return mdev_num_outputs(dev);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1connections_1in
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1incoming_1maps
   (JNIEnv *env, jobject obj, jlong d)
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
-    return mdev_num_connections_in(dev);
+    return mdev_num_incoming_maps(dev);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1connections_1out
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1num_1outgoing_1maps
   (JNIEnv *env, jobject obj, jlong d)
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
-    return mdev_num_connections_out(dev);
+    return mdev_num_outgoing_maps(dev);
 }
 
 JNIEXPORT jlong JNICALL Java_Mapper_Device_mdev_1get_1input_1by_1name
@@ -1349,12 +1349,12 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_instanceAllocationMode
     return msig_get_instance_allocation_mode(sig);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_numConnections
+JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_numMaps
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     if (!sig) return 0;
-    return msig_num_connections(sig);
+    return msig_num_maps(sig);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_00024Signal_updateInstance__IILMapper_TimeTag_2
@@ -1790,7 +1790,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unsubscribe
 }
 
 static void set_slot_props(JNIEnv *env, jobject jslot,
-                           mapper_db_connection_slot cslot, jobject *min_field,
+                           mapper_db_map_slot cslot, jobject *min_field,
                            jobject *max_field)
 {
     if (!jslot)
@@ -1805,14 +1805,14 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
     if (fid) {
         cslot->bound_min = (*env)->GetIntField(env, jslot, fid);
         if ((int)cslot->bound_min >= 0)
-            cslot->flags |= CONNECTION_BOUND_MIN;
+            cslot->flags |= MAP_SLOT_BOUND_MIN;
     }
     // bound_max
     fid = (*env)->GetFieldID(env, slotcls, "boundMax", "I");
     if (fid) {
         cslot->bound_max = (*env)->GetIntField(env, jslot, fid);
         if ((int)cslot->bound_max >= 0)
-            cslot->flags |= CONNECTION_BOUND_MAX;
+            cslot->flags |= MAP_SLOT_BOUND_MAX;
     }
 
     // minimum
@@ -1824,7 +1824,7 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
                                                        &cslot->minimum,
                                                        &cslot->type);
             if (cslot->length)
-                cslot->flags |= CONNECTION_MIN_KNOWN;
+                cslot->flags |= MAP_SLOT_MIN_KNOWN;
         }
     }
 
@@ -1845,7 +1845,7 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
                     // check if length and type match, abort or cast otherwise
                     cslot->length = length;
                     cslot->type = type;
-                    cslot->flags |= CONNECTION_MAX_KNOWN;
+                    cslot->flags |= MAP_SLOT_MAX_KNOWN;
                 }
             }
         }
@@ -1853,22 +1853,22 @@ static void set_slot_props(JNIEnv *env, jobject jslot,
 }
 
 
-static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
-                           mapper_db_signal *sources, mapper_db_signal dest,
-                           jobject jprops, jint modify)
+static void map_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
+                       mapper_db_signal *sources, mapper_db_signal dest,
+                       jobject jprops, jint modify)
 {
     // process props
     // don't bother letting user define signal types or lengths (will be overwritten)
-    mapper_db_connection_t cprops;
-    cprops.flags = 0;
-    cprops.destination.flags = 0;
-    mapper_db_connection_slot_t sourceslots[num_sources];
-    cprops.sources = sourceslots;
+    mapper_db_map_t map;
+    map.flags = 0;
+    map.destination.flags = 0;
+    mapper_db_map_slot_t sourceslots[num_sources];
+    map.sources = sourceslots;
     jstring expr_jstr = 0;
     jobject src_min_field[num_sources], src_max_field[num_sources];
     int i;
     for (i = 0; i < num_sources; i++) {
-        cprops.sources[i].flags = 0;
+        map.sources[i].flags = 0;
         src_min_field[i] = NULL;
         src_max_field[i] = NULL;
     }
@@ -1883,32 +1883,32 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
             if (fid) {
                 expr_jstr = (*env)->GetObjectField(env, jprops, fid);
                 if (expr_jstr) {
-                    cprops.expression = (char*)(*env)->GetStringUTFChars(env, expr_jstr, 0);
-                    cprops.flags |= CONNECTION_EXPRESSION;
+                    map.expression = (char*)(*env)->GetStringUTFChars(env, expr_jstr, 0);
+                    map.flags |= MAP_EXPRESSION;
                 }
             }
             // mode
             fid = (*env)->GetFieldID(env, cls, "mode", "I");
             if (fid) {
-                cprops.mode = (*env)->GetIntField(env, jprops, fid);
-                if ((int)cprops.mode >= 0)
-                    cprops.flags |= CONNECTION_MODE;
+                map.mode = (*env)->GetIntField(env, jprops, fid);
+                if ((int)map.mode >= 0)
+                    map.flags |= MAP_MODE;
             }
             // muted
             fid = (*env)->GetFieldID(env, cls, "muted", "I");
             if (fid) {
-                cprops.muted = (*env)->GetIntField(env, jprops, fid);
-                if ((int)cprops.muted >= 0)
-                    cprops.flags |= CONNECTION_MUTED;
+                map.muted = (*env)->GetIntField(env, jprops, fid);
+                if ((int)map.muted >= 0)
+                    map.flags |= MAP_MUTED;
             }
             // source slots
             jmethodID mid = (*env)->GetMethodID(env, cls, "getSource",
-                                                "(I)LMapper/Db/Connection$Slot;");
+                                                "(I)LMapper/Db/Map$Slot;");
             if (mid) {
                 for (i = 0; i < num_sources; i++) {
                     jobject jslot = (*env)->CallObjectMethod(env, jprops, mid, i);
                     if (jslot) {
-                        set_slot_props(env, jslot, &cprops.sources[i],
+                        set_slot_props(env, jslot, &map.sources[i],
                                        &src_min_field[i], &src_max_field[i]);
                     }
                 }
@@ -1916,11 +1916,11 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
 
             // destination slot
             mid = (*env)->GetMethodID(env, cls, "getDest",
-                                      "()LMapper/Db/Connection$Slot;");
+                                      "()LMapper/Db/Map$Slot;");
             if (mid) {
                 jobject jslot = (*env)->CallObjectMethod(env, jprops, mid);
                 if (jslot) {
-                    set_slot_props(env, jslot, &cprops.destination,
+                    set_slot_props(env, jslot, &map.destination,
                                    &dest_min_field, &dest_max_field);
                 }
             }
@@ -1928,31 +1928,30 @@ static void connect_or_mod(JNIEnv *env, mapper_monitor mon, int num_sources,
     }
 
     if (modify)
-        mmon_modify_connection_by_signal_db_records(mon, num_sources, sources,
-                                                    dest, &cprops);
+        mmon_modify_map_by_signal_db_records(mon, num_sources, sources,
+                                             dest, &map);
     else
-        mmon_connect_signals_by_db_record(mon, num_sources, sources, dest,
-                                          &cprops);
+        mmon_map_signals_by_db_record(mon, num_sources, sources, dest, &map);
 
     if (expr_jstr)
-        (*env)->ReleaseStringUTFChars(env, expr_jstr, cprops.expression);
+        (*env)->ReleaseStringUTFChars(env, expr_jstr, map.expression);
     for (i = 0; i < num_sources; i++) {
         if (src_min_field[i])
             release_PropertyValue_elements(env, src_min_field[i],
-                                           cprops.sources[i].minimum);
+                                           map.sources[i].minimum);
         if (src_max_field[i])
             release_PropertyValue_elements(env, src_max_field[i],
-                                           cprops.sources[i].maximum);
+                                           map.sources[i].maximum);
     }
     if (dest_min_field)
         release_PropertyValue_elements(env, dest_min_field,
-                                       cprops.destination.minimum);
+                                       map.destination.minimum);
     if (dest_max_field)
         release_PropertyValue_elements(env, dest_max_field,
-                                       cprops.destination.maximum);
+                                       map.destination.maximum);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1sigs
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1map_1or_1mod_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jobject dest,
    jobject props, jint modify)
 {
@@ -1972,11 +1971,11 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1sigs
     if (!destsig)
         return;
 
-    connect_or_mod(env, mon, num_sources, srcsigprops, msig_properties(destsig),
-                   props, modify);
+    map_or_mod(env, mon, num_sources, srcsigprops, msig_properties(destsig),
+               props, modify);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1db_1sigs
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1map_1or_1mod_1db_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jobject dest,
    jobject props, jint modify)
 {
@@ -1994,18 +1993,18 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1connect_1or_1mod_1db_1sigs
     mapper_db_signal destsig = get_db_signal_from_jobject(env, dest);
     if (!destsig)
         return;
-    connect_or_mod(env, mon, num_sources, srcsigs, destsig, props, modify);
+    map_or_mod(env, mon, num_sources, srcsigs, destsig, props, modify);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unmap
   (JNIEnv *env, jobject obj, jlong p, jobject c)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    mapper_db_connection con = get_db_connection_from_jobject(env, c);
-    mmon_remove_connection(mon, con);
+    mapper_db_map con = get_db_map_from_jobject(env, c);
+    mmon_remove_map(mon, con);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1sigs
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unmap_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jobject dest)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
@@ -2023,11 +2022,11 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1sigs
     mapper_signal destsig = get_signal_from_jobject(env, dest);
     if (!destsig)
         return;
-    mmon_disconnect_signals_by_db_record(mon, num_sources, srcsigprops,
-                                         msig_properties(destsig));
+    mmon_unmap_signals_by_db_record(mon, num_sources, srcsigprops,
+                                    msig_properties(destsig));
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1db_1sigs
+JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unmap_1db_1sigs
   (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jobject dest)
 {
     mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
@@ -2044,7 +2043,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1disconnect_1db_1sigs
     mapper_db_signal destsig = get_db_signal_from_jobject(env, dest);
     if (!destsig)
         return;
-    mmon_disconnect_signals_by_db_record(mon, num_sources, srcsigs, destsig);
+    mmon_unmap_signals_by_db_record(mon, num_sources, srcsigs, destsig);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1autosubscribe
@@ -2127,15 +2126,14 @@ static void java_db_signal_cb(mapper_db_signal record,
     }
 }
 
-static void java_db_connection_cb(mapper_db_connection record,
-                                  mapper_db_action_t action,
-                                  void *user_data)
+static void java_db_map_cb(mapper_db_map record, mapper_db_action_t action,
+                           void *user_data)
 {
     if (bailing || !user_data)
         return;
 
-    // Create a wrapper class for the connection properties
-    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Connection");
+    // Create a wrapper class for the map properties
+    jclass cls = (*genv)->FindClass(genv, "Mapper/Db/Map");
     if (!cls)
         return;
 
@@ -2146,7 +2144,7 @@ static void java_db_connection_cb(mapper_db_connection record,
     cls = (*genv)->GetObjectClass(genv, user_data);
     if (cls) {
         mid = (*genv)->GetMethodID(genv, cls, "onEvent",
-                                   "(LMapper/Db/Connection;I)V");
+                                   "(LMapper/Db/Map;I)V");
         if (mid) {
             (*genv)->CallVoidMethod(genv, obj, mid, condbobj, action);
             if ((*genv)->ExceptionOccurred(genv))
@@ -2200,7 +2198,7 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1remove_1signal_1callback
     (*env)->DeleteGlobalRef(env, listener);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1add_1connection_1callback
+JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1add_1map_1callback
   (JNIEnv *env, jobject obj, jlong p, jobject listener)
 {
     // TODO: check listener hasn't already been added
@@ -2209,17 +2207,16 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1add_1connection_1callbac
         return;
 
     jobject o = (*env)->NewGlobalRef(env, listener);
-    mapper_db_add_connection_callback(db, java_db_connection_cb, o);
+    mapper_db_add_map_callback(db, java_db_map_cb, o);
 }
 
-JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1remove_1connection_1callback
+JNIEXPORT void JNICALL Java_Mapper_Monitor_00024Db_mdb_1remove_1map_1callback
   (JNIEnv *env, jobject obj, jlong p, jobject listener)
 {
     mapper_db db = (mapper_db)ptr_jlong(p);
     if (!db || !listener)
         return;
-    mapper_db_remove_connection_callback(db, java_db_connection_cb,
-                                         ptr_jlong(listener));
+    mapper_db_remove_map_callback(db, java_db_map_cb, ptr_jlong(listener));
     (*env)->DeleteGlobalRef(env, listener);
 }
 
@@ -2396,31 +2393,31 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_matchOutputs
     return (*env)->NewObject(env, cls, mid, jlong_ptr(sigs));
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_mdb_1maps
   (JNIEnv *env, jobject obj, jlong p, jstring s)
 {
-    mapper_db_connection *cons;
+    mapper_db_map *cons;
     mapper_db db = (mapper_db)ptr_jlong(p);
     if (!db) return 0;
     if (s) {
         const char *name = (*env)->GetStringUTFChars(env, s, 0);
-        cons = mapper_db_get_connections_by_device_name(db, name);
+        cons = mapper_db_get_maps_by_device_name(db, name);
         (*env)->ReleaseStringUTFChars(env, s, name);
     }
     else {
-        cons = mapper_db_get_all_connections(db);
+        cons = mapper_db_get_all_maps(db);
     }
 
     return jlong_ptr(cons);
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections__LMapper_Db_SignalCollection_2LMapper_Db_SignalCollection_2
+JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_maps__LMapper_Db_SignalCollection_2LMapper_Db_SignalCollection_2
   (JNIEnv *env, jobject obj, jobject srcobj, jobject destobj)
 {
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/ConnectionCollection");
+    jclass cls = (*env)->FindClass(env, "Mapper/Db/MapCollection");
     if (!cls) return 0;
 
-    mapper_db_connection *cons = 0;
+    mapper_db_map *cons = 0;
 
     mapper_db db = get_db_from_jobject(env, obj);
     if (db) {
@@ -2428,7 +2425,7 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections__LMapper_Db_Si
         mapper_db_signal *src = get_db_signal_ptr_from_jobject(env, srcobj);
         mapper_db_signal *dest = get_db_signal_ptr_from_jobject(env, destobj);
         if (src && dest) {
-            cons = mapper_db_get_connections_by_signal_queries(db, src, dest);
+            cons = mapper_db_get_maps_by_signal_queries(db, src, dest);
         }
     }
 
@@ -2437,13 +2434,13 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections__LMapper_Db_Si
     return consobj;
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections___3Ljava_lang_String_2Ljava_lang_String_2
+JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_maps___3Ljava_lang_String_2Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jobjectArray sources, jstring dest)
 {
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/ConnectionCollection");
+    jclass cls = (*env)->FindClass(env, "Mapper/Db/MapCollection");
     if (!cls) return 0;
 
-    mapper_db_connection *cons = 0;
+    mapper_db_map *cons = 0;
 
     mapper_db db = get_db_from_jobject(env, obj);
     if (db && sources && dest) {
@@ -2455,8 +2452,8 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections___3Ljava_lang_
             cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
         }
         const char *dest_name = (*env)->GetStringUTFChars(env, dest, 0);
-        cons = mapper_db_get_connections_by_src_dest_device_names(db, num_sources,
-                                                                  cstrings, dest_name);
+        cons = mapper_db_get_maps_by_src_dest_device_names(db, num_sources,
+                                                           cstrings, dest_name);
 
         for (i = 0; i < num_sources; i++)
             (*env)->ReleaseStringUTFChars(env, jstrings[i], cstrings[i]);
@@ -2468,25 +2465,25 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_connections___3Ljava_lang_
     return consobj;
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections_1by_1src
+JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1maps_1by_1src
   (JNIEnv *env, jobject obj, jlong p, jstring s1, jstring s2)
 {
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/ConnectionCollection");
+    jclass cls = (*env)->FindClass(env, "Mapper/Db/MapCollection");
     if (!cls) return 0;
 
-    mapper_db_connection *cons = 0;
+    mapper_db_map *cons = 0;
 
     mapper_db db = get_db_from_jobject(env, obj);
     if (db && s2) {
         const char *sig_name = (*env)->GetStringUTFChars(env, s2, 0);
         if (s1) {
             const char *dev_name = (*env)->GetStringUTFChars(env, s1, 0);
-            cons = mapper_db_get_connections_by_src_device_and_signal_names(db, dev_name,
-                                                                            sig_name);
+            cons = mapper_db_get_maps_by_src_device_and_signal_names(db, dev_name,
+                                                                     sig_name);
             (*env)->ReleaseStringUTFChars(env, s1, dev_name);
         }
         else {
-            cons = mapper_db_get_connections_by_src_signal_name(db, sig_name);
+            cons = mapper_db_get_maps_by_src_signal_name(db, sig_name);
         }
         (*env)->ReleaseStringUTFChars(env, s2, sig_name);
     }
@@ -2496,25 +2493,25 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections_1by_1src
     return consobj;
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections_1by_1dest
+JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1maps_1by_1dest
   (JNIEnv *env, jobject obj, jlong p, jstring s1, jstring s2)
 {
-    jclass cls = (*env)->FindClass(env, "Mapper/Db/ConnectionCollection");
+    jclass cls = (*env)->FindClass(env, "Mapper/Db/MapCollection");
     if (!cls) return 0;
 
-    mapper_db_connection *cons = 0;
+    mapper_db_map *cons = 0;
 
     mapper_db db = get_db_from_jobject(env, obj);
     if (db && s2) {
         const char *sig_name = (*env)->GetStringUTFChars(env, s2, 0);
         if (s1) {
             const char *dev_name = (*env)->GetStringUTFChars(env, s1, 0);
-            cons = mapper_db_get_connections_by_dest_device_and_signal_names(db, dev_name,
-                                                                             sig_name);
+            cons = mapper_db_get_maps_by_dest_device_and_signal_names(db, dev_name,
+                                                                      sig_name);
             (*env)->ReleaseStringUTFChars(env, s1, dev_name);
         }
         else {
-            cons = mapper_db_get_connections_by_dest_signal_name(db, sig_name);
+            cons = mapper_db_get_maps_by_dest_signal_name(db, sig_name);
         }
         (*env)->ReleaseStringUTFChars(env, s2, sig_name);
     }
@@ -2524,15 +2521,15 @@ JNIEXPORT jobject JNICALL Java_Mapper_Monitor_00024Db_mdb_1connections_1by_1dest
     return consobj;
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_connection_1by_1hash
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_map_1by_1hash
   (JNIEnv *env, jobject obj, jlong p, jint hash)
 {
     mapper_db db = (mapper_db)ptr_jlong(p);
     if (!db) return 0;
-    return jlong_ptr(mapper_db_get_connection_by_hash(db, hash));
+    return jlong_ptr(mapper_db_get_map_by_hash(db, hash));
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_connection_1by_1names
+JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_map_1by_1names
   (JNIEnv *env, jobject obj, jlong p, jobjectArray sources, jstring dest)
 {
     mapper_db db = (mapper_db)ptr_jlong(p);
@@ -2546,9 +2543,8 @@ JNIEXPORT jlong JNICALL Java_Mapper_Monitor_00024Db_connection_1by_1names
         cstrings[i] = (*env)->GetStringUTFChars(env, jstrings[i], 0);
     }
     const char *dest_name = (*env)->GetStringUTFChars(env, dest, 0);
-    return jlong_ptr(mapper_db_get_connection_by_signal_full_names(db, num_sources,
-                                                                   cstrings,
-                                                                   dest_name));
+    return jlong_ptr(mapper_db_get_map_by_signal_full_names(db, num_sources,
+                                                            cstrings, dest_name));
 }
 
 /**** Mapper_Db_Device.h ****/
@@ -2595,18 +2591,18 @@ JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1outputs
     return props->num_outputs;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1connections_1in
+JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1incoming_1maps
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->num_connections_in;
+    return props->num_incoming_maps;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1connections_1out
+JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1num_1outgoing_1maps
   (JNIEnv *env, jobject obj, jlong p)
 {
     mapper_db_device props = (mapper_db_device)ptr_jlong(p);
-    return props->num_connections_out;
+    return props->num_outgoing_maps;
 }
 
 JNIEXPORT jint JNICALL Java_Mapper_Db_Device_mdb_1device_1get_1version
@@ -2779,196 +2775,196 @@ JNIEXPORT jlong JNICALL Java_Mapper_Db_SignalIterator_mdb_1signal_1next
     return jlong_ptr(mapper_db_signal_next(sigs));
 }
 
-/**** Mapper_Db_Connection_Slot.h ****/
+/**** Mapper_Db_Map_Slot.h ****/
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1bound_1min
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1bound_1min
 (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->bound_min;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1bound_1max
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1bound_1max
 (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->bound_max;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1cause_1update
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1cause_1update
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->cause_update;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1direction
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1direction
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->direction;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1length
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1length
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->length;
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1max
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1max
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
 
     if (!props->maximum)
         return 0;
     return build_PropertyValue(env, props->type, props->maximum, props->length);
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1min
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1min
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
 
     if (!props->minimum)
         return 0;
     return build_PropertyValue(env, props->type, props->minimum, props->length);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1send_1as_1instance
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1send_1as_1instance
 (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->send_as_instance;
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1signal
+JNIEXPORT jlong JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1signal
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     if (!props)
         return 0;
     return jlong_ptr(props->signal);
 }
 
-JNIEXPORT jchar JNICALL Java_Mapper_Db_Connection_00024Slot_mdb_1connection_1slot_1get_1type
+JNIEXPORT jchar JNICALL Java_Mapper_Db_Map_00024Slot_mdb_1map_1slot_1get_1type
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_slot props = (mapper_db_connection_slot)ptr_jlong(p);
+    mapper_db_map_slot props = (mapper_db_map_slot)ptr_jlong(p);
     return props->type;
 }
 
-/**** Mapper_Db_Connection.h ****/
+/**** Mapper_Db_Map.h ****/
 
-JNIEXPORT jstring JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1expression
+JNIEXPORT jstring JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1expression
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     if (props->expression)
         return (*env)->NewStringUTF(env, props->expression);
     return 0;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1id
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1id
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return props->id;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1mode
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1mode
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return props->mode;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1muted
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1muted
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return props->muted;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1num_1scopes
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1num_1scopes
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return props->scope.size;
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1num_1sources
+JNIEXPORT jint JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1num_1sources
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return props->num_sources;
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1scope_1names
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1scope_1names
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     int size = props->scope.size;
     if (!size)
         return 0;
     return build_PropertyValue(env, 's', props->scope.names, size);
 }
 
-JNIEXPORT jobject JNICALL Java_Mapper_Db_Connection_mapper_1db_1connection_1property_1lookup
+JNIEXPORT jobject JNICALL Java_Mapper_Db_Map_mapper_1db_1map_1property_1lookup
   (JNIEnv *env, jobject obj, jlong p, jstring property)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
-    const char *cprop = (*env)->GetStringUTFChars(env, property, 0);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
+    const char *name = (*env)->GetStringUTFChars(env, property, 0);
     char type;
     int length;
     const void *value;
     jobject o = 0;
 
-    if (!mapper_db_connection_property_lookup(props, cprop, &type, &value, &length))
+    if (!mapper_db_map_property_lookup(props, name, &type, &value, &length))
         o = build_PropertyValue(env, type, value, length);
 
-    (*env)->ReleaseStringUTFChars(env, property, cprop);
+    (*env)->ReleaseStringUTFChars(env, property, name);
     return o;
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1source_1ptr
+JNIEXPORT jlong JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1source_1ptr
   (JNIEnv *env, jobject obj, jlong p, jint index)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     if (index > props->num_sources)
         return 0;
     else
         return jlong_ptr(&props->sources[index]);
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Db_Connection_mdb_1connection_1get_1dest_1ptr
+JNIEXPORT jlong JNICALL Java_Mapper_Db_Map_mdb_1map_1get_1dest_1ptr
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection props = (mapper_db_connection)ptr_jlong(p);
+    mapper_db_map props = (mapper_db_map)ptr_jlong(p);
     return jlong_ptr(&props->destination);
 }
 
-/**** Mapper_Db_ConnectionIterator.h ****/
+/**** Mapper_Db_MapIterator.h ****/
 
-JNIEXPORT void JNICALL Java_Mapper_Db_ConnectionIterator_mdb_1connection_1done
+JNIEXPORT void JNICALL Java_Mapper_Db_MapIterator_mdb_1map_1done
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_t **connections = (mapper_db_connection_t**)ptr_jlong(p);
-    if (connections)
-        mapper_db_connection_done(connections);
+    mapper_db_map_t **maps = (mapper_db_map_t**)ptr_jlong(p);
+    if (maps)
+        mapper_db_map_done(maps);
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Db_ConnectionIterator_mdb_1deref
+JNIEXPORT jlong JNICALL Java_Mapper_Db_MapIterator_mdb_1deref
   (JNIEnv *env, jobject obj, jlong p)
 {
     void **ptr = (void**)ptr_jlong(p);
     return jlong_ptr(*ptr);
 }
 
-JNIEXPORT jlong JNICALL Java_Mapper_Db_ConnectionIterator_mdb_1connection_1next
+JNIEXPORT jlong JNICALL Java_Mapper_Db_MapIterator_mdb_1map_1next
   (JNIEnv *env, jobject obj, jlong p)
 {
-    mapper_db_connection_t **connections = (mapper_db_connection_t**)ptr_jlong(p);
-    return jlong_ptr(mapper_db_connection_next(connections));
+    mapper_db_map_t **maps = (mapper_db_map_t**)ptr_jlong(p);
+    return jlong_ptr(mapper_db_map_next(maps));
 }

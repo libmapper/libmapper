@@ -51,8 +51,8 @@ class testquery {
         System.out.println("Device interface: "+dev.iface());
         System.out.println("Device ip4: "+dev.ip4());
 
-        mon.connect(out1, inp1);
-        while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
+        mon.map(out1, inp1);
+        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
 
         int i = 100;
         while (i >= 0) {
