@@ -65,7 +65,7 @@ mon = mapper.monitor(autosubscribe_flags=mapper.SUBSCRIBE_ALL)
 
 mon.db.add_device_callback(lambda x,y:db_cb('device',x,y))
 mon.db.add_signal_callback(lambda x,y:db_cb('signal',x,y))
-mon.db.add_connection_callback(lambda x,y:db_cb('connection',x,y))
+mon.db.add_map_callback(lambda x,y:db_cb('map',x,y))
 
 while not dev.ready():
     dev.poll(10)
@@ -75,28 +75,29 @@ for i in range(1000):
     dev.poll(10)
     mon.poll()
     if i==250:
-        mon.connect('%s%s' %(dev.name, "/outsig"),
-                    '%s%s' %(dev.name, "/insig"),
-                    {'mode': mapper.MO_EXPRESSION,
-                     'expression': 'y=x',
-                     'source': {'minimum': [1,2,3,4],
-                                'bound_min': mapper.BA_WRAP,
-                                'bound_max': mapper.BA_CLAMP}})
-        # test sending multi-source connection
-        mon.connect(['/foo/foo','/foo/foo1'], '/bar/bar',
-                    {'mode': mapper.MO_EXPRESSION,
-                    'expression': 'y=x'})
+        mon.map('%s%s' %(dev.name, "/outsig"),
+                '%s%s' %(dev.name, "/insig"),
+                {'mode': mapper.MO_EXPRESSION,
+                 'expression': 'y=x',
+                 'source': {'minimum': [1,2,3,4],
+                            'bound_min': mapper.BA_WRAP,
+                            'bound_max': mapper.BA_CLAMP}})
+        # test creating multi-source map
+        mon.map(['/foo/foo','/foo/foo1'],
+                '/bar/bar',
+                {'mode': mapper.MO_EXPRESSION,
+                 'expression': 'y=x'})
     if i==500:
-        mon.modify_connection('%s%s' %(dev.name, "/outsig"),
-                              '%s%s' %(dev.name, "/insig"),
-                              {'source':{'min': [10,11,12,13]},
-                              'muted': 0,
-                              'mode': mapper.MO_LINEAR})
+        mon.modify_map('%s%s' %(dev.name, "/outsig"),
+                       '%s%s' %(dev.name, "/insig"),
+                       {'source':{'min': [10,11,12,13]},
+                       'muted': 0,
+                       'mode': mapper.MO_LINEAR})
 
 for i in [('devices', mon.db.devices),
           ('inputs', mon.db.inputs),
           ('outputs', mon.db.outputs),
-          ('connections', mon.db.connections)]:
+          ('maps', mon.db.maps)]:
     print i[0],':'
     for j in i[1]():
         print "  {"

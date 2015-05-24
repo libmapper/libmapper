@@ -21,9 +21,9 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 monitor = mapper.monitor()
-monitor.connect('%s/%s' %(dest.name, insig.name),
-                '%s/%s' %(src.name, outsig.name))
-while not src.num_connections_in:
+monitor.map('%s/%s' %(dest.name, insig.name),
+            '%s/%s' %(src.name, outsig.name))
+while not src.num_incoming_maps:
     src.poll(10)
     dest.poll(10)
 

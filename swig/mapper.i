@@ -127,7 +127,7 @@
     return o;
  }
 
-%typemap(freearg) (int, mapper_db_connection_slot_t*) {
+%typemap(freearg) (int, mapper_db_map_slot_t*) {
     if ($1) {
         if ($1->minimum)
             free($1->minimum);
@@ -136,11 +136,11 @@
     }
 }
 
-%typemap(in) mapper_db_connection_t* %{
-    mapper_db_connection_t *p = alloca(sizeof(mapper_db_connection_t));
+%typemap(in) mapper_db_map_t* %{
+    mapper_db_map_t *p = alloca(sizeof(mapper_db_map_t));
     $1 = 0;
     if (PyDict_Check($input)) {
-        memset(p, 0, sizeof(mapper_db_connection_t));
+        memset(p, 0, sizeof(mapper_db_map_t));
         PyObject *keys = PyDict_Keys($input);
         if (keys) {
             int i = PyList_GET_SIZE(keys), k;
@@ -152,14 +152,14 @@
                     if (strcmp(s, "expression")==0) {
                         if (PyString_Check(v)) {
                             p->expression = PyString_AsString(v);
-                            p->flags |= CONNECTION_EXPRESSION;
+                            p->flags |= MAP_EXPRESSION;
                         }
                     }
                     else if (strcmp(s, "mode")==0) {
                         int ecode = SWIG_AsVal_int(v, &k);
                         if (SWIG_IsOK(ecode)) {
                             p->mode = k;
-                            p->flags |= CONNECTION_MODE;
+                            p->flags |= MAP_MODE;
                         }
                     }
                     else if (strcmp(s, "muted")==0) {
@@ -178,7 +178,7 @@
                         }
                         if (k>-1) {
                             p->muted = k;
-                            p->flags |= CONNECTION_MUTED;
+                            p->flags |= MAP_MUTED;
                         }
                     }
                     else if (strcmp(s, "scope_names")==0) {
@@ -206,13 +206,13 @@
                             }
                         }
                         if (p->scope.size > 0)
-                            p->flags |= CONNECTION_SCOPE_NAMES;
+                            p->flags |= MAP_SCOPE_NAMES;
                     }
                     else if (strcmp(s, "source")==0 || strcmp(s, "sources")==0) {
                         if (PyList_Check(v)) {
                             p->num_sources = PyList_Size(v);
                             p->sources = calloc(1, p->num_sources *
-                                                sizeof(mapper_db_connection_slot_t));
+                                                sizeof(mapper_db_map_slot_t));
                             for (k = 0; k < p->num_sources; k++) {
                                 PyObject *element = PySequence_GetItem(v, k);
                                 py_to_slot(element, &p->sources[k]);
@@ -220,7 +220,7 @@
                         }
                         else {
                             p->num_sources = 1;
-                            p->sources = calloc(1, sizeof(mapper_db_connection_slot_t));
+                            p->sources = calloc(1, sizeof(mapper_db_map_slot_t));
                             py_to_slot(v, &p->sources[0]);
                         }
                     }
@@ -235,7 +235,7 @@
     }
  %}
 
-%typemap(freearg) mapper_db_connection_t* {
+%typemap(freearg) mapper_db_map_t* {
     if ($1) {
         if ($1->scope.size > 1) {
             int i;
@@ -285,11 +285,11 @@
     return signal_to_py($1);
  }
 
-%typemap(out) mapper_db_connection_t ** {
+%typemap(out) mapper_db_map_t ** {
     if ($1) {
         // Return the dict and an opaque pointer.
         // The pointer will be hidden by a Python generator interface.
-        PyObject *o = connection_to_py(*$1);
+        PyObject *o = map_to_py(*$1);
         if (o!=Py_None)
             $result = Py_BuildValue("(Ol)", o, $1);
         else
@@ -300,8 +300,8 @@
     }
  }
 
-%typemap(out) mapper_db_connection {
-    return connection_to_py($1);
+%typemap(out) mapper_db_map {
+    return map_to_py($1);
  }
 
 %{
@@ -681,7 +681,7 @@ static PyObject *signal_to_py(mapper_db_signal_t *sig)
     return o;
 }
 
-static PyObject *slot_to_py(mapper_db_connection_slot slot)
+static PyObject *slot_to_py(mapper_db_map_slot slot)
 {
     if (!slot) return Py_None;
     PyObject *o = PyDict_New();
@@ -696,8 +696,8 @@ static PyObject *slot_to_py(mapper_db_connection_slot slot)
     snprintf(full_name, 256, "%s/%s", slot->signal->name,
              slot->signal->device->name);
     PyDict_SetItemString(o, "name", prop_to_py('s', 1, full_name));
-    while (!mapper_db_connection_slot_property_index(slot, i, &property,
-                                                     &type, &value, &length)) {
+    while (!mapper_db_map_slot_property_index(slot, i, &property, &type,
+                                              &value, &length)) {
         PyObject *v = 0;
         if ((v = prop_to_py(type, length, value))) {
             PyDict_SetItemString(o, property, v);
@@ -708,7 +708,7 @@ static PyObject *slot_to_py(mapper_db_connection_slot slot)
     return o;
 }
 
-static PyObject *connection_to_py(mapper_db_connection_t *con)
+static PyObject *map_to_py(mapper_db_map_t *con)
 {
     if (!con) return Py_None;
     PyObject *o = PyDict_New();
@@ -720,8 +720,8 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
         char type;
         const void *value;
         int length;
-        while (!mapper_db_connection_property_index(con, i, &property,
-                                                    &type, &value, &length)) {
+        while (!mapper_db_map_property_index(con, i, &property, &type,
+                                             &value, &length)) {
             PyObject *v = 0;
             if ((v = prop_to_py(type, length, value))) {
                 PyDict_SetItemString(o, property, v);
@@ -744,7 +744,7 @@ static PyObject *connection_to_py(mapper_db_connection_t *con)
     return o;
 }
 
-static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
+static void py_to_slot(PyObject *input, mapper_db_map_slot slot) {
     if (!PyDict_Check(input)) {
         return;
     }
@@ -773,14 +773,14 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                     alloc_and_copy_maybe_vector(v, &slot->type, &slot->minimum,
                                                 &slot->length);
                     if (slot->minimum) {
-                        slot->flags |= CONNECTION_MIN_KNOWN;
+                        slot->flags |= MAP_SLOT_MIN_KNOWN;
                     }
                 }
                 else if (strcmp(s, "max")==0 || strcmp(s, "maximum")==0) {
                     alloc_and_copy_maybe_vector(v, &slot->type, &slot->maximum,
                                                 &slot->length);
                     if (slot->maximum) {
-                        slot->flags |= CONNECTION_MAX_KNOWN;
+                        slot->flags |= MAP_SLOT_MAX_KNOWN;
                     }
                 }
                 else if (strcmp(s, "cause_update")==0) {
@@ -793,7 +793,7 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                         cause_update = PyInt_AsLong(v);
                     if (cause_update > -1) {
                         slot->cause_update = cause_update;
-                        slot->flags |= CONNECTION_CAUSE_UPDATE;
+                        slot->flags |= MAP_SLOT_CAUSE_UPDATE;
                     }
                 }
                 else if (strcmp(s, "send_as_instance")==0) {
@@ -806,21 +806,21 @@ static void py_to_slot(PyObject *input, mapper_db_connection_slot slot) {
                         send_as_instance = PyInt_AsLong(v);
                     if (send_as_instance > -1) {
                         slot->send_as_instance = send_as_instance;
-                        slot->flags |= CONNECTION_SEND_AS_INSTANCE;
+                        slot->flags |= MAP_SLOT_SEND_AS_INSTANCE;
                     }
                 }
                 else if (strcmp(s, "bound_max")==0 && PyInt_Check(v)) {
                     int bound = PyInt_AsLong(v);
                     if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
                         slot->bound_max = bound;
-                        slot->flags |= CONNECTION_BOUND_MAX;
+                        slot->flags |= MAP_SLOT_BOUND_MAX;
                     }
                 }
                 else if (strcmp(s, "bound_min")==0 && PyInt_Check(v)) {
                     int bound = PyInt_AsLong(v);
                     if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
                         slot->bound_min = bound;
-                        slot->flags |= CONNECTION_BOUND_MIN;
+                        slot->flags |= MAP_SLOT_BOUND_MIN;
                     }
                 }
             }
@@ -939,22 +939,20 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a device connection handler is called. */
-static void device_connection_handler_py(mapper_device dev,
-                                         mapper_signal signal,
-                                         mapper_db_connection connection,
-                                         mapper_db_connection_slot slot,
-                                         mapper_direction_t direction,
-                                         mapper_device_local_action_t action,
-                                         void *user)
+/* Wrapper for callback back to python when a device map handler is called. */
+static void device_map_handler_py(mapper_device dev, mapper_signal signal,
+                                  mapper_db_map map, mapper_db_map_slot slot,
+                                  mapper_direction_t direction,
+                                  mapper_device_local_action_t action,
+                                  void *user)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist = Py_BuildValue("OOOii", device_to_py(&dev->props),
                                       signal_to_py(&signal->props),
-                                      connection_to_py(connection), direction,
+                                      map_to_py(map), direction,
                                       action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (device_connection_handler_py).\n");
+        printf("[mapper] Could not build arglist (device_map_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -1094,17 +1092,15 @@ static void signal_db_handler_py(mapper_db_signal record,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_db_connection handler
+/* Wrapper for callback back to python when a mapper_db_map handler
  * is called. */
-static void connection_db_handler_py(mapper_db_connection record,
-                                     mapper_db_action_t action,
-                                     void *user)
+static void map_db_handler_py(mapper_db_map record, mapper_db_action_t action,
+                              void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", connection_to_py(record),
-                                      action);
+    PyObject *arglist = Py_BuildValue("(Oi)", map_to_py(record), action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (connection_db_handler_py).\n");
+        printf("[mapper] Could not build arglist (map_db_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -1125,8 +1121,8 @@ typedef enum _mapper_boundary_action {
     N_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
-/*! Describes the connection mode.
- *  @ingroup connectiondb */
+/*! Describes the map mode.
+ *  @ingroup mapdb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_RAW,
@@ -1136,7 +1132,7 @@ typedef enum _mapper_mode_type {
 } mapper_mode_type;
 
 /*! Describes the voice-stealing mode for instances.
- *  @ingroup connectiondb */
+ *  @ingroup mapdb */
 typedef enum _mapper_instance_allocation_type {
     IN_UNDEFINED,    //!< Not yet defined
     IN_STEAL_OLDEST, //!< Steal the oldest instance
@@ -1153,7 +1149,7 @@ typedef enum {
     IN_OVERFLOW             = 0x08  //!< No instances left.
 } msig_instance_event_t;
 
-/*! The set of possible directions for a signal or connection slot. */
+/*! The set of possible directions for a signal or map slot. */
 typedef enum {
     DI_OUTGOING = 0x01,
     DI_INCOMING = 0x02,
@@ -1166,9 +1162,9 @@ typedef enum {
 %constant int SUBSCRIBE_DEVICE_INPUTS   = 0x02;
 %constant int SUBSCRIBE_DEVICE_OUTPUTS  = 0x04;
 %constant int SUBSCRIBE_DEVICE_SIGNALS  = 0x06;
-%constant int SUBSCRIBE_CONNECTIONS_IN  = 0x10;
-%constant int SUBSCRIBE_CONNECTIONS_OUT = 0x20;
-%constant int SUBSCRIBE_CONNECTIONS     = 0x30;
+%constant int SUBSCRIBE_DEVICE_MAPS_IN  = 0x10;
+%constant int SUBSCRIBE_DEVICE_MAPS_OUT = 0x20;
+%constant int SUBSCRIBE_DEVICE_MAPS     = 0x30;
 %constant int SUBSCRIBE_ALL             = 0xFF;
 
 /*! The set of possible actions on a database record, used
@@ -1405,10 +1401,10 @@ typedef struct _admin {} admin;
     unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
     int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
     int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
-    int get_num_connections_in()
-        { return mdev_num_connections_in((mapper_device)$self); }
-    int get_num_connections_out()
-        { return mdev_num_connections_out((mapper_device)$self); }
+    int get_num_incoming_maps()
+        { return mdev_num_incoming_maps((mapper_device)$self); }
+    int get_num_outgoing_maps()
+        { return mdev_num_outgoing_maps((mapper_device)$self); }
     signal *input(const char *name) {
         return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
     }
@@ -1451,15 +1447,15 @@ typedef struct _admin {} admin;
         mapper_timetag_set_double(&tt, timetag);
         mdev_send_queue((mapper_device)$self, tt);
     }
-    void set_connection_callback(PyObject *PyFunc=0) {
+    void set_map_callback(PyObject *PyFunc=0) {
         void *h = 0;
         if (PyFunc) {
             Py_XINCREF(PyFunc);
-            h = device_connection_handler_py;
+            h = device_map_handler_py;
         }
         else
-            Py_XDECREF(((mapper_device)$self)->connection_cb_userdata);
-        mdev_set_connection_callback((mapper_device)$self, h, PyFunc);
+            Py_XDECREF(((mapper_device)$self)->map_cb_userdata);
+        mdev_set_map_callback((mapper_device)$self, h, PyFunc);
     }
     %pythoncode {
         port = property(get_port)
@@ -1469,8 +1465,8 @@ typedef struct _admin {} admin;
         ordinal = property(get_ordinal)
         num_inputs = property(get_num_inputs)
         num_outputs = property(get_num_outputs)
-        num_connections_in = property(get_num_connections_in)
-        num_connections_out = property(get_num_connections_out)
+        num_incoming_maps = property(get_num_incoming_maps)
+        num_outgoing_maps = property(get_num_outgoing_maps)
         def __propgetter(self):
             device = self
             props = self.get_properties()
@@ -1773,31 +1769,30 @@ typedef struct _admin {} admin;
     void request_devices() {
         mmon_request_devices((mapper_monitor)$self);
     }
-    void connect(int num_sources, const char **sources, const char *dest,
-                 mapper_db_connection_t *properties=0) {
+    void map(int num_sources, const char **sources, const char *dest,
+             mapper_db_map_t *properties=0) {
         if (!sources || !dest)
             return;
         if (properties) {
-            mmon_connect_signals_by_name((mapper_monitor)$self, num_sources,
-                                         sources, dest, properties);
+            mmon_map_signals_by_name((mapper_monitor)$self, num_sources,
+                                     sources, dest, properties);
         }
         else
-            mmon_connect_signals_by_name((mapper_monitor)$self, num_sources,
-                                         sources, dest, 0);
+            mmon_map_signals_by_name((mapper_monitor)$self, num_sources,
+                                     sources, dest, 0);
     }
-    void modify_connection(int num_sources, const char **sources, const char *dest,
-                           mapper_db_connection_t *properties) {
+    void modify_map(int num_sources, const char **sources, const char *dest,
+                    mapper_db_map_t *properties) {
         if (!sources || !dest || !properties)
             return;
-        mmon_modify_connection_by_signal_names((mapper_monitor)$self,
-                                               num_sources, sources,
-                                               dest, properties);
+        mmon_modify_map_by_signal_names((mapper_monitor)$self, num_sources,
+                                        sources, dest, properties);
     }
-    void disconnect(int num_sources, const char **sources, const char *dest) {
+    void unmap(int num_sources, const char **sources, const char *dest) {
         if (!sources || !dest)
             return;
-        mmon_disconnect_signals_by_name((mapper_monitor)$self, num_sources,
-                                        sources, dest);
+        mmon_unmap_signals_by_name((mapper_monitor)$self, num_sources,
+                                   sources, dest);
     }
     double now() {
         mapper_timetag_t tt;
@@ -1833,14 +1828,12 @@ typedef struct _admin {} admin;
                                          signal_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
-    void add_connection_callback(PyObject *PyFunc) {
+    void add_map_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_connection_callback((mapper_db)$self,
-                                          connection_db_handler_py, PyFunc);
+        mapper_db_add_map_callback((mapper_db)$self, map_db_handler_py, PyFunc);
     }
-    void remove_connection_callback(PyObject *PyFunc) {
-        mapper_db_remove_connection_callback((mapper_db)$self,
-                                             connection_db_handler_py, PyFunc);
+    void remove_map_callback(PyObject *PyFunc) {
+        mapper_db_remove_map_callback((mapper_db)$self, map_db_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
     mapper_db_device device(const char *device_name) {
@@ -1894,73 +1887,71 @@ typedef struct _admin {} admin;
     mapper_db_signal_t **signal_next(long iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
-    mapper_db_connection_t **get_all_connections() {
-        return mapper_db_get_all_connections((mapper_db)$self);
+    mapper_db_map_t **get_all_maps() {
+        return mapper_db_get_all_maps((mapper_db)$self);
     }
-    mapper_db_connection_t **get_connections_by_device_name(
+    mapper_db_map_t **get_maps_by_device_name(
         const char *device_name) {
-        return mapper_db_get_connections_by_device_name((mapper_db)$self,
-                                                        device_name);
+        return mapper_db_get_maps_by_device_name((mapper_db)$self, device_name);
     }
-    mapper_db_connection_t **get_connections_by_src_signal_name(
+    mapper_db_map_t **get_maps_by_src_signal_name(
         const char *src_signal) {
-        return mapper_db_get_connections_by_src_signal_name((mapper_db)$self,
-                                                            src_signal);
+        return mapper_db_get_maps_by_src_signal_name((mapper_db)$self, src_signal);
     }
-    mapper_db_connection_t **get_connections_by_src_device_and_signal_names(
+    mapper_db_map_t **get_maps_by_src_device_and_signal_names(
         const char *src_device, const char *src_signal) {
-        return mapper_db_get_connections_by_src_device_and_signal_names(
+        return mapper_db_get_maps_by_src_device_and_signal_names(
             (mapper_db)$self, src_device, src_signal);
     }
-    mapper_db_connection_t **get_connections_by_dest_signal_name(
+    mapper_db_map_t **get_maps_by_dest_signal_name(
         const char *dest_signal) {
-        return mapper_db_get_connections_by_dest_signal_name((mapper_db)$self,
-                                                             dest_signal);
+        return mapper_db_get_maps_by_dest_signal_name((mapper_db)$self,
+                                                      dest_signal);
     }
-    mapper_db_connection_t **get_connections_by_dest_device_and_signal_names(
+    mapper_db_map_t **get_maps_by_dest_device_and_signal_names(
         const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_connections_by_dest_device_and_signal_names(
+        return mapper_db_get_maps_by_dest_device_and_signal_names(
             (mapper_db)$self, dest_device, dest_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_signal_names(
+    mapper_db_map_t **get_maps_by_device_and_signal_names(
         const char *src_device,  const char *src_signal,
         const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_connections_by_device_and_signal_names(
+        return mapper_db_get_maps_by_device_and_signal_names(
             (mapper_db)$self, 1, &src_device, &src_signal,
             dest_device, dest_signal);
     }
-    mapper_db_connection_t **get_connections_by_device_and_signal_names(
+    mapper_db_map_t **get_maps_by_device_and_signal_names(
         int num_sources, const char **src_devices,  const char **src_signals,
         const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_connections_by_device_and_signal_names(
+        return mapper_db_get_maps_by_device_and_signal_names(
             (mapper_db)$self, num_sources, src_devices, src_signals,
             dest_device, dest_signal);
     }
-    mapper_db_connection connection_by_signal_full_names(
+    mapper_db_map map_by_signal_full_names(
         const char *src_name, const char *dest_name) {
-        return mapper_db_get_connection_by_signal_full_names(
+        return mapper_db_get_map_by_signal_full_names(
             (mapper_db)$self, 1, &src_name, dest_name);
     }
-    mapper_db_connection connection_by_signal_full_names(
+    mapper_db_map map_by_signal_full_names(
         int num_sources, const char **src_names, const char *dest_name) {
-        return mapper_db_get_connection_by_signal_full_names(
+        return mapper_db_get_map_by_signal_full_names(
              (mapper_db)$self, num_sources, src_names, dest_name);
     }
-    mapper_db_connection_t **get_connections_by_src_dest_device_names(
+    mapper_db_map_t **get_maps_by_src_dest_device_names(
         const char *src_device_name, const char *dest_device_name) {
-        return mapper_db_get_connections_by_src_dest_device_names(
+        return mapper_db_get_maps_by_src_dest_device_names(
             (mapper_db)$self, 1, &src_device_name, dest_device_name);
     }
-    mapper_db_connection_t **get_connections_by_src_dest_device_names(
+    mapper_db_map_t **get_maps_by_src_dest_device_names(
         int num_sources, const char **src_dev_names, const char *dest_dev_name) {
-        return mapper_db_get_connections_by_src_dest_device_names(
+        return mapper_db_get_maps_by_src_dest_device_names(
             (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
     }
-    mapper_db_connection connection_by_hash(int hash) {
-        return mapper_db_get_connection_by_hash((mapper_db)$self, hash);
+    mapper_db_map map_by_hash(int hash) {
+        return mapper_db_get_map_by_hash((mapper_db)$self, hash);
     }
-    mapper_db_connection_t **connection_next(long iterator) {
-        return mapper_db_connection_next((mapper_db_connection_t**)iterator);
+    mapper_db_map_t **map_next(long iterator) {
+        return mapper_db_map_next((mapper_db_map_t**)iterator);
     }
     %pythoncode {
         def make_iterator(first, next):
@@ -1975,21 +1966,20 @@ typedef struct _admin {} admin;
         outputs = make_iterator(__get_outputs, signal_next)
         match_inputs = make_iterator(__match_inputs_by_device_name, signal_next)
         match_outputs = make_iterator(__match_outputs_by_device_name, signal_next)
-        connections = make_iterator(get_all_connections, connection_next)
-        connections_by_device_name = make_iterator(get_connections_by_device_name,
-                                                   connection_next)
-        connections_by_src_signal_name = make_iterator(get_connections_by_src_signal_name,
-                                                       connection_next)
-        connections_by_src_device_and_signal_names = make_iterator(
-            get_connections_by_src_device_and_signal_names, connection_next)
-        connections_by_dest_signal_name = make_iterator(get_connections_by_dest_signal_name,
-                                                connection_next)
-        connections_by_dest_device_and_signal_names = make_iterator(
-            get_connections_by_dest_device_and_signal_names, connection_next)
-        connections_by_device_and_signal_names = make_iterator(
-            get_connections_by_device_and_signal_names, connection_next)
-        connections_by_src_dest_device_names = make_iterator(
-            get_connections_by_src_dest_device_names, connection_next)
+        maps = make_iterator(get_all_maps, map_next)
+        maps_by_device_name = make_iterator(get_maps_by_device_name, map_next)
+        maps_by_src_signal_name = make_iterator(get_maps_by_src_signal_name,
+                                                map_next)
+        maps_by_src_device_and_signal_names = make_iterator(
+            get_maps_by_src_device_and_signal_names, map_next)
+        maps_by_dest_signal_name = make_iterator(get_maps_by_dest_signal_name,
+                                                 map_next)
+        maps_by_dest_device_and_signal_names = make_iterator(
+            get_maps_by_dest_device_and_signal_names, map_next)
+        maps_by_device_and_signal_names = make_iterator(
+            get_maps_by_device_and_signal_names, map_next)
+        maps_by_src_dest_device_names = make_iterator(
+            get_maps_by_src_dest_device_names, map_next)
     }
 }
 

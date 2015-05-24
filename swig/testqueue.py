@@ -18,13 +18,13 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 monitor = mapper.monitor()
-monitor.connect('%s/%s' %(src.name, outsig1.name),
-                '%s/%s' %(dest.name, insig1.name),
-                {'mode': mapper.MO_LINEAR})
-monitor.connect('%s/%s' %(src.name, outsig2.name),
-                '%s/%s' %(dest.name, insig2.name),
-                {'mode': mapper.MO_LINEAR})
-while not src.num_connections_out:
+monitor.map('%s/%s' %(src.name, outsig1.name),
+            '%s/%s' %(dest.name, insig1.name),
+            {'mode': mapper.MO_LINEAR})
+monitor.map('%s/%s' %(src.name, outsig2.name),
+            '%s/%s' %(dest.name, insig2.name),
+            {'mode': mapper.MO_LINEAR})
+while not src.num_outgoing_maps:
     src.poll(10)
     dest.poll(10)
 
