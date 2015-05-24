@@ -600,7 +600,7 @@ static expr_vfunc_t vfunction_lookup(const char *s, int len)
 
 static expr_var_t variable_lookup(const char *s, int len)
 {
-    // TODO: allow more than 10 incoming connections
+    // TODO: allow more than 10 source slots
     if (*s == 'y' && len == 1)
         return VAR_Y;
     if (*s == 'x') {
@@ -1576,7 +1576,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 if (tok.var >= VAR_X) {
                     int slot = tok.var-VAR_X;
                     if (slot >= num_inputs)
-                        {FAIL("Input slot index exceeds number of connection sources.");}
+                        {FAIL("Input slot index exceeds number of sources.");}
                     tok.datatype = input_types[slot];
                     tok.vector_length = input_vector_lengths[slot];
                     input_vector_length = tok.vector_length;

@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     /* Test that adding an extra parameter causes the extra parameter
      * to be listed. */
     char *str = "test_value";
-    msig_set_property(sig, "test", 's', &str, 1);
+    msig_set_property(sig, "test", 's', str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME

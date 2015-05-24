@@ -82,8 +82,8 @@ int main(int argc, char ** argv)
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
     std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
     std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
-    std::cout << "  num_connections_in: " << dev.num_connections_in() << std::endl;
-    std::cout << "  num_connections_out: " << dev.num_connections_out() << std::endl;
+    std::cout << "  num_incoming_maps: " << dev.num_incoming_maps() << std::endl;
+    std::cout << "  num_outgoing_maps: " << dev.num_outgoing_maps() << std::endl;
 
     // access properties through the db_device
     mapper::Device::Properties props = dev.properties();
@@ -176,13 +176,13 @@ int main(int argc, char ** argv)
     }
 
     mapper::Monitor mon(SUBSCRIBE_ALL);
-    mapper::Db::Connection c;
-    c.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
+    mapper::Db::Map map;
+    map.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    c.source().set_minimum(mapper::Property(0, d, 3));
-    mon.connect(dev.outputs("out2"), dev.inputs("in2"), c);
+    map.source().set_minimum(mapper::Property(0, d, 3));
+    mon.map(dev.outputs("out2"), dev.inputs("in2"), map);
 
-    while (dev.num_connections_out() <= 0) {
+    while (dev.num_outgoing_maps() <= 0) {
         dev.poll(100);
     }
 
@@ -205,19 +205,19 @@ int main(int argc, char ** argv)
     for (auto const &signal : mon.db().outputs()) {
         std::cout << "  output signal: " << (const char*)signal.get("name") << std::endl;
     }
-    for (auto const &conn : mon.db().connections()) {
-        std::cout << "  connection: ";
-        if (conn.num_sources() > 1)
+    for (auto const &m : mon.db().maps()) {
+        std::cout << "  map: ";
+        if (m.num_sources() > 1)
             std::cout << "[";
-        for (int i = 0; i < conn.num_sources(); i++) {
-            std::cout << conn.source(i).signal().device().name()
-                << "/" << conn.source(i).signal().name() << ", ";
+        for (int i = 0; i < m.num_sources(); i++) {
+            std::cout << m.source(i).signal().device().name()
+                << "/" << m.source(i).signal().name() << ", ";
         }
         std::cout << "\b\b";
-        if (conn.num_sources() > 1)
+        if (m.num_sources() > 1)
             std::cout << "]";
-        std::cout << " -> " << conn.destination().signal().device().name()
-            << "/" << conn.destination().signal().name() << std::endl;
+        std::cout << " -> " << m.destination().signal().device().name()
+            << "/" << m.destination().signal().name() << std::endl;
     }
 
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

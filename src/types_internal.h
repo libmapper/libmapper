@@ -64,15 +64,13 @@ typedef struct _mapper_string_table {
 /*! Some useful strings for sending admin messages. */
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    ADM_COMBINE,
-    ADM_COMBINED,
-    ADM_CONNECT,
-    ADM_CONNECT_TO,
-    ADM_CONNECTED,
-    ADM_CONNECTION_MODIFY,
+    ADM_MAP,
+    ADM_MAP_TO,
+    ADM_MAPPED,
+    ADM_MODIFY_MAP,
     ADM_DEVICE,
-    ADM_DISCONNECT,
-    ADM_DISCONNECTED,
+    ADM_UNMAP,
+    ADM_UNMAPPED,
     ADM_PING,
     ADM_LOGOUT,
     ADM_NAME_PROBE,
@@ -180,7 +178,7 @@ typedef mapper_admin_t *mapper_admin;
 
 /*! A structure that stores the current and historical values and timetags
  *  of a signal. The size of the history arrays is determined by the needs
- *  of connection expressions.
+ *  of mapping expressions.
  *  @ingroup signals */
 
 typedef struct _mapper_history
@@ -227,35 +225,34 @@ typedef struct _mapper_link {
 #define MAPPER_SOURCE       0x01
 #define MAPPER_DESTINATION  0x02
 
-#define MAX_NUM_CONNECTION_SOURCES 8    // arbitrary
+#define MAX_NUM_MAP_SOURCES 8    // arbitrary
 
-typedef struct _mapper_connection_slot {
-    // each slot can point to local signal or a connection_slot structure
-    struct _mapper_connection *connection;  //!< Parent connection.
+typedef struct _mapper_map_slot {
+    // each slot can point to local signal or a remote link structure
+    struct _mapper_map *map;                //!< Parent mapping.
     struct _mapper_router_signal *local;    //!< Parent signal if local
     mapper_link link;                       //!< Remote device if not local
 
     mapper_history history;                 /*!< Array of value histories
                                              *   for each signal instance. */
-    mapper_db_connection_slot props;
+    mapper_db_map_slot props;
     int history_size;                       //!< History size.
     char status;
     char calibrating;
-} mapper_connection_slot_t, *mapper_connection_slot;
+} mapper_map_slot_t, *mapper_map_slot;
 
-/*! The router_connection structure is a linked list of connections for a
- *  given signal.  Each signal can be associated with multiple inputs or
- *  outputs. This structure only contains state information used for
- *  performing mapping, the connection properties are publically
- *  defined in mapper_db.h. */
-typedef struct _mapper_connection {
+/*! The mapper_map structure is a linked list of mappings for a given signal.
+ *  Each signal can be associated with multiple inputs or outputs. This
+ *  structure only contains state information used for performing mapping, the
+ *  properties are publically defined in mapper_db.h. */
+typedef struct _mapper_map {
     struct _mapper_router *router;
     int is_admin;
     int is_local;
-    mapper_db_connection_t props;
+    mapper_db_map_t props;
 
-    mapper_connection_slot sources;
-    mapper_connection_slot_t destination;
+    mapper_map_slot sources;
+    mapper_map_slot_t destination;
 
     // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
@@ -268,22 +265,22 @@ typedef struct _mapper_connection {
     char *expression;
     mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
     
-    struct _mapper_connection *complement;  /*!< Pointer to complement in case
+    struct _mapper_map *complement;         /*!< Pointer to complement in case
                                              *   of self-connection. */
-} mapper_connection_t, *mapper_connection;
+} mapper_map_t, *mapper_map;
 
-/*! The router_signal is a linked list containing a signal and a
- *  list of connections.  TODO: This should be replaced with a more
- *  efficient approach such as a hash table or search tree. */
+/*! The router_signal is a linked list containing a signal and a list of
+ *  mappings.  TODO: This should be replaced with a more efficient approach
+ *  such as a hash table or search tree. */
 typedef struct _mapper_router_signal {
     struct _mapper_router *link;            //!< The parent link.
     struct _mapper_signal *signal;          //!< The associated signal.
 
     int id_counter;
     int num_slots;
-    mapper_connection_slot *slots;
+    mapper_map_slot *slots;
 
-    struct _mapper_router_signal *next;     /*!< The next signal connection
+    struct _mapper_router_signal *next;     /*!< The next router_signal
                                              *   in the list. */
 } *mapper_router_signal;
 
@@ -291,8 +288,7 @@ typedef struct _mapper_router_signal {
 typedef struct _mapper_router {
     struct _mapper_device *device;  /*!< The device associated with
                                      *   this link */
-    mapper_router_signal signals;   /*!< The list of connections
-                                     *   for each signal. */
+    mapper_router_signal signals;   //!< The list of mappings for each signal.
     int id_counter;
     mapper_link links;              //!< The list of links to other devices.
 } *mapper_router;
@@ -317,8 +313,8 @@ typedef struct _mapper_device *mapper_device;
 #define FLAGS_SENT_DEVICE_INFO              0x01
 #define FLAGS_SENT_DEVICE_INPUTS            0x02
 #define FLAGS_SENT_DEVICE_OUTPUTS           0x04
-#define FLAGS_SENT_DEVICE_CONNECTIONS_IN    0x08
-#define FLAGS_SENT_DEVICE_CONNECTIONS_OUT   0x10
+#define FLAGS_SENT_DEVICE_INCOMING_MAPS     0x08
+#define FLAGS_SENT_DEVICE_OUTGOING_MAPS     0x10
 #define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x1F
 #define FLAGS_DEVICE_ATTRIBS_CHANGED        0x20
 
@@ -332,12 +328,12 @@ typedef struct _fptr_list {
 } *fptr_list;
 
 typedef struct _mapper_db {
-    mapper_db_device     registered_devices;     //<! List of devices.
-    mapper_db_signal     registered_signals;     //<! List of signals.
-    mapper_db_connection registered_connections; //<! List of connections.
-    fptr_list   device_callbacks;     //<! List of device record callbacks.
-    fptr_list   signal_callbacks;     //<! List of signal record callbacks.
-    fptr_list   connection_callbacks; //<! List of connection record callbacks.
+    mapper_db_device registered_devices;    //<! List of devices.
+    mapper_db_signal registered_signals;    //<! List of signals.
+    mapper_db_map registered_maps;          //<! List of mappings.
+    fptr_list device_callbacks;             //<! List of device record callbacks.
+    fptr_list signal_callbacks;             //<! List of signal record callbacks.
+    fptr_list map_callbacks;                //<! List of mapping record callbacks.
 } mapper_db_t, *mapper_db;
 
 typedef struct _mapper_subscription {
@@ -355,7 +351,7 @@ typedef struct _mapper_monitor {
      *  mmon_free(). */
     int own_admin;
 
-    /*! Flags indicating whether information on signals and connections should
+    /*! Flags indicating whether information on signals and mappings should
      *  be automatically subscribed to when a new device is seen.*/
     int autosubscribe;
 
@@ -391,8 +387,8 @@ typedef enum {
     AT_MIN,
     AT_MODE,
     AT_MUTE,
-    AT_NUM_CONNECTIONS_IN,
-    AT_NUM_CONNECTIONS_OUT,
+    AT_NUM_INCOMING_MAPS,
+    AT_NUM_OUTGOING_MAPS,
     AT_NUM_INPUTS,
     AT_NUM_OUTPUTS,
     AT_PORT,

@@ -12,12 +12,12 @@
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message m, mapper_timetag_t tt);
 
-static int get_in_scope(mapper_connection c, uint32_t hash)
+static int get_in_scope(mapper_map map, uint32_t hash)
 {
     int i;
-    for (i=0; i<c->props.scope.size; i++) {
-        if (c->props.scope.hashes[i] == hash ||
-            c->props.scope.hashes[i] == 0)
+    for (i = 0; i < map->props.scope.size; i++) {
+        if (map->props.scope.hashes[i] == hash ||
+            map->props.scope.hashes[i] == 0)
             return 1;
     }
     return 0;
@@ -66,8 +66,8 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     l->props.hash = crc32(0L, (const Bytef *)name, strlen(name));
 
     l->device = router->device;
-    l->props.num_connections_in = 0;
-    l->props.num_connections_out = 0;
+    l->props.num_incoming_maps = 0;
+    l->props.num_outgoing_maps = 0;
 
     if (name == mdev_name(router->device)) {
         /* Add data_addr for use by self-connections. In the future we may
@@ -121,20 +121,20 @@ void mapper_router_update_link(mapper_router router, mapper_link link,
 void mapper_router_remove_link(mapper_router router, mapper_link link)
 {
     int i, j;
-    // check if any connection use this link
+    // check if any maps use this link
     mapper_router_signal rs = router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
-            mapper_connection c = rs->slots[i]->connection;
-            if (c->destination.link == link) {
-                mapper_router_remove_connection(router, c);
+            mapper_map map = rs->slots[i]->map;
+            if (map->destination.link == link) {
+                mapper_router_remove_map(router, map);
                 continue;
             }
-            for (j = 0; j < c->props.num_sources; j++) {
-                if (c->sources[j].link == link) {
-                    mapper_router_remove_connection(router, c);
+            for (j = 0; j < map->props.num_sources; j++) {
+                if (map->sources[j].link == link) {
+                    mapper_router_remove_map(router, map);
                     break;
                 }
             }
@@ -152,62 +152,62 @@ void mapper_router_remove_link(mapper_router router, mapper_link link)
     mapper_link_free(link);
 }
 
-static void reallocate_slot_instances(mapper_connection_slot s, int size)
+static void reallocate_slot_instances(mapper_map_slot slot, int size)
 {
     int i;
-    if (s->props->num_instances < size) {
-        s->history = realloc(s->history, sizeof(struct _mapper_history) * size);
-        for (i = s->props->num_instances; i < size; i++) {
-            s->history[i].type = s->props->type;
-            s->history[i].length = s->props->length;
-            s->history[i].size = s->history_size;
-            s->history[i].value = calloc(1, mapper_type_size(s->props->type)
-                                         * s->history_size);
-            s->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                           * s->history_size);
-            s->history[i].position = -1;
+    if (slot->props->num_instances < size) {
+        slot->history = realloc(slot->history, sizeof(struct _mapper_history) * size);
+        for (i = slot->props->num_instances; i < size; i++) {
+            slot->history[i].type = slot->props->type;
+            slot->history[i].length = slot->props->length;
+            slot->history[i].size = slot->history_size;
+            slot->history[i].value = calloc(1, mapper_type_size(slot->props->type)
+                                            * slot->history_size);
+            slot->history[i].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                              * slot->history_size);
+            slot->history[i].position = -1;
         }
-        s->props->num_instances = size;
+        slot->props->num_instances = size;
     }
 }
 
-static void reallocate_connection_instances(mapper_connection c, int size)
+static void reallocate_map_instances(mapper_map map, int size)
 {
     int i, j;
-    if (!(c->status & MAPPER_TYPE_KNOWN) || !(c->status & MAPPER_LENGTH_KNOWN)) {
-        for (i = 0; i < c->props.num_sources; i++) {
-            c->sources[i].props->num_instances = size;
+    if (!(map->status & MAPPER_TYPE_KNOWN) || !(map->status & MAPPER_LENGTH_KNOWN)) {
+        for (i = 0; i < map->props.num_sources; i++) {
+            map->sources[i].props->num_instances = size;
         }
-        c->destination.props->num_instances = size;
+        map->destination.props->num_instances = size;
         return;
     }
 
     // check if source histories need to be reallocated
-    for (i = 0; i < c->props.num_sources; i++)
-        reallocate_slot_instances(&c->sources[i], size);
+    for (i = 0; i < map->props.num_sources; i++)
+        reallocate_slot_instances(&map->sources[i], size);
 
     // check if destination histories need to be reallocated
-    reallocate_slot_instances(&c->destination, size);
+    reallocate_slot_instances(&map->destination, size);
 
     // check if expression variable histories need to be reallocated
-    if (size > c->num_var_instances) {
-        c->expr_vars = realloc(c->expr_vars, sizeof(mapper_history*) * size);
-        for (i = c->num_var_instances; i < size; i++) {
-            c->expr_vars[i] = malloc(sizeof(struct _mapper_history)
-                                     * c->num_expr_vars);
-            for (j = 0; j < c->num_expr_vars; j++) {
-                c->expr_vars[i][j].type = c->expr_vars[0][j].type;
-                c->expr_vars[i][j].length = c->expr_vars[0][j].length;
-                c->expr_vars[i][j].size = c->expr_vars[0][j].size;
-                c->expr_vars[i][j].position = -1;
-                c->expr_vars[i][j].value = calloc(1, sizeof(double)
-                                                  * c->expr_vars[i][j].length
-                                                  * c->expr_vars[i][j].size);
-                c->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                                    * c->expr_vars[i][j].size);
+    if (size > map->num_var_instances) {
+        map->expr_vars = realloc(map->expr_vars, sizeof(mapper_history*) * size);
+        for (i = map->num_var_instances; i < size; i++) {
+            map->expr_vars[i] = malloc(sizeof(struct _mapper_history)
+                                       * map->num_expr_vars);
+            for (j = 0; j < map->num_expr_vars; j++) {
+                map->expr_vars[i][j].type = map->expr_vars[0][j].type;
+                map->expr_vars[i][j].length = map->expr_vars[0][j].length;
+                map->expr_vars[i][j].size = map->expr_vars[0][j].size;
+                map->expr_vars[i][j].position = -1;
+                map->expr_vars[i][j].value = calloc(1, sizeof(double)
+                                                    * map->expr_vars[i][j].length
+                                                    * map->expr_vars[i][j].size);
+                map->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                                      * map->expr_vars[i][j].size);
             }
         }
-        c->num_var_instances = size;
+        map->num_var_instances = size;
     }
 }
 
@@ -232,9 +232,9 @@ void mapper_router_num_instances_changed(mapper_router r,
 
     // for array of slots, may need to reallocate destination instances
     for (i = 0; i < rs->num_slots; i++) {
-        mapper_connection_slot s = rs->slots[i];
-        if (s)
-            reallocate_connection_instances(s->connection, size);
+        mapper_map_slot slot = rs->slots[i];
+        if (slot)
+            reallocate_map_instances(slot->map, size);
     }
 }
 
@@ -242,10 +242,10 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                                   int instance, void *value, int count,
                                   mapper_timetag_t tt)
 {
-    mapper_id_map map = sig->id_maps[instance].map;
+    mapper_id_map id_map = sig->id_maps[instance].map;
     lo_message m;
 
-    // find the signal connection
+    // find the router signal
     mapper_router_signal rs = r->signals;
     while (rs) {
         if (rs->signal == sig)
@@ -256,25 +256,25 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
         return;
 
     int i, j, k, id = sig->id_maps[instance].instance->index;
-    mapper_connection c;
+    mapper_map map;
 
     if (!value) {
-        mapper_connection_slot s;
-        mapper_db_connection_slot p;
+        mapper_map_slot s;
+        mapper_db_map_slot p;
 
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
 
             s = rs->slots[i];
-            c = s->connection;
+            map = s->map;
 
-            if (c->status < MAPPER_ACTIVE)
+            if (map->status < MAPPER_ACTIVE)
                 continue;
 
             if (s->props->direction == DI_OUTGOING) {
-                mapper_connection_slot ds = &c->destination;
-                mapper_db_connection_slot dp = &c->props.destination;
+                mapper_map_slot ds = &map->destination;
+                mapper_db_map_slot dp = &map->props.destination;
 
                 // also need to reset associated output memory
                 ds->history[id].position= -1;
@@ -284,23 +284,23 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                        * sizeof(mapper_timetag_t));
 
                 if (!s->props->send_as_instance)
-                    m = mapper_connection_build_message(c, s, 0, 1, 0, 0);
-                else if (get_in_scope(c, map->origin))
-                    m = mapper_connection_build_message(c, s, 0, 1, 0, map);
+                    m = mapper_map_build_message(map, s, 0, 1, 0, 0);
+                else if (get_in_scope(map, id_map->origin))
+                    m = mapper_map_build_message(map, s, 0, 1, 0, id_map);
                 if (m)
-                    send_or_bundle_message(c->destination.link,
+                    send_or_bundle_message(map->destination.link,
                                            dp->signal->path, m, tt);
                 continue;
             }
-            else if (!get_in_scope(c, map->origin))
+            else if (!get_in_scope(map, id_map->origin))
                 continue;
-            for (j = 0; j < c->props.num_sources; j++) {
-                if (!c->sources[j].props->send_as_instance)
+            for (j = 0; j < map->props.num_sources; j++) {
+                if (!map->sources[j].props->send_as_instance)
                     continue;
-                s = &c->sources[j];
-                p = &c->props.sources[j];
+                s = &map->sources[j];
+                p = &map->props.sources[j];
                 // send release to upstream
-                m = mapper_connection_build_message(c, s, 0, 1, 0, map);
+                m = mapper_map_build_message(map, s, 0, 1, 0, id_map);
                 if (m)
                     send_or_bundle_message(s->link, p->signal->path, m, tt);
 
@@ -323,22 +323,21 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
         if (!rs->slots[i])
             continue;
 
-        mapper_connection_slot s = rs->slots[i];
-        c = s->connection;
+        mapper_map_slot s = rs->slots[i];
+        map = s->map;
 
-        if (c->status < MAPPER_ACTIVE)
+        if (map->status < MAPPER_ACTIVE)
             continue;
 
-        int in_scope = get_in_scope(c, map->origin);
+        int in_scope = get_in_scope(map, id_map->origin);
         // TODO: should we continue for out-of-scope local destinaton updates?
         if (s->props->send_as_instance && !in_scope) {
             continue;
         }
 
-        mapper_db_connection_slot sp = s->props;
-        mapper_db_connection_slot dp = &c->props.destination;
-        mapper_db_connection_slot to = (c->props.process_location
-                                        == MAPPER_SOURCE ? dp : sp);
+        mapper_db_map_slot sp = s->props;
+        mapper_db_map_slot dp = &map->props.destination;
+        mapper_db_map_slot to = (map->props.process_location == MAPPER_SOURCE ? dp : sp);
         int to_size = mapper_type_size(to->type) * to->length;
         char typestring[to->length * count];
         memset(typestring, to->type, to->length * count);
@@ -366,45 +365,44 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                 continue;
             }
 
-            if (c->props.process_location == MAPPER_SOURCE && !sp->cause_update)
+            if (map->props.process_location == MAPPER_SOURCE && !sp->cause_update)
                 continue;
 
-            if (!(mapper_connection_perform(c, s, instance,
-                                            typestring + to->length * k)))
+            if (!(mapper_map_perform(map, s, instance, typestring + to->length * k)))
                 continue;
 
-            if (c->props.process_location == MAPPER_SOURCE) {
+            if (map->props.process_location == MAPPER_SOURCE) {
                 // also process destination boundary behaviour
-                if ((mapper_boundary_perform(&c->destination.history[id], dp,
+                if ((mapper_boundary_perform(&map->destination.history[id], dp,
                                              typestring + to->length * k))) {
                     // back up position index
-                    --c->destination.history[id].position;
-                    if (c->destination.history[id].position < 0)
-                        c->destination.history[id].position = c->destination.history[id].size - 1;
+                    --map->destination.history[id].position;
+                    if (map->destination.history[id].position < 0)
+                        map->destination.history[id].position = map->destination.history[id].size - 1;
                     continue;
                 }
             }
 
-            void *result = mapper_history_value_ptr(c->destination.history[id]);
+            void *result = mapper_history_value_ptr(map->destination.history[id]);
 
             if (count > 1) {
                 memcpy((char*)out_value_p + to_size * j, result, to_size);
             }
             else {
-                m = mapper_connection_build_message(c, s, result, 1, typestring,
-                                                    sp->send_as_instance ? map : 0);
+                m = mapper_map_build_message(map, s, result, 1, typestring,
+                                             sp->send_as_instance ? id_map : 0);
                 if (m)
-                    send_or_bundle_message(c->destination.link,
+                    send_or_bundle_message(map->destination.link,
                                            dp->signal->path, m, tt);
             }
             k++;
         }
         if (count > 1 && s->props->direction == DI_OUTGOING
             && (!s->props->send_as_instance || in_scope)) {
-            m = mapper_connection_build_message(c, s, out_value_p, k, typestring,
-                                                sp->send_as_instance ? map : 0);
+            m = mapper_map_build_message(map, s, out_value_p, k, typestring,
+                                         sp->send_as_instance ? id_map : 0);
             if (m)
-                send_or_bundle_message(c->destination.link, dp->signal->path, m, tt);
+                send_or_bundle_message(map->destination.link, dp->signal->path, m, tt);
         }
     }
 }
@@ -418,7 +416,7 @@ int mapper_router_send_query(mapper_router r,
         trace("not sending queries since signal has no handler.\n");
         return 0;
     }
-    // find this signal in list of connections
+    // find the corresponding router_signal
     mapper_router_signal rs = r->signals;
     while (rs && rs->signal != sig)
         rs = rs->next;
@@ -427,7 +425,7 @@ int mapper_router_send_query(mapper_router r,
     if (!rs)
         return 0;
 
-    // for each connection, query the remote signal
+    // for each map, query remote signals
     int i, j, count = 0;
     int len = (int) strlen(sig->props.path) + 5;
     char *response_string = (char*) malloc(len);
@@ -436,8 +434,8 @@ int mapper_router_send_query(mapper_router r,
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i])
             continue;
-        mapper_connection c = rs->slots[i]->connection;
-        if (c->status != MAPPER_ACTIVE)
+        mapper_map map = rs->slots[i]->map;
+        if (map->status != MAPPER_ACTIVE)
             continue;
         lo_message m = lo_message_new();
         if (!m)
@@ -450,13 +448,13 @@ int mapper_router_send_query(mapper_router r,
 
         if (rs->slots[i]->props->direction == DI_OUTGOING) {
             snprintf(query_string, 256, "%s/get",
-                     c->props.destination.signal->path);
-            send_or_bundle_message(c->destination.link, query_string, m, tt);
+                     map->props.destination.signal->path);
+            send_or_bundle_message(map->destination.link, query_string, m, tt);
         }
         else {
-            for (j = 0; j < c->props.num_sources; j++) {
-                snprintf(query_string, 256, "%s/get", c->props.sources[j].signal->path);
-                send_or_bundle_message(c->sources[j].link, query_string, m, tt);
+            for (j = 0; j < map->props.num_sources; j++) {
+                snprintf(query_string, 256, "%s/get", map->props.sources[j].signal->path);
+                send_or_bundle_message(map->sources[j].link, query_string, m, tt);
             }
         }
         count++;
@@ -557,7 +555,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router r,
               calloc(1, sizeof(struct _mapper_router_signal)));
         rs->signal = sig;
         rs->num_slots = 1;
-        rs->slots = malloc(sizeof(mapper_connection_slot *));
+        rs->slots = malloc(sizeof(mapper_map_slot *));
         rs->slots[0] = 0;
         rs->next = r->signals;
         r->signals = rs;
@@ -566,7 +564,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router r,
 }
 
 static int router_signal_store_slot(mapper_router_signal rs,
-                                    mapper_connection_slot slot)
+                                    mapper_map_slot slot)
 {
     int i;
     for (i = 0; i < rs->num_slots; i++) {
@@ -577,8 +575,7 @@ static int router_signal_store_slot(mapper_router_signal rs,
         }
     }
     // all indices occupied, allocate more
-    rs->slots = realloc(rs->slots, sizeof(mapper_connection_slot *)
-                        * rs->num_slots * 2);
+    rs->slots = realloc(rs->slots, sizeof(mapper_map_slot*) * rs->num_slots * 2);
     rs->slots[rs->num_slots] = slot;
     for (i = rs->num_slots+1; i < rs->num_slots * 2; i++) {
         rs->slots[i] = 0;
@@ -588,84 +585,81 @@ static int router_signal_store_slot(mapper_router_signal rs,
     return i;
 }
 
-mapper_connection mapper_router_add_connection(mapper_router r,
-                                               mapper_signal sig,
-                                               int num_sources,
-                                               mapper_signal *local_signals,
-                                               const char **remote_signal_names,
-                                               int direction)
+mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
+                                 int num_sources, mapper_signal *local_signals,
+                                 const char **remote_signal_names,
+                                 mapper_direction_t direction)
 {
     int i, ready = 1;
 
-    if (num_sources > MAX_NUM_CONNECTION_SOURCES) {
-        trace("error: maximum number of remote signals in a connection exceeded.\n");
+    if (num_sources > MAX_NUM_MAP_SOURCES) {
+        trace("error: maximum number of remote signals in a map exceeded.\n");
         return 0;
     }
 
     mapper_router_signal rs = find_or_add_router_signal(r, sig);
-    mapper_connection c = ((mapper_connection)
-                           calloc(1, sizeof(struct _mapper_connection)));
-    c->router = r;
-    c->status = 0;
+    mapper_map map = (mapper_map) calloc(1, sizeof(struct _mapper_map));
+    map->router = r;
+    map->status = 0;
 
     // TODO: configure number of instances available for each slot
-    c->num_var_instances = sig->props.num_instances;
+    map->num_var_instances = sig->props.num_instances;
 
-    c->props.num_sources = num_sources;
-    c->sources = ((mapper_connection_slot)
-                  calloc(1, sizeof(struct _mapper_connection_slot)
-                         * num_sources));
-    c->props.sources = ((mapper_db_connection_slot)
-                        calloc(1, sizeof(struct _mapper_db_connection_slot)
-                               * num_sources));
+    map->props.num_sources = num_sources;
+    map->sources = (mapper_map_slot) calloc(1, sizeof(struct _mapper_map_slot)
+                                            * num_sources);
+    map->props.sources = ((mapper_db_map_slot)
+                          calloc(1, sizeof(struct _mapper_db_map_slot)
+                                 * num_sources));
     // scopes
-    c->props.scope.size = direction == DI_OUTGOING ? 1 : num_sources;
-    c->props.scope.names = (char **) malloc(sizeof(char *) * c->props.scope.size);
-    c->props.scope.hashes = (uint32_t *) malloc(sizeof(uint32_t)
-                                                * c->props.scope.size);
+    map->props.scope.size = (direction == DI_OUTGOING) ? 1 : num_sources;
+    map->props.scope.names = (char **) malloc(sizeof(char *)
+                                              * map->props.scope.size);
+    map->props.scope.hashes = (uint32_t *) malloc(sizeof(uint32_t)
+                                                  * map->props.scope.size);
 
     // is_admin property will be corrected later if necessary
-    c->is_admin = 1;
-    c->props.id = direction == DI_INCOMING ? r->id_counter++ : -1;
+    map->is_admin = 1;
+    map->props.id = direction == DI_INCOMING ? r->id_counter++ : -1;
 
     mapper_link link;
     char devname[256], *devnamep, *signame;
     const char *remote_devname_ptr;
     int devnamelen, scope_count = 0, local_scope = 0;
-    mapper_db_connection_slot sp;
+    mapper_db_map_slot sp;
     if (direction == DI_OUTGOING) {
         ready = 0;
         for (i = 0; i < num_sources; i++) {
             // find router_signal
             mapper_router_signal rs2 = find_or_add_router_signal(r, local_signals[i]);
-            c->sources[i].local = rs2;
-            sp = c->sources[i].props = &c->props.sources[i];
+            map->sources[i].local = rs2;
+            sp = map->sources[i].props = &map->props.sources[i];
             sp->signal = &local_signals[i]->props;
             sp->type = local_signals[i]->props.type;
             sp->length = local_signals[i]->props.length;
-            c->sources[i].status = MAPPER_READY;
+            map->sources[i].status = MAPPER_READY;
             sp->direction = DI_OUTGOING;
             sp->num_instances = local_signals[i]->props.num_instances;
-            if (sp->num_instances > c->num_var_instances)
-                c->num_var_instances = sp->num_instances;
+            if (sp->num_instances > map->num_var_instances)
+                map->num_var_instances = sp->num_instances;
 
             /* slot index will be overwritten if necessary by
-             * mapper_connection_set_from_message() */
+             * mapper_map_set_from_message() */
             sp->slot_id = -1;
 
-            // also need to add connection to lists kept by source rs
-            router_signal_store_slot(rs2, &c->sources[i]);
+            // also need to add map to lists kept by source rs
+            router_signal_store_slot(rs2, &map->sources[i]);
         }
 
         devnamelen = mapper_parse_names(remote_signal_names[0],
                                         &devnamep, &signame);
         if (!devnamelen || devnamelen >= 256) {
-            // TODO: free partially-built connection structure
+            // TODO: free partially-built map structure
             return 0;
         }
         strncpy(devname, devnamep, devnamelen);
         devname[devnamelen] = 0;
-        sp = c->destination.props = &c->props.destination;
+        sp = map->destination.props = &map->props.destination;
         sp->signal = calloc(1, sizeof(mapper_db_signal_t));
         int signamelen = strlen(signame)+2;
         sp->signal->path = malloc(signamelen);
@@ -676,65 +670,65 @@ mapper_connection mapper_router_add_connection(mapper_router r,
 
         link = mapper_router_find_link_by_remote_name(r, devname);
         if (link) {
-            c->destination.link = link;
+            map->destination.link = link;
         }
         else
-            c->destination.link = mapper_router_add_link(r, 0, 0, 0, devname);
-        sp->signal->device = &c->destination.link->props;
+            map->destination.link = mapper_router_add_link(r, 0, 0, 0, devname);
+        sp->signal->device = &map->destination.link->props;
 
         // apply local scope as default
-        c->props.scope.names[0] = strdup(mdev_name(r->device));
-        c->props.scope.hashes[0] = mdev_id(r->device);
+        map->props.scope.names[0] = strdup(mdev_name(r->device));
+        map->props.scope.hashes[0] = mdev_id(r->device);
     }
     else {
-        c->destination.local = rs;
-        sp = c->destination.props = &c->props.destination;
+        map->destination.local = rs;
+        sp = map->destination.props = &map->props.destination;
         sp->signal = &sig->props;
         sp->type = sig->props.type;
         sp->length = sig->props.length;
-        c->destination.status = MAPPER_READY;
+        map->destination.status = MAPPER_READY;
         sp->direction = DI_INCOMING;
         sp->num_instances = sig->props.num_instances;
 
-        router_signal_store_slot(rs, &c->destination);
+        router_signal_store_slot(rs, &map->destination);
 
         for (i = 0; i < num_sources; i++) {
-            sp = c->sources[i].props = &c->props.sources[i];
+            sp = map->sources[i].props = &map->props.sources[i];
             if (local_signals && local_signals[i]) {
                 remote_devname_ptr = mdev_name(r->device);
 
                 // find router_signal
                 mapper_router_signal rs2 = find_or_add_router_signal(r, local_signals[i]);
-                c->sources[i].local = rs2;
+                map->sources[i].local = rs2;
                 sp->signal = &local_signals[i]->props;
                 sp->type = local_signals[i]->props.type;
                 sp->length = local_signals[i]->props.length;
-                c->sources[i].status = MAPPER_READY;
+                map->sources[i].status = MAPPER_READY;
                 sp->direction = DI_OUTGOING;
                 sp->num_instances = local_signals[i]->props.num_instances;
 
-                if (sp->num_instances > c->num_var_instances)
-                    c->num_var_instances = sp->num_instances;
+                if (sp->num_instances > map->num_var_instances)
+                    map->num_var_instances = sp->num_instances;
 
                 // ensure local scope is only added once
                 if (!local_scope) {
-                    c->props.scope.names[scope_count] = strdup(remote_devname_ptr);
-                    c->props.scope.hashes[scope_count] = crc32(0L,
-                                                               (const Bytef *)remote_devname_ptr,
-                                                               strlen(devname));
+                    map->props.scope.names[scope_count] = strdup(remote_devname_ptr);
+                    map->props.scope.hashes[scope_count] = crc32(0L,
+                                                                 (const Bytef *)remote_devname_ptr,
+                                                                 strlen(devname));
                     scope_count++;
                     local_scope = 1;
                 }
 
-                // also need to add connection to lists kept by source rs
-                router_signal_store_slot(rs2, &c->sources[i]);
+                // also need to add map to lists kept by source rs
+                router_signal_store_slot(rs2, &map->sources[i]);
             }
             else {
                 ready = 0;
                 devnamelen = mapper_parse_names(remote_signal_names[i],
                                                 &devnamep, &signame);
                 if (!devnamelen || devnamelen >= 256) {
-                    // TODO: free partially-built connection structure
+                    // TODO: free partially-built map structure
                     return 0;
                 }
                 strncpy(devname, devnamep, devnamelen);
@@ -749,82 +743,82 @@ mapper_connection mapper_router_add_connection(mapper_router r,
                 sp->num_instances = sig->props.num_instances;
 
                 // TODO: check that scope is not added multiple times
-                c->props.scope.names[scope_count] = strdup(devname);
-                c->props.scope.hashes[scope_count] = crc32(0L,
-                                                           (const Bytef *)devname,
-                                                           strlen(devname));
+                map->props.scope.names[scope_count] = strdup(devname);
+                map->props.scope.hashes[scope_count] = crc32(0L,
+                                                             (const Bytef *)devname,
+                                                             strlen(devname));
                 scope_count++;
             }
 
             link = mapper_router_find_link_by_remote_name(r, remote_devname_ptr);
             if (link) {
-                c->sources[i].link = link;
+                map->sources[i].link = link;
             }
             else
-                c->sources[i].link = mapper_router_add_link(r, 0, 0, 0,
-                                                            remote_devname_ptr);
+                map->sources[i].link = mapper_router_add_link(r, 0, 0, 0,
+                                                              remote_devname_ptr);
 
-            if (!c->sources[i].local)
-                sp->signal->device = &c->sources[i].link->props;
+            if (!map->sources[i].local)
+                sp->signal->device = &map->sources[i].link->props;
             sp->slot_id = rs->id_counter++;
         }
         if (scope_count != num_sources) {
-            c->props.scope.size = scope_count;
-            c->props.scope.names = realloc(c->props.scope.names,
-                                           sizeof(char *) * scope_count);
-            c->props.scope.hashes = realloc(c->props.scope.hashes,
-                                            sizeof(uint32_t) * scope_count);
+            map->props.scope.size = scope_count;
+            map->props.scope.names = realloc(map->props.scope.names,
+                                             sizeof(char *) * scope_count);
+            map->props.scope.hashes = realloc(map->props.scope.hashes,
+                                              sizeof(uint32_t) * scope_count);
         }
     }
 
     for (i = 0; i < num_sources; i++) {
-        c->sources[i].connection = c;
-        c->props.sources[i].cause_update = 1;
-        c->props.sources[i].send_as_instance = c->props.sources[i].num_instances > 1;
-        c->props.sources[i].bound_min = BA_NONE;
-        c->props.sources[i].bound_max = BA_NONE;
+        map->sources[i].map = map;
+        map->props.sources[i].cause_update = 1;
+        map->props.sources[i].send_as_instance = map->props.sources[i].num_instances > 1;
+        map->props.sources[i].bound_min = BA_NONE;
+        map->props.sources[i].bound_max = BA_NONE;
     }
-    c->destination.connection = c;
-    c->props.destination.slot_id = -1;
-    c->props.destination.cause_update = 1;
-    c->props.destination.send_as_instance = c->props.destination.num_instances > 1;
-    c->props.destination.bound_min = c->props.destination.bound_max = BA_NONE;
-    c->props.destination.minimum = c->props.destination.maximum = 0;
+    map->destination.map = map;
+    map->props.destination.slot_id = -1;
+    map->props.destination.cause_update = 1;
+    map->props.destination.send_as_instance = map->props.destination.num_instances > 1;
+    map->props.destination.bound_min = map->props.destination.bound_max = BA_NONE;
+    map->props.destination.minimum = map->props.destination.maximum = 0;
 
-    c->props.muted = 0;
-    c->props.mode = MO_UNDEFINED;
-    c->props.expression = 0;
-    c->props.extra = table_new();
+    map->props.muted = 0;
+    map->props.mode = MO_UNDEFINED;
+    map->props.expression = 0;
+    map->props.extra = table_new();
 
     // check if all sources belong to same remote device
-    c->one_source = 1;
-    for (i = 1; i < c->props.num_sources; i++) {
-        if (c->sources[i].link != c->sources[0].link) {
-            c->one_source = 0;
+    map->one_source = 1;
+    for (i = 1; i < map->props.num_sources; i++) {
+        if (map->sources[i].link != map->sources[0].link) {
+            map->one_source = 0;
             break;
         }
     }
     // default to processing at source device unless heterogeneous sources
-    if (c->one_source)
-        c->props.process_location = MAPPER_SOURCE;
+    if (map->one_source)
+        map->props.process_location = MAPPER_SOURCE;
     else
-        c->props.process_location = MAPPER_DESTINATION;
+        map->props.process_location = MAPPER_DESTINATION;
 
     if (ready) {
         // all reference signals are local
-        c->is_local = 1;
-        c->is_admin = 1;
-        link = c->sources[0].link;
-        c->destination.link = link;
+        map->is_local = 1;
+        map->is_admin = 1;
+        link = map->sources[0].link;
+        map->destination.link = link;
     }
-    return c;
+    return map;
 }
 
 static void check_link(mapper_router r, mapper_link l)
 {
-    /* We could remove link the link here if it has no associated connections,
+    /* We could remove link the link here if it has no associated maps,
      * however under normal usage it is likely that users will add new
-     * connections after deleting the old ones. If we remove the link
+     * maps after deleting the old ones. If we remove the link
      * immediately it will have to be re-established in this scenario, so we
      * will allow the admin house-keeping routines to clean up empty links
      * after the link ping timeout period. */
@@ -833,7 +827,7 @@ static void check_link(mapper_router r, mapper_link l)
 void mapper_router_remove_signal(mapper_router r, mapper_router_signal rs)
 {
     if (r && rs) {
-        // No connections remaining – we can remove the router_signal also
+        // No maps remaining – we can remove the router_signal also
         mapper_router_signal *rstemp = &r->signals;
         while (*rstemp) {
             if (*rstemp == rs) {
@@ -847,7 +841,7 @@ void mapper_router_remove_signal(mapper_router r, mapper_router_signal rs)
     }
 }
 
-static void free_slot_memory(mapper_connection_slot s)
+static void free_slot_memory(mapper_map_slot s)
 {
     int i;
     if (s->props->minimum)
@@ -870,81 +864,81 @@ static void free_slot_memory(mapper_connection_slot s)
     }
 }
 
-int mapper_router_remove_connection(mapper_router r, mapper_connection c)
+int mapper_router_remove_map(mapper_router r, mapper_map map)
 {
     // do not free local names since they point to signal's copy
     int i, j;
-    if (!c)
+    if (!map)
         return 1;
 
-    // remove connection and slots from router_signal lists if necessary
-    if (c->destination.local) {
-        mapper_router_signal rs = c->destination.local;
+    // remove map and slots from router_signal lists if necessary
+    if (map->destination.local) {
+        mapper_router_signal rs = map->destination.local;
         for (i = 0; i < rs->num_slots; i++) {
-            if (rs->slots[i] == &c->destination) {
+            if (rs->slots[i] == &map->destination) {
                 rs->slots[i] = 0;
                 break;
             }
         }
-        if (c->status >= MAPPER_READY && c->destination.link) {
-            c->destination.link->props.num_connections_in--;
-            check_link(r, c->destination.link);
+        if (map->status >= MAPPER_READY && map->destination.link) {
+            map->destination.link->props.num_incoming_maps--;
+            check_link(r, map->destination.link);
         }
     }
-    else if (c->status >= MAPPER_READY && c->destination.link) {
-        c->destination.link->props.num_connections_out--;
-        check_link(r, c->destination.link);
+    else if (map->status >= MAPPER_READY && map->destination.link) {
+        map->destination.link->props.num_outgoing_maps--;
+        check_link(r, map->destination.link);
     }
-    free_slot_memory(&c->destination);
-    for (i = 0; i < c->props.num_sources; i++) {
-        if (c->sources[i].local) {
-            mapper_router_signal rs = c->sources[i].local;
+    free_slot_memory(&map->destination);
+    for (i = 0; i < map->props.num_sources; i++) {
+        if (map->sources[i].local) {
+            mapper_router_signal rs = map->sources[i].local;
             for (j = 0; j < rs->num_slots; j++) {
-                if (rs->slots[j] == &c->sources[i]) {
+                if (rs->slots[j] == &map->sources[i]) {
                     rs->slots[j] = 0;
                 }
             }
         }
-        if (c->status >= MAPPER_READY && c->sources[i].link) {
-            c->sources[i].link->props.num_connections_in--;
-            check_link(r, c->sources[i].link);
+        if (map->status >= MAPPER_READY && map->sources[i].link) {
+            map->sources[i].link->props.num_incoming_maps--;
+            check_link(r, map->sources[i].link);
         }
-        free_slot_memory(&c->sources[i]);
+        free_slot_memory(&map->sources[i]);
     }
-    free(c->sources);
-    free(c->props.sources);
+    free(map->sources);
+    free(map->props.sources);
 
     // free buffers associated with user-defined expression variables
-    if (c->num_expr_vars) {
-        for (i = 0; i < c->num_var_instances; i++) {
-            if (c->num_expr_vars) {
-                for (j = 0; j < c->num_expr_vars; j++) {
-                    free(c->expr_vars[i][j].value);
-                    free(c->expr_vars[i][j].timetag);
+    if (map->num_expr_vars) {
+        for (i = 0; i < map->num_var_instances; i++) {
+            if (map->num_expr_vars) {
+                for (j = 0; j < map->num_expr_vars; j++) {
+                    free(map->expr_vars[i][j].value);
+                    free(map->expr_vars[i][j].timetag);
                 }
             }
-            free(c->expr_vars[i]);
+            free(map->expr_vars[i]);
         }
     }
-    if (c->expr_vars)
-        free(c->expr_vars);
-    if (c->expr)
-        mapper_expr_free(c->expr);
+    if (map->expr_vars)
+        free(map->expr_vars);
+    if (map->expr)
+        mapper_expr_free(map->expr);
 
-    if (c->props.expression)
-        free(c->props.expression);
-    for (i=0; i<c->props.scope.size; i++) {
-        free(c->props.scope.names[i]);
+    if (map->props.expression)
+        free(map->props.expression);
+    for (i=0; i<map->props.scope.size; i++) {
+        free(map->props.scope.names[i]);
     }
-    free(c->props.scope.names);
-    free(c->props.scope.hashes);
-    table_free(c->props.extra, 1);
+    free(map->props.scope.names);
+    free(map->props.scope.hashes);
+    table_free(map->props.extra, 1);
 
-    free(c);
+    free(map);
     return 0;
 }
 
-static int match_slot(mapper_device md, mapper_connection_slot slot,
+static int match_slot(mapper_device md, mapper_map_slot slot,
                       const char *full_name)
 {
     if (!full_name)
@@ -965,11 +959,11 @@ static int match_slot(mapper_device md, mapper_connection_slot slot,
     return 1;
 }
 
-mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
-                                                         mapper_signal local_src,
-                                                         int num_sources,
-                                                         const char **src_names,
-                                                         const char *dest_name)
+mapper_map mapper_router_find_outgoing_map(mapper_router router,
+                                           mapper_signal local_src,
+                                           int num_sources,
+                                           const char **src_names,
+                                           const char *dest_name)
 {
     // find associated router_signal
     mapper_router_signal rs = router->signals;
@@ -978,39 +972,39 @@ mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
     if (!rs)
         return 0;
 
-    // find associated connection
+    // find associated map
     int i, j;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_INCOMING)
             continue;
-        mapper_connection_slot s = rs->slots[i];
-        mapper_connection c = s->connection;
+        mapper_map_slot s = rs->slots[i];
+        mapper_map map = s->map;
 
         // check destination
-        if (match_slot(router->device, &c->destination, dest_name))
+        if (match_slot(router->device, &map->destination, dest_name))
             continue;
 
         // check sources
         int found = 1;
-        for (j = 0; j < c->props.num_sources; j++) {
-            if (c->sources[j].local == rs)
+        for (j = 0; j < map->props.num_sources; j++) {
+            if (map->sources[j].local == rs)
                 continue;
 
-            if (match_slot(router->device, &c->sources[j], src_names[j])) {
+            if (match_slot(router->device, &map->sources[j], src_names[j])) {
                 found = 0;
                 break;
             }
         }
         if (found)
-            return c;
+            return map;
     }
     return 0;
 }
 
-mapper_connection mapper_router_find_incoming_connection(mapper_router router,
-                                                         mapper_signal local_dest,
-                                                         int num_sources,
-                                                         const char **src_names)
+mapper_map mapper_router_find_incoming_map(mapper_router router,
+                                           mapper_signal local_dest,
+                                           int num_sources,
+                                           const char **src_names)
 {
     // find associated router_signal
     mapper_router_signal rs = router->signals;
@@ -1019,30 +1013,30 @@ mapper_connection mapper_router_find_incoming_connection(mapper_router router,
     if (!rs)
         return 0;
 
-    // find associated connection
+    // find associated map
     int i, j;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_OUTGOING)
             continue;
-        mapper_connection c = rs->slots[i]->connection;
+        mapper_map map = rs->slots[i]->map;
 
         // check sources
         int found = 1;
         for (j = 0; j < num_sources; j++) {
-            if (match_slot(router->device, &c->sources[j], src_names[j])) {
+            if (match_slot(router->device, &map->sources[j], src_names[j])) {
                 found = 0;
                 break;
             }
         }
         if (found)
-            return c;
+            return map;
     }
     return 0;
 }
 
-mapper_connection mapper_router_find_incoming_connection_id(mapper_router router,
-                                                            mapper_signal local_dest,
-                                                            int id)
+mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
+                                                 mapper_signal local_dest,
+                                                 int id)
 {
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != local_dest)
@@ -1054,17 +1048,17 @@ mapper_connection mapper_router_find_incoming_connection_id(mapper_router router
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_OUTGOING)
             continue;
-        mapper_connection c = rs->slots[i]->connection;
-        if (c->props.id == id)
-            return c;
+        mapper_map map = rs->slots[i]->map;
+        if (map->props.id == id)
+            return map;
     }
     return 0;
 }
 
-mapper_connection mapper_router_find_outgoing_connection_id(mapper_router router,
-                                                            mapper_signal local_src,
-                                                            const char *dest_name,
-                                                            int id)
+mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
+                                                 mapper_signal local_src,
+                                                 const char *dest_name,
+                                                 int id)
 {
     int i;
     mapper_router_signal rs = router->signals;
@@ -1080,23 +1074,23 @@ mapper_connection mapper_router_find_outgoing_connection_id(mapper_router router
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_INCOMING)
             continue;
-        mapper_connection c = rs->slots[i]->connection;
-        if (c->props.id != id)
+        mapper_map map = rs->slots[i]->map;
+        if (map->props.id != id)
             continue;
-        const char *match = (c->destination.local
+        const char *match = (map->destination.local
                              ? mdev_name(router->device)
-                             : c->destination.link->props.name);
+                             : map->destination.link->props.name);
         if (strlen(match)==devnamelen
             && strncmp(match, devname, devnamelen)==0) {
-            return c;
+            return map;
         }
     }
     return 0;
 }
 
-mapper_connection_slot mapper_router_find_connection_slot(mapper_router router,
-                                                          mapper_signal signal,
-                                                          int slot_id)
+mapper_map_slot mapper_router_find_map_slot(mapper_router router,
+                                            mapper_signal signal,
+                                            int slot_id)
 {
     // only interested in incoming slots
     mapper_router_signal rs = router->signals;
@@ -1106,15 +1100,15 @@ mapper_connection_slot mapper_router_find_connection_slot(mapper_router router,
         return NULL; // no associated router_signal
 
     int i, j;
-    mapper_connection c;
+    mapper_map map;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_OUTGOING)
             continue;
-        c = rs->slots[i]->connection;
-        // check incoming slots for this connection
-        for (j = 0; j < c->props.num_sources; j++) {
-            if (c->sources[j].props->slot_id == slot_id)
-                return &c->sources[j];
+        map = rs->slots[i]->map;
+        // check incoming slots for this map
+        for (j = 0; j < map->props.num_sources; j++) {
+            if (map->sources[j].props->slot_id == slot_id)
+                return &map->sources[j];
         }
     }
     return NULL;

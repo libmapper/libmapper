@@ -119,7 +119,7 @@ void cleanup_destination()
     }
 }
 
-int setup_connection()
+int setup_maps()
 {
     int count = 0;
 
@@ -128,16 +128,16 @@ int setup_connection()
         goto error;
 
     mapper_db_signal src = &sendsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, 0);
+    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, 0);
 
-    // wait until connection has been established
-    while (!done && !mdev_num_connections_out(source)) {
+    // wait until mapping has been established
+    while (!done && !mdev_num_outgoing_maps(source)) {
         if (count++ > 50)
             goto error;
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
-    eprintf("Connection established.\n");
+    eprintf("Mapping established.\n");
 
     mmon_free(mon);
 
@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 
     wait_local_devices();
 
-    if (autoconnect && setup_connection()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error initializing connection.\n");
         result = 1;
         goto done;

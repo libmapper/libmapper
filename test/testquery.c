@@ -140,7 +140,7 @@ void wait_local_devices()
     }
 }
 
-int setup_connections()
+int setup_maps()
 {
     int i;
     mapper_monitor mon = mmon_new(source->admin, 0);
@@ -148,18 +148,18 @@ int setup_connections()
     mapper_db_signal src;
     for (int i = 0; i < 2; i++) {
         src = &sendsig[i]->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[i]->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig[i]->props, 0);
     }
 
     // swap the last two signals to mix up signal vector lengths
     src = &sendsig[2]->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[3]->props, 0);
+    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig[3]->props, 0);
     src = &sendsig[3]->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig[2]->props, 0);
+    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig[2]->props, 0);
 
     i = 0;
-    // wait until connection has been established
-    while (!done && !mdev_num_connections_out(source)) {
+    // wait until mapping has been established
+    while (!done && !mdev_num_outgoing_maps(source)) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
@@ -249,7 +249,7 @@ int main(int argc, char **argv)
 
     wait_local_devices();
 
-    if (autoconnect && setup_connections()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
         result = 1;
         goto done;

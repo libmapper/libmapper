@@ -129,18 +129,18 @@ void wait_local_devices()
     }
 }
 
-int setup_connections()
+int setup_maps()
 {
     int i = 0;
 
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_signal src = &recvsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &sendsig->props, 0);
+    mmon_map_signals_by_db_record(mon, 1, &src, &sendsig->props, 0);
 
     i = 0;
-    // wait until connection has been established
-    while (!done && !mdev_num_connections_out(destination)) {
+    // wait until mapping has been established
+    while (!done && !mdev_num_outgoing_maps(destination)) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
         if (i++ > 100)
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
 
     wait_local_devices();
 
-    if (autoconnect && setup_connections()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
         result = 1;
         goto done;

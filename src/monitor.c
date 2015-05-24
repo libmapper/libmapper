@@ -165,13 +165,13 @@ static void monitor_subscribe_internal(mapper_monitor mon,
                 else if (subscribe_flags & SUBSCRIBE_DEVICE_OUTPUTS)
                     lo_message_add_string(m, "outputs");
             }
-            if (subscribe_flags & SUBSCRIBE_CONNECTIONS)
-                lo_message_add_string(m, "connections");
+            if (subscribe_flags & SUBSCRIBE_DEVICE_MAPS)
+                lo_message_add_string(m, "maps");
             else {
-                if (subscribe_flags & SUBSCRIBE_CONNECTIONS_IN)
-                    lo_message_add_string(m, "connections_in");
-                else if (subscribe_flags & SUBSCRIBE_CONNECTIONS_OUT)
-                    lo_message_add_string(m, "connections_out");
+                if (subscribe_flags & SUBSCRIBE_DEVICE_MAPS_IN)
+                    lo_message_add_string(m, "incoming_maps");
+                else if (subscribe_flags & SUBSCRIBE_DEVICE_MAPS_OUT)
+                    lo_message_add_string(m, "outgoing_maps");
             }
         }
         lo_message_add_string(m, "@lease");
@@ -278,13 +278,12 @@ static void _real_prep_varargs(lo_message m, ...)
     va_end(aq);
 }
 
-void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
-                                  const char **source_names,
-                                  const char *dest_name,
-                                  mapper_db_connection_t *props)
+void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
+                              const char **source_names, const char *dest_name,
+                              mapper_db_map_t *props)
 {
     if (!mon || !num_sources || !source_names || !dest_name
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -303,45 +302,45 @@ void mmon_connect_signals_by_name(mapper_monitor mon, int num_sources,
             for (i = 0; i < num_sources; i++)
                 src_flags |= props->sources[i].flags;
         }
-        mapper_db_connection_slot d = &props->destination;
+        mapper_db_map_slot d = &props->destination;
 
         if (props->flags || src_flags || d->flags) {
             props->num_sources = num_sources;
             prep_varargs(m,
-                (src_flags & CONNECTION_BOUND_MIN) ? AT_SRC_BOUND_MIN : -1, props,
-                (src_flags & CONNECTION_BOUND_MAX) ? AT_SRC_BOUND_MAX : -1, props,
-                (d->flags & CONNECTION_BOUND_MIN) ? AT_DEST_BOUND_MIN : -1, d->bound_min,
-                (d->flags & CONNECTION_BOUND_MAX) ? AT_DEST_BOUND_MAX : -1, d->bound_max,
-                bitmatch(src_flags, CONNECTION_MIN_KNOWN) ? AT_SRC_MIN : -1, props,
-                bitmatch(src_flags, CONNECTION_MAX_KNOWN) ? AT_SRC_MAX : -1, props,
-                bitmatch(d->flags, CONNECTION_MIN_KNOWN) ? AT_DEST_MIN : -1, props,
-                bitmatch(d->flags, CONNECTION_MAX_KNOWN) ? AT_DEST_MAX : -1, props,
-                (props->flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
-                (props->flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-                (props->flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-                (src_flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1, props,
-                (bitmatch(props->flags, CONNECTION_SCOPE_NAMES)
+                (src_flags & MAP_SLOT_BOUND_MIN) ? AT_SRC_BOUND_MIN : -1, props,
+                (src_flags & MAP_SLOT_BOUND_MAX) ? AT_SRC_BOUND_MAX : -1, props,
+                (d->flags & MAP_SLOT_BOUND_MIN) ? AT_DEST_BOUND_MIN : -1, d->bound_min,
+                (d->flags & MAP_SLOT_BOUND_MAX) ? AT_DEST_BOUND_MAX : -1, d->bound_max,
+                bitmatch(src_flags, MAP_SLOT_MIN_KNOWN) ? AT_SRC_MIN : -1, props,
+                bitmatch(src_flags, MAP_SLOT_MAX_KNOWN) ? AT_SRC_MAX : -1, props,
+                bitmatch(d->flags, MAP_SLOT_MIN_KNOWN) ? AT_DEST_MIN : -1, props,
+                bitmatch(d->flags, MAP_SLOT_MAX_KNOWN) ? AT_DEST_MAX : -1, props,
+                (props->flags & MAP_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
+                (props->flags & MAP_MODE) ? AT_MODE : -1, props->mode,
+                (props->flags & MAP_MUTED) ? AT_MUTE : -1, props->muted,
+                (src_flags & MAP_SLOT_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1, props,
+                (bitmatch(props->flags, MAP_SCOPE_NAMES)
                  && props->scope.size) ? AT_SCOPE : -1, props->scope.names,
-                (src_flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
+                (src_flags & MAP_SLOT_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
         }
     }
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_CONNECT], m);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_MAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                       mapper_db_signal_t **sources,
-                                       mapper_db_signal_t *dest,
-                                       mapper_db_connection_t *props)
+void mmon_map_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                   mapper_db_signal_t **sources,
+                                   mapper_db_signal_t *dest,
+                                   mapper_db_map_t *props)
 {
     if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     const char *src_names[num_sources];
@@ -355,20 +354,19 @@ void mmon_connect_signals_by_db_record(mapper_monitor mon, int num_sources,
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
-    mmon_connect_signals_by_name(mon, num_sources, src_names, dest_name,
-                                 props);
+    mmon_map_signals_by_name(mon, num_sources, src_names, dest_name, props);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
-                                            const char **source_names,
-                                            const char *dest_name,
-                                            mapper_db_connection_t *props)
+void mmon_modify_map_by_signal_names(mapper_monitor mon, int num_sources,
+                                     const char **source_names,
+                                     const char *dest_name,
+                                     mapper_db_map_t *props)
 {
     if (!mon || !num_sources || !source_names || !dest_name || !props
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -387,42 +385,42 @@ void mmon_modify_connection_by_signal_names(mapper_monitor mon, int num_sources,
         for (i = 0; i < num_sources; i++)
             src_flags |= props->sources[i].flags;
     }
-    mapper_db_connection_slot d = &props->destination;
+    mapper_db_map_slot d = &props->destination;
 
     prep_varargs(m,
-        (src_flags & CONNECTION_BOUND_MIN) ? AT_SRC_BOUND_MIN : -1, props,
-        (src_flags & CONNECTION_BOUND_MAX) ? AT_SRC_BOUND_MAX : -1, props,
-        (d->flags & CONNECTION_BOUND_MIN) ? AT_DEST_BOUND_MIN : -1, d->bound_min,
-        (d->flags & CONNECTION_BOUND_MAX) ? AT_DEST_BOUND_MAX : -1, d->bound_max,
-        bitmatch(src_flags, CONNECTION_MIN_KNOWN) ? AT_SRC_MIN : -1, props,
-        bitmatch(src_flags, CONNECTION_MAX_KNOWN) ? AT_SRC_MAX : -1, props,
-        bitmatch(d->flags, CONNECTION_MIN_KNOWN) ? AT_DEST_MIN : -1, props,
-        bitmatch(d->flags, CONNECTION_MAX_KNOWN) ? AT_DEST_MAX : -1, props,
-        (props->flags & CONNECTION_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
-        (props->flags & CONNECTION_MODE) ? AT_MODE : -1, props->mode,
-        (props->flags & CONNECTION_MUTED) ? AT_MUTE : -1, props->muted,
-        (src_flags & CONNECTION_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1, props,
-        (bitmatch(props->flags, CONNECTION_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1, props->scope.names,
-        (src_flags & CONNECTION_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
+        (src_flags & MAP_SLOT_BOUND_MIN) ? AT_SRC_BOUND_MIN : -1, props,
+        (src_flags & MAP_SLOT_BOUND_MAX) ? AT_SRC_BOUND_MAX : -1, props,
+        (d->flags & MAP_SLOT_BOUND_MIN) ? AT_DEST_BOUND_MIN : -1, d->bound_min,
+        (d->flags & MAP_SLOT_BOUND_MAX) ? AT_DEST_BOUND_MAX : -1, d->bound_max,
+        bitmatch(src_flags, MAP_SLOT_MIN_KNOWN) ? AT_SRC_MIN : -1, props,
+        bitmatch(src_flags, MAP_SLOT_MAX_KNOWN) ? AT_SRC_MAX : -1, props,
+        bitmatch(d->flags, MAP_SLOT_MIN_KNOWN) ? AT_DEST_MIN : -1, props,
+        bitmatch(d->flags, MAP_SLOT_MAX_KNOWN) ? AT_DEST_MAX : -1, props,
+        (props->flags & MAP_EXPRESSION) ? AT_EXPRESSION : -1, props->expression,
+        (props->flags & MAP_MODE) ? AT_MODE : -1, props->mode,
+        (props->flags & MAP_MUTED) ? AT_MUTE : -1, props->muted,
+        (src_flags & MAP_SLOT_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1, props,
+        (bitmatch(props->flags, MAP_SCOPE_NAMES) && props->scope.size) ? AT_SCOPE : -1, props->scope.names,
+        (src_flags & MAP_SLOT_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, props);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
     lo_bundle_add_message(mon->admin->bundle,
-                          admin_msg_strings[ADM_CONNECTION_MODIFY], m);
+                          admin_msg_strings[ADM_MODIFY_MAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
-                                                 int num_sources,
-                                                 mapper_db_signal_t **sources,
-                                                 mapper_db_signal_t *dest,
-                                                 mapper_db_connection_t *props)
+void mmon_modify_map_by_signal_db_records(mapper_monitor mon,
+                                          int num_sources,
+                                          mapper_db_signal_t **sources,
+                                          mapper_db_signal_t *dest,
+                                          mapper_db_map_t *props)
 {
     if (!mon || !num_sources || !sources || !dest || !props || !props->flags
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     const char *src_names[num_sources];
@@ -436,14 +434,13 @@ void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
-    mmon_modify_connection_by_signal_names(mon, num_sources, src_names,
-                                           dest_name, props);
+    mmon_modify_map_by_signal_names(mon, num_sources, src_names, dest_name, props);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
+void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *props)
 {
     if (!mon || !props || !props->num_sources || !props->sources || !props->flags)
         return;
@@ -460,18 +457,18 @@ void mmon_modify_connection(mapper_monitor mon, mapper_db_connection_t *props)
     snprintf(dest_name, 256, "%s%s", props->destination.signal->device->name,
              props->destination.signal->path);
 
-    mmon_modify_connection_by_signal_names(mon, props->num_sources, src_names,
-                                           dest_name, props);
+    mmon_modify_map_by_signal_names(mon, props->num_sources, src_names,
+                                    dest_name, props);
 
     for (i = 0; i < props->num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_disconnect_signals_by_name(mapper_monitor mon, int num_sources,
-                                     const char **sources, const char *dest)
+void mmon_unmap_signals_by_name(mapper_monitor mon, int num_sources,
+                                const char **sources, const char *dest)
 {
     if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     lo_message m = lo_message_new();
@@ -486,19 +483,19 @@ void mmon_disconnect_signals_by_name(mapper_monitor mon, int num_sources,
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_UNMAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 }
 
-void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                          mapper_db_signal_t **sources,
-                                          mapper_db_signal_t *dest)
+void mmon_unmap_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                     mapper_db_signal_t **sources,
+                                     mapper_db_signal_t *dest)
 {
     if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_CONNECTION_SOURCES)
+        || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
     const char *src_names[num_sources];
@@ -512,13 +509,13 @@ void mmon_disconnect_signals_by_db_record(mapper_monitor mon, int num_sources,
     char dest_name[256];
     snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
 
-    mmon_disconnect_signals_by_name(mon, num_sources, src_names, dest_name);
+    mmon_unmap_signals_by_name(mon, num_sources, src_names, dest_name);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
+void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *c)
 {
     if (!mon || !c || !c->num_sources || !c->sources)
         return;
@@ -535,7 +532,7 @@ void mmon_remove_connection(mapper_monitor mon, mapper_db_connection_t *c)
     snprintf(dest_name, 256, "%s%s", c->destination.signal->device->name,
              c->destination.signal->path);
 
-    mmon_disconnect_signals_by_name(mon, c->num_sources, src_names, dest_name);
+    mmon_unmap_signals_by_name(mon, c->num_sources, src_names, dest_name);
 
     for (i = 0; i < c->num_sources; i++)
         free((char *)src_names[i]);

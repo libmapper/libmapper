@@ -104,35 +104,35 @@ void cleanup_destination()
     }
 }
 
-int setup_connection()
+int setup_maps()
 {
     float src_min = 0., src_max = 100., dest_min = -10., dest_max = 10.;
 
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_db_connection_t props;
-    mapper_db_connection_slot_t src_slot;
+    mapper_db_map_t props;
+    mapper_db_map_slot_t src_slot;
     props.num_sources = 1;
     props.sources = &src_slot;
     src_slot.minimum = &src_min;
     src_slot.maximum = &src_max;
     src_slot.length = 1;
     src_slot.type = 'f';
-    src_slot.flags = CONNECTION_RANGE_KNOWN;
+    src_slot.flags = MAP_SLOT_RANGE_KNOWN;
     props.destination.minimum = &dest_min;
     props.destination.maximum = &dest_max;
     props.destination.length = 1;
     props.destination.type = 'f';
     props.destination.bound_min = BA_FOLD;
-    props.destination.flags = CONNECTION_RANGE_KNOWN | CONNECTION_BOUND_MIN;
+    props.destination.flags = MAP_SLOT_RANGE_KNOWN | MAP_SLOT_BOUND_MIN;
     props.mode = MO_LINEAR;
-    props.flags = CONNECTION_MODE;
+    props.flags = MAP_MODE;
 
     mapper_db_signal src = &sendsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
+    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
 
-    // Wait until connection has been established
-    while (!done && !mdev_num_connections_out(source)) {
+    // Wait until mapping has been established
+    while (!done && !mdev_num_outgoing_maps(source)) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -230,7 +230,7 @@ int main(int argc, char **argv)
 
     wait_ready();
 
-    if (autoconnect && setup_connection()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error initializing connections.\n");
         result = 1;
         goto done;

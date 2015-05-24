@@ -258,14 +258,14 @@ static int check_types(const char *types, int len, char type, int vector_len)
 
 /* Notes:
  * - Incoming signal values may be scalars or vectors, but much match the
- *   length of the target signal or connection slot.
+ *   length of the target signal or mapping slot.
  * - Vectors are of homogeneous type ('i', 'f' or 'd') however individual
  *   elements may have no value (type 'N')
  * - A vector consisting completely of nulls indicates a signal instance release
  * - Updates to a specific signal instance are indicated using the label
  *   "@instance" followed by two integers which uniquely identify this instance
  *   within the network of libmapper devices
- * - Updates to specific "slots" of a convergent (i.e. multi-source) connection
+ * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
  * - Multiple "samples" of a signal value may be packed into a single message
  * - In future updates, instance release may be triggered by expression eval
@@ -277,11 +277,11 @@ static int handler_signal(const char *path, const char *types,
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md;
     int i = 0, j, k, count = 1, nulls = 0;
-    int is_instance_update = 0, map_index, slot = -1;
+    int is_instance_update = 0, id_map_index, slot = -1;
     int instance_group, instance_id;
-    mapper_id_map map;
-    mapper_connection c = 0;
-    mapper_connection_slot s = 0;
+    mapper_id_map id_map;
+    mapper_map map = 0;
+    mapper_map_slot s = 0;
 
     if (!sig || !(md = sig->device)) {
 #ifdef DEBUG
@@ -347,33 +347,33 @@ static int handler_signal(const char *path, const char *types,
 
     if (slot >= 0) {
         // check if we have a combiner for this signal
-        // retrieve connection associated with this slot
-        s = mapper_router_find_connection_slot(md->router, sig, slot);
+        // retrieve mapping associated with this slot
+        s = mapper_router_find_map_slot(md->router, sig, slot);
         if (!s) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot);
 #endif
             return 0;
         }
-        c = s->connection;
-        if (c->status < MAPPER_READY) {
+        map = s->map;
+        if (map->status < MAPPER_READY) {
 #ifdef DEBUG
-            printf("error in handler_signal: connection not yet ready.\n");
+            printf("error in handler_signal: mapping not yet ready.\n");
 #endif
             return 0;
         }
-        if (!c->expr) {
+        if (!map->expr) {
 #ifdef DEBUG
             printf("error in handler_signal: missing expression.\n");
 #endif
             return 0;
         }
-        if (c->props.process_location == MAPPER_DESTINATION) {
+        if (map->props.process_location == MAPPER_DESTINATION) {
             count = check_types(types, value_len, s->props->type, s->props->length);
         }
         else {
             // value has already been processed at source device
-            c = 0;
+            map = 0;
             count = check_types(types, value_len, sig->props.type, sig->props.length);
         }
     }
@@ -385,25 +385,25 @@ static int handler_signal(const char *path, const char *types,
         return 0;
 
     // TODO: optionally discard out-of-order messages
-    // requires timebase sync for many-to-one connections or local updates
+    // requires timebase sync for many-to-one mappings or local updates
     //    if (sig->discard_out_of_order && out_of_order(si->timetag, tt))
     //        return 0;
     lo_timetag tt = lo_message_get_timestamp(msg);
 
     if (is_instance_update) {
-        map_index = msig_find_instance_with_remote_ids(sig, instance_group,
-                                                       instance_id,
-                                                       IN_RELEASED_LOCALLY);
-        if (map_index < 0) {
+        id_map_index = msig_find_instance_with_remote_ids(sig, instance_group,
+                                                          instance_id,
+                                                          IN_RELEASED_LOCALLY);
+        if (id_map_index < 0) {
             // no instance found with this map
             if (nulls == value_len * count) {
                 // Don't activate instance just to release it again
                 return 0;
             }
             // otherwise try to init reserved/stolen instance with device map
-            map_index = msig_get_instance_with_remote_ids(sig, instance_group,
-                                                          instance_id, 0, &tt);
-            if (map_index < 0) {
+            id_map_index = msig_get_instance_with_remote_ids(sig, instance_group,
+                                                             instance_id, 0, &tt);
+            if (id_map_index < 0) {
 #ifdef DEBUG
                 printf("no local instances available for remote instance %ld:%ld\n",
                        (long)instance_group, (long)instance_id);
@@ -412,21 +412,21 @@ static int handler_signal(const char *path, const char *types,
             }
         }
         else {
-            if (sig->id_maps[map_index].status & IN_RELEASED_LOCALLY) {
+            if (sig->id_maps[id_map_index].status & IN_RELEASED_LOCALLY) {
                 /* map was already released locally, we are only interested
                  * in release messages */
                 if (count == 1 && nulls == value_len) {
                     // we can clear signal's reference to map
-                    map = sig->id_maps[map_index].map;
-                    sig->id_maps[map_index].map = 0;
-                    map->refcount_remote--;
-                    if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
-                        mdev_remove_instance_id_map(md, map);
+                    id_map = sig->id_maps[id_map_index].map;
+                    sig->id_maps[id_map_index].map = 0;
+                    id_map->refcount_remote--;
+                    if (id_map->refcount_remote <= 0 && id_map->refcount_local <= 0) {
+                        mdev_remove_instance_id_map(md, id_map);
                     }
                 }
                 return 0;
             }
-            else if (!sig->id_maps[map_index].instance) {
+            else if (!sig->id_maps[id_map_index].instance) {
 #ifdef DEBUG
                 printf("error in handler_signal: missing instance!\n");
 #endif
@@ -435,27 +435,27 @@ static int handler_signal(const char *path, const char *types,
         }
     }
     else {
-        map_index = 0;
+        id_map_index = 0;
         if (!sig->id_maps[0].instance)
-            map_index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
-        if (map_index < 0)
+            id_map_index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
+        if (id_map_index < 0)
             return 0;
     }
-    mapper_signal_instance si = sig->id_maps[map_index].instance;
-    map = sig->id_maps[map_index].map;
+    mapper_signal_instance si = sig->id_maps[id_map_index].instance;
+    id_map = sig->id_maps[id_map_index].map;
 
     int size = (s ? mapper_type_size(s->props->type)
                 : mapper_type_size(sig->props.type));
     void *out_buffer = alloca(count * value_len * size);
     int vals, out_count = 0, active = 1;
 
-    if (c) {
+    if (map) {
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
             for (j = 0; j < s->props->length; j++, k++) {
                 vals += (types[k] != 'N');
             }
-            /* partial vector updates not allowed in convergent connections
+            /* partial vector updates not allowed in convergent mappings
              * since slot value mirrors remote signal value. */
             // vals is allowed to equal 0 or s->props->length (for release)
             if (vals == 0) {
@@ -467,46 +467,46 @@ static int handler_signal(const char *path, const char *types,
                     return 0;
                 }
                 if (is_instance_update) {
-                    sig->id_maps[map_index].status |= IN_RELEASED_REMOTELY;
-                    map->refcount_remote--;
-                    if (map->refcount_remote <= 0 && map->refcount_local <= 0) {
-                        mdev_remove_instance_id_map(md, map);
+                    sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                    id_map->refcount_remote--;
+                    if (id_map->refcount_remote <= 0 && id_map->refcount_local <= 0) {
+                        mdev_remove_instance_id_map(md, id_map);
                     }
                     if (sig->instance_event_handler
                         && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                        sig->instance_event_handler(sig, &sig->props, map->local,
+                        sig->instance_event_handler(sig, &sig->props, id_map->local,
                                                     IN_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mdev_route_signal() here, since we don't know if
                  * the local signal instance will actually be released. */
                 if (sig->handler) {
-                    sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+                    sig->handler(sig, &sig->props, id_map->local, 0, 1, &tt);
                 }
                 continue;
             }
             else if (vals != s->props->length) {
 #ifdef DEBUG
                 printf("error in handler_signal: partial vector update applied "
-                       "to convergent connection slot.");
+                       "to convergent mapping slot.");
 #endif
                 return 0;
             }
             else if (is_instance_update && !active) {
                 // may need to activate instance
-                map_index = msig_find_instance_with_remote_ids(sig, instance_group,
-                                                               instance_id,
-                                                               IN_RELEASED_REMOTELY);
-                if (map_index < 0) {
+                id_map_index = msig_find_instance_with_remote_ids(sig, instance_group,
+                                                                  instance_id,
+                                                                  IN_RELEASED_REMOTELY);
+                if (id_map_index < 0) {
                     // no instance found with this map
                     if (nulls == value_len * count) {
                         // Don't activate instance just to release it again
                         return 0;
                     }
                     // otherwise try to init reserved/stolen instance with device map
-                    map_index = msig_get_instance_with_remote_ids(sig, instance_group,
-                                                                  instance_id, 0, &tt);
-                    if (map_index < 0) {
+                    id_map_index = msig_get_instance_with_remote_ids(sig, instance_group,
+                                                                     instance_id, 0, &tt);
+                    if (id_map_index < 0) {
 #ifdef DEBUG
                         printf("no local instances available for remote instance %ld:%ld\n",
                                (long)instance_group, (long)instance_id);
@@ -514,8 +514,8 @@ static int handler_signal(const char *path, const char *types,
                         return 0;
                     }
                 }
-                si = sig->id_maps[map_index].instance;
-                map = sig->id_maps[map_index].map;
+                si = sig->id_maps[id_map_index].instance;
+                id_map = sig->id_maps[id_map_index].map;
             }
             s->history[si->index].position = ((s->history[si->index].position + 1)
                                              % s->history[si->index].size);
@@ -524,23 +524,23 @@ static int handler_signal(const char *path, const char *types,
             memcpy(mapper_history_tt_ptr(s->history[si->index]),
                    &tt, sizeof(mapper_timetag_t));
             if (s->props->cause_update) {
-                char typestring[c->destination.props->length];
-                mapper_history sources[c->props.num_sources];
-                for (j = 0; j < c->props.num_sources; j++)
-                    sources[j] = &c->sources[j].history[si->index];
-                if (!mapper_expr_evaluate(c->expr, sources, &c->expr_vars[si->index],
-                                          &c->destination.history[si->index], &tt,
+                char typestring[map->destination.props->length];
+                mapper_history sources[map->props.num_sources];
+                for (j = 0; j < map->props.num_sources; j++)
+                    sources[j] = &map->sources[j].history[si->index];
+                if (!mapper_expr_evaluate(map->expr, sources, &map->expr_vars[si->index],
+                                          &map->destination.history[si->index], &tt,
                                           typestring)) {
                     continue;
                 }
                 // TODO: check if expression has triggered instance-release
-                if (mapper_boundary_perform(&c->destination.history[si->index],
-                                            &c->props.destination, typestring)) {
+                if (mapper_boundary_perform(&map->destination.history[si->index],
+                                            &map->props.destination, typestring)) {
                     continue;
                 }
-                void *result = mapper_history_value_ptr(c->destination.history[si->index]);
+                void *result = mapper_history_value_ptr(map->destination.history[si->index]);
                 vals = 0;
-                for (j = 0; j < c->destination.props->length; j++) {
+                for (j = 0; j < map->destination.props->length; j++) {
                     if (typestring[j] == 'N')
                         continue;
                     memcpy(si->value + j * size, result + j * size, size);
@@ -552,27 +552,27 @@ static int handler_signal(const char *path, const char *types,
                     // first call handler with value buffer
                     if (out_count) {
                         if (!(sig->props.direction & DI_OUTGOING))
-                            mdev_route_signal(md, sig, map_index, out_buffer,
+                            mdev_route_signal(md, sig, id_map_index, out_buffer,
                                               out_count, tt);
                         if (sig->handler)
-                            sig->handler(sig, &sig->props, map->local,
+                            sig->handler(sig, &sig->props, id_map->local,
                                          out_buffer, out_count, &tt);
                         out_count = 0;
                     }
                     // next call handler with release
                     if (is_instance_update) {
-                        sig->id_maps[map_index].status |= IN_RELEASED_REMOTELY;
-                        map->refcount_remote--;
+                        sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                        id_map->refcount_remote--;
                         if (sig->instance_event_handler
                             && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                            sig->instance_event_handler(sig, &sig->props, map->local,
+                            sig->instance_event_handler(sig, &sig->props, id_map->local,
                                                         IN_UPSTREAM_RELEASE, &tt);
                         }
                     }
                     /* Do not call mdev_route_signal() here, since we don't know if
                      * the local signal instance will actually be released. */
                     if (sig->handler)
-                        sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+                        sig->handler(sig, &sig->props, id_map->local, 0, 1, &tt);
                     // mark instance as possibly released
                     active = 0;
                     continue;
@@ -590,9 +590,9 @@ static int handler_signal(const char *path, const char *types,
                     }
                     else {
                         if (!(sig->props.direction & DI_OUTGOING))
-                            mdev_route_signal(md, sig, map_index, si->value, 1, tt);
+                            mdev_route_signal(md, sig, id_map_index, si->value, 1, tt);
                         if (sig->handler)
-                            sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
+                            sig->handler(sig, &sig->props, id_map->local, si->value, 1, &tt);
                     }
                 }
             }
@@ -602,9 +602,9 @@ static int handler_signal(const char *path, const char *types,
         }
         if (out_count) {
             if (!(sig->props.direction & DI_OUTGOING))
-                mdev_route_signal(md, sig, map_index, out_buffer, out_count, tt);
+                mdev_route_signal(md, sig, id_map_index, out_buffer, out_count, tt);
             if (sig->handler)
-                sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
+                sig->handler(sig, &sig->props, id_map->local, out_buffer, out_count, &tt);
         }
     }
     else {
@@ -626,18 +626,18 @@ static int handler_signal(const char *path, const char *types,
                     return 0;
                 }
                 if (is_instance_update) {
-                    sig->id_maps[map_index].status |= IN_RELEASED_REMOTELY;
-                    map->refcount_remote--;
+                    sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                    id_map->refcount_remote--;
                     if (sig->instance_event_handler
                         && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                        sig->instance_event_handler(sig, &sig->props, map->local,
+                        sig->instance_event_handler(sig, &sig->props, id_map->local,
                                                     IN_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mdev_route_signal() here, since we don't know if
                  * the local signal instance will actually be released. */
                 if (sig->handler)
-                    sig->handler(sig, &sig->props, map->local, 0, 1, &tt);
+                    sig->handler(sig, &sig->props, id_map->local, 0, 1, &tt);
                 return 0;
             }
             if (memcmp(si->has_value_flags, sig->has_complete_value,
@@ -653,17 +653,17 @@ static int handler_signal(const char *path, const char *types,
                 }
                 else {
                     if (!(sig->props.direction & DI_OUTGOING))
-                        mdev_route_signal(md, sig, map_index, si->value, 1, tt);
+                        mdev_route_signal(md, sig, id_map_index, si->value, 1, tt);
                     if (sig->handler)
-                        sig->handler(sig, &sig->props, map->local, si->value, 1, &tt);
+                        sig->handler(sig, &sig->props, id_map->local, si->value, 1, &tt);
                 }
             }
         }
         if (out_count) {
             if (!(sig->props.direction & DI_OUTGOING))
-                mdev_route_signal(md, sig, map_index, out_buffer, out_count, tt);
+                mdev_route_signal(md, sig, id_map_index, out_buffer, out_count, tt);
             if (sig->handler)
-                sig->handler(sig, &sig->props, map->local, out_buffer, out_count, &tt);
+                sig->handler(sig, &sig->props, id_map->local, out_buffer, out_count, &tt);
         }
     }
 
@@ -913,13 +913,13 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     md->n_output_callbacks --;
 }
 
-static void send_disconnect(mapper_admin admin, mapper_connection c)
+static void send_unmap(mapper_admin admin, mapper_map map)
 {
-    if (!c->status)
+    if (!map->status)
         return;
 
     // TODO: send appropriate messages using mesh
-//    mapper_admin_set_bundle_dest_mesh(admin, c->remote_dest->admin_addr);
+//    mapper_admin_set_bundle_dest_mesh(admin, map->remote_dest->admin_addr);
     mapper_admin_set_bundle_dest_bus(admin);
 
     lo_message m = lo_message_new();
@@ -928,12 +928,12 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
 
     char dest_name[1024], source_names[1024];
     int i, len = 0, result;
-    for (i = 0; i < c->props.num_sources; i++) {
+    for (i = 0; i < map->props.num_sources; i++) {
         result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          c->sources[i].props->signal->device->name,
-                          c->sources[i].props->signal->path);
+                          map->sources[i].props->signal->device->name,
+                          map->sources[i].props->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
-            trace("Error encoding sources for combined /connected msg");
+            trace("Error encoding sources for /unmap msg");
             lo_message_free(m);
             return;
         }
@@ -941,10 +941,10 @@ static void send_disconnect(mapper_admin admin, mapper_connection c)
         len += result + 1;
     }
     lo_message_add_string(m, "->");
-    snprintf(dest_name, 1024, "%s%s", c->destination.props->signal->device->name,
-             c->destination.props->signal->path);
+    snprintf(dest_name, 1024, "%s%s", map->destination.props->signal->device->name,
+             map->destination.props->signal->path);
     lo_message_add_string(m, dest_name);
-    lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_DISCONNECT], m);
+    lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_UNMAP], m);
     mapper_admin_send_bundle(admin);
 }
 
@@ -972,12 +972,12 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
     while (rs && rs->signal != sig)
         rs = rs->next;
     if (rs) {
-        // need to disconnect
+        // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_connection c = rs->slots[i]->connection;
-                send_disconnect(md->admin, c);
-                mapper_router_remove_connection(md->router, c);
+                mapper_map map = rs->slots[i]->map;
+                send_unmap(md->admin, map);
+                mapper_router_remove_map(md->router, map);
             }
         }
         mapper_router_remove_signal(md->router, rs);
@@ -1022,12 +1022,12 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
     while (rs && rs->signal != sig)
         rs = rs->next;
     if (rs) {
-        // need to disconnect
+        // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_connection c = rs->slots[i]->connection;
-                send_disconnect(md->admin, c);
-                mapper_router_remove_connection(md->router, c);
+                mapper_map map = rs->slots[i]->map;
+                send_unmap(md->admin, map);
+                mapper_router_remove_map(md->router, map);
             }
         }
         mapper_router_remove_signal(md->router, rs);
@@ -1055,23 +1055,23 @@ int mdev_num_outputs(mapper_device md)
     return md->props.num_outputs;
 }
 
-int mdev_num_connections_in(mapper_device md)
+int mdev_num_incoming_maps(mapper_device md)
 {
     mapper_link l = md->router->links;
     int count = 0;
     while (l) {
-        count += l->props.num_connections_in;
+        count += l->props.num_incoming_maps;
         l = l->next;
     }
     return count;
 }
 
-int mdev_num_connections_out(mapper_device md)
+int mdev_num_outgoing_maps(mapper_device md)
 {
     mapper_link l = md->router->links;
     int count = 0;
     while (l) {
-        count += l->props.num_connections_out;
+        count += l->props.num_outgoing_maps;
         l = l->next;
     }
     return count;
@@ -1468,8 +1468,8 @@ void mdev_set_property(mapper_device dev, const char *property,
     if (strcmp(property, "host") == 0 ||
         strcmp(property, "libversion") == 0 ||
         strcmp(property, "name") == 0 ||
-        strcmp(property, "num_connections_in") == 0 ||
-        strcmp(property, "num_connections_out") == 0 ||
+        strcmp(property, "num_incoming_maps") == 0 ||
+        strcmp(property, "num_outgoing_maps") == 0 ||
         strcmp(property, "num_inputs") == 0 ||
         strcmp(property, "num_outputs") == 0 ||
         strcmp(property, "port") == 0 ||
@@ -1517,12 +1517,11 @@ void mdev_now(mapper_device dev, mapper_timetag_t *timetag)
     mapper_clock_now(&dev->admin->clock, timetag);
 }
 
-void mdev_set_connection_callback(mapper_device dev,
-                                  mapper_device_connection_handler *h,
-                                  void *user)
+void mdev_set_map_callback(mapper_device dev, mapper_device_map_handler *h,
+                           void *user)
 {
-    dev->connection_cb = h;
-    dev->connection_cb_userdata = user;
+    dev->map_cb = h;
+    dev->map_cb_userdata = user;
 }
 
 int mdev_get_signal_slot(mapper_device dev)

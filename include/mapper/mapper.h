@@ -31,14 +31,14 @@ typedef mapper_db_signal mapper_signal_props;
        floating-point type.  A mapper_signal is created by adding an
        input or output to a device.  It can optionally be provided
        with some metadata such as a signal's range, unit, or other
-       properties.  Signals can be mapped by creating connections through a
+       properties.  Signals can be mapped by creating maps through a
        GUI. */
 
 struct _mapper_signal;
 typedef struct _mapper_signal *mapper_signal;
-struct _mapper_connection;
+struct _mapper_map;
 
-/*! The set of possible directions for a signal or connection slot. */
+/*! The set of possible directions for a signal or mapping slot. */
 typedef enum {
     DI_OUTGOING = 0x01,
     DI_INCOMING = 0x02,
@@ -276,10 +276,10 @@ void msig_set_callback(mapper_signal sig,
                        mapper_signal_update_handler *handler,
                        void *user_data);
 
-/*! Get the number of connections attatched to a specific signal.
+/*! Get the number of maps attatched to a specific signal.
  *  \param sig      The signal to check.
- *  \return         The number of attached connections. */
-int msig_num_connections(mapper_signal sig);
+ *  \return         The number of attached maps. */
+int msig_num_maps(mapper_signal sig);
 
 /**** Signal properties ****/
 
@@ -425,11 +425,11 @@ int mdev_num_inputs(mapper_device dev);
 //! Return the number of outputs.
 int mdev_num_outputs(mapper_device dev);
 
-//! Return the number of incoming connections.
-int mdev_num_connections_in(mapper_device dev);
+//! Return the number of incoming maps.
+int mdev_num_incoming_maps(mapper_device dev);
 
-//! Return the number of outgoing connections.
-int mdev_num_connections_out(mapper_device dev);
+//! Return the number of outgoing maps.
+int mdev_num_outgoing_maps(mapper_device dev);
 
 /*! Get input signals.
  *  \param dev Device to search in.
@@ -622,29 +622,26 @@ lo_server mdev_get_lo_server(mapper_device md);
 /*! Get the device's synchronization clock offset. */
 double mdev_get_clock_offset(mapper_device md);
 
-/*! The set of possible actions on a local device connection. */
+/*! The set of possible actions on a local device map. */
 typedef enum {
     MDEV_LOCAL_ESTABLISHED,
     MDEV_LOCAL_MODIFIED,
     MDEV_LOCAL_DESTROYED,
 } mapper_device_local_action_t;
 
-/*! Function to call when a local device connection is established or
+/*! Function to call when a local device map is established or
  *  destroyed. */
-typedef void mapper_device_connection_handler(mapper_device dev,
-                                              mapper_signal sig,
-                                              mapper_db_connection connection,
-                                              mapper_db_connection_slot slot,
-                                              mapper_direction_t direction,
-                                              mapper_device_local_action_t action,
-                                              void *user);
+typedef void mapper_device_map_handler(mapper_device dev, mapper_signal sig,
+                                       mapper_db_map map, mapper_db_map_slot slot,
+                                       mapper_direction_t direction,
+                                       mapper_device_local_action_t action,
+                                       void *user);
 
-/*! Set a function to be called when a local device connection is
+/*! Set a function to be called when a map involving the local device is
  *  established or destroyed, indicated by the action parameter to the
  *  provided function. */
-void mdev_set_connection_callback(mapper_device dev,
-                                  mapper_device_connection_handler *h,
-                                  void *user);
+void mdev_set_map_callback(mapper_device dev, mapper_device_map_handler *h,
+                           void *user);
 
 /* @} */
 
@@ -988,131 +985,127 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
 
 /* @} */
 
-/***** Connections *****/
+/***** Maps *****/
 
-/*! @defgroup connectiondb Connections database
+/*! @defgroup mapdb Maps database
 
-    @{ A monitor may query information about connections between
+    @{ A monitor may query information about maps between
        signals on the network through this interface.  It is also used
-       to specify properties during connection requests. */
+       to specify properties during mapping requests. */
 
-/*! A callback function prototype for when a connection record is
+/*! A callback function prototype for when a map record is
  *  added or updated in the database. Such a function is passed in to
- *  mapper_db_add_connection_callback().
- *  \param record  Pointer to the connection record.
+ *  mapper_db_add_map_callback().
+ *  \param record  Pointer to the map record.
  *  \param action  A value of mapper_db_action_t indicating what
  *                 is happening to the database record.
  *  \param user    The user context pointer registered with this
  *                 callback. */
-typedef void mapper_db_connection_handler(mapper_db_connection record,
-                                          mapper_db_action_t action,
-                                          void *user);
+typedef void mapper_db_map_handler(mapper_db_map record,
+                                   mapper_db_action_t action, void *user);
 
-/*! Register a callback for when a connection record is added or
+/*! Register a callback for when a map record is added or
  *  updated in the database.
  *  \param db   The database to query.
  *  \param h    Callback function.
  *  \param user A user-defined pointer to be passed to the callback
  *              for context . */
-void mapper_db_add_connection_callback(mapper_db db,
-                                       mapper_db_connection_handler *h,
-                                       void *user);
+void mapper_db_add_map_callback(mapper_db db, mapper_db_map_handler *h,
+                                void *user);
 
-/*! Remove a connection record callback from the database service.
+/*! Remove a map record callback from the database service.
  *  \param db   The database to query.
  *  \param h    Callback function.
  *  \param user The user context pointer that was originally specified
  *              when adding the callback. */
-void mapper_db_remove_connection_callback(mapper_db db,
-                                          mapper_db_connection_handler *h,
-                                          void *user);
+void mapper_db_remove_map_callback(mapper_db db, mapper_db_map_handler *h,
+                                   void *user);
 
-/*! Return a list of all registered connections.
+/*! Return a list of all registered maps.
  *  \param db The database to query.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
+mapper_db_map_t **mapper_db_get_all_maps(mapper_db db);
 
-/*! Return the connection that match the given connection hash.
+/*! Return the map that match the given map hash.
  *  \param db          The database to query.
- *  \param hash        Connection hash.
+ *  \param hash        map hash.
  *  \return A pointer to a structure containing information on the
- *          found connection, or 0 if not found. */
-mapper_db_connection mapper_db_get_connection_by_hash(mapper_db db,
-                                                      uint32_t hash);
+ *          found map, or 0 if not found. */
+mapper_db_map mapper_db_get_map_by_hash(mapper_db db, uint32_t hash);
 
-/*! Return the connection that match the given id.
+/*! Return the map that match the given id.
  *  \param db          The database to query.
  *  \param device_name Name of destination device.
- *  \param int         ID of the connection to retrieve.
+ *  \param int         ID of the map to retrieve.
  *  \return A pointer to a structure containing information on the
- *          found connection, or 0 if not found. */
-mapper_db_connection mapper_db_get_connection_by_dest_device_and_id(
+ *          found map, or 0 if not found. */
+mapper_db_map mapper_db_get_map_by_dest_device_and_id(
     mapper_db db, const char *device_name, int id);
 
-/*! Return the list of connections that touch the given device name.
+/*! Return the list of maps that touch the given device name.
  *  \param db          The database to query.
  *  \param device_name Name of the device to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_name(
+mapper_db_map_t **mapper_db_get_maps_by_device_name(
     mapper_db db, const char *device_name);
 
-/*! Return the list of connections for a given source signal name.
+/*! Return the list of maps for a given source signal name.
  *  \param  db         The database to query.
  *  \param  src_signal Name of the source signal.
  *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_signal_name(
+mapper_db_map_t **mapper_db_get_maps_by_src_signal_name(
     mapper_db db, const char *src_signal);
 
-/*! Return the list of connections for given source device and signal names.
+/*! Return the list of maps for given source device and signal names.
  *  \param db         The database to query.
  *  \param src_device Exact name of the device to find, including the
  *                    leading '/'.
  *  \param src_signal Exact name of the signal to find,
  *                    including the leading '/'.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_device_and_signal_names(
+mapper_db_map_t **mapper_db_get_maps_by_src_device_and_signal_names(
     mapper_db db, const char *src_device, const char *src_signal);
 
-/*! Return the list of connections for a given destination signal name.
+/*! Return the list of maps for a given destination signal name.
  *  \param db          The database to query.
  *  \param dest_signal Name of the destination signal to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
+mapper_db_map_t **mapper_db_get_maps_by_dest_signal_name(
     mapper_db db, const char *dest_signal);
 
-/*! Return the list of connections for given destination device and signal names.
+/*! Return the list of maps for given destination device and signal names.
  *  \param db          The database to query.
  *  \param dest_device Exact name of the device to find, including the
  *                     leading '/'.
  *  \param dest_signal Exact name of the signal to find, including the
  *                     leading '/'.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_names(
+mapper_db_map_t **mapper_db_get_maps_by_dest_device_and_signal_names(
     mapper_db db, const char *dest_device, const char *dest_signal);
 
-/*! Return the list of connections that touch the provided signal.
+/*! Return the list of maps that touch the provided signal.
  *  \param db           The database to query.
  *  \param device_name  Exact name of the device to find.
  *  \param signal_name  Exact name of the signal to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
+mapper_db_map_t **mapper_db_get_maps_by_device_and_signal_name(
     mapper_db db, const char *device_name,  const char *signal_name);
 
-/*! Return the list of connections that touch the provided source
+/*! Return the list of maps that touch the provided source
  *  and destination signals.
  *  \param db          The database to query.
  *  \param src_device  Exact name of the device to find.
@@ -1120,35 +1113,35 @@ mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_name(
  *  \param dest_device Exact name of the device to find.
  *  \param dest_signal Exact name of the signal to find.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
+mapper_db_map_t **mapper_db_get_maps_by_device_and_signal_names(
     mapper_db db, int num_sources,
     const char **src_devices,  const char **src_signals,
     const char *dest_device, const char *dest_signal);
 
-/*! Return the connection that match the exact source and destination
+/*! Return the map that match the exact source and destination
  *  specified by their full names ("/<device>/<signal>").
  *  \param db        The database to query.
  *  \param src_name  Full name of source signal.
  *  \param dest_name Full name of destination signal.
  *  \return A pointer to a structure containing information on the
- *          found connection, or 0 if not found. */
-mapper_db_connection mapper_db_get_connection_by_signal_full_names(
+ *          found map, or 0 if not found. */
+mapper_db_map mapper_db_get_map_by_signal_full_names(
     mapper_db db, int num_sources, const char **src_names, const char *dest_name);
 
-/*! Return connections that have the specified source and destination
+/*! Return maps that have the specified source and destination
  *  devices.
  *  \param db               The database to query.
  *  \param src_device_name  Name of source device.
  *  \param dest_device_name Name of destination device.
  *  \return A double-pointer to the first item in a list of results,
  *          or 0 if not found. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
+mapper_db_map_t **mapper_db_get_maps_by_src_dest_device_names(
     mapper_db db, int num_sources,
     const char **src_device_names, const char *dest_device_name);
 
-/*! Return the list of connections that touch any signals in the lists
+/*! Return the list of maps that touch any signals in the lists
  *  of sources and destinations provided.
  *  \param db   The database to query.
  *  \param src  Double-pointer to the first item in a list
@@ -1156,28 +1149,28 @@ mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
  *  \param dest Double-pointer to the first item in a list
  *              returned from a previous database query.
  *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
+ *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
-    mapper_db db,
-    mapper_db_signal_t **src, mapper_db_signal_t **dest);
+mapper_db_map_t **mapper_db_get_maps_by_signal_queries(mapper_db db,
+                                                       mapper_db_signal_t **src,
+                                                       mapper_db_signal_t **dest);
 
-/*! Given a connection record pointer returned from a previous
- *  mapper_db_get_connections*() call, get the next item in the list.
- *  \param s The previous connection record pointer.
- *  \return  A double-pointer to the next connection record in the
- *           list, or zero if no more connections. */
-mapper_db_connection_t **mapper_db_connection_next(mapper_db_connection_t **s);
+/*! Given a map record pointer returned from a previous
+ *  mapper_db_get_maps*() call, get the next item in the list.
+ *  \param s The previous map record pointer.
+ *  \return  A double-pointer to the next map record in the
+ *           list, or zero if no more maps. */
+mapper_db_map_t **mapper_db_map_next(mapper_db_map_t **s);
 
-/*! Given a connection record pointer returned from a previous
+/*! Given a map record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous connection record pointer. */
-void mapper_db_connection_done(mapper_db_connection_t **s);
+ *  \param s The previous map record pointer. */
+void mapper_db_map_done(mapper_db_map_t **s);
 
-/*! Look up a connection property by index. To iterate all properties,
+/*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
- *  \param con      The connection to look at.
- *  \param index    Numerical index of a connection property.
+ *  \param map      The map to look at.
+ *  \param index    Numerical index of a map property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param type     A pointer to a location to receive the type of the
@@ -1187,13 +1180,12 @@ void mapper_db_connection_done(mapper_db_connection_t **s);
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_property_index(mapper_db_connection con,
-                                        unsigned int index,
-                                        const char **property, char *type,
-                                        const void **value, int *length);
+int mapper_db_map_property_index(mapper_db_map map, unsigned int index,
+                                 const char **property, char *type,
+                                 const void **value, int *length);
 
-/*! Look up a connection property by name.
- *  \param con      The connection to look at.
+/*! Look up a map property by name.
+ *  \param map      The map to look at.
  *  \param property The name of the property to retrive.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
@@ -1201,15 +1193,14 @@ int mapper_db_connection_property_index(mapper_db_connection con,
  *                  property's value. (Required.)
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_property_lookup(mapper_db_connection con,
-                                         const char *property, char *type,
-                                         const void **value, int *length);
+ *  \return         Zero if found, otherwise non-zero. */
+int mapper_db_map_property_lookup(mapper_db_map map, const char *property,
+                                  char *type, const void **value, int *length);
 
-/*! Look up a connection slot property by index. To iterate all properties,
+/*! Look up a map slot property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
- *  \param slot     The connection slot to look at.
- *  \param index    Numerical index of a connection slot property.
+ *  \param slot     The map slot to look at.
+ *  \param index    Numerical index of a map slot property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param type     A pointer to a location to receive the type of the
@@ -1218,14 +1209,13 @@ int mapper_db_connection_property_lookup(mapper_db_connection con,
  *                  property's value. (Required.)
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_slot_property_index(mapper_db_connection_slot slot,
-                                             unsigned int index,
-                                             const char **property, char *type,
-                                             const void **value, int *length);
+ *  \return         Zero if found, otherwise non-zero. */
+int mapper_db_map_slot_property_index(mapper_db_map_slot slot, unsigned int index,
+                                      const char **property, char *type,
+                                      const void **value, int *length);
 
-/*! Look up a connection property by name.
- *  \param con      The connection sloy to look at.
+/*! Look up a map property by name.
+ *  \param slot     The map slot to look at.
  *  \param property The name of the property to retrieve.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
@@ -1233,10 +1223,10 @@ int mapper_db_connection_slot_property_index(mapper_db_connection_slot slot,
  *                  property's value. (Required.)
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
-                                              const char *property, char *type,
-                                              const void **value, int *length);
+ *  \return         Zero if found, otherwise non-zero. */
+int mapper_db_map_slot_property_lookup(mapper_db_map_slot slot,
+                                       const char *property, char *type,
+                                       const void **value, int *length);
 
 /***** Monitors *****/
 
@@ -1245,8 +1235,8 @@ int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
     @{ Monitors are the primary interface through which a program may
        observe the network and store information about devices and
        signals that are present.  Each monitor has a database of
-       devices, signals, and connections, which can be queried.
-       A monitor can also make connection requests.  In
+       devices, signals, and maps, which can be queried.
+       A monitor can also make map requests.  In
        general, the monitor interface is useful for building GUI
        applications to control the network. */
 
@@ -1257,9 +1247,9 @@ int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
 #define SUBSCRIBE_DEVICE_INPUTS     0x02
 #define SUBSCRIBE_DEVICE_OUTPUTS    0x04
 #define SUBSCRIBE_DEVICE_SIGNALS    SUBSCRIBE_DEVICE_INPUTS | SUBSCRIBE_DEVICE_OUTPUTS
-#define SUBSCRIBE_CONNECTIONS_IN    0x10
-#define SUBSCRIBE_CONNECTIONS_OUT   0x20
-#define SUBSCRIBE_CONNECTIONS       SUBSCRIBE_CONNECTIONS_IN | SUBSCRIBE_CONNECTIONS_OUT
+#define SUBSCRIBE_DEVICE_MAPS_IN    0x10
+#define SUBSCRIBE_DEVICE_MAPS_OUT   0x20
+#define SUBSCRIBE_DEVICE_MAPS       SUBSCRIBE_DEVICE_MAPS_IN | SUBSCRIBE_DEVICE_MAPS_OUT
 #define SUBSCRIBE_ALL               0xFF
 
 /*! Create a network monitor.
@@ -1267,7 +1257,7 @@ int mapper_db_connection_slot_property_lookup(mapper_db_connection_slot slot,
  *                             admin will be allocated for use with this monitor.
  *  \param autosubscribe_flags Sets whether the monitor should automatically
  *                             subscribe to information about signals
- *                             and connections when it encounters a
+ *                             and maps when it encounters a
  *                             previously-unseen device.
  *  \return The new monitor. */
 mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags);
@@ -1314,9 +1304,9 @@ void mmon_request_devices(mapper_monitor mon);
  *  \param subscribe_flags Bitflags setting the type of information of interest.
  *                         Can be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
  *                         SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS,
- *                         SUB_DEVICE_CONNECTIONS_IN,
- *                         SUB_DEVICE_CONNECTIONS_OUT, SUB_DEVICE_CONNECTIONS,
- *                         or simply SUB_DEVICE_ALL for all information.
+ *                         SUB_DEVICE_MAPS_IN, SUB_DEVICE_MAPS_OUT,
+ *                         SUB_DEVICE_MAPS, or simply SUB_DEVICE_ALL for all
+ *                         information.
  *  \param timeout         The length in seconds for this subscription. If set
  *                         to -1, libmapper will automatically renew the
  *                         subscription until the monitor is freed or this
@@ -1330,114 +1320,99 @@ void mmon_subscribe(mapper_monitor mon, const char *device_name,
 void mmon_unsubscribe(mapper_monitor mon, const char *device_name);
 
 /*! Sets whether the monitor should automatically subscribe to
- *  information on signals and connections when it encounters
+ *  information on signals and maps when it encounters
  *  a previously-unseen device.*/
 void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
 
-/*! Interface to add a connection between two signals.
+/*! Interface to add a map between a set of signals.
  *  \param mon            The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
+ *  \param num_sources    The number of source signals in this map.
  *  \param sources        Array of source signal data structures.
  *  \param dest           Destination signal data structure.
  *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection. The 'flags'
+ *                        requested properties of this map. The 'flags'
  *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_connection_t
- *                        should be applied to the connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mmon_connect_signals_by_db_record(mapper_monitor mon,
-                                       int num_sources,
-                                       mapper_db_signal_t **sources,
-                                       mapper_db_signal_t *dest,
-                                       mapper_db_connection_t *properties);
+ *                        properties in the provided mapper_db_map_t
+ *                        should be applied to the map. See the flags
+ *                        prefixed by MAP_ in mapper_db.h. */
+void mmon_map_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                   mapper_db_signal_t **sources,
+                                   mapper_db_signal_t *dest,
+                                   mapper_db_map_t *properties);
 
-/*! Interface to add a connection between two signals.
- *  \param mon The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
- *  \param sources        Array of source signal names.
- *  \param dest           Destination signal name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection. The 'flags'
- *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_connection_t
- *                        should be applied to the connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mmon_connect_signals_by_name(mapper_monitor mon,
-                                  int num_sources,
-                                  const char **sources,
-                                  const char *dest,
-                                  mapper_db_connection_t *properties);
-
-/*! Interface to modify a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param connection     A modified data structure specifying the connection
- *                        properties. The 'flags'
- *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_connection_t
- *                        should be applied to the connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mmon_modify_connection(mapper_monitor mon,
-                            mapper_db_connection_t *connection);
-
-/*! Interface to modify a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
- *  \param source         Array of source signal names.
- *  \param dest           Destination name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection. The 'flags'
- *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_connection_t
- *                        should be applied to the connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mmon_modify_connection_by_signal_names(mapper_monitor mon,
-                                            int num_sources,
-                                            const char **sources,
-                                            const char *dest,
-                                            mapper_db_connection_t *properties);
-
-/*! Interface to modify a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
- *  \param sources        Array of source signal data structures.
- *  \param dest           Destination signal data structure.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection. The 'flags'
- *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_connection_t
- *                        should be applied to the connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mmon_modify_connection_by_signal_db_records(mapper_monitor mon,
-                                                 int num_sources,
-                                                 mapper_db_signal_t **sources,
-                                                 mapper_db_signal_t *dest,
-                                                 mapper_db_connection_t *properties);
-
-/*! Interface to remove a connection between two signals.
+/*! Interface to add a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
- *  \param connection   Connection data structure. */
-void mmon_remove_connection(mapper_monitor mon,
-                            mapper_db_connection_t *connection);
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal names.
+ *  \param dest         Destination signal name.
+ *  \param properties   An optional data structure specifying the requested
+ *                      properties of this map. The 'flags' variable of this
+ *                      structure is used to indicate which properties in the
+ *                      provided mapper_db_map_t should be applied to the map.
+ *                      See the flags prefixed by MAP_ in mapper_db.h. */
+void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
+                              const char **sources, const char *dest,
+                              mapper_db_map_t *properties);
 
-/*! Interface to remove a connection between two signals.
- *  \param mon      The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
- *  \param sources  Array of source signal names.
- *  \param dest     Destination signal name. */
-void mmon_disconnect_signals_by_name(mapper_monitor mon,
-                                     int num_sources,
-                                     const char **sources,
-                                     const char *dest);
+/*! Interface to modify a map between a set of signals.
+ *  \param mon          The monitor to use for sending the message.
+ *  \param map          A modified data structure specifying the map properties.
+ *                      The 'flags' variable of this structure is used to
+ *                      indicate which properties in the provided
+ *                      mapper_db_map_t should be applied to the map.
+ *                      See the flags prefixed by MAP_ in mapper_db.h. */
+void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *map);
 
-/*! Interface to remove a connection between two signals.
+/*! Interface to modify a map between a set of signals.
+ *  \param mon          The monitor to use for sending the message.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param source       Array of source signal names.
+ *  \param dest         Destination name.
+ *  \param properties   An optional data structure specifying the requested
+ *                      properties of this map. The 'flags' variable of this
+ *                      structure is used to indicate which properties in the
+ *                      provided mapper_db_map_t should be applied to the map.
+ *                      See the flags prefixed by MAP_ in mapper_db.h. */
+void mmon_modify_map_by_signal_names(mapper_monitor mon, int num_sources,
+                                     const char **sources, const char *dest,
+                                     mapper_db_map_t *properties);
+
+/*! Interface to modify a map between a set of signals.
+ *  \param mon          The monitor to use for sending the message.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal data structures.
+ *  \param dest         Destination signal data structure.
+ *  \param properties   An optional data structure specifying the requested
+ *                      properties of this map. The 'flags' variable of this
+ *                      structure is used to indicate which properties in the
+ *                      provided mapper_db_map_t should be applied to the map.
+ *                      See the flags prefixed by MAP_ in mapper_db.h. */
+void mmon_modify_map_by_signal_db_records(mapper_monitor mon, int num_sources,
+                                          mapper_db_signal_t **sources,
+                                          mapper_db_signal_t *dest,
+                                          mapper_db_map_t *properties);
+
+/*! Interface to remove a map between a set of signals.
+ *  \param mon          The monitor to use for sending the message.
+ *  \param map          Map data structure. */
+void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *map);
+
+/*! Interface to remove a map between a set of signals.
+ *  \param mon          The monitor to use for sending the message.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal names.
+ *  \param dest         Destination signal name. */
+void mmon_unmap_signals_by_name(mapper_monitor mon, int num_sources,
+                                const char **sources, const char *dest);
+
+/*! Interface to remove a map between a set of signals.
  *  \param mon      The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this connection.
+ *  \param num_sources    The number of source signals in this map.
  *  \param sources  Array of source signal data structures.
  *  \param dest     Destination signal data structure. */
-void mmon_disconnect_signals_by_db_record(mapper_monitor mon,
-                                          int num_sources,
-                                          mapper_db_signal_t **sources,
-                                          mapper_db_signal_t *dest);
+void mmon_unmap_signals_by_db_record(mapper_monitor mon, int num_sources,
+                                     mapper_db_signal_t **sources,
+                                     mapper_db_signal_t *dest);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
  *  \param mon      The monitor to use for sending the message.

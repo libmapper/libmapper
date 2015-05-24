@@ -166,18 +166,18 @@ void loop()
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig_1->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_1->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig_1->props, 0);
         src = &sendsig_2->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_2->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig_2->props, 0);
         src = &sendsig_3->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_3->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig_3->props, 0);
         src = &sendsig_3->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig_4->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig_4->props, 0);
 
         mmon_free(mon);
 
-        // wait until connection has been established
-        while (!done && !mdev_num_connections_out(source)) {
+        // wait until mapping has been established
+        while (!done && !mdev_num_outgoing_maps(source)) {
             mdev_poll(source, 10);
             mdev_poll(destination, 10);
         }

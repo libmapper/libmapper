@@ -176,12 +176,12 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
      * string, otherwise just copy over the old value. */
     if (type == 's' || type == 'S')
     {
-        char **from = (char**)args;
         if (length == 1) {
             free(prop->value);
-            prop->value = strdup(*from);
+            prop->value = strdup((char*)args);
         }
         else {
+            char **from = (char**)args;
             char **to = (char**)prop->value;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);

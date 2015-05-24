@@ -135,7 +135,7 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
-void printslot(mapper_db_connection_slot slot)
+void printslot(mapper_db_map_slot slot)
 {
     printf("%s/%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
@@ -143,8 +143,8 @@ void printslot(mapper_db_connection_slot slot)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_connection_slot_property_index(slot, i++, &key, &type,
-                                                    &val, &length))
+    while(!mapper_db_map_slot_property_index(slot, i++, &key, &type, &val,
+                                             &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -163,23 +163,23 @@ void printslot(mapper_db_connection_slot slot)
     }
 }
 
-void printconnection(mapper_db_connection con)
+void printmap(mapper_db_map map)
 {
     int i;
     printf(" └─ ");
-    for (i = 0; i < con->num_sources; i++) {
-        printf("%s/%s ", con->sources[i].signal->device->name,
-               con->sources[i].signal->device->name);
+    for (i = 0; i < map->num_sources; i++) {
+        printf("%s/%s ", map->sources[i].signal->device->name,
+               map->sources[i].signal->device->name);
     }
-    printf("-> %s/%s\n", con->destination.signal->device->name,
-           con->destination.signal->name);
-    for (i = 0; i < con->num_sources; i++) {
+    printf("-> %s/%s\n", map->destination.signal->device->name,
+           map->destination.signal->name);
+    for (i = 0; i < map->num_sources; i++) {
         printf("    source[%d]: ", i);
-        printslot(&con->sources[i]);
+        printslot(&map->sources[i]);
         printf("\n");
     }
     printf("    destination: ");
-    printslot(&con->destination);
+    printslot(&map->destination);
     printf("\n    properties: ");
 
     i = 0;
@@ -187,8 +187,7 @@ void printconnection(mapper_db_connection con)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_connection_property_index(con, i++, &key, &type,
-                                               &val, &length))
+    while(!mapper_db_map_property_index(map, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -276,11 +275,11 @@ void loop()
 
         printf("------------------------------\n");
 
-        printf("Registered connections:\n");
-        mapper_db_connection *pcon = mapper_db_get_all_connections(db);
-        while (pcon) {
-            printconnection(*pcon);
-            pcon = mapper_db_connection_next(pcon);
+        printf("Registered maps:\n");
+        mapper_db_map *pmap = mapper_db_get_all_maps(db);
+        while (pmap) {
+            printmap(*pmap);
+            pmap = mapper_db_map_next(pmap);
         }
 
         printf("------------------------------\n");
@@ -330,15 +329,15 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     update = 1;
 }
 
-void on_connection(mapper_db_connection con, mapper_db_action_t a, void *user)
+void on_map(mapper_db_map map, mapper_db_action_t a, void *user)
 {
     int i;
-    printf("Connection ");
-    for (i = 0; i < con->num_sources; i++)
-        printf("%s/%s ", con->sources[i].signal->device->name,
-               con->sources[i].signal->name);
-    printf("-> %s/%s ", con->destination.signal->device->name,
-           con->destination.signal->name);
+    printf("Map ");
+    for (i = 0; i < map->num_sources; i++)
+        printf("%s/%s ", map->sources[i].signal->device->name,
+               map->sources[i].signal->name);
+    printf("-> %s/%s ", map->destination.signal->device->name,
+           map->destination.signal->name);
     switch (a) {
     case MDB_NEW:
         printf("added.\n");
@@ -402,14 +401,14 @@ int main(int argc, char **argv)
 
     mapper_db_add_device_callback(db, on_device, 0);
     mapper_db_add_signal_callback(db, on_signal, 0);
-    mapper_db_add_connection_callback(db, on_connection, 0);
+    mapper_db_add_map_callback(db, on_map, 0);
 
     loop();
 
   done:
     mapper_db_remove_device_callback(db, on_device, 0);
     mapper_db_remove_signal_callback(db, on_signal, 0);
-    mapper_db_remove_connection_callback(db, on_connection, 0);
+    mapper_db_remove_map_callback(db, on_map, 0);
     cleanup_monitor();
     return result;
 }

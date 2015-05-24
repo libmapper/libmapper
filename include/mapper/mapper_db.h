@@ -35,8 +35,8 @@ typedef struct _mapper_db_device {
     int port;                   //!< Device network port.
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
-    int num_connections_in;     //!< Number of associated incoming connections.
-    int num_connections_out;    //!< Number of associated outgoing connections.
+    int num_incoming_maps;      //!< Number of associated incoming maps.
+    int num_outgoing_maps;      //!< Number of associated outgoing maps.
     int version;                //!< Reported device state version.
     char *lib_version;          //!< libmapper version of device.
     void *user_data;            //!< User modifiable data.
@@ -49,41 +49,35 @@ typedef struct _mapper_db_device {
     struct _mapper_string_table *extra;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which fields in a mapper_db_connection structure or
- * a mapper_db_connection_slot are valid.  This is only used when specifying
- * connection properties via the mmon_connect() or mmon_modify_connection()
- * functions. */
-#define CONNECTION_BOUND_MIN        0x0001
-#define CONNECTION_BOUND_MAX        0x0002
-#define CONNECTION_EXPRESSION       0x0004
-#define CONNECTION_MIN              0x0008
-#define CONNECTION_MAX              0x0010
-#define CONNECTION_MODE             0x0020
-#define CONNECTION_TYPE             0x0040
-#define CONNECTION_LENGTH           0x0080
-#define CONNECTION_CAUSE_UPDATE     0x0100
-#define CONNECTION_SEND_AS_INSTANCE 0x0200
+/* Bit flags to identify which fields in a mapper_db_map structure or
+ * a mapper_db_map_slot are valid.  This is only used when specifying
+ * map properties via the mmon_map() or mmon_modify_map() functions. */
+#define MAP_SLOT_BOUND_MIN          0x0001
+#define MAP_SLOT_BOUND_MAX          0x0002
+#define MAP_EXPRESSION              0x0004
+#define MAP_SLOT_MIN                0x0008
+#define MAP_SLOT_MAX                0x0010
+#define MAP_MODE                    0x0020
+#define MAP_SLOT_TYPE               0x0040
+#define MAP_SLOT_LENGTH             0x0080
+#define MAP_SLOT_CAUSE_UPDATE       0x0100
+#define MAP_SLOT_SEND_AS_INSTANCE   0x0200
 
-#define CONNECTION_MUTED            0x0400
-#define CONNECTION_NUM_SCOPES       0x0800
-#define CONNECTION_SCOPE_NAMES      0x1800 // need to know num_scopes also
-#define CONNECTION_SCOPE_HASHES     0x2800 // need to know num_scopes also
-#define CONNECTION_SLOT             0x4000
-#define CONNECTION_ALL              0xFC00
+#define MAP_MUTED                   0x0400
+#define MAP_NUM_SCOPES              0x0800
+#define MAP_SCOPE_NAMES             0x1800 // need to know num_scopes also
+#define MAP_SCOPE_HASHES            0x2800 // need to know num_scopes also
+#define MAP_SLOT                    0x4000
+#define MAP_ALL                     0xFC00
 
 // For range info to be known we also need to know data types and lengths
-#define CONNECTION_MIN_KNOWN   (  CONNECTION_MIN        \
-                                | CONNECTION_TYPE       \
-                                | CONNECTION_LENGTH )
-#define CONNECTION_MAX_KNOWN   (  CONNECTION_MAX        \
-                                | CONNECTION_TYPE       \
-                                | CONNECTION_LENGTH )
-#define CONNECTION_RANGE_KNOWN (  CONNECTION_MIN_KNOWN  \
-                                | CONNECTION_MAX_KNOWN)
+#define MAP_SLOT_MIN_KNOWN      (MAP_SLOT_MIN | MAP_SLOT_TYPE | MAP_SLOT_LENGTH)
+#define MAP_SLOT_MAX_KNOWN      (MAP_SLOT_MAX | MAP_SLOT_TYPE | MAP_SLOT_LENGTH)
+#define MAP_SLOT_RANGE_KNOWN    (MAP_SLOT_MIN_KNOWN | MAP_SLOT_MAX_KNOWN)
 
 /*! Describes what happens when the range boundaries are
  *  exceeded.
- *  @ingroup connectiondb */
+ *  @ingroup mapdb */
 typedef enum _mapper_boundary_action {
     BA_UNDEFINED,
     BA_NONE,    /*!< Value is passed through unchanged. This is the
@@ -96,8 +90,8 @@ typedef enum _mapper_boundary_action {
     N_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
-/*! Describes the connection modes.
- *  @ingroup connectiondb */
+/*! Describes the map modes.
+ *  @ingroup mapdb */
 typedef enum _mapper_mode_type {
     MO_UNDEFINED,    //!< Not yet defined
     MO_RAW,          //!< No type coercion
@@ -107,7 +101,7 @@ typedef enum _mapper_mode_type {
 } mapper_mode_type;
 
 /*! Describes the voice-stealing mode for instances.
- *  @ingroup connectiondb */
+ *  @ingroup mapdb */
 typedef enum _mapper_instance_allocation_type {
     IN_UNDEFINED,    //!< Not yet defined
     IN_STEAL_OLDEST, //!< Steal the oldest instance
@@ -115,11 +109,11 @@ typedef enum _mapper_instance_allocation_type {
     N_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
-typedef struct _mapper_connection_scope {
-    uint32_t *hashes;                   //!< Array of connection scope hashes.
-    char **names;                       //!< Array of connection scope names.
-    int size;                           //!< The number of connection scopes.
-} mapper_connection_scope_t, *mapper_connection_scope;
+typedef struct _mapper_map_scope {
+    uint32_t *hashes;                   //!< Array of map scope hashes.
+    char **names;                       //!< Array of map scope names.
+    int size;                           //!< The number of map scopes.
+} mapper_map_scope_t, *mapper_map_scope;
 
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */
@@ -147,7 +141,7 @@ typedef struct _mapper_db_signal {
                              *  character. */
 } mapper_db_signal_t, *mapper_db_signal;
 
-typedef struct _mapper_db_connection_slot {
+typedef struct _mapper_db_map_slot {
     mapper_db_signal signal;
     void *minimum;                  //!< Array of minima.
     void *maximum;                  //!< Array of maxima.
@@ -165,32 +159,30 @@ typedef struct _mapper_db_connection_slot {
                                          *   lower boundary. */
     int calibrating;
     char type;
-} mapper_db_connection_slot_t, *mapper_db_connection_slot;
+} mapper_db_map_slot_t, *mapper_db_map_slot;
 
-/*! A record that describes the properties of a connection mapping.
- *  @ingroup connectiondb */
-typedef struct _mapper_db_connection {
-    mapper_db_connection_slot sources;
-    mapper_db_connection_slot_t destination;
+/*! A record that describes the properties of a mapping.
+ *  @ingroup mapdb */
+typedef struct _mapper_db_map {
+    mapper_db_map_slot sources;
+    mapper_db_map_slot_t destination;
 
-    struct _mapper_connection_scope scope;
+    struct _mapper_map_scope scope;
 
-    /*! Extra properties associated with this connection. */
+    /*! Extra properties associated with this map. */
     struct _mapper_string_table *extra;
 
     char *expression;
 
-    mapper_mode_type mode;              /*!< Bypass, linear, calibrate, or
-                                         *   expression connection */
-    int muted;                          /*!< 1 to mute mapping connection, 0
-                                         *   to unmute */
+    mapper_mode_type mode;              //!< MO_LINEAR or MO_EXPRESSION
+    int muted;                          //!< 1 to mute mapping, 0 to unmute
 
-    int id;                             //!< Connection index
+    int id;                             //!< Mapping index
     int num_sources;
     int process_location;               //!< 1 for source, 0 for destination
     int flags;
     uint32_t hash;
-} mapper_db_connection_t, *mapper_db_connection;
+} mapper_db_map_t, *mapper_db_map;
 
 typedef struct _mapper_db_batch_request
 {

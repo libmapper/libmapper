@@ -74,9 +74,9 @@ struct _mapper_device {
 
     int signal_slot_counter;
 
-    /*! Function to call for custom connection handling. */
-    mapper_device_connection_handler *connection_cb;
-    void *connection_cb_userdata;
+    /*! Function to call for custom handling of mapping events. */
+    mapper_device_map_handler *map_cb;
+    void *map_cb_userdata;
 
     /*! The list of active instance id mappings. */
     struct _mapper_id_map *active_id_map;
@@ -256,8 +256,8 @@ void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
                                          int size);
 
-/*! For a given connection instance, construct a mapped signal and
- *  send it on to the destination. */
+/*! For a given signal instance, calculate mapping outputs and
+ *  forward to destinations. */
 void mapper_router_process_signal(mapper_router r,
                                   mapper_signal sig,
                                   int instance_index,
@@ -269,40 +269,38 @@ int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
                              mapper_timetag_t tt);
 
-mapper_connection mapper_router_add_connection(mapper_router router,
-                                               mapper_signal sig,
-                                               int num_remote_signals,
-                                               mapper_signal *remote_signals,
-                                               const char **remote_signal_names,
-                                               int direction);
+mapper_map mapper_router_add_map(mapper_router router, mapper_signal sig,
+                                 int num_remote_signals,
+                                 mapper_signal *remote_signals,
+                                 const char **remote_signal_names,
+                                 mapper_direction_t direction);
 
-int mapper_router_remove_connection(mapper_router router,
-                                    mapper_connection connection);
+int mapper_router_remove_map(mapper_router router, mapper_map map);
 
-/*! Find a connection in a router by local signal and remote signal name. */
-mapper_connection mapper_router_find_outgoing_connection(mapper_router router,
-                                                         mapper_signal local_src,
-                                                         int num_sources,
-                                                         const char **src_names,
-                                                         const char *dest_name);
+/*! Find a mapping in a router by local signal and remote signal name. */
+mapper_map mapper_router_find_outgoing_map(mapper_router router,
+                                           mapper_signal local_src,
+                                           int num_sources,
+                                           const char **src_names,
+                                           const char *dest_name);
 
-mapper_connection mapper_router_find_incoming_connection(mapper_router router,
-                                                         mapper_signal local_dest,
-                                                         int num_sources,
-                                                         const char **src_names);
+mapper_map mapper_router_find_incoming_map(mapper_router router,
+                                           mapper_signal local_dest,
+                                           int num_sources,
+                                           const char **src_names);
 
-mapper_connection mapper_router_find_incoming_connection_id(mapper_router router,
-                                                            mapper_signal local_dest,
-                                                            int id);
+mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
+                                                 mapper_signal local_sig,
+                                                 int id);
 
-mapper_connection mapper_router_find_outgoing_connection_id(mapper_router router,
-                                                            mapper_signal local_src,
-                                                            const char *dest_name,
-                                                            int id);
+mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
+                                                 mapper_signal local_src,
+                                                 const char *dest_name,
+                                                 int id);
 
-mapper_connection_slot mapper_router_find_connection_slot(mapper_router router,
-                                                          mapper_signal signal,
-                                                          int slot_number);
+mapper_map_slot mapper_router_find_map_slot(mapper_router router,
+                                            mapper_signal signal,
+                                            int slot_number);
 
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
@@ -419,37 +417,31 @@ void msig_release_instance_internal(mapper_signal sig,
                                     int instance_index,
                                     mapper_timetag_t timetag);
 
-/**** Connections ****/
+/**** Maps ****/
 
 void mhist_realloc(mapper_history history, int history_size,
                    int sample_size, int is_output);
 
-/*! Perform the connection from a value vector to a scalar.  The
- *  result of this operation should be sent to the destination.
- *  \param connection The mapping process to perform.
- *  \param slot       The source slot being updated.
- *  \param from_value Pointer to current value of the source signal.
- *  \param to_value   Pointer to a value to receive the result.
- *  \return Zero if the operation was muted, or one if it was performed. */
-int mapper_connection_perform(mapper_connection connection,
-                              mapper_connection_slot slot,
-                              int instance, char *typestring);
+/*! Process the signal instance value according to mapping properties.
+ *  The result of this operation should be sent to the destination.
+ *  \param map          The mapping process to perform.
+ *  \param slot         The source slot being updated.
+ *  \param instance     Index of the signal instance to process.
+ *  \param typestring   Pointer to a string to receive types.
+ *  \return             Zero if the operation was muted, one if performed. */
+int mapper_map_perform(mapper_map map, mapper_map_slot slot,
+                       int instance, char *typestring);
 
-int mapper_boundary_perform(mapper_history history, mapper_db_connection_slot s,
+int mapper_boundary_perform(mapper_history history, mapper_db_map_slot s,
                             char *typestring);
 
-int mapper_connection_combine(mapper_connection connection, int instance);
+lo_message mapper_map_build_message(mapper_map map, mapper_map_slot slot,
+                                    void *value, int length, char *typestring,
+                                    mapper_id_map id_map);
 
-lo_message mapper_connection_build_message(mapper_connection c,
-                                           mapper_connection_slot s,
-                                           void *value, int length,
-                                           char *typestring,
-                                           mapper_id_map id_map);
-
-/*! Set a connection's properties based on message parameters. */
-int mapper_connection_set_from_message(mapper_connection connection,
-                                       mapper_message_t *msg,
-                                       int *order, int override);
+/*! Set a mapping's properties based on message parameters. */
+int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
+                                int *order, int override);
 
 const char *mapper_get_param_string(mapper_msg_param_t param);
 
@@ -461,16 +453,16 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 
 mapper_mode_type mapper_get_mode_type_from_string(const char *string);
 
-int mapper_connection_get_source_info(mapper_connection connection, int slot,
-                                      char *datatype, int *vector_length);
+int mapper_map_get_source_info(mapper_map map, int slot, char *datatype,
+                               int *vector_length);
 
-/*! Update scope identifiers for a given connection record. */
-int mapper_db_connection_update_scope(mapper_connection_scope scope,
-                                      lo_arg **scope_list, int num);
+/*! Update scope identifiers for a given mapping record. */
+int mapper_db_map_update_scope(mapper_map_scope scope, lo_arg **scope_list,
+                               int num);
 
-void mapper_connection_set_num_slots(mapper_connection connection, int num_slots);
+void mapper_map_set_num_slots(mapper_map map, int num_slots);
 
-int mapper_connection_check_status(mapper_connection connection);
+int mapper_map_check_status(mapper_map map);
 
 /**** Local device database ****/
 
@@ -504,19 +496,18 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
 void mapper_db_signal_init(mapper_db_signal sig, char type, int length,
                            const char *name, const char *unit);
 
-/*! Add or update an entry in the connection database using parsed
+/*! Add or update an entry in the map database using parsed
  *  message parameters.
  *  \param db        The database to operate on.
  *  \param src_name  The full name of the source signal.
  *  \param dest_name The full name of the destination signal.
  *  \param params    The parsed message parameters containing new
- *                   connection information.
- *  \return          Pointer to the connection database entry. */
-mapper_db_connection mapper_db_add_or_update_connection_params(mapper_db db,
-                                                               int num_sources,
-                                                               const char **src_names,
-                                                               const char *dest_name,
-                                                               mapper_message_t *params);
+ *                   map information.
+ *  \return          Pointer to the map database entry. */
+mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
+                                                 const char **src_names,
+                                                 const char *dest_name,
+                                                 mapper_message_t *params);
 
 /*! Remove a named device from the database if it exists. */
 void mapper_db_remove_device_by_name(mapper_db db, const char *name);
@@ -526,16 +517,13 @@ void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
                                      const char *sig_name);
 
 /*! Remove signals in the provided query. */
-void mapper_db_remove_signals_by_query(mapper_db db,
-                                       mapper_db_signal_t **s);
+void mapper_db_remove_signals_by_query(mapper_db db, mapper_db_signal_t **sigs);
 
-/*! Remove connections in the provided query. */
-void mapper_db_remove_connections_by_query(mapper_db db,
-                                           mapper_db_connection_t **c);
+/*! Remove maps in the provided query. */
+void mapper_db_remove_maps_by_query(mapper_db db, mapper_db_map_t **maps);
 
-/*! Remove a specific connection from the database. */
-void mapper_db_remove_connection(mapper_db db,
-                                 mapper_db_connection map);
+/*! Remove a specific map from the database. */
+void mapper_db_remove_map(mapper_db db, mapper_db_map map);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */
@@ -653,9 +641,9 @@ void mapper_msg_prepare_params(lo_message m,
 void mapper_msg_add_typed_value(lo_message m, char type,
                                 int length, void *value);
 
-/*! Prepare a lo_message for sending based on a connection struct. */
-void mapper_connection_prepare_osc_message(lo_message m, mapper_connection c,
-                                           int slot, int suppress_remote_props);
+/*! Prepare a lo_message for sending based on a map struct. */
+void mapper_map_prepare_osc_message(lo_message m, mapper_map map,
+                                    int slot, int suppress_remote_props);
 
 /*! Helper for setting property value from different lo_arg types. */
 int propval_set_from_lo_arg(void *dest, const char dest_type,

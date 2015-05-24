@@ -1158,7 +1158,7 @@ int msig_add_id_map(mapper_signal sig, mapper_signal_instance si,
     return i;
 }
 
-int msig_num_connections(mapper_signal sig)
+int msig_num_maps(mapper_signal sig)
 {
     int i, count = 0;
     mapper_router_signal rs = sig->device->router->signals;

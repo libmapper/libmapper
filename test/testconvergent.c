@@ -111,7 +111,7 @@ void cleanup_destination()
     }
 }
 
-int setup_connection()
+int setup_maps()
 {
     mapper_monitor mon = mmon_new(sources[0]->admin, 0);
 
@@ -121,23 +121,23 @@ int setup_connection()
     msig_full_name(recvsig, dest_name, 512);
     const char *all_sources[2] = {src1_name, src2_name};
 
-    mapper_db_connection_slot_t slots[2];
-    mapper_db_connection_t props;
+    mapper_db_map_slot_t slots[2];
+    mapper_db_map_t props;
     props.destination.flags = 0;
     props.sources = slots;
     props.mode = MO_EXPRESSION;
     props.expression = "y=x0+x1";
-    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+    props.flags = MAP_MODE | MAP_EXPRESSION;
     props.sources[0].cause_update = 1;
     props.sources[1].cause_update = 0;
-    props.sources[0].flags = props.sources[1].flags = CONNECTION_CAUSE_UPDATE;
+    props.sources[0].flags = props.sources[1].flags = MAP_SLOT_CAUSE_UPDATE;
 
-    mmon_connect_signals_by_name(mon, 2, all_sources, dest_name, &props);
+    mmon_map_signals_by_name(mon, 2, all_sources, dest_name, &props);
     mmon_free(mon);
 
-    // wait until connections have been established
+    // wait until mappings have been established
     int i;
-    while (!done && !mdev_num_connections_in(destination)) {
+    while (!done && !mdev_num_incoming_maps(destination)) {
         for (i = 0; i < NUM_SOURCES; i++)
             mdev_poll(sources[i], 10);
         mdev_poll(destination, 10);
@@ -245,7 +245,7 @@ int main(int argc, char **argv)
 
     wait_ready();
 
-    if (autoconnect && setup_connection()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error setting connection.\n");
         result = 1;
         goto done;

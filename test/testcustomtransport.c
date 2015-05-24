@@ -46,29 +46,25 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_mdev_connection(mapper_device dev,
-                        mapper_signal sig,
-                        mapper_db_connection con,
-                        mapper_db_connection_slot slot,
-                        mapper_direction_t direction,
-                        mapper_device_local_action_t action,
-                        void *user)
+void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
+                        mapper_db_map_slot slot, mapper_direction_t direction,
+                        mapper_device_local_action_t action, void *user)
 {
-    eprintf("%s connection for device %s (%s:%s -> %s:%s), ",
+    eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
             mdev_name(dev), mdev_name(dev), sig->props.name,
-            con->destination.signal->device->name, con->destination.signal->name);
+            map->destination.signal->device->name, map->destination.signal->name);
 
     if (direction == DI_OUTGOING) {
         eprintf("Source host is %s, port is %i\n",
-                con->sources[0].signal->device->host,
-                con->sources[0].signal->device->port);
+                map->sources[0].signal->device->host,
+                map->sources[0].signal->device->port);
     }
     else {
         eprintf("Destination host is %s, port is %i\n",
-                con->destination.signal->device->host,
-                con->destination.signal->device->port);
+                map->destination.signal->device->host,
+                map->destination.signal->device->port);
     }
 
     if (action == MDEV_LOCAL_DESTROYED) {
@@ -85,9 +81,8 @@ void on_mdev_connection(mapper_device dev,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_db_connection_property_lookup(con, "transport", &t,
-                                             (const void **)&a_transport,
-                                             &length)
+    if (mapper_db_map_property_lookup(map, "transport", &t,
+                                      (const void **)&a_transport, &length)
         || t != 's' || length != 1)
     {
         eprintf("Couldn't find `transport' property.\n");
@@ -101,10 +96,10 @@ void on_mdev_connection(mapper_device dev,
         return;
     }
 
-    // Find the TCP port in the connection properties
+    // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_db_connection_property_lookup(con, "tcpPort", &t,
-                                             (const void **)&a_port, &length)
+    if (mapper_db_map_property_lookup(map, "tcpPort", &t,
+                                      (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
         eprintf("Couldn't make TCP connection, "
@@ -124,7 +119,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = con->destination.signal->device->host;
+    const char *host = map->destination.signal->device->host;
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -158,14 +153,14 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mdev_set_connection_callback(source, on_mdev_connection, 0);
+    mdev_set_map_callback(source, on_mdev_map, 0);
 
     sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 
     // Add custom meta-data specifying that this signal supports a
     // special TCP transport.
     char *str = "tcp";
-    msig_set_property(sendsig, "transport", 's', &str, 1);
+    msig_set_property(sendsig, "transport", 's', str, 1);
 
     eprintf("Output signal /outsig registered.\n");
 
@@ -216,7 +211,7 @@ int setup_destination()
     // Add custom meta-data specifying a special transport for this
     // signal.
     char *str = "tcp";
-    msig_set_property(recvsig, "transport", 's', &str, 1);
+    msig_set_property(recvsig, "transport", 's', str, 1);
 
     // Add custom meta-data specifying a port to use for this signal's
     // custom transport.
@@ -259,7 +254,7 @@ void loop()
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig->props;
-        mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, 0);
+        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, 0);
 
         mmon_free(mon);
     }

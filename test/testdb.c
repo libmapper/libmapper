@@ -29,20 +29,20 @@ void printsignal(mapper_db_signal sig)
     eprintf("\n");
 }
 
-void printconnection(mapper_db_connection con)
+void printmap(mapper_db_map map)
 {
     int i;
     if (verbose) {
         printf("  source=");
-        if (con->num_sources > 1)
+        if (map->num_sources > 1)
             printf("[");
-        for (i = 0; i < con->num_sources; i++)
-            printf("'%s':'%s', ", con->sources[i].signal->device->name,
-                   con->sources[i].signal->name);
-        if (con->num_sources > 1)
+        for (i = 0; i < map->num_sources; i++)
+            printf("'%s':'%s', ", map->sources[i].signal->device->name,
+                   map->sources[i].signal->name);
+        if (map->num_sources > 1)
             printf("\b\b], ");
-        printf("dest='%s':'%s'\n", con->destination.signal->device->name,
-               con->destination.signal->name);
+        printf("dest='%s':'%s'\n", map->destination.signal->device->name,
+               map->destination.signal->name);
     }
 }
 
@@ -137,8 +137,7 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)"@boundMin";
     args[3] = (lo_arg*)"none";
 
-    if (!mapper_msg_parse_params(&msg, "/connected",
-                                 "ssss", 4, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "ssss", 4, args))
     {
         eprintf("4: Error, parsing failed.\n");
         result = 1;
@@ -146,11 +145,9 @@ int main(int argc, char **argv)
     }
 
     const char *src_sig_name = "testdb.1/out2";
-    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
-                                              "testdb__.2/in1", &msg);
+    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
     src_sig_name = "testdb__.2/out1";
-    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
-                                              "testdb.1/in1", &msg);
+    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb.1/in1", &msg);
 
     args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"expression";
@@ -169,8 +166,7 @@ int main(int argc, char **argv)
     args[14] = (lo_arg*)&one_f;
     args[15] = (lo_arg*)&two_f;
 
-    if (!mapper_msg_parse_params(&msg, "/connected",
-                                 "sssssssisssffsff", 16, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssisssffsff", 16, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
@@ -178,11 +174,9 @@ int main(int argc, char **argv)
     }
 
     src_sig_name = "testdb.1/out1";
-    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
-                                              "testdb__.2/in2", &msg);
+    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in2", &msg);
     src_sig_name = "testdb.1/out1";
-    mapper_db_add_or_update_connection_params(db, 1, &src_sig_name,
-                                              "testdb__.2/in1", &msg);
+    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
 
     args[6] = (lo_arg*)"@srcLength";
     args[7] = (lo_arg*)&one_i;
@@ -193,8 +187,7 @@ int main(int argc, char **argv)
     args[12] = (lo_arg*)"f";
     args[13] = (lo_arg*)"i";
 
-    if (!mapper_msg_parse_params(&msg, "/connected",
-                                 "sssssssiisisss", 14, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssiisisss", 14, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
@@ -202,8 +195,7 @@ int main(int argc, char **argv)
     }
 
     const char *multi_source[] = {"testdb__.2/out1", "testdb__.2/out2"};
-    mapper_db_add_or_update_connection_params(db, 2, multi_source,
-                                              "testdb.1/in2", &msg);
+    mapper_db_add_or_update_map_params(db, 2, multi_source, "testdb.1/in2", &msg);
 
     /*********/
 
@@ -510,30 +502,29 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\n--- connections ---\n");
+    eprintf("\n--- maps ---\n");
 
-    eprintf("\nFind connections with source 'out1':\n");
+    eprintf("\nFind maps with source 'out1':\n");
 
-    mapper_db_connection* pcon =
-        mapper_db_get_connections_by_src_signal_name(db, "out1");
+    mapper_db_map* pmap = mapper_db_get_maps_by_src_signal_name(db, "out1");
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_src_signal_name() returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_src_signal_name() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_src_signal_name() returned something "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_src_signal_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 4) {
@@ -544,30 +535,27 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for device 'testdb.1', "
-            "source 'out1':\n");
+    eprintf("\nFind maps for device 'testdb.1', source 'out1':\n");
 
-    pcon = mapper_db_get_connections_by_src_device_and_signal_names(db, "testdb.1",
-                                                                    "out1");
+    pmap = mapper_db_get_maps_by_src_device_and_signal_names(db, "testdb.1", "out1");
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_src_device_and_signal_names() "
-                "returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_src_device_and_signal_names() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_src_device_and_signal_names() "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_src_device_and_signal_names() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 2) {
@@ -578,27 +566,27 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections with destination 'in2':\n");
+    eprintf("\nFind maps with destination 'in2':\n");
 
-    pcon = mapper_db_get_connections_by_dest_signal_name(db, "in2");
+    pmap = mapper_db_get_maps_by_dest_signal_name(db, "in2");
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_dest_signal_name() returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_dest_signal_name() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_dest_signal_name() returned something "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_dest_signal_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 2) {
@@ -609,31 +597,28 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for device 'testdb__.2', "
+    eprintf("\nFind maps for device 'testdb__.2', "
             "destination 'in1':\n");
 
-    pcon = mapper_db_get_connections_by_dest_device_and_signal_names(db,
-                                                                     "testdb__.2",
-                                                                     "in1");
+    pmap = mapper_db_get_maps_by_dest_device_and_signal_names(db, "testdb__.2", "in1");
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_dest_device_and_signal_names() "
-                "returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_dest_device_and_signal_names() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_dest_device_and_signal_names() "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_dest_device_and_signal_names() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 2) {
@@ -644,32 +629,31 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for source device 'testdb__.2', signal 'out1',"
-            "\n                 and dest device 'testdb.1', signal 'in1':\n");
+    eprintf("\nFind maps for source device 'testdb__.2', signal 'out1',"
+            "\n          and dest device 'testdb.1', signal 'in1':\n");
 
     const char *src_dev_name = "testdb__.2";
     src_sig_name = "out1";
-    pcon = mapper_db_get_connections_by_device_and_signal_names(
-        db, 1, &src_dev_name, &src_sig_name, "testdb.1", "in1");
+    pmap = mapper_db_get_maps_by_device_and_signal_names(db, 1, &src_dev_name,
+                                                         &src_sig_name, "testdb.1", "in1");
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_device_and_signal_names() "
-                "returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_device_and_signal_names() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_device_and_signal_names() "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_device_and_signal_names() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 1) {
@@ -680,32 +664,30 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind connections for source device 'testdb__.2', signals "
-            "matching 'out',"
-            "\n                 and dest device 'testdb.1', all signals:\n");
+    eprintf("\nFind maps for source device 'testdb__.2', signals matching 'out',"
+            "\n          and dest device 'testdb.1', all signals:\n");
 
-    pcon = mapper_db_get_connections_by_signal_queries(db,
+    pmap = mapper_db_get_maps_by_signal_queries(db,
         mapper_db_match_outputs_by_device_name(db, "testdb__.2", "out"),
         mapper_db_get_inputs_by_device_name(db, "testdb.1"));
 
     count=0;
-    if (!pcon) {
-        eprintf("mapper_db_get_connections_by_signal_queries() "
-                "returned 0.\n");
+    if (!pmap) {
+        eprintf("mapper_db_get_maps_by_signal_queries() returned 0.\n");
         result = 1;
         goto done;
     }
-    if (!*pcon) {
-        eprintf("mapper_db_get_connections_by_signal_queries() "
+    if (!*pmap) {
+        eprintf("mapper_db_get_maps_by_signal_queries() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
 
-    while (pcon) {
+    while (pmap) {
         count ++;
-        printconnection(*pcon);
-        pcon = mapper_db_connection_next(pcon);
+        printmap(*pmap);
+        pmap = mapper_db_map_next(pmap);
     }
 
     if (count != 2) {

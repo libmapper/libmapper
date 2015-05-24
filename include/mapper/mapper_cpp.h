@@ -28,9 +28,9 @@
  *      signal update handlers
  *      instance event handlers
  *      monitor db handlers
- *      device link & connection handlers
+ *      device mapping handlers
  *      LinkProps: set scopes
- *      Link and COnnection props: set arbitrary properties
+ *      Map props: set arbitrary properties
  */
 
 //signal_update_handler(Signal sig, instance_id, value, count, TimeTag)
@@ -141,15 +141,6 @@ namespace mapper {
             return (*this);
         }
         template <typename T>
-        Property& set(std::vector<T> _value)
-        {
-            maybe_free();
-            _set(_value);
-            if (parent) parent->set(this);
-            return (*this);
-        }
-
-        template <typename T>
         operator const T() const
             { return *(const T*)value; }
         template <typename T>
@@ -241,8 +232,6 @@ namespace mapper {
             parent = (AbstractProps*)_parent;
             owned = 0;
         }
-        Property()
-            { name = 0; type = 0; length = 0; owned = 0; }
     private:
         union {
             double _d;
@@ -263,12 +252,19 @@ namespace mapper {
         void _set(char _value[], int _length)
             { value = _value; length = _length; type = 'c'; }
         void _set(const char *_value[], int _length)
-            { value = _value; length = _length; type = 's'; }
+        {
+            length = _length;
+            type = 's';
+            if (_length == 1)
+                value = _value[0];
+            else
+                value = _value;
+        }
         template <typename T>
         void _set(T _value)
             { _set(&_value, 1); }
         template <typename T, size_t N>
-        void _set(std::array<T,N>& _value)
+        void _set(std::array<T, N>& _value)
         {
             if (!_value.empty())
                 _set(_value.data(), N);
@@ -312,6 +308,15 @@ namespace mapper {
         template <typename T>
         void _set(std::vector<T> _value)
             { _set(_value.data(), (int)_value.size()); }
+        void _set(std::vector<const char*>& _value)
+        {
+            length = (int)_value.size();
+            type = 's';
+            if (length == 1)
+                value = _value[0];
+            else
+                value = _value.data();
+        }
         void _set(std::vector<std::string>& _value)
         {
             length = (int)_value.size();
@@ -403,7 +408,7 @@ namespace mapper {
                                                   &value, &length))
                 return Property(name, type, value, length, this);
             else
-                return Property();
+                return Property(name, 0, 0, 0, this);
         }
         Property get(int index) const
         {
@@ -415,7 +420,7 @@ namespace mapper {
                                                  &value, &length))
                 return Property(name, type, value, length, this);
             else
-                return Property();
+                return Property(0, 0, 0, 0, this);
         }
         std::string name() const
             { return std::string(props->name); }
@@ -429,7 +434,10 @@ namespace mapper {
     {
     public:
         Signal(mapper_signal sig)
-            { signal = sig; props = msig_properties(signal); }
+        {
+            signal = sig; props = msig_properties(signal);
+            cpp_props = new Properties(signal);
+        }
         ~Signal() { ; }
 
         operator mapper_signal() const
@@ -570,8 +578,8 @@ namespace mapper {
             { return msig_get_instance_data(signal, instance_id); }
         Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
             { msig_set_callback(signal, handler, user_data); return (*this); }
-        int num_connections() const
-            { return msig_num_connections(signal); }
+        int num_maps() const
+            { return msig_num_maps(signal); }
         std::string full_name() const
         {
             char str[64];
@@ -592,9 +600,9 @@ namespace mapper {
             Properties(mapper_signal s) : AbstractSignalProps(s) {}
         };
         Properties properties() const
-            { return Properties(signal); }
+            { return *cpp_props; }
         Property property(const string_type name)
-            { return Properties(signal).get(name); }
+            { return cpp_props->get(name); }
         class Iterator : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -622,6 +630,7 @@ namespace mapper {
     private:
         mapper_signal signal;
         mapper_db_signal props;
+        Properties *cpp_props;
     };
 
     class AbstractDeviceProps : public AbstractObjectProps
@@ -636,11 +645,10 @@ namespace mapper {
             { device = 0; props = dev_db; }
         AbstractDeviceProps& set(mapper::Property *p)
         {
-            if (device)
-                mdev_set_property(device, p->name, p->type,
-                                  p->type == 's' && p->length == 1 ?
-                                  (void*)&p->value : (void*)p->value,
+            if (device) {
+                mdev_set_property(device, p->name, p->type, (void*)p->value,
                                   p->length);
+            }
             return (*this);
         }
 
@@ -662,10 +670,12 @@ namespace mapper {
             const void *value;
             int length;
             if (!mapper_db_device_property_lookup(props, name, &type,
-                                                  &value, &length))
+                                                  &value, &length)) {
                 return Property(name, type, value, length, this);
-            else
-                return Property();
+            }
+            else {
+                return Property(name, 0, 0, 0, this);
+            }
         }
         Property get(int index) const
         {
@@ -677,7 +687,7 @@ namespace mapper {
                                                  &value, &length))
                 return Property(name, type, value, length, this);
             else
-                return Property();
+                return Property(0, 0, 0, 0, this);
         }
         std::string name() const
             { return std::string(props->name); }
@@ -693,9 +703,15 @@ namespace mapper {
     {
     public:
         Device(const string_type &name_prefix, int port, Admin admin)
-            { device = mdev_new(name_prefix, port, admin); }
+        {
+            device = mdev_new(name_prefix, port, admin);
+            props = new Properties(device);
+        }
         Device(const string_type &name_prefix)
-            { device = mdev_new(name_prefix, 0, 0); }
+        {
+            device = mdev_new(name_prefix, 0, 0);
+            props = new Properties(device);
+        }
         ~Device()
             { if (device) mdev_free(device); }
         operator mapper_device() const
@@ -738,10 +754,10 @@ namespace mapper {
             { return mdev_num_inputs(device); }
         int num_outputs() const
             { return mdev_num_outputs(device); }
-        int num_connections_in() const
-            { return mdev_num_connections_in(device); }
-        int num_connections_out() const
-            { return mdev_num_connections_out(device); }
+        int num_incoming_maps() const
+            { return mdev_num_incoming_maps(device); }
+        int num_outgoing_maps() const
+            { return mdev_num_outgoing_maps(device); }
         Signal::Iterator inputs() const
         {
             return Signal::Iterator(mdev_get_inputs(device),
@@ -765,10 +781,10 @@ namespace mapper {
         public:
             Properties(mapper_device d) : AbstractDeviceProps(d) {}
         };
-        Properties properties() const
-            { return Properties(device); }
+        Properties& properties() const
+            { return *props; }
         Property property(const string_type name)
-            { return Properties(device).get(name); }
+            { return props->get(name); }
         int poll(int block_ms=0) const
             { return mdev_poll(device, block_ms); }
         int num_fds() const
@@ -797,10 +813,10 @@ namespace mapper {
             { mdev_send_queue(device, *tt); return (*this); }
 //        lo::Server get_lo_server()
 //            { return lo::Server(mdev_get_lo_server(device)); }
-        Device& set_connection_callback(mapper_device_connection_handler handler,
-                                        void *user_data)
+        Device& set_map_callback(mapper_device_map_handler handler,
+                                 void *user_data)
         {
-            mdev_set_connection_callback(device, handler, user_data);
+            mdev_set_map_callback(device, handler, user_data);
             return (*this);
         }
         Timetag now()
@@ -811,6 +827,7 @@ namespace mapper {
         }
     private:
         mapper_device device;
+        Properties *props;
     };
 
     class Db
@@ -991,25 +1008,25 @@ namespace mapper {
                  mapper_db_match_outputs_by_device_name(db, device_name, pattern));
         }
 
-        // db connections
-        const Db& add_connection_callback(mapper_db_connection_handler *handler,
-                                          void *user_data) const
+        // db maps
+        const Db& add_map_callback(mapper_db_map_handler *handler,
+                                   void *user_data) const
         {
-            mapper_db_add_connection_callback(db, handler, user_data);
+            mapper_db_add_map_callback(db, handler, user_data);
             return (*this);
         }
-        const Db& remove_connection_callback(mapper_db_connection_handler *handler,
-                                             void *user_data) const
+        const Db& remove_map_callback(mapper_db_map_handler *handler,
+                                      void *user_data) const
         {
-            mapper_db_remove_connection_callback(db, handler, user_data);
+            mapper_db_remove_map_callback(db, handler, user_data);
             return (*this);
         }
-        class Connection : AbstractObjectProps
+        class Map : AbstractObjectProps
         {
         public:
-            Connection(mapper_db_connection connection)
+            Map(mapper_db_map map)
             {
-                props = connection;
+                props = map;
                 if (props) {
                     _sources = new Slot[props->num_sources];
                     for (int i = 0; i < props->num_sources; i++) {
@@ -1021,14 +1038,13 @@ namespace mapper {
                     _sources = 0;
                 owned = 0;
             }
-            Connection(int num_sources=1)
+            Map(int num_sources=1)
             {
-                props = ((mapper_db_connection)
-                         calloc(1, sizeof(mapper_db_connection_t)));
+                props = ((mapper_db_map)
+                         calloc(1, sizeof(mapper_db_map_t)));
                 props->num_sources = num_sources;
-                props->sources = ((mapper_db_connection_slot)
-                                  calloc(1,
-                                         sizeof(struct _mapper_db_connection_slot)
+                props->sources = ((mapper_db_map_slot)
+                                  calloc(1, sizeof(struct _mapper_db_map_slot)
                                          * num_sources));
                 _sources = new Slot[num_sources];
                 for (int i = 0; i < num_sources; i++) {
@@ -1037,7 +1053,7 @@ namespace mapper {
                 _destination = Slot(this, &props->destination, 0);
                 owned = 1;
             }
-            ~Connection()
+            ~Map()
             {
 //                delete _sources;
                 if (owned && props) {
@@ -1046,24 +1062,24 @@ namespace mapper {
                     free(props);
                 }
             }
-            operator mapper_db_connection() const
+            operator mapper_db_map() const
                 { return props; }
             int num_sources() const
                 { return props->num_sources; }
             mapper_mode_type mode() const
                 { return props->mode; }
-            Connection& set_mode(mapper_mode_type mode)
+            Map& set_mode(mapper_mode_type mode)
             {
                 props->mode = mode;
-                props->flags |= CONNECTION_MODE;
+                props->flags |= MAP_MODE;
                 return (*this);
             }
             std::string expression() const
                 { return std::string(props->expression); }
-            Connection& set_expression(const string_type &expression)
+            Map& set_expression(const string_type &expression)
             {
                 props->expression = (char*)(const char*)expression;
-                props->flags |= CONNECTION_EXPRESSION;
+                props->flags |= MAP_EXPRESSION;
                 return (*this);
             }
             Property get(const string_type &name) const
@@ -1071,11 +1087,11 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_db_connection_property_lookup(props, name, &type,
-                                                          &value, &length))
+                if (!mapper_db_map_property_lookup(props, name, &type, &value,
+                                                   &length))
                     return Property(name, type, value, length);
                 else
-                    return Property();
+                    return Property(name, 0, 0, 0, 0);
             }
             Property get(int index) const
             {
@@ -1083,21 +1099,21 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_db_connection_property_index(props, index, &name,
-                                                         &type, &value, &length))
+                if (!mapper_db_map_property_index(props, index, &name, &type,
+                                                  &value, &length))
                     return Property(name, type, value, length);
                 else
-                    return Property();
+                    return Property(0, 0, 0, 0, 0);
             }
             int hash() const
                 { return props->hash; }
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
-                Iterator(mapper_db_connection *c)
+                Iterator(mapper_db_map *c)
                     { con = c; }
                 ~Iterator()
-                    { mapper_db_connection_done(con); }
+                    { mapper_db_map_done(con); }
                 bool operator==(const Iterator& rhs)
                     { return (con == rhs.con); }
                 bool operator!=(const Iterator& rhs)
@@ -1105,19 +1121,19 @@ namespace mapper {
                 Iterator& operator++()
                 {
                     if (con != NULL)
-                        con = mapper_db_connection_next(con);
+                        con = mapper_db_map_next(con);
                     return (*this);
                 }
                 Iterator operator++(int)
                     { Iterator tmp(*this); operator++(); return tmp; }
-                Connection operator*()
-                    { return Connection(*con); }
+                Map operator*()
+                    { return Map(*con); }
                 Iterator begin()
                     { return Iterator(con); }
                 Iterator end()
                     { return Iterator(0); }
             private:
-                mapper_db_connection *con;
+                mapper_db_map *con;
             };
             class Slot : AbstractObjectProps
             {
@@ -1130,7 +1146,7 @@ namespace mapper {
                 Slot& set_bound_min(mapper_boundary_action bound_min)
                 {
                     props->bound_min = bound_min;
-                    props->flags |= CONNECTION_BOUND_MIN;
+                    props->flags |= MAP_SLOT_BOUND_MIN;
                     return (*this);
                 }
                 mapper_boundary_action bound_max() const
@@ -1138,7 +1154,7 @@ namespace mapper {
                 Slot& set_bound_max(mapper_boundary_action bound_max)
                 {
                     props->bound_max = bound_max;
-                    props->flags |= CONNECTION_BOUND_MAX;
+                    props->flags |= MAP_SLOT_BOUND_MAX;
                     return (*this);
                 }
                 Property minimum() const
@@ -1147,7 +1163,7 @@ namespace mapper {
                         return Property("minimum", props->type,
                                         props->minimum, props->length);
                     else
-                        return Property();
+                        return Property("minimum", 0, 0, 0, 0);
                 }
                 Slot& set_minimum(const Property &value)
                 {
@@ -1155,7 +1171,7 @@ namespace mapper {
                         props->minimum = (void*)(const void*)value;
                         props->type = value.type;
                         props->length = value.length;
-                        props->flags |= CONNECTION_MIN_KNOWN;
+                        props->flags |= MAP_SLOT_MIN_KNOWN;
                     }
                     return (*this);
                 }
@@ -1165,7 +1181,7 @@ namespace mapper {
                         return Property("maximum", props->type,
                                         props->maximum, props->length);
                     else
-                        return Property();
+                        return Property("maximum", 0, 0, 0, 0);
                 }
                 Slot& set_maximum(const Property &value)
                 {
@@ -1173,7 +1189,7 @@ namespace mapper {
                         props->maximum = (void*)(const void*)value;
                         props->type = value.type;
                         props->length = value.length;
-                        props->flags |= CONNECTION_MAX_KNOWN;
+                        props->flags |= MAP_SLOT_MAX_KNOWN;
                     }
                     return (*this);
                 }
@@ -1196,20 +1212,19 @@ namespace mapper {
                 Property get(const string_type &name) const
                 {
                     if (!props)
-                        return Property();
+                        return Property(name, 0, 0, 0, 0);
                     char type;
                     const void *value;
                     int length;
-                    if (!mapper_db_connection_slot_property_lookup(props, name,
-                                                                   &type, &value,
-                                                                   &length))
+                    if (!mapper_db_map_slot_property_lookup(props, name, &type,
+                                                            &value, &length))
                         return Property(name, type, value, length);
                     else
-                        return Property();
+                        return Property(name, 0, 0, 0, 0);
                 }
             protected:
-                friend class Connection;
-                Slot(const Connection *_parent, mapper_db_connection_slot slot,
+                friend class Map;
+                Slot(const Map *_parent, mapper_db_map_slot slot,
                      int _is_src)
                 {
                     props = slot;
@@ -1219,15 +1234,15 @@ namespace mapper {
                 }
                 Slot()
                     { props = 0; parent = 0; flags = 0; }
-                operator mapper_db_connection_slot() const
+                operator mapper_db_map_slot() const
                     { return props; }
                 Slot& set(mapper::Property *p) { return (*this); }
                 Slot& set(mapper::Property p) { return (*this); }
                 Slot& remove(const string_type &name) { return (*this); }
                 int flags;
             private:
-                mapper_db_connection_slot props;
-                const Connection *parent;
+                mapper_db_map_slot props;
+                const Map *parent;
                 int is_src;
             };
             Slot destination() const
@@ -1236,83 +1251,82 @@ namespace mapper {
                 { return _sources[index]; }
         protected:
             friend class Monitor;
-            Connection& set(mapper::Property *p) { return (*this); }
-            Connection& set(Property p) { set(&p); return (*this); }
-            Connection& remove(const string_type &name) { return (*this); }
+            Map& set(mapper::Property *p) { return (*this); }
+            Map& set(Property p) { set(&p); return (*this); }
+            Map& remove(const string_type &name) { return (*this); }
         private:
-            mapper_db_connection props;
+            mapper_db_map props;
             Slot _destination;
             Slot *_sources;
             int owned;
         };
-        Connection connection(int hash) const
-            { return mapper_db_get_connection_by_hash(db, hash); }
-        Connection::Iterator connections() const
+        Map map(int hash) const
+            { return mapper_db_get_map_by_hash(db, hash); }
+        Map::Iterator maps() const
         {
-            return Connection::Iterator(
-                 mapper_db_get_all_connections(db));
+            return Map::Iterator(
+                 mapper_db_get_all_maps(db));
         }
-        Connection::Iterator connections(const string_type &src_device,
-                                         const string_type &src_signal,
-                                         const string_type &dest_device,
-                                         const string_type &dest_signal) const
+        Map::Iterator maps(const string_type &src_device,
+                           const string_type &src_signal,
+                           const string_type &dest_device,
+                           const string_type &dest_signal) const
         {
             const char *_src_dev = src_device;
             const char *_src_sig = src_signal;
-            return Connection::Iterator(
-                mapper_db_get_connections_by_device_and_signal_names(db, 1,
+            return Map::Iterator(
+                mapper_db_get_maps_by_device_and_signal_names(db, 1,
                      &_src_dev, &_src_sig, dest_device, dest_signal));
         }
-        Connection::Iterator connections(const string_type &device_name) const
+        Map::Iterator maps(const string_type &device_name) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_device_name(db, device_name));
+            return Map::Iterator(
+                 mapper_db_get_maps_by_device_name(db, device_name));
         }
-        Connection::Iterator connections_by_src(const string_type &signal_name) const
+        Map::Iterator maps_by_src(const string_type &signal_name) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_src_signal_name(db, signal_name));
+            return Map::Iterator(
+                 mapper_db_get_maps_by_src_signal_name(db, signal_name));
         }
-        Connection::Iterator connections_by_src(const string_type &device_name,
-                                                const string_type &signal_name) const
+        Map::Iterator maps_by_src(const string_type &device_name,
+                                  const string_type &signal_name) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_src_device_and_signal_names(db,
+            return Map::Iterator(
+                 mapper_db_get_maps_by_src_device_and_signal_names(db,
                       device_name, signal_name));
         }
-        Connection::Iterator connections_by_dest(const string_type &signal_name) const
+        Map::Iterator maps_by_dest(const string_type &signal_name) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_dest_signal_name(db, signal_name));
+            return Map::Iterator(
+                 mapper_db_get_maps_by_dest_signal_name(db, signal_name));
         }
-        Connection::Iterator connections_by_dest(const string_type &device_name,
-                                                 const string_type &signal_name) const
+        Map::Iterator maps_by_dest(const string_type &device_name,
+                                   const string_type &signal_name) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_dest_device_and_signal_names(db,
+            return Map::Iterator(
+                 mapper_db_get_maps_by_dest_device_and_signal_names(db,
                       device_name, signal_name));
         }
-        Connection connection_by_signals(const string_type &source_name,
-                                         const string_type &dest_name) const
+        Map map_by_signals(const string_type &source_name,
+                           const string_type &dest_name) const
         {
             const char *_src = source_name;
-            return Connection(
-                mapper_db_get_connection_by_signal_full_names(db, 1, &_src,
+            return Map(mapper_db_get_map_by_signal_full_names(db, 1, &_src,
                                                               dest_name));
         }
-        Connection::Iterator connections_by_devices(const string_type &source_name,
-                                                    const string_type &dest_name) const
+        Map::Iterator maps_by_devices(const string_type &source_name,
+                                      const string_type &dest_name) const
         {
             const char *_src = source_name;
-            return Connection::Iterator(
-                mapper_db_get_connections_by_src_dest_device_names(db, 1, &_src,
-                                                                   dest_name));
+            return Map::Iterator(
+                mapper_db_get_maps_by_src_dest_device_names(db, 1, &_src,
+                                                            dest_name));
         }
-        Connection::Iterator connections(Signal::Iterator src_list,
-                                         Signal::Iterator dest_list) const
+        Map::Iterator maps(Signal::Iterator src_list,
+                           Signal::Iterator dest_list) const
         {
-            return Connection::Iterator(
-                 mapper_db_get_connections_by_signal_queries(db,
+            return Map::Iterator(
+                 mapper_db_get_maps_by_signal_queries(db,
                      (mapper_db_signal*)(src_list),
                      (mapper_db_signal*)(dest_list)));
         }
@@ -1356,223 +1370,223 @@ namespace mapper {
             mmon_autosubscribe(monitor, flags);
             return (*this);
         }
-        // TODO: handle connections with multiple inputs
+        // TODO: handle maps with multiple inputs
         // array/vector of const char
         // array/vector of std::string
         // array/vector of mapper::Signal
         // array/vector of mapper::Db::Signal
-        const Monitor& connect(const mapper::Signal &source, const mapper::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(const mapper::Signal &source,
+                           const mapper::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_connect_signals_by_db_record(monitor, 1, &_src,
-                                              (mapper_db_signal)dest.properties(),
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, 1, &_src,
+                                          (mapper_db_signal)dest.properties(),
+                                          (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(const mapper::Db::Signal &source,
-                               const mapper::Db::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(const mapper::Db::Signal &source,
+                           const mapper::Db::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_connect_signals_by_db_record(monitor, 1, &_src,
-                                              (mapper_db_signal)dest,
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, 1, &_src,
+                                          (mapper_db_signal)dest,
+                                          (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(const string_type &source, const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(const string_type &source, const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
             const char *_src = source;
-            mmon_connect_signals_by_name(monitor, 1, &_src, dest,
-                                         (mapper_db_connection)props);
+            mmon_map_signals_by_name(monitor, 1, &_src, dest,
+                                     (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(int num_sources,
-                               const mapper::Signal sources[], const mapper::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(int num_sources, const mapper::Signal sources[],
+                           const mapper::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (mapper_db_signal)sources[i].properties();
-            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
-                                              (mapper_db_signal)dest.properties(),
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
+                                          (mapper_db_signal)dest.properties(),
+                                          (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(int num_sources,
-                               const mapper::Db::Signal sources[],
-                               const mapper::Db::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(int num_sources, const mapper::Db::Signal sources[],
+                           const mapper::Db::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (mapper_db_signal)sources[i];
-            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
-                                              (mapper_db_signal)dest,
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
+                                          (mapper_db_signal)dest,
+                                          (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(int num_sources,
-                               const char *sources[], const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(int num_sources, const char *sources[],
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i];
-            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
-                                         (mapper_db_connection)props);
+            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
+                                     (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(int num_sources,
-                               const std::string sources[], const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(int num_sources, const std::string sources[],
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i].c_str();
-            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
-                                         (mapper_db_connection)props);
+            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
+                                     (mapper_db_map)props);
             return (*this);
         }
         template <size_t num_sources>
-        const Monitor& connect(std::array<const mapper::Signal, num_sources>& sources,
-                               const mapper::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::array<const mapper::Signal, num_sources>& sources,
+                           const mapper::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (mapper_db_signal)sources[i].properties();
-            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
-                                              (mapper_db_signal)dest.properties(),
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
+                                          (mapper_db_signal)dest.properties(),
+                                              (mapper_db_map)props);
             return (*this);
         }
         template <size_t num_sources>
-        const Monitor& connect(std::array<const mapper::Db::Signal, num_sources>& sources,
-                               const mapper::Db::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::array<const mapper::Db::Signal, num_sources>& sources,
+                           const mapper::Db::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (mapper_db_signal)sources[i];
-            mmon_connect_signals_by_db_record(monitor, num_sources, _srcs,
-                                              (mapper_db_signal)dest,
-                                              (mapper_db_connection)props);
+            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
+                                          (mapper_db_signal)dest,
+                                          (mapper_db_map)props);
             return (*this);
         }
         template <size_t num_sources>
-        const Monitor& connect(std::array<const char*, num_sources>& sources,
-                               const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::array<const char*, num_sources>& sources,
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i];
-            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
-                                         (mapper_db_connection)props);
+            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
+                                     (mapper_db_map)props);
             return (*this);
         }
         template <size_t num_sources>
-        const Monitor& connect(std::array<std::string, num_sources>& sources,
-                               const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::array<std::string, num_sources>& sources,
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
             const char *_srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
                 _srcs[i] = (const char *)sources[i].c_str();
-            mmon_connect_signals_by_name(monitor, num_sources, _srcs, dest,
-                                         (mapper_db_connection)props);
+            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
+                                     (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& connect(std::vector<const mapper::Signal> sources,
-                               const mapper::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::vector<const mapper::Signal> sources,
+                           const mapper::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
-            connect((int)sources.size(), sources.data(), dest, props);
+            map((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
-        const Monitor& connect(std::vector<const mapper::Db::Signal> sources,
-                               const mapper::Db::Signal &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::vector<const mapper::Db::Signal> sources,
+                           const mapper::Db::Signal &dest,
+                           const mapper::Db::Map &props=0) const
         {
-            connect((int)sources.size(), sources.data(), dest, props);
+            map((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
-        const Monitor& connect(std::vector<const char*>& sources,
-                               const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::vector<const char*>& sources,
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
-            connect((int)sources.size(), sources.data(), dest, props);
+            map((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
-        const Monitor& connect(std::vector<std::string>& sources,
-                               const string_type &dest,
-                               const mapper::Db::Connection &props=0) const
+        const Monitor& map(std::vector<std::string>& sources,
+                           const string_type &dest,
+                           const mapper::Db::Map &props=0) const
         {
-            connect((int)sources.size(), sources.data(), dest, props);
+            map((int)sources.size(), sources.data(), dest, props);
             return (*this);
         }
-        const Monitor& modify_connection(const mapper::Db::Connection &connection) const
+        const Monitor& modify_map(const mapper::Db::Map &map) const
         {
-            mmon_modify_connection(monitor, (mapper_db_connection)connection);
+            mmon_modify_map(monitor, (mapper_db_map)map);
             return (*this);
         }
-        const Monitor& modify_connection(const string_type &source,
-                                         const string_type &dest,
-                                         const mapper::Db::Connection &props) const
+        const Monitor& modify_map(const string_type &source,
+                                  const string_type &dest,
+                                  const mapper::Db::Map &props) const
         {
             const char *_src = source;
-            mmon_modify_connection_by_signal_names(monitor, 1, &_src, dest,
-                                                   (mapper_db_connection)props);
+            mmon_modify_map_by_signal_names(monitor, 1, &_src, dest,
+                                            (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& modify_connection(const mapper::Signal &source,
-                                         const mapper::Signal &dest,
-                                         const mapper::Db::Connection &props) const
+        const Monitor& modify_map(const mapper::Signal &source,
+                                  const mapper::Signal &dest,
+                                  const mapper::Db::Map &props) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
-                                                        (mapper_db_signal)dest.properties(),
-                                                        (mapper_db_connection)props);
+            mmon_modify_map_by_signal_db_records(monitor, 1, &_src,
+                                                 (mapper_db_signal)dest.properties(),
+                                                 (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& modify_connection(const mapper::AbstractSignalProps &source,
-                                         const mapper::AbstractSignalProps &dest,
-                                         const mapper::Db::Connection &props) const
+        const Monitor& modify_map(const mapper::AbstractSignalProps &source,
+                                  const mapper::AbstractSignalProps &dest,
+                                  const mapper::Db::Map &props) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_modify_connection_by_signal_db_records(monitor, 1, &_src,
-                                                        (mapper_db_signal)dest,
-                                                        (mapper_db_connection)props);
+            mmon_modify_map_by_signal_db_records(monitor, 1, &_src,
+                                                 (mapper_db_signal)dest,
+                                                 (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& disconnect(const mapper::Db::Connection &connection) const
+        const Monitor& unmap(const mapper::Db::Map &map) const
         {
-            mmon_remove_connection(monitor, (mapper_db_connection)connection);
+            mmon_remove_map(monitor, (mapper_db_map)map);
             return (*this);
         }
-        const Monitor& disconnect(const string_type &source,
+        const Monitor& unmap(const string_type &source,
                                   const string_type &dest) const
         {
             const char *_src = source;
-            mmon_disconnect_signals_by_name(monitor, 1, &_src, dest);
+            mmon_unmap_signals_by_name(monitor, 1, &_src, dest);
             return (*this);
         }
-        const Monitor& disconnect(const mapper::Signal &source,
+        const Monitor& unmap(const mapper::Signal &source,
                                   const mapper::Signal &dest) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
-                                                 (mapper_db_signal)dest.properties());
+            mmon_unmap_signals_by_db_record(monitor, 1, &_src,
+                                            (mapper_db_signal)dest.properties());
             return (*this);
         }
-        const Monitor& disconnect(const mapper::Db::Signal &source,
-                                  const mapper::Db::Signal &dest) const
+        const Monitor& unmap(const mapper::Db::Signal &source,
+                             const mapper::Db::Signal &dest) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_disconnect_signals_by_db_record(monitor, 1, &_src,
-                                                 (mapper_db_signal)dest);
+            mmon_unmap_signals_by_db_record(monitor, 1, &_src,
+                                            (mapper_db_signal)dest);
             return (*this);
         }
     private:

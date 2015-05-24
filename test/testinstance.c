@@ -156,21 +156,21 @@ void print_instance_ids(mapper_signal sig)
     eprintf(" ]   ");
 }
 
-void connect_signals()
+void map_signals()
 {
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_db_connection_t props;
+    mapper_db_map_t props;
     props.sources = 0;
     props.destination.flags = 0;
     props.expression = "foo=1;  y=y{-1}+foo";
     props.mode = MO_EXPRESSION;
-    props.flags = CONNECTION_MODE | CONNECTION_EXPRESSION;
+    props.flags = MAP_MODE | MAP_EXPRESSION;
     mapper_db_signal src = &sendsig->props;
-    mmon_connect_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
+    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
 
-    // wait until connection has been established
-    while (!done && !mdev_num_connections_out(source)) {
+    // wait until mapping has been established
+    while (!done && !mdev_num_outgoing_maps(source)) {
         mdev_poll(source, 10);
         mdev_poll(destination, 10);
     }
@@ -265,7 +265,7 @@ int main(int argc, char **argv)
     wait_local_devices();
 
     if (automate)
-        connect_signals();
+        map_signals();
 
     eprintf("\n**********************************************\n");
     eprintf("************ NO INSTANCE STEALING ************\n");

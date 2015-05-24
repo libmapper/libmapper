@@ -3,34 +3,34 @@ EXPORTS
     mapper_admin_libversion                                   @2
     mapper_admin_new                                          @3
     mapper_db_add_device_callback                             @4
-    mapper_db_add_connection_callback                         @5
+    mapper_db_add_map_callback                                @5
     mapper_db_add_signal_callback                             @6
-    mapper_db_connection_done                                 @7
-    mapper_db_connection_next                                 @8
-    mapper_db_connection_property_index                       @9
-    mapper_db_connection_property_lookup                      @10
-    mapper_db_connection_slot_property_index                  @11
-    mapper_db_connection_slot_property_lookup                 @12
+    mapper_db_map_done                                        @7
+    mapper_db_map_next                                        @8
+    mapper_db_map_property_index                              @9
+    mapper_db_map_property_lookup                             @10
+    mapper_db_map_slot_property_index                         @11
+    mapper_db_map_slot_property_lookup                        @12
     mapper_db_device_done                                     @13
     mapper_db_device_next                                     @14
     mapper_db_device_property_index                           @15
     mapper_db_device_property_lookup                          @16
     mapper_db_get_all_devices                                 @17
     mapper_db_get_all_inputs                                  @18
-    mapper_db_get_all_connections                             @19
+    mapper_db_get_all_maps                                    @19
     mapper_db_get_all_outputs                                 @20
-    mapper_db_get_connection_by_signal_full_names             @21
-    mapper_db_get_connection_by_hash                          @22
-    mapper_db_get_connections_by_src_device_and_signal_names  @23
-    mapper_db_get_connection_by_dest_device_and_id            @24
-    mapper_db_get_connections_by_dest_device_and_signal_names @25
-    mapper_db_get_connections_by_dest_signal_name             @26
-    mapper_db_get_connections_by_device_and_signal_name       @27
-    mapper_db_get_connections_by_device_and_signal_names      @28
-    mapper_db_get_connections_by_device_name                  @29
-    mapper_db_get_connections_by_signal_queries               @30
-    mapper_db_get_connections_by_src_signal_name              @31
-    mapper_db_get_connections_by_src_dest_device_names        @32
+    mapper_db_get_map_by_signal_full_names                    @21
+    mapper_db_get_map_by_hash                                 @22
+    mapper_db_get_maps_by_src_device_and_signal_names         @23
+    mapper_db_get_map_by_dest_device_and_id                   @24
+    mapper_db_get_maps_by_dest_device_and_signal_names        @25
+    mapper_db_get_maps_by_dest_signal_name                    @26
+    mapper_db_get_maps_by_device_and_signal_name              @27
+    mapper_db_get_maps_by_device_and_signal_names             @28
+    mapper_db_get_maps_by_device_name                         @29
+    mapper_db_get_maps_by_signal_queries                      @30
+    mapper_db_get_maps_by_src_signal_name                     @31
+    mapper_db_get_maps_by_src_dest_device_names               @32
     mapper_db_get_device_by_name                              @33
     mapper_db_get_device_by_hash                              @34
     mapper_db_get_input_by_device_and_signal_names            @35
@@ -43,7 +43,7 @@ EXPORTS
     mapper_db_match_inputs_by_device_name                     @42
     mapper_db_match_outputs_by_device_name                    @43
     mapper_db_match_signals_by_device_name                    @44
-    mapper_db_remove_connection_callback                      @45
+    mapper_db_remove_map_callback                             @45
     mapper_db_remove_device_callback                          @46
     mapper_db_remove_signal_callback                          @47
     mapper_db_signal_done                                     @48
@@ -76,8 +76,8 @@ EXPORTS
     mdev_name                                                 @75
     mdev_new                                                  @76
     mdev_now                                                  @77
-    mdev_num_connections_in                                   @78
-    mdev_num_connections_out                                  @79
+    mdev_num_incoming_maps                                    @78
+    mdev_num_outgoing_maps                                    @79
     mdev_num_fds                                              @80
     mdev_num_inputs                                           @81
     mdev_num_outputs                                          @82
@@ -95,13 +95,13 @@ EXPORTS
     mdev_send_queue                                           @94
     mdev_start_queue                                          @95
     mmon_autosubscribe                                        @96
-    mmon_connect_signals_by_db_record                         @97
-    mmon_connect_signals_by_name                              @98
-    mmon_modify_connection                                    @99
-    mmon_modify_connection_by_signal_names                    @100
-    mmon_modify_connection_by_signal_db_records               @101
-    mmon_disconnect_signals_by_db_record                      @102
-    mmon_disconnect_signals_by_name                           @103
+    mmon_map_signals_by_db_record                             @97
+    mmon_map_signals_by_name                                  @98
+    mmon_modify_map                                           @99
+    mmon_modify_map_by_signal_names                           @100
+    mmon_modify_map_by_signal_db_records                      @101
+    mmon_unmap_signals_by_db_record                           @102
+    mmon_unmap_signals_by_name                                @103
     mmon_flush_db                                             @104
     mmon_free                                                 @105
     mmon_get_db                                               @106
@@ -109,7 +109,7 @@ EXPORTS
     mmon_now                                                  @108
     mmon_poll                                                 @109
     mmon_get_timeout                                          @110
-    mmon_remove_connection                                    @110
+    mmon_remove_map                                           @110
     mmon_request_devices                                      @111
     mmon_send                                                 @112
     mmon_set_timeout                                          @113
@@ -121,7 +121,7 @@ EXPORTS
     msig_get_instance_data                                    @119
     msig_get_newest_active_instance                           @120
     msig_get_oldest_active_instance                           @121
-    msig_num_connections                                      @122
+    msig_num_maps                                             @122
     msig_instance_value                                       @123
     msig_num_active_instances                                 @124
     msig_num_reserved_instances                               @125
