@@ -106,7 +106,7 @@ static void* list_prepend_item(void *item, void **list)
     return item;
 }
 
-/*! Remove an item from a list and free its memory. */
+/*! Remove an item from a list but do not free its memory. */
 void list_remove_item(void *item, void **head)
 {
     void *prev_node = 0, *node = *head;
@@ -124,8 +124,13 @@ void list_remove_item(void *item, void **head)
         list_set_next(prev_node, list_get_next(node));
     else
         *head = list_get_next(node);
+}
 
-    free(list_get_header_by_data(node));
+/*! Free the memory used by a list item */
+void list_free_item(void *item)
+{
+    if (item)
+        free(list_get_header_by_data(item));
 }
 
 /** Structures and functions for performing dynamic queries **/
@@ -848,6 +853,8 @@ static void db_remove_device_internal(mapper_db db, mapper_db_device dev,
     mapper_db_remove_signals_by_query(db,
         mapper_db_get_signals_by_device_name(db, dev->name));
 
+    list_remove_item(dev, (void**)&db->registered_devices);
+
     if (!quiet) {
         fptr_list cb = db->device_callbacks;
         while (cb) {
@@ -867,7 +874,7 @@ static void db_remove_device_internal(mapper_db db, mapper_db_device dev,
         free(dev->lib_version);
     if (dev->extra)
         table_free(dev->extra, 1);
-    list_remove_item(dev, (void**)&db->registered_devices);
+    list_free_item(dev);
 }
 
 void mapper_db_remove_device_by_name(mapper_db db, const char *name)
@@ -1180,7 +1187,7 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
     }
 
     if (sig) {
-        update_signal_record_params(sig, params);
+        updated = update_signal_record_params(sig, params);
 
         if (rc) {
             list_prepend_item(sig, (void**)(&db->registered_signals));
@@ -1549,6 +1556,8 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
         mapper_db_get_maps_by_device_and_signal_name(db, sig->device->name,
                                                      sig->name));
 
+    list_remove_item(sig, (void**)&db->registered_signals);
+
     fptr_list cb = db->signal_callbacks;
     while (cb) {
         mapper_db_signal_handler *h = cb->f;
@@ -1574,7 +1583,7 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
     if (sig->extra)
         table_free(sig->extra, 1);
 
-    list_remove_item(sig, (void**)&db->registered_signals);
+    list_free_item(sig);
 }
 
 void mapper_db_remove_signal_by_name(mapper_db db, const char *device_name,
@@ -2058,6 +2067,7 @@ mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                 trace("error extracting device name\n");
                 // clean up partially-built record
                 list_remove_item(map, (void**)&db->registered_maps);
+                list_free_item(map);
                 return 0;
             }
             strncpy(devname, devnamep, devnamelen);
@@ -2075,6 +2085,7 @@ mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
             trace("error extracting device name\n");
             // clean up partially-built record
             list_remove_item(map, (void**)&db->registered_maps);
+            list_free_item(map);
             return 0;
         }
         strncpy(devname, devnamep, devnamelen);
@@ -2759,6 +2770,8 @@ void mapper_db_remove_map(mapper_db db, mapper_db_map map)
     if (!map)
         return;
 
+    list_remove_item(map, (void**)&db->registered_maps);
+
     fptr_list cb = db->map_callbacks;
     while (cb) {
         mapper_db_map_handler *h = cb->f;
@@ -2783,7 +2796,7 @@ void mapper_db_remove_map(mapper_db db, mapper_db_map map)
         free(map->expression);
     if (map->extra)
         table_free(map->extra, 1);
-    list_remove_item(map, (void**)&db->registered_maps);
+    list_free_item(map);
 }
 
 void mapper_db_remove_all_callbacks(mapper_db db)
