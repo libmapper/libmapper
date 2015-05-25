@@ -2,11 +2,6 @@
 #ifndef _MAPPER_CPP_H_
 #define _MAPPER_CPP_H_
 
-#ifdef signals
-#define signalz signals
-#undef signals
-#endif
-
 #include <mapper/mapper.h>
 #include <mapper/mapper_types.h>
 #include <mapper/mapper_db.h>
@@ -607,24 +602,24 @@ namespace mapper {
         {
         public:
             Iterator(mapper_signal *s, int n)
-                { signals = s; size = n; }
+                { sigs = s; size = n; }
             ~Iterator() {}
             bool operator==(const Iterator& rhs)
-                { return (signals == rhs.signals && size == rhs.size); }
+                { return (sigs == rhs.sigs && size == rhs.size); }
             bool operator!=(const Iterator& rhs)
-                { return (signals != rhs.signals || size != rhs.size); }
+                { return (sigs != rhs.sigs || size != rhs.size); }
             Iterator& operator++()
                 { size++; return (*this); }
             Iterator operator++(int)
                 { Iterator tmp(*this); size++; return tmp; }
             Signal operator*()
-                { return Signal(signals[size]); }
+                { return Signal(sigs[size]); }
             Iterator begin()
-                { return Iterator(signals, 0); }
+                { return Iterator(sigs, 0); }
             Iterator end()
-                { return Iterator(signals, size); }
+                { return Iterator(sigs, size); }
         private:
-            mapper_signal *signals;
+            mapper_signal *sigs;
             int size;
         };
     private:
@@ -1593,10 +1588,5 @@ namespace mapper {
         mapper_monitor monitor;
     };
 };
-
-#ifdef signalz
-#define signals signalz
-#undef signalz
-#endif
 
 #endif // _MAPPER_CPP_H_

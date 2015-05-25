@@ -1464,7 +1464,7 @@ static int handler_unsubscribe(const char *path, const char *types,
 
 /*! Register information about a signal. */
 static int handler_signal_info(const char *path, const char *types,
-                               lo_arg **argv, int argc, lo_message m,
+                               lo_arg **argv, int argc, lo_message msg,
                                void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
@@ -1497,7 +1497,7 @@ static int handler_signal_info(const char *path, const char *types,
 
 /*! Unregister information about a removed signal. */
 static int handler_signal_removed(const char *path, const char *types,
-                                  lo_arg **argv, int argc, lo_message m,
+                                  lo_arg **argv, int argc, lo_message msg,
                                   void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
@@ -2586,10 +2586,8 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-static int handler_sync(const char *path,
-                        const char *types,
-                        lo_arg **argv, int argc,
-                        lo_message msg, void *user_data)
+static int handler_sync(const char *path, const char *types, lo_arg **argv,
+                        int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
