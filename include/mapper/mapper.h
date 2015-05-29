@@ -1450,10 +1450,20 @@ void mmon_now(mapper_monitor mon, mapper_timetag_t *tt);
  *  \return     The difference a-b in seconds. */
 double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
 
+/*! Add a timetag to another given timetag.
+ *  \param timetag  A previously allocated timetag to augment.
+ *  \param addend   A timetag to add to add. */
+void mapper_timetag_add(mapper_timetag_t *tt, mapper_timetag_t addend);
+
+/*! Subtract a timetag from another given timetag.
+ *  \param timetag  A previously allocated timetag to augment.
+ *  \param addend   A timetag to add to subtract. */
+void mapper_timetag_subtract(mapper_timetag_t *tt, mapper_timetag_t addend);
+
 /*! Add seconds to a given timetag.
  *  \param timetag  A previously allocated timetag to augment.
  *  \param addend   An amount in seconds to add. */
-void mapper_timetag_add_seconds(mapper_timetag_t *tt, double addend);
+void mapper_timetag_add_double(mapper_timetag_t *tt, double addend);
 
 /*! Return value of mapper_timetag as a double-precision floating point value. */
 double mapper_timetag_get_double(mapper_timetag_t tt);

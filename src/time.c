@@ -25,13 +25,30 @@ void mapper_clock_now(mapper_clock clock,
     lo_timetag_now((lo_timetag*)timetag);
 }
 
-double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)
+double mapper_timetag_difference(const mapper_timetag_t a,
+                                 const mapper_timetag_t b)
 {
     return (double)a.sec - (double)b.sec +
         ((double)a.frac - (double)b.frac) * multiplier;
 }
 
-void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
+void mapper_timetag_add(mapper_timetag_t *tt, mapper_timetag_t addend)
+{
+    tt->sec += addend.sec;
+    tt->frac += addend.frac;
+    if (tt->frac < addend.frac) // overflow
+        tt->sec++;
+}
+
+void mapper_timetag_subtract(mapper_timetag_t *tt, mapper_timetag_t subtrahend)
+{
+    tt->sec -= subtrahend.sec;
+    tt->frac -= subtrahend.frac;
+    if (tt->frac > subtrahend.frac) // overflow
+        tt->sec--;
+}
+
+void mapper_timetag_add_double(mapper_timetag_t *a, double b)
 {
     if (!b)
         return;
