@@ -264,13 +264,13 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
 
     const char *t;
     lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a || !(*a))
+    if (!a)
         return 1;
 
     if (!t)
         return 1;
 
-    if (t[0] == 'i')
+    if (t[0] == 'i' && *a)
         *value = (*a)->i;
     else if (t[0] == 'T')
         *value = 1;
