@@ -155,6 +155,24 @@ namespace mapper {
         template <typename T>
         operator const T() const
             { return *(const T*)value; }
+        operator const bool() const
+        {
+            if (!length || !type)
+                return false;
+            switch (type) {
+                case 'i':
+                    return *(int*)value != 0;
+                    break;
+                case 'f':
+                    return *(float*)value != 0.f;
+                    break;
+                case 'd':
+                    return *(double*)value != 0.;
+                    break;
+                default:
+                    return value != 0;
+            }
+        }
         template <typename T>
         operator const T*() const
             { return (const T*)value; }
@@ -250,11 +268,23 @@ namespace mapper {
             float _f;
             int _i;
             char _c;
-        };
+        } _scalar;
         int owned;
 
         void maybe_free()
             { if (owned && value) free((void*)value); owned = 0; }
+        void _set(bool _value[], int _length)
+        {
+            int *ivalue = (int*)malloc(sizeof(int)*_length);
+            if (!ivalue)
+                return;
+            for (int i = 0; i < _length; i++)
+                ivalue[i] = (int)_value[i];
+            value = ivalue;
+            length = _length;
+            type = 'i';
+            owned = 1;
+        }
         void _set(int _value[], int _length)
             { value = _value; length = _length; type = 'i'; }
         void _set(float _value[], int _length)
@@ -274,7 +304,10 @@ namespace mapper {
         }
         template <typename T>
         void _set(T _value)
-            { _set(&_value, 1); }
+        {
+            memcpy(&_scalar, &_value, sizeof(_scalar));
+            _set((T*)&_scalar, 1);
+        }
         template <typename T, size_t N>
         void _set(std::array<T, N>& _value)
         {
