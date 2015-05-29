@@ -775,11 +775,12 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              mapper_signal_update_handler *handler,
                              void *user_data)
 {
-    if (mdev_get_signal_by_name(md, name, 0))
-        return 0;
+    mapper_signal sig;
+    if ((sig = mdev_get_signal_by_name(md, name, 0)))
+        return sig;
     char *signal_get = 0;
-    mapper_signal sig = msig_new(name, length, type, DI_INCOMING, unit, minimum,
-                                 maximum, handler, user_data);
+    sig = msig_new(name, length, type, DI_INCOMING, unit, minimum, maximum,
+                   handler, user_data);
     if (!sig)
         return 0;
     md->props.num_inputs++;
@@ -818,10 +819,10 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               char type, const char *unit,
                               void *minimum, void *maximum)
 {
-    if (mdev_get_signal_by_name(md, name, 0))
-        return 0;
-    mapper_signal sig = msig_new(name, length, type, DI_OUTGOING, unit, minimum,
-                                 maximum, 0, 0);
+    mapper_signal sig;
+    if ((sig = mdev_get_signal_by_name(md, name, 0)))
+        return sig;
+    sig = msig_new(name, length, type, DI_OUTGOING, unit, minimum, maximum, 0, 0);
     if (!sig)
         return 0;
     md->props.num_outputs++;
