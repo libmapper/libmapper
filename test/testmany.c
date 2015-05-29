@@ -58,8 +58,9 @@ int setup_devices() {
 
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
-			sprintf(str, "/sig%d", j);
+			sprintf(str, "/in%d", j);
 			mdev_add_input(device_list[i], str, 1, 'f', 0, &mn, &mx, 0, 0);
+            sprintf(str, "/out%d", j);
             mdev_add_output(device_list[i], str, 1, 'f', 0, &mn, &mx);
 		}
 	}

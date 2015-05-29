@@ -948,6 +948,14 @@ static void send_unmap(mapper_admin admin, mapper_map map)
     mapper_admin_send_bundle(admin);
 }
 
+void mdev_remove_signal(mapper_device md, mapper_signal sig)
+{
+    if (sig->props.direction & DI_INCOMING)
+        mdev_remove_input(md, sig);
+    else
+        mdev_remove_output(md, sig);
+}
+
 void mdev_remove_input(mapper_device md, mapper_signal sig)
 {
     int i, n;

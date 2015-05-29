@@ -409,6 +409,11 @@ mapper_signal mdev_add_output(mapper_device dev, const char *name,
                               int length, char type, const char *unit,
                               void *minimum, void *maximum);
 
+/* Remove a device's signal.
+ * \param dev The device to remove a signal from.
+ * \param sig The signal to remove. */
+void mdev_remove_signal(mapper_device dev, mapper_signal sig);
+
 /* Remove a device's input signal.
  * \param dev The device to remove a signal from.
  * \param sig The signal to remove. */
@@ -633,7 +638,6 @@ typedef enum {
  *  destroyed. */
 typedef void mapper_device_map_handler(mapper_device dev, mapper_signal sig,
                                        mapper_db_map map, mapper_db_map_slot slot,
-                                       mapper_direction_t direction,
                                        mapper_device_local_action_t action,
                                        void *user);
 

@@ -48,8 +48,7 @@ namespace mapper {
     class AbstractObjectProps;
     class Db;
 
-    // Helper classes to allow polymorphism on "const char *",
-    // "std::string", and "int".
+    // Helper class to allow polymorphism on "const char *" and "std::string".
     class string_type {
     public:
         string_type(const char *s=0) { _s = s; }
@@ -497,7 +496,7 @@ namespace mapper {
             return (*this);
         }
         template <typename T>
-        Signal& update_instance(int instance_id, T value, int count=0)
+        Signal& update_instance(int instance_id, T value)
             { return update_instance(instance_id, &value, 1, 0); }
         template <typename T>
         Signal& update_instance(int instance_id, T* value, int count=0)
@@ -724,6 +723,16 @@ namespace mapper {
         {
             return Signal(mdev_add_output(device, name, length, type, unit,
                                           minimum, maximum));
+        }
+        Device& remove_signal(Signal sig)
+            { if (sig) mdev_remove_signal(device, sig); return (*this); }
+        Device& remove_signal(const string_type &name)
+        {
+            if (name) {
+                mapper_signal sig = mdev_get_signal_by_name(device, name, 0);
+                mdev_remove_signal(device, sig);
+            }
+            return (*this);
         }
         Device& remove_input(Signal input)
             { if (input) mdev_remove_input(device, input); return (*this); }
@@ -1330,6 +1339,18 @@ namespace mapper {
         mapper_monitor monitor;
     };
 
+    // Helper class to allow polymorphism on several Signal types
+    class sig_type {
+    public:
+        sig_type(const mapper::Signal &s) { _s = (mapper_db_signal)s.properties(); }
+        sig_type(const mapper::AbstractSignalProps &s) { _s = (mapper_db_signal)s; }
+        sig_type(const mapper::Db::Signal &s) { _s = (mapper_db_signal)s; }
+        sig_type(const mapper_db_signal &s) { _s = s; }
+        sig_type(const mapper_signal &s) { _s = msig_properties(s); }
+        operator mapper_db_signal() const { return (mapper_db_signal)_s; }
+        const mapper_db_signal_t *_s;
+    };
+
     class Monitor
     {
     public:
@@ -1370,18 +1391,18 @@ namespace mapper {
         // array/vector of std::string
         // array/vector of mapper::Signal
         // array/vector of mapper::Db::Signal
-        const Monitor& map(const mapper::Signal &source,
-                           const mapper::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_map_signals_by_db_record(monitor, 1, &_src,
-                                          (mapper_db_signal)dest.properties(),
-                                          (mapper_db_map)props);
-            return (*this);
-        }
-        const Monitor& map(const mapper::Db::Signal &source,
-                           const mapper::Db::Signal &dest,
+//        const Monitor& map(const mapper::Signal &source,
+//                           const mapper::Signal &dest,
+//                           const mapper::Db::Map &props=0) const
+//        {
+//            mapper_db_signal _src = (mapper_db_signal)source.properties();
+//            mmon_map_signals_by_db_record(monitor, 1, &_src,
+//                                          (mapper_db_signal)dest.properties(),
+//                                          (mapper_db_map)props);
+//            return (*this);
+//        }
+        const Monitor& map(const sig_type &source,
+                           const sig_type &dest,
                            const mapper::Db::Map &props=0) const
         {
             mapper_db_signal _src = (mapper_db_signal)source;
@@ -1569,7 +1590,7 @@ namespace mapper {
             return (*this);
         }
         const Monitor& unmap(const mapper::Signal &source,
-                                  const mapper::Signal &dest) const
+                             const mapper::Signal &dest) const
         {
             mapper_db_signal _src = (mapper_db_signal)source.properties();
             mmon_unmap_signals_by_db_record(monitor, 1, &_src,

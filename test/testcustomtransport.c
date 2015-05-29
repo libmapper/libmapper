@@ -47,8 +47,8 @@ int listen_socket = -1;
 int tcp_port = 12000;
 
 void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
-                        mapper_db_map_slot slot, mapper_direction_t direction,
-                        mapper_device_local_action_t action, void *user)
+                 mapper_db_map_slot slot, mapper_device_local_action_t action,
+                 void *user)
 {
     eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
             action == MDEV_LOCAL_ESTABLISHED ? "New"
@@ -56,7 +56,7 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
             mdev_name(dev), mdev_name(dev), sig->props.name,
             map->destination.signal->device->name, map->destination.signal->name);
 
-    if (direction == DI_OUTGOING) {
+    if (slot->direction == DI_OUTGOING) {
         eprintf("Source host is %s, port is %i\n",
                 map->sources[0].signal->device->host,
                 map->sources[0].signal->device->port);

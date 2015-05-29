@@ -1861,12 +1861,12 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         if (md->map_cb) {
             for (i = 0; i < map->props.num_sources; i++) {
                 md->map_cb(md, map->sources[i].local->signal, &map->props,
-                           map->sources[i].props, DI_OUTGOING,
-                           MDEV_LOCAL_ESTABLISHED, md->map_cb_userdata);
+                           map->sources[i].props, MDEV_LOCAL_ESTABLISHED,
+                           md->map_cb_userdata);
             }
             md->map_cb(md, map->destination.local->signal, &map->props,
-                       map->destination.props, DI_INCOMING,
-                       MDEV_LOCAL_ESTABLISHED, md->map_cb_userdata);
+                       map->destination.props, MDEV_LOCAL_ESTABLISHED,
+                       md->map_cb_userdata);
         }
         return 0;
     }
@@ -2210,16 +2210,14 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             for (i = 0; i < map->props.num_sources; i++) {
                 if (map->sources[i].local) {
                     md->map_cb(md, map->sources[i].local->signal, &map->props,
-                               map->sources[i].props, DI_OUTGOING,
-                               map->status == MAPPER_ACTIVE
+                               map->sources[i].props, map->status == MAPPER_ACTIVE
                                ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
                                md->map_cb_userdata);
                 }
             }
             if (map->destination.local) {
                 md->map_cb(md, map->destination.local->signal, &map->props,
-                           map->destination.props, DI_INCOMING,
-                           map->status == MAPPER_ACTIVE
+                           map->destination.props, map->status == MAPPER_ACTIVE
                            ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
                            md->map_cb_userdata);
             }
@@ -2355,13 +2353,13 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
             for (i = 0; i < map->props.num_sources; i++) {
                 if (map->sources[i].local)
                     md->map_cb(md, map->sources[i].local->signal, &map->props,
-                               map->sources[i].props, DI_OUTGOING,
-                               MDEV_LOCAL_MODIFIED, md->map_cb_userdata);
+                               map->sources[i].props, MDEV_LOCAL_MODIFIED,
+                               md->map_cb_userdata);
             }
             if (map->destination.local) {
                 md->map_cb(md, map->destination.local->signal, &map->props,
-                           map->destination.props, DI_INCOMING,
-                           MDEV_LOCAL_MODIFIED, md->map_cb_userdata);
+                           map->destination.props, MDEV_LOCAL_MODIFIED,
+                           md->map_cb_userdata);
             }
         }
     }
@@ -2473,12 +2471,12 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
         for (i = 0; i < map->props.num_sources; i++)
             if (map->sources[i].local)
                 md->map_cb(md, map->sources[i].local->signal, &map->props,
-                           map->sources[i].props, DI_OUTGOING,
-                           MDEV_LOCAL_DESTROYED, md->map_cb_userdata);
+                           map->sources[i].props, MDEV_LOCAL_DESTROYED,
+                           md->map_cb_userdata);
         if (map->destination.local)
             md->map_cb(md, map->destination.local->signal, &map->props,
-                       map->destination.props, DI_INCOMING,
-                       MDEV_LOCAL_DESTROYED, md->map_cb_userdata);
+                       map->destination.props, MDEV_LOCAL_DESTROYED,
+                       md->map_cb_userdata);
     }
 
     /* The mapping is removed. */
