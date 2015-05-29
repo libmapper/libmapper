@@ -165,14 +165,14 @@ int main(int argc, char ** argv)
     std::cout << "foo: " << dev.properties().get("foo").value
         << " (should be 0x0)" << std::endl;
 
-    std::cout << "signal: " << sig.full_name() << std::endl;
+    std::cout << "signal: " << (const char*)sig << std::endl;
 
     for (int i = 0; i < dev.num_inputs(); i++) {
-        std::cout << "input: " << dev.inputs(i).full_name() << std::endl;
+        std::cout << "input: " << (const char*)dev.inputs(i) << std::endl;
     }
     mapper::Signal::Iterator iter = dev.inputs().begin();
     for (; iter != dev.inputs().end(); iter++) {
-        std::cout << "input: " << (*iter).full_name() << std::endl;
+        std::cout << "input: " << (const char*)(*iter) << std::endl;
     }
 
     mapper::Monitor mon(SUBSCRIBE_ALL);

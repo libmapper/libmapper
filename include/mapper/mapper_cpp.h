@@ -417,6 +417,7 @@ namespace mapper {
     // Reuse class for signal and database
     protected:
         friend class Property;
+        friend class Signal;
 
         AbstractSignalProps(mapper_signal sig)
             { signal = sig; props = msig_properties(signal); }
@@ -431,6 +432,12 @@ namespace mapper {
                                   p->length);
             return (*this);
         }
+        const char *full_name() const
+        {
+            char *str = (char*)alloca(128);
+            snprintf(str, 128, "%s/%s", props->device->name, props->name);
+            return str;
+        }
 
     private:
         mapper_signal signal;
@@ -439,6 +446,8 @@ namespace mapper {
     public:
         operator mapper_db_signal() const
             { return props; }
+        operator const char*() const
+            { return full_name(); }
         using AbstractObjectProps::set;
         AbstractSignalProps& set(mapper::Property p)
             { set(&p); return (*this); }
@@ -480,13 +489,16 @@ namespace mapper {
     public:
         Signal(mapper_signal sig)
         {
-            signal = sig; props = msig_properties(signal);
+            signal = sig;
+            props = msig_properties(signal);
             cpp_props = new Properties(signal);
         }
         ~Signal() { ; }
 
         operator mapper_signal() const
             { return signal; }
+        operator const char*() const
+            { return cpp_props->full_name(); }
 
         Signal& update(void *value, int count, Timetag tt)
             { msig_update(signal, value, count, *tt); return (*this); }
@@ -625,12 +637,6 @@ namespace mapper {
             { msig_set_callback(signal, handler, user_data); return (*this); }
         int num_maps() const
             { return msig_num_maps(signal); }
-        std::string full_name() const
-        {
-            char str[64];
-            msig_full_name(signal, str, 64);
-            return std::string(str);
-        }
         Signal& set_minimum(void *value)
             { msig_set_minimum(signal, value); return (*this); }
         Signal& set_maximum(void *value)
@@ -776,7 +782,7 @@ namespace mapper {
                                           minimum, maximum));
         }
         Device& remove_signal(Signal sig)
-            { if (sig) mdev_remove_signal(device, sig); return (*this); }
+            { mdev_remove_signal(device, sig); return (*this); }
         Device& remove_signal(const string_type &name)
         {
             if (name) {
@@ -786,7 +792,7 @@ namespace mapper {
             return (*this);
         }
         Device& remove_input(Signal input)
-            { if (input) mdev_remove_input(device, input); return (*this); }
+            { mdev_remove_input(device, input); return (*this); }
         Device& remove_input(const string_type &name)
         {
             if (name) {
@@ -796,7 +802,7 @@ namespace mapper {
             return (*this);
         }
         Device& remove_output(Signal output)
-            { if (output) mdev_remove_output(device, output); return (*this); }
+            { mdev_remove_output(device, output); return (*this); }
         Device& remove_output(const string_type &name)
         {
             if (name) {
@@ -1390,18 +1396,6 @@ namespace mapper {
         mapper_monitor monitor;
     };
 
-    // Helper class to allow polymorphism on several Signal types
-    class sig_type {
-    public:
-        sig_type(const mapper::Signal &s) { _s = (mapper_db_signal)s.properties(); }
-        sig_type(const mapper::AbstractSignalProps &s) { _s = (mapper_db_signal)s; }
-        sig_type(const mapper::Db::Signal &s) { _s = (mapper_db_signal)s; }
-        sig_type(const mapper_db_signal &s) { _s = s; }
-        sig_type(const mapper_signal &s) { _s = msig_properties(s); }
-        operator mapper_db_signal() const { return (mapper_db_signal)_s; }
-        const mapper_db_signal_t *_s;
-    };
-
     class Monitor
     {
     public:
@@ -1452,209 +1446,98 @@ namespace mapper {
 //                                          (mapper_db_map)props);
 //            return (*this);
 //        }
-        const Monitor& map(const sig_type &source,
-                           const sig_type &dest,
-                           const mapper::Db::Map &props=0) const
+        template <typename A, typename B>
+        const Monitor& map(int num_sources, const A sources[], const B& dest,
+                           const Db::Map& props = 0) const
         {
-            mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_map_signals_by_db_record(monitor, 1, &_src,
-                                          (mapper_db_signal)dest,
-                                          (mapper_db_map)props);
-            return (*this);
-        }
-        const Monitor& map(const string_type &source, const string_type &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            const char *_src = source;
-            mmon_map_signals_by_name(monitor, 1, &_src, dest,
-                                     (mapper_db_map)props);
-            return (*this);
-        }
-        const Monitor& map(int num_sources, const mapper::Signal sources[],
-                           const mapper::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            mapper_db_signal _srcs[num_sources];
+            const char* _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (mapper_db_signal)sources[i].properties();
-            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
-                                          (mapper_db_signal)dest.properties(),
-                                          (mapper_db_map)props);
+                _srcs[i] = (const char*)sources[i];
+            mmon_map_signals_by_name(monitor, num_sources, _srcs,
+                                     (const char*)dest, (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& map(int num_sources, const mapper::Db::Signal sources[],
-                           const mapper::Db::Signal &dest,
-                           const mapper::Db::Map &props=0) const
+        template <typename A, typename B>
+        const Monitor& map(const A& source, const B& dest,
+                           const Db::Map& props = 0) const
         {
-            mapper_db_signal _srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (mapper_db_signal)sources[i];
-            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
-                                          (mapper_db_signal)dest,
-                                          (mapper_db_map)props);
-            return (*this);
+            return map(1, &source, dest, props);
         }
-        const Monitor& map(int num_sources, const char *sources[],
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
+        template <typename A, typename B, size_t N>
+        const Monitor& map(std::array<const A, N>& sources, const B &dest,
+                           const Db::Map& props=0) const
         {
-            const char *_srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (const char *)sources[i];
-            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
-                                     (mapper_db_map)props);
-            return (*this);
+            return map(N, sources.data, dest, props);
         }
-        const Monitor& map(int num_sources, const std::string sources[],
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
+        template <typename A, typename B>
+        const Monitor& map(std::vector<const A> sources, const B &dest,
+                           const Db::Map& props=0) const
         {
-            const char *_srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (const char *)sources[i].c_str();
-            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
-                                     (mapper_db_map)props);
-            return (*this);
+            return map((int)sources.size(), sources.data(), dest, props);
         }
-        template <size_t num_sources>
-        const Monitor& map(std::array<const mapper::Signal, num_sources>& sources,
-                           const mapper::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            mapper_db_signal _srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (mapper_db_signal)sources[i].properties();
-            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
-                                          (mapper_db_signal)dest.properties(),
-                                              (mapper_db_map)props);
-            return (*this);
-        }
-        template <size_t num_sources>
-        const Monitor& map(std::array<const mapper::Db::Signal, num_sources>& sources,
-                           const mapper::Db::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            mapper_db_signal _srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (mapper_db_signal)sources[i];
-            mmon_map_signals_by_db_record(monitor, num_sources, _srcs,
-                                          (mapper_db_signal)dest,
-                                          (mapper_db_map)props);
-            return (*this);
-        }
-        template <size_t num_sources>
-        const Monitor& map(std::array<const char*, num_sources>& sources,
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            const char *_srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (const char *)sources[i];
-            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
-                                     (mapper_db_map)props);
-            return (*this);
-        }
-        template <size_t num_sources>
-        const Monitor& map(std::array<std::string, num_sources>& sources,
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            const char *_srcs[num_sources];
-            for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (const char *)sources[i].c_str();
-            mmon_map_signals_by_name(monitor, num_sources, _srcs, dest,
-                                     (mapper_db_map)props);
-            return (*this);
-        }
-        const Monitor& map(std::vector<const mapper::Signal> sources,
-                           const mapper::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            map((int)sources.size(), sources.data(), dest, props);
-            return (*this);
-        }
-        const Monitor& map(std::vector<const mapper::Db::Signal> sources,
-                           const mapper::Db::Signal &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            map((int)sources.size(), sources.data(), dest, props);
-            return (*this);
-        }
-        const Monitor& map(std::vector<const char*>& sources,
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            map((int)sources.size(), sources.data(), dest, props);
-            return (*this);
-        }
-        const Monitor& map(std::vector<std::string>& sources,
-                           const string_type &dest,
-                           const mapper::Db::Map &props=0) const
-        {
-            map((int)sources.size(), sources.data(), dest, props);
-            return (*this);
-        }
-        const Monitor& modify_map(const mapper::Db::Map &map) const
+        const Monitor& modify_map(const mapper::Db::Map& map) const
         {
             mmon_modify_map(monitor, (mapper_db_map)map);
             return (*this);
         }
-        const Monitor& modify_map(const string_type &source,
-                                  const string_type &dest,
-                                  const mapper::Db::Map &props) const
+        template <typename A, typename B>
+        const Monitor& modify_map(int num_sources, const A sources[],
+                                  const B& dest, const Db::Map& props) const
         {
-            const char *_src = source;
-            mmon_modify_map_by_signal_names(monitor, 1, &_src, dest,
-                                            (mapper_db_map)props);
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char*)sources[i];
+            mmon_modify_map_by_signal_names(monitor, num_sources, _srcs,
+                                            (const char*)dest, (mapper_db_map)props);
             return (*this);
         }
-        const Monitor& modify_map(const mapper::Signal &source,
-                                  const mapper::Signal &dest,
-                                  const mapper::Db::Map &props) const
+        template <typename A, typename B>
+        const Monitor& modify_map(const A& source, const B& dest,
+                                  const Db::Map& props) const
         {
-            mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_modify_map_by_signal_db_records(monitor, 1, &_src,
-                                                 (mapper_db_signal)dest.properties(),
-                                                 (mapper_db_map)props);
-            return (*this);
+            return modify_map(1, &source, dest, props);
         }
-        const Monitor& modify_map(const mapper::AbstractSignalProps &source,
-                                  const mapper::AbstractSignalProps &dest,
-                                  const mapper::Db::Map &props) const
+        template <typename A, typename B, size_t N>
+        const Monitor& modify_map(std::array<const A, N>& sources, const B& dest,
+                                  const Db::Map& props) const
         {
-            mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_modify_map_by_signal_db_records(monitor, 1, &_src,
-                                                 (mapper_db_signal)dest,
-                                                 (mapper_db_map)props);
-            return (*this);
+            return modify_map(N, sources.data, dest, props);
         }
-        const Monitor& unmap(const mapper::Db::Map &map) const
+        template <typename A, typename B, size_t N>
+        const Monitor& modify_map(std::vector<const A>& sources, const B& dest,
+                                  const Db::Map& props) const
+        {
+            return modify_map((int)sources.size(), sources.data, dest, props);
+        }
+        const Monitor& unmap(const Db::Map &map) const
         {
             mmon_remove_map(monitor, (mapper_db_map)map);
             return (*this);
         }
-        const Monitor& unmap(const string_type &source,
-                                  const string_type &dest) const
+        template <typename A, typename B>
+        const Monitor& unmap(int num_sources, const A sources[], const B& dest) const
         {
-            const char *_src = source;
-            mmon_unmap_signals_by_name(monitor, 1, &_src, dest);
+            const char *_srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char*)sources[i];
+            mmon_unmap_signals_by_name(monitor, num_sources, _srcs,
+                                       (const char*)dest);
             return (*this);
         }
-        const Monitor& unmap(const mapper::Signal &source,
-                             const mapper::Signal &dest) const
+        template <typename A, typename B>
+        const Monitor& unmap(const A& source, const B& dest) const
         {
-            mapper_db_signal _src = (mapper_db_signal)source.properties();
-            mmon_unmap_signals_by_db_record(monitor, 1, &_src,
-                                            (mapper_db_signal)dest.properties());
-            return (*this);
+            return unmap(1, &source, dest);
         }
-        const Monitor& unmap(const mapper::Db::Signal &source,
-                             const mapper::Db::Signal &dest) const
+        template <typename A, typename B, size_t N>
+        const Monitor& unmap(std::array<const A, N>& sources, const B& dest) const
         {
-            mapper_db_signal _src = (mapper_db_signal)source;
-            mmon_unmap_signals_by_db_record(monitor, 1, &_src,
-                                            (mapper_db_signal)dest);
-            return (*this);
+            return unmap(N, sources.data, dest);
+        }
+        template <typename A, typename B>
+        const Monitor& unmap(std::vector<const A>& sources, const B& dest) const
+        {
+            return unmap((int)sources.size(), sources.data, dest);
         }
     private:
         mapper_monitor monitor;
