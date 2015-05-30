@@ -337,6 +337,7 @@ void msig_remove_property(mapper_signal sig, const char *property);
 
 /*! Allocate and initialize a mapper device.
  *  \param name_prefix  A short descriptive string to identify the device.
+ *                      Must not contain spaces or the slash character '/'.
  *  \param port         An optional port for starting the port allocation
  *                      scheme.
  *  \param admin        A previously allocated admin to use.  If 0, an

@@ -34,6 +34,11 @@ static double get_current_time()
 mapper_device mdev_new(const char *name_prefix, int port,
                        mapper_admin admin)
 {
+    // ensure name doesn't contain spaces or slashes
+    if (!name_prefix || strchr(name_prefix, ' ') || strchr(name_prefix, '/')) {
+        trace("Malformed device name...\n");
+        return 0;
+    }
     mapper_device md =
         (mapper_device) calloc(1, sizeof(struct _mapper_device));
 
