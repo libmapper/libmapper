@@ -710,6 +710,8 @@ namespace mapper {
     public:
         operator mapper_db_device() const
             { return props; }
+        operator const char*() const
+            { return props->name; }
         using AbstractObjectProps::set;
         AbstractDeviceProps& set(mapper::Property p)
             { set(&p); return (*this); }
@@ -767,6 +769,8 @@ namespace mapper {
             { if (device) mdev_free(device); }
         operator mapper_device() const
             { return device; }
+        operator const char*() const
+            { return (const char*)props; }
         Signal add_input(const string_type &name, int length, char type,
                          const string_type &unit, void *minimum,
                          void *maximum, mapper_signal_update_handler handler,
@@ -1324,65 +1328,89 @@ namespace mapper {
         Map map(int hash) const
             { return mapper_db_get_map_by_hash(db, hash); }
         Map::Iterator maps() const
+            { return Map::Iterator(mapper_db_get_all_maps(db)); }
+        template <typename A, typename B>
+        Map::Iterator maps(const A& src_device,
+                           const string_type& src_signal,
+                           const B& dest_device,
+                           const string_type& dest_signal) const
         {
-            return Map::Iterator(
-                 mapper_db_get_all_maps(db));
-        }
-        Map::Iterator maps(const string_type &src_device,
-                           const string_type &src_signal,
-                           const string_type &dest_device,
-                           const string_type &dest_signal) const
-        {
-            const char *_src_dev = src_device;
+            const char *_src_dev = (const char*)src_device;
             const char *_src_sig = src_signal;
             return Map::Iterator(
-                mapper_db_get_maps_by_device_and_signal_names(db, 1,
-                     &_src_dev, &_src_sig, dest_device, dest_signal));
+                mapper_db_get_maps_by_device_and_signal_names(db, 1, &_src_dev,
+                    &_src_sig, (const char*)dest_device, dest_signal));
         }
-        Map::Iterator maps(const string_type &device_name) const
+        template <typename T>
+        Map::Iterator maps(const T& device) const
         {
             return Map::Iterator(
-                 mapper_db_get_maps_by_device_name(db, device_name));
+                 mapper_db_get_maps_by_device_name(db, (const char*)device));
         }
         Map::Iterator maps_by_src(const string_type &signal_name) const
         {
             return Map::Iterator(
                  mapper_db_get_maps_by_src_signal_name(db, signal_name));
         }
-        Map::Iterator maps_by_src(const string_type &device_name,
-                                  const string_type &signal_name) const
+        template <typename T>
+        Map::Iterator maps_by_src(const T& device,
+                                  const string_type& signal_name) const
         {
             return Map::Iterator(
                  mapper_db_get_maps_by_src_device_and_signal_names(db,
-                      device_name, signal_name));
+                      (const char*)device, signal_name));
         }
         Map::Iterator maps_by_dest(const string_type &signal_name) const
         {
             return Map::Iterator(
                  mapper_db_get_maps_by_dest_signal_name(db, signal_name));
         }
-        Map::Iterator maps_by_dest(const string_type &device_name,
-                                   const string_type &signal_name) const
+        template <typename T>
+        Map::Iterator maps_by_dest(const T& device,
+                                   const string_type& signal_name) const
         {
             return Map::Iterator(
                  mapper_db_get_maps_by_dest_device_and_signal_names(db,
-                      device_name, signal_name));
+                      (const char*)device, signal_name));
         }
-        Map map_by_signals(const string_type &source_name,
-                           const string_type &dest_name) const
+        template <typename A, typename B>
+        Map map_by_signals(int num_sources, const A sources[], const B& dest) const
         {
-            const char *_src = source_name;
-            return Map(mapper_db_get_map_by_signal_full_names(db, 1, &_src,
-                                                              dest_name));
+            const char* _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char*)sources[i];
+            return Map(mapper_db_get_map_by_signal_full_names(db, num_sources,
+                                                              _srcs, (const char*)dest));
         }
-        Map::Iterator maps_by_devices(const string_type &source_name,
-                                      const string_type &dest_name) const
+        template <typename A, typename B>
+        Map map_by_signals(const A& source, const B& dest) const
+            { return map_by_signals(1, &source, dest); }
+        template <typename A, typename B, size_t N>
+        Map map_by_signals(std::array<const A, N>& sources, const B& dest)
+            { return map_by_signals(N, sources.data, dest); }
+        template <typename A, typename B>
+        Map map_by_signals(std::vector<const A>& sources, const B& dest)
+            { return map_by_signals((int)sources.size(), sources.data(), dest); }
+        template <typename A, typename B>
+        Map::Iterator maps_by_devices(int num_sources, const A sources[],
+                                      const B& dest) const
         {
-            const char *_src = source_name;
+            const char* _srcs[num_sources];
+            for (int i = 0; i < num_sources; i++)
+                _srcs[i] = (const char*)sources[i];
             return Map::Iterator(
-                mapper_db_get_maps_by_src_dest_device_names(db, 1, &_src,
-                                                            dest_name));
+                mapper_db_get_maps_by_src_dest_device_names(db, num_sources, _srcs,
+                                                            (const char*)dest));
         }
+        template <typename A, typename B>
+        Map maps_by_devices(const A& source, const B& dest) const
+            { return maps_by_devices(1, &source, dest); }
+        template <typename A, typename B, size_t N>
+        Map maps_by_devices(std::array<const A, N>& sources, const B& dest)
+            { return maps_by_devices(N, sources.data, dest); }
+        template <typename A, typename B>
+        Map maps_by_devices(std::vector<const A>& sources, const B& dest)
+            { return maps_by_devices((int)sources.size(), sources.data(), dest); }
         Map::Iterator maps(Signal::Iterator src_list,
                            Signal::Iterator dest_list) const
         {
@@ -1416,14 +1444,16 @@ namespace mapper {
             mmon_request_devices(monitor);
             return (*this);
         }
-        const Monitor& subscribe(const string_type &device_name, int flags, int timeout)
+        template <typename T>
+        const Monitor& subscribe(const T& device, int flags, int timeout)
         {
-            mmon_subscribe(monitor, device_name, flags, timeout);
+            mmon_subscribe(monitor, (const char*)device, flags, timeout);
             return (*this);
         }
-        const Monitor& unsubscribe(const string_type &device_name)
+        template <typename T>
+        const Monitor& unsubscribe(const T& device)
         {
-            mmon_unsubscribe(monitor, device_name);
+            mmon_unsubscribe(monitor, (const char*)device);
             return (*this);
         }
         const Monitor& autosubscribe(int flags) const
@@ -1431,55 +1461,34 @@ namespace mapper {
             mmon_autosubscribe(monitor, flags);
             return (*this);
         }
-        // TODO: handle maps with multiple inputs
-        // array/vector of const char
-        // array/vector of std::string
-        // array/vector of mapper::Signal
-        // array/vector of mapper::Db::Signal
-//        const Monitor& map(const mapper::Signal &source,
-//                           const mapper::Signal &dest,
-//                           const mapper::Db::Map &props=0) const
-//        {
-//            mapper_db_signal _src = (mapper_db_signal)source.properties();
-//            mmon_map_signals_by_db_record(monitor, 1, &_src,
-//                                          (mapper_db_signal)dest.properties(),
-//                                          (mapper_db_map)props);
-//            return (*this);
-//        }
         template <typename A, typename B>
         const Monitor& map(int num_sources, const A sources[], const B& dest,
                            const Db::Map& props = 0) const
         {
             const char* _srcs[num_sources];
             for (int i = 0; i < num_sources; i++)
-                _srcs[i] = (const char*)sources[i];
+                _srcs[i] = strdup((const char*)sources[i]);
             mmon_map_signals_by_name(monitor, num_sources, _srcs,
                                      (const char*)dest, (mapper_db_map)props);
+            for (int i = 0; i < num_sources; i++) {
+                free((void*)_srcs[i]);
+            }
             return (*this);
         }
         template <typename A, typename B>
         const Monitor& map(const A& source, const B& dest,
                            const Db::Map& props = 0) const
-        {
-            return map(1, &source, dest, props);
-        }
+            { return map(1, &source, dest, props); }
         template <typename A, typename B, size_t N>
         const Monitor& map(std::array<const A, N>& sources, const B &dest,
                            const Db::Map& props=0) const
-        {
-            return map(N, sources.data, dest, props);
-        }
+            { return map(N, sources.data, dest, props); }
         template <typename A, typename B>
         const Monitor& map(std::vector<const A> sources, const B &dest,
                            const Db::Map& props=0) const
-        {
-            return map((int)sources.size(), sources.data(), dest, props);
-        }
+            { return map((int)sources.size(), sources.data(), dest, props); }
         const Monitor& modify_map(const mapper::Db::Map& map) const
-        {
-            mmon_modify_map(monitor, (mapper_db_map)map);
-            return (*this);
-        }
+            { mmon_modify_map(monitor, (mapper_db_map)map); return (*this); }
         template <typename A, typename B>
         const Monitor& modify_map(int num_sources, const A sources[],
                                   const B& dest, const Db::Map& props) const
@@ -1494,26 +1503,17 @@ namespace mapper {
         template <typename A, typename B>
         const Monitor& modify_map(const A& source, const B& dest,
                                   const Db::Map& props) const
-        {
-            return modify_map(1, &source, dest, props);
-        }
+            { return modify_map(1, &source, dest, props); }
         template <typename A, typename B, size_t N>
         const Monitor& modify_map(std::array<const A, N>& sources, const B& dest,
                                   const Db::Map& props) const
-        {
-            return modify_map(N, sources.data, dest, props);
-        }
+            { return modify_map(N, sources.data, dest, props); }
         template <typename A, typename B, size_t N>
         const Monitor& modify_map(std::vector<const A>& sources, const B& dest,
                                   const Db::Map& props) const
-        {
-            return modify_map((int)sources.size(), sources.data, dest, props);
-        }
+            { return modify_map((int)sources.size(), sources.data, dest, props); }
         const Monitor& unmap(const Db::Map &map) const
-        {
-            mmon_remove_map(monitor, (mapper_db_map)map);
-            return (*this);
-        }
+            { mmon_remove_map(monitor, (mapper_db_map)map); return (*this); }
         template <typename A, typename B>
         const Monitor& unmap(int num_sources, const A sources[], const B& dest) const
         {
@@ -1526,19 +1526,13 @@ namespace mapper {
         }
         template <typename A, typename B>
         const Monitor& unmap(const A& source, const B& dest) const
-        {
-            return unmap(1, &source, dest);
-        }
+            { return unmap(1, &source, dest); }
         template <typename A, typename B, size_t N>
         const Monitor& unmap(std::array<const A, N>& sources, const B& dest) const
-        {
-            return unmap(N, sources.data, dest);
-        }
+            { return unmap(N, sources.data, dest); }
         template <typename A, typename B>
         const Monitor& unmap(std::vector<const A>& sources, const B& dest) const
-        {
-            return unmap((int)sources.size(), sources.data, dest);
-        }
+            { return unmap((int)sources.size(), sources.data, dest); }
     private:
         mapper_monitor monitor;
     };
