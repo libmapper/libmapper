@@ -1089,41 +1089,34 @@ namespace mapper {
         class Map : AbstractObjectProps
         {
         public:
-            Map(mapper_db_map map)
+            Map(mapper_db_map map) :
+                props(map),
+                _destination(Slot(this, &map->destination, 0)),
+                _sources((Slot*)calloc(1, map->num_sources * sizeof(Slot)))
             {
-                props = map;
-                if (props) {
-                    _sources = new Slot[props->num_sources];
-                    for (int i = 0; i < props->num_sources; i++) {
-                        _sources[i] = Slot(this, &props->sources[i], 1);
-                    }
-                    _destination = Slot(this, &props->destination, 0);
-                }
-                else
-                    _sources = 0;
+                for (int i = 0; i < props->num_sources; i++)
+                    _sources[i] = Slot(this, &props->sources[i], 1);
                 owned = 0;
             }
-            Map(int num_sources=1)
+            Map(int num_sources=1) :
+                props((mapper_db_map)calloc(1, sizeof(mapper_db_map_t))),
+                _destination(Slot(this, &props->destination, 0)),
+                _sources((Slot*)calloc(1, num_sources * sizeof(Slot)))
             {
-                props = ((mapper_db_map)
-                         calloc(1, sizeof(mapper_db_map_t)));
                 props->num_sources = num_sources;
                 props->sources = ((mapper_db_map_slot)
                                   calloc(1, sizeof(struct _mapper_db_map_slot)
                                          * num_sources));
-                _sources = new Slot[num_sources];
-                for (int i = 0; i < num_sources; i++) {
+                for (int i = 0; i < num_sources; i++)
                     _sources[i] = Slot(this, &props->sources[i], 1);
-                }
-                _destination = Slot(this, &props->destination, 0);
                 owned = 1;
             }
             ~Map()
             {
-//                delete _sources;
                 if (owned && props) {
                     if (props->sources)
                         free(props->sources);
+                    free(_sources);
                     free(props);
                 }
             }
@@ -1207,7 +1200,7 @@ namespace mapper {
                 Signal signal() const
                     { return Signal(props->signal); }
                 mapper_boundary_action bound_min() const
-                    { return props ? props->bound_min : (mapper_boundary_action)-1; }
+                    { return props->bound_min; }
                 Slot& set_bound_min(mapper_boundary_action bound_min)
                 {
                     props->bound_min = bound_min;
@@ -1215,7 +1208,7 @@ namespace mapper {
                     return (*this);
                 }
                 mapper_boundary_action bound_max() const
-                    { return props ? props->bound_max : (mapper_boundary_action)-1; }
+                    { return props->bound_max; }
                 Slot& set_bound_max(mapper_boundary_action bound_max)
                 {
                     props->bound_max = bound_max;
@@ -1224,7 +1217,7 @@ namespace mapper {
                 }
                 Property minimum() const
                 {
-                    if (props && props->minimum)
+                    if (props->minimum)
                         return Property("minimum", props->type,
                                         props->minimum, props->length);
                     else
@@ -1232,17 +1225,15 @@ namespace mapper {
                 }
                 Slot& set_minimum(const Property &value)
                 {
-                    if (props) {
-                        props->minimum = (void*)(const void*)value;
-                        props->type = value.type;
-                        props->length = value.length;
-                        props->flags |= MAP_SLOT_MIN_KNOWN;
-                    }
+                    props->minimum = (void*)(const void*)value;
+                    props->type = value.type;
+                    props->length = value.length;
+                    props->flags |= MAP_SLOT_MIN_KNOWN;
                     return (*this);
                 }
                 Property maximum() const
                 {
-                    if (props && props->maximum)
+                    if (props->maximum)
                         return Property("maximum", props->type,
                                         props->maximum, props->length);
                     else
@@ -1250,34 +1241,28 @@ namespace mapper {
                 }
                 Slot& set_maximum(const Property &value)
                 {
-                    if (props) {
-                        props->maximum = (void*)(const void*)value;
-                        props->type = value.type;
-                        props->length = value.length;
-                        props->flags |= MAP_SLOT_MAX_KNOWN;
-                    }
+                    props->maximum = (void*)(const void*)value;
+                    props->type = value.type;
+                    props->length = value.length;
+                    props->flags |= MAP_SLOT_MAX_KNOWN;
                     return (*this);
                 }
                 bool cause_update() const
-                    { return props ? props->cause_update : -1; }
+                    { return props->cause_update; }
                 Slot& set_cause_update(bool value)
                 {
-                    if (props)
-                        props->cause_update = (int)value;
+                    props->cause_update = (int)value;
                     return (*this);
                 }
                 bool send_as_instance() const
-                    { return props ? props->send_as_instance : -1; }
+                    { return props->send_as_instance; }
                 Slot& set_send_as_instance(bool value)
                 {
-                    if (props)
-                        props->send_as_instance = (int)value;
+                    props->send_as_instance = (int)value;
                     return (*this);
                 }
                 Property get(const string_type &name) const
                 {
-                    if (!props)
-                        return Property(name, 0, 0, 0, 0);
                     char type;
                     const void *value;
                     int length;
@@ -1297,8 +1282,6 @@ namespace mapper {
                     is_src = _is_src;
                     flags = 0;
                 }
-                Slot()
-                    { props = 0; parent = 0; flags = 0; }
                 operator mapper_db_map_slot() const
                     { return props; }
                 Slot& set(mapper::Property *p) { return (*this); }
@@ -1514,6 +1497,12 @@ namespace mapper {
             { return modify_map((int)sources.size(), sources.data, dest, props); }
         const Monitor& unmap(const Db::Map &map) const
             { mmon_remove_map(monitor, (mapper_db_map)map); return (*this); }
+        const Monitor& unmap(Db::Map::Iterator maps)
+        {
+            for (auto const &m : maps)
+                unmap(m);
+            return (*this);
+        }
         template <typename A, typename B>
         const Monitor& unmap(int num_sources, const A sources[], const B& dest) const
         {
