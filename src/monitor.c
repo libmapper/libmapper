@@ -30,6 +30,9 @@ static void monitor_subscribe_internal(mapper_monitor mon,
                                        const char *device_name,
                                        int subscribe_flags, int timeout,
                                        int version);
+static void monitor_unsubscribe_internal(mapper_monitor mon,
+                                         const char *device_name,
+                                         int send_message);
 
 typedef enum _db_request_direction {
     DIRECTION_IN,
@@ -37,7 +40,7 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags)
+mapper_monitor mmon_new(mapper_admin admin, int subscribe_flags)
 {
     mapper_monitor mon = (mapper_monitor)
         calloc(1, sizeof(struct _mapper_monitor));
@@ -59,8 +62,8 @@ mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags)
     mon->timeout_sec = ADMIN_TIMEOUT_SEC;
 
     mapper_admin_add_monitor(mon->admin, mon);
-    if (autosubscribe_flags) {
-        mmon_autosubscribe(mon, autosubscribe_flags);
+    if (subscribe_flags) {
+        mmon_subscribe(mon, 0, subscribe_flags, -1);
         mmon_request_devices(mon);
     }
     return mon;
@@ -197,9 +200,37 @@ static mapper_subscription get_subscription(mapper_monitor mon,
     return 0;
 }
 
+static void on_device_autosubscribe(mapper_db_device dev,
+                                    mapper_db_action_t a,
+                                    void *user)
+{
+    mapper_monitor mon = (mapper_monitor)(user);
+
+    // New subscriptions are handled in admin.c as response to device "sync" msg
+    if (a == MDB_REMOVE) {
+        monitor_unsubscribe_internal(mon, dev->name, 0);
+    }
+}
+
+static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
+{
+    // TODO: remove autorenewing subscription record if necessary
+    if (!mon->autosubscribe && autosubscribe_flags)
+        mapper_db_add_device_callback(&mon->db, on_device_autosubscribe, mon);
+    else if (mon->autosubscribe && !autosubscribe_flags) {
+        mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
+        while (mon->subscriptions) {
+            monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
+        }
+    }
+    mon->autosubscribe = autosubscribe_flags;
+}
+
 void mmon_subscribe(mapper_monitor mon, const char *device_name,
                     int subscribe_flags, int timeout)
 {
+    if (!device_name)
+        mmon_autosubscribe(mon, subscribe_flags);
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
@@ -257,6 +288,8 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
 
 void mmon_unsubscribe(mapper_monitor mon, const char *device_name)
 {
+    if (!device_name)
+        mmon_autosubscribe(mon, SUBSCRIBE_NONE);
     monitor_unsubscribe_internal(mon, device_name, 1);
 }
 
@@ -536,32 +569,6 @@ void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *c)
 
     for (i = 0; i < c->num_sources; i++)
         free((char *)src_names[i]);
-}
-
-static void on_device_autosubscribe(mapper_db_device dev,
-                                    mapper_db_action_t a,
-                                    void *user)
-{
-    mapper_monitor mon = (mapper_monitor)(user);
-
-    // New subscriptions are handled in admin.c as response to device "sync" msg
-    if (a == MDB_REMOVE) {
-        monitor_unsubscribe_internal(mon, dev->name, 0);
-    }
-}
-
-void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
-{
-    // TODO: remove autorenewing subscription record if necessary
-    if (!mon->autosubscribe && autosubscribe_flags)
-        mapper_db_add_device_callback(&mon->db, on_device_autosubscribe, mon);
-    else if (mon->autosubscribe && !autosubscribe_flags) {
-        mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
-        while (mon->subscriptions) {
-            monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
-        }
-    }
-    mon->autosubscribe = autosubscribe_flags;
 }
 
 void mmon_now(mapper_monitor mon, mapper_timetag_t *tt)

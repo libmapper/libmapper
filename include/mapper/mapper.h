@@ -1365,11 +1365,6 @@ void mmon_subscribe(mapper_monitor mon, const char *device_name,
  *  \param device_name     The name of the device of interest. */
 void mmon_unsubscribe(mapper_monitor mon, const char *device_name);
 
-/*! Sets whether the monitor should automatically subscribe to
- *  information on signals and maps when it encounters
- *  a previously-unseen device.*/
-void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
-
 /*! Interface to add a map between a set of signals.
  *  \param mon            The monitor to use for sending the message.
  *  \param num_sources    The number of source signals in this map.
