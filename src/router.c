@@ -678,7 +678,7 @@ mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
 
         // apply local scope as default
         map->props.scope.names[0] = strdup(mdev_name(r->device));
-        map->props.scope.hashes[0] = mdev_id(r->device);
+        map->props.scope.hashes[0] = mdev_hash(r->device);
     }
     else {
         map->destination.local = rs;

@@ -581,11 +581,11 @@ int mdev_ready(mapper_device dev);
  *  not available. */
 const char *mdev_name(mapper_device dev);
 
-/*! Return the unique ID allocated to this device by the mapper network.
- *  \param dev The device to query.
- *  \return An integer indicating the device's ID, or zero if it is
- *  not available. */
-unsigned int mdev_id(mapper_device dev);
+/*! Return the unique hash allocated to this device by the mapper network.
+ *  \param  dev The device to query.
+ *  \return An integer indicating the device's hash, or zero if it is
+ *          not available. */
+unsigned int mdev_hash(mapper_device dev);
 
 /*! Return the port used by a device to receive signals, if available.
  *  \param dev The device to query.

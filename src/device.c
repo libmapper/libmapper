@@ -1421,7 +1421,7 @@ const char *mdev_name(mapper_device md)
     return md->props.name;
 }
 
-unsigned int mdev_id(mapper_device md)
+unsigned int mdev_hash(mapper_device md)
 {
     if (md->registered)
         return md->props.hash;

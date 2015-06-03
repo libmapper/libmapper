@@ -324,7 +324,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
     if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id,
+                                           mdev_hash(sig->device),
                                            sig->device->id_counter++);
         }
         else {
@@ -371,7 +372,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
     if ((si = find_instance_by_id(sig, instance_id))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
-            map = mdev_add_instance_id_map(sig->device, instance_id, mdev_id(sig->device),
+            map = mdev_add_instance_id_map(sig->device, instance_id,
+                                           mdev_hash(sig->device),
                                            sig->device->id_counter++);
         }
         else {

@@ -714,7 +714,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
              * empty links are removed after the ping timeout. */
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
-            lo_message_add_int32(m, mdev_id(md));
+            lo_message_add_int32(m, mdev_hash(md));
             ++sync->sent.message_id;
             if (sync->sent.message_id < 0)
                 sync->sent.message_id = 0;
