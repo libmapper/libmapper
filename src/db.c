@@ -1405,13 +1405,15 @@ mapper_db_signal mapper_db_get_signal_by_device_and_signal_names(
 mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
     mapper_db db, const char *device_name, const char *signal_name)
 {
+    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    if (!dev)
+        return 0;
     mapper_db_signal sig = db->registered_signals;
     if (!sig)
         return 0;
 
     while (sig) {
-        if ((sig->direction & DI_INCOMING)
-            && strcmp(sig->device->name, skip_slash(device_name))==0
+        if (sig->device == dev && (sig->direction & DI_INCOMING)
             && strcmp(sig->name, skip_slash(signal_name))==0)
             return sig;
         sig = list_get_next(sig);
@@ -1422,15 +1424,80 @@ mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
 mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
     mapper_db db, const char *device_name, const char *signal_name)
 {
+    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    if (!dev)
+        return 0;
     mapper_db_signal sig = db->registered_signals;
     if (!sig)
         return 0;
 
     while (sig) {
-        if ((sig->direction & DI_OUTGOING)
-            && strcmp(sig->device->name, skip_slash(device_name))==0
+        if (sig->device == dev && (sig->direction & DI_OUTGOING)
             && strcmp(sig->name, skip_slash(signal_name))==0)
             return sig;
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
+mapper_db_signal mapper_db_get_signal_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index)
+{
+    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    if (!dev || index < 0)
+        return 0;
+    mapper_db_signal sig = db->registered_signals;
+    if (!sig)
+        return 0;
+
+    int count = -1;
+    while (sig && count < index) {
+        if (sig->device == dev) {
+            if (++count == index)
+                return sig;
+        }
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
+mapper_db_signal mapper_db_get_input_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index)
+{
+    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    if (!dev)
+        return 0;
+    mapper_db_signal sig = db->registered_signals;
+    if (!sig || index < 0)
+        return 0;
+
+    int count = -1;
+    while (sig) {
+        if (sig->device == dev && (sig->direction & DI_INCOMING)) {
+            if (++count == index)
+                return sig;
+        }
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
+mapper_db_signal mapper_db_get_output_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index)
+{
+    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    if (!dev)
+        return 0;
+    mapper_db_signal sig = db->registered_signals;
+    if (!sig)
+        return 0;
+
+    int count = -1;
+    while (sig) {
+        if (sig->device == dev && (sig->direction & DI_OUTGOING)) {
+            if (++count == index)
+                return sig;
+        }
         sig = list_get_next(sig);
     }
     return 0;
@@ -2281,6 +2348,72 @@ mapper_db_map_t **mapper_db_get_maps_by_device_name(mapper_db db,
 
     if (cmp_query_get_maps_by_device_name(
             &lh->query_context->data, map))
+        return (mapper_db_map*)&lh->self;
+
+    return (mapper_db_map*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_maps_by_src_device_name(void *context_data,
+                                                 mapper_db_map map)
+{
+    const char *devname = (const char*)context_data;
+    unsigned int len = strlen(devname);
+    int i;
+    for (i = 0; i < map->num_sources; i++) {
+        if (strlen(map->sources[i].signal->device->name) == len
+            && strncmp(map->sources[i].signal->device->name, devname, len)==0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+mapper_db_map_t **mapper_db_get_maps_by_src_device_name(mapper_db db,
+                                                        const char *device_name)
+{
+    mapper_db_map map = db->registered_maps;
+    if (!map)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_maps_by_src_device_name,
+         skip_slash(device_name), 0);
+
+    lh->self = map;
+
+    if (cmp_query_get_maps_by_src_device_name(&lh->query_context->data, map))
+        return (mapper_db_map*)&lh->self;
+
+    return (mapper_db_map*)dynamic_query_continuation(lh);
+}
+
+static int cmp_query_get_maps_by_dest_device_name(void *context_data,
+                                                  mapper_db_map map)
+{
+    const char *devname = (const char*)context_data;
+    unsigned int len = strlen(devname);
+
+    if (strlen(map->destination.signal->device->name) == len
+        && strncmp(map->destination.signal->device->name, devname, len)==0) {
+        return 1;
+    }
+    return 0;
+}
+
+mapper_db_map_t **mapper_db_get_maps_by_dest_device_name(mapper_db db,
+                                                         const char *device_name)
+{
+    mapper_db_map map = db->registered_maps;
+    if (!map)
+        return 0;
+
+    list_header_t *lh = construct_query_context_from_strings(
+        (query_compare_func_t*)cmp_query_get_maps_by_dest_device_name,
+         skip_slash(device_name), 0);
+
+    lh->self = map;
+
+    if (cmp_query_get_maps_by_dest_device_name(&lh->query_context->data, map))
         return (mapper_db_map*)&lh->self;
 
     return (mapper_db_map*)dynamic_query_continuation(lh);

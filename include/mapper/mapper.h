@@ -917,6 +917,30 @@ mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
 mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
     mapper_db db, const char *device_name, char const *signal_name);
 
+/*! Find information for a registered input signal.
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to find in the database.
+ *  \param index        Index of the signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_signal_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index);
+
+/*! Find information for a registered input signal.
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to find in the database.
+ *  \param index        Index of the input signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_input_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index);
+
+/*! Find information for a registered output signal.
+ *  \param db           The database to query.
+ *  \param device_name  Name of the device to find in the database.
+ *  \param index        Index of the output signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_output_by_device_name_and_index(
+    mapper_db db, const char *device_name, int index);
+
 /*! Return the list of inputs for a given device.
  *  \param db           The database to query.
  *  \param device_name  Name of the device to match for inputs.
@@ -1054,8 +1078,26 @@ mapper_db_map mapper_db_get_map_by_dest_device_and_id(
  *  \return A double-pointer to the first item in the list of results,
  *          or zero if none.  Use mapper_db_map_next() to
  *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_device_name(
-    mapper_db db, const char *device_name);
+mapper_db_map_t **mapper_db_get_maps_by_device_name(mapper_db db,
+                                                    const char *device_name);
+
+/*! Return the list of outgoing maps that touch the given device name.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to find.
+ *  \return A double-pointer to the first item in the list of results,
+ *          or zero if none.  Use mapper_db_map_next() to
+ *          iterate. */
+mapper_db_map_t **mapper_db_get_maps_by_src_device_name(mapper_db db,
+                                                        const char *device_name);
+
+/*! Return the list of incoming maps that touch the given device name.
+ *  \param db          The database to query.
+ *  \param device_name Name of the device to find.
+ *  \return A double-pointer to the first item in the list of results,
+ *          or zero if none.  Use mapper_db_map_next() to
+ *          iterate. */
+mapper_db_map_t **mapper_db_get_maps_by_dest_device_name(mapper_db db,
+                                                         const char *device_name);
 
 /*! Return the list of maps for a given source signal name.
  *  \param  db         The database to query.
