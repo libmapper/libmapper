@@ -229,8 +229,10 @@ static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 void mmon_subscribe(mapper_monitor mon, const char *device_name,
                     int subscribe_flags, int timeout)
 {
-    if (!device_name)
+    if (!device_name) {
         mmon_autosubscribe(mon, subscribe_flags);
+        return;
+    }
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists

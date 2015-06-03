@@ -970,11 +970,11 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1ordinal
     return mdev_ordinal(dev);
 }
 
-JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1id
+JNIEXPORT jint JNICALL Java_Mapper_Device_mdev_1hash
   (JNIEnv *env, jobject obj, jlong d)
 {
     mapper_device dev = (mapper_device)ptr_jlong(d);
-    return mdev_id(dev);
+    return mdev_hash(dev);
 }
 
 JNIEXPORT void JNICALL Java_Mapper_Device_mdev_1start_1queue
@@ -1741,9 +1741,9 @@ JNIEXPORT jint JNICALL Java_Mapper_Device_00024Signal_queryRemotes
 /**** Mapper_Monitor.h ****/
 
 JNIEXPORT jlong JNICALL Java_Mapper_Monitor_mmon_1new
-  (JNIEnv *env, jobject obj, jint autosubscribe_flags)
+  (JNIEnv *env, jobject obj, jint subscribe_flags)
 {
-    mapper_monitor mon = mmon_new(0, autosubscribe_flags);
+    mapper_monitor mon = mmon_new(0, subscribe_flags);
     return jlong_ptr(mon);
 }
 
@@ -2044,13 +2044,6 @@ JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1unmap_1db_1sigs
     if (!destsig)
         return;
     mmon_unmap_signals_by_db_record(mon, num_sources, srcsigs, destsig);
-}
-
-JNIEXPORT void JNICALL Java_Mapper_Monitor_mmon_1autosubscribe
-  (JNIEnv *env, jobject obj, jlong p, jint flags)
-{
-    mapper_monitor mon = (mapper_monitor)ptr_jlong(p);
-    mmon_autosubscribe(mon, flags);
 }
 
 JNIEXPORT jobject JNICALL Java_Mapper_Monitor_mmon_1now

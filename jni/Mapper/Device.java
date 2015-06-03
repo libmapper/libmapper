@@ -346,9 +346,9 @@ public class Device
         return mdev_ordinal(_device);
     }
 
-    public int id()
+    public int hash()
     {
-        return mdev_id(_device);
+        return mdev_hash(_device);
     }
 
     public void startQueue(TimeTag tt)
@@ -410,7 +410,7 @@ public class Device
     private native String mdev_ip4(long _d);
     private native String mdev_interface(long _d);
     private native int mdev_ordinal(long _d);
-    private native int mdev_id(long _d);
+    private native int mdev_hash(long _d);
 
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);

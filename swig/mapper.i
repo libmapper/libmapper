@@ -1156,7 +1156,7 @@ typedef enum {
     DI_BOTH     = 0x03,
 } mapper_direction_t;
 
-/*! Possible monitor auto-subscribe settings. */
+/*! Possible monitor subscribe settings. */
 %constant int SUBSCRIBE_NONE            = 0x00;
 %constant int SUBSCRIBE_DEVICE          = 0x01;
 %constant int SUBSCRIBE_DEVICE_INPUTS   = 0x02;
@@ -1741,8 +1741,8 @@ typedef struct _admin {} admin;
 }
 
 %extend _monitor {
-    _monitor(admin *DISOWN=0, int autosubscribe_flags=0x00) {
-        return (monitor *)mmon_new((mapper_admin) DISOWN, autosubscribe_flags);
+    _monitor(admin *DISOWN=0, int subscribe_flags=0x00) {
+        return (monitor *)mmon_new((mapper_admin) DISOWN, subscribe_flags);
     }
     ~_monitor() {
         mmon_free((mapper_monitor)$self);
@@ -1755,9 +1755,6 @@ typedef struct _admin {} admin;
     }
     db *get_db() {
         return (db *)mmon_get_db((mapper_monitor)$self);
-    }
-    void autosubscribe(int autosubscribe_flags) {
-        mmon_autosubscribe((mapper_monitor)$self, autosubscribe_flags);
     }
     void subscribe(const char *name, int subscribe_flags=0, int timeout=0) {
         return mmon_subscribe((mapper_monitor)$self, name,

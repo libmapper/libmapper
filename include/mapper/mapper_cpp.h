@@ -863,7 +863,7 @@ namespace mapper {
         std::string name() const
             { return std::string(mdev_name(device)); }
         int id() const
-            { return mdev_id(device); }
+            { return mdev_hash(device); }
         int port() const
             { return mdev_port(device); }
         const struct in_addr *ip4() const
@@ -1412,10 +1412,10 @@ namespace mapper {
     public:
         Monitor()
             { monitor = mmon_new(0, 0); }
-        Monitor(Admin admin, int autosubscribe_flags=0)
-            { monitor = mmon_new(admin, autosubscribe_flags); }
-        Monitor(int autosubscribe_flags)
-            { monitor = mmon_new(0, autosubscribe_flags); }
+        Monitor(Admin admin, int subscribe_flags=0)
+            { monitor = mmon_new(admin, subscribe_flags); }
+        Monitor(int subscribe_flags)
+            { monitor = mmon_new(0, subscribe_flags); }
         ~Monitor()
             { if (monitor) mmon_free(monitor); }
         int poll(int block_ms=0)
@@ -1437,11 +1437,6 @@ namespace mapper {
         const Monitor& unsubscribe(const T& device)
         {
             mmon_unsubscribe(monitor, (const char*)device);
-            return (*this);
-        }
-        const Monitor& autosubscribe(int flags) const
-        {
-            mmon_autosubscribe(monitor, flags);
             return (*this);
         }
         template <typename A, typename B>

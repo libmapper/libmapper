@@ -17,8 +17,8 @@ public class Monitor
     public static final int SUBSCRIBE_DEVICE_MAPS       = 0x30;
     public static final int SUBSCRIBE_ALL               = 0xFF;
 
-    public Monitor(int autosubscribeFlags) {
-        _monitor = mmon_new(autosubscribeFlags);
+    public Monitor(int subscribeFlags) {
+        _monitor = mmon_new(subscribeFlags);
         Db = new Db(mmon_get_db(_monitor));
     }
     public Monitor() {
@@ -370,11 +370,6 @@ public class Monitor
         mmon_map_or_mod_db_sigs(_monitor, sources, dest, props, 1);
     }
 
-    public void autosubscribe(int autosubscribeFlags)
-    {
-        mmon_autosubscribe(_monitor, autosubscribeFlags);
-    }
-
     public TimeTag now()
     {
         return mmon_now(_monitor);
@@ -390,7 +385,7 @@ public class Monitor
         }
     }
 
-    private native long mmon_new(int autosubscribe_flags);
+    private native long mmon_new(int subscribe_flags);
     private native long mmon_get_db(long mon);
     private native void mmon_free(long mon);
     private native int mmon_poll(long mon, int timeout);
@@ -413,7 +408,6 @@ public class Monitor
                                         Mapper.Device.Signal dest);
     private native void mmon_unmap_db_sigs(long mon, Mapper.Db.Signal[] sources,
                                            Mapper.Db.Signal dest);
-    private native void mmon_autosubscribe(long mon, int autosubscribe_flags);
     private native TimeTag mmon_now(long mon);
 
     private long _monitor;
