@@ -395,8 +395,10 @@ namespace mapper {
         virtual AbstractObjectProps& set(mapper::Property p) = 0;
         virtual Property get(const string_type &name) const = 0;
 
-        Property operator [] (const string_type key)
+        Property operator [] (const char* key)
             { return get(key); }
+        Property operator [] (const std::string& key)
+        { return get(key.c_str()); }
 
         template <typename T>
         AbstractObjectProps& set(const string_type &_name, T _value)
@@ -446,6 +448,8 @@ namespace mapper {
     public:
         operator mapper_db_signal() const
             { return props; }
+        operator bool() const
+            { return signal || props; }
         operator const char*() const
             { return full_name(); }
         using AbstractObjectProps::set;
@@ -496,6 +500,8 @@ namespace mapper {
         ~Signal() { ; }
 
         operator mapper_signal() const
+            { return signal; }
+        operator bool() const
             { return signal; }
         operator const char*() const
             { return cpp_props->full_name(); }
@@ -710,6 +716,8 @@ namespace mapper {
     public:
         operator mapper_db_device() const
             { return props; }
+        operator bool() const
+            { return device || props; }
         operator const char*() const
             { return props->name; }
         using AbstractObjectProps::set;
@@ -1122,6 +1130,8 @@ namespace mapper {
             }
             operator mapper_db_map() const
                 { return props; }
+            operator bool() const
+                { return props; }
             int num_sources() const
                 { return props->num_sources; }
             mapper_mode_type mode() const
@@ -1433,12 +1443,16 @@ namespace mapper {
             mmon_subscribe(monitor, (const char*)device, flags, timeout);
             return (*this);
         }
+        const Monitor& subscribe(int flags)
+            { mmon_subscribe(monitor, 0, flags, -1); return (*this); }
         template <typename T>
         const Monitor& unsubscribe(const T& device)
         {
             mmon_unsubscribe(monitor, (const char*)device);
             return (*this);
         }
+        const Monitor& unsubscribe()
+            { mmon_unsubscribe(monitor, 0); return (*this); }
         template <typename A, typename B>
         const Monitor& map(int num_sources, const A sources[], const B& dest,
                            const Db::Map& props = 0) const
