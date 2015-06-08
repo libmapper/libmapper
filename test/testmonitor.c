@@ -169,7 +169,7 @@ void printmap(mapper_db_map map)
     printf(" └─ ");
     for (i = 0; i < map->num_sources; i++) {
         printf("%s/%s ", map->sources[i].signal->device->name,
-               map->sources[i].signal->device->name);
+               map->sources[i].signal->name);
     }
     printf("-> %s/%s\n", map->destination.signal->device->name,
            map->destination.signal->name);
@@ -247,6 +247,8 @@ void loop()
         printf("\e[2J\e[0;0H");
         fflush(stdout);
 
+        printf("-------------------------------\n");
+
         printf("Registered devices and signals:\n");
         mapper_db_device *pdev = mapper_db_get_all_devices(db), tempdev;
         mapper_db_signal *psig, tempsig;
@@ -273,7 +275,7 @@ void loop()
             }
         }
 
-        printf("------------------------------\n");
+        printf("-------------------------------\n");
 
         printf("Registered maps:\n");
         mapper_db_map *pmap = mapper_db_get_all_maps(db);
@@ -282,7 +284,7 @@ void loop()
             pmap = mapper_db_map_next(pmap);
         }
 
-        printf("------------------------------\n");
+        printf("-------------------------------\n");
     }
 }
 
