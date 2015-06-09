@@ -796,6 +796,19 @@ static void py_to_slot(PyObject *input, mapper_db_map_slot slot) {
                         slot->flags |= MAP_SLOT_CAUSE_UPDATE;
                     }
                 }
+                else if (strcmp(s, "calibrating")==0) {
+                    int calibrating = -1;
+                    if (v == Py_True)
+                        calibrating = 1;
+                    else if (v == Py_False)
+                        calibrating = 0;
+                    else if (PyInt_Check(v))
+                        calibrating = PyInt_AsLong(v);
+                    if (calibrating > -1) {
+                        slot->calibrating = calibrating;
+                        slot->flags |= MAP_SLOT_CALIBRATING;
+                    }
+                }
                 else if (strcmp(s, "send_as_instance")==0) {
                     int send_as_instance = -1;
                     if (v == Py_True)

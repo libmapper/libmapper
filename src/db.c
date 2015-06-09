@@ -568,7 +568,9 @@ static mapper_string_table_t dev_table = { dev_strings, 12, 12 };
 static property_table_value_t slot_values[] = {
     { 'i', {0},         -1,          SLOT_OFFSET(bound_max) },
     { 'i', {0},         -1,          SLOT_OFFSET(bound_min) },
+    { 'i', {0},         -1,          SLOT_OFFSET(calibrating) },
     { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
+    { 'i', {0},         -1,          SLOT_OFFSET(direction) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
@@ -579,15 +581,17 @@ static property_table_value_t slot_values[] = {
 static string_table_node_t slot_strings[] = {
     { "bound_max",        &slot_values[0] },
     { "bound_min",        &slot_values[1] },
-    { "cause_update",     &slot_values[2] },
-    { "length",           &slot_values[3] },
-    { "maximum",          &slot_values[4] },
-    { "minimum",          &slot_values[5] },
-    { "send_as_instance", &slot_values[6] },
-    { "type",             &slot_values[7] },
+    { "calibrating",      &slot_values[2] },
+    { "cause_update",     &slot_values[3] },
+    { "direction",        &slot_values[4] },
+    { "length",           &slot_values[5] },
+    { "maximum",          &slot_values[6] },
+    { "minimum",          &slot_values[7] },
+    { "send_as_instance", &slot_values[8] },
+    { "type",             &slot_values[9] },
 };
 
-static mapper_string_table_t slot_table = { slot_strings, 8, 8 };
+static mapper_string_table_t slot_table = { slot_strings, 10, 10 };
 
 static property_table_value_t map_values[] = {
     { 's', {1}, -1,         MAP_OFFSET(expression) },

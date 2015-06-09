@@ -36,6 +36,7 @@ public class Map
             boundMin = mdb_map_slot_get_bound_min(_slotprops);
             boundMax = mdb_map_slot_get_bound_max(_slotprops);
             causeUpdate = mdb_map_slot_get_cause_update(_slotprops);
+            calibrating = mdb_map_slot_get_calibrating(_slotprops);
             direction = mdb_map_slot_get_direction(_slotprops);
             length = mdb_map_slot_get_length(_slotprops);
             maximum = mdb_map_slot_get_max(_slotprops);
@@ -47,6 +48,7 @@ public class Map
             boundMin = -1;
             boundMax = -1;
             causeUpdate = -1;
+            calibrating = 0;
             direction = 0;
             length = -1;
             maximum = null;
@@ -63,6 +65,9 @@ public class Map
 
         public int causeUpdate;
         private native int mdb_map_slot_get_cause_update(long p);
+
+        public int calibrating;
+        private native int mdb_map_slot_get_calibrating(long p);
 
         public int direction;
         private native int mdb_map_slot_get_direction(long p);

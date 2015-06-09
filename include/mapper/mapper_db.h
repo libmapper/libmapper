@@ -52,23 +52,23 @@ typedef struct _mapper_db_device {
 /* Bit flags to identify which fields in a mapper_db_map structure or
  * a mapper_db_map_slot are valid.  This is only used when specifying
  * map properties via the mmon_map() or mmon_modify_map() functions. */
-#define MAP_SLOT_BOUND_MIN          0x0001
-#define MAP_SLOT_BOUND_MAX          0x0002
-#define MAP_EXPRESSION              0x0004
-#define MAP_SLOT_MIN                0x0008
-#define MAP_SLOT_MAX                0x0010
-#define MAP_MODE                    0x0020
-#define MAP_SLOT_TYPE               0x0040
-#define MAP_SLOT_LENGTH             0x0080
-#define MAP_SLOT_CAUSE_UPDATE       0x0100
-#define MAP_SLOT_SEND_AS_INSTANCE   0x0200
 
-#define MAP_MUTED                   0x0400
-#define MAP_NUM_SCOPES              0x0800
-#define MAP_SCOPE_NAMES             0x1800 // need to know num_scopes also
-#define MAP_SCOPE_HASHES            0x2800 // need to know num_scopes also
-#define MAP_SLOT                    0x4000
-#define MAP_ALL                     0xFC00
+#define MAP_EXPRESSION              0x0001
+#define MAP_MODE                    0x0002
+#define MAP_MUTED                   0x0004
+#define MAP_NUM_SCOPES              0x0008
+#define MAP_SCOPE_NAMES             0x0018 // need to know num_scopes also
+#define MAP_SCOPE_HASHES            0x0028 // need to know num_scopes also
+
+#define MAP_SLOT_BOUND_MAX          0x0040
+#define MAP_SLOT_BOUND_MIN          0x0080
+#define MAP_SLOT_CALIBRATING        0x0100
+#define MAP_SLOT_CAUSE_UPDATE       0x0200
+#define MAP_SLOT_LENGTH             0x0400
+#define MAP_SLOT_MAX                0x0800
+#define MAP_SLOT_MIN                0x1000
+#define MAP_SLOT_TYPE               0x2000
+#define MAP_SLOT_SEND_AS_INSTANCE   0x4000
 
 // For range info to be known we also need to know data types and lengths
 #define MAP_SLOT_MIN_KNOWN      (MAP_SLOT_MIN | MAP_SLOT_TYPE | MAP_SLOT_LENGTH)

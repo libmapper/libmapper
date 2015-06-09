@@ -61,7 +61,7 @@ def db_cb(rectype, record, action):
     print rectype,["MODIFY", "NEW", "REMOVE"][action],'callback -'
     print '  record:',record
 
-mon = mapper.monitor(autosubscribe_flags=mapper.SUBSCRIBE_ALL)
+mon = mapper.monitor(subscribe_flags=mapper.SUBSCRIBE_ALL)
 
 mon.db.add_device_callback(lambda x,y:db_cb('device',x,y))
 mon.db.add_signal_callback(lambda x,y:db_cb('signal',x,y))
