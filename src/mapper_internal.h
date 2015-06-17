@@ -70,6 +70,7 @@ struct _mapper_device {
     int n_alloc_outputs;
     int n_output_callbacks;
     int version;
+    uint32_t resource_counter;
     mapper_router router;
 
     int signal_slot_counter;
@@ -289,14 +290,13 @@ mapper_map mapper_router_find_incoming_map(mapper_router router,
                                            int num_sources,
                                            const char **src_names);
 
-mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
-                                                 mapper_signal local_sig,
-                                                 int id);
+mapper_map mapper_router_find_incoming_map_by_hash(mapper_router router,
+                                                   mapper_signal local_sig,
+                                                   uint64_t hash);
 
-mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
-                                                 mapper_signal local_src,
-                                                 const char *dest_name,
-                                                 int id);
+mapper_map mapper_router_find_outgoing_map_by_hash(mapper_router router,
+                                                   mapper_signal local_src,
+                                                   uint64_t hash);
 
 mapper_map_slot mapper_router_find_map_slot(mapper_router router,
                                             mapper_signal signal,
@@ -509,8 +509,8 @@ mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                                                  const char *dest_name,
                                                  mapper_message_t *params);
 
-/*! Remove a named device from the database if it exists. */
-void mapper_db_remove_device_by_name(mapper_db db, const char *name);
+/*! Remove a device from the database. */
+void mapper_db_remove_device(mapper_db db, mapper_db_device dev, int quiet);
 
 /*! Remove a named signal from the database if it exists. */
 void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
@@ -535,8 +535,7 @@ void mapper_db_remove_all_callbacks(mapper_db db);
 void mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
 
 /*! Flush device records for unresponsive devices. */
-int mapper_db_flush(mapper_db db, uint32_t current_time,
-                    uint32_t timeout, int quiet);
+mapper_db_device mapper_db_get_expired_device(mapper_db db, uint32_t last_ping);
 
 /**** Messages ****/
 /*! Parse the device and signal names from an OSC path. */
@@ -583,7 +582,7 @@ const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
 const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
                                          mapper_msg_param_t param);
 
-/*! Helper to get a direct parameter value only if it's an int.
+/*! Helper to get a direct parameter value only if it's an int or boolean.
  *  \param msg    Structure containing parameter info.
  *  \param param  Symbolic identifier of the parameter to look for.
  *  \param value  Location of int to receive value.
@@ -591,6 +590,15 @@ const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
 int mapper_msg_get_param_if_int(mapper_message_t *msg,
                                 mapper_msg_param_t param,
                                 int *value);
+
+/*! Helper to get a direct parameter value only if it's an int64.
+ *  \param msg    Structure containing parameter info.
+ *  \param param  Symbolic identifier of the parameter to look for.
+ *  \param value  Location of int64 to receive value.
+ *  \return       Zero if not found, otherwise non-zero. */
+int mapper_msg_get_param_if_int64(mapper_message_t *msg,
+                                  mapper_msg_param_t param,
+                                  int64_t *value);
 
 /*! Helper to get a direct parameter value only if it's a float.
  *  \param msg    Structure containing parameter info.

@@ -1163,10 +1163,10 @@ int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
     int num_args;
     /* First record any provided parameters. */
 
-    int id;
-    if (!mapper_msg_get_param_if_int(msg, AT_ID, &id)
-        && map->props.id != id) {
-        map->props.id = id;
+    int64_t hash;
+    if (!mapper_msg_get_param_if_int64(msg, AT_HASH, &hash)
+        && *(int64_t*)&map->props.hash != hash) {
+        map->props.hash = hash;
         updated++;
     }
 
@@ -1769,8 +1769,8 @@ void mapper_map_prepare_osc_message(lo_message m, mapper_map map, int slot,
     mapper_db_map props = &map->props;
 
     // Mapping id
-    lo_message_add_string(m, mapper_get_param_string(AT_ID));
-    lo_message_add_int32(m, map->props.id);
+    lo_message_add_string(m, mapper_get_param_string(AT_HASH));
+    lo_message_add_int64(m, *((int64_t*)&map->props.hash));
 
     // Mapping mode
     lo_message_add_string(m, mapper_get_param_string(AT_MODE));

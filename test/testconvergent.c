@@ -115,11 +115,7 @@ int setup_maps()
 {
     mapper_monitor mon = mmon_new(sources[0]->admin, 0);
 
-    char src1_name[512], src2_name[512], dest_name[512];
-    msig_full_name(sendsig[0][0], src1_name, 512);
-    msig_full_name(sendsig[1][1], src2_name, 512);
-    msig_full_name(recvsig, dest_name, 512);
-    const char *all_sources[2] = {src1_name, src2_name};
+    mapper_db_signal all_sources[2] = {msig_properties(sendsig[0][0]), msig_properties(sendsig[1][1])};
 
     mapper_db_map_slot_t slots[2];
     mapper_db_map_t props;
@@ -132,7 +128,7 @@ int setup_maps()
     props.sources[1].cause_update = 0;
     props.sources[0].flags = props.sources[1].flags = MAP_SLOT_CAUSE_UPDATE;
 
-    mmon_map_signals_by_name(mon, 2, all_sources, dest_name, &props);
+    mmon_map_signals(mon, 2, all_sources, msig_properties(recvsig), &props);
     mmon_free(mon);
 
     // wait until mappings have been established

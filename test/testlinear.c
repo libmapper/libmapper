@@ -129,7 +129,7 @@ int setup_maps()
     props.flags = MAP_MODE;
 
     mapper_db_signal src = &sendsig->props;
-    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
+    mmon_map_signals(mon, 1, &src, &recvsig->props, &props);
 
     // Wait until mapping has been established
     while (!done && !mdev_num_outgoing_maps(source)) {

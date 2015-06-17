@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 
     eprintf("1: expected success\n");
 
-    args[0]  = (lo_arg*)"@IP";
+    args[0]  = (lo_arg*)"@host";
     args[1]  = (lo_arg*)"127.0.0.1";
     args[2]  = (lo_arg*)"@srcMin";
     args[3]  = (lo_arg*)&r[0];
@@ -67,25 +67,25 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    a = mapper_msg_get_param(&msg, AT_IP, &types, &length);
+    a = mapper_msg_get_param(&msg, AT_HOST, &types, &length);
     if (!a) {
-        eprintf("1: Could not get @IP param.\n");
+        eprintf("1: Could not get @host param.\n");
         result = 1;
         goto done;
     }
     if (!types || types[0] != 's') {
-        eprintf("1: Type error retrieving @IP param.");
+        eprintf("1: Type error retrieving @host param.");
         result = 1;
         goto done;
     }
     if (length != 1) {
-        eprintf("1: Length error retrieving @IP param.");
+        eprintf("1: Length error retrieving @host param.");
         result = 1;
         goto done;
     }
     if (strcmp(&(*a)->s, "127.0.0.1")!=0)
         result |= 1;
-    eprintf("1: @IP = \"%s\" %s\n", &(*a)->s, result ? "WRONG" : "(correct)");
+    eprintf("1: @host = \"%s\" %s\n", &(*a)->s, result ? "WRONG" : "(correct)");
     if (result)
         goto done;
 
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 
     args[0] = (lo_arg*)"@port";
     args[1] = (lo_arg*)&port;
-    args[2] = (lo_arg*)"@IP";
+    args[2] = (lo_arg*)"@host";
 
     rc = mapper_msg_parse_params(&msg, "/test", "sis", 3, args);
     if (!rc) {
@@ -168,9 +168,9 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    a = mapper_msg_get_param(&msg, AT_IP, &types, &length);
+    a = mapper_msg_get_param(&msg, AT_HOST, &types, &length);
     if (a) {
-        eprintf("2: Error, should not have been able to retrieve @IP param.\n");
+        eprintf("2: Error, should not have been able to retrieve @host param.\n");
         result = 1;
         goto done;
     }

@@ -254,7 +254,7 @@ void loop()
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig->props;
-        mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, 0);
+        mmon_map_signals(mon, 1, &src, &recvsig->props, 0);
 
         mmon_free(mon);
     }

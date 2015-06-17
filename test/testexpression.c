@@ -107,7 +107,7 @@ int setup_maps()
     props.expression = "y=x*10";
     props.flags = MAP_MODE | MAP_EXPRESSION;
     mapper_db_signal src = &sendsig->props;
-    mmon_map_signals_by_db_record(mon, 1, &src, &recvsig->props, &props);
+    mmon_map_signals(mon, 1, &src, &recvsig->props, &props);
 
     // wait until mapping has been established
     while (!done && !mdev_num_outgoing_maps(source)) {

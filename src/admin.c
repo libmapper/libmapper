@@ -1270,10 +1270,12 @@ static int handler_logout(const char *path, const char *types,
           (md && md->ordinal.locked) ? mdev_name(md) : "monitor", name);
 
     if (mon) {
-        mapper_db_remove_device_by_name(db, name);
-
-        // remove subscriptions
-        mmon_unsubscribe(mon, name);
+        mapper_db_device dev = mapper_db_get_device_by_name(db, name);
+        if (dev) {
+            // remove subscriptions
+            mmon_unsubscribe(mon, dev);
+            mapper_db_remove_device(db, dev, 0);
+        }
     }
 
     // If device exists and is registered
@@ -1957,18 +1959,19 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     num_params = mapper_msg_parse_params(&params, path, &types[param_index],
                                          argc-param_index, &argv[param_index]);
 
-    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'i') {
-        trace("<%s> ignoring /mapTo, no 'id' property.\n", mdev_name(md));
+    if (!params.lengths[AT_HASH] || *params.types[AT_HASH] != 'h') {
+        trace("<%s> ignoring /mapTo, no 'hash' property.\n", mdev_name(md));
         return 0;
     }
-    int id = (*params.values[AT_ID])->i;
+    uint64_t hash = (*params.values[AT_HASH])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal,
-                                                    &argv[dest_index]->s, id);
+        map = mapper_router_find_outgoing_map_by_hash(md->router, local_signal,
+                                                      hash);
     }
     else {
-        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_incoming_map_by_hash(md->router, local_signal,
+                                                      hash);
     }
 
     int order[num_sources];
@@ -2142,18 +2145,19 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'i') {
-        trace("<%s> ignoring /mapped, no 'id' property.\n", mdev_name(md));
+    if (!params.lengths[AT_HASH] || *params.types[AT_HASH] != 'h') {
+        trace("<%s> ignoring /mapped, no 'hash' property.\n", mdev_name(md));
         return 0;
     }
-    int id = (*params.values[AT_ID])->i;
+    uint64_t hash = (*params.values[AT_HASH])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal,
-                                                    &argv[dest_index]->s, id);
+        map = mapper_router_find_outgoing_map_by_hash(md->router, local_signal,
+                                                      hash);
     }
     else {
-        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_incoming_map_by_hash(md->router, local_signal,
+                                                      hash);
     }
     if (!map) {
         trace("<%s> no map found for /mapped.\n", mdev_name(md));
@@ -2492,34 +2496,31 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
     // TODO: devices should check if they are target, clean up old maps
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    int i, num_sources, src_index, dest_index;
+    int i, hash_index;
+    uint64_t *hash = 0;
 
-    num_sources = parse_signal_names(types, argv, argc, &src_index,
-                                     &dest_index, 0);
-    if (!num_sources)
-        return 0;
-
-    int order[num_sources];
-    if (alphabetise_names(num_sources, &argv[src_index], order)) {
-        trace("error in /map: multiple use of source signal.");
+    for (i = 0; i < argc; i++) {
+        if (types[i] != 's' && types[i] != 'S')
+            return 0;
+        if (strcmp(&argv[i]->s, "@hash")==0 && (types[i+1] == 'h')) {
+            hash_index = i+1;
+            hash = (uint64_t*)&argv[hash_index]->i64;
+            break;
+        }
+    }
+    if (!hash) {
+        trace("error: no 'hash' property found in /unmapped message.")
         return 0;
     }
-    const char *src_names[num_sources];
-    for (i=0; i<num_sources; i++) {
-        src_names[i] = &argv[src_index+order[i]]->s;
-    }
-    const char *dest_name = &argv[dest_index]->s;
-
-    mapper_db db = mmon_get_db(mon);
 
 #ifdef DEBUG
     printf("-- <monitor> got /unmapped");
-    for (i = 0; i < num_sources+2; i++)
+    for (i = 0; i < hash_index; i++)
         printf(" %s", &argv[i]->s);
 #endif
 
-    mapper_db_map map = mapper_db_get_map_by_signal_full_names(db, num_sources,
-                                                               src_names, dest_name);
+    mapper_db db = mmon_get_db(mon);
+    mapper_db_map map = mapper_db_get_map_by_hash(db, *hash);
     if (map)
         mapper_db_remove_map(db, map);
 
@@ -2593,21 +2594,27 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
     if (!mon || !argc)
         return 0;
 
-    mapper_db_device reg = 0;
+    mapper_db_device dev = 0;
     if (types[0] == 's' || types[0] == 'S') {
-        if ((reg = mapper_db_get_device_by_name(&mon->db, &argv[0]->s))) {
-            mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
+        if ((dev = mapper_db_get_device_by_name(&mon->db, &argv[0]->s))) {
+            mapper_timetag_cpy(&dev->synced, lo_message_get_timestamp(msg));
         }
-        if (mon->autosubscribe && (!reg || !reg->subscribed)) {
+        if (mon->autosubscribe && (!dev || !dev->subscribed)) {
             // only create device record after requesting more information
-            mmon_subscribe(mon, &argv[0]->s, mon->autosubscribe, -1);
-            if (reg)
-                reg->subscribed = 1;
+            if (dev) {
+                mmon_subscribe(mon, dev, mon->autosubscribe, -1);
+                dev->subscribed = 1;
+            }
+            else {
+                mapper_db_device_t temp;
+                temp.name = &argv[0]->s;
+                mmon_subscribe(mon, &temp, mon->autosubscribe, 0);
+            }
         }
     }
     else if (types[0] == 'i') {
-        if ((reg = mapper_db_get_device_by_hash(&mon->db, argv[0]->i)))
-            mapper_timetag_cpy(&reg->synced, lo_message_get_timestamp(msg));
+        if ((dev = mapper_db_get_device_by_hash(&mon->db, argv[0]->i)))
+            mapper_timetag_cpy(&dev->synced, lo_message_get_timestamp(msg));
     }
 
     return 0;

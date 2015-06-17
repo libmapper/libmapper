@@ -18,9 +18,9 @@ const char* prop_msg_strings[] =
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
-    "@ID",              /* AT_ID */
+    "@hash",            /* AT_HASH */
+    "@host",            /* AT_HOST */
     "@instances",       /* AT_INSTANCES */
-    "@IP",              /* AT_IP */
     "@length",          /* AT_LENGTH */
     "@libVersion",      /* AT_LIB_VERSION */
     "@max",             /* AT_MAX */
@@ -282,6 +282,28 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
     return 0;
 }
 
+int mapper_msg_get_param_if_int64(mapper_message_t *msg,
+                                  mapper_msg_param_t param,
+                                  int64_t *value)
+{
+    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
+    die_unless(value!=0, "bad pointer");
+
+    const char *t;
+    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
+    if (!a)
+        return 1;
+
+    if (!t)
+        return 1;
+
+    if (t[0] != 'h')
+        return 1;
+
+    *value = (*a)->i64;
+    return 0;
+}
+
 int mapper_msg_get_param_if_float(mapper_message_t *msg,
                                   mapper_msg_param_t param,
                                   float *value)
@@ -437,12 +459,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
 
         switch (pa) {
         case AT_EXPRESSION:
-        case AT_IP:
+        case AT_HOST:
             s = va_arg(aq, char*);
             lo_message_add_string(m, s);
             break;
         case AT_DEST_LENGTH:
-        case AT_ID:
         case AT_LENGTH:
         case AT_NUM_INCOMING_MAPS:
         case AT_NUM_OUTGOING_MAPS:
@@ -455,6 +476,11 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
+        case AT_HASH: {
+            int64_t h = va_arg(aq, int64_t);
+            lo_message_add_int64(m, h);
+            break;
+        }
         case AT_TYPE:
         case AT_SRC_TYPE:
         case AT_DEST_TYPE:

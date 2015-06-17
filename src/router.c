@@ -620,7 +620,12 @@ mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
 
     // is_admin property will be corrected later if necessary
     map->is_admin = 1;
-    map->props.id = direction == DI_INCOMING ? r->id_counter++ : -1;
+    if (direction == DI_INCOMING) {
+        map->props.hash = r->device->resource_counter++;
+        map->props.hash = (map->props.hash << 32) | r->device->props.hash;
+    }
+    else
+        map->props.hash = 0;
 
     mapper_link link;
     char devname[256], *devnamep, *signame;
@@ -1034,9 +1039,9 @@ mapper_map mapper_router_find_incoming_map(mapper_router router,
     return 0;
 }
 
-mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
-                                                 mapper_signal local_dest,
-                                                 int id)
+mapper_map mapper_router_find_incoming_map_by_hash(mapper_router router,
+                                                   mapper_signal local_dest,
+                                                   uint64_t hash)
 {
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != local_dest)
@@ -1049,16 +1054,15 @@ mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_OUTGOING)
             continue;
         mapper_map map = rs->slots[i]->map;
-        if (map->props.id == id)
+        if (map->props.hash == hash)
             return map;
     }
     return 0;
 }
 
-mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
-                                                 mapper_signal local_src,
-                                                 const char *dest_name,
-                                                 int id)
+mapper_map mapper_router_find_outgoing_map_by_hash(mapper_router router,
+                                                   mapper_signal local_src,
+                                                   uint64_t hash)
 {
     int i;
     mapper_router_signal rs = router->signals;
@@ -1067,23 +1071,12 @@ mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
     if (!rs)
         return 0;
 
-    char *devname, *signame;
-    int devnamelen = mapper_parse_names(dest_name, &devname, &signame);
-    if (!devnamelen || devnamelen >= 256)
-        return 0;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_INCOMING)
             continue;
         mapper_map map = rs->slots[i]->map;
-        if (map->props.id != id)
-            continue;
-        const char *match = (map->destination.local
-                             ? mdev_name(router->device)
-                             : map->destination.link->props.name);
-        if (strlen(match)==devnamelen
-            && strncmp(match, devname, devnamelen)==0) {
+        if (map->props.hash == hash)
             return map;
-        }
     }
     return 0;
 }

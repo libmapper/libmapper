@@ -26,12 +26,11 @@ static double get_current_time()
 }
 
 // function prototypes
-static void monitor_subscribe_internal(mapper_monitor mon,
-                                       const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
                                        int subscribe_flags, int timeout,
                                        int version);
 static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         const char *device_name,
+                                         mapper_db_device dev,
                                          int send_message);
 
 typedef enum _db_request_direction {
@@ -79,11 +78,11 @@ void mmon_free(mapper_monitor mon)
 
     // unsubscribe from and remove any autorenewing subscriptions
     while (mon->subscriptions) {
-        mmon_unsubscribe(mon, mon->subscriptions->name);
+        mmon_unsubscribe(mon, mon->subscriptions->device);
     }
 
     while (mon->db.registered_devices)
-        mapper_db_remove_device_by_name(&mon->db, mon->db.registered_devices->name);
+        mapper_db_remove_device(&mon->db, mon->db.registered_devices, 1);
     if (mon->admin) {
         if (mon->own_admin)
             mapper_admin_free(mon->admin);
@@ -103,7 +102,7 @@ int mmon_poll(mapper_monitor mon, int block_ms)
     mapper_subscription s = mon->subscriptions;
     while (s) {
         if (s->lease_expiration_sec < mon->admin->clock.now.sec) {
-            monitor_subscribe_internal(mon, s->name, s->flags,
+            monitor_subscribe_internal(mon, s->device, s->flags,
                                        AUTOSUBSCRIBE_INTERVAL, -1);
             // leave 10-second buffer for subscription renewal
             s->lease_expiration_sec =
@@ -138,21 +137,20 @@ mapper_db mmon_get_db(mapper_monitor mon)
     return &mon->db;
 }
 
-static void monitor_set_bundle_dest(mapper_monitor mon, const char *name)
+static void monitor_set_bundle_dest(mapper_monitor mon, mapper_db_device dev)
 {
     // TODO: look up device info, maybe send directly
     mapper_admin_set_bundle_dest_bus(mon->admin);
 }
 
-static void monitor_subscribe_internal(mapper_monitor mon,
-                                       const char *device_name,
+static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
                                        int subscribe_flags, int timeout,
                                        int version)
 {
     char cmd[1024];
-    snprintf(cmd, 1024, "/%s/subscribe", device_name);
+    snprintf(cmd, 1024, "/%s/subscribe", dev->name);
 
-    monitor_set_bundle_dest(mon, device_name);
+    monitor_set_bundle_dest(mon, dev);
     lo_message m = lo_message_new();
     if (m) {
         if (subscribe_flags & SUBSCRIBE_ALL)
@@ -189,26 +187,25 @@ static void monitor_subscribe_internal(mapper_monitor mon,
 }
 
 static mapper_subscription get_subscription(mapper_monitor mon,
-                                            const char *device_name)
+                                            mapper_db_device dev)
 {
     mapper_subscription s = mon->subscriptions;
     while (s) {
-        if (strcmp(device_name, s->name)==0)
+        if (s->device == dev)
             return s;
         s = s->next;
     }
     return 0;
 }
 
-static void on_device_autosubscribe(mapper_db_device dev,
-                                    mapper_db_action_t a,
+static void on_device_autosubscribe(mapper_db_device dev, mapper_db_action_t a,
                                     void *user)
 {
     mapper_monitor mon = (mapper_monitor)(user);
 
     // New subscriptions are handled in admin.c as response to device "sync" msg
     if (a == MDB_REMOVE) {
-        monitor_unsubscribe_internal(mon, dev->name, 0);
+        monitor_unsubscribe_internal(mon, dev, 0);
     }
 }
 
@@ -222,28 +219,28 @@ static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
     else if (mon->autosubscribe && !autosubscribe_flags) {
         mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
         while (mon->subscriptions) {
-            monitor_unsubscribe_internal(mon, mon->subscriptions->name, 1);
+            monitor_unsubscribe_internal(mon, mon->subscriptions->device, 1);
         }
     }
     mon->autosubscribe = autosubscribe_flags;
 }
 
-void mmon_subscribe(mapper_monitor mon, const char *device_name,
+void mmon_subscribe(mapper_monitor mon, mapper_db_device dev,
                     int subscribe_flags, int timeout)
 {
-    if (!device_name) {
+    if (!dev) {
         mmon_autosubscribe(mon, subscribe_flags);
         return;
     }
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_subscription s = get_subscription(mon, device_name);
+        mapper_subscription s = get_subscription(mon, dev);
 
         if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mapper_subscription));
-            s->name = strdup(device_name);
+            s->device = dev;
             s->next = mon->subscriptions;
             mon->subscriptions = s;
         }
@@ -257,21 +254,21 @@ void mmon_subscribe(mapper_monitor mon, const char *device_name,
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
 
-    monitor_subscribe_internal(mon, device_name, subscribe_flags, timeout, 0);
+    monitor_subscribe_internal(mon, dev, subscribe_flags, timeout, 0);
 }
 
 static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         const char *device_name,
+                                         mapper_db_device dev,
                                          int send_message)
 {
     char cmd[1024];
     // check if autorenewing subscription exists
     mapper_subscription *s = &mon->subscriptions;
     while (*s) {
-        if (strcmp((*s)->name, device_name)==0) {
+        if ((*s)->device == dev) {
             if (send_message) {
-                snprintf(cmd, 1024, "/%s/unsubscribe", device_name);
-                monitor_set_bundle_dest(mon, device_name);
+                snprintf(cmd, 1024, "/%s/unsubscribe", dev->name);
+                monitor_set_bundle_dest(mon, dev);
                 lo_message m = lo_message_new();
                 if (!m)
                     break;
@@ -281,8 +278,6 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
             // remove from subscriber list
             mapper_subscription temp = *s;
             *s = temp->next;
-            if (temp->name)
-                free(temp->name);
             free(temp);
             return;
         }
@@ -290,11 +285,11 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
     }
 }
 
-void mmon_unsubscribe(mapper_monitor mon, const char *device_name)
+void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev)
 {
-    if (!device_name)
+    if (!dev)
         mmon_autosubscribe(mon, SUBSCRIBE_NONE);
-    monitor_unsubscribe_internal(mon, device_name, 1);
+    monitor_unsubscribe_internal(mon, dev, 1);
 }
 
 void mmon_request_devices(mapper_monitor mon)
@@ -315,11 +310,12 @@ static void _real_prep_varargs(lo_message m, ...)
     va_end(aq);
 }
 
-void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
-                              const char **source_names, const char *dest_name,
-                              mapper_db_map_t *props)
+void mmon_map_signals(mapper_monitor mon, int num_sources,
+                      mapper_db_signal *sources,
+                      mapper_db_signal destination,
+                      mapper_db_map_t *props)
 {
-    if (!mon || !num_sources || !source_names || !dest_name
+    if (!mon || !num_sources || !sources || !destination
         || num_sources > MAX_NUM_MAP_SOURCES)
         return;
 
@@ -327,10 +323,19 @@ void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
     if (!m)
         return;
 
+    const char *src_names[num_sources];
     int i;
-    for (i = 0; i < num_sources; i++)
-        lo_message_add_string(m, source_names[i]);
+    for (i = 0; i < num_sources; i++) {
+        char src_name[256];
+        snprintf(src_name, 256, "%s%s", sources[i]->device->name,
+                 sources[i]->path);
+        src_names[i] = strdup(src_name);
+        lo_message_add_string(m, src_names[i]);
+    }
     lo_message_add_string(m, "->");
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", destination->device->name,
+             destination->path);
     lo_message_add_string(m, dest_name);
 
     if (props) {
@@ -369,15 +374,22 @@ void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
+
+    for (i = 0; i < num_sources; i++)
+        free((char *)src_names[i]);
 }
 
-void mmon_map_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                   mapper_db_signal_t **sources,
-                                   mapper_db_signal_t *dest,
-                                   mapper_db_map_t *props)
+void mmon_modify_map_by_signals(mapper_monitor mon, int num_sources,
+                                mapper_db_signal *sources,
+                                mapper_db_signal destination,
+                                mapper_db_map_t *props)
 {
-    if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_MAP_SOURCES)
+    if (!mon || !num_sources || !sources || !destination || !props
+        || !props->flags || num_sources > MAX_NUM_MAP_SOURCES)
+        return;
+
+    lo_message m = lo_message_new();
+    if (!m)
         return;
 
     const char *src_names[num_sources];
@@ -387,33 +399,12 @@ void mmon_map_signals_by_db_record(mapper_monitor mon, int num_sources,
         snprintf(src_name, 256, "%s%s", sources[i]->device->name,
                  sources[i]->path);
         src_names[i] = strdup(src_name);
+        lo_message_add_string(m, src_names[i]);
     }
-    char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
-
-    mmon_map_signals_by_name(mon, num_sources, src_names, dest_name, props);
-
-    for (i = 0; i < num_sources; i++)
-        free((char *)src_names[i]);
-}
-
-void mmon_modify_map_by_signal_names(mapper_monitor mon, int num_sources,
-                                     const char **source_names,
-                                     const char *dest_name,
-                                     mapper_db_map_t *props)
-{
-    if (!mon || !num_sources || !source_names || !dest_name || !props
-        || num_sources > MAX_NUM_MAP_SOURCES)
-        return;
-
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
-
-    int i;
-    for (i = 0; i < num_sources; i++)
-        lo_message_add_string(m, source_names[i]);
     lo_message_add_string(m, "->");
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", destination->device->name,
+             destination->path);
     lo_message_add_string(m, dest_name);
 
     props->num_sources = num_sources;
@@ -448,16 +439,36 @@ void mmon_modify_map_by_signal_names(mapper_monitor mon, int num_sources,
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
+
+    for (i = 0; i < num_sources; i++)
+        free((char *)src_names[i]);
 }
 
-void mmon_modify_map_by_signal_db_records(mapper_monitor mon,
-                                          int num_sources,
-                                          mapper_db_signal_t **sources,
-                                          mapper_db_signal_t *dest,
-                                          mapper_db_map_t *props)
+void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *map)
 {
-    if (!mon || !num_sources || !sources || !dest || !props || !props->flags
+    if (!mon || !map || !map->num_sources || !map->sources || !map->flags)
+        return;
+
+    mapper_db_signal src_sigs[map->num_sources];
+    int i;
+    for (i = 0; i < map->num_sources; i++) {
+        src_sigs[i] = map->sources[i].signal;
+    }
+
+    mmon_modify_map_by_signals(mon, map->num_sources, src_sigs,
+                               map->destination.signal, map);
+}
+
+void mmon_unmap_signals(mapper_monitor mon, int num_sources,
+                        mapper_db_signal_t **sources,
+                        mapper_db_signal_t *destination)
+{
+    if (!mon || !num_sources || !sources || !destination
         || num_sources > MAX_NUM_MAP_SOURCES)
+        return;
+
+    lo_message m = lo_message_new();
+    if (!m)
         return;
 
     const char *src_names[num_sources];
@@ -467,56 +478,13 @@ void mmon_modify_map_by_signal_db_records(mapper_monitor mon,
         snprintf(src_name, 256, "%s%s", sources[i]->device->name,
                  sources[i]->path);
         src_names[i] = strdup(src_name);
+        lo_message_add_string(m, src_names[i]);
     }
-    char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
-
-    mmon_modify_map_by_signal_names(mon, num_sources, src_names, dest_name, props);
-
-    for (i = 0; i < num_sources; i++)
-        free((char *)src_names[i]);
-}
-
-void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *props)
-{
-    if (!mon || !props || !props->num_sources || !props->sources || !props->flags)
-        return;
-
-    const char *src_names[props->num_sources];
-    int i;
-    for (i = 0; i < props->num_sources; i++) {
-        char src_name[256];
-        snprintf(src_name, 256, "%s%s", props->sources[i].signal->device->name,
-                 props->sources[i].signal->path);
-        src_names[i] = strdup(src_name);
-    }
-    char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", props->destination.signal->device->name,
-             props->destination.signal->path);
-
-    mmon_modify_map_by_signal_names(mon, props->num_sources, src_names,
-                                    dest_name, props);
-
-    for (i = 0; i < props->num_sources; i++)
-        free((char *)src_names[i]);
-}
-
-void mmon_unmap_signals_by_name(mapper_monitor mon, int num_sources,
-                                const char **sources, const char *dest)
-{
-    if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_MAP_SOURCES)
-        return;
-
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
-
-    int i;
-    for (i = 0; i < num_sources; i++)
-        lo_message_add_string(m, sources[i]);
     lo_message_add_string(m, "->");
-    lo_message_add_string(m, dest);
+    char dest_name[256];
+    snprintf(dest_name, 256, "%s%s", destination->device->name,
+             destination->path);
+    lo_message_add_string(m, dest_name);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
@@ -525,53 +493,44 @@ void mmon_unmap_signals_by_name(mapper_monitor mon, int num_sources,
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
-}
-
-void mmon_unmap_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                     mapper_db_signal_t **sources,
-                                     mapper_db_signal_t *dest)
-{
-    if (!mon || !num_sources || !sources || !dest
-        || num_sources > MAX_NUM_MAP_SOURCES)
-        return;
-
-    const char *src_names[num_sources];
-    int i;
-    for (i = 0; i < num_sources; i++) {
-        char src_name[256];
-        snprintf(src_name, 256, "%s%s", sources[i]->device->name,
-                 sources[i]->path);
-        src_names[i] = strdup(src_name);
-    }
-    char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", dest->device->name, dest->path);
-
-    mmon_unmap_signals_by_name(mon, num_sources, src_names, dest_name);
 
     for (i = 0; i < num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *c)
+void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *map)
 {
-    if (!mon || !c || !c->num_sources || !c->sources)
+    if (!mon || !map || !map->num_sources || !map->sources)
         return;
 
-    const char *src_names[c->num_sources];
+    lo_message m = lo_message_new();
+    if (!m)
+        return;
+
+    const char *src_names[map->num_sources];
     int i;
-    for (i = 0; i < c->num_sources; i++) {
+    for (i = 0; i < map->num_sources; i++) {
         char src_name[256];
-        snprintf(src_name, 256, "%s%s", c->sources[i].signal->device->name,
-                 c->sources[i].signal->path);
+        snprintf(src_name, 256, "%s%s", map->sources[i].signal->device->name,
+                 map->sources[i].signal->path);
         src_names[i] = strdup(src_name);
+        lo_message_add_string(m, src_names[i]);
     }
+    lo_message_add_string(m, "->");
     char dest_name[256];
-    snprintf(dest_name, 256, "%s%s", c->destination.signal->device->name,
-             c->destination.signal->path);
+    snprintf(dest_name, 256, "%s%s", map->destination.signal->device->name,
+             map->destination.signal->path);
+    lo_message_add_string(m, dest_name);
 
-    mmon_unmap_signals_by_name(mon, c->num_sources, src_names, dest_name);
+    // TODO: lookup device ip/ports, send directly?
+    mapper_admin_set_bundle_dest_bus(mon->admin);
+    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_UNMAP], m);
 
-    for (i = 0; i < c->num_sources; i++)
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_admin_send_bundle(mon->admin);
+
+    for (i = 0; i < map->num_sources; i++)
         free((char *)src_names[i]);
 }
 
@@ -597,22 +556,23 @@ void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
     mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
 
     // flush expired device records
-    mapper_db_flush(&mon->db, mon->admin->clock.now.sec, timeout_sec, quiet);
-
-    // also need to remove subscriptions
-    mapper_subscription *s = &mon->subscriptions;
-    while (*s) {
-        if (!mapper_db_get_device_by_name(&mon->db, (*s)->name)) {
-            // don't bother sending '/unsubscribe' since device is unresponsive
-            // remove from subscriber list
-            mapper_subscription temp = *s;
-            *s = temp->next;
-            if (temp->name)
-                free(temp->name);
-            free(temp);
+    mapper_db_device dev;
+    uint32_t last_ping = mon->admin->clock.now.sec - timeout_sec;
+    while ((dev = mapper_db_get_expired_device(&mon->db, last_ping))) {
+        // also need to remove subscriptions
+        mapper_subscription *s = &mon->subscriptions;
+        while (*s) {
+            if ((*s)->device == dev) {
+                // don't bother sending '/unsubscribe' since device is unresponsive
+                // remove from subscriber list
+                mapper_subscription temp = *s;
+                *s = temp->next;
+                free(temp);
+            }
+            else
+                s = &(*s)->next;
         }
-        else
-            s = &(*s)->next;
+        mapper_db_remove_device(&mon->db, dev, quiet);
     }
 }
 

@@ -12,6 +12,12 @@
 
 int verbose = 1;
 
+void printdevice(mapper_db_device dev)
+{
+    eprintf("  name=%s, host=%s, port=%d, hash=%llu\n",
+            dev->name, dev->host, dev->port, dev->hash);
+}
+
 void printsignal(mapper_db_signal sig)
 {
     eprintf("  name='%s':'%s', type=%c, length=%d",
@@ -77,6 +83,7 @@ int main(int argc, char **argv)
     int port=1234;
     int one_i=1, two_i=2;
     float zero_f=0.f, one_f=1.f, two_f=2.f;
+    uint64_t hash = 1;
     mapper_db_t db_t, *db = &db_t;
     memset(db, 0, sizeof(db_t));
 
@@ -84,7 +91,7 @@ int main(int argc, char **argv)
 
     args[0] = (lo_arg*)"@port";
     args[1] = (lo_arg*)&port;
-    args[2] = (lo_arg*)"@IP";
+    args[2] = (lo_arg*)"@host";
     args[3] = (lo_arg*)"localhost";
 
     if (!mapper_msg_parse_params(&msg, "/registered", "siss", 4, args))
@@ -96,56 +103,70 @@ int main(int argc, char **argv)
 
     mapper_db_add_or_update_device_params(db, "testdb.1", &msg, 0);
     mapper_db_add_or_update_device_params(db, "testdb__.2", &msg, 0);
+
+    port = 3000;
+    args[3] = (lo_arg*)"192.168.0.100";
     mapper_db_add_or_update_device_params(db, "testdb.3", &msg, 0);
+    port = 5678;
     mapper_db_add_or_update_device_params(db, "testdb__.4", &msg, 0);
 
     args[0] = (lo_arg*)"@direction";
     args[1] = (lo_arg*)"input";
     args[2] = (lo_arg*)"@type";
     args[3] = (lo_arg*)"f";
-    args[4] = (lo_arg*)"@IP";
-    args[5] = (lo_arg*)"localhost";
+    args[4] = (lo_arg*)"@hash";
+    args[5] = (lo_arg*)&hash;
 
     if (!mapper_msg_parse_params(&msg, "testdb.1/signal",
-                                 "ssssss", 6, args))
+                                 "ssscsh", 6, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
+    hash++;
     mapper_db_add_or_update_signal_params(db, "in1", "testdb.1", &msg);
+    hash++;
     mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", &msg);
+    hash++;
     mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", &msg);
-    
+
     args[1] = (lo_arg*)"output";
-    
+
     if (!mapper_msg_parse_params(&msg, "testdb.1/signal",
-                                 "ssscss", 6, args))
+                                 "ssscsh", 6, args))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
-
+    hash++;
     mapper_db_add_or_update_signal_params(db, "out1", "testdb.1", &msg);
+    hash++;
     mapper_db_add_or_update_signal_params(db, "out2", "testdb.1", &msg);
+    hash++;
     mapper_db_add_or_update_signal_params(db, "out1", "testdb__.2", &msg);
 
     args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"bypass";
     args[2] = (lo_arg*)"@boundMin";
     args[3] = (lo_arg*)"none";
+    args[4] = (lo_arg*)"@hash";
+    args[5] = (lo_arg*)&hash;
 
-    if (!mapper_msg_parse_params(&msg, "/mapped", "ssss", 4, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssh", 6, args))
     {
         eprintf("4: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
+    hash++;
     const char *src_sig_name = "testdb.1/out2";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
+
+    hash++;
     src_sig_name = "testdb__.2/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb.1/in1", &msg);
 
@@ -165,16 +186,21 @@ int main(int argc, char **argv)
     args[13] = (lo_arg*)"@srcMax";
     args[14] = (lo_arg*)&one_f;
     args[15] = (lo_arg*)&two_f;
+    args[16] = (lo_arg*)"@hash";
+    args[17] = (lo_arg*)&hash;
 
-    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssisssffsff", 16, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssisssffsffsh", 18, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
+    hash++;
     src_sig_name = "testdb.1/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in2", &msg);
+
+    hash++;
     src_sig_name = "testdb.1/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
 
@@ -183,17 +209,20 @@ int main(int argc, char **argv)
     args[8] = (lo_arg*)&two_i;
     args[9] = (lo_arg*)"@destLength";
     args[10] = (lo_arg*)&one_i;
-    args[11] = (lo_arg*)"srcType";
+    args[11] = (lo_arg*)"@srcType";
     args[12] = (lo_arg*)"f";
     args[13] = (lo_arg*)"i";
+    args[14] = (lo_arg*)"@hash";
+    args[15] = (lo_arg*)&hash;
 
-    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssiisisss", 14, args))
+    if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssiisissssh", 16, args))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
+    hash++;
     const char *multi_source[] = {"testdb__.2/out1", "testdb__.2/out2"};
     mapper_db_add_or_update_map_params(db, 2, multi_source, "testdb.1/in2", &msg);
 
@@ -209,15 +238,15 @@ int main(int argc, char **argv)
     eprintf("\n--- Devices ---\n");
 
     eprintf("\nWalk the whole database:\n");
-    mapper_db_device *pdev = mapper_db_get_all_devices(db);
+    mapper_db_device *pdev = mapper_db_get_devices(db);
     int count=0;
     if (!pdev) {
-        eprintf("mapper_db_get_all_devices() returned 0.\n");
+        eprintf("mapper_db_get_devices() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pdev) {
-        eprintf("mapper_db_get_all_devices() returned something "
+        eprintf("mapper_db_get_devices() returned something "
                "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -225,8 +254,7 @@ int main(int argc, char **argv)
 
     while (pdev) {
         count ++;
-        eprintf("  name=%s, host=%s, port=%d\n",
-               (*pdev)->name, (*pdev)->host, (*pdev)->port);
+        printdevice(*pdev);
         pdev = mapper_db_device_next(pdev);
     }
 
@@ -238,7 +266,7 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind 'testdb.3':\n");
+    eprintf("\nFind device named 'testdb.3':\n");
 
     mapper_db_device dev = mapper_db_get_device_by_name(db, "testdb.3");
     if (!dev) {
@@ -247,12 +275,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    eprintf("  name=%s, host=%s, port=%d\n",
-            dev->name, dev->host, dev->port);
+    printdevice(dev);
 
     /*********/
 
-    eprintf("\nFind 'dummy':\n");
+    eprintf("\nFind device named 'dummy':\n");
 
     dev = mapper_db_get_device_by_name(db, "dummy");
     if (dev) {
@@ -264,18 +291,18 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind matching '__':\n");
+    eprintf("\nFind devices matching '__':\n");
 
-    pdev = mapper_db_match_devices_by_name(db, "__");
+    pdev = mapper_db_get_devices_by_name_match(db, "__");
 
     count=0;
     if (!pdev) {
-        eprintf("mapper_db_match_device_by_name() returned 0.\n");
+        eprintf("mapper_db_get_devices_by_name_match() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pdev) {
-        eprintf("mapper_db_match_device_by_name() returned something "
+        eprintf("mapper_db_get_devices_by_name_match() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -283,8 +310,7 @@ int main(int argc, char **argv)
 
     while (pdev) {
         count ++;
-        eprintf("  name=%s, host=%s, port=%d\n",
-                (*pdev)->name, (*pdev)->host, (*pdev)->port);
+        printdevice(*pdev);
         pdev = mapper_db_device_next(pdev);
     }
 
@@ -296,21 +322,148 @@ int main(int argc, char **argv)
 
     /*********/
 
+    eprintf("\nFind devices with property 'host'=='192.168.0.100':\n");
+
+    pdev = mapper_db_get_devices_by_property(db, "host", 's', 1,
+                                             "192.168.0.100", 0);
+
+    count=0;
+    if (!pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned something "
+                "which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (pdev) {
+        count ++;
+        printdevice(*pdev);
+        pdev = mapper_db_device_next(pdev);
+    }
+
+    if (count != 2) {
+        eprintf("Expected 2 records, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    eprintf("\nFind devices with property 'port'<5678:\n");
+
+    pdev = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, "<");
+
+    count=0;
+    if (!pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned something "
+                "which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (pdev) {
+        count ++;
+        printdevice(*pdev);
+        pdev = mapper_db_device_next(pdev);
+    }
+
+    if (count != 3) {
+        eprintf("Expected 3 records, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    eprintf("\nFind devices with property 'num_outputs'==2:\n");
+    int temp = 2;
+    pdev = mapper_db_get_devices_by_property(db, "num_outputs", 'i', 1, &temp, "==");
+
+    count=0;
+    if (!pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned something "
+                "which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (pdev) {
+        count ++;
+        printdevice(*pdev);
+        pdev = mapper_db_device_next(pdev);
+    }
+
+    if (count != 1) {
+        eprintf("Expected 1 records, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    eprintf("\nFind devices with properties 'host'!='localhost' && 'port'>=4000:\n");
+
+    mapper_db_device *d1 = mapper_db_get_devices_by_property(db, "host", 's', 1, "localhost", "!=");
+    mapper_db_device *d2 = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, ">=");
+    pdev = mapper_db_combine_device_queries(db, d1, d2, "&&");
+
+    count=0;
+    if (!pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*pdev) {
+        eprintf("mapper_db_get_devices_by_property() returned something "
+                "which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (pdev) {
+        count ++;
+        printdevice(*pdev);
+        pdev = mapper_db_device_next(pdev);
+    }
+
+    if (count != 1) {
+        eprintf("Expected 1 record, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
     eprintf("\n--- Signals ---\n");
 
     eprintf("\nFind all inputs for device 'testdb.1':\n");
 
     mapper_db_signal *psig =
-        mapper_db_get_inputs_by_device_name(db, "testdb.1");
+        mapper_db_get_device_inputs(db, mapper_db_get_device_by_name(db, "testdb.1"));
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_get_inputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_inputs() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_get_inputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_inputs() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -332,16 +485,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all outputs for device 'testdb.1':\n");
 
-    psig = mapper_db_get_outputs_by_device_name(db, "testdb.1");
+    psig = mapper_db_get_device_outputs(db, mapper_db_get_device_by_name(db, "testdb.1"));
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_get_outputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_outputs() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_get_outputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_outputs() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -363,12 +516,11 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all inputs for device 'testdb__xx.2':\n");
 
-    psig = mapper_db_get_inputs_by_device_name(db, "testdb__xx.2");
+    psig = mapper_db_get_device_inputs(db, mapper_db_get_device_by_name(db, "testdb__xx.2"));
 
     count=0;
     if (psig) {
-        eprintf("mapper_db_get_inputs_by_device_name() "
-                "incorrectly found something.\n");
+        eprintf("mapper_db_get_device_inputs() incorrectly found something.\n");
         printsignal(*psig);
         result = 1;
         goto done;
@@ -380,16 +532,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all outputs for device 'testdb__.2':\n");
 
-    psig = mapper_db_get_outputs_by_device_name(db, "testdb__.2");
+    psig = mapper_db_get_device_outputs(db, mapper_db_get_device_by_name(db, "testdb__.2"));
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_get_outputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_outputs() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_get_outputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_outputs() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -411,16 +563,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching input 'in' for device 'testdb.1':\n");
 
-    psig = mapper_db_match_inputs_by_device_name(db, "testdb.1", "in");
+    psig = mapper_db_get_device_inputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb.1"), "in");
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_match_inputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_inputs_by_name_match() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_match_inputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_inputs_by_name_match() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -442,16 +594,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching output 'out' for device 'testdb.1':\n");
 
-    psig = mapper_db_match_outputs_by_device_name(db, "testdb.1", "out");
+    psig = mapper_db_get_device_outputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb.1"), "out");
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_match_outputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_outputs_by_name_match() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_match_outputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_outputs_by_name_match() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -473,16 +625,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching output 'out' for device 'testdb__.2':\n");
 
-    psig = mapper_db_match_outputs_by_device_name(db, "testdb__.2", "out");
+    psig = mapper_db_get_device_outputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb__.2"), "out");
 
     count=0;
     if (!psig) {
-        eprintf("mapper_db_match_outputs_by_device_name() returned 0.\n");
+        eprintf("mapper_db_get_device_outputs_by_name_match() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
-        eprintf("mapper_db_match_outputs_by_device_name() returned something "
+        eprintf("mapper_db_get_device_outputs_by_name_match() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -506,16 +658,22 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with source 'out1':\n");
 
-    mapper_db_map* pmap = mapper_db_get_maps_by_src_signal_name(db, "out1");
+    psig = mapper_db_get_signals_by_name(db, "out1");
+    mapper_db_map* pmap = 0;
+    while (psig) {
+        mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
+        pmap = mapper_db_combine_map_queries(db, pmap, temp, "||");
+        psig = mapper_db_signal_next(psig);
+    }
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_src_signal_name() returned 0.\n");
+        eprintf("mapper_db_get_signal_outgoing_maps() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_src_signal_name() returned something "
+        eprintf("mapper_db_get_signal_outgoing_maps() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -537,16 +695,18 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps for device 'testdb.1', source 'out1':\n");
 
-    pmap = mapper_db_get_maps_by_src_device_and_signal_names(db, "testdb.1", "out1");
+    dev = mapper_db_get_device_by_name(db, "testdb.1");
+    mapper_db_signal sig = mapper_db_get_device_signal_by_name(db, dev, "out1");
+    pmap = mapper_db_get_signal_maps(db, sig);
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_src_device_and_signal_names() returned 0.\n");
+        eprintf("mapper_db_get_signal_maps() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_src_device_and_signal_names() "
+        eprintf("mapper_db_get_signal_maps() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
@@ -568,16 +728,22 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with destination 'in2':\n");
 
-    pmap = mapper_db_get_maps_by_dest_signal_name(db, "in2");
+    psig = mapper_db_get_signals_by_name(db, "in2");
+    pmap = 0;
+    while (psig) {
+        mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
+        pmap = mapper_db_combine_map_queries(db, pmap, temp, "||");
+        psig = mapper_db_signal_next(psig);
+    }
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_dest_signal_name() returned 0.\n");
+        eprintf("mapper_db_get_signal_incoming_maps() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_dest_signal_name() returned something "
+        eprintf("mapper_db_get_signal_incoming_maps() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -597,19 +763,20 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind maps for device 'testdb__.2', "
-            "destination 'in1':\n");
+    eprintf("\nFind maps for device 'testdb__.2', destination 'in1':\n");
 
-    pmap = mapper_db_get_maps_by_dest_device_and_signal_names(db, "testdb__.2", "in1");
+    dev = mapper_db_get_device_by_name(db, "testdb__.2");
+    sig = mapper_db_get_device_signal_by_name(db, dev, "in1");
+    pmap = mapper_db_get_signal_incoming_maps(db, sig);
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_dest_device_and_signal_names() returned 0.\n");
+        eprintf("mapper_db_get_signal_incoming_maps() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_dest_device_and_signal_names() "
+        eprintf("mapper_db_get_signal_incoming_maps() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
@@ -629,13 +796,22 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind maps for source device 'testdb__.2', signal 'out1',"
-            "\n          and dest device 'testdb.1', signal 'in1':\n");
+    eprintf("\nFind maps for source device 'testdb__.2', signal 'out1'"
+            "\n          AND dest device 'testdb.1', signal 'in1':\n");
 
-    const char *src_dev_name = "testdb__.2";
-    src_sig_name = "out1";
-    pmap = mapper_db_get_maps_by_device_and_signal_names(db, 1, &src_dev_name,
-                                                         &src_sig_name, "testdb.1", "in1");
+    // get source signal
+    dev = mapper_db_get_device_by_name(db, "testdb__.2");
+    mapper_db_signal src_sig = mapper_db_get_device_signal_by_name(db, dev, "out1");
+
+    // get destination signal
+    dev = mapper_db_get_device_by_name(db, "testdb.1");
+    mapper_db_signal dst_sig = mapper_db_get_device_signal_by_name(db, dev, "in1");
+
+    // get maps
+    pmap = mapper_db_combine_map_queries(db,
+                                         mapper_db_get_signal_outgoing_maps(db, src_sig),
+                                         mapper_db_get_signal_incoming_maps(db, dst_sig),
+                                         "&&");
 
     count=0;
     if (!pmap) {
@@ -665,11 +841,30 @@ int main(int argc, char **argv)
     /*********/
 
     eprintf("\nFind maps for source device 'testdb__.2', signals matching 'out',"
-            "\n          and dest device 'testdb.1', all signals:\n");
+            "\n          AND dest device 'testdb.1', all signals:\n");
 
-    pmap = mapper_db_get_maps_by_signal_queries(db,
-        mapper_db_match_outputs_by_device_name(db, "testdb__.2", "out"),
-        mapper_db_get_inputs_by_device_name(db, "testdb.1"));
+    mapper_db_map *src_pmap = 0, *dst_pmap = 0;
+
+    // build combined source query
+    dev = mapper_db_get_device_by_name(db, "testdb__.2");
+    psig = mapper_db_get_device_signals_by_name_match(db, dev, "out");
+    while (psig) {
+        mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
+        src_pmap = mapper_db_combine_map_queries(db, src_pmap, temp, "||");
+        psig = mapper_db_signal_next(psig);
+    }
+
+    // build combined destination query
+    dev = mapper_db_get_device_by_name(db, "testdb.1");
+    psig = mapper_db_get_device_signals(db, dev);
+    while (psig) {
+        mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
+        dst_pmap = mapper_db_combine_map_queries(db, dst_pmap, temp, "||");
+        psig = mapper_db_signal_next(psig);
+    }
+
+    // combine source and destination queries
+    pmap = mapper_db_combine_map_queries(db, src_pmap, dst_pmap, "&&");
 
     count=0;
     if (!pmap) {
@@ -699,7 +894,7 @@ int main(int argc, char **argv)
     /*********/
 done:
     while (db->registered_devices)
-        mapper_db_remove_device_by_name(db, db->registered_devices->name);
+        mapper_db_remove_device(db, db->registered_devices, 1);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

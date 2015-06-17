@@ -250,7 +250,7 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered devices and signals:\n");
-        mapper_db_device *pdev = mapper_db_get_all_devices(db), tempdev;
+        mapper_db_device *pdev = mapper_db_get_devices(db), tempdev;
         mapper_db_signal *psig, tempsig;
         while (pdev) {
             tempdev = *pdev;
@@ -258,7 +258,7 @@ void loop()
             printdevice(tempdev);
 
             int numsigs = tempdev->num_outputs;
-            psig = mapper_db_get_outputs_by_device_name(db, tempdev->name);
+            psig = mapper_db_get_device_outputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
@@ -266,7 +266,7 @@ void loop()
                 printsignal(tempsig);
             }
             numsigs = tempdev->num_inputs;
-            psig = mapper_db_get_inputs_by_device_name(db, tempdev->name);
+            psig = mapper_db_get_device_inputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
@@ -278,7 +278,7 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered maps:\n");
-        mapper_db_map *pmap = mapper_db_get_all_maps(db);
+        mapper_db_map *pmap = mapper_db_get_maps(db);
         while (pmap) {
             printmap(*pmap);
             pmap = mapper_db_map_next(pmap);

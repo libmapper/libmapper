@@ -142,26 +142,22 @@ typedef struct _mapper_admin_subscriber {
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_admin {
-    int random_id;                    /*!< Random ID for allocation
-                                           speedup. */
+    int random_id;                    /*!< Random ID for allocation speedup. */
     lo_server_thread bus_server;      /*!< LibLo server thread for the
                                        *   admin bus. */
     int msgs_recvd;                   /*!< Number of messages received on the
                                            admin bus. */
-    lo_address bus_addr;              /*!< LibLo address for the admin
-                                       *   bus. */
+    lo_address bus_addr;              /*!< LibLo address for the admin bus. */
     lo_server_thread mesh_server;     /*!< LibLo server thread for the
                                        *   admin mesh. */
-    char *interface_name;             /*!< The name of the network
-                                       *   interface for receiving
-                                       *   messages. */
+    char *interface_name;             /*!< The name of the network interface
+                                       *   for receiving messages. */
     struct in_addr interface_ip;      /*!< The IP address of interface. */
     struct _mapper_device *device;    /*!< Device that this admin is
                                        *   in charge of. */
     struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
                                        *   in charge of. */
-    mapper_clock_t clock;             /*!< Clock for providing global
-                                       *   time syncronization. */
+    mapper_clock_t clock;             /*!< Clock for processing timed events. */
     lo_bundle bundle;                 /*!< Bundle pointer for sending
                                        *   messages on the admin bus. */
     lo_address bundle_dest;
@@ -286,10 +282,8 @@ typedef struct _mapper_router_signal {
 
 /*! The router structure. */
 typedef struct _mapper_router {
-    struct _mapper_device *device;  /*!< The device associated with
-                                     *   this link */
+    struct _mapper_device *device;  //!< The device associated with this link.
     mapper_router_signal signals;   //!< The list of mappings for each signal.
-    int id_counter;
     mapper_link links;              //!< The list of links to other devices.
 } *mapper_router;
 
@@ -301,7 +295,7 @@ typedef struct _mapper_id_map {
     uint32_t public;                        //!< Public instance id to map.
     int refcount_local;
     int refcount_remote;
-    struct _mapper_id_map *next;   //!< The next id map in the list.
+    struct _mapper_id_map *next;            //!< The next id map in the list.
 } *mapper_id_map;
 
 /**** Device ****/
@@ -337,9 +331,9 @@ typedef struct _mapper_db {
 } mapper_db_t, *mapper_db;
 
 typedef struct _mapper_subscription {
-    char                                *name;
-    int                                 flags;
-    uint32_t                            lease_expiration_sec;
+    mapper_db_device device;
+    int flags;
+    uint32_t lease_expiration_sec;
     struct _mapper_subscription *next;
 } *mapper_subscription;
 
@@ -378,9 +372,9 @@ typedef enum {
     AT_DEST_TYPE,
     AT_DIRECTION,
     AT_EXPRESSION,
-    AT_ID,
+    AT_HASH,
+    AT_HOST,
     AT_INSTANCES,
-    AT_IP,
     AT_LENGTH,
     AT_LIB_VERSION,
     AT_MAX,

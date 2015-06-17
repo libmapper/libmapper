@@ -19,9 +19,6 @@ libmapper concepts.
 
  */
 
-typedef mapper_db_device mapper_device_props;
-typedef mapper_db_signal mapper_signal_props;
-
 /*** Signals ***/
 
 /*! @defgroup signals Signals
@@ -40,6 +37,7 @@ struct _mapper_map;
 
 /*! The set of possible directions for a signal or mapping slot. */
 typedef enum {
+    DI_ANY      = 0x00,
     DI_OUTGOING = 0x01,
     DI_INCOMING = 0x02,
     DI_BOTH     = 0x03,
@@ -500,7 +498,7 @@ mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
 /*! Get a device's property structure.
  *  \param dev  The device to operate on.
  *  \return     A structure containing the device's properties. */
-mapper_device_props mdev_properties(mapper_device dev);
+mapper_db_device mdev_properties(mapper_device dev);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
@@ -585,7 +583,7 @@ const char *mdev_name(mapper_device dev);
  *  \param  dev The device to query.
  *  \return An integer indicating the device's hash, or zero if it is
  *          not available. */
-unsigned int mdev_hash(mapper_device dev);
+uint64_t mdev_hash(mapper_device dev);
 
 /*! Return the port used by a device to receive signals, if available.
  *  \param dev The device to query.
@@ -692,8 +690,8 @@ const char *mapper_admin_libversion(mapper_admin admin);
     @{ A monitor may query information about devices on the network
        through this interface. */
 
-/*! The set of possible actions on a database record, used
- *  to inform callbacks of what is happening to a record. */
+/*! The set of possible actions on a database record, used to inform callbacks
+ *  of what is happening to a record. */
 typedef enum {
     MDB_MODIFY,
     MDB_NEW,
@@ -701,81 +699,105 @@ typedef enum {
     MDB_UNRESPONSIVE,
 } mapper_db_action_t;
 
-/*! A callback function prototype for when a device record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_device_callback().
- *  \param record  Pointer to the device record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_device_handler(mapper_db_device record,
+/*! A callback function prototype for when a device record is added or updated.
+ *  Such a function is passed in to mapper_db_add_device_callback().
+ *  \param dev      The device record.
+ *  \param action   A value of mapper_db_action_t indicating what is happening
+ *                  to the database record.
+ *  \param user     The user context pointer registered with this callback. */
+typedef void mapper_db_device_handler(mapper_db_device dev,
                                       mapper_db_action_t action,
                                       void *user);
 
 /*! Register a callback for when a device record is added or updated
  *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     A user-defined pointer to be passed to the callback
+ *                  for context . */
 void mapper_db_add_device_callback(mapper_db db,
                                    mapper_db_device_handler *h,
                                    void *user);
 
 /*! Remove a device record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     The user context pointer that was originally specified
+ *                  when adding the callback. */
 void mapper_db_remove_device_callback(mapper_db db,
                                       mapper_db_device_handler *h,
                                       void *user);
 
 /*! Return the whole list of devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of devices,
- *          or zero if none.  Use mapper_db_device_next() to
- *          iterate. */
-mapper_db_device_t **mapper_db_get_all_devices(mapper_db db);
+ *  \param db       The database to query.
+ *  \return         A double-pointer to the first item in the list of devices,
+ *                  or zero if none.  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_get_devices(mapper_db db);
 
 /*! Find information for a registered device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \return            Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_name(mapper_db db,
-                                              const char *device_name);
+ *  \param db       The database to query.
+ *  \param name     Name of the device to find in the database.
+ *  \return         Information about the device, or zero if not found. */
+mapper_db_device mapper_db_get_device_by_name(mapper_db db, const char *name);
 
 /*! Look up information for a registered device using a hash of its name.
- *  \param db   The database to query.
- *  \param hash CRC-32 name hash of the device to find in the database.
- *  \return     Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint32_t hash);
+ *  \param db       The database to query.
+ *  \param hash     Unique hash identifying the device to find in the database.
+ *  \return         Information about the device, or zero if not found. */
+mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint64_t hash);
 
 /*! Return the list of devices with a substring in their name.
- *  \param db             The database to query.
- *  \param device_pattern The substring to search for.
- *  \return    A double-pointer to the first item in a list of matching
- *             devices.  Use mapper_db_device_next() to iterate. */
-mapper_db_device_t **mapper_db_match_devices_by_name(mapper_db db,
-                                                     const char *device_pattern);
+ *  \param db       The database to query.
+ *  \param pattern  The substring to search for.
+ *  \return         A double-pointer to the first item in a list of matching
+ *                  devices.  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_get_devices_by_name_match(mapper_db db,
+                                                      const char *pattern);
+
+/*! Return the list of devices matching the given property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
+                                                    const char *property,
+                                                    char type, int length,
+                                                    const void *value,
+                                                    const char *op);
+
+/*! Combine two device queries
+ *  \param db       The database to query.
+ *  \param query1   The first device query.
+ *  \param query2   The second device query.
+ *  \param op       A string specifying the composition operator, can be "&&"
+ *                  or "||".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_combine_device_queries(mapper_db db,
+                                                   mapper_db_device *query1,
+                                                   mapper_db_device *query2,
+                                                   const char *op);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_return_*() call, get the next item in the list.
- *  \param s The previous device record pointer.
- *  \return  A double-pointer to the next device record in the list, or
- *           zero if no more devices. */
-mapper_db_device_t **mapper_db_device_next(mapper_db_device_t **s);
+ *  \param d        The previous device record pointer.
+ *  \return         A double-pointer to the next device record in the list, or
+ *                  zero if no more devices. */
+mapper_db_device *mapper_db_device_next(mapper_db_device *d);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous device record pointer. */
-void mapper_db_device_done(mapper_db_device_t **s);
-
+ *  \param d        The previous device record pointer. */
+void mapper_db_device_done(mapper_db_device *d);
 
 /*! Look up a device property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
- *  \param dev      The device to look at.
+ *  \param dev      The device record to look at.
  *  \param index    Numerical index of a device property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
@@ -791,7 +813,7 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     const void **value, int *length);
 
 /*! Look up a device property by name.
- *  \param dev      The device to look at.
+ *  \param dev      The device record to look at.
  *  \param property The name of the property to retrieve.
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
@@ -820,165 +842,246 @@ void mapper_prop_pp(char type, int length, const void *value);
        through this interface. It is also used by local signals to
        store property information. */
 
-/*! A callback function prototype for when a signal record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_signal_callback().
- *  \param record  Pointer to the signal record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_signal_handler(mapper_db_signal record,
+/*! A callback function prototype for when a signal record is added or updated.
+ *  Such a function is passed in to mapper_db_add_signal_callback().
+ *  \param sig      The signal record.
+ *  \param action   A value of mapper_db_action_t indicating what
+ *                  is happening to the database record.
+ *  \param user     The user context pointer registered with this callback. */
+typedef void mapper_db_signal_handler(mapper_db_signal sig,
                                       mapper_db_action_t action,
                                       void *user);
 
 /*! Register a callback for when a signal record is added or updated
  *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     A user-defined pointer to be passed to the callback
+ *                  for context . */
 void mapper_db_add_signal_callback(mapper_db db,
                                    mapper_db_signal_handler *h,
                                    void *user);
 
 /*! Remove a signal record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     The user context pointer that was originally specified
+ *                  when adding the callback. */
 void mapper_db_remove_signal_callback(mapper_db db,
                                       mapper_db_signal_handler *h,
                                       void *user);
 
+/*! Return the list of all known signals across all devices.
+ *  \param db       The database to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_signals(mapper_db db);
+
 /*! Return the list of all known inputs across all devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db);
+ *  \param db       The database to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_inputs(mapper_db db);
 
 /*! Return the list of all known outputs across all devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_get_all_outputs(mapper_db db);
+ *  \param db       The database to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_outputs(mapper_db db);
 
 /*! Return the list of signals for a given device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to match for signals.  Must
- *                     be exact, including the leading '/'.
- *  \return A double-pointer to the first item in the list of
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_get_signals_by_device_name(
-    mapper_db db, const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_signals(mapper_db db, mapper_db_device dev);
 
 /*! Return the list of inputs for a given device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to match for outputs.  Must
- *                     be exact, including the leading '/'.
- *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
-    mapper_db db, const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_inputs(mapper_db db, mapper_db_device dev);
 
 /*! Return the list of outputs for a given device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to match for outputs.  Must
- *                     be exact, including the leading '/'.
- *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
-    mapper_db db, const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_outputs(mapper_db db, mapper_db_device dev);
+
+/*! Find information for registered signals.
+ *  \param db       The database to query.
+ *  \param sig_name Name of the signal to find in the database.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_signals_by_name(mapper_db db,
+                                                const char *sig_name);
+
+/*! Find information for registered input signals.
+ *  \param db       The database to query.
+ *  \param sig_name Name of the input signal to find in the database.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_inputs_by_name(mapper_db db,
+                                               const char *sig_name);
+
+/*! Find information for registered output signals.
+ *  \param db       The database to query.
+ *  \param sig_name Name of the output signal to find in the database.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_outputs_by_name(mapper_db db,
+                                                char const *sig_name);
+
+/*! Find information for registered signals.
+ *  \param db       The database to query.
+ *  \param pattern  The substring to search for.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_signals_by_name_match(mapper_db db,
+                                                      const char *pattern);
+
+/*! Find information for registered input signals.
+ *  \param db       The database to query.
+ *  \param pattern  The substring to search for.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_inputs_by_name_match(mapper_db db,
+                                                     const char *pattern);
+
+/*! Find information for registered output signals.
+ *  \param db       The database to query.
+ *  \param pattern  The substring to search for.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_outputs_by_name_match(mapper_db db,
+                                                      char const *pattern);
+
+/*! Return the list of signals matching the given property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_signals_by_property(mapper_db db,
+                                                    const char *property,
+                                                    char type, int length,
+                                                    const void *value,
+                                                    const char *op);
 
 /*! Find information for a registered input signal.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \param signal_name Name of the signal to find in the database.
- *  \return            Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_signal_by_device_and_signal_names(
-    mapper_db db, const char *device_name, const char *signal_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param sig_name Name of the signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_signal_by_name(mapper_db db,
+                                                     mapper_db_device dev,
+                                                     const char *sig_name);
 
 /*! Find information for a registered input signal.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \param signal_name Name of the input signal to find in the database.
- *  \return            Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
-    mapper_db db, const char *device_name, const char *signal_name);
+ *  \param db       The database to query.
+ *  \param dev      Device recordto query.
+ *  \param sig_name Name of the input signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_input_by_name(mapper_db db,
+                                                    mapper_db_device dev,
+                                                    const char *sig_name);
 
 /*! Find information for a registered output signal.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \param signal_name Name of the output signal to find in the database.
- *  \return            Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
-    mapper_db db, const char *device_name, char const *signal_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param sig_name Name of the output signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_output_by_name(mapper_db db,
+                                                     mapper_db_device dev,
+                                                     char const *sig_name);
 
 /*! Find information for a registered input signal.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to find in the database.
- *  \param index        Index of the signal to find in the database.
- *  \return             Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_signal_by_device_name_and_index(
-    mapper_db db, const char *device_name, int index);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param index    Index of the signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_signal_by_index(mapper_db db,
+                                                      mapper_db_device dev,
+                                                      int index);
 
 /*! Find information for a registered input signal.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to find in the database.
- *  \param index        Index of the input signal to find in the database.
- *  \return             Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_input_by_device_name_and_index(
-    mapper_db db, const char *device_name, int index);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param index    Index of the input signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_input_by_index(mapper_db db,
+                                                     mapper_db_device dev,
+                                                     int index);
 
 /*! Find information for a registered output signal.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to find in the database.
- *  \param index        Index of the output signal to find in the database.
- *  \return             Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_output_by_device_name_and_index(
-    mapper_db db, const char *device_name, int index);
-
-/*! Return the list of inputs for a given device.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to match for inputs.
- *  \param pattern      A substring to search for in the device inputs.
- *  \return A double-pointer to the first item in the list of input signals,
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
-    mapper_db db, const char *device_name, const char *pattern);
-
-/*! Return the list of outputs for a given device.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to match for outputs.
- *  \param pattern      A substring to search for in the device outputs.
- *  \return A double-pointer to the first item in the list of output signals,
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
-    mapper_db db, const char *device_name, char const *pattern);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param index    Index of the output signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_device_output_by_index(mapper_db db,
+                                                      mapper_db_device dev,
+                                                      int index);
 
 /*! Return the list of signals for a given device.
- *  \param db           The database to query.
- *  \param device_name  Name of the device to match for signals.
- *  \param pattern      A substring to search for in the device signals.
- *  \return A double-pointer to the first item in the list of signals, or zero
- *          if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_match_signals_by_device_name(
-    mapper_db db, const char *device_name, char const *pattern);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param pattern  A substring to search for in the device signals.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_signals_by_name_match(mapper_db db,
+                                                             mapper_db_device dev,
+                                                             char const *pattern);
+
+/*! Return the list of inputs for a given device.
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param pattern  A substring to search for in the device inputs.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_inputs_by_name_match(mapper_db db,
+                                                            mapper_db_device dev,
+                                                            const char *pattern);
+
+/*! Return the list of outputs for a given device.
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \param pattern  A substring to search for in the device outputs.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
+                                                             mapper_db_device dev,
+                                                             char const *pattern);
+
+/*! Combine two signal queries
+ *  \param db       The database to query.
+ *  \param query1   The first signal query.
+ *  \param query2   The second signal query.
+ *  \param op       A string specifying the composition operator, can be "&&"
+ *                  or "||".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_combine_signal_queries(mapper_db db,
+                                                   mapper_db_signal *query1,
+                                                   mapper_db_signal *query2,
+                                                   const char *op);
 
 /*! Given a signal record pointer returned from a previous
  *  mapper_db_get_*() call, get the next item in the list.
  *  \param  s The previous signal record pointer.
  *  \return A double-pointer to the next signal record in the list, or
  *          zero if no more signals. */
-mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t **s);
+mapper_db_signal *mapper_db_signal_next(mapper_db_signal *s);
 
 /*! Given a signal record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
  *  \param s The previous signal record pointer. */
-void mapper_db_signal_done(mapper_db_signal_t **s);
+void mapper_db_signal_done(mapper_db_signal *s);
 
 /*! Look up a signal property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1017,201 +1120,191 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
 
 /*! @defgroup mapdb Maps database
 
-    @{ A monitor may query information about maps between
-       signals on the network through this interface.  It is also used
-       to specify properties during mapping requests. */
+    @{ A monitor may query information about maps between signals on the network
+       through this interface.  It is also used to specify properties during
+       mapping requests. */
 
-/*! A callback function prototype for when a map record is
- *  added or updated in the database. Such a function is passed in to
- *  mapper_db_add_map_callback().
- *  \param record  Pointer to the map record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_map_handler(mapper_db_map record,
+/*! A callback function prototype for when a map record is added or updated in
+ *  the database. Such a function is passed in to mapper_db_add_map_callback().
+ *  \param map      The map record.
+ *  \param action   A value of mapper_db_action_t indicating what
+ *                  is happening to the database record.
+ *  \param user     The user context pointer registered with this callback. */
+typedef void mapper_db_map_handler(mapper_db_map map,
                                    mapper_db_action_t action, void *user);
 
-/*! Register a callback for when a map record is added or
- *  updated in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
+/*! Register a callback for when a map record is added or updated.
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     A user-defined pointer to be passed to the callback
+ *                  for context . */
 void mapper_db_add_map_callback(mapper_db db, mapper_db_map_handler *h,
                                 void *user);
 
 /*! Remove a map record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
+ *  \param db       The database to query.
+ *  \param h        Callback function.
+ *  \param user     The user context pointer that was originally specified
+ *                  when adding the callback. */
 void mapper_db_remove_map_callback(mapper_db db, mapper_db_map_handler *h,
                                    void *user);
 
 /*! Return a list of all registered maps.
- *  \param db The database to query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_all_maps(mapper_db db);
+ *  \param db       The database to query.
+ *  \return         A double-pointer to the first item in the list of results,
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps(mapper_db db);
 
 /*! Return the map that match the given map hash.
- *  \param db          The database to query.
- *  \param hash        map hash.
- *  \return A pointer to a structure containing information on the
- *          found map, or 0 if not found. */
-mapper_db_map mapper_db_get_map_by_hash(mapper_db db, uint32_t hash);
+ *  \param db       The database to query.
+ *  \param hash     Unique hash identifying the map.
+ *  \return         A pointer to a structure containing information on the
+ *                  found map, or 0 if not found. */
+mapper_db_map mapper_db_get_map_by_hash(mapper_db db, uint64_t hash);
 
-/*! Return the map that match the given id.
- *  \param db          The database to query.
- *  \param device_name Name of destination device.
- *  \param int         ID of the map to retrieve.
- *  \return A pointer to a structure containing information on the
- *          found map, or 0 if not found. */
-mapper_db_map mapper_db_get_map_by_dest_device_and_id(
-    mapper_db db, const char *device_name, int id);
+/*! Return the list of maps matching the given property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
+                                              const char *property,
+                                              char type, int length,
+                                              const void *value,
+                                              const char *op);
+
+/*! Return the list of maps matching the given slot property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
+                                                   const char *property,
+                                                   char type, int length,
+                                                   const void *value,
+                                                   const char *op);
+
+/*! Return the list of maps matching the given source slot property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
+                                                       const char *property,
+                                                       char type, int length,
+                                                       const void *value,
+                                                       const char *op);
+
+/*! Return the list of maps matching the given destination slot property.
+ *  \param db       The database to query.
+ *  \param property The name of the property to search for.
+ *  \param type     The value type.
+ *  \param length   The value length.
+ *  \param value    The value.
+ *  \param op       A string specifying the comparison operator, can be "==",
+ *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
+                                                        const char *property,
+                                                        char type, int length,
+                                                        const void *value,
+                                                        const char *op);
 
 /*! Return the list of maps that touch the given device name.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_device_name(mapper_db db,
-                                                    const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev);
 
 /*! Return the list of outgoing maps that touch the given device name.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_src_device_name(mapper_db db,
-                                                        const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_device_outgoing_maps(mapper_db db,
+                                                  mapper_db_device dev);
 
 /*! Return the list of incoming maps that touch the given device name.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_dest_device_name(mapper_db db,
-                                                         const char *device_name);
+ *  \param db       The database to query.
+ *  \param dev      Device record to query.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_device_incoming_maps(mapper_db db,
+                                                  mapper_db_device dev);
+
+/*! Return the list of outgoing maps that touch the given device name.
+ *  \param db       The database to query.
+ *  \param num_srcs The number of sources in this map.
+ *  \param devices  Array of device records.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
+                                                 mapper_db_device *devices);
+
+/*! Return the list of maps for a given signal name.
+ *  \param db       The database to query.
+ *  \param sig      Signal record to query for maps.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_signal_maps(mapper_db db, mapper_db_signal sig);
 
 /*! Return the list of maps for a given source signal name.
- *  \param  db         The database to query.
- *  \param  src_signal Name of the source signal.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_src_signal_name(
-    mapper_db db, const char *src_signal);
-
-/*! Return the list of maps for given source device and signal names.
- *  \param db         The database to query.
- *  \param src_device Exact name of the device to find, including the
- *                    leading '/'.
- *  \param src_signal Exact name of the signal to find,
- *                    including the leading '/'.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_src_device_and_signal_names(
-    mapper_db db, const char *src_device, const char *src_signal);
+ *  \param db       The database to query.
+ *  \param sig      Signal record to query for outgoing maps.
+ *  \return         A double-pointer to the first item in the list of results
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
+                                                  mapper_db_signal sig);
 
 /*! Return the list of maps for a given destination signal name.
- *  \param db          The database to query.
- *  \param dest_signal Name of the destination signal to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_dest_signal_name(
-    mapper_db db, const char *dest_signal);
+ *  \param db       The database to query.
+ *  \param sig      Signal record to query for incoming maps.
+ *  \return         A double-pointer to the first item in the list of results,
+ *                  or zero if none.  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_get_signal_incoming_maps(mapper_db db,
+                                                  mapper_db_signal sig);
 
-/*! Return the list of maps for given destination device and signal names.
- *  \param db          The database to query.
- *  \param dest_device Exact name of the device to find, including the
- *                     leading '/'.
- *  \param dest_signal Exact name of the signal to find, including the
- *                     leading '/'.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_dest_device_and_signal_names(
-    mapper_db db, const char *dest_device, const char *dest_signal);
-
-/*! Return the list of maps that touch the provided signal.
- *  \param db           The database to query.
- *  \param device_name  Exact name of the device to find.
- *  \param signal_name  Exact name of the signal to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_device_and_signal_name(
-    mapper_db db, const char *device_name,  const char *signal_name);
-
-/*! Return the list of maps that touch the provided source
- *  and destination signals.
- *  \param db          The database to query.
- *  \param src_device  Exact name of the device to find.
- *  \param src_signal  Exact name of the signal to find.
- *  \param dest_device Exact name of the device to find.
- *  \param dest_signal Exact name of the signal to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_device_and_signal_names(
-    mapper_db db, int num_sources,
-    const char **src_devices,  const char **src_signals,
-    const char *dest_device, const char *dest_signal);
-
-/*! Return the map that match the exact source and destination
- *  specified by their full names ("/<device>/<signal>").
- *  \param db        The database to query.
- *  \param src_name  Full name of source signal.
- *  \param dest_name Full name of destination signal.
- *  \return A pointer to a structure containing information on the
- *          found map, or 0 if not found. */
-mapper_db_map mapper_db_get_map_by_signal_full_names(
-    mapper_db db, int num_sources, const char **src_names, const char *dest_name);
-
-/*! Return maps that have the specified source and destination
- *  devices.
- *  \param db               The database to query.
- *  \param src_device_name  Name of source device.
- *  \param dest_device_name Name of destination device.
- *  \return A double-pointer to the first item in a list of results,
- *          or 0 if not found. */
-mapper_db_map_t **mapper_db_get_maps_by_src_dest_device_names(
-    mapper_db db, int num_sources,
-    const char **src_device_names, const char *dest_device_name);
-
-/*! Return the list of maps that touch any signals in the lists
- *  of sources and destinations provided.
- *  \param db   The database to query.
- *  \param src  Double-pointer to the first item in a list
- *              returned from a previous database query.
- *  \param dest Double-pointer to the first item in a list
- *              returned from a previous database query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_map_next() to
- *          iterate. */
-mapper_db_map_t **mapper_db_get_maps_by_signal_queries(mapper_db db,
-                                                       mapper_db_signal_t **src,
-                                                       mapper_db_signal_t **dest);
+/*! Combine two map queries
+ *  \param db       The database to query.
+ *  \param query1   The first map query.
+ *  \param query2   The second map query.
+ *  \param op       A string specifying the composition operator, can be "&&"
+ *                  or "||".
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_combine_map_queries(mapper_db db,
+                                             mapper_db_map *query1,
+                                             mapper_db_map *query2,
+                                             const char *op);
 
 /*! Given a map record pointer returned from a previous
  *  mapper_db_get_maps*() call, get the next item in the list.
  *  \param s The previous map record pointer.
  *  \return  A double-pointer to the next map record in the
  *           list, or zero if no more maps. */
-mapper_db_map_t **mapper_db_map_next(mapper_db_map_t **s);
+mapper_db_map *mapper_db_map_next(mapper_db_map *s);
 
 /*! Given a map record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
  *  \param s The previous map record pointer. */
-void mapper_db_map_done(mapper_db_map_t **s);
+void mapper_db_map_done(mapper_db_map *s);
 
 /*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1331,69 +1424,53 @@ void mmon_set_timeout(mapper_monitor mon, int timeout);
 /*! Get the timeout in seconds after which a monitor will declare a device
  *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
  *  \param mon      The monitor to use.
- *  \return The current timeout in seconds. */
+ *  \return         The current timeout in seconds. */
 int mmon_get_timeout(mapper_monitor mon);
 
 /*! Remove unresponsive devices from the database.
- *  \param mon         The monitor to use.
- *  \param timeout_sec The number of seconds a device must have been
- *                     unresponsive before removal.
- *  \param quiet       1 to disable callbacks during db flush, 0 otherwise. */
+ *  \param mon      The monitor to use.
+ *  \param timeout  The number of seconds a device must have been unresponsive
+ *                  before removal.
+ *  \param quiet    1 to disable callbacks during db flush, 0 otherwise. */
 void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
 
 /*! Request that all devices report in. */
 void mmon_request_devices(mapper_monitor mon);
 
 /*! Subscribe to information about a specific device.
- *  \param mon             The monitor to use.
- *  \param device_name     The name of the device of interest.
- *  \param subscribe_flags Bitflags setting the type of information of interest.
- *                         Can be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
- *                         SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS,
- *                         SUB_DEVICE_MAPS_IN, SUB_DEVICE_MAPS_OUT,
- *                         SUB_DEVICE_MAPS, or simply SUB_DEVICE_ALL for all
- *                         information.
- *  \param timeout         The length in seconds for this subscription. If set
- *                         to -1, libmapper will automatically renew the
- *                         subscription until the monitor is freed or this
- *                         function is called again. */
-void mmon_subscribe(mapper_monitor mon, const char *device_name,
-                    int subscribe_flags, int timeout);
+ *  \param mon      The monitor to use.
+ *  \param dev      The device of interest. If NULL the monitor will
+ *                  automatically subscribe to all discovered devices.
+ *  \param flags    Bitflags setting the type of information of interest.  Can
+ *                  be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
+ *                  SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS, SUB_DEVICE_MAPS_IN,
+ *                  SUB_DEVICE_MAPS_OUT, SUB_DEVICE_MAPS, or simply
+ *                  SUB_DEVICE_ALL for all information.
+ *  \param timeout  The length in seconds for this subscription. If set to -1,
+ *                  the monitor will automatically renew the subscription until
+ *                  it is freed or this function is called again. */
+void mmon_subscribe(mapper_monitor mon, mapper_db_device dev, int flags,
+                    int timeout);
 
 /*! Unsubscribe from information about a specific device.
- *  \param mon             The monitor to use.
- *  \param device_name     The name of the device of interest. */
-void mmon_unsubscribe(mapper_monitor mon, const char *device_name);
-
-/*! Interface to add a map between a set of signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this map.
- *  \param sources        Array of source signal data structures.
- *  \param dest           Destination signal data structure.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this map. The 'flags'
- *                        variable of this structure is used to indicate which
- *                        properties in the provided mapper_db_map_t
- *                        should be applied to the map. See the flags
- *                        prefixed by MAP_ in mapper_db.h. */
-void mmon_map_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                   mapper_db_signal_t **sources,
-                                   mapper_db_signal_t *dest,
-                                   mapper_db_map_t *properties);
+ *  \param mon      The monitor to use.
+ *  \param dev      The device of interest. If NULL the monitor will unsubscribe
+ *                  from all devices. */
+void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev);
 
 /*! Interface to add a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal names.
- *  \param dest         Destination signal name.
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure.
  *  \param properties   An optional data structure specifying the requested
  *                      properties of this map. The 'flags' variable of this
  *                      structure is used to indicate which properties in the
  *                      provided mapper_db_map_t should be applied to the map.
  *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_map_signals_by_name(mapper_monitor mon, int num_sources,
-                              const char **sources, const char *dest,
-                              mapper_db_map_t *properties);
+void mmon_map_signals(mapper_monitor mon, int num_sources,
+                      mapper_db_signal *sources, mapper_db_signal destination,
+                      mapper_db_map_t *properties);
 
 /*! Interface to modify a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
@@ -1407,31 +1484,17 @@ void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *map);
 /*! Interface to modify a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param num_sources  The number of source signals in this map.
- *  \param source       Array of source signal names.
- *  \param dest         Destination name.
- *  \param properties   An optional data structure specifying the requested
- *                      properties of this map. The 'flags' variable of this
- *                      structure is used to indicate which properties in the
- *                      provided mapper_db_map_t should be applied to the map.
- *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_modify_map_by_signal_names(mapper_monitor mon, int num_sources,
-                                     const char **sources, const char *dest,
-                                     mapper_db_map_t *properties);
-
-/*! Interface to modify a map between a set of signals.
- *  \param mon          The monitor to use for sending the message.
- *  \param num_sources  The number of source signals in this map.
  *  \param sources      Array of source signal data structures.
- *  \param dest         Destination signal data structure.
+ *  \param destination  Destination signal data structure.
  *  \param properties   An optional data structure specifying the requested
  *                      properties of this map. The 'flags' variable of this
  *                      structure is used to indicate which properties in the
  *                      provided mapper_db_map_t should be applied to the map.
  *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_modify_map_by_signal_db_records(mapper_monitor mon, int num_sources,
-                                          mapper_db_signal_t **sources,
-                                          mapper_db_signal_t *dest,
-                                          mapper_db_map_t *properties);
+void mmon_modify_map_by_signals(mapper_monitor mon, int num_sources,
+                                mapper_db_signal *sources,
+                                mapper_db_signal destination,
+                                mapper_db_map_t *properties);
 
 /*! Interface to remove a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
@@ -1441,19 +1504,11 @@ void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *map);
 /*! Interface to remove a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal names.
- *  \param dest         Destination signal name. */
-void mmon_unmap_signals_by_name(mapper_monitor mon, int num_sources,
-                                const char **sources, const char *dest);
-
-/*! Interface to remove a map between a set of signals.
- *  \param mon      The monitor to use for sending the message.
- *  \param num_sources    The number of source signals in this map.
- *  \param sources  Array of source signal data structures.
- *  \param dest     Destination signal data structure. */
-void mmon_unmap_signals_by_db_record(mapper_monitor mon, int num_sources,
-                                     mapper_db_signal_t **sources,
-                                     mapper_db_signal_t *dest);
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure. */
+void mmon_unmap_signals(mapper_monitor mon, int num_sources,
+                        mapper_db_signal *sources,
+                        mapper_db_signal destination);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
  *  \param mon      The monitor to use for sending the message.

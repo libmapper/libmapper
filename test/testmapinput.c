@@ -113,19 +113,14 @@ void loop()
 
     if (autoconnect) {
         mapper_monitor mon = mmon_new(devices[0]->admin, 0);
-
-        char src_name[1024], dest_name[1024];
-        const char *src_name_ptr = src_name;
+        mapper_db_signal src = msig_properties(inputs[0]);
 
         // map input to another input on same device
-        msig_full_name(inputs[0], src_name, 1024);
-        msig_full_name(inputs[1], dest_name, 1024);
-        mmon_map_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0);
+        mmon_map_signals(mon, 1, &src, msig_properties(inputs[1]), 0);
 
         // map input to an input on another device
-        msig_full_name(inputs[1], src_name, 1024);
-        msig_full_name(inputs[2], dest_name, 1024);
-        mmon_map_signals_by_name(mon, 1, &src_name_ptr, dest_name, 0);
+        src = msig_properties(inputs[1]);
+        mmon_map_signals(mon, 1, &src, msig_properties(inputs[2]), 0);
 
         // wait until mapping has been established
         while (!done && mdev_num_outgoing_maps(devices[0]) < 2) {

@@ -1059,7 +1059,7 @@ void msig_set_direction(mapper_signal sig, mapper_direction_t direction)
     sig->props.direction = direction;
 }
 
-mapper_signal_props msig_properties(mapper_signal sig)
+mapper_db_signal msig_properties(mapper_signal sig)
 {
     return &sig->props;
 }
