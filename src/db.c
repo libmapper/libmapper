@@ -211,22 +211,6 @@ static void free_query_single_context(list_header_t *lh)
     free(lh);
 }
 
-//static void free_multi_query(list_header_t *lh)
-//{
-//    query_info_t *qi = lh->query_context;
-//    multi_query_t *m = (multi_query_t*)&qi->data;
-//
-//    qi = m->lh1->query_context;
-//    if (m->lh1->query_type == QUERY_DYNAMIC && qi->query_free)
-//        qi->query_free(m->lh1);
-//
-//    qi = m->lh2->query_context;
-//    if (m->lh2->query_type == QUERY_DYNAMIC && qi->query_free)
-//        qi->query_free(m->lh2);
-//
-//    free_query_single_context(lh);
-//}
-
 /* We need to be careful of memory alignment here - for now we will just ensure
  * that string arguments are always passed last. */
 static void **construct_query_context(void *p, void *f, const char *types, ...)
@@ -398,93 +382,6 @@ static void **construct_query_context(void *p, void *f, const char *types, ...)
     return dynamic_query_continuation(lh);
 }
 
-// May be useful in the future.
-#if 0
-static void save_query_single_context(list_header_t *src,
-                                      void *mem, unsigned int size)
-{
-    int needed = LIST_HEADER_SIZE;
-    if (src->query_context)
-        needed += src->query_context->size;
-    else
-        needed += sizeof(unsigned int);
-
-    die_unless(size >= needed,
-               "not enough memory provided to save query context.\n");
-
-    memcpy(mem, src, LIST_HEADER_SIZE);
-    if (src->query_context)
-        memcpy(mem+LIST_HEADER_SIZE, src->query_context,
-               src->query_context->size);
-    else
-        ((query_info_t*)(mem+LIST_HEADER_SIZE))->size = 0;
-}
-
-static void restore_query_single_context(list_header_t *dest, void *mem)
-{
-    query_info_t *qi = mem + LIST_HEADER_SIZE;
-    if (qi->size > 0)
-        die_unless(dest->query_context
-                   && dest->query_context->size >= qi->size,
-                   "not enough memory provided to restore query context.\n");
-
-    void *qc = dest->query_context;
-    memcpy(dest, mem, LIST_HEADER_SIZE);
-    if (qi->size == 0)
-        dest->query_context = 0;
-    else {
-        memcpy(qc, qi, qi->size);
-        dest->query_context = qc;
-    }
-}
-
-static list_header_t *dup_query_single_context(list_header_t *lh)
-{
-    list_header_t *result = (list_header_t*) malloc(sizeof(list_header_t*));
-    memcpy(result, lh, LIST_HEADER_SIZE);
-
-    if (lh->query_context) {
-        result->query_context = malloc(lh->query_context->size);
-        memcpy(result->query_context, lh->query_context,
-               lh->query_context->size);
-    }
-
-    return result;
-}
-
-static void copy_query_single_context(list_header_t *src,
-                                      list_header_t *dest)
-{
-    memcpy(src, dest, LIST_HEADER_SIZE);
-    if (src->query_context) {
-        die_unless(dest->query_context!=0,
-                   "error, no destination query context to copy to.");
-        die_unless(dest->query_context->size == src->query_context->size,
-                   "error, query context sizes don't match on copy.");
-        memcpy(dest->query_context, src->query_context,
-               src->query_context->size);
-    }
-}
-
-static void free_query_src_dest_queries(list_header_t *lh)
-{
-    query_info_t *qi = lh->query_context;
-    src_dest_queries_t *d = (src_dest_queries_t*)&qi->data;
-
-    qi = d->lh_src_head->query_context;
-    if (d->lh_src_head->query_type == QUERY_DYNAMIC
-        && qi->query_free)
-        qi->query_free(d->lh_src_head);
-
-    qi = d->lh_dest_head->query_context;
-    if (d->lh_dest_head->query_type == QUERY_DYNAMIC
-        && qi->query_free)
-        qi->query_free(d->lh_dest_head);
-
-    free_query_single_context(lh);
-}
-#endif
-
 static void **iterator_next(void** p)
 {
     if (!p) {
@@ -544,13 +441,6 @@ void remove_callback(fptr_list *head, void *f, void *user)
 
     free(cb);
 }
-
-/* Helper functions for queries that take two queries as parameters. */
-
-typedef struct {
-    list_header_t *lh_src_head;
-    list_header_t *lh_dest_head;
-} src_dest_queries_t;
 
 static int update_string_if_different(char **pdest_str,
                                       const char *src_str)
