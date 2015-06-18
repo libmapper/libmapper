@@ -12,11 +12,12 @@
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message m, mapper_timetag_t tt);
 
-static int get_in_scope(mapper_map map, uint32_t hash)
+static int get_in_scope(mapper_map map, uint64_t id)
 {
     int i;
+    id = id >> 32; // interested in device hash part only
     for (i = 0; i < map->props.scope.size; i++) {
-        if (map->props.scope.hashes[i] == hash ||
+        if (map->props.scope.hashes[i] == id ||
             map->props.scope.hashes[i] == 0)
             return 1;
     }
@@ -63,7 +64,7 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     }
     name += (name[0]=='/');
     l->props.name = strdup(name);
-    l->props.hash = crc32(0L, (const Bytef *)name, strlen(name));
+    l->props.id = crc32(0L, (const Bytef *)name, strlen(name) << 32);
 
     l->device = router->device;
     l->props.num_incoming_maps = 0;
@@ -285,14 +286,14 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
                 if (!s->props->send_as_instance)
                     m = mapper_map_build_message(map, s, 0, 1, 0, 0);
-                else if (get_in_scope(map, id_map->origin))
+                else if (get_in_scope(map, id_map->global))
                     m = mapper_map_build_message(map, s, 0, 1, 0, id_map);
                 if (m)
                     send_or_bundle_message(map->destination.link,
                                            dp->signal->path, m, tt);
                 continue;
             }
-            else if (!get_in_scope(map, id_map->origin))
+            else if (!get_in_scope(map, id_map->global))
                 continue;
             for (j = 0; j < map->props.num_sources; j++) {
                 if (!map->sources[j].props->send_as_instance)
@@ -329,7 +330,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
         if (map->status < MAPPER_ACTIVE)
             continue;
 
-        int in_scope = get_in_scope(map, id_map->origin);
+        int in_scope = get_in_scope(map, id_map->global);
         // TODO: should we continue for out-of-scope local destinaton updates?
         if (s->props->send_as_instance && !in_scope) {
             continue;
@@ -585,6 +586,30 @@ static int router_signal_store_slot(mapper_router_signal rs,
     return i;
 }
 
+static uint64_t get_unused_map_id(mapper_device dev, mapper_router rtr)
+{
+    int i, done = 0;
+    uint64_t id;
+    while (!done) {
+        done = 1;
+        id = mdev_get_unique_id(dev);
+        // check if map exists with this id
+        mapper_router_signal rs = rtr->signals;
+        while (rs) {
+            for (i = 0; i < rs->num_slots; i++) {
+                if (!rs->slots[i])
+                    continue;
+                if (rs->slots[i]->map->props.id == id) {
+                    done = 0;
+                    break;
+                }
+            }
+            rs = rs->next;
+        }
+    }
+    return id;
+}
+
 mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
                                  int num_sources, mapper_signal *local_signals,
                                  const char **remote_signal_names,
@@ -621,11 +646,10 @@ mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
     // is_admin property will be corrected later if necessary
     map->is_admin = 1;
     if (direction == DI_INCOMING) {
-        map->props.hash = r->device->resource_counter++;
-        map->props.hash = (map->props.hash << 32) | r->device->props.hash;
+        map->props.id = get_unused_map_id(r->device, r);
     }
     else
-        map->props.hash = 0;
+        map->props.id = 0;
 
     mapper_link link;
     char devname[256], *devnamep, *signame;
@@ -683,7 +707,7 @@ mapper_map mapper_router_add_map(mapper_router r, mapper_signal sig,
 
         // apply local scope as default
         map->props.scope.names[0] = strdup(mdev_name(r->device));
-        map->props.scope.hashes[0] = mdev_hash(r->device);
+        map->props.scope.hashes[0] = mdev_id(r->device);
     }
     else {
         map->destination.local = rs;
@@ -1039,9 +1063,9 @@ mapper_map mapper_router_find_incoming_map(mapper_router router,
     return 0;
 }
 
-mapper_map mapper_router_find_incoming_map_by_hash(mapper_router router,
-                                                   mapper_signal local_dest,
-                                                   uint64_t hash)
+mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
+                                                 mapper_signal local_dest,
+                                                 uint64_t id)
 {
     mapper_router_signal rs = router->signals;
     while (rs && rs->signal != local_dest)
@@ -1054,15 +1078,15 @@ mapper_map mapper_router_find_incoming_map_by_hash(mapper_router router,
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_OUTGOING)
             continue;
         mapper_map map = rs->slots[i]->map;
-        if (map->props.hash == hash)
+        if (map->props.id == id)
             return map;
     }
     return 0;
 }
 
-mapper_map mapper_router_find_outgoing_map_by_hash(mapper_router router,
-                                                   mapper_signal local_src,
-                                                   uint64_t hash)
+mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
+                                                 mapper_signal local_src,
+                                                 uint64_t id)
 {
     int i;
     mapper_router_signal rs = router->signals;
@@ -1075,7 +1099,7 @@ mapper_map mapper_router_find_outgoing_map_by_hash(mapper_router router,
         if (!rs->slots[i] || rs->slots[i]->props->direction == DI_INCOMING)
             continue;
         mapper_map map = rs->slots[i]->map;
-        if (map->props.hash == hash)
+        if (map->props.id == id)
             return map;
     }
     return 0;
@@ -1137,12 +1161,12 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
     return 0;
 }
 
-mapper_link mapper_router_find_link_by_remote_hash(mapper_router router,
-                                                   uint32_t hash)
+mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
+                                                 uint32_t id)
 {
     mapper_link l = router->links;
     while (l) {
-        if (hash == l->props.hash)
+        if (id == l->props.id)
             return l;
         l = l->next;
     }

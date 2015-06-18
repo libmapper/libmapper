@@ -269,15 +269,14 @@ typedef struct _mapper_map {
  *  mappings.  TODO: This should be replaced with a more efficient approach
  *  such as a hash table or search tree. */
 typedef struct _mapper_router_signal {
-    struct _mapper_router *link;            //!< The parent link.
-    struct _mapper_signal *signal;          //!< The associated signal.
+    struct _mapper_router *link;        //!< The parent link.
+    struct _mapper_signal *signal;      //!< The associated signal.
 
-    int id_counter;
-    int num_slots;
     mapper_map_slot *slots;
+    int num_slots;
+    int id_counter;
 
-    struct _mapper_router_signal *next;     /*!< The next router_signal
-                                             *   in the list. */
+    struct _mapper_router_signal *next; //!< The next router_signal in the list.
 } *mapper_router_signal;
 
 /*! The router structure. */
@@ -290,11 +289,10 @@ typedef struct _mapper_router {
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
 typedef struct _mapper_id_map {
-    int local;                              //!< Local instance id to map.
-    uint32_t origin;                        //!< Hash for originating device.
-    uint32_t public;                        //!< Public instance id to map.
+    uint64_t global;                        //!< Hash for originating device.
     int refcount_local;
-    int refcount_remote;
+    int local;                              //!< Local instance id to map.
+    int refcount_global;
     struct _mapper_id_map *next;            //!< The next id map in the list.
 } *mapper_id_map;
 
@@ -372,8 +370,8 @@ typedef enum {
     AT_DEST_TYPE,
     AT_DIRECTION,
     AT_EXPRESSION,
-    AT_HASH,
     AT_HOST,
+    AT_ID,
     AT_INSTANCES,
     AT_LENGTH,
     AT_LIB_VERSION,

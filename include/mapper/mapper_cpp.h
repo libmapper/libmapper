@@ -469,7 +469,7 @@ namespace mapper {
         operator const char*() const
             { return props->name; }
         operator uint64_t() const
-            { return props->hash; }
+            { return props->id; }
         using AbstractObjectProps::set;
         AbstractSignalProps& set(mapper::Property p)
             { set(&p); return (*this); }
@@ -526,7 +526,7 @@ namespace mapper {
         operator const char*() const
             { return props->name; }
         operator uint64_t() const
-            { return props->hash; }
+            { return props->id; }
 
         Signal& update(void *value, int count, Timetag tt)
             { msig_update(signal, value, count, *tt); return (*this); }
@@ -743,7 +743,7 @@ namespace mapper {
         operator const char*() const
             { return props->name; }
         operator uint64_t() const
-            { return props->hash; }
+            { return props->id; }
 
         using AbstractObjectProps::set;
         AbstractDeviceProps& set(mapper::Property p)
@@ -777,8 +777,8 @@ namespace mapper {
         }
         std::string name() const
             { return std::string(props->name); }
-        uint32_t hash() const
-            { return props->hash; }
+        uint32_t id() const
+            { return props->id; }
         int num_outputs() const
             { return props->num_outputs; }
         int num_inputs() const
@@ -805,7 +805,7 @@ namespace mapper {
         operator const char*() const
             { return props->name; }
         operator uint64_t() const
-            { return props->hash; }
+            { return props->id; }
 
         Signal add_input(const string_type &name, int length, char type,
                          const string_type &unit, void *minimum,
@@ -899,7 +899,7 @@ namespace mapper {
         std::string name() const
             { return std::string(mdev_name(device)); }
         int id() const
-            { return mdev_hash(device); }
+            { return mdev_id(device); }
         int port() const
             { return mdev_port(device); }
         const struct in_addr *ip4() const
@@ -1003,8 +1003,8 @@ namespace mapper {
 
         Device device(const string_type &name) const
             { return Device(mapper_db_get_device_by_name(db, name)); }
-        Device device(uint32_t hash) const
-            { return Device(mapper_db_get_device_by_hash(db, hash)); }
+        Device device(uint32_t id) const
+            { return Device(mapper_db_get_device_by_id(db, id)); }
         Device::Iterator devices() const
             { return Device::Iterator(mapper_db_get_devices(db)); }
         Device::Iterator devices(const string_type &pattern) const
@@ -1224,8 +1224,8 @@ namespace mapper {
                 else
                     return Property(0, 0, 0, 0, 0);
             }
-            uint64_t hash() const
-                { return *(uint64_t*)&props->hash; }
+            uint64_t id() const
+                { return *(uint64_t*)&props->id; }
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
@@ -1369,8 +1369,8 @@ namespace mapper {
             Slot *_sources;
             int owned;
         };
-        Map map(uint64_t hash) const
-            { return mapper_db_get_map_by_hash(db, hash); }
+        Map map(uint64_t id) const
+            { return mapper_db_get_map_by_id(db, id); }
         Map::Iterator maps() const
             { return Map::Iterator(mapper_db_get_maps(db)); }
         Map::Iterator maps(const device_type& device) const

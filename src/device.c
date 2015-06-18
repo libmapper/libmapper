@@ -66,29 +66,15 @@ mapper_device mdev_new(const char *name_prefix, int port,
         return NULL;
     }
 
-    md->props.identifier = strdup(name_prefix);
-    md->props.name = 0;
-    md->props.description = 0;
-    md->props.hash = 0;
-    md->props.lib_version = PACKAGE_VERSION;
     md->ordinal.value = 1;
-    md->ordinal.locked = 0;
-    int i;
-    for (i = 0; i < 8; i++) {
-        md->ordinal.suggestion[i] = 0.;
-    }
-    md->registered = 0;
-    md->active_id_map = 0;
-    md->reserve_id_map = 0;
-    md->id_counter = 0;
+    md->props.identifier = strdup(name_prefix);
+    md->props.lib_version = PACKAGE_VERSION;
     md->props.extra = table_new();
-    md->signal_slot_counter = -1;
 
     md->router = (mapper_router) calloc(1, sizeof(struct _mapper_router));
     md->router->device = md;
 
     md->link_timeout_sec = ADMIN_TIMEOUT_SEC;
-//    md->link_timeout_sec = 0;
 
     mapper_admin_add_device(md->admin, md);
 
@@ -200,20 +186,20 @@ void mdev_registered(mapper_device md)
 {
     int i, j;
     md->registered = 1;
-    /* Add device name to signals. Also add device name hash to
+    /* Add device name to signals. Also add unique device id to
      * locally-activated signal instances. */
     for (i = 0; i < md->props.num_inputs; i++) {
         for (j = 0; j < md->inputs[i]->id_map_length; j++) {
             if (md->inputs[i]->id_maps[j].map &&
-                md->inputs[i]->id_maps[j].map->origin == 0)
-                md->inputs[i]->id_maps[j].map->origin = md->props.hash;
+                !(md->inputs[i]->id_maps[j].map->global >> 32))
+                md->inputs[i]->id_maps[j].map->global |= md->props.id;
         }
     }
     for (i = 0; i < md->props.num_outputs; i++) {
         for (j = 0; j < md->outputs[i]->id_map_length; j++) {
             if (md->outputs[i]->id_maps[j].map &&
-                md->outputs[i]->id_maps[j].map->origin == 0)
-                md->outputs[i]->id_maps[j].map->origin = md->props.hash;
+                !(md->outputs[i]->id_maps[j].map->global << 32))
+                md->outputs[i]->id_maps[j].map->global |= md->props.id;
         }
     }
 }
@@ -278,7 +264,7 @@ static int handler_signal(const char *path, const char *types,
     mapper_device md;
     int i = 0, j, k, count = 1, nulls = 0;
     int is_instance_update = 0, id_map_index, slot = -1;
-    int instance_group, instance_id;
+    uint64_t instance_id;
     mapper_id_map id_map;
     mapper_map map = 0;
     mapper_map_slot s = 0;
@@ -312,8 +298,8 @@ static int handler_signal(const char *path, const char *types,
 #endif
             return 0;
         }
-        if (strcmp(&argv[argnum]->s, "@instance") == 0 && argc >= argnum + 3) {
-            if (types[argnum+1] != 'i' || types[argnum+2] != 'i') {
+        if (strcmp(&argv[argnum]->s, "@instance") == 0 && argc >= argnum + 2) {
+            if (types[argnum+1] != 'h') {
 #ifdef DEBUG
                 printf("error in handler_signal: bad arguments "
                        "for @instance property.\n");
@@ -321,9 +307,8 @@ static int handler_signal(const char *path, const char *types,
                 return 0;
             }
             is_instance_update = 1;
-            instance_group = argv[argnum+1]->i32;
-            instance_id = argv[argnum+2]->i32;
-            argnum += 3;
+            instance_id = argv[argnum+1]->i64;
+            argnum += 2;
         }
         else if (strcmp(&argv[argnum]->s, "@slot") == 0 && argc >= argnum + 2) {
             if (types[argnum+1] != 'i') {
@@ -391,9 +376,8 @@ static int handler_signal(const char *path, const char *types,
     lo_timetag tt = lo_message_get_timestamp(msg);
 
     if (is_instance_update) {
-        id_map_index = msig_find_instance_with_remote_ids(sig, instance_group,
-                                                          instance_id,
-                                                          IN_RELEASED_LOCALLY);
+        id_map_index = msig_find_instance_with_global_id(sig, instance_id,
+                                                         IN_RELEASED_LOCALLY);
         if (id_map_index < 0) {
             // no instance found with this map
             if (nulls == value_len * count) {
@@ -401,12 +385,12 @@ static int handler_signal(const char *path, const char *types,
                 return 0;
             }
             // otherwise try to init reserved/stolen instance with device map
-            id_map_index = msig_get_instance_with_remote_ids(sig, instance_group,
-                                                             instance_id, 0, &tt);
+            id_map_index = msig_get_instance_with_global_id(sig, instance_id,
+                                                            0, &tt);
             if (id_map_index < 0) {
 #ifdef DEBUG
-                printf("no local instances available for remote instance %ld:%ld\n",
-                       (long)instance_group, (long)instance_id);
+                printf("no local instances available for global instance id"
+                       " %llu\n", instance_id);
 #endif
                 return 0;
             }
@@ -419,8 +403,9 @@ static int handler_signal(const char *path, const char *types,
                     // we can clear signal's reference to map
                     id_map = sig->id_maps[id_map_index].map;
                     sig->id_maps[id_map_index].map = 0;
-                    id_map->refcount_remote--;
-                    if (id_map->refcount_remote <= 0 && id_map->refcount_local <= 0) {
+                    id_map->refcount_global--;
+                    if (id_map->refcount_global <= 0
+                        && id_map->refcount_local <= 0) {
                         mdev_remove_instance_id_map(md, id_map);
                     }
                 }
@@ -468,8 +453,8 @@ static int handler_signal(const char *path, const char *types,
                 }
                 if (is_instance_update) {
                     sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
-                    id_map->refcount_remote--;
-                    if (id_map->refcount_remote <= 0 && id_map->refcount_local <= 0) {
+                    id_map->refcount_global--;
+                    if (id_map->refcount_global <= 0 && id_map->refcount_local <= 0) {
                         mdev_remove_instance_id_map(md, id_map);
                     }
                     if (sig->instance_event_handler
@@ -494,9 +479,8 @@ static int handler_signal(const char *path, const char *types,
             }
             else if (is_instance_update && !active) {
                 // may need to activate instance
-                id_map_index = msig_find_instance_with_remote_ids(sig, instance_group,
-                                                                  instance_id,
-                                                                  IN_RELEASED_REMOTELY);
+                id_map_index = msig_find_instance_with_global_id(sig, instance_id,
+                                                                 IN_RELEASED_REMOTELY);
                 if (id_map_index < 0) {
                     // no instance found with this map
                     if (nulls == value_len * count) {
@@ -504,12 +488,13 @@ static int handler_signal(const char *path, const char *types,
                         return 0;
                     }
                     // otherwise try to init reserved/stolen instance with device map
-                    id_map_index = msig_get_instance_with_remote_ids(sig, instance_group,
-                                                                     instance_id, 0, &tt);
+                    id_map_index = msig_get_instance_with_global_id(sig,
+                                                                    instance_id,
+                                                                    0, &tt);
                     if (id_map_index < 0) {
 #ifdef DEBUG
-                        printf("no local instances available for remote instance %ld:%ld\n",
-                               (long)instance_group, (long)instance_id);
+                        printf("no local instances available for global"
+                               " instance id %llu\n", instance_id);
 #endif
                         return 0;
                     }
@@ -562,7 +547,7 @@ static int handler_signal(const char *path, const char *types,
                     // next call handler with release
                     if (is_instance_update) {
                         sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
-                        id_map->refcount_remote--;
+                        id_map->refcount_global--;
                         if (sig->instance_event_handler
                             && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
                             sig->instance_event_handler(sig, &sig->props, id_map->local,
@@ -627,7 +612,7 @@ static int handler_signal(const char *path, const char *types,
                 }
                 if (is_instance_update) {
                     sig->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
-                    id_map->refcount_remote--;
+                    id_map->refcount_global--;
                     if (sig->instance_event_handler
                         && (sig->instance_event_flags & IN_UPSTREAM_RELEASE)) {
                         sig->instance_event_handler(sig, &sig->props, id_map->local,
@@ -686,7 +671,7 @@ static int handler_instance_release_request(const char *path, const char *types,
 
     lo_timetag tt = lo_message_get_timestamp(msg);
 
-    int index = msig_find_instance_with_remote_ids(sig, argv[0]->i32, argv[1]->i32, 0);
+    int index = msig_find_instance_with_global_id(sig, argv[0]->i64, 0);
     if (index < 0)
         return 0;
 
@@ -747,8 +732,7 @@ static int handler_query(const char *path, const char *types,
         message_add_coerced_signal_instance_value(m, sig, si, length, type);
         if (sig->props.num_instances > 1) {
             lo_message_add_string(m, "@instance");
-            lo_message_add_int32(m, (long)sig->id_maps[i].map->origin);
-            lo_message_add_int32(m, (long)sig->id_maps[i].map->public);
+            lo_message_add_int64(m, sig->id_maps[i].map->global);
         }
         lo_bundle_add_message(b, response_path, m);
         sent++;
@@ -768,6 +752,33 @@ static int handler_query(const char *path, const char *types,
     return 0;
 }
 
+static uint64_t get_unused_signal_id(mapper_device dev)
+{
+    int i, done = 0;
+    uint64_t id;
+    while (!done) {
+        done = 1;
+        id = mdev_get_unique_id(dev);
+        // check if input signal exists with this id
+        for (i = 0; i < dev->props.num_inputs; i++) {
+            if (dev->inputs[i]->props.id == id) {
+                done = 0;
+                break;
+            }
+        }
+        if (!done)
+            continue;
+        // check if output signal exists with this id
+        for (i = 0; i < dev->props.num_outputs; i++) {
+            if (dev->outputs[i]->props.id == id) {
+                done = 0;
+                break;
+            }
+        }
+    }
+    return id;
+}
+
 // Add an input signal to a mapper device.
 mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              char type, const char *unit,
@@ -783,6 +794,9 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                    handler, user_data);
     if (!sig)
         return 0;
+
+    sig->props.id = get_unused_signal_id(md);
+
     md->props.num_inputs++;
     grow_ptr_array((void **) &md->inputs, md->props.num_inputs,
                    &md->n_alloc_inputs);
@@ -808,7 +822,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin,
                                                  SUBSCRIBE_DEVICE_INPUTS);
-        mapper_admin_send_signal(md->admin, md, sig);
+        mapper_admin_send_signal(md->admin, sig);
     }
 
     return sig;
@@ -825,6 +839,9 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
     sig = msig_new(name, length, type, DI_OUTGOING, unit, minimum, maximum, 0, 0);
     if (!sig)
         return 0;
+
+    sig->props.id = get_unused_signal_id(md);
+
     md->props.num_outputs++;
     grow_ptr_array((void **) &md->outputs, md->props.num_outputs,
                    &md->n_alloc_outputs);
@@ -839,7 +856,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin,
                                                  SUBSCRIBE_DEVICE_OUTPUTS);
-        mapper_admin_send_signal(md->admin, md, sig);
+        mapper_admin_send_signal(md->admin, sig);
     }
 
     return sig;
@@ -996,7 +1013,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin,
                                                  SUBSCRIBE_DEVICE_INPUTS);
-        mapper_admin_send_signal_removed(md->admin, md, sig);
+        mapper_admin_send_signal_removed(md->admin, sig);
     }
 
     md->props.num_inputs --;
@@ -1046,7 +1063,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         // Notify subscribers
         mapper_admin_set_bundle_dest_subscribers(md->admin,
                                                  SUBSCRIBE_DEVICE_OUTPUTS);
-        mapper_admin_send_signal_removed(md->admin, md, sig);
+        mapper_admin_send_signal_removed(md->admin, sig);
     }
 
     md->props.num_outputs --;
@@ -1281,17 +1298,16 @@ void mdev_reserve_instance_id_map(mapper_device dev)
 }
 
 mapper_id_map mdev_add_instance_id_map(mapper_device dev, int local_id,
-                                       int origin, int public_id)
+                                       uint64_t global_id)
 {
     if (!dev->reserve_id_map)
         mdev_reserve_instance_id_map(dev);
 
     mapper_id_map map = dev->reserve_id_map;
     map->local = local_id;
-    map->origin = origin;
-    map->public = public_id;
+    map->global = global_id;
     map->refcount_local = 1;
-    map->refcount_remote = 0;
+    map->refcount_global = 0;
     dev->reserve_id_map = map->next;
     map->next = dev->active_id_map;
     dev->active_id_map = map;
@@ -1324,12 +1340,12 @@ mapper_id_map mdev_find_instance_id_map_by_local(mapper_device dev,
     return 0;
 }
 
-mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device dev,
-                                                  int origin, int public_id)
+mapper_id_map mdev_find_instance_id_map_by_global(mapper_device dev,
+                                                  uint64_t global_id)
 {
     mapper_id_map map = dev->active_id_map;
     while (map) {
-        if (map->origin == origin && map->public == public_id)
+        if (map->global == global_id)
             return map;
         map = map->next;
     }
@@ -1421,10 +1437,10 @@ const char *mdev_name(mapper_device md)
     return md->props.name;
 }
 
-uint64_t mdev_hash(mapper_device md)
+uint64_t mdev_id(mapper_device md)
 {
     if (md->registered)
-        return md->props.hash;
+        return md->props.id;
     else
         return 0;
 }
@@ -1533,10 +1549,6 @@ void mdev_set_map_callback(mapper_device dev, mapper_device_map_handler *h,
     dev->map_cb_userdata = user;
 }
 
-int mdev_get_signal_slot(mapper_device dev)
-{
-    ++dev->signal_slot_counter;
-    if (dev->signal_slot_counter < 0)
-        dev->signal_slot_counter = 0;
-    return dev->signal_slot_counter;
+uint64_t mdev_get_unique_id(mapper_device dev) {
+    return ++dev->resource_counter | dev->props.id;
 }

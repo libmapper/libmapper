@@ -14,8 +14,8 @@ int verbose = 1;
 
 void printdevice(mapper_db_device dev)
 {
-    eprintf("  name=%s, host=%s, port=%d, hash=%llu\n",
-            dev->name, dev->host, dev->port, dev->hash);
+    eprintf("  name=%s, host=%s, port=%d, id=%llu\n",
+            dev->name, dev->host, dev->port, dev->id);
 }
 
 void printsignal(mapper_db_signal sig)
@@ -83,7 +83,7 @@ int main(int argc, char **argv)
     int port=1234;
     int one_i=1, two_i=2;
     float zero_f=0.f, one_f=1.f, two_f=2.f;
-    uint64_t hash = 1;
+    uint64_t id = 1;
     mapper_db_t db_t, *db = &db_t;
     memset(db, 0, sizeof(db_t));
 
@@ -114,8 +114,8 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)"input";
     args[2] = (lo_arg*)"@type";
     args[3] = (lo_arg*)"f";
-    args[4] = (lo_arg*)"@hash";
-    args[5] = (lo_arg*)&hash;
+    args[4] = (lo_arg*)"@id";
+    args[5] = (lo_arg*)&id;
 
     if (!mapper_msg_parse_params(&msg, "testdb.1/signal",
                                  "ssscsh", 6, args))
@@ -125,11 +125,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "in1", "testdb.1", &msg);
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", &msg);
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", &msg);
 
     args[1] = (lo_arg*)"output";
@@ -141,19 +141,19 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "out1", "testdb.1", &msg);
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "out2", "testdb.1", &msg);
-    hash++;
+    id++;
     mapper_db_add_or_update_signal_params(db, "out1", "testdb__.2", &msg);
 
     args[0] = (lo_arg*)"@mode";
     args[1] = (lo_arg*)"bypass";
     args[2] = (lo_arg*)"@boundMin";
     args[3] = (lo_arg*)"none";
-    args[4] = (lo_arg*)"@hash";
-    args[5] = (lo_arg*)&hash;
+    args[4] = (lo_arg*)"@id";
+    args[5] = (lo_arg*)&id;
 
     if (!mapper_msg_parse_params(&msg, "/mapped", "sssssh", 6, args))
     {
@@ -162,11 +162,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    hash++;
+    id++;
     const char *src_sig_name = "testdb.1/out2";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
 
-    hash++;
+    id++;
     src_sig_name = "testdb__.2/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb.1/in1", &msg);
 
@@ -186,8 +186,8 @@ int main(int argc, char **argv)
     args[13] = (lo_arg*)"@srcMax";
     args[14] = (lo_arg*)&one_f;
     args[15] = (lo_arg*)&two_f;
-    args[16] = (lo_arg*)"@hash";
-    args[17] = (lo_arg*)&hash;
+    args[16] = (lo_arg*)"@id";
+    args[17] = (lo_arg*)&id;
 
     if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssisssffsffsh", 18, args))
     {
@@ -196,11 +196,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    hash++;
+    id++;
     src_sig_name = "testdb.1/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in2", &msg);
 
-    hash++;
+    id++;
     src_sig_name = "testdb.1/out1";
     mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1", &msg);
 
@@ -212,8 +212,8 @@ int main(int argc, char **argv)
     args[11] = (lo_arg*)"@srcType";
     args[12] = (lo_arg*)"f";
     args[13] = (lo_arg*)"i";
-    args[14] = (lo_arg*)"@hash";
-    args[15] = (lo_arg*)&hash;
+    args[14] = (lo_arg*)"@id";
+    args[15] = (lo_arg*)&id;
 
     if (!mapper_msg_parse_params(&msg, "/mapped", "sssssssiisissssh", 16, args))
     {
@@ -222,7 +222,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    hash++;
+    id++;
     const char *multi_source[] = {"testdb__.2/out1", "testdb__.2/out2"};
     mapper_db_add_or_update_map_params(db, 2, multi_source, "testdb.1/in2", &msg);
 

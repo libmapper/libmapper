@@ -18,8 +18,8 @@ const char* prop_msg_strings[] =
     "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
-    "@hash",            /* AT_HASH */
     "@host",            /* AT_HOST */
+    "@id",              /* AT_ID */
     "@instances",       /* AT_INSTANCES */
     "@length",          /* AT_LENGTH */
     "@libVersion",      /* AT_LIB_VERSION */
@@ -476,9 +476,9 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             i = va_arg(aq, int);
             lo_message_add_int32(m, i);
             break;
-        case AT_HASH: {
-            int64_t h = va_arg(aq, int64_t);
-            lo_message_add_int64(m, h);
+        case AT_ID: {
+            int64_t id = va_arg(aq, int64_t);
+            lo_message_add_int64(m, id);
             break;
         }
         case AT_TYPE:

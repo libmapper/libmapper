@@ -33,7 +33,7 @@ typedef struct _mapper_db_device {
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
 
-    uint64_t hash;              //!< Unique hash identifying this device.
+    uint64_t id;                //!< Unique id identifying this device.
     char *host;                 //!< Device network host name.
 
     mapper_timetag_t timetag;
@@ -133,7 +133,7 @@ typedef struct _mapper_db_signal {
     mapper_db_device device;
     char *path;         //! OSC path.  Must start with '/'.
     char *name;         //! The name of this signal (path+1).
-    uint64_t hash;      //!< Unique hash identifying this signal.
+    uint64_t id;        //!< Unique id identifying this signal.
 
     char *unit;         //!< The unit of this signal, or NULL for N/A.
     char *description;  //!< Description of this signal, or NULL for N/A.
@@ -176,7 +176,7 @@ typedef struct _mapper_db_map_slot {
 typedef struct _mapper_db_map {
     mapper_db_map_slot sources;
     mapper_db_map_slot_t destination;
-    uint64_t hash;                      //!< Unique hash identifying this map
+    uint64_t id;                        //!< Unique id identifying this map
 
     struct _mapper_map_scope scope;
 

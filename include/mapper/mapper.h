@@ -579,11 +579,11 @@ int mdev_ready(mapper_device dev);
  *  not available. */
 const char *mdev_name(mapper_device dev);
 
-/*! Return the unique hash allocated to this device by the mapper network.
+/*! Return the unique id allocated to this device by the mapper network.
  *  \param  dev The device to query.
- *  \return An integer indicating the device's hash, or zero if it is
+ *  \return An integer indicating the device's id, or zero if it is
  *          not available. */
-uint64_t mdev_hash(mapper_device dev);
+uint64_t mdev_id(mapper_device dev);
 
 /*! Return the port used by a device to receive signals, if available.
  *  \param dev The device to query.
@@ -740,11 +740,11 @@ mapper_db_device *mapper_db_get_devices(mapper_db db);
  *  \return         Information about the device, or zero if not found. */
 mapper_db_device mapper_db_get_device_by_name(mapper_db db, const char *name);
 
-/*! Look up information for a registered device using a hash of its name.
+/*! Look up information for a registered device using its unique id.
  *  \param db       The database to query.
- *  \param hash     Unique hash identifying the device to find in the database.
+ *  \param id       Unique id identifying the device to find in the database.
  *  \return         Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint64_t hash);
+mapper_db_device mapper_db_get_device_by_id(mapper_db db, uint64_t id);
 
 /*! Return the list of devices with a substring in their name.
  *  \param db       The database to query.
@@ -1155,12 +1155,12 @@ void mapper_db_remove_map_callback(mapper_db db, mapper_db_map_handler *h,
  *                  or zero if none.  Use mapper_db_map_next() to iterate. */
 mapper_db_map *mapper_db_get_maps(mapper_db db);
 
-/*! Return the map that match the given map hash.
+/*! Return the map that match the given map id.
  *  \param db       The database to query.
- *  \param hash     Unique hash identifying the map.
+ *  \param id       Unique id identifying the map.
  *  \return         A pointer to a structure containing information on the
  *                  found map, or 0 if not found. */
-mapper_db_map mapper_db_get_map_by_hash(mapper_db db, uint64_t hash);
+mapper_db_map mapper_db_get_map_by_id(mapper_db db, uint64_t id);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.

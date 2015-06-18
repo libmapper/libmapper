@@ -695,6 +695,7 @@ typedef struct {
 static property_table_value_t sig_values[] = {
     { 's', {1},        -1,         SIG_OFFSET(description) },
     { 'i', {0},        -1,         SIG_OFFSET(direction) },
+    { 'h', {0},        -1,         SIG_OFFSET(id) },
     { 'i', {0},        -1,         SIG_OFFSET(length) },
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(maximum) },
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(minimum) },
@@ -709,14 +710,15 @@ static property_table_value_t sig_values[] = {
 static string_table_node_t sig_strings[] = {
     { "description", &sig_values[0] },
     { "direction",   &sig_values[1] },
-    { "length",      &sig_values[2] },
-    { "max",         &sig_values[3] },
-    { "min",         &sig_values[4] },
-    { "name",        &sig_values[5] },
-    { "rate",        &sig_values[6] },
-    { "type",        &sig_values[7] },
-    { "unit",        &sig_values[8] },
-    { "user_data",   &sig_values[9] },
+    { "id",          &sig_values[2] },
+    { "length",      &sig_values[3] },
+    { "max",         &sig_values[4] },
+    { "min",         &sig_values[5] },
+    { "name",        &sig_values[6] },
+    { "rate",        &sig_values[7] },
+    { "type",        &sig_values[8] },
+    { "unit",        &sig_values[9] },
+    { "user_data",   &sig_values[10] },
 };
 
 const int N_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
@@ -726,6 +728,7 @@ static mapper_string_table_t sig_table =
 static property_table_value_t dev_values[] = {
     { 's', {1}, -1, DEV_OFFSET(description) },
     { 's', {1}, -1, DEV_OFFSET(host) },
+    { 'h', {0}, -1, DEV_OFFSET(id) },
     { 's', {1}, -1, DEV_OFFSET(lib_version) },
     { 's', {1}, -1, DEV_OFFSET(name) },
     { 'i', {0}, -1, DEV_OFFSET(num_incoming_maps) },
@@ -742,16 +745,17 @@ static property_table_value_t dev_values[] = {
 static string_table_node_t dev_strings[] = {
     { "description",        &dev_values[0] },
     { "host",               &dev_values[1] },
-    { "lib_version",        &dev_values[2] },
-    { "name",               &dev_values[3] },
-    { "num_incoming_maps",  &dev_values[4] },
-    { "num_outgoing_maps",  &dev_values[5] },
-    { "num_inputs",         &dev_values[6] },
-    { "num_outputs",        &dev_values[7] },
-    { "port",               &dev_values[8] },
-    { "synced",             &dev_values[9] },
-    { "user_data",          &dev_values[10] },
-    { "version",            &dev_values[11] },
+    { "id",                 &dev_values[2] },
+    { "lib_version",        &dev_values[3] },
+    { "name",               &dev_values[4] },
+    { "num_incoming_maps",  &dev_values[5] },
+    { "num_outgoing_maps",  &dev_values[6] },
+    { "num_inputs",         &dev_values[7] },
+    { "num_outputs",        &dev_values[8] },
+    { "port",               &dev_values[9] },
+    { "synced",             &dev_values[10] },
+    { "user_data",          &dev_values[11] },
+    { "version",            &dev_values[12] },
 };
 
 const int N_DEV_STRINGS = sizeof(dev_strings)/sizeof(dev_strings[0]);
@@ -790,7 +794,7 @@ static mapper_string_table_t slot_table =
 
 static property_table_value_t map_values[] = {
     { 's', {1}, -1,         MAP_OFFSET(expression) },
-    { 'h', {0}, -1,         MAP_OFFSET(hash)},
+    { 'h', {0}, -1,         MAP_OFFSET(id)},
     { 'i', {0}, -1,         MAP_OFFSET(mode) },
     { 'i', {0}, -1,         MAP_OFFSET(muted) },
     { 'i', {0}, -1,         MAP_OFFSET(scope.size) },
@@ -802,7 +806,7 @@ static property_table_value_t map_values[] = {
 /* This table must remain in alphabetical order. */
 static string_table_node_t map_strings[] = {
     { "expression",         &map_values[0] },
-    { "hash",               &map_values[1] },
+    { "id",                 &map_values[1] },
     { "mode",               &map_values[2] },
     { "muted",              &map_values[3] },
     { "num_scopes",         &map_values[4] },
@@ -906,7 +910,8 @@ static int mapper_db_property_index(void *thestruct, table extra,
 
 static int mapper_db_property_lookup(void *thestruct, table extra,
                                      const char *property, char *type,
-                                     const void **value, int *length, table proptable)
+                                     const void **value, int *length,
+                                     table proptable)
 {
     die_unless(type!=0, "type parameter cannot be null.\n");
     die_unless(value!=0, "value parameter cannot be null.\n");
@@ -962,7 +967,7 @@ static int update_device_record_params(mapper_db_device reg,
 
     updated += update_string_if_different(&reg->name, no_slash);
     if (updated)
-        reg->hash = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
+        reg->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
 
     if (current_time)
         mapper_timetag_cpy(&reg->synced, *current_time);
@@ -996,7 +1001,7 @@ static int update_device_record_params(mapper_db_device reg,
 mapper_db_device mapper_db_add_or_update_device_params(mapper_db db,
                                                        const char *name,
                                                        mapper_message_t *params,
-                                                       mapper_timetag_t *current_time)
+                                                       mapper_timetag_t *time)
 {
     mapper_db_device dev = mapper_db_get_device_by_name(db, name);
     int rc = 0, updated = 0;
@@ -1009,7 +1014,7 @@ mapper_db_device mapper_db_add_or_update_device_params(mapper_db db,
     }
 
     if (dev) {
-        updated = update_device_record_params(dev, name, params, current_time);
+        updated = update_device_record_params(dev, name, params, time);
 
         if (rc || updated) {
             fptr_list cb = db->device_callbacks;
@@ -1090,11 +1095,11 @@ mapper_db_device mapper_db_get_device_by_name(mapper_db db, const char *name)
     return 0;
 }
 
-mapper_db_device mapper_db_get_device_by_hash(mapper_db db, uint64_t hash)
+mapper_db_device mapper_db_get_device_by_id(mapper_db db, uint64_t id)
 {
     mapper_db_device reg = db->registered_devices;
     while (reg) {
-        if (hash == reg->hash)
+        if (id == reg->id)
             return reg;
         reg = list_get_next(reg);
     }
@@ -1231,7 +1236,7 @@ static int cmp_query_devices_by_property(void *context_data, mapper_db_device de
     int length = *(int*)(context_data + sizeof(int));
     char type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
-    const char *property = (const char*)(context_data + sizeof(int) * 3 + sizeof(void*));
+    const char *property = (const char*)(context_data+sizeof(int)*3+sizeof(void*));
     int _length;
     char _type;
     const void *_value;
@@ -1367,7 +1372,7 @@ static int update_signal_record_params(mapper_db_signal sig,
     if (!params)
         return updated;
 
-    updated += update_int64_if_arg((int64_t*)&sig->hash, params, AT_HASH);
+    updated += update_int64_if_arg((int64_t*)&sig->id, params, AT_ID);
 
     updated += update_char_if_arg(&sig->type, params, AT_TYPE);
 
@@ -1438,7 +1443,6 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
     mapper_db_signal sig = 0;
     int rc = 0, updated = 0;
 
-    // TODO: retrieve by hash instead?
     mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
     if (dev)
         sig = mapper_db_get_device_signal_by_name(db, dev, name);
@@ -1628,7 +1632,7 @@ static int cmp_query_signals_by_property(void *context_data, mapper_db_signal si
     int length = *(int*)(context_data + sizeof(int));
     char type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
-    const char *property = (const char*)(context_data + sizeof(int) * 3 + sizeof(void*));
+    const char *property = (const char*)(context_data+sizeof(int)*3+sizeof(void*));
     int _length;
     char _type;
     const void *_value;
@@ -1658,10 +1662,10 @@ mapper_db_signal *mapper_db_get_signals_by_property(mapper_db db,
 
 static int cmp_query_device_signals(void *context_data, mapper_db_signal sig)
 {
-    uint64_t dev_hash = *(int64_t*)context_data;
+    uint64_t dev_id = *(int64_t*)context_data;
     int direction = *(int*)(context_data + sizeof(uint64_t));
     return ((!direction || (sig->direction & direction))
-            && (dev_hash == sig->device->hash));
+            && (dev_id == sig->device->id));
 }
 
 mapper_db_signal *mapper_db_get_device_signals(mapper_db db,
@@ -1672,7 +1676,7 @@ mapper_db_signal *mapper_db_get_device_signals(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals,
-                                    "hi", dev->hash, DI_ANY));
+                                    "hi", dev->id, DI_ANY));
 }
 
 mapper_db_signal *mapper_db_get_device_inputs(mapper_db db,
@@ -1683,7 +1687,7 @@ mapper_db_signal *mapper_db_get_device_inputs(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals,
-                                    "hi", dev->hash, DI_INCOMING));
+                                    "hi", dev->id, DI_INCOMING));
 }
 
 mapper_db_signal *mapper_db_get_device_outputs(mapper_db db,
@@ -1694,7 +1698,7 @@ mapper_db_signal *mapper_db_get_device_outputs(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals,
-                                    "hi", dev->hash, DI_OUTGOING));
+                                    "hi", dev->id, DI_OUTGOING));
 }
 
 static mapper_db_signal get_device_signal_by_name_internal(mapper_db db,
@@ -1784,12 +1788,12 @@ mapper_db_signal mapper_db_get_device_output_by_index(mapper_db db,
 static int cmp_query_device_signals_match_name(void *context_data,
                                                mapper_db_signal sig)
 {
-    uint64_t device_hash = *(int64_t*)context_data;
+    uint64_t dev_id = *(int64_t*)context_data;
     int direction = *(int*)(context_data + sizeof(uint64_t));
     const char *pattern = (const char*)(context_data+sizeof(int64_t)+sizeof(int));
 
     return ((!direction || (sig->direction & direction))
-            && (sig->device->hash == device_hash)
+            && (sig->device->id == dev_id)
             && strstr(sig->name, pattern));
 }
 
@@ -1802,7 +1806,7 @@ mapper_db_signal *mapper_db_get_device_signals_by_name_match(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals_match_name,
-                                    "his", dev->hash, DI_ANY, pattern));
+                                    "his", dev->id, DI_ANY, pattern));
 }
 
 mapper_db_signal *mapper_db_get_device_inputs_by_name_match(mapper_db db,
@@ -1814,7 +1818,7 @@ mapper_db_signal *mapper_db_get_device_inputs_by_name_match(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals_match_name,
-                                    "his", dev->hash, DI_INCOMING, pattern));
+                                    "his", dev->id, DI_INCOMING, pattern));
 }
 
 mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
@@ -1826,7 +1830,7 @@ mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
     return ((mapper_db_signal *)
             construct_query_context(db->registered_signals,
                                     cmp_query_device_signals_match_name,
-                                    "his", dev->hash, DI_OUTGOING, pattern));
+                                    "his", dev->id, DI_OUTGOING, pattern));
 }
 
 static int cmp_compound_signal_query(void *context_data, mapper_db_signal sig)
@@ -2033,7 +2037,7 @@ static int update_map_record_params(mapper_db db, mapper_db_map map,
     if (!params)
         return updated;
 
-    updated += update_int64_if_arg((int64_t*)&map->hash, params, AT_HASH);
+    updated += update_int64_if_arg((int64_t*)&map->id, params, AT_ID);
 
     if (map->num_sources == 1)
         slot = 0;
@@ -2361,12 +2365,12 @@ mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
-    int64_t hash;
-    if (mapper_msg_get_param_if_int64(params, AT_HASH, &hash)) {
-        trace("error: no 'hash' property for updating map.");
+    int64_t id;
+    if (mapper_msg_get_param_if_int64(params, AT_ID, &id)) {
+        trace("error: no 'id' property for updating map.");
         return 0;
     }
-    map = mapper_db_get_map_by_hash(db, hash);
+    map = mapper_db_get_map_by_id(db, id);
 
     if (!map) {
         map = (mapper_db_map) list_add_new_item((void**)&db->registered_maps,
@@ -2514,13 +2518,13 @@ mapper_db_map *mapper_db_get_maps(mapper_db db)
     return list_from_data(db->registered_maps);
 }
 
-mapper_db_map mapper_db_get_map_by_hash(mapper_db db, uint64_t hash)
+mapper_db_map mapper_db_get_map_by_id(mapper_db db, uint64_t id)
 {
     mapper_db_map map = db->registered_maps;
     if (!map)
         return 0;
     while (map) {
-        if (map->hash == hash)
+        if (map->id == id)
             return map;
         map = list_get_next(map);
     }
@@ -2533,7 +2537,7 @@ static int cmp_query_maps_by_property(void *context_data, mapper_db_map map)
     int length = *(int*)(context_data + sizeof(int));
     char type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
-    const char *property = (const char*)(context_data + sizeof(int) * 3 + sizeof(void*));
+    const char *property = (const char*)(context_data+sizeof(int)*3+sizeof(void*));
     int _length;
     char _type;
     const void *_value;
@@ -2647,17 +2651,17 @@ mapper_db_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
 
 static int cmp_query_device_maps(void *context_data, mapper_db_map map)
 {
-    uint64_t device_hash = *(uint64_t*)context_data;
+    uint64_t dev_id = *(uint64_t*)context_data;
     int direction = *(int*)(context_data + sizeof(uint64_t));
     if (!direction || (direction & DI_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].signal->device->hash == device_hash)
+            if (map->sources[i].signal->device->id == dev_id)
                 return 1;
         }
     }
     if (!direction || (direction & DI_INCOMING)) {
-        if (map->destination.signal->device->hash == device_hash)
+        if (map->destination.signal->device->id == dev_id)
             return 1;
     }
     return 0;
@@ -2669,7 +2673,7 @@ mapper_db_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev)
         return 0;
     return ((mapper_db_map *)
             construct_query_context(db->registered_maps, cmp_query_device_maps,
-                                    "hi", dev->hash, DI_ANY));
+                                    "hi", dev->id, DI_ANY));
 }
 
 mapper_db_map *mapper_db_get_device_outgoing_maps(mapper_db db,
@@ -2679,7 +2683,7 @@ mapper_db_map *mapper_db_get_device_outgoing_maps(mapper_db db,
         return 0;
     return ((mapper_db_map *)
             construct_query_context(db->registered_maps, cmp_query_device_maps,
-                                    "hi", dev->hash, DI_OUTGOING));
+                                    "hi", dev->id, DI_OUTGOING));
 }
 
 mapper_db_map *mapper_db_get_device_incoming_maps(mapper_db db,
@@ -2689,7 +2693,7 @@ mapper_db_map *mapper_db_get_device_incoming_maps(mapper_db db,
         return 0;
     return ((mapper_db_map *)
             construct_query_context(db->registered_maps, cmp_query_device_maps,
-                                    "hi", dev->hash, DI_INCOMING));
+                                    "hi", dev->id, DI_INCOMING));
 }
 
 static int cmp_query_maps_by_all_src_devices(void *context_data,
@@ -2699,11 +2703,11 @@ static int cmp_query_maps_by_all_src_devices(void *context_data,
     if (map->num_sources != num_sources)
         return 0;
     int i, j, found;
-    uint64_t *hashes = (uint64_t*)(context_data + sizeof(int));
+    uint64_t *ids = (uint64_t*)(context_data + sizeof(int));
     for (i = 0; i < num_sources; i++) {
         found = 0;
         for (j = 0; j < num_sources; j++) {
-            if (map->sources[j].signal->device->hash == hashes[i]) {
+            if (map->sources[j].signal->device->id == ids[i]) {
                 found = 1;
                 break;
             }
@@ -2720,11 +2724,11 @@ mapper_db_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
     if (!db->registered_maps || !devices || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
     int i;
-    uint64_t hashes[num_sources];
+    uint64_t ids[num_sources];
     for (i = 0; i < num_sources; i++) {
         if (!devices[i])
             return 0;
-        hashes[i] = devices[i]->hash;
+        ids[i] = devices[i]->id;
     }
 
     // TODO: expand to more sources if necessary
@@ -2735,7 +2739,7 @@ mapper_db_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
     return ((mapper_db_map *)
             construct_query_context(db->registered_maps,
                                     cmp_query_maps_by_all_src_devices,
-                                    types, num_sources, hashes));
+                                    types, num_sources, ids));
 }
 
 static int cmp_query_signal_maps(void *context_data, mapper_db_map map)
@@ -2944,15 +2948,16 @@ void mapper_db_dump(mapper_db db)
     mapper_db_device dev = db->registered_devices;
     printf("Registered devices:\n");
     while (dev) {
-        printf("  name='%s', host='%s', port=%d, hash=%llu\n",
-               dev->name, dev->host, dev->port, dev->hash);
+        printf("  name='%s', host='%s', port=%d, id=%llu\n",
+               dev->name, dev->host, dev->port, dev->id);
         dev = list_get_next(dev);
     }
 
     mapper_db_signal sig = db->registered_signals;
     printf("Registered signals:\n");
     while (sig) {
-        printf("  name='%s':'%s', hash=%llu ", sig->device->name, sig->name, sig->hash);
+        printf("  name='%s':'%s', id=%llu ", sig->device->name,
+               sig->name, sig->id);
         switch (sig->direction) {
             case DI_BOTH:
                 printf("(input/output)\n");
@@ -2973,7 +2978,7 @@ void mapper_db_dump(mapper_db db)
     mapper_db_map map = db->registered_maps;
     printf("Registered maps:\n");
     while (map) {
-        printf("  hash=%llu\n", map->hash);
+        printf("  id=%llu\n", map->id);
         if (map->num_sources == 1)
             print_map_slot("    source slot", -1, &map->sources[0]);
         else {

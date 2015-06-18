@@ -152,7 +152,7 @@ static struct handler_method_assoc device_handlers[] = {
     {ADM_WHO,                   NULL,       handler_who},
     {ADM_MAPPED,                NULL,       handler_mapped},
     {ADM_DEVICE,                NULL,       handler_device},
-    {ADM_PING,                  "iiid",     handler_ping},
+    {ADM_PING,                  "hiid",     handler_ping},
 };
 const int N_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -596,8 +596,8 @@ static void mapper_admin_probe_device_name(mapper_admin admin,
     trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
     snprintf(name, 256, "%s.%d", device->props.identifier, device->ordinal.value);
 
-    /* Calculate a hash from the name and store it in id.value */
-    device->props.hash = crc32(0L, (const Bytef *)name, strlen(name));
+    /* Calculate an id from the name and store it in id.value */
+    device->props.id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
 
     /* For the same reason, we can't use mapper_admin_send()
      * here. */
@@ -673,7 +673,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
     // some housekeeping: periodically check if our links are still active
     mapper_link link = md->router->links;
     while (link) {
-        if (link->props.hash == md->props.hash) {
+        if (link->props.id == md->props.id) {
             // don't bother sending pings to self
             link = link->next;
             continue;
@@ -714,7 +714,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
              * empty links are removed after the ping timeout. */
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
-            lo_message_add_int32(m, mdev_hash(md));
+            lo_message_add_int64(m, mdev_id(md));
             ++sync->sent.message_id;
             if (sync->sent.message_id < 0)
                 sync->sent.message_id = 0;
@@ -925,48 +925,42 @@ void _real_mapper_admin_bundle_message_with_params(mapper_admin admin,
         mapper_admin_send_bundle(admin);
 }
 
-static void mapper_admin_send_device(mapper_admin admin,
-                                     mapper_device device)
+static void mapper_admin_send_device(mapper_admin adm, mapper_device dev)
 {
-    if (!device)
+    if (!dev)
         return;
-
-    mapper_admin_bundle_message(
-        admin, ADM_DEVICE, 0, "s", mdev_name(device),
-        AT_LIB_VERSION, PACKAGE_VERSION,
-        AT_PORT, device->props.port,
-        AT_NUM_INPUTS, mdev_num_inputs(device),
-        AT_NUM_OUTPUTS, mdev_num_outputs(device),
-        AT_NUM_INCOMING_MAPS, mdev_num_incoming_maps(device),
-        AT_NUM_OUTGOING_MAPS, mdev_num_outgoing_maps(device),
-        AT_REV, device->props.version,
-        AT_EXTRA, device->props.extra);
+    mapper_admin_bundle_message(adm, ADM_DEVICE, 0, "s", mdev_name(dev),
+                                AT_LIB_VERSION, PACKAGE_VERSION,
+                                AT_PORT, dev->props.port,
+                                AT_NUM_INPUTS, mdev_num_inputs(dev),
+                                AT_NUM_OUTPUTS, mdev_num_outputs(dev),
+                                AT_NUM_INCOMING_MAPS, mdev_num_incoming_maps(dev),
+                                AT_NUM_OUTGOING_MAPS, mdev_num_outgoing_maps(dev),
+                                AT_REV, dev->props.version,
+                                AT_EXTRA, dev->props.extra);
 }
 
-void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
-                              mapper_signal sig)
+void mapper_admin_send_signal(mapper_admin adm, mapper_signal sig)
 {
     char sig_name[1024];
     msig_full_name(sig, sig_name, 1024);
-    mapper_admin_bundle_message(
-        admin, ADM_SIGNAL, 0, "s", sig_name,
-        AT_DIRECTION, sig,
-        AT_TYPE, sig->props.type,
-        AT_LENGTH, sig->props.length,
-        sig->props.unit ? AT_UNITS : -1, sig,
-        sig->props.minimum ? AT_MIN : -1, sig,
-        sig->props.maximum ? AT_MAX : -1, sig,
-        sig->props.num_instances > 1 ? AT_INSTANCES : -1, sig,
-        sig->props.rate ? AT_RATE : -1, sig,
-        AT_EXTRA, sig->props.extra);
+    mapper_db_signal props = &sig->props;
+    mapper_admin_bundle_message(adm, ADM_SIGNAL, 0, "s", sig_name,
+                                AT_DIRECTION, sig, AT_ID, props->id,
+                                AT_TYPE, props->type, AT_LENGTH, props->length,
+                                props->unit ? AT_UNITS : -1, sig,
+                                props->minimum ? AT_MIN : -1, sig,
+                                props->maximum ? AT_MAX : -1, sig,
+                                props->num_instances > 1 ? AT_INSTANCES : -1, sig,
+                                props->rate ? AT_RATE : -1, sig,
+                                AT_EXTRA, props->extra);
 }
 
-void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
-                                      mapper_signal sig)
+void mapper_admin_send_signal_removed(mapper_admin adm, mapper_signal sig)
 {
     char sig_name[1024];
     msig_full_name(sig, sig_name, 1024);
-    mapper_admin_bundle_message(admin, ADM_SIGNAL_REMOVED, 0, "s", sig_name);
+    mapper_admin_bundle_message(adm, ADM_SIGNAL_REMOVED, 0, "s", sig_name);
 }
 
 static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
@@ -981,7 +975,7 @@ static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
 
     int i = min;
     for (; i <= max; i++)
-        mapper_admin_send_signal(admin, md, md->inputs[i]);
+        mapper_admin_send_signal(admin, md->inputs[i]);
 }
 
 static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
@@ -996,7 +990,7 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 
     int i = min;
     for (; i <= max; i++)
-        mapper_admin_send_signal(admin, md, md->outputs[i]);
+        mapper_admin_send_signal(admin, md->outputs[i]);
 }
 
 // Send /mapped message
@@ -1142,7 +1136,6 @@ static int handler_device(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_db db = mmon_get_db(mon);
     mapper_device md = admin->device;
     int i, j;
 
@@ -1162,7 +1155,14 @@ static int handler_device(const char *path, const char *types,
     mapper_clock_now(&admin->clock, &admin->clock.now);
     if (mon) {
         trace("<monitor> got /device %s + %i arguments\n", name, argc-1);
-        mapper_db_add_or_update_device_params(db, name, &params, &admin->clock.now);
+        mapper_db db = mmon_get_db(mon);
+        mapper_db_device dev;
+        dev = mapper_db_add_or_update_device_params(db, name, &params,
+                                                    &admin->clock.now);
+        if (mon->autosubscribe && (!dev->subscribed)) {
+            mmon_subscribe(mon, dev, mon->autosubscribe, -1);
+            dev->subscribed = 1;
+        }
     }
 
     if (!md)
@@ -1534,8 +1534,8 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     char *name, *s;
-    int hash, ordinal, diff;
-    int temp_id = -1, suggestion = -1;
+    uint64_t id;
+    int ordinal, diff, temp_id = -1, suggestion = -1;
 
     if (argc < 1)
         return 0;
@@ -1568,8 +1568,8 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
         }
     }
     else {
-        hash = crc32(0L, (const Bytef *)name, strlen(name));
-        if (hash == md->props.hash) {
+        id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+        if (id == md->props.id) {
             if (argc > 1) {
                 if (types[1] == 'i')
                     temp_id = argv[1]->i;
@@ -1599,7 +1599,8 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
     mapper_device md = admin->device;
     char *name;
     double current_time;
-    int hash, temp_id = -1, i;
+    uint64_t id;
+    int temp_id = -1, i;
 
     if (types[0] == 's' || types[0] == 'S')
         name = &argv[0]->s;
@@ -1616,8 +1617,8 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
     trace("</%s.?::%p> got /name/probe %s %i \n",
           md->props.identifier, admin, name, temp_id);
 
-    hash = crc32(0L, (const Bytef *)name, strlen(name));
-    if (hash == md->props.hash) {
+    id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    if (id == md->props.id) {
         if (md->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
@@ -1959,19 +1960,17 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     num_params = mapper_msg_parse_params(&params, path, &types[param_index],
                                          argc-param_index, &argv[param_index]);
 
-    if (!params.lengths[AT_HASH] || *params.types[AT_HASH] != 'h') {
-        trace("<%s> ignoring /mapTo, no 'hash' property.\n", mdev_name(md));
+    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'h') {
+        trace("<%s> ignoring /mapTo, no 'id' property.\n", mdev_name(md));
         return 0;
     }
-    uint64_t hash = (*params.values[AT_HASH])->i64;
+    uint64_t id = (*params.values[AT_ID])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_hash(md->router, local_signal,
-                                                      hash);
+        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal, id);
     }
     else {
-        map = mapper_router_find_incoming_map_by_hash(md->router, local_signal,
-                                                      hash);
+        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
     }
 
     int order[num_sources];
@@ -2145,19 +2144,17 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    if (!params.lengths[AT_HASH] || *params.types[AT_HASH] != 'h') {
-        trace("<%s> ignoring /mapped, no 'hash' property.\n", mdev_name(md));
+    if (!params.lengths[AT_ID] || *params.types[AT_ID] != 'h') {
+        trace("<%s> ignoring /mapped, no 'id' property.\n", mdev_name(md));
         return 0;
     }
-    uint64_t hash = (*params.values[AT_HASH])->i64;
+    uint64_t id = (*params.values[AT_ID])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_hash(md->router, local_signal,
-                                                      hash);
+        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal, id);
     }
     else {
-        map = mapper_router_find_incoming_map_by_hash(md->router, local_signal,
-                                                      hash);
+        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
     }
     if (!map) {
         trace("<%s> no map found for /mapped.\n", mdev_name(md));
@@ -2496,31 +2493,31 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
     // TODO: devices should check if they are target, clean up old maps
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    int i, hash_index;
-    uint64_t *hash = 0;
+    int i, id_index;
+    uint64_t *id = 0;
 
     for (i = 0; i < argc; i++) {
         if (types[i] != 's' && types[i] != 'S')
             return 0;
-        if (strcmp(&argv[i]->s, "@hash")==0 && (types[i+1] == 'h')) {
-            hash_index = i+1;
-            hash = (uint64_t*)&argv[hash_index]->i64;
+        if (strcmp(&argv[i]->s, "@id")==0 && (types[i+1] == 'h')) {
+            id_index = i+1;
+            id = (uint64_t*)&argv[id_index]->i64;
             break;
         }
     }
-    if (!hash) {
-        trace("error: no 'hash' property found in /unmapped message.")
+    if (!id) {
+        trace("error: no 'id' property found in /unmapped message.")
         return 0;
     }
 
 #ifdef DEBUG
     printf("-- <monitor> got /unmapped");
-    for (i = 0; i < hash_index; i++)
+    for (i = 0; i < id_index; i++)
         printf(" %s", &argv[i]->s);
 #endif
 
     mapper_db db = mmon_get_db(mon);
-    mapper_db_map map = mapper_db_get_map_by_hash(db, *hash);
+    mapper_db_map map = mapper_db_get_map_by_id(db, *id);
     if (map)
         mapper_db_remove_map(db, map);
 
@@ -2541,8 +2538,8 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
     mapper_clock_now(clock, &now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
-    mapper_link link = mapper_router_find_link_by_remote_hash(md->router,
-                                                              argv[0]->i);
+    mapper_link link = mapper_router_find_link_by_remote_id(md->router,
+                                                            argv[0]->h);
     if (link) {
         if (argv[2]->i == link->clock.sent.message_id) {
             // total elapsed time since ping sent
@@ -2613,7 +2610,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
         }
     }
     else if (types[0] == 'i') {
-        if ((dev = mapper_db_get_device_by_hash(&mon->db, argv[0]->i)))
+        if ((dev = mapper_db_get_device_by_id(&mon->db, argv[0]->i)))
             mapper_timetag_cpy(&dev->synced, lo_message_get_timestamp(msg));
     }
 

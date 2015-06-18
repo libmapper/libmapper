@@ -70,10 +70,7 @@ struct _mapper_device {
     int n_alloc_outputs;
     int n_output_callbacks;
     int version;
-    uint32_t resource_counter;
     mapper_router router;
-
-    int signal_slot_counter;
 
     /*! Function to call for custom handling of mapping events. */
     mapper_device_map_handler *map_cb;
@@ -85,7 +82,8 @@ struct _mapper_device {
     /*! The list of reserve instance id mappings. */
     struct _mapper_id_map *reserve_id_map;
 
-    uint32_t id_counter;
+    uint32_t resource_counter;
+
     int link_timeout_sec;   /* Number of seconds after which unresponsive
                              * links will be removed, or 0 for never. */
 
@@ -112,7 +110,7 @@ typedef struct _mapper_signal_instance
     void *user_data;
 
     /*! The instance's creation timestamp. */
-    mapper_timetag_t creation_time;
+    mapper_timetag_t created;
 
     /*! Indicates whether this instance has a value. */
     int has_value;
@@ -162,11 +160,9 @@ void mapper_admin_set_bundle_dest_subscribers(mapper_admin admin, int type);
 
 void mapper_admin_send_bundle(mapper_admin admin);
 
-void mapper_admin_send_signal(mapper_admin admin, mapper_device md,
-                              mapper_signal sig);
+void mapper_admin_send_signal(mapper_admin adm, mapper_signal sig);
 
-void mapper_admin_send_signal_removed(mapper_admin admin, mapper_device md,
-                                      mapper_signal sig);
+void mapper_admin_send_signal_removed(mapper_admin adm, mapper_signal sig);
 
 /*! Macro for calling message-sending function. */
 #define mapper_admin_bundle_message(...)                                    \
@@ -225,20 +221,19 @@ void mdev_on_id_and_ordinal(mapper_device md,
                             mapper_admin_allocated_t *resource);
 
 mapper_id_map mdev_add_instance_id_map(mapper_device device, int local_id,
-                                       int origin, int public_id);
+                                       uint64_t global_id);
 
 void mdev_remove_instance_id_map(mapper_device device, mapper_id_map map);
 
 mapper_id_map mdev_find_instance_id_map_by_local(mapper_device device,
                                                  int local_id);
 
-mapper_id_map mdev_find_instance_id_map_by_remote(mapper_device device,
-                                                  int origin, int public_id);
+mapper_id_map mdev_find_instance_id_map_by_global(mapper_device device,
+                                                  uint64_t global_id);
 
 const char *mdev_name(mapper_device md);
 
-/* Get an unused signal slot */
-int mdev_get_signal_slot(mapper_device device);
+uint64_t mdev_get_unique_id(mapper_device dev);
 
 /***** Router *****/
 
@@ -290,13 +285,13 @@ mapper_map mapper_router_find_incoming_map(mapper_router router,
                                            int num_sources,
                                            const char **src_names);
 
-mapper_map mapper_router_find_incoming_map_by_hash(mapper_router router,
-                                                   mapper_signal local_sig,
-                                                   uint64_t hash);
+mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
+                                                 mapper_signal local_sig,
+                                                 uint64_t id);
 
-mapper_map mapper_router_find_outgoing_map_by_hash(mapper_router router,
-                                                   mapper_signal local_src,
-                                                   uint64_t hash);
+mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
+                                                 mapper_signal local_src,
+                                                 uint64_t id);
 
 mapper_map_slot mapper_router_find_map_slot(mapper_router router,
                                             mapper_signal signal,
@@ -311,9 +306,9 @@ mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
 mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
                                                 const char *name);
 
-/*! Find a link by remote device hash in a linked list of links. */
-mapper_link mapper_router_find_link_by_remote_hash(mapper_router router,
-                                                   uint32_t hash);
+/*! Find a link by remote device id in a linked list of links. */
+mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
+                                                 uint32_t id);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -377,13 +372,12 @@ int msig_find_instance_with_local_id(mapper_signal sig, int id, int flags);
 
 /*! Find an active instance with the given instance ID.
  *  \param sig       The signal owning the desired instance.
- *  \param origin    Unique hash identifying the device that activated this instance.
- *  \param public_id The public id of this instance.
+ *  \param global_id Globally unique id of this instance.
  *  \param flags     Bitflags indicating if search should include released instances.
  *  \return          The index of the retrieved signal instance, or -1 if no active
  *                   instances match the specified instance ID map. */
-int msig_find_instance_with_remote_ids(mapper_signal sig, int origin,
-                                       int public_id, int flags);
+int msig_find_instance_with_global_id(mapper_signal sig, uint64_t global_id,
+                                      int flags);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
@@ -401,16 +395,15 @@ int msig_get_instance_with_local_id(mapper_signal sig, int id,
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
  *  \param sig       The signal owning the desired instance.
- *  \param origin    Unique hash identifying the device that activated this instance.
- *  \param public_id The public id of this instance.
+ *  \param global_id Globally unique id of this instance.
  *  \param flags     Bitflags indicating if search should include released instances.
  *  \param tt        Timetag associated with this action.
  *  \return          The index of the retrieved signal instance, or NULL if no free
  *                   instances were available and allocation of a new instance
  *                   was unsuccessful according to the selected allocation
  *                   strategy. */
-int msig_get_instance_with_remote_ids(mapper_signal sig, int origin, int public_id,
-                                      int flags, mapper_timetag_t *tt);
+int msig_get_instance_with_global_id(mapper_signal sig, uint64_t global_id,
+                                     int flags, mapper_timetag_t *tt);
 
 /*! Release a specific signal instance. */
 void msig_release_instance_internal(mapper_signal sig,
