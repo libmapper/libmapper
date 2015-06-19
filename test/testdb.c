@@ -418,8 +418,10 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
-    mapper_db_device *d1 = mapper_db_get_devices_by_property(db, "host", 's', 1, "localhost", "!=");
-    mapper_db_device *d2 = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, ">=");
+    mapper_db_device *d1 = mapper_db_get_devices_by_property(db, "host", 's', 1,
+                                                             "localhost", "!=");
+    mapper_db_device *d2 = mapper_db_get_devices_by_property(db, "port", 'i', 1,
+                                                             &port, ">=");
     pdev = mapper_db_device_query_intersection(db, d1, d2);
 
     count=0;
@@ -563,7 +565,8 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching input 'in' for device 'testdb.1':\n");
 
-    psig = mapper_db_get_device_inputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb.1"), "in");
+    psig = mapper_db_get_device_inputs_by_name_match(
+                db, mapper_db_get_device_by_name(db, "testdb.1"), "in");
 
     count=0;
     if (!psig) {
@@ -594,7 +597,8 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching output 'out' for device 'testdb.1':\n");
 
-    psig = mapper_db_get_device_outputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb.1"), "out");
+    psig = mapper_db_get_device_outputs_by_name_match(
+                db, mapper_db_get_device_by_name(db, "testdb.1"), "out");
 
     count=0;
     if (!psig) {
@@ -625,7 +629,8 @@ int main(int argc, char **argv)
 
     eprintf("\nFind matching output 'out' for device 'testdb__.2':\n");
 
-    psig = mapper_db_get_device_outputs_by_name_match(db, mapper_db_get_device_by_name(db, "testdb__.2"), "out");
+    psig = mapper_db_get_device_outputs_by_name_match(
+                db, mapper_db_get_device_by_name(db, "testdb__.2"), "out");
 
     count=0;
     if (!psig) {
@@ -668,13 +673,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_signal_outgoing_maps() returned 0.\n");
+        eprintf("combined query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_signal_outgoing_maps() returned something "
-                "which pointed to 0.\n");
+        eprintf("combined query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -738,13 +742,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_signal_incoming_maps() returned 0.\n");
+        eprintf("combined query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_signal_incoming_maps() returned something "
-                "which pointed to 0.\n");
+        eprintf("combined query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -814,13 +817,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_device_and_signal_names() returned 0.\n");
+        eprintf("combined query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_device_and_signal_names() "
-                "returned something which pointed to 0.\n");
+        eprintf("combined query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -867,13 +869,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_get_maps_by_signal_queries() returned 0.\n");
+        eprintf("combined query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_get_maps_by_signal_queries() "
-                "returned something which pointed to 0.\n");
+        eprintf("combined query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -892,8 +893,8 @@ int main(int argc, char **argv)
 
     /*********/
 done:
-    while (db->registered_devices)
-        mapper_db_remove_device(db, db->registered_devices, 1);
+    while (db->devices)
+        mapper_db_remove_device(db, db->devices, 1);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

@@ -320,12 +320,12 @@ typedef struct _fptr_list {
 } *fptr_list;
 
 typedef struct _mapper_db {
-    mapper_db_device registered_devices;    //<! List of devices.
-    mapper_db_signal registered_signals;    //<! List of signals.
-    mapper_db_map registered_maps;          //<! List of mappings.
-    fptr_list device_callbacks;             //<! List of device record callbacks.
-    fptr_list signal_callbacks;             //<! List of signal record callbacks.
-    fptr_list map_callbacks;                //<! List of mapping record callbacks.
+    mapper_db_device devices;       //<! List of devices.
+    mapper_db_signal signals;       //<! List of signals.
+    mapper_db_map maps;             //<! List of mappings.
+    fptr_list device_callbacks;     //<! List of device record callbacks.
+    fptr_list signal_callbacks;     //<! List of signal record callbacks.
+    fptr_list map_callbacks;        //<! List of mapping record callbacks.
 } mapper_db_t, *mapper_db;
 
 typedef struct _mapper_subscription {

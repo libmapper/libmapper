@@ -81,8 +81,8 @@ void mmon_free(mapper_monitor mon)
         mmon_unsubscribe(mon, mon->subscriptions->device);
     }
 
-    while (mon->db.registered_devices)
-        mapper_db_remove_device(&mon->db, mon->db.registered_devices, 1);
+    while (mon->db.devices)
+        mapper_db_remove_device(&mon->db, mon->db.devices, 1);
     if (mon->admin) {
         if (mon->own_admin)
             mapper_admin_free(mon->admin);
