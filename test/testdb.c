@@ -356,7 +356,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'port'<5678:\n");
 
-    pdev = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, "<");
+    pdev = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, OP_LESS_THAN);
 
     count=0;
     if (!pdev) {
@@ -387,7 +387,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'num_outputs'==2:\n");
     int temp = 2;
-    pdev = mapper_db_get_devices_by_property(db, "num_outputs", 'i', 1, &temp, "==");
+    pdev = mapper_db_get_devices_by_property(db, "num_outputs", 'i', 1, &temp, OP_EQUAL);
 
     count=0;
     if (!pdev) {
@@ -419,9 +419,9 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
     mapper_db_device *d1 = mapper_db_get_devices_by_property(db, "host", 's', 1,
-                                                             "localhost", "!=");
+                                                             "localhost", OP_NOT_EQUAL);
     mapper_db_device *d2 = mapper_db_get_devices_by_property(db, "port", 'i', 1,
-                                                             &port, ">=");
+                                                             &port, OP_GREATER_THAN_OR_EQUAL);
     pdev = mapper_db_device_query_intersection(db, d1, d2);
 
     count=0;

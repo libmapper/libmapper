@@ -1087,30 +1087,6 @@ static inline int check_type(char type)
     return strchr("ifdsct", type) != 0;
 }
 
-static const char *op_strings[] =
-{
-    "==",   /* OP_EQUAL */
-    ">",    /* OP_GREATER_THAN */
-    ">=",   /* OP_GREATER_THAN_OR_EQUAL */
-    "<",    /* OP_LESS_THAN */
-    "<=",   /* OP_LESS_THAN_OR_EQUAL */
-    "!=",   /* OP_NOT_EQUAL */
-    "&&",   /* OP_AND */
-    "||"    /* OP_OR */
-};
-static int num_op_strings = sizeof(op_strings) / sizeof(op_strings[0]);
-
-static mapper_db_op parse_op(const char *s)
-{
-    if (!s)
-        return OP_EQUAL;
-    for (int i = 0; i < num_op_strings; i++) {
-        if (strcmp(s, op_strings[i])==0)
-            return i;
-    }
-    return OP_UNDEFINED;
-}
-
 static int compare_value(mapper_db_op op, int type, int length,
                          const void *val1, const void *val2)
 {
@@ -1201,6 +1177,10 @@ static int cmp_query_devices_by_property(void *context_data, mapper_db_device de
     char _type;
     const void *_value;
     if (mapper_db_device_property_lookup(dev, property, &_type, &_value, &_length))
+        return (op == OP_DOES_NOT_EXIST);
+    if (op == OP_EXISTS)
+        return 1;
+    if (op == OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -1211,11 +1191,10 @@ mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
                                                     const char *property,
                                                     char type, int length,
                                                     const void *value,
-                                                    const char *operator)
+                                                    mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_device *)
@@ -1500,6 +1479,20 @@ mapper_db_signal *mapper_db_get_outputs(mapper_db db)
                                     "i", DI_OUTGOING));
 }
 
+mapper_db_signal mapper_db_get_signal_by_id(mapper_db db, uint64_t id)
+{
+    mapper_db_signal sig = db->signals;
+    if (!sig)
+        return 0;
+
+    while (sig) {
+        if (sig->id == id)
+            return sig;
+        sig = list_get_next(sig);
+    }
+    return 0;
+}
+
 static int cmp_query_signals_by_name(void *context_data, mapper_db_signal sig)
 {
     int direction = *(int*)context_data;
@@ -1573,6 +1566,10 @@ static int cmp_query_signals_by_property(void *context_data, mapper_db_signal si
     char _type;
     const void *_value;
     if (mapper_db_signal_property_lookup(sig, property, &_type, &_value, &_length))
+        return (op == OP_DOES_NOT_EXIST);
+    if (op == OP_EXISTS)
+        return 1;
+    if (op == OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -1583,11 +1580,10 @@ mapper_db_signal *mapper_db_get_signals_by_property(mapper_db db,
                                                     const char *property,
                                                     char type, int length,
                                                     const void *value,
-                                                    const char *operator)
+                                                    mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_signal *)
@@ -2457,6 +2453,10 @@ static int cmp_query_maps_by_property(void *context_data, mapper_db_map map)
     char _type;
     const void *_value;
     if (mapper_db_map_property_lookup(map, property, &_type, &_value, &_length))
+        return (op == OP_DOES_NOT_EXIST);
+    if (op == OP_EXISTS)
+        return 1;
+    if (op == OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -2467,11 +2467,10 @@ mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
                                               const char *property,
                                               char type, int length,
                                               const void *value,
-                                              const char *operator)
+                                              mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_map *)
@@ -2512,11 +2511,10 @@ mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
                                                    const char *property,
                                                    char type, int length,
                                                    const void *value,
-                                                   const char *operator)
+                                                   mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_map *)
@@ -2529,11 +2527,10 @@ mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
                                                        const char *property,
                                                        char type, int length,
                                                        const void *value,
-                                                       const char *operator)
+                                                       mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_map *)
@@ -2546,11 +2543,10 @@ mapper_db_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
                                                         const char *property,
                                                         char type, int length,
                                                         const void *value,
-                                                        const char *operator)
+                                                        mapper_db_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    mapper_db_op op = parse_op(operator);
     if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
         return 0;
     return ((mapper_db_map *)

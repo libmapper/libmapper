@@ -25,7 +25,6 @@
  *      monitor db handlers
  *      device mapping handlers
  *      LinkProps: set scopes
- *      Map props: set arbitrary properties
  */
 
 //signal_update_handler(Signal sig, instance_id, value, count, TimeTag)
@@ -1034,18 +1033,19 @@ namespace mapper {
             };
         };
 
-        Device device(const string_type &name) const
+        Device device_by_name(const string_type &name) const
             { return Device(mapper_db_get_device_by_name(db, name)); }
-        Device device(uint32_t id) const
+        Device device_by_id(uint32_t id) const
             { return Device(mapper_db_get_device_by_id(db, id)); }
         Device::Iterator devices() const
             { return Device::Iterator(db, mapper_db_get_devices(db)); }
-        Device::Iterator devices(const string_type &pattern) const
+        Device::Iterator devices_by_name_match(const string_type &pattern) const
         {
             return Device::Iterator(db,
                 mapper_db_get_devices_by_name_match(db, pattern));
         }
-        Device::Iterator devices(const Property& p, const string_type& op) const
+        Device::Iterator devices_by_property(const Property& p,
+                                             mapper_db_op op) const
         {
             return Device::Iterator(db,
                 mapper_db_get_devices_by_property(db, p.name, p.type, p.length,
@@ -1053,9 +1053,9 @@ namespace mapper {
                                                   (void*)&p.value : (void*)p.value,
                                                   op));
         }
-        Device::Iterator devices(const Property& p) const
+        Device::Iterator devices_by_property(const Property& p) const
         {
-            return devices(p, "==");
+            return devices_by_property(p, OP_EXISTS);
         }
 
         // db_signals
@@ -1146,64 +1146,94 @@ namespace mapper {
             };
         };
 
-        Signal signal(const string_type &device_name,
-                      const string_type &signal_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal(mapper_db_get_device_signal_by_name(db, dev,
-                                                              signal_name));
-        }
-        Signal input(const string_type &device_name,
-                     const string_type &signal_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal(mapper_db_get_device_input_by_name(db, dev,
-                                                             signal_name));
-        }
-        Signal output(const string_type &device_name,
-                      const string_type &signal_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal(mapper_db_get_device_output_by_name(db, dev,
-                                                              signal_name));
-        }
+        Signal signal_by_id(uint64_t id) const
+            { return Signal(mapper_db_get_signal_by_id(db, id)); }
         Signal::Iterator signals() const
             { return Signal::Iterator(db, mapper_db_get_signals(db)); }
         Signal::Iterator inputs() const
             { return Signal::Iterator(db, mapper_db_get_inputs(db)); }
         Signal::Iterator outputs() const
             { return Signal::Iterator(db, mapper_db_get_outputs(db)); }
-        Signal::Iterator signals(const string_type device_name) const
+        Signal::Iterator signals_by_name(const string_type &name) const
         {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(db, mapper_db_get_device_signals(db, dev));
+            return Signal::Iterator(db, mapper_db_get_signals_by_name(db, name));
         }
-        Signal::Iterator inputs(const string_type device_name) const
+        Signal::Iterator inputs_by_name(const string_type &name) const
         {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(db, mapper_db_get_device_inputs(db, dev));
+            return Signal::Iterator(db, mapper_db_get_inputs_by_name(db, name));
         }
-        Signal::Iterator outputs(const string_type device_name) const
+        Signal::Iterator outputs_by_name(const string_type &name) const
         {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(db, mapper_db_get_device_outputs(db, dev));
+            return Signal::Iterator(db, mapper_db_get_outputs_by_name(db, name));
         }
-        Signal::Iterator match_signals(const string_type device_name,
-                                       const string_type pattern) const
+        Signal::Iterator signals_by_name_match(const string_type &pattern) const
+        {
+            return Signal::Iterator(db, mapper_db_get_signals_by_name_match(db, pattern));
+        }
+        Signal::Iterator inputs_by_name_match(const string_type &pattern) const
+        {
+            return Signal::Iterator(db, mapper_db_get_inputs_by_name_match(db, pattern));
+        }
+        Signal::Iterator outputs_by_name_match(const string_type &pattern) const
+        {
+            return Signal::Iterator(db, mapper_db_get_outputs_by_name_match(db, pattern));
+        }
+        Signal::Iterator signals_by_property(const Property& p,
+                                             mapper_db_op op) const
+        {
+            return Signal::Iterator(db,
+                mapper_db_get_signals_by_property(db, p.name, p.type, p.length,
+                                                  p.type == 's' && p.length == 1 ?
+                                                  (void*)&p.value : (void*)p.value,
+                                                  op));
+        }
+        Signal::Iterator signals_by_property(const Property& p) const
+        {
+            return signals_by_property(p, OP_EXISTS);
+        }
+        Signal::Iterator device_signals(const device_type& device) const
+        {
+            return Signal::Iterator(db, mapper_db_get_device_signals(db, device));
+        }
+        Signal::Iterator device_inputs(const device_type& device) const
+        {
+            return Signal::Iterator(db, mapper_db_get_device_inputs(db, device));
+        }
+        Signal::Iterator device_outputs(const device_type& device) const
+        {
+            return Signal::Iterator(db, mapper_db_get_device_outputs(db, device));
+        }
+        Signal device_signal_by_name(const device_type &device,
+                                     const string_type &name) const
+        {
+            return Signal(mapper_db_get_device_signal_by_name(db, device, name));
+        }
+        Signal device_input_by_name(const device_type &device,
+                                    const string_type &name) const
+        {
+            return Signal(mapper_db_get_device_input_by_name(db, device, name));
+        }
+        Signal device_output_by_name(const device_type &device,
+                                     const string_type &name) const
+        {
+            return Signal(mapper_db_get_device_output_by_name(db, device, name));
+        }
+        Signal::Iterator device_signals_by_name_match(const string_type device_name,
+                                                      const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
             return Signal::Iterator(db,
                 mapper_db_get_device_signals_by_name_match(db, dev, pattern));
         }
-        Signal::Iterator match_inputs(const string_type device_name,
-                                      const string_type pattern) const
+        Signal::Iterator device_inputs_by_name_match(const string_type device_name,
+                                                     const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
             return Signal::Iterator(db,
                  mapper_db_get_device_inputs_by_name_match(db, dev, pattern));
         }
-        Signal::Iterator match_outputs(const string_type device_name,
-                                       const string_type pattern) const
+        Signal::Iterator device_outputs_by_name_match(const string_type device_name,
+                                                      const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
             return Signal::Iterator(db,
@@ -1479,51 +1509,48 @@ namespace mapper {
             Slot *_sources;
             int owned;
         };
-        Map map(uint64_t id) const
+        Map map_by_id(uint64_t id) const
             { return mapper_db_get_map_by_id(db, id); }
         Map::Iterator maps() const
             { return Map::Iterator(db, mapper_db_get_maps(db)); }
-        Map::Iterator maps(const device_type& device) const
+        Map::Iterator maps_by_property(const Property& p, mapper_db_op op) const
+        {
+            return Map::Iterator(db,
+                mapper_db_get_maps_by_property(db, p.name, p.type, p.length,
+                                               p.type == 's' && p.length == 1 ?
+                                               (void*)&p.value : (void*)p.value,
+                                               op));
+        }
+        Map::Iterator maps_by_property(const Property& p) const
+        {
+            return maps_by_property(p, OP_EXISTS);
+        }
+        Map::Iterator device_maps(const device_type& device) const
         {
             return Map::Iterator(db,
                 mapper_db_get_device_maps(db, (mapper_db_device)device));
         }
-        Map::Iterator maps(const string_type& device_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(db, mapper_db_get_device_maps(db, dev));
-        }
-        Map::Iterator maps_by_src(const device_type& device) const
+        Map::Iterator device_outgoing_maps(const device_type& device) const
         {
             return Map::Iterator(db,
                 mapper_db_get_device_outgoing_maps(db, (mapper_db_device)device));
         }
-        Map::Iterator maps_by_src(const string_type& device_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(db, mapper_db_get_device_outgoing_maps(db, dev));
-        }
-        Map::Iterator maps_by_dest(const device_type& device) const
+        Map::Iterator device_incoming_maps(const device_type& device) const
         {
             return Map::Iterator(db,
                 mapper_db_get_device_incoming_maps(db, (mapper_db_device)device));
         }
-        Map::Iterator maps_by_dest(const string_type& device_name) const
-        {
-            mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(db, mapper_db_get_device_incoming_maps(db, dev));
-        }
-        Map::Iterator maps(const signal_type& signal) const
+        Map::Iterator signal_maps(const signal_type& signal) const
         {
             return Map::Iterator(db,
                 mapper_db_get_signal_maps(db, (mapper_db_signal)signal));
         }
-        Map::Iterator maps_by_src(const signal_type& signal) const
+        Map::Iterator signal_outgoing_maps(const signal_type& signal) const
         {
             return Map::Iterator(db,
                 mapper_db_get_signal_outgoing_maps(db, (mapper_db_signal)signal));
         }
-        Map::Iterator maps_by_dest(const signal_type& signal) const
+        Map::Iterator signal_incoming_maps(const signal_type& signal) const
         {
             return Map::Iterator(db,
                 mapper_db_get_signal_incoming_maps(db, (mapper_db_signal)signal));

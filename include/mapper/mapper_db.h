@@ -79,7 +79,9 @@ typedef struct _mapper_db_device {
 /*! Possible operations for composing db queries. */
 typedef enum _mapper_db_op {
     OP_UNDEFINED = -1,
+    OP_DOES_NOT_EXIST,
     OP_EQUAL,
+    OP_EXISTS,
     OP_GREATER_THAN,
     OP_GREATER_THAN_OR_EQUAL,
     OP_LESS_THAN,

@@ -760,15 +760,17 @@ mapper_db_device *mapper_db_get_devices_by_name_match(mapper_db db,
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_device_next() to iterate. */
 mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
                                                     const char *property,
                                                     char type, int length,
                                                     const void *value,
-                                                    const char *op);
+                                                    mapper_db_op op);
 
 /*! Get the union of two device queries (devices matching query1 OR query2).
  *  \param db       The database to query.
@@ -890,6 +892,12 @@ void mapper_db_remove_signal_callback(mapper_db db,
                                       mapper_db_signal_handler *h,
                                       void *user);
 
+/*! Find information for a registered input signal.
+ *  \param db       The database to query.
+ *  \param id       Unique id of the signal to find in the database.
+ *  \return         Information about the signal, or zero if not found. */
+mapper_db_signal mapper_db_get_signal_by_id(mapper_db db, uint64_t id);
+
 /*! Return the list of all known signals across all devices.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results
@@ -983,15 +991,17 @@ mapper_db_signal *mapper_db_get_outputs_by_name_match(mapper_db db,
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_signal_next() to iterate. */
 mapper_db_signal *mapper_db_get_signals_by_property(mapper_db db,
                                                     const char *property,
                                                     char type, int length,
                                                     const void *value,
-                                                    const char *op);
+                                                    mapper_db_op op);
 
 /*! Find information for a registered input signal.
  *  \param db       The database to query.
@@ -1206,15 +1216,17 @@ mapper_db_map mapper_db_get_map_by_id(mapper_db db, uint64_t id);
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_map_next() to iterate. */
 mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
                                               const char *property,
                                               char type, int length,
                                               const void *value,
-                                              const char *op);
+                                              mapper_db_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
@@ -1222,15 +1234,17 @@ mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_map_next() to iterate. */
 mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
                                                    const char *property,
                                                    char type, int length,
                                                    const void *value,
-                                                   const char *op);
+                                                   mapper_db_op op);
 
 /*! Return the list of maps matching the given source slot property.
  *  \param db       The database to query.
@@ -1238,15 +1252,17 @@ mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_map_next() to iterate. */
 mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
                                                        const char *property,
                                                        char type, int length,
                                                        const void *value,
-                                                       const char *op);
+                                                       mapper_db_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
@@ -1254,15 +1270,17 @@ mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
  *  \param type     The value type.
  *  \param length   The value length.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be "==",
- *                  "!=", ">", ">=", "<", "<=". NULL specifies the default "==".
+ *  \param op       A string specifying the comparison operator, can be one of
+ *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
+ *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
+ *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_map_next() to iterate. */
 mapper_db_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
                                                         const char *property,
                                                         char type, int length,
                                                         const void *value,
-                                                        const char *op);
+                                                        mapper_db_op op);
 
 /*! Return the list of maps that touch the given device name.
  *  \param db       The database to query.
