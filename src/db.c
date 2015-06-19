@@ -709,8 +709,8 @@ static string_table_node_t dev_strings[] = {
     { "lib_version",        &dev_values[3] },
     { "name",               &dev_values[4] },
     { "num_incoming_maps",  &dev_values[5] },
-    { "num_outgoing_maps",  &dev_values[6] },
-    { "num_inputs",         &dev_values[7] },
+    { "num_inputs",         &dev_values[6] },
+    { "num_outgoing_maps",  &dev_values[7] },
     { "num_outputs",        &dev_values[8] },
     { "port",               &dev_values[9] },
     { "synced",             &dev_values[10] },
@@ -735,6 +735,7 @@ static property_table_value_t slot_values[] = {
     { 'c', {0},         -1,          SLOT_OFFSET(type) },
 };
 
+/* This table must remain in alphabetical order. */
 static string_table_node_t slot_strings[] = {
     { "bound_max",        &slot_values[0] },
     { "bound_min",        &slot_values[1] },
