@@ -770,18 +770,37 @@ mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
                                                     const void *value,
                                                     const char *op);
 
-/*! Combine two device queries
+/*! Get the union of two device queries (devices matching query1 OR query2).
  *  \param db       The database to query.
  *  \param query1   The first device query.
  *  \param query2   The second device query.
- *  \param op       A string specifying the composition operator, can be "&&"
- *                  or "||".
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_device_next() to iterate. */
-mapper_db_device *mapper_db_combine_device_queries(mapper_db db,
-                                                   mapper_db_device *query1,
-                                                   mapper_db_device *query2,
-                                                   const char *op);
+mapper_db_device *mapper_db_device_query_union(mapper_db db,
+                                               mapper_db_device *query1,
+                                               mapper_db_device *query2);
+
+/*! Get the intersection of two device queries (devices matching query1 AND
+ *  query2).
+ *  \param db       The database to query.
+ *  \param query1   The first device query.
+ *  \param query2   The second device query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_device_query_intersection(mapper_db db,
+                                                      mapper_db_device *query1,
+                                                      mapper_db_device *query2);
+
+/*! Get the difference between two device queries (devices matching query1 but
+ *  NOT query2).
+ *  \param db       The database to query.
+ *  \param query1   The first device query.
+ *  \param query2   The second device query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_device_next() to iterate. */
+mapper_db_device *mapper_db_device_query_difference(mapper_db db,
+                                                    mapper_db_device *query1,
+                                                    mapper_db_device *query2);
 
 /*! Given a device record pointer returned from a previous
  *  mapper_db_return_*() call, get the next item in the list.
@@ -1058,18 +1077,37 @@ mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
                                                              mapper_db_device dev,
                                                              char const *pattern);
 
-/*! Combine two signal queries
+/*! Get the union of two signal queries (signals matching query1 OR query2).
  *  \param db       The database to query.
  *  \param query1   The first signal query.
  *  \param query2   The second signal query.
- *  \param op       A string specifying the composition operator, can be "&&"
- *                  or "||".
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal *mapper_db_combine_signal_queries(mapper_db db,
-                                                   mapper_db_signal *query1,
-                                                   mapper_db_signal *query2,
-                                                   const char *op);
+mapper_db_signal *mapper_db_signal_query_union(mapper_db db,
+                                               mapper_db_signal *query1,
+                                               mapper_db_signal *query2);
+
+/*! Get the intersection of two signal queries (signals matching query1 AND
+ *  query2).
+ *  \param db       The database to query.
+ *  \param query1   The first signal query.
+ *  \param query2   The second signal query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_signal_query_intersection(mapper_db db,
+                                                      mapper_db_signal *query1,
+                                                      mapper_db_signal *query2);
+
+/*! Get the difference between two signal queries (signals matching query1 but
+ *  NOT query2).
+ *  \param db       The database to query.
+ *  \param query1   The first signal query.
+ *  \param query2   The second signal query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_signal_next() to iterate. */
+mapper_db_signal *mapper_db_signal_query_difference(mapper_db db,
+                                                    mapper_db_signal *query1,
+                                                    mapper_db_signal *query2);
 
 /*! Given a signal record pointer returned from a previous
  *  mapper_db_get_*() call, get the next item in the list.
@@ -1281,18 +1319,35 @@ mapper_db_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
 mapper_db_map *mapper_db_get_signal_incoming_maps(mapper_db db,
                                                   mapper_db_signal sig);
 
-/*! Combine two map queries
+/*! Get the union of two map queries (maps matching query1 OR query2).
  *  \param db       The database to query.
  *  \param query1   The first map query.
  *  \param query2   The second map query.
- *  \param op       A string specifying the composition operator, can be "&&"
- *                  or "||".
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_combine_map_queries(mapper_db db,
-                                             mapper_db_map *query1,
-                                             mapper_db_map *query2,
-                                             const char *op);
+mapper_db_map *mapper_db_map_query_union(mapper_db db, mapper_db_map *query1,
+                                         mapper_db_map *query2);
+
+/*! Get the intersection of two map queries (maps matching query1 AND query2).
+ *  \param db       The database to query.
+ *  \param query1   The first map query.
+ *  \param query2   The second map query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_map_query_intersection(mapper_db db,
+                                                mapper_db_map *query1,
+                                                mapper_db_map *query2);
+
+/*! Get the difference between two map queries (maps matching query1 but NOT
+ *  query2).
+ *  \param db       The database to query.
+ *  \param query1   The first map query.
+ *  \param query2   The second map query.
+ *  \return         A double-pointer to the first item in a list of results.
+ *                  Use mapper_db_map_next() to iterate. */
+mapper_db_map *mapper_db_map_query_difference(mapper_db db,
+                                              mapper_db_map *query1,
+                                              mapper_db_map *query2);
 
 /*! Given a map record pointer returned from a previous
  *  mapper_db_get_maps*() call, get the next item in the list.

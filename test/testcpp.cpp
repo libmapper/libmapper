@@ -194,16 +194,26 @@ int main(int argc, char ** argv)
         sig.update(v);
     }
 
-    // check db records 
+    // try combining queries
+    mapper::Db::Device::Iterator r = mon.db().devices("my");
+    r += mon.db().devices(mapper::Property("num_inputs", 4), ">=");
+//    mapper::Db::Device::Iterator r = q1 + q2;
+    for (; r != r.end(); r++) {
+        std::cout << "  r device: " << (const char*)(*r) << std::endl;
+    }
+
+    // check db records
     std::cout << "db records:" << std::endl;
     for (auto const &device : mon.db().devices()) {
         std::cout << "  device: " << (const char*)device.get("name") << std::endl;
     }
     for (auto const &signal : mon.db().inputs()) {
-        std::cout << "  input signal: " << (const char*)signal.get("name") << std::endl;
+        std::cout << "  input signal: " << signal.device().name()
+            << "/" << signal.name() << std::endl;
     }
     for (auto const &signal : mon.db().outputs()) {
-        std::cout << "  output signal: " << (const char*)signal.get("name") << std::endl;
+        std::cout << "  output signal: " << signal.device().name()
+            << "/" << signal.name() << std::endl;
     }
     for (auto const &m : mon.db().maps()) {
         std::cout << "  map: ";

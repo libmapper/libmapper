@@ -412,6 +412,76 @@ static void **iterator_next(void** p)
     return 0;
 }
 
+/* Functions for handling compound queries: unions, intersections, etc. */
+static int cmp_compound_query(void *context_data, void *dev)
+{
+    list_header_t *lh1 = *(list_header_t**)context_data;
+    list_header_t *lh2 = *(list_header_t**)(context_data + sizeof(void*));
+    mapper_db_op op = *(mapper_db_op*)(context_data + sizeof(void*) * 2);
+
+    query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
+
+    switch (op) {
+        case OP_UNION:
+            return (    c1->query_compare(&c1->data, dev)
+                    ||  c2->query_compare(&c2->data, dev));
+        case OP_INTERSECTION:
+            return (    c1->query_compare(&c1->data, dev)
+                    &&  c2->query_compare(&c2->data, dev));
+        case OP_DIFFERENCE:
+            return (    c1->query_compare(&c1->data, dev)
+                    && !c2->query_compare(&c2->data, dev));
+        default:
+            return 0;
+    }
+}
+
+static void **mapper_db_query_union(void *resource, void **query1,
+                                    void **query2)
+{
+    if (!resource)
+        return 0;
+    if (!query1)
+        return query2;
+    if (!query2)
+        return query1;
+
+    list_header_t *lh1 = list_get_header_by_self(query1);
+    list_header_t *lh2 = list_get_header_by_self(query2);
+    return (construct_query_context(resource, cmp_compound_query,
+                                    "vvi", &lh1, &lh2, OP_UNION));
+}
+
+static void **mapper_db_query_intersection(void *resource, void **query1,
+                                           void **query2)
+{
+    if (!resource)
+        return 0;
+    if (!query1 || !query2)
+        return 0;
+
+    list_header_t *lh1 = list_get_header_by_self(query1);
+    list_header_t *lh2 = list_get_header_by_self(query2);
+    return (construct_query_context(resource, cmp_compound_query, "vvi",
+                                    &lh1, &lh2, OP_INTERSECTION));
+}
+
+static void **mapper_db_query_difference(void *resource, void **query1,
+                                         void **query2)
+{
+    if (!resource)
+        return 0;
+    if (!query1)
+        return 0;
+    if (!query2)
+        return query1;
+
+    list_header_t *lh1 = list_get_header_by_self(query1);
+    list_header_t *lh2 = list_get_header_by_self(query2);
+    return (construct_query_context(resource, cmp_compound_query, "vvi",
+                                    &lh1, &lh2, OP_DIFFERENCE));
+}
+
 void add_callback(fptr_list *head, void *f, void *user)
 {
     fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
@@ -1154,47 +1224,31 @@ mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
                                     "iicvs", op, length, type, &value, property));
 }
 
-static int cmp_compound_device_query(void *context_data, mapper_db_device dev)
+mapper_db_device *mapper_db_device_query_union(mapper_db db,
+                                               mapper_db_device *query1,
+                                               mapper_db_device *query2)
 {
-    list_header_t *lh1 = *(list_header_t**)context_data;
-    list_header_t *lh2 = *(list_header_t**)(context_data + sizeof(void*));
-    mapper_db_op op = *(mapper_db_op*)(context_data + sizeof(void*) * 2);
-
-    query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
-
-    switch (op) {
-        case OP_AND:
-            return (   c1->query_compare(&c1->data, dev)
-                    && c2->query_compare(&c2->data, dev));
-        case OP_OR:
-            return (   c1->query_compare(&c1->data, dev)
-                    || c2->query_compare(&c2->data, dev));
-        default:
-            return 0;
-    }
+    return ((mapper_db_device *)
+            mapper_db_query_union(db->registered_devices, (void**)query1,
+                                  (void**)query2));
 }
 
-mapper_db_device *mapper_db_combine_device_queries(mapper_db db,
-                                                   mapper_db_device *query1,
-                                                   mapper_db_device *query2,
-                                                   const char *operator)
+mapper_db_device *mapper_db_device_query_intersection(mapper_db db,
+                                                      mapper_db_device *query1,
+                                                      mapper_db_device *query2)
 {
-    if (!db->registered_devices)
-        return 0;
-    mapper_db_op op = parse_op(operator);
-    if (op != OP_AND && op != OP_OR)
-        return 0;
-    if (op == OP_AND && (!query1 || !query2))
-        return 0;
-    if (!query1 && !query2)
-        return 0;
-
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
     return ((mapper_db_device *)
-            construct_query_context(db->registered_devices,
-                                    cmp_compound_device_query,
-                                    "vvi", &lh1, &lh2, op));
+            mapper_db_query_intersection(db->registered_devices, (void**)query1,
+                                         (void**)query2));
+}
+
+mapper_db_device *mapper_db_device_query_difference(mapper_db db,
+                                                    mapper_db_device *query1,
+                                                    mapper_db_device *query2)
+{
+    return ((mapper_db_device *)
+            mapper_db_query_difference(db->registered_devices, (void**)query1,
+                                       (void**)query2));
 }
 
 mapper_db_device *mapper_db_device_next(mapper_db_device* dev)
@@ -1723,47 +1777,31 @@ mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
                                     "his", dev->id, DI_OUTGOING, pattern));
 }
 
-static int cmp_compound_signal_query(void *context_data, mapper_db_signal sig)
+mapper_db_signal *mapper_db_signal_query_union(mapper_db db,
+                                               mapper_db_signal *query1,
+                                               mapper_db_signal *query2)
 {
-    list_header_t *lh1 = *(list_header_t**)context_data;
-    list_header_t *lh2 = *(list_header_t**)(context_data + sizeof(void*));
-    mapper_db_op op = *(mapper_db_op*)(context_data + sizeof(void*) * 2);
-
-    query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
-
-    switch (op) {
-        case OP_AND:
-            return (   c1->query_compare(&c1->data, sig)
-                    && c2->query_compare(&c2->data, sig));
-        case OP_OR:
-            return (   c1->query_compare(&c1->data, sig)
-                    || c2->query_compare(&c2->data, sig));
-        default:
-            return 0;
-    }
+    return ((mapper_db_signal *)
+            mapper_db_query_union(db->registered_signals, (void**)query1,
+                                  (void**)query2));
 }
 
-mapper_db_signal *mapper_db_combine_signal_queries(mapper_db db,
-                                                   mapper_db_signal *query1,
-                                                   mapper_db_signal *query2,
-                                                   const char *operator)
+mapper_db_signal *mapper_db_signal_query_intersection(mapper_db db,
+                                                      mapper_db_signal *query1,
+                                                      mapper_db_signal *query2)
 {
-    if (!db->registered_signals)
-        return 0;
-    mapper_db_op op = parse_op(operator);
-    if (op != OP_AND && op != OP_OR)
-        return 0;
-    if (op == OP_AND && (!query1 || !query2))
-        return 0;
-    if (!query1 && !query2)
-        return 0;
-
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
     return ((mapper_db_signal *)
-            construct_query_context(db->registered_signals,
-                                    cmp_compound_signal_query,
-                                    "vvi", &lh1, &lh2, op));
+            mapper_db_query_intersection(db->registered_signals, (void**)query1,
+                                         (void**)query2));
+}
+
+mapper_db_signal *mapper_db_signal_query_difference(mapper_db db,
+                                                    mapper_db_signal *query1,
+                                                    mapper_db_signal *query2)
+{
+    return ((mapper_db_signal *)
+            mapper_db_query_difference(db->registered_signals, (void**)query1,
+                                       (void**)query2));
 }
 
 mapper_db_signal *mapper_db_signal_next(mapper_db_signal *sig)
@@ -2679,51 +2717,30 @@ mapper_db_map *mapper_db_get_signal_incoming_maps(mapper_db db,
                                     "vi", &sig, DI_INCOMING));
 }
 
-static int cmp_compound_map_query(void *context_data, mapper_db_map map)
+mapper_db_map *mapper_db_map_query_union(mapper_db db, mapper_db_map *query1,
+                                         mapper_db_map *query2)
 {
-    list_header_t *lh1 = *(list_header_t**)context_data;
-    list_header_t *lh2 = *(list_header_t**)(context_data + sizeof(void*));
-    mapper_db_op op = *(mapper_db_op*)(context_data + sizeof(void*) * 2);
-
-    query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
-
-    switch (op) {
-        case OP_AND:
-            return (   c1->query_compare(&c1->data, map)
-                    && c2->query_compare(&c2->data, map));
-        case OP_OR:
-            return (   c1->query_compare(&c1->data, map)
-                    || c2->query_compare(&c2->data, map));
-        default:
-            return 0;
-    }
+    return ((mapper_db_map *)
+            mapper_db_query_union(db->registered_maps, (void**)query1,
+                                  (void**)query2));
 }
 
-mapper_db_map *mapper_db_combine_map_queries(mapper_db db,
-                                             mapper_db_map *query1,
-                                             mapper_db_map *query2,
-                                             const char *operator)
+mapper_db_map *mapper_db_map_query_intersection(mapper_db db,
+                                                mapper_db_map *query1,
+                                                mapper_db_map *query2)
 {
-    if (!db->registered_maps)
-        return 0;
-    mapper_db_op op = parse_op(operator);
-    if (op != OP_AND && op != OP_OR)
-        return 0;
-    if (!query1 || !query2) {
-        if (op == OP_AND)
-            return 0;
-        if (!query1 && !query2)
-            return 0;
-        if (!query1)
-            return query2;
-        return query1;
-    }
-
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
     return ((mapper_db_map *)
-            construct_query_context(db->registered_maps, cmp_compound_map_query,
-                                    "vvi", &lh1, &lh2, op));
+            mapper_db_query_intersection(db->registered_maps, (void**)query1,
+                                         (void**)query2));
+}
+
+mapper_db_map *mapper_db_map_query_difference(mapper_db db,
+                                              mapper_db_map *query1,
+                                              mapper_db_map *query2)
+{
+    return ((mapper_db_map *)
+            mapper_db_query_difference(db->registered_maps, (void**)query1,
+                                       (void**)query2));
 }
 
 mapper_db_map_t **mapper_db_map_next(mapper_db_map *maps)

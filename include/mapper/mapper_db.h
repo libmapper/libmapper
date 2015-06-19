@@ -85,8 +85,9 @@ typedef enum _mapper_db_op {
     OP_LESS_THAN,
     OP_LESS_THAN_OR_EQUAL,
     OP_NOT_EQUAL,
-    OP_AND,
-    OP_OR,
+    OP_UNION,
+    OP_INTERSECTION,
+    OP_DIFFERENCE,
     N_MAPPER_DB_OPS
 } mapper_db_op;
 

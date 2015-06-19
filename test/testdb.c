@@ -416,11 +416,11 @@ int main(int argc, char **argv)
 
     /*********/
 
-    eprintf("\nFind devices with properties 'host'!='localhost' && 'port'>=4000:\n");
+    eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
     mapper_db_device *d1 = mapper_db_get_devices_by_property(db, "host", 's', 1, "localhost", "!=");
     mapper_db_device *d2 = mapper_db_get_devices_by_property(db, "port", 'i', 1, &port, ">=");
-    pdev = mapper_db_combine_device_queries(db, d1, d2, "&&");
+    pdev = mapper_db_device_query_intersection(db, d1, d2);
 
     count=0;
     if (!pdev) {
@@ -662,7 +662,7 @@ int main(int argc, char **argv)
     mapper_db_map* pmap = 0;
     while (psig) {
         mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
-        pmap = mapper_db_combine_map_queries(db, pmap, temp, "||");
+        pmap = mapper_db_map_query_union(db, pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
 
@@ -732,7 +732,7 @@ int main(int argc, char **argv)
     pmap = 0;
     while (psig) {
         mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
-        pmap = mapper_db_combine_map_queries(db, pmap, temp, "||");
+        pmap = mapper_db_map_query_union(db, pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
 
@@ -808,10 +808,9 @@ int main(int argc, char **argv)
     mapper_db_signal dst_sig = mapper_db_get_device_signal_by_name(db, dev, "in1");
 
     // get maps
-    pmap = mapper_db_combine_map_queries(db,
-                                         mapper_db_get_signal_outgoing_maps(db, src_sig),
-                                         mapper_db_get_signal_incoming_maps(db, dst_sig),
-                                         "&&");
+    pmap = mapper_db_map_query_intersection(db,
+                                            mapper_db_get_signal_outgoing_maps(db, src_sig),
+                                            mapper_db_get_signal_incoming_maps(db, dst_sig));
 
     count=0;
     if (!pmap) {
@@ -850,7 +849,7 @@ int main(int argc, char **argv)
     psig = mapper_db_get_device_signals_by_name_match(db, dev, "out");
     while (psig) {
         mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
-        src_pmap = mapper_db_combine_map_queries(db, src_pmap, temp, "||");
+        src_pmap = mapper_db_map_query_union(db, src_pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
 
@@ -859,12 +858,12 @@ int main(int argc, char **argv)
     psig = mapper_db_get_device_signals(db, dev);
     while (psig) {
         mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
-        dst_pmap = mapper_db_combine_map_queries(db, dst_pmap, temp, "||");
+        dst_pmap = mapper_db_map_query_union(db, dst_pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
 
     // combine source and destination queries
-    pmap = mapper_db_combine_map_queries(db, src_pmap, dst_pmap, "&&");
+    pmap = mapper_db_map_query_intersection(db, src_pmap, dst_pmap);
 
     count=0;
     if (!pmap) {

@@ -972,32 +972,65 @@ namespace mapper {
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
-                Iterator(mapper_db_device *d)
-                    { dev = d; }
+                Iterator(mapper_db db, mapper_db_device *dev)
+                    { _db = db; _dev = dev; }
                 ~Iterator()
-                    { mapper_db_device_done(dev); }
+                    { mapper_db_device_done(_dev); }
                 operator mapper_db_device*() const
-                    { return dev; }
+                    { return _dev; }
+                Iterator operator+(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_device_query_union(_db, _dev, rhs));
+                }
+                Iterator operator*(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_device_query_intersection(_db, _dev,
+                                                                        rhs));
+                }
+                Iterator operator-(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_device_query_difference(_db, _dev,
+                                                                      rhs));
+                }
+                Iterator& operator+=(const Iterator& rhs)
+                {
+                    _dev = mapper_db_device_query_union(_db, _dev, rhs);
+                    return (*this);
+                }
+                Iterator& operator*=(const Iterator& rhs)
+                {
+                    _dev = mapper_db_device_query_intersection(_db, _dev, rhs);
+                    return (*this);
+                }
+                Iterator& operator-=(const Iterator& rhs)
+                {
+                    _dev = mapper_db_device_query_difference(_db, _dev, rhs);
+                    return (*this);
+                }
                 bool operator==(const Iterator& rhs)
-                    { return (dev == rhs.dev); }
+                    { return (_dev == rhs._dev); }
                 bool operator!=(const Iterator& rhs)
-                    { return (dev != rhs.dev); }
+                    { return (_dev != rhs._dev); }
                 Iterator& operator++()
                 {
-                    if (dev != NULL)
-                        dev = mapper_db_device_next(dev);
+                    if (_dev != NULL)
+                        _dev = mapper_db_device_next(_dev);
                     return (*this);
                 }
                 Iterator operator++(int)
-                    { Iterator tmp(*this); operator++(); return tmp; }
+                    { Iterator tmp(_db, *this); operator++(); return tmp; }
                 Device operator*()
-                    { return Device(*dev); }
+                    { return Device(*_dev); }
                 Iterator begin()
-                    { return Iterator(dev); }
+                    { return Iterator(_db, _dev); }
                 Iterator end()
-                    { return Iterator(0); }
+                    { return Iterator(0, 0); }
             private:
-                mapper_db_device *dev;
+                mapper_db _db;
+                mapper_db_device *_dev;
             };
         };
 
@@ -1006,11 +1039,23 @@ namespace mapper {
         Device device(uint32_t id) const
             { return Device(mapper_db_get_device_by_id(db, id)); }
         Device::Iterator devices() const
-            { return Device::Iterator(mapper_db_get_devices(db)); }
+            { return Device::Iterator(db, mapper_db_get_devices(db)); }
         Device::Iterator devices(const string_type &pattern) const
         {
-            return Device::Iterator(
+            return Device::Iterator(db,
                 mapper_db_get_devices_by_name_match(db, pattern));
+        }
+        Device::Iterator devices(const Property& p, const string_type& op) const
+        {
+            return Device::Iterator(db,
+                mapper_db_get_devices_by_property(db, p.name, p.type, p.length,
+                                                  p.type == 's' && p.length == 1 ?
+                                                  (void*)&p.value : (void*)p.value,
+                                                  op));
+        }
+        Device::Iterator devices(const Property& p) const
+        {
+            return devices(p, "==");
         }
 
         // db_signals
@@ -1039,32 +1084,65 @@ namespace mapper {
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
-                Iterator(mapper_db_signal *s)
-                    { sig = s; }
+                Iterator(mapper_db db, mapper_db_signal *sig)
+                    { _db = db; _sig = sig; }
                 ~Iterator()
-                    { mapper_db_signal_done(sig); }
+                    { mapper_db_signal_done(_sig); }
                 operator mapper_db_signal*() const
-                    { return sig; }
+                    { return _sig; }
+                Iterator operator+(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_signal_query_union(_db, _sig, rhs));
+                }
+                Iterator operator*(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_signal_query_intersection(_db, _sig,
+                                                                        rhs));
+                }
+                Iterator operator-(const Iterator& rhs) const
+                {
+                    return Iterator(_db,
+                                    mapper_db_signal_query_difference(_db, _sig,
+                                                                      rhs));
+                }
+                Iterator& operator+=(const Iterator& rhs)
+                {
+                    _sig = mapper_db_signal_query_union(_db, _sig, rhs);
+                    return (*this);
+                }
+                Iterator& operator*=(const Iterator& rhs)
+                {
+                    _sig = mapper_db_signal_query_intersection(_db, _sig, rhs);
+                    return (*this);
+                }
+                Iterator& operator-=(const Iterator& rhs)
+                {
+                    _sig = mapper_db_signal_query_difference(_db, _sig, rhs);
+                    return (*this);
+                }
                 bool operator==(const Iterator& rhs)
-                    { return (sig == rhs.sig); }
+                    { return (_sig == rhs._sig); }
                 bool operator!=(const Iterator& rhs)
-                    { return (sig != rhs.sig); }
+                    { return (_sig != rhs._sig); }
                 Iterator& operator++()
                 {
-                    if (sig != NULL)
-                        sig = mapper_db_signal_next(sig);
+                    if (_sig != NULL)
+                        _sig = mapper_db_signal_next(_sig);
                     return (*this);
                 }
                 Iterator operator++(int)
-                    { Iterator tmp(*this); operator++(); return tmp; }
+                    { Iterator tmp(_db, *this); operator++(); return tmp; }
                 Signal operator*()
-                    { return Signal(*sig); }
+                    { return Signal(*_sig); }
                 Iterator begin()
-                    { return Iterator(sig); }
+                    { return Iterator(_db, _sig); }
                 Iterator end()
-                    { return Iterator(0); }
+                    { return Iterator(0, 0); }
             private:
-                mapper_db_signal *sig;
+                mapper_db _db;
+                mapper_db_signal *_sig;
             };
         };
 
@@ -1090,45 +1168,45 @@ namespace mapper {
                                                               signal_name));
         }
         Signal::Iterator signals() const
-            { return Signal::Iterator(mapper_db_get_signals(db)); }
+            { return Signal::Iterator(db, mapper_db_get_signals(db)); }
         Signal::Iterator inputs() const
-            { return Signal::Iterator(mapper_db_get_inputs(db)); }
+            { return Signal::Iterator(db, mapper_db_get_inputs(db)); }
         Signal::Iterator outputs() const
-            { return Signal::Iterator(mapper_db_get_outputs(db)); }
+            { return Signal::Iterator(db, mapper_db_get_outputs(db)); }
         Signal::Iterator signals(const string_type device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(mapper_db_get_device_signals(db, dev));
+            return Signal::Iterator(db, mapper_db_get_device_signals(db, dev));
         }
         Signal::Iterator inputs(const string_type device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(mapper_db_get_device_inputs(db, dev));
+            return Signal::Iterator(db, mapper_db_get_device_inputs(db, dev));
         }
         Signal::Iterator outputs(const string_type device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(mapper_db_get_device_outputs(db, dev));
+            return Signal::Iterator(db, mapper_db_get_device_outputs(db, dev));
         }
         Signal::Iterator match_signals(const string_type device_name,
                                        const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(
+            return Signal::Iterator(db,
                 mapper_db_get_device_signals_by_name_match(db, dev, pattern));
         }
         Signal::Iterator match_inputs(const string_type device_name,
                                       const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(
+            return Signal::Iterator(db,
                  mapper_db_get_device_inputs_by_name_match(db, dev, pattern));
         }
         Signal::Iterator match_outputs(const string_type device_name,
                                        const string_type pattern) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Signal::Iterator(
+            return Signal::Iterator(db,
                 mapper_db_get_device_outputs_by_name_match(db, dev, pattern));
         }
 
@@ -1229,30 +1307,62 @@ namespace mapper {
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
-                Iterator(mapper_db_map *c)
-                    { con = c; }
+                Iterator(mapper_db db, mapper_db_map *map)
+                    { _db = db; _map = map; }
                 ~Iterator()
-                    { mapper_db_map_done(con); }
+                    { mapper_db_map_done(_map); }
+                operator mapper_db_map*() const
+                    { return _map; }
+                Iterator operator+(const Iterator& rhs) const
+                {
+                    return Iterator(_db, mapper_db_map_query_union(_db, _map, rhs));
+                }
+                Iterator operator*(const Iterator& rhs) const
+                {
+                    return Iterator(_db, mapper_db_map_query_intersection(_db, _map,
+                                                                          rhs));
+                }
+                Iterator operator-(const Iterator& rhs) const
+                {
+                    return Iterator(_db, mapper_db_map_query_difference(_db, _map,
+                                                                        rhs));
+                }
+                Iterator& operator+=(const Iterator& rhs)
+                {
+                    _map = mapper_db_map_query_union(_db, _map, rhs);
+                    return (*this);
+                }
+                Iterator& operator*=(const Iterator& rhs)
+                {
+                    _map = mapper_db_map_query_intersection(_db, _map, rhs);
+                    return (*this);
+                }
+                Iterator& operator-=(const Iterator& rhs)
+                {
+                    _map = mapper_db_map_query_difference(_db, _map, rhs);
+                    return (*this);
+                }
                 bool operator==(const Iterator& rhs)
-                    { return (con == rhs.con); }
+                    { return (_map == rhs._map); }
                 bool operator!=(const Iterator& rhs)
-                    { return (con != rhs.con); }
+                    { return (_map != rhs._map); }
                 Iterator& operator++()
                 {
-                    if (con != NULL)
-                        con = mapper_db_map_next(con);
+                    if (_map != NULL)
+                        _map = mapper_db_map_next(_map);
                     return (*this);
                 }
                 Iterator operator++(int)
-                    { Iterator tmp(*this); operator++(); return tmp; }
+                    { Iterator tmp(_db, *this); operator++(); return tmp; }
                 Map operator*()
-                    { return Map(*con); }
+                    { return Map(*_map); }
                 Iterator begin()
-                    { return Iterator(con); }
+                    { return Iterator(_db, _map); }
                 Iterator end()
-                    { return Iterator(0); }
+                    { return Iterator(0, 0); }
             private:
-                mapper_db_map *con;
+                mapper_db _db;
+                mapper_db_map *_map;
             };
             class Slot : AbstractObjectProps
             {
@@ -1372,50 +1482,50 @@ namespace mapper {
         Map map(uint64_t id) const
             { return mapper_db_get_map_by_id(db, id); }
         Map::Iterator maps() const
-            { return Map::Iterator(mapper_db_get_maps(db)); }
+            { return Map::Iterator(db, mapper_db_get_maps(db)); }
         Map::Iterator maps(const device_type& device) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_device_maps(db, (mapper_db_device)device));
         }
         Map::Iterator maps(const string_type& device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(mapper_db_get_device_maps(db, dev));
+            return Map::Iterator(db, mapper_db_get_device_maps(db, dev));
         }
         Map::Iterator maps_by_src(const device_type& device) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_device_outgoing_maps(db, (mapper_db_device)device));
         }
         Map::Iterator maps_by_src(const string_type& device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(mapper_db_get_device_outgoing_maps(db, dev));
+            return Map::Iterator(db, mapper_db_get_device_outgoing_maps(db, dev));
         }
         Map::Iterator maps_by_dest(const device_type& device) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_device_incoming_maps(db, (mapper_db_device)device));
         }
         Map::Iterator maps_by_dest(const string_type& device_name) const
         {
             mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
-            return Map::Iterator(mapper_db_get_device_incoming_maps(db, dev));
+            return Map::Iterator(db, mapper_db_get_device_incoming_maps(db, dev));
         }
         Map::Iterator maps(const signal_type& signal) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_signal_maps(db, (mapper_db_signal)signal));
         }
         Map::Iterator maps_by_src(const signal_type& signal) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_signal_outgoing_maps(db, (mapper_db_signal)signal));
         }
         Map::Iterator maps_by_dest(const signal_type& signal) const
         {
-            return Map::Iterator(
+            return Map::Iterator(db,
                 mapper_db_get_signal_incoming_maps(db, (mapper_db_signal)signal));
         }
     private:
