@@ -161,7 +161,7 @@ void map_signals()
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_signal src = &sendsig->props;
-    mapper_map map = mapper_map_new(1, &src, &recvsig->props);
+    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
     map->expression = "foo=1;  y=y{-1}+foo";
     map->mode = MO_EXPRESSION;
     map->flags = MAP_MODE | MAP_EXPRESSION;

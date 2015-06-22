@@ -1250,13 +1250,13 @@ namespace mapper {
         }
 
         // db maps
-        const Db& add_map_callback(mapper_db_map_handler *handler,
+        const Db& add_map_callback(mapper_map_handler *handler,
                                    void *user_data) const
         {
             mapper_db_add_map_callback(_db, handler, user_data);
             return (*this);
         }
-        const Db& remove_map_callback(mapper_db_map_handler *handler,
+        const Db& remove_map_callback(mapper_map_handler *handler,
                                       void *user_data) const
         {
             mapper_db_remove_map_callback(_db, handler, user_data);
@@ -1265,51 +1265,9 @@ namespace mapper {
         class Map : AbstractObjectProps
         {
         public:
-            Map(mapper_monitor mon, mapper_db_map map) :
-                _destination(Slot(this, &map->destination, 0)),
-                _sources((Slot*)calloc(1, map->num_sources * sizeof(Slot)))
-            {
-                _mon = mon;
-                _map = map;
-                for (int i = 0; i < _map->num_sources; i++)
-                    _sources[i] = Slot(this, &_map->sources[i], 1);
-                _owned = false;
-            }
-            Map(int num_sources, mapper_db_signal sources[],
-                mapper_db_signal destination) :
-                _destination(Slot(this, 0, 0)),
-                _sources((Slot*)calloc(1, num_sources * sizeof(Slot)))
-            {
-                _mon = 0;
-                _map = mapper_db_map_new(num_sources, sources, destination);
-                _destination._slot = &_map->destination;
-                for (int i = 0; i < num_sources; i++)
-                    _sources[i] = Slot(this, &_map->sources[i], 1);
-                _owned = true;
-            }
-            Map(const signal_type source, const signal_type destination) :
-                _destination(Slot(this, 0, 0)),
-                _sources((Slot*)calloc(1, sizeof(Slot)))
-            {
-                _mon = 0;
-                mapper_db_signal src = source;
-                _map = mapper_db_map_new(1, &src, destination);
-                _destination._slot = &_map->destination;
-                _sources[0] = Slot(this, &_map->sources[0], 1);
-                _owned = true;
-            }
             ~Map()
-            {
-                printf("Map destructor\n");
-                if (_owned && _map) {
-                    if (_sources)
-                        free(_sources);
-                    mapper_db_map_free(_map);
-                    _owned = false;
-                    _map = 0;
-                }
-            }
-            operator mapper_db_map() const
+                {}
+            operator mapper_map() const
                 { return _map; }
             operator bool() const
                 { return _map; }
@@ -1338,8 +1296,8 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_db_map_property_lookup(_map, name, &type, &value,
-                                                   &length))
+                if (!mapper_map_property_lookup(_map, name, &type, &value,
+                                                &length))
                     return Property(name, type, value, length);
                 else
                     return Property(name, 0, 0, 0, 0);
@@ -1350,8 +1308,8 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_db_map_property_index(_map, index, &name, &type,
-                                                  &value, &length))
+                if (!mapper_map_property_index(_map, index, &name, &type,
+                                               &value, &length))
                     return Property(name, type, value, length);
                 else
                     return Property(0, 0, 0, 0, 0);
@@ -1361,11 +1319,11 @@ namespace mapper {
             class Iterator : public std::iterator<std::input_iterator_tag, int>
             {
             public:
-                Iterator(mapper_monitor mon, mapper_db_map *map)
+                Iterator(mapper_monitor mon, mapper_map *map)
                     { _mon = mon; _map = map; }
                 ~Iterator()
-                    { mapper_db_map_done(_map); }
-                operator mapper_db_map*() const
+                    { mapper_db_map_query_done(_map); }
+                operator mapper_map*() const
                     { return _map; }
                 Iterator operator+(const Iterator& rhs) const
                 {
@@ -1407,7 +1365,7 @@ namespace mapper {
                 Iterator& operator++()
                 {
                     if (_map != NULL)
-                        _map = mapper_db_map_next(_map);
+                        _map = mapper_db_map_query_next(_map);
                     return (*this);
                 }
                 Iterator operator++(int)
@@ -1420,7 +1378,7 @@ namespace mapper {
                     { return Iterator(0, 0); }
             private:
                 mapper_monitor _mon;
-                mapper_db_map *_map;
+                mapper_map *_map;
             };
             class Slot : AbstractObjectProps
             {
@@ -1489,29 +1447,29 @@ namespace mapper {
                     char type;
                     const void *value;
                     int length;
-                    if (!mapper_db_map_slot_property_lookup(_slot, name, &type,
-                                                            &value, &length))
+                    if (!mapper_map_slot_property_lookup(_slot, name, &type,
+                                                         &value, &length))
                         return Property(name, type, value, length);
                     else
                         return Property(name, 0, 0, 0, 0);
                 }
             protected:
                 friend class Map;
-                Slot(const Map *map, mapper_db_map_slot slot, int is_src)
+                Slot(const Map *map, mapper_map_slot slot, int is_src)
                 {
                     _slot = slot;
                     _map = map;
                     _is_src = is_src;
                     _flags = 0;
                 }
-                operator mapper_db_map_slot() const
+                operator mapper_map_slot() const
                     { return _slot; }
                 Slot& set(Property *p) { return (*this); }
                 Slot& set(Property& p) { return (*this); }
                 Slot& remove(const string_type &name) { return (*this); }
                 int _flags;
             private:
-                mapper_db_map_slot _slot;
+                mapper_map_slot _slot;
                 const Map *_map;
                 int _is_src;
             };
@@ -1521,15 +1479,24 @@ namespace mapper {
                 { return _sources[index]; }
         protected:
             friend class Monitor;
+            friend class Db;
+            Map(mapper_monitor mon, mapper_map map) :
+                _destination(Slot(this, &map->destination, 0)),
+                _sources((Slot*)calloc(1, map->num_sources * sizeof(Slot)))
+            {
+                _mon = mon;
+                _map = map;
+                for (int i = 0; i < _map->num_sources; i++)
+                    _sources[i] = Slot(this, &_map->sources[i], 1);
+            }
             Map& set(Property *p) { return (*this); }
             Map& set(Property& p) { set(&p); return (*this); }
             Map& remove(const string_type &name) { return (*this); }
         private:
             mapper_monitor _mon;
-            mapper_db_map _map;
+            mapper_map _map;
             Slot _destination;
             Slot *_sources;
-            bool _owned;
         };
         Map map_by_id(uint64_t id) const
             { return Map(_mon, mapper_db_get_map_by_id(_db, id)); }
@@ -1618,11 +1585,23 @@ namespace mapper {
         const Monitor& unsubscribe()
             { mmon_unsubscribe(_mon, 0); return (*this); }
 
+        Db::Map map(int num_sources, mapper_db_signal sources[],
+                    mapper_db_signal destination)
+        {
+            mapper_map map = mmon_add_map(_mon, num_sources, sources, destination);
+            return Db::Map(_mon, map);
+        }
+        Db::Map map(const signal_type source, const signal_type destination)
+        {
+            mapper_db_signal src = source;
+            mapper_map map = mmon_add_map(_mon, 1, &src, destination);
+            return Db::Map(_mon, map);
+        }
         const Monitor& update(Db::Map& map)
             { mmon_update_map(_mon, map); return (*this); }
 
         const Monitor& remove(const Db::Map &map) const
-            { mmon_remove_map(_mon, (mapper_db_map)map); return (*this); }
+            { mmon_remove_map(_mon, (mapper_map)map); return (*this); }
         const Monitor& remove(Db::Map::Iterator maps)
         {
             for (auto const &m : maps)

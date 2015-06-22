@@ -310,8 +310,50 @@ static void _real_prep_varargs(lo_message m, ...)
     va_end(aq);
 }
 
+mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
+                        mapper_db_signal *sources,
+                        mapper_db_signal destination)
+{
+    if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES
+        || !sources || !destination)
+        return 0;
+
+    // check if record of map already exists
+    int i;
+    mapper_map *maps, *temp;
+    maps = mapper_db_get_signal_incoming_maps(&mon->db, destination);
+    for (i = 0; i < num_sources; i++) {
+        temp = mapper_db_get_signal_outgoing_maps(&mon->db, sources[i]);
+        maps = mapper_db_map_query_intersection(&mon->db, maps, temp);
+    }
+    while (maps) {
+        if ((*maps)->num_sources == num_sources)
+            return *maps;
+        maps = mapper_db_map_query_next(maps);
+    }
+
+    // place in map staging area
+    // TODO: allow building multiple maps in parallel
+    if (mon->staged_map) {
+        mmon_update_map(mon, mon->staged_map);
+        free(mon->staged_map->sources);
+        free(mon->staged_map);
+    }
+    mon->staged_map = (mapper_map) calloc(1, sizeof(struct _mapper_map));
+    mon->staged_map->sources = ((mapper_map_slot)
+                                calloc(1, sizeof(struct _mapper_map_slot)
+                                       * num_sources));
+    mon->staged_map->num_sources = num_sources;
+    for (i = 0; i < num_sources; i++)
+        mon->staged_map->sources[i].signal = sources[i];
+    mon->staged_map->destination.signal = destination;
+    return mon->staged_map;
+}
+
 void mmon_update_map(mapper_monitor mon, mapper_map map)
 {
+    if (!mon || !map)
+        return;
     lo_message m = lo_message_new();
     if (!m)
         return;
@@ -366,9 +408,6 @@ void mmon_update_map(mapper_monitor mon, mapper_map map)
 
     for (i = 0; i < map->num_sources; i++)
         free((char *)src_names[i]);
-
-    // TODO: wait for timeout period and poll, recheck if map exists
-    // If this was user-created map, free memory and remap ptr
 }
 
 void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)

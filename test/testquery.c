@@ -148,14 +148,14 @@ int setup_maps()
     mapper_db_signal src;
     for (int i = 0; i < 2; i++) {
         src = &sendsig[i]->props;
-        mmon_update_map(mon, mapper_map_new(1, &src, &recvsig[i]->props));
+        mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[i]->props));
     }
 
     // swap the last two signals to mix up signal vector lengths
     src = &sendsig[2]->props;
-    mmon_update_map(mon, mapper_map_new(1, &src, &recvsig[3]->props));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[3]->props));
     src = &sendsig[3]->props;
-    mmon_update_map(mon, mapper_map_new(1, &src, &recvsig[2]->props));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[2]->props));
 
     i = 0;
     // wait until mapping has been established

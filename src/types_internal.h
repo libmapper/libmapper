@@ -353,6 +353,8 @@ typedef struct _mapper_monitor {
     /*! Linked-list of autorenewing device subscriptions. */
     mapper_subscription subscriptions;
 
+    mapper_map staged_map;
+
     mapper_db_t       db;       //<! Database for this monitor.
 }  *mapper_monitor;
 

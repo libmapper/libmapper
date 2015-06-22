@@ -111,7 +111,7 @@ int setup_maps()
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_signal src = &sendsig->props;
-    mapper_map map = mapper_map_new(1, &src, &recvsig->props);
+    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
     map->sources[0].minimum = &src_min;
     map->sources[0].maximum = &src_max;
     map->sources[0].length = 1;

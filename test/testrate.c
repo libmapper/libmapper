@@ -170,7 +170,7 @@ int setup_maps()
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_signal src = &sendsig->props;
-    mmon_update_map(mon, mapper_map_new(1, &src, &recvsig->props));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
 
     i = 0;
     // wait until mapping has been established

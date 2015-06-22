@@ -50,8 +50,8 @@ typedef struct _mapper_db_device {
     int subscribed;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which fields in a mapper_db_map structure or
- * a mapper_db_map_slot are valid.  This is only used when specifying
+/* Bit flags to identify which fields in a mapper_map structure or
+ * a mapper_map_slot are valid.  This is only used when specifying
  * map properties via the mmon_map() or mmon_modify_map() functions. */
 
 #define MAP_EXPRESSION              0x0001
@@ -156,7 +156,7 @@ typedef struct _mapper_db_signal {
                              *  character. */
 } mapper_db_signal_t, *mapper_db_signal;
 
-typedef struct _mapper_db_map_slot {
+typedef struct _mapper_map_slot {
     mapper_db_signal signal;
     void *minimum;                      //!< Array of minima, or NULL for N/A.
     void *maximum;                      //!< Array of maxima, or NULL for N/A.
@@ -172,13 +172,13 @@ typedef struct _mapper_db_map_slot {
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
     int calibrating;                    //!< 1 if calibrating, 0 otherwise
     char type;
-} mapper_db_map_slot_t, *mapper_db_map_slot;
+} mapper_map_slot_t, *mapper_map_slot;
 
 /*! A record that describes the properties of a mapping.
  *  @ingroup mapdb */
-typedef struct _mapper_db_map {
-    mapper_db_map_slot sources;
-    mapper_db_map_slot_t destination;
+typedef struct _mapper_map {
+    mapper_map_slot sources;
+    mapper_map_slot_t destination;
     uint64_t id;                        //!< Unique id identifying this map
 
     struct _mapper_map_scope scope;
@@ -193,7 +193,7 @@ typedef struct _mapper_db_map {
     int num_sources;
     int process_location;               //!< 1 for source, 0 for destination
     int flags;
-} mapper_db_map_t, *mapper_db_map;
+} mapper_map_t, *mapper_map;
 
 #ifdef __cplusplus
 }

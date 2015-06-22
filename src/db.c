@@ -2284,7 +2284,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
 
     if (!map) {
         map = (mapper_map) list_add_new_item((void**)&db->maps,
-                                                sizeof(mapper_map_t));
+                                             sizeof(mapper_map_t));
         map->num_sources = num_sources;
         map->sources = ((mapper_map_slot)
                         calloc(1, sizeof(struct _mapper_map_slot) * num_sources));

@@ -635,7 +635,7 @@ typedef enum {
 /*! Function to call when a local device map is established or
  *  destroyed. */
 typedef void mapper_device_map_handler(mapper_device dev, mapper_signal sig,
-                                       mapper_db_map map, mapper_db_map_slot slot,
+                                       mapper_map map, mapper_map_slot slot,
                                        mapper_device_local_action_t action,
                                        void *user);
 
@@ -1178,15 +1178,15 @@ int mapper_db_signal_property_lookup(mapper_db_signal sig,
  *  \param action   A value of mapper_db_action_t indicating what
  *                  is happening to the database record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_db_map_handler(mapper_db_map map,
-                                   mapper_db_action_t action, void *user);
+typedef void mapper_map_handler(mapper_map map,
+                                mapper_db_action_t action, void *user);
 
 /*! Register a callback for when a map record is added or updated.
  *  \param db       The database to query.
  *  \param h        Callback function.
  *  \param user     A user-defined pointer to be passed to the callback
  *                  for context . */
-void mapper_db_add_map_callback(mapper_db db, mapper_db_map_handler *h,
+void mapper_db_add_map_callback(mapper_db db, mapper_map_handler *h,
                                 void *user);
 
 /*! Remove a map record callback from the database service.
@@ -1194,36 +1194,21 @@ void mapper_db_add_map_callback(mapper_db db, mapper_db_map_handler *h,
  *  \param h        Callback function.
  *  \param user     The user context pointer that was originally specified
  *                  when adding the callback. */
-void mapper_db_remove_map_callback(mapper_db db, mapper_db_map_handler *h,
+void mapper_db_remove_map_callback(mapper_db db, mapper_map_handler *h,
                                    void *user);
-
-/*! Interface to add a map between a set of signals.
- *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure.
- *  \return             A map data structure – either loaded from the db
- *                      (if the map already existed) or newly created. In the
- *                      latter case the map will not take effect until it has
- *                      been added to the network using mmon_add_map(). */
-mapper_db_map mapper_db_map_new(int num_sources, mapper_db_signal *sources,
-                                mapper_db_signal destination);
-
-/*! Free a map structure that was allocated with mapper_db_map_new().
- *  \param map          The map structure to free. */
-void mapper_db_map_free(mapper_db_map map);
 
 /*! Return a list of all registered maps.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results,
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps(mapper_db db);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps(mapper_db db);
 
 /*! Return the map that match the given map id.
  *  \param db       The database to query.
  *  \param id       Unique id identifying the map.
  *  \return         A pointer to a structure containing information on the
  *                  found map, or 0 if not found. */
-mapper_db_map mapper_db_get_map_by_id(mapper_db db, uint64_t id);
+mapper_map mapper_db_get_map_by_id(mapper_db db, uint64_t id);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.
@@ -1236,12 +1221,10 @@ mapper_db_map mapper_db_get_map_by_id(mapper_db db, uint64_t id);
  *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
  *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
-                                              const char *property,
-                                              char type, int length,
-                                              const void *value,
-                                              mapper_db_op op);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps_by_property(mapper_db db, const char *property,
+                                           char type, int length,
+                                           const void *value, mapper_db_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
@@ -1254,12 +1237,12 @@ mapper_db_map *mapper_db_get_maps_by_property(mapper_db db,
  *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
  *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
-                                                   const char *property,
-                                                   char type, int length,
-                                                   const void *value,
-                                                   mapper_db_op op);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps_by_slot_property(mapper_db db,
+                                                const char *property,
+                                                char type, int length,
+                                                const void *value,
+                                                mapper_db_op op);
 
 /*! Return the list of maps matching the given source slot property.
  *  \param db       The database to query.
@@ -1272,12 +1255,12 @@ mapper_db_map *mapper_db_get_maps_by_slot_property(mapper_db db,
  *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
  *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
-                                                       const char *property,
-                                                       char type, int length,
-                                                       const void *value,
-                                                       mapper_db_op op);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
+                                                    const char *property,
+                                                    char type, int length,
+                                                    const void *value,
+                                                    mapper_db_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
@@ -1290,86 +1273,85 @@ mapper_db_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
  *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
  *                  or OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
-                                                        const char *property,
-                                                        char type, int length,
-                                                        const void *value,
-                                                        mapper_db_op op);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
+                                                     const char *property,
+                                                     char type, int length,
+                                                     const void *value,
+                                                     mapper_db_op op);
 
 /*! Return the list of maps that touch the given device name.
  *  \param db       The database to query.
  *  \param dev      Device record query.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev);
 
 /*! Return the list of outgoing maps that touch the given device name.
  *  \param db       The database to query.
  *  \param dev      Device record to query.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_device_outgoing_maps(mapper_db db,
-                                                  mapper_db_device dev);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_device_outgoing_maps(mapper_db db,
+                                               mapper_db_device dev);
 
 /*! Return the list of incoming maps that touch the given device name.
  *  \param db       The database to query.
  *  \param dev      Device record to query.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_device_incoming_maps(mapper_db db,
-                                                  mapper_db_device dev);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_device_incoming_maps(mapper_db db,
+                                               mapper_db_device dev);
 
 /*! Return the list of outgoing maps that touch the given device name.
  *  \param db       The database to query.
  *  \param num_srcs The number of sources in this map.
  *  \param devices  Array of device records.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
-                                                 mapper_db_device *devices);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
+                                              mapper_db_device *devices);
 
 /*! Return the list of maps for a given signal name.
  *  \param db       The database to query.
  *  \param sig      Signal record to query for maps.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_signal_maps(mapper_db db, mapper_db_signal sig);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_signal_maps(mapper_db db, mapper_db_signal sig);
 
 /*! Return the list of maps for a given source signal name.
  *  \param db       The database to query.
  *  \param sig      Signal record to query for outgoing maps.
  *  \return         A double-pointer to the first item in the list of results
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
-                                                  mapper_db_signal sig);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
+                                               mapper_db_signal sig);
 
 /*! Return the list of maps for a given destination signal name.
  *  \param db       The database to query.
  *  \param sig      Signal record to query for incoming maps.
  *  \return         A double-pointer to the first item in the list of results,
- *                  or zero if none.  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_get_signal_incoming_maps(mapper_db db,
-                                                  mapper_db_signal sig);
+ *                  or zero if none.  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_get_signal_incoming_maps(mapper_db db,
+                                               mapper_db_signal sig);
 
 /*! Get the union of two map queries (maps matching query1 OR query2).
  *  \param db       The database to query.
  *  \param query1   The first map query.
  *  \param query2   The second map query.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_map_query_union(mapper_db db, mapper_db_map *query1,
-                                         mapper_db_map *query2);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_map_query_union(mapper_db db, mapper_map *query1,
+                                      mapper_map *query2);
 
 /*! Get the intersection of two map queries (maps matching query1 AND query2).
  *  \param db       The database to query.
  *  \param query1   The first map query.
  *  \param query2   The second map query.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_map_query_intersection(mapper_db db,
-                                                mapper_db_map *query1,
-                                                mapper_db_map *query2);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_map_query_intersection(mapper_db db, mapper_map *query1,
+                                             mapper_map *query2);
 
 /*! Get the difference between two map queries (maps matching query1 but NOT
  *  query2).
@@ -1377,22 +1359,21 @@ mapper_db_map *mapper_db_map_query_intersection(mapper_db db,
  *  \param query1   The first map query.
  *  \param query2   The second map query.
  *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_db_map_next() to iterate. */
-mapper_db_map *mapper_db_map_query_difference(mapper_db db,
-                                              mapper_db_map *query1,
-                                              mapper_db_map *query2);
+ *                  Use mapper_db_map_query_next() to iterate. */
+mapper_map *mapper_db_map_query_difference(mapper_db db, mapper_map *query1,
+                                           mapper_map *query2);
 
 /*! Given a map record pointer returned from a previous
  *  mapper_db_get_maps*() call, get the next item in the list.
  *  \param s The previous map record pointer.
  *  \return  A double-pointer to the next map record in the
  *           list, or zero if no more maps. */
-mapper_db_map *mapper_db_map_next(mapper_db_map *s);
+mapper_map *mapper_db_map_query_next(mapper_map *maps);
 
 /*! Given a map record pointer returned from a previous
  *  mapper_db_get_*() call, indicate that we are done iterating.
  *  \param s The previous map record pointer. */
-void mapper_db_map_done(mapper_db_map *s);
+void mapper_db_map_query_done(mapper_map *maps);
 
 /*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1407,9 +1388,9 @@ void mapper_db_map_done(mapper_db_map *s);
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
-int mapper_db_map_property_index(mapper_db_map map, unsigned int index,
-                                 const char **property, char *type,
-                                 const void **value, int *length);
+int mapper_map_property_index(mapper_map map, unsigned int index,
+                              const char **property, char *type,
+                              const void **value, int *length);
 
 /*! Look up a map property by name.
  *  \param map      The map to look at.
@@ -1421,8 +1402,8 @@ int mapper_db_map_property_index(mapper_db_map map, unsigned int index,
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_db_map_property_lookup(mapper_db_map map, const char *property,
-                                  char *type, const void **value, int *length);
+int mapper_map_property_lookup(mapper_map map, const char *property, char *type,
+                               const void **value, int *length);
 
 /*! Look up a map slot property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1437,9 +1418,9 @@ int mapper_db_map_property_lookup(mapper_db_map map, const char *property,
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_db_map_slot_property_index(mapper_db_map_slot slot, unsigned int index,
-                                      const char **property, char *type,
-                                      const void **value, int *length);
+int mapper_map_slot_property_index(mapper_map_slot slot, unsigned int index,
+                                   const char **property, char *type,
+                                   const void **value, int *length);
 
 /*! Look up a map property by name.
  *  \param slot     The map slot to look at.
@@ -1451,9 +1432,8 @@ int mapper_db_map_slot_property_index(mapper_db_map_slot slot, unsigned int inde
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_db_map_slot_property_lookup(mapper_db_map_slot slot,
-                                       const char *property, char *type,
-                                       const void **value, int *length);
+int mapper_map_slot_property_lookup(mapper_map_slot slot, const char *property,
+                                    char *type, const void **value, int *length);
 
 /***** Monitors *****/
 
@@ -1546,21 +1526,29 @@ void mmon_subscribe(mapper_monitor mon, mapper_db_device dev, int flags,
  *                  from all devices. */
 void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev);
 
+/*! Interface to add a map between a set of signals.
+ *  \param mon          The Monitor to use.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure.
+ *  \return             A map data structure – either loaded from the db
+ *                      (if the map already existed) or newly created. In the
+ *                      latter case the map will not take effect until it has
+ *                      been added to the network using mmon_update_map(). */
+mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
+                        mapper_db_signal *sources, mapper_db_signal destination);
+
 /*! Interface to establish or modify a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param map          A modified data structure specifying the map properties.
- *                      The 'flags' variable of this structure is used to
- *                      indicate which properties in the provided
- *                      mapper_db_map_t should be applied to the map.
- *                      See the flags prefixed by MAP_ in mapper_db.h.
  *  \return             A pointer to the established map data structure if it
  *                      responds within the timeout period, or 0 othersise. */
-void mmon_update_map(mapper_monitor mon, mapper_db_map map);
+void mmon_update_map(mapper_monitor mon, mapper_map map);
 
 /*! Interface to remove a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param map          Map data structure. */
-void mmon_remove_map(mapper_monitor mon, mapper_db_map map);
+void mmon_remove_map(mapper_monitor mon, mapper_map map);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
  *  \param mon      The monitor to use for sending the message.
