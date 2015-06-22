@@ -989,33 +989,31 @@ namespace mapper {
                 Iterator operator+(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_device_query_union(_db, _dev, rhs));
+                                    mapper_db_device_query_union(_dev, rhs));
                 }
                 Iterator operator*(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_device_query_intersection(_db, _dev,
-                                                                        rhs));
+                                    mapper_db_device_query_intersection(_dev, rhs));
                 }
                 Iterator operator-(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_device_query_difference(_db, _dev,
-                                                                      rhs));
+                                    mapper_db_device_query_difference(_dev, rhs));
                 }
                 Iterator& operator+=(const Iterator& rhs)
                 {
-                    _dev = mapper_db_device_query_union(_db, _dev, rhs);
+                    _dev = mapper_db_device_query_union(_dev, rhs);
                     return (*this);
                 }
                 Iterator& operator*=(const Iterator& rhs)
                 {
-                    _dev = mapper_db_device_query_intersection(_db, _dev, rhs);
+                    _dev = mapper_db_device_query_intersection(_dev, rhs);
                     return (*this);
                 }
                 Iterator& operator-=(const Iterator& rhs)
                 {
-                    _dev = mapper_db_device_query_difference(_db, _dev, rhs);
+                    _dev = mapper_db_device_query_difference(_dev, rhs);
                     return (*this);
                 }
                 bool operator==(const Iterator& rhs)
@@ -1102,33 +1100,31 @@ namespace mapper {
                 Iterator operator+(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_signal_query_union(_db, _sig, rhs));
+                                    mapper_db_signal_query_union(_sig, rhs));
                 }
                 Iterator operator*(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_signal_query_intersection(_db, _sig,
-                                                                        rhs));
+                                    mapper_db_signal_query_intersection(_sig, rhs));
                 }
                 Iterator operator-(const Iterator& rhs) const
                 {
                     return Iterator(_db,
-                                    mapper_db_signal_query_difference(_db, _sig,
-                                                                      rhs));
+                                    mapper_db_signal_query_difference(_sig, rhs));
                 }
                 Iterator& operator+=(const Iterator& rhs)
                 {
-                    _sig = mapper_db_signal_query_union(_db, _sig, rhs);
+                    _sig = mapper_db_signal_query_union(_sig, rhs);
                     return (*this);
                 }
                 Iterator& operator*=(const Iterator& rhs)
                 {
-                    _sig = mapper_db_signal_query_intersection(_db, _sig, rhs);
+                    _sig = mapper_db_signal_query_intersection(_sig, rhs);
                     return (*this);
                 }
                 Iterator& operator-=(const Iterator& rhs)
                 {
-                    _sig = mapper_db_signal_query_difference(_db, _sig, rhs);
+                    _sig = mapper_db_signal_query_difference(_sig, rhs);
                     return (*this);
                 }
                 bool operator==(const Iterator& rhs)
@@ -1328,34 +1324,31 @@ namespace mapper {
                 Iterator operator+(const Iterator& rhs) const
                 {
                     return Iterator(mmon_get_db(_mon),
-                                    mapper_db_map_query_union(mmon_get_db(_mon),
-                                                              _map, rhs));
+                                    mapper_db_map_query_union(_map, rhs));
                 }
                 Iterator operator*(const Iterator& rhs) const
                 {
                     return Iterator(mmon_get_db(_mon),
-                                    mapper_db_map_query_intersection(mmon_get_db(_mon),
-                                                                     _map, rhs));
+                                    mapper_db_map_query_intersection(_map, rhs));
                 }
                 Iterator operator-(const Iterator& rhs) const
                 {
                     return Iterator(mmon_get_db(_mon),
-                                    mapper_db_map_query_difference(mmon_get_db(_mon),
-                                                                   _map, rhs));
+                                    mapper_db_map_query_difference(_map, rhs));
                 }
                 Iterator& operator+=(const Iterator& rhs)
                 {
-                    _map = mapper_db_map_query_union(mmon_get_db(_mon), _map, rhs);
+                    _map = mapper_db_map_query_union(_map, rhs);
                     return (*this);
                 }
                 Iterator& operator*=(const Iterator& rhs)
                 {
-                    _map = mapper_db_map_query_intersection(mmon_get_db(_mon), _map, rhs);
+                    _map = mapper_db_map_query_intersection(_map, rhs);
                     return (*this);
                 }
                 Iterator& operator-=(const Iterator& rhs)
                 {
-                    _map = mapper_db_map_query_difference(mmon_get_db(_mon), _map, rhs);
+                    _map = mapper_db_map_query_difference(_map, rhs);
                     return (*this);
                 }
                 bool operator==(const Iterator& rhs)

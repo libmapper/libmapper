@@ -324,7 +324,7 @@ mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
     maps = mapper_db_get_signal_incoming_maps(&mon->db, destination);
     for (i = 0; i < num_sources; i++) {
         temp = mapper_db_get_signal_outgoing_maps(&mon->db, sources[i]);
-        maps = mapper_db_map_query_intersection(&mon->db, maps, temp);
+        maps = mapper_db_map_query_intersection(maps, temp);
     }
     while (maps) {
         if ((*maps)->num_sources == num_sources)

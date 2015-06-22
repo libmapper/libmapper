@@ -36,6 +36,7 @@ typedef enum {
 typedef struct {
     void *next;
     void *self;
+    void *start;
     struct _query_info *query_context;
     query_type_t query_type;
     int data[1]; // stub
@@ -63,7 +64,7 @@ static list_header_t* list_alloc_item(size_t size)
 
     // make sure the compiler is doing what we think it's doing with
     // the size of list_header_t and location of data
-    die_unless(LIST_HEADER_SIZE == sizeof(void*)*3 + sizeof(query_type_t),
+    die_unless(LIST_HEADER_SIZE == sizeof(void*)*4 + sizeof(query_type_t),
                "unexpected size for list_header_t");
     die_unless(((char*)&lh->data - (char*)lh) == LIST_HEADER_SIZE,
                "unexpected offset for data in list_header_t");
@@ -74,7 +75,7 @@ static list_header_t* list_alloc_item(size_t size)
         return 0;
 
     memset(lh, 0, size);
-    lh->self = &lh->data;
+    lh->self = lh->start = &lh->data;
     lh->query_type = QUERY_STATIC;
 
     return (list_header_t*)&lh->data;
@@ -374,7 +375,7 @@ static void **construct_query_context(void *p, void *f, const char *types, ...)
     lh->query_context->query_compare = (query_compare_func_t*)f;
     lh->query_context->query_free = (query_free_func_t*)free_query_single_context;
 
-    lh->self = p;
+    lh->self = lh->start = p;
 
     // try evaluating the first item
     if (lh->query_context->query_compare(&lh->query_context->data, p))
@@ -436,11 +437,8 @@ static int cmp_compound_query(void *context_data, void *dev)
     }
 }
 
-static void **mapper_db_query_union(void *resource, void **query1,
-                                    void **query2)
+static void **mapper_db_query_union(void **query1, void **query2)
 {
-    if (!resource)
-        return 0;
     if (!query1)
         return query2;
     if (!query2)
@@ -448,29 +446,23 @@ static void **mapper_db_query_union(void *resource, void **query1,
 
     list_header_t *lh1 = list_get_header_by_self(query1);
     list_header_t *lh2 = list_get_header_by_self(query2);
-    return (construct_query_context(resource, cmp_compound_query,
+    return (construct_query_context(lh1->start, cmp_compound_query,
                                     "vvi", &lh1, &lh2, OP_UNION));
 }
 
-static void **mapper_db_query_intersection(void *resource, void **query1,
-                                           void **query2)
+static void **mapper_db_query_intersection(void **query1, void **query2)
 {
-    if (!resource)
-        return 0;
     if (!query1 || !query2)
         return 0;
 
     list_header_t *lh1 = list_get_header_by_self(query1);
     list_header_t *lh2 = list_get_header_by_self(query2);
-    return (construct_query_context(resource, cmp_compound_query, "vvi",
+    return (construct_query_context(lh1->start, cmp_compound_query, "vvi",
                                     &lh1, &lh2, OP_INTERSECTION));
 }
 
-static void **mapper_db_query_difference(void *resource, void **query1,
-                                         void **query2)
+static void **mapper_db_query_difference(void **query1, void **query2)
 {
-    if (!resource)
-        return 0;
     if (!query1)
         return 0;
     if (!query2)
@@ -478,7 +470,7 @@ static void **mapper_db_query_difference(void *resource, void **query1,
 
     list_header_t *lh1 = list_get_header_by_self(query1);
     list_header_t *lh2 = list_get_header_by_self(query2);
-    return (construct_query_context(resource, cmp_compound_query, "vvi",
+    return (construct_query_context(lh1->start, cmp_compound_query, "vvi",
                                     &lh1, &lh2, OP_DIFFERENCE));
 }
 
@@ -1202,30 +1194,25 @@ mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
                                     "iicvs", op, length, type, &value, property));
 }
 
-mapper_db_device *mapper_db_device_query_union(mapper_db db,
-                                               mapper_db_device *query1,
+mapper_db_device *mapper_db_device_query_union(mapper_db_device *query1,
                                                mapper_db_device *query2)
 {
-    return ((mapper_db_device *)
-            mapper_db_query_union(db->devices, (void**)query1, (void**)query2));
+    return (mapper_db_device *) mapper_db_query_union((void**)query1,
+                                                      (void**)query2);
 }
 
-mapper_db_device *mapper_db_device_query_intersection(mapper_db db,
-                                                      mapper_db_device *query1,
+mapper_db_device *mapper_db_device_query_intersection(mapper_db_device *query1,
                                                       mapper_db_device *query2)
 {
-    return ((mapper_db_device *)
-            mapper_db_query_intersection(db->devices, (void**)query1,
-                                         (void**)query2));
+    return (mapper_db_device *) mapper_db_query_intersection((void**)query1,
+                                                             (void**)query2);
 }
 
-mapper_db_device *mapper_db_device_query_difference(mapper_db db,
-                                                    mapper_db_device *query1,
+mapper_db_device *mapper_db_device_query_difference(mapper_db_device *query1,
                                                     mapper_db_device *query2)
 {
-    return ((mapper_db_device *)
-            mapper_db_query_difference(db->devices, (void**)query1,
-                                       (void**)query2));
+    return (mapper_db_device *) mapper_db_query_difference((void**)query1,
+                                                           (void**)query2);
 }
 
 mapper_db_device *mapper_db_device_next(mapper_db_device* dev)
@@ -1761,30 +1748,25 @@ mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
                                     "his", dev->id, DI_OUTGOING, pattern));
 }
 
-mapper_db_signal *mapper_db_signal_query_union(mapper_db db,
-                                               mapper_db_signal *query1,
+mapper_db_signal *mapper_db_signal_query_union(mapper_db_signal *query1,
                                                mapper_db_signal *query2)
 {
-    return ((mapper_db_signal *)
-            mapper_db_query_union(db->signals, (void**)query1, (void**)query2));
+    return (mapper_db_signal *) mapper_db_query_union((void**)query1,
+                                                      (void**)query2);
 }
 
-mapper_db_signal *mapper_db_signal_query_intersection(mapper_db db,
-                                                      mapper_db_signal *query1,
+mapper_db_signal *mapper_db_signal_query_intersection(mapper_db_signal *query1,
                                                       mapper_db_signal *query2)
 {
-    return ((mapper_db_signal *)
-            mapper_db_query_intersection(db->signals, (void**)query1,
-                                         (void**)query2));
+    return (mapper_db_signal *) mapper_db_query_intersection((void**)query1,
+                                                             (void**)query2);
 }
 
-mapper_db_signal *mapper_db_signal_query_difference(mapper_db db,
-                                                    mapper_db_signal *query1,
+mapper_db_signal *mapper_db_signal_query_difference(mapper_db_signal *query1,
                                                     mapper_db_signal *query2)
 {
-    return ((mapper_db_signal *)
-            mapper_db_query_difference(db->signals, (void**)query1,
-                                       (void**)query2));
+    return (mapper_db_signal *) mapper_db_query_difference((void**)query1,
+                                                           (void**)query2);
 }
 
 mapper_db_signal *mapper_db_signal_next(mapper_db_signal *sig)
@@ -2686,26 +2668,23 @@ mapper_map *mapper_db_get_signal_incoming_maps(mapper_db db,
                                     "vi", &sig, DI_INCOMING));
 }
 
-mapper_map *mapper_db_map_query_union(mapper_db db, mapper_map *query1,
-                                      mapper_map *query2)
+mapper_map *mapper_db_map_query_union(mapper_map *query1, mapper_map *query2)
 {
-    return ((mapper_map *)
-            mapper_db_query_union(db->maps, (void**)query1, (void**)query2));
+    return (mapper_map *) mapper_db_query_union((void**)query1, (void**)query2);
 }
 
-mapper_map *mapper_db_map_query_intersection(mapper_db db, mapper_map *query1,
+mapper_map *mapper_db_map_query_intersection(mapper_map *query1,
                                              mapper_map *query2)
 {
-    return ((mapper_map *)
-            mapper_db_query_intersection(db->maps, (void**)query1,
-                                         (void**)query2));
+    return (mapper_map *) mapper_db_query_intersection((void**)query1,
+                                                       (void**)query2);
 }
 
-mapper_map *mapper_db_map_query_difference(mapper_db db, mapper_map *query1,
+mapper_map *mapper_db_map_query_difference(mapper_map *query1,
                                            mapper_map *query2)
 {
-    return ((mapper_map *)
-            mapper_db_query_difference(db->maps, (void**)query1, (void**)query2));
+    return (mapper_map *) mapper_db_query_difference((void**)query1,
+                                                     (void**)query2);
 }
 
 mapper_map_t **mapper_db_map_query_next(mapper_map *maps)
