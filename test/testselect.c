@@ -128,7 +128,7 @@ int setup_maps()
         goto error;
 
     mapper_db_signal src = &sendsig->props;
-    mmon_map_signals(mon, 1, &src, &recvsig->props, 0);
+    mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig->props));
 
     // wait until mapping has been established
     while (!done && !mdev_num_outgoing_maps(source)) {

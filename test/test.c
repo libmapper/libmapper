@@ -166,13 +166,13 @@ void loop()
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig_1->props;
-        mmon_map_signals(mon, 1, &src, &recvsig_1->props, 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig_1->props));
         src = &sendsig_2->props;
-        mmon_map_signals(mon, 1, &src, &recvsig_2->props, 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig_2->props));
         src = &sendsig_3->props;
-        mmon_map_signals(mon, 1, &src, &recvsig_3->props, 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig_3->props));
         src = &sendsig_3->props;
-        mmon_map_signals(mon, 1, &src, &recvsig_4->props, 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig_4->props));
 
         mmon_free(mon);
 

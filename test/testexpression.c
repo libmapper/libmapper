@@ -100,14 +100,12 @@ int setup_maps()
 {
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_db_map_t props;
-    props.sources = 0;
-    props.destination.flags = 0;
-    props.mode = MO_EXPRESSION;
-    props.expression = "y=x*10";
-    props.flags = MAP_MODE | MAP_EXPRESSION;
     mapper_db_signal src = &sendsig->props;
-    mmon_map_signals(mon, 1, &src, &recvsig->props, &props);
+    mapper_db_map map = mapper_db_map_new(1, &src, &recvsig->props);
+    map->mode = MO_EXPRESSION;
+    map->expression = "y=x*10";
+    map->flags = MAP_MODE | MAP_EXPRESSION;
+    mmon_update_map(mon, map);
 
     // wait until mapping has been established
     while (!done && !mdev_num_outgoing_maps(source)) {

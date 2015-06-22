@@ -1197,6 +1197,21 @@ void mapper_db_add_map_callback(mapper_db db, mapper_db_map_handler *h,
 void mapper_db_remove_map_callback(mapper_db db, mapper_db_map_handler *h,
                                    void *user);
 
+/*! Interface to add a map between a set of signals.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure.
+ *  \return             A map data structure – either loaded from the db
+ *                      (if the map already existed) or newly created. In the
+ *                      latter case the map will not take effect until it has
+ *                      been added to the network using mmon_add_map(). */
+mapper_db_map mapper_db_map_new(int num_sources, mapper_db_signal *sources,
+                                mapper_db_signal destination);
+
+/*! Free a map structure that was allocated with mapper_db_map_new().
+ *  \param map          The map structure to free. */
+void mapper_db_map_free(mapper_db_map map);
+
 /*! Return a list of all registered maps.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results,
@@ -1531,57 +1546,21 @@ void mmon_subscribe(mapper_monitor mon, mapper_db_device dev, int flags,
  *                  from all devices. */
 void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev);
 
-/*! Interface to add a map between a set of signals.
- *  \param mon          The monitor to use for sending the message.
- *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure.
- *  \param properties   An optional data structure specifying the requested
- *                      properties of this map. The 'flags' variable of this
- *                      structure is used to indicate which properties in the
- *                      provided mapper_db_map_t should be applied to the map.
- *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_map_signals(mapper_monitor mon, int num_sources,
-                      mapper_db_signal *sources, mapper_db_signal destination,
-                      mapper_db_map_t *properties);
-
-/*! Interface to modify a map between a set of signals.
+/*! Interface to establish or modify a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param map          A modified data structure specifying the map properties.
  *                      The 'flags' variable of this structure is used to
  *                      indicate which properties in the provided
  *                      mapper_db_map_t should be applied to the map.
- *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_modify_map(mapper_monitor mon, mapper_db_map_t *map);
-
-/*! Interface to modify a map between a set of signals.
- *  \param mon          The monitor to use for sending the message.
- *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure.
- *  \param properties   An optional data structure specifying the requested
- *                      properties of this map. The 'flags' variable of this
- *                      structure is used to indicate which properties in the
- *                      provided mapper_db_map_t should be applied to the map.
- *                      See the flags prefixed by MAP_ in mapper_db.h. */
-void mmon_modify_map_by_signals(mapper_monitor mon, int num_sources,
-                                mapper_db_signal *sources,
-                                mapper_db_signal destination,
-                                mapper_db_map_t *properties);
+ *                      See the flags prefixed by MAP_ in mapper_db.h.
+ *  \return             A pointer to the established map data structure if it
+ *                      responds within the timeout period, or 0 othersise. */
+void mmon_update_map(mapper_monitor mon, mapper_db_map map);
 
 /*! Interface to remove a map between a set of signals.
  *  \param mon          The monitor to use for sending the message.
  *  \param map          Map data structure. */
-void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *map);
-
-/*! Interface to remove a map between a set of signals.
- *  \param mon          The monitor to use for sending the message.
- *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure. */
-void mmon_unmap_signals(mapper_monitor mon, int num_sources,
-                        mapper_db_signal *sources,
-                        mapper_db_signal destination);
+void mmon_remove_map(mapper_monitor mon, mapper_db_map map);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
  *  \param mon      The monitor to use for sending the message.

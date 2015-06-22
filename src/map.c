@@ -13,6 +13,33 @@
 static void reallocate_map_histories(mapper_map map);
 static int mapper_map_set_mode_linear(mapper_map map);
 
+mapper_db_map mapper_db_map_new(int num_sources, mapper_db_signal *sources,
+                                mapper_db_signal destination)
+{
+    if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES
+        || !sources || !destination)
+        return 0;
+
+    int i;
+    mapper_db_map map;
+    map = (mapper_db_map) calloc(1, sizeof(struct _mapper_db_map));
+    map->num_sources = num_sources;
+    map->sources = (mapper_db_map_slot) calloc(1, sizeof(struct _mapper_db_map_slot));
+    for (i = 0; i < num_sources; i++) {
+        map->sources[i].signal = sources[i];
+    }
+    map->destination.signal = destination;
+    return map;
+}
+
+void mapper_db_map_free(mapper_db_map map)
+{
+    if (!map)
+        return;
+    free(map->sources);
+    free(map);
+}
+
 // only called for outgoing maps
 int mapper_map_perform(mapper_map map, mapper_map_slot slot,
                        int instance, char *typestring)

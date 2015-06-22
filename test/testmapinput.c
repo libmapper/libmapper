@@ -116,11 +116,11 @@ void loop()
         mapper_db_signal src = msig_properties(inputs[0]);
 
         // map input to another input on same device
-        mmon_map_signals(mon, 1, &src, msig_properties(inputs[1]), 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, msig_properties(inputs[1])));
 
         // map input to an input on another device
         src = msig_properties(inputs[1]);
-        mmon_map_signals(mon, 1, &src, msig_properties(inputs[2]), 0);
+        mmon_update_map(mon, mapper_db_map_new(1, &src, msig_properties(inputs[2])));
 
         // wait until mapping has been established
         while (!done && mdev_num_outgoing_maps(devices[0]) < 2) {

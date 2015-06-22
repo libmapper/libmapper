@@ -325,7 +325,7 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with property 'host'=='192.168.0.100':\n");
 
     pdev = mapper_db_get_devices_by_property(db, "host", 's', 1,
-                                             "192.168.0.100", 0);
+                                             "192.168.0.100", OP_EQUAL);
 
     count=0;
     if (!pdev) {

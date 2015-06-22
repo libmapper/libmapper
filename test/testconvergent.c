@@ -117,18 +117,15 @@ int setup_maps()
 
     mapper_db_signal all_sources[2] = {msig_properties(sendsig[0][0]), msig_properties(sendsig[1][1])};
 
-    mapper_db_map_slot_t slots[2];
-    mapper_db_map_t props;
-    props.destination.flags = 0;
-    props.sources = slots;
-    props.mode = MO_EXPRESSION;
-    props.expression = "y=x0+x1";
-    props.flags = MAP_MODE | MAP_EXPRESSION;
-    props.sources[0].cause_update = 1;
-    props.sources[1].cause_update = 0;
-    props.sources[0].flags = props.sources[1].flags = MAP_SLOT_CAUSE_UPDATE;
+    mapper_db_map map = mapper_db_map_new(2, all_sources, msig_properties(recvsig));
+    map->mode = MO_EXPRESSION;
+    map->expression = "y=x0+x1";
+    map->flags = MAP_MODE | MAP_EXPRESSION;
+    map->sources[0].cause_update = 1;
+    map->sources[1].cause_update = 0;
+    map->sources[0].flags = map->sources[1].flags = MAP_SLOT_CAUSE_UPDATE;
 
-    mmon_map_signals(mon, 2, all_sources, msig_properties(recvsig), &props);
+    mmon_update_map(mon, map);
     mmon_free(mon);
 
     // wait until mappings have been established

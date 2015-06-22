@@ -176,11 +176,11 @@ int main(int argc, char ** argv)
     }
 
     mapper::Monitor mon(SUBSCRIBE_ALL);
-    mapper::Db::Map map;
+    mapper::Db::Map map(dev.outputs("out2"), dev.inputs("in2"));
     map.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     map.source().set_minimum(mapper::Property(0, d, 3));
-    mon.map(dev.outputs("out2"), dev.inputs("in2"), map);
+    mon.update(map);
 
     while (dev.num_outgoing_maps() <= 0) {
         dev.poll(100);

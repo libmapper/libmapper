@@ -110,26 +110,23 @@ int setup_maps()
 
     mapper_monitor mon = mmon_new(source->admin, 0);
 
-    mapper_db_map_t props;
-    mapper_db_map_slot_t src_slot;
-    props.num_sources = 1;
-    props.sources = &src_slot;
-    src_slot.minimum = &src_min;
-    src_slot.maximum = &src_max;
-    src_slot.length = 1;
-    src_slot.type = 'f';
-    src_slot.flags = MAP_SLOT_RANGE_KNOWN;
-    props.destination.minimum = &dest_min;
-    props.destination.maximum = &dest_max;
-    props.destination.length = 1;
-    props.destination.type = 'f';
-    props.destination.bound_min = BA_FOLD;
-    props.destination.flags = MAP_SLOT_RANGE_KNOWN | MAP_SLOT_BOUND_MIN;
-    props.mode = MO_LINEAR;
-    props.flags = MAP_MODE;
-
     mapper_db_signal src = &sendsig->props;
-    mmon_map_signals(mon, 1, &src, &recvsig->props, &props);
+    mapper_db_map map = mapper_db_map_new(1, &src, &recvsig->props);
+    map->sources[0].minimum = &src_min;
+    map->sources[0].maximum = &src_max;
+    map->sources[0].length = 1;
+    map->sources[0].type = 'f';
+    map->sources[0].flags = MAP_SLOT_RANGE_KNOWN;
+    map->destination.minimum = &dest_min;
+    map->destination.maximum = &dest_max;
+    map->destination.length = 1;
+    map->destination.type = 'f';
+    map->destination.bound_min = BA_FOLD;
+    map->destination.flags = MAP_SLOT_RANGE_KNOWN | MAP_SLOT_BOUND_MIN;
+    map->mode = MO_LINEAR;
+    map->flags = MAP_MODE;
+
+    mmon_update_map(mon, map);
 
     // Wait until mapping has been established
     while (!done && !mdev_num_outgoing_maps(source)) {
