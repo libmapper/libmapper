@@ -35,7 +35,7 @@ void printsignal(mapper_db_signal sig)
     eprintf("\n");
 }
 
-void printmap(mapper_db_map map)
+void printmap(mapper_map map)
 {
     int i;
     if (verbose) {
@@ -664,9 +664,9 @@ int main(int argc, char **argv)
     eprintf("\nFind maps with source 'out1':\n");
 
     psig = mapper_db_get_signals_by_name(db, "out1");
-    mapper_db_map* pmap = 0;
+    mapper_map* pmap = 0;
     while (psig) {
-        mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
+        mapper_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
         pmap = mapper_db_map_query_union(db, pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
@@ -686,7 +686,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 4) {
@@ -719,7 +719,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -735,7 +735,7 @@ int main(int argc, char **argv)
     psig = mapper_db_get_signals_by_name(db, "in2");
     pmap = 0;
     while (psig) {
-        mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
+        mapper_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
         pmap = mapper_db_map_query_union(db, pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
@@ -755,7 +755,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -788,7 +788,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -830,7 +830,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 1) {
@@ -844,13 +844,13 @@ int main(int argc, char **argv)
     eprintf("\nFind maps for source device 'testdb__.2', signals matching 'out',"
             "\n          AND dest device 'testdb.1', all signals:\n");
 
-    mapper_db_map *src_pmap = 0, *dst_pmap = 0;
+    mapper_map *src_pmap = 0, *dst_pmap = 0;
 
     // build combined source query
     dev = mapper_db_get_device_by_name(db, "testdb__.2");
     psig = mapper_db_get_device_signals_by_name_match(db, dev, "out");
     while (psig) {
-        mapper_db_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
+        mapper_map *temp = mapper_db_get_signal_outgoing_maps(db, *psig);
         src_pmap = mapper_db_map_query_union(db, src_pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
@@ -859,7 +859,7 @@ int main(int argc, char **argv)
     dev = mapper_db_get_device_by_name(db, "testdb.1");
     psig = mapper_db_get_device_signals(db, dev);
     while (psig) {
-        mapper_db_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
+        mapper_map *temp = mapper_db_get_signal_incoming_maps(db, *psig);
         dst_pmap = mapper_db_map_query_union(db, dst_pmap, temp);
         psig = mapper_db_signal_next(psig);
     }
@@ -882,7 +882,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_next(pmap);
+        pmap = mapper_db_map_query_next(pmap);
     }
 
     if (count != 2) {

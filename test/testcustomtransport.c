@@ -46,8 +46,8 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
-                 mapper_db_map_slot slot, mapper_device_local_action_t action,
+void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
+                 mapper_map_slot slot, mapper_device_local_action_t action,
                  void *user)
 {
     eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
@@ -81,8 +81,8 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_db_map_property_lookup(map, "transport", &t,
-                                      (const void **)&a_transport, &length)
+    if (mapper_map_property_lookup(map, "transport", &t,
+                                   (const void **)&a_transport, &length)
         || t != 's' || length != 1)
     {
         eprintf("Couldn't find `transport' property.\n");
@@ -98,8 +98,8 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_db_map map,
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_db_map_property_lookup(map, "tcpPort", &t,
-                                      (const void **)&a_port, &length)
+    if (mapper_map_property_lookup(map, "tcpPort", &t,
+                                   (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
         eprintf("Couldn't make TCP connection, "
@@ -254,7 +254,7 @@ void loop()
         mapper_monitor mon = mmon_new(source->admin, 0);
 
         mapper_db_signal src = &sendsig->props;
-        mmon_update_map(mon, mapper_db_map_new(1, &src, &recvsig->props));
+        mmon_update_map(mon, mapper_map_new(1, &src, &recvsig->props));
 
         mmon_free(mon);
     }

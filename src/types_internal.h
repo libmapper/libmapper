@@ -231,7 +231,7 @@ typedef struct _mapper_slot_internal {
 
     mapper_history history;                 /*!< Array of value histories
                                              *   for each signal instance. */
-    mapper_db_map_slot props;
+    mapper_map_slot props;
     int history_size;                       //!< History size.
     char status;
     char calibrating;
@@ -245,7 +245,7 @@ typedef struct _mapper_map_internal {
     struct _mapper_router *router;
     int is_admin;
     int is_local;
-    mapper_db_map_t props;
+    mapper_map_t props;
 
     mapper_slot_internal sources;
     mapper_slot_internal_t destination;
@@ -322,7 +322,7 @@ typedef struct _fptr_list {
 typedef struct _mapper_db {
     mapper_db_device devices;       //<! List of devices.
     mapper_db_signal signals;       //<! List of signals.
-    mapper_db_map maps;             //<! List of mappings.
+    mapper_map maps;                //<! List of mappings.
     fptr_list device_callbacks;     //<! List of device record callbacks.
     fptr_list signal_callbacks;     //<! List of signal record callbacks.
     fptr_list map_callbacks;        //<! List of mapping record callbacks.

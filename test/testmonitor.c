@@ -135,7 +135,7 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
-void printslot(mapper_db_map_slot slot)
+void printslot(mapper_map_slot slot)
 {
     printf("%s/%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
@@ -143,8 +143,7 @@ void printslot(mapper_db_map_slot slot)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_map_slot_property_index(slot, i++, &key, &type, &val,
-                                             &length))
+    while(!mapper_map_slot_property_index(slot, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -163,7 +162,7 @@ void printslot(mapper_db_map_slot slot)
     }
 }
 
-void printmap(mapper_db_map map)
+void printmap(mapper_map map)
 {
     int i;
     printf(" └─ ");
@@ -187,7 +186,7 @@ void printmap(mapper_db_map map)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_map_property_index(map, i++, &key, &type, &val, &length))
+    while(!mapper_map_property_index(map, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -278,10 +277,10 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered maps:\n");
-        mapper_db_map *pmap = mapper_db_get_maps(db);
+        mapper_map *pmap = mapper_db_get_maps(db);
         while (pmap) {
             printmap(*pmap);
-            pmap = mapper_db_map_next(pmap);
+            pmap = mapper_db_map_query_next(pmap);
         }
 
         printf("-------------------------------\n");
@@ -331,7 +330,7 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     update = 1;
 }
 
-void on_map(mapper_db_map map, mapper_db_action_t a, void *user)
+void on_map(mapper_map map, mapper_db_action_t a, void *user)
 {
     int i;
     printf("Map ");

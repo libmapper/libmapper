@@ -2517,7 +2517,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
 #endif
 
     mapper_db db = mmon_get_db(mon);
-    mapper_db_map map = mapper_db_get_map_by_id(db, *id);
+    mapper_map map = mapper_db_get_map_by_id(db, *id);
     if (map)
         mapper_db_remove_map(db, map);
 

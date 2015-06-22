@@ -294,9 +294,9 @@ mapper_map_internal mapper_router_find_outgoing_map_by_id(mapper_router router,
                                                           mapper_signal local_src,
                                                           uint64_t id);
 
-mapper_slot_internal mapper_router_find_slot(mapper_router router,
-                                             mapper_signal signal,
-                                             int slot_number);
+mapper_slot_internal mapper_router_find_map_slot(mapper_router router,
+                                                 mapper_signal signal,
+                                                 int slot_number);
 
 /*! Find a link by remote address in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
@@ -426,7 +426,7 @@ void mhist_realloc(mapper_history history, int history_size,
 int mapper_map_perform(mapper_map_internal map, mapper_slot_internal slot,
                        int instance, char *typestring);
 
-int mapper_boundary_perform(mapper_history history, mapper_db_map_slot s,
+int mapper_boundary_perform(mapper_history history, mapper_map_slot s,
                             char *typestring);
 
 lo_message mapper_map_build_message(mapper_map_internal map,
@@ -449,8 +449,8 @@ const char *mapper_get_mode_type_string(mapper_mode_type mode);
 mapper_mode_type mapper_get_mode_type_from_string(const char *string);
 
 /*! Update scope identifiers for a given mapping record. */
-int mapper_db_map_update_scope(mapper_map_scope scope, lo_arg **scope_list,
-                               int num);
+int mapper_map_update_scope(mapper_map_scope scope, lo_arg **scope_list,
+                            int num);
 
 int mapper_map_check_status(mapper_map_internal map);
 
@@ -494,10 +494,10 @@ void mapper_db_signal_init(mapper_db_signal sig, char type, int length,
  *  \param params    The parsed message parameters containing new
  *                   map information.
  *  \return          Pointer to the map database entry. */
-mapper_db_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
-                                                 const char **src_names,
-                                                 const char *dest_name,
-                                                 mapper_message_t *params);
+mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
+                                              const char **src_names,
+                                              const char *dest_name,
+                                              mapper_message_t *params);
 
 /*! Remove a device from the database. */
 void mapper_db_remove_device(mapper_db db, mapper_db_device dev, int quiet);
@@ -507,13 +507,13 @@ void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
                                      const char *sig_name);
 
 /*! Remove signals in the provided query. */
-void mapper_db_remove_signals_by_query(mapper_db db, mapper_db_signal_t **sigs);
+void mapper_db_remove_signals_by_query(mapper_db db, mapper_db_signal *sigs);
 
 /*! Remove maps in the provided query. */
-void mapper_db_remove_maps_by_query(mapper_db db, mapper_db_map_t **maps);
+void mapper_db_remove_maps_by_query(mapper_db db, mapper_map *maps);
 
 /*! Remove a specific map from the database. */
-void mapper_db_remove_map(mapper_db db, mapper_db_map map);
+void mapper_db_remove_map(mapper_db db, mapper_map map);
 
 /*! Dump device information database to the screen.  Useful for
  *  debugging, only works when compiled in debug mode. */

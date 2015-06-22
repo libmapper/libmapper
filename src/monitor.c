@@ -310,7 +310,7 @@ static void _real_prep_varargs(lo_message m, ...)
     va_end(aq);
 }
 
-void mmon_update_map(mapper_monitor mon, mapper_db_map map)
+void mmon_update_map(mapper_monitor mon, mapper_map map)
 {
     lo_message m = lo_message_new();
     if (!m)
@@ -334,7 +334,7 @@ void mmon_update_map(mapper_monitor mon, mapper_db_map map)
     int src_flags = 0;
     for (i = 0; i < map->num_sources; i++)
         src_flags |= map->sources[i].flags;
-    mapper_db_map_slot d = &map->destination;
+    mapper_map_slot d = &map->destination;
 
     if (map->flags || src_flags || d->flags) {
         prep_varargs(m, map->id ? AT_ID : -1, map,
@@ -371,7 +371,7 @@ void mmon_update_map(mapper_monitor mon, mapper_db_map map)
     // If this was user-created map, free memory and remap ptr
 }
 
-void mmon_remove_map(mapper_monitor mon, mapper_db_map_t *map)
+void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
 {
     if (!mon || !map || !map->num_sources || !map->sources)
         return;

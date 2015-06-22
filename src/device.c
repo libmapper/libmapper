@@ -333,7 +333,7 @@ static int handler_signal(const char *path, const char *types,
     if (slot >= 0) {
         // check if we have a combiner for this signal
         // retrieve mapping associated with this slot
-        s = mapper_router_find_slot(md->router, sig, slot);
+        s = mapper_router_find_map_slot(md->router, sig, slot);
         if (!s) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot);

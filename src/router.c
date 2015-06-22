@@ -261,7 +261,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
     if (!value) {
         mapper_slot_internal s;
-        mapper_db_map_slot p;
+        mapper_map_slot p;
 
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
@@ -275,7 +275,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
 
             if (s->props->direction == DI_OUTGOING) {
                 mapper_slot_internal ds = &map->destination;
-                mapper_db_map_slot dp = &map->props.destination;
+                mapper_map_slot dp = &map->props.destination;
 
                 // also need to reset associated output memory
                 ds->history[id].position= -1;
@@ -336,9 +336,9 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
             continue;
         }
 
-        mapper_db_map_slot sp = s->props;
-        mapper_db_map_slot dp = &map->props.destination;
-        mapper_db_map_slot to = (map->props.process_location == MAPPER_SOURCE ? dp : sp);
+        mapper_map_slot sp = s->props;
+        mapper_map_slot dp = &map->props.destination;
+        mapper_map_slot to = (map->props.process_location == MAPPER_SOURCE ? dp : sp);
         int to_size = mapper_type_size(to->type) * to->length;
         char typestring[to->length * count];
         memset(typestring, to->type, to->length * count);
@@ -635,8 +635,8 @@ mapper_map_internal mapper_router_add_map(mapper_router r, mapper_signal sig,
     map->props.num_sources = num_sources;
     map->sources = ((mapper_slot_internal)
                     calloc(1, sizeof(struct _mapper_slot_internal) * num_sources));
-    map->props.sources = ((mapper_db_map_slot)
-                          calloc(1, sizeof(struct _mapper_db_map_slot)
+    map->props.sources = ((mapper_map_slot)
+                          calloc(1, sizeof(struct _mapper_map_slot)
                                  * num_sources));
     // scopes
     map->props.scope.size = (direction == DI_OUTGOING) ? 1 : num_sources;
@@ -657,7 +657,7 @@ mapper_map_internal mapper_router_add_map(mapper_router r, mapper_signal sig,
     char devname[256], *devnamep, *signame;
     const char *remote_devname_ptr;
     int devnamelen, scope_count = 0, local_scope = 0;
-    mapper_db_map_slot sp;
+    mapper_map_slot sp;
     if (direction == DI_OUTGOING) {
         ready = 0;
         for (i = 0; i < num_sources; i++) {

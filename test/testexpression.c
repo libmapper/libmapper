@@ -101,7 +101,7 @@ int setup_maps()
     mapper_monitor mon = mmon_new(source->admin, 0);
 
     mapper_db_signal src = &sendsig->props;
-    mapper_db_map map = mapper_db_map_new(1, &src, &recvsig->props);
+    mapper_map map = mapper_map_new(1, &src, &recvsig->props);
     map->mode = MO_EXPRESSION;
     map->expression = "y=x*10";
     map->flags = MAP_MODE | MAP_EXPRESSION;

@@ -439,7 +439,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
     table tab;
     mapper_signal sig;
     mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
-    mapper_db_map_t *map;
+    mapper_map_t *map;
 
     while (pa != N_AT_PARAMS)
     {
@@ -514,7 +514,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, "unknown");
             break;
         case AT_SRC_BOUND_MAX:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (!map->sources) {
                     lo_message_add_string(m, "unknown");
@@ -528,7 +528,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             }
             break;
         case AT_SRC_BOUND_MIN:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (!map->sources) {
                     lo_message_add_string(m, "unknown");
@@ -550,7 +550,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
                 lo_message_add_string(m, "unknown");
             break;
         case AT_SRC_MIN:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (bitmatch(map->sources[i].flags, MAP_SLOT_MIN_KNOWN)
                     && map->sources[i].minimum)
@@ -562,7 +562,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             }
             break;
         case AT_SRC_MAX:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (bitmatch(map->sources[i].flags, MAP_SLOT_MAX_KNOWN)
                     && map->sources[i].maximum)
@@ -574,13 +574,13 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             }
             break;
         case AT_DEST_MIN:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             mapper_msg_add_typed_value(m, map->destination.type,
                                        map->destination.length,
                                        map->destination.minimum);
             break;
         case AT_DEST_MAX:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             mapper_msg_add_typed_value(m, map->destination.type,
                                        map->destination.length,
                                        map->destination.maximum);
@@ -611,12 +611,12 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             lo_message_add_string(m, s);
             break;
         case AT_SCOPE:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             mapper_msg_add_typed_value(m, 's', map->scope.size,
                                        map->scope.names);
             break;
         case AT_SEND_AS_INSTANCE:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (map->sources[i].send_as_instance)
                     lo_message_add_true(m);
@@ -625,7 +625,7 @@ void mapper_msg_prepare_varargs(lo_message m, va_list aq)
             }
             break;
         case AT_CAUSE_UPDATE:
-            map = va_arg(aq, mapper_db_map_t*);
+            map = va_arg(aq, mapper_map_t*);
             for (i = 0; i < map->num_sources; i++) {
                 if (map->sources[i].cause_update)
                     lo_message_add_true(m);

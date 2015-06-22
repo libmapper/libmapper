@@ -117,7 +117,7 @@ int setup_maps()
 
     mapper_db_signal all_sources[2] = {msig_properties(sendsig[0][0]), msig_properties(sendsig[1][1])};
 
-    mapper_db_map map = mapper_db_map_new(2, all_sources, msig_properties(recvsig));
+    mapper_map map = mapper_map_new(2, all_sources, msig_properties(recvsig));
     map->mode = MO_EXPRESSION;
     map->expression = "y=x0+x1";
     map->flags = MAP_MODE | MAP_EXPRESSION;
