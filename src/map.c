@@ -10,8 +10,8 @@
 #include <mapper/mapper.h>
 
 /*! Function prototypes. */
-static void reallocate_map_histories(mapper_map map);
-static int mapper_map_set_mode_linear(mapper_map map);
+static void reallocate_map_histories(mapper_map_internal map);
+static int mapper_map_set_mode_linear(mapper_map_internal map);
 
 mapper_db_map mapper_db_map_new(int num_sources, mapper_db_signal *sources,
                                 mapper_db_signal destination)
@@ -41,7 +41,7 @@ void mapper_db_map_free(mapper_db_map map)
 }
 
 // only called for outgoing maps
-int mapper_map_perform(mapper_map map, mapper_map_slot slot,
+int mapper_map_perform(mapper_map_internal map, mapper_slot_internal slot,
                        int instance, char *typestring)
 {
     int changed = 0, i;
@@ -352,7 +352,8 @@ int mapper_boundary_perform(mapper_history history, mapper_db_map_slot s,
 }
 
 /*! Build a value update message for a given map. */
-lo_message mapper_map_build_message(mapper_map map, mapper_map_slot s,
+lo_message mapper_map_build_message(mapper_map_internal map,
+                                    mapper_slot_internal s,
                                     void *value, int count, char *typestring,
                                     mapper_id_map id_map)
 {
@@ -438,7 +439,7 @@ static char *fix_expression_source_order(int num, int *order,
 
 /* Helper to replace a map's expression only if the given string
  * parses successfully. Returns 0 on success, non-zero on error. */
-static int replace_expression_string(mapper_map map, const char *expr_str)
+static int replace_expression_string(mapper_map_internal map, const char *expr_str)
 {
     if (map->expr && map->props.expression && strcmp(map->props.expression, expr_str)==0)
         return 1;
@@ -493,13 +494,13 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     return 0;
 }
 
-void mapper_map_set_mode_raw(mapper_map map)
+void mapper_map_set_mode_raw(mapper_map_internal map)
 {
     map->props.mode = MO_RAW;
     reallocate_map_histories(map);
 }
 
-static int mapper_map_set_mode_linear(mapper_map map)
+static int mapper_map_set_mode_linear(mapper_map_internal map)
 {
     if (map->props.num_sources > 1)
         return 1;
@@ -632,7 +633,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
     return 1;
 }
 
-void mapper_map_set_mode_expression(mapper_map map, const char *expr)
+void mapper_map_set_mode_expression(mapper_map_internal map, const char *expr)
 {
     if (map->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
         return;
@@ -711,7 +712,7 @@ static int is_number_type(const char type)
 /* Helper to fill in the range (src_min, src_max, dest_min, dest_max)
  * based on message parameters and known mapping and signal properties;
  * return flags to indicate which parts of the range were found. */
-static int set_range(mapper_map map, mapper_message_t *msg, int slot)
+static int set_range(mapper_map_internal map, mapper_message_t *msg, int slot)
 {
     lo_arg **args = NULL;
     const char *types = NULL;
@@ -720,7 +721,7 @@ static int set_range(mapper_map map, mapper_message_t *msg, int slot)
     if (!map)
         return 0;
 
-    mapper_map_slot s = (slot >= 0) ? &map->sources[slot] : 0;
+    mapper_slot_internal s = (slot >= 0) ? &map->sources[slot] : 0;
 
     // calculate value vector length for all sources
     int total_length = 0;
@@ -965,7 +966,7 @@ static int set_range(mapper_map map, mapper_message_t *msg, int slot)
     return updated;
 }
 
-static void init_map_history(mapper_map_slot slot, mapper_db_map_slot props)
+static void init_map_history(mapper_slot_internal slot, mapper_db_map_slot props)
 {
     int i;
     if (slot->history)
@@ -983,7 +984,7 @@ static void init_map_history(mapper_map_slot slot, mapper_db_map_slot props)
     }
 }
 
-static void apply_mode(mapper_map map)
+static void apply_mode(mapper_map_internal map)
 {
     switch (map->props.mode) {
         case MO_RAW:
@@ -1078,7 +1079,7 @@ static void apply_mode(mapper_map map)
     }
 }
 
-int mapper_map_check_status(mapper_map map)
+int mapper_map_check_status(mapper_map_internal map)
 {
     map->status |= MAPPER_READY;
     int mask = ~MAPPER_READY;
@@ -1180,7 +1181,7 @@ static void upgrade_extrema_memory(mapper_db_map_slot slot, char type, int lengt
 }
 
 // if 'override' flag is not set, only remote properties can be set
-int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
+int mapper_map_set_from_message(mapper_map_internal map, mapper_message_t *msg,
                                 int *order, int override)
 {
     int updated = 0;
@@ -1575,11 +1576,11 @@ int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
 
 /* TODO: figuring out the correct number of instances for the user variables
  * is a bit tricky... for now we will use the maximum. */
-void reallocate_map_histories(mapper_map map)
+void reallocate_map_histories(mapper_map_internal map)
 {
     int i, j;
 
-    mapper_map_slot s;
+    mapper_slot_internal s;
     mapper_db_map_slot p;
     int history_size;
 
@@ -1778,19 +1779,9 @@ inline static void message_add_bool(lo_message m, int value) {
         lo_message_add_false(m);
 }
 
-void mapper_map_prepare_osc_message(lo_message m, mapper_map map, int slot,
-                                    int suppress_remote_props)
+void mapper_map_prepare_osc_message(lo_message m, mapper_map_internal map,
+                                    int slot, int suppress_remote_props)
 {
-    /* if message being sent upstream:
-     *      - could be part of convergent mapping
-     * if message being sent downstream:
-     *      - could be part of convergent mapping
-     * anytime "slot" included, means (sub)mapping mode is "raw"
-     *      – just for now, this should/could change in future
-     * ok, anytime "slot" is included, is part of submapping
-     * "slot" always refers to rs slot at map destination
-     */
-
     int i;
     mapper_db_map props = &map->props;
 

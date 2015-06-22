@@ -223,9 +223,9 @@ typedef struct _mapper_link {
 
 #define MAX_NUM_MAP_SOURCES 8    // arbitrary
 
-typedef struct _mapper_map_slot {
+typedef struct _mapper_slot_internal {
     // each slot can point to local signal or a remote link structure
-    struct _mapper_map *map;                //!< Parent mapping.
+    struct _mapper_map_internal *map;       //!< Parent mapping.
     struct _mapper_router_signal *local;    //!< Parent signal if local
     mapper_link link;                       //!< Remote device if not local
 
@@ -235,20 +235,20 @@ typedef struct _mapper_map_slot {
     int history_size;                       //!< History size.
     char status;
     char calibrating;
-} mapper_map_slot_t, *mapper_map_slot;
+} mapper_slot_internal_t, *mapper_slot_internal;
 
-/*! The mapper_map structure is a linked list of mappings for a given signal.
- *  Each signal can be associated with multiple inputs or outputs. This
+/*! The mapper_map_internal structure is a linked list of mappings for a given
+ *  signal.  Each signal can be associated with multiple inputs or outputs. This
  *  structure only contains state information used for performing mapping, the
  *  properties are publically defined in mapper_db.h. */
-typedef struct _mapper_map {
+typedef struct _mapper_map_internal {
     struct _mapper_router *router;
     int is_admin;
     int is_local;
     mapper_db_map_t props;
 
-    mapper_map_slot sources;
-    mapper_map_slot_t destination;
+    mapper_slot_internal sources;
+    mapper_slot_internal_t destination;
 
     // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
@@ -261,9 +261,9 @@ typedef struct _mapper_map {
     char *expression;
     mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
     
-    struct _mapper_map *complement;         /*!< Pointer to complement in case
+    struct _mapper_map_internal *complement;/*!< Pointer to complement in case
                                              *   of self-connection. */
-} mapper_map_t, *mapper_map;
+} mapper_map_internal_t, *mapper_map_internal;
 
 /*! The router_signal is a linked list containing a signal and a list of
  *  mappings.  TODO: This should be replaced with a more efficient approach
@@ -272,7 +272,7 @@ typedef struct _mapper_router_signal {
     struct _mapper_router *link;        //!< The parent link.
     struct _mapper_signal *signal;      //!< The associated signal.
 
-    mapper_map_slot *slots;
+    mapper_slot_internal *slots;
     int num_slots;
     int id_counter;
 

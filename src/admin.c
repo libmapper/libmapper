@@ -110,7 +110,7 @@ const char* admin_msg_strings[] =
 
 /* Internal functions for sending admin messages. */
 static void mapper_admin_send_device(mapper_admin admin, mapper_device device);
-static void mapper_admin_send_map(mapper_admin admin, mapper_map map,
+static void mapper_admin_send_map(mapper_admin admin, mapper_map_internal map,
                                   int slot, int cmd);
 
 #define HANDLER_ARGS const char*, const char*, lo_arg**, int, lo_message, void*
@@ -994,7 +994,7 @@ static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
 }
 
 // Send /mapped message
-static void mapper_admin_send_map(mapper_admin admin, mapper_map map,
+static void mapper_admin_send_map(mapper_admin admin, mapper_map_internal map,
                                   int slot, int cmd)
 {
     if (cmd == ADM_MAPPED && map->status < MAPPER_READY)
@@ -1083,7 +1083,7 @@ static void mapper_admin_send_incoming_maps(mapper_admin admin, mapper_device md
             if (max > 0 && count > max)
                 return;
             if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
+                mapper_map_internal map = rs->slots[i]->map;
                 mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
             }
             count++;
@@ -1104,7 +1104,7 @@ static void mapper_admin_send_outgoing_maps(mapper_admin admin, mapper_device md
             if (max > 0 && count > max)
                 return;
             if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
+                mapper_map_internal map = rs->slots[i]->map;
                 mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
             }
             count++;
@@ -1218,7 +1218,7 @@ static int handler_device(const char *path, const char *types,
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
-            mapper_map map = rs->slots[i]->map;
+            mapper_map_internal map = rs->slots[i]->map;
             if (rs->slots[i]->props->direction == DI_OUTGOING) {
                 // only send /mapTo once even if we have multiple local sources
                 if (map->one_source && (rs->slots[i] != &map->sources[0]))
@@ -1805,7 +1805,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     for (i = 0; i < num_sources; i++) {
         src_names[i] = &argv[src_index+order[i]]->s;
     }
-    mapper_map map;
+    mapper_map_internal map;
     map = mapper_router_find_incoming_map(md->router, local_signal,
                                           num_sources, src_names);
 
@@ -1902,7 +1902,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal local_signal = 0;
-    mapper_map map;
+    mapper_map_internal map;
     int i, num_sources, src_index, dest_index, num_params, param_index;
 
     const char *local_signal_name = 0;
@@ -2006,7 +2006,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                                         0, (const char**)src_names, DI_INCOMING);
         }
         if (!map) {
-            trace("couldn't create mapper_map in handler_map_to\n");
+            trace("couldn't create map in handler_map_to\n");
             return 0;
         }
     }
@@ -2054,7 +2054,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal local_signal = 0;
-    mapper_map map;
+    mapper_map_internal map;
     mapper_monitor mon = admin->monitor;
     int i, num_sources, src_index, dest_index, num_params, param_index;
     const char *local_signal_name;
@@ -2236,7 +2236,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
-    mapper_map map = 0;
+    mapper_map_internal map = 0;
     mapper_signal local_signal = 0;
     int i, num_sources, src_index, dest_index, num_params, param_index;
     const char *local_signal_name;
@@ -2374,7 +2374,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_device md = admin->device;
     mapper_signal local_signal;
-    mapper_map map = 0;
+    mapper_map_internal map = 0;
     int i, num_sources, src_index, dest_index;
     const char *local_signal_name;
 

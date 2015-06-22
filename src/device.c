@@ -266,8 +266,8 @@ static int handler_signal(const char *path, const char *types,
     int is_instance_update = 0, id_map_index, slot = -1;
     uint64_t instance_id;
     mapper_id_map id_map;
-    mapper_map map = 0;
-    mapper_map_slot s = 0;
+    mapper_map_internal map = 0;
+    mapper_slot_internal s = 0;
 
     if (!sig || !(md = sig->device)) {
 #ifdef DEBUG
@@ -333,7 +333,7 @@ static int handler_signal(const char *path, const char *types,
     if (slot >= 0) {
         // check if we have a combiner for this signal
         // retrieve mapping associated with this slot
-        s = mapper_router_find_map_slot(md->router, sig, slot);
+        s = mapper_router_find_slot(md->router, sig, slot);
         if (!s) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot);
@@ -931,7 +931,7 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     md->n_output_callbacks --;
 }
 
-static void send_unmap(mapper_admin admin, mapper_map map)
+static void send_unmap(mapper_admin admin, mapper_map_internal map)
 {
     if (!map->status)
         return;
@@ -1001,7 +1001,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_map map = rs->slots[i]->map;
+                mapper_map_internal map = rs->slots[i]->map;
                 send_unmap(md->admin, map);
                 mapper_router_remove_map(md->router, map);
             }
@@ -1051,7 +1051,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_map map = rs->slots[i]->map;
+                mapper_map_internal map = rs->slots[i]->map;
                 send_unmap(md->admin, map);
                 mapper_router_remove_map(md->router, map);
             }
