@@ -1462,8 +1462,8 @@ int mapper_map_set_from_message(mapper_map_internal map, mapper_message_t *msg,
                 char *new_expr = fix_expression_source_order(map->props.num_sources,
                                                              order, expr);
                 if (new_expr) {
-                    if ((map->sources[i].status & MAPPER_LENGTH_KNOWN)
-                        && (map->sources[i].status & MAPPER_TYPE_KNOWN)) {
+                    if ((map->sources[0].status & MAPPER_LENGTH_KNOWN)
+                        && (map->sources[0].status & MAPPER_TYPE_KNOWN)) {
                         if (!replace_expression_string(map, new_expr))
                             reallocate_map_histories(map);
                     }
