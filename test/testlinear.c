@@ -112,19 +112,16 @@ int setup_maps()
 
     mapper_db_signal src = &sendsig->props;
     mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
-    map->sources[0].minimum = &src_min;
-    map->sources[0].maximum = &src_max;
-    map->sources[0].length = 1;
-    map->sources[0].type = 'f';
-    map->sources[0].flags = MAP_SLOT_RANGE_KNOWN;
-    map->destination.minimum = &dest_min;
-    map->destination.maximum = &dest_max;
-    map->destination.length = 1;
-    map->destination.type = 'f';
-    map->destination.bound_min = BA_FOLD;
-    map->destination.flags = MAP_SLOT_RANGE_KNOWN | MAP_SLOT_BOUND_MIN;
-    map->mode = MO_LINEAR;
-    map->flags = MAP_MODE;
+    mapper_map_set_mode(map, MO_LINEAR);
+
+    mapper_slot slot = mapper_map_source_slot(map, 0);
+    mapper_slot_set_minimum(slot, 1, 'f', &src_min);
+    mapper_slot_set_maximum(slot, 1, 'f', &src_max);
+
+    slot = mapper_map_destination_slot(map);
+    mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
+    mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
+    mapper_slot_set_bound_min(slot, BA_FOLD);
 
     mmon_update_map(mon, map);
 
@@ -154,8 +151,7 @@ void loop()
     int i = 0;
     while ((!terminate || i < 50) && !done) {
         mdev_poll(source, 0);
-        eprintf("Updating signal %s to %d\n",
-                sendsig->props.name, i);
+        eprintf("Updating signal %s to %d\n", sendsig->props.name, i);
         msig_update_int(sendsig, i);
         sent++;
         mdev_poll(destination, 100);

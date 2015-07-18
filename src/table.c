@@ -21,9 +21,9 @@ table table_new()
     return t;
 }
 
-void table_free(table t, int free_values)
+void table_clear(table t)
 {
-    int i, j;
+    int i, j, free_values = 1;
     for (i=0; i<t->len; i++) {
         if (t->store[i].key)
             free((char*)t->store[i].key);
@@ -43,6 +43,14 @@ void table_free(table t, int free_values)
             free(t->store[i].value);
         }
     }
+    t->len = 0;
+    t->store = realloc(t->store, sizeof(string_table_node_t));
+    t->alloced = 1;
+}
+
+void table_free(table t)
+{
+    table_clear(t);
     free(t->store);
     free(t);
 }
@@ -163,7 +171,7 @@ int table_size(table t)
 
 static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
                                               int length, char type,
-                                              void *args)
+                                              const void *args)
 {
     /* For unknown reasons, strcpy crashes here with -O2, so
      * we'll use memcpy instead, which does not crash. */
@@ -199,7 +207,8 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
                     to[i] = from[i];
                 break;
             }
-            case 'i': {
+            case 'i':
+            case 'b': {
                 int32_t *from = (int32_t*)args;
                 int32_t *to = (int32_t*)prop->value;
                 for (i = 0; i < length; i++)
@@ -247,27 +256,39 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
 /* Higher-level interface, where table stores arbitrary arguments along
  * with their type. */
 int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
-                                           void *args, int length)
+                                           const void *args, int length)
 {
     int i;
     string_table_node_t *node = table_find_node(t, key);
-    
+
     if (node) {
         die_unless(node->value!=0, "parameter value already in "
                    "table cannot be null.\n");
-        
+
         mapper_prop_value_t *prop = node->value;
+
+        /* In case of string array, cache string pointers and free after update
+         * to handle self-copying. */
+        char *vals[prop->length];
         if ((prop->type == 's' || prop->type == 'S') && prop->length > 1) {
-            char **vals = prop->value;
+            for (i = 0; i < prop->length; i++) {
+                vals[i] = ((char**)prop->value)[i];
+            }
+        }
+
+        void *old_val = prop->value;
+        prop->value = malloc(mapper_type_size(type) * length);
+        mapper_table_update_value_elements(prop, length, type, args);
+
+        if ((prop->type == 's' || prop->type == 'S') && prop->length > 1) {
             for (i = 0; i < prop->length; i++) {
                 free(vals[i]);
             }
         }
-        prop->value = realloc(prop->value, mapper_type_size(type) * length);
-
-        mapper_table_update_value_elements(prop, length, type, args);
         prop->length = length;
         prop->type = type;
+        if (old_val)
+            free(old_val);
     }
     else {
         /* Need to add a new entry. */
@@ -277,7 +298,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
         mapper_table_update_value_elements(prop, length, type, args);
         prop->length = length;
         prop->type = type;
-        
+
         table_add(t, key, prop, 1);
         table_sort(t);
         return 1;
@@ -286,7 +307,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
 }
 
 static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
-                                                   int length, char type,
+                                                   int length, const char *types,
                                                    lo_arg **args)
 {
     /* For unknown reasons, strcpy crashes here with -O2, so
@@ -295,7 +316,7 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
     int i;
     /* If destination is a string, reallocate and copy the new
      * string, otherwise just copy over the old value. */
-    if (type == 's' || type == 'S')
+    if (types[0] == 's' || types[0] == 'S')
     {
         if (length == 1) {
             free(prop->value);
@@ -312,7 +333,7 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
             }
         }
     } else {
-        switch (type) {
+        switch (types[0]) {
             case 'f':
             {
                 float *vals = (float*)prop->value;
@@ -355,6 +376,15 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
                     vals[i] = args[i]->c;
                 break;
             }
+            case 'T':
+            case 'F':
+            {
+                int32_t *vals = (int32_t*)prop->value;
+                for (i = 0; i < length; i++) {
+                    vals[i] = (types[i] == 'T');
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -362,12 +392,11 @@ static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
 }
 
 /* Higher-level interface, where table stores arbitrary OSC arguments
- * parsed from a mapper_msg along with their type. */
-int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
-                                         lo_arg **args, int length)
+ * parsed from a mapper_message along with their type. */
+int mapper_table_add_or_update_message_atom(table t, mapper_message_atom atom)
 {
     int i;
-    string_table_node_t *node = table_find_node(t, key);
+    string_table_node_t *node = table_find_node(t, atom->key);
 
     if (node) {
         die_unless(node->value!=0, "parameter value already in "
@@ -380,22 +409,28 @@ int mapper_table_add_or_update_msg_value(table t, const char *key, lo_type type,
                 free(vals[i]);
             }
         }
-        prop->value = realloc(prop->value, mapper_type_size(type) * length);
+        prop->value = realloc(prop->value,
+                              mapper_type_size(atom->types[0]) * atom->length);
 
-        mapper_table_update_value_elements_osc(prop, length, type, args);
-        prop->length = length;
-        prop->type = type;
+        mapper_table_update_value_elements_osc(prop, atom->length,
+                                               atom->types, atom->values);
+        prop->length = atom->length;
+        prop->type = atom->types[0];
     }
     else {
         /* Need to add a new entry. */
         mapper_prop_value_t *prop = malloc(sizeof(mapper_prop_value_t));
-        prop->value = malloc(mapper_type_size(type) * length);
+        prop->value = malloc(mapper_type_size(atom->types[0]) * atom->length);
         prop->length = 0;
-        mapper_table_update_value_elements_osc(prop, length, type, args);
-        prop->length = length;
-        prop->type = type;
+        mapper_table_update_value_elements_osc(prop, atom->length,
+                                               atom->types, atom->values);
+        prop->length = atom->length;
+        if (atom->types[0] == 'T' || atom->types[0] == 'F')
+            prop->type = 'b';
+        else
+            prop->type = atom->types[0];
 
-        table_add(t, key, prop, 1);
+        table_add(t, atom->key, prop, 1);
         table_sort(t);
         return 1;
     }

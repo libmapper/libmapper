@@ -30,11 +30,11 @@ int sent = 0;
 int received = 0;
 
 /*! Internal function to get the current time. */
-static double get_current_time()
+static double current_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0; 
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 void insig_handler(mapper_signal sig, mapper_db_signal props,
@@ -129,7 +129,7 @@ void ctrlc(int sig) {
 
 int main(int argc, char *argv[])
 {
-    double now = get_current_time();
+    double now = current_time();
     int i, j, result = 0;
 
     // process flags for -v verbose, -t terminate, -h help
@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
     }
 
     wait_local_devices(&done);
-    now = get_current_time() - now;
+    now = current_time() - now;
     eprintf("Allocated %d devices in %f seconds.\n", num_devices, now);
 
     if (!terminate)

@@ -1,4 +1,5 @@
-
+#include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
@@ -6,16 +7,18 @@
 #include "types_internal.h"
 #include "mapper_internal.h"
 
-const char* prop_msg_strings[] =
+#ifdef DEBUG
+#define TRACING 0 /* Set non-zero to see parsed properties. */
+#else
+#define TRACING 0
+#endif
+
+const char* prop_message_strings[] =
 {
+    "@boundMax",        /* AT_BOUND_MAX */
+    "@boundMin",        /* AT_BOUND_MIN */
     "@calibrating",     /* AT_CALIBRATING */
     "@causeUpdate",     /* AT_CAUSE_UPDATE */
-    "@destBoundMax",    /* AT_DEST_BOUND_MAX */
-    "@destBoundMin",    /* AT_DEST_BOUND_MIN */
-    "@destLength",      /* AT_DEST_LENGTH */
-    "@destMax",         /* AT_DEST_MAX */
-    "@destMin",         /* AT_DEST_MIN */
-    "@destType",        /* AT_DEST_TYPE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
     "@host",            /* AT_HOST */
@@ -38,12 +41,6 @@ const char* prop_msg_strings[] =
     "@scope",           /* AT_SCOPE */
     "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
     "@slot",            /* AT_SLOT */
-    "@srcBoundMax",     /* AT_SRC_BOUND_MAX */
-    "@srcBoundMin",     /* AT_SRC_BOUND_MIN */
-    "@srcLength",       /* AT_SRC_LENGTH */
-    "@srcMax",          /* AT_SRC_MAX */
-    "@srcMin",          /* AT_SRC_MIN */
-    "@srcType",         /* AT_SRC_TYPE */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
     "",                 /* AT_EXTRA (special case, does not represent a
@@ -104,177 +101,211 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
     return (signame - devname - 1);
 }
 
-int mapper_msg_parse_params(mapper_message_t *msg,
-                            const char *path, const char *types,
-                            int argc, lo_arg **argv)
+mapper_message mapper_message_parse_params(const char *types, int argc,
+                                           lo_arg **argv)
 {
-    int i, j, num_params=0;
+    int i, j, slot_index, num_params=0;
+    // get the number of params
+    for (i = 0; i < argc; i++) {
+        if (types[i] == 's' || types[i] == 'S')
+            num_params += (argv[i]->s == '@');
+    }
+    if (!num_params)
+        return 0;
 
-    /* Sanity check: complain loudly and quit string if number of
-     * strings and params doesn't match up. */
-    die_unless(sizeof(prop_msg_strings)/sizeof(const char*) == N_AT_PARAMS,
-               "libmapper ERROR: wrong number of known parameters\n");
+    mapper_message msg = ((mapper_message)
+                          calloc(1, sizeof(struct _mapper_message)));
+    msg->atoms = ((mapper_message_atom_t*)
+                  calloc(1, sizeof(struct _mapper_message_atom) * num_params));
+    mapper_message_atom atom = &msg->atoms[0];
 
-    memset(msg, 0, sizeof(mapper_message_t));
-    msg->path = path;
-    msg->extra_args[0] = 0;
-    int extra_count = 0;
-
-    for (i=0; i<argc; i++) {
-        if (types[i]!='s') {
+    for (i = 0; i < argc; i++) {
+        if (!is_string_type(types[i])) {
             /* parameter ID not a string */
 #ifdef DEBUG
-            trace("message %s, parameter '", path);
+            trace("message parameter '");
             lo_arg_pp(types[i], argv[i]);
             trace("' not a string.\n");
 #endif
             continue;
         }
+        if (argv[i]->s == '@') {
+            // new parameter
+            if (atom->types)
+                ++msg->num_atoms;
+            atom = &msg->atoms[msg->num_atoms];
+            atom->key = &argv[i]->s;
 
-        for (j=0; j<N_AT_PARAMS; j++)
-            if (strcmp(&argv[i]->s, prop_msg_strings[j])==0)
-                break;
-
-        if (j==N_AT_PARAMS) {
-            if (argv[i]->s == '@' && extra_count < N_EXTRA_PARAMS) {
-                /* Unknown "extra" parameter, record the key index. */
-                msg->extra_args[extra_count] = &argv[i];
-                msg->extra_types[extra_count] = types[i+1];
-                msg->extra_lengths[extra_count] = 0;
-                while (++i < argc) {
-                    if ((types[i] == 's' || types[i] == 'S')
-                        && (&argv[i]->s)[0] == '@') {
-                        /* arrived at next parameter index. */
-                        i--;
-                        break;
-                    }
-                    else if (!type_match(types[i], msg->extra_types[extra_count])) {
-                        trace("message %s, value vector for key %s has "
-                              "heterogeneous types.\n", path,
-                              &(*msg->extra_args[extra_count])->s);
-                        msg->extra_lengths[extra_count] = 0;
-                        break;
-                    }
-                    msg->extra_lengths[extra_count]++;
+            // try to find matching index for static props
+            if (strncmp(atom->key, "@dst@", 5)==0) {
+                atom->index = DST_SLOT_PARAM;
+                atom->key += 5;
+            }
+            else if (strncmp(atom->key, "@src", 4)==0) {
+                if (atom->key[4] == '@') {
+                    atom->index = SRC_SLOT_PARAM(0);
+                    atom->key += 5;
                 }
-                if (!msg->extra_lengths[extra_count]) {
-                    trace("message %s, key %s has no values.\n",
-                          path, &(*msg->extra_args[extra_count])->s);
-                    msg->extra_args[extra_count] = 0;
-                    msg->extra_types[extra_count] = 0;
-                    continue;
+                else if (atom->key[4] == '.') {
+                    // in form 'src.<ordinal>'
+                    slot_index = atoi(atom->key + 5);
+                    if (slot_index >= MAX_NUM_MAP_SOURCES) {
+                        trace("Bad slot ordinal in param '%s'.\n", atom->key);
+                        atom->types = 0;
+                        continue;
+                    }
+                    atom->key = strchr(atom->key + 5, '@');
+                    if (!atom->key || !(++atom->key)) {
+                        trace("No sub-parameter found in key '%s'.\n", atom->key);
+                        atom->types = 0;
+                        continue;
+                    }
+                    atom->index = SRC_SLOT_PARAM(slot_index);
                 }
-                extra_count++;
-                continue;
             }
             else
-                /* Skip non-keyed parameters */
-                continue;
+                ++atom->key;
+            for (j = 0; j < NUM_AT_PARAMS; j++) {
+                if (strcmp(atom->key, prop_message_strings[j]+1)==0) {
+                    atom->index |= j;
+                    break;
+                }
+            }
+            if (j == NUM_AT_PARAMS)
+                atom->index = AT_EXTRA;
         }
-
-        msg->types[j] = &types[i+1];
-        msg->values[j] = &argv[i+1];
-        msg->lengths[j] = 0;
+        if (msg->num_atoms < 0)
+            continue;
+        atom->types = &types[i+1];
+        atom->values = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == 's' || types[i] == 'S')
-                && (&argv[i]->s)[0] == '@') {
+            if ((types[i] == 's' || types[i] == 'S') && (argv[i]->s == '@')) {
                 /* Arrived at next param index. */
                 i--;
                 break;
             }
-            else if (!type_match(types[i], *msg->types[j])) {
-                trace("message %s, value vector for key %s has heterogeneous "
-                      "types.\n", path, prop_msg_strings[j]);
-                msg->lengths[j] = 0;
+            else if (!type_match(types[i], atom->types[0])) {
+                trace("value vector for key %s has heterogeneous types.\n",
+                      atom->key);
+                atom->length = 0;
+                atom->types = 0;
                 break;
             }
-            msg->lengths[j]++;
+            atom->length++;
         }
-        if (!msg->lengths[j]) {
-            trace("message %s, key %s has no values.\n",
-                  path, prop_msg_strings[j]);
-            msg->types[j] = 0;
-            msg->values[j] = 0;
+        if (!atom->length) {
+            trace("key %s has no values.\n", atom->key);
+            atom->types = 0;
             continue;
         }
-        num_params++;
     }
-    return num_params + extra_count;
+    // reset last atom if no types
+    if (atom->types)
+        msg->num_atoms++;
+    else {
+        atom->key = 0;
+        atom->length = 0;
+        atom->values = 0;
+    }
+#if TRACING
+    // print out parsed properties
+    printf("%d parsed mapper_messages:\n", msg->num_atoms);
+    for (i = 0; i < msg->num_atoms; i++) {
+        atom = &msg->atoms[i];
+        if (atom->index & DST_SLOT_PARAM)
+            printf("  'dst/%s' [%d]: ", atom->key, atom->index);
+        else if (atom->index >> SRC_SLOT_PARAM_BIT_OFFSET)
+            printf("  'src%d/%s' [%d]: ",
+                   (atom->index >> SRC_SLOT_PARAM_BIT_OFFSET) - 1, atom->key,
+                   atom->index);
+        else
+            printf("  '%s' [%d]: ", atom->key, atom->index);
+        for (j = 0; j < atom->length; j++) {
+            lo_arg_pp(atom->types[j], atom->values[j]);
+            printf(", ");
+        }
+        printf("\b\b \n");
+    }
+#endif
+    return msg;
 }
 
-lo_arg** mapper_msg_get_param(mapper_message_t *msg, mapper_msg_param_t param,
-                              const char **types, int *length)
+void mapper_message_free(mapper_message msg)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
-    if (types)
-        *types = msg->types[param];
-    if (length)
-        *length = msg->lengths[param];
-    return msg->values[param];
+    if (msg) {
+        if (msg->atoms)
+            free(msg->atoms);
+        free(msg);
+    }
 }
 
-const char* mapper_msg_get_param_if_string(mapper_message_t *msg,
-                                           mapper_msg_param_t param)
+mapper_message_atom mapper_message_param(mapper_message msg,
+                                         mapper_message_param_t param)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
-
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a || !(*a))
-        return 0;
-
-    if (!t)
-        return 0;
-
-    if (t[0] != 's' && t[0] != 'S')
-        return 0;
-
-    return &(*a)->s;
+    int i;
+    for (i = 0; i < msg->num_atoms; i++) {
+        if (msg->atoms[i].index == param) {
+            if (!msg->atoms[i].length || !msg->atoms[i].types)
+                return 0;
+            return &msg->atoms[i];
+        }
+    }
+    return 0;
 }
 
-const char* mapper_msg_get_param_if_char(mapper_message_t *msg,
-                                         mapper_msg_param_t param)
+const char* mapper_message_param_if_string(mapper_message msg,
+                                           mapper_message_param_t param)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
-
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a || !(*a))
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || !atom->values)
         return 0;
 
-    if (!t)
+    if (!atom->types)
         return 0;
 
-    if ((t[0] == 's' || t[0] == 'S')
-        && (&(*a)->s)[0] && (&(*a)->s)[1]==0)
-        return &(*a)->s;
+    if (!is_string_type(atom->types[0]))
+        return 0;
 
-    if (t[0] == 'c')
-        return (char*)&(*a)->c;
+    return &(*(atom->values))->s;
+}
+
+const char* mapper_message_param_if_char(mapper_message msg,
+                                         mapper_message_param_t param)
+{
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || !atom->values)
+        return 0;
+
+    if (!atom->types)
+        return 0;
+
+    if (is_string_type(atom->types[0])
+        && (&(*atom->values)->s)[0] && (&(*atom->values)->s)[1]==0)
+        return &(*atom->values)->s;
+
+    if (atom->types[0] == 'c')
+        return (char*)&(*atom->values)->c;
 
     return 0;
 }
 
-int mapper_msg_get_param_if_int(mapper_message_t *msg,
-                                mapper_msg_param_t param,
-                                int *value)
+int mapper_message_param_if_int(mapper_message msg,
+                                mapper_message_param_t param, int *value)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a)
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom)
         return 1;
 
-    if (!t)
+    if (!atom->types)
         return 1;
 
-    if (t[0] == 'i' && *a)
-        *value = (*a)->i;
-    else if (t[0] == 'T')
+    if (atom->types[0] == 'i' && *atom->values)
+        *value = (*atom->values)->i;
+    else if (atom->types[0] == 'T')
         *value = 1;
-    else if (t[0] == 'F')
+    else if (atom->types[0] == 'F')
         *value = 0;
     else
         return 1;
@@ -282,90 +313,199 @@ int mapper_msg_get_param_if_int(mapper_message_t *msg,
     return 0;
 }
 
-int mapper_msg_get_param_if_int64(mapper_message_t *msg,
-                                  mapper_msg_param_t param,
+int mapper_message_param_if_int64(mapper_message msg,
+                                  mapper_message_param_t param,
                                   int64_t *value)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a)
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom)
         return 1;
 
-    if (!t)
+    if (!atom->types)
         return 1;
 
-    if (t[0] != 'h')
+    if (atom->types[0] != 'h')
         return 1;
 
-    *value = (*a)->i64;
+    *value = (*atom->values)->i64;
     return 0;
 }
 
-int mapper_msg_get_param_if_float(mapper_message_t *msg,
-                                  mapper_msg_param_t param,
+int mapper_message_param_if_float(mapper_message msg,
+                                  mapper_message_param_t param,
                                   float *value)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a || !(*a))
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || !atom->values)
         return 1;
 
-    if (!t)
+    if (!atom->types)
         return 1;
 
-    if (t[0] != 'f')
+    if (atom->types[0] != 'f')
         return 1;
 
-    *value = (*a)->f;
+    *value = (*atom->values)->f;
     return 0;
 }
 
-int mapper_msg_get_param_if_double(mapper_message_t *msg,
-                                   mapper_msg_param_t param,
+int mapper_message_param_if_double(mapper_message msg,
+                                   mapper_message_param_t param,
                                    double *value)
 {
-    die_unless(param < N_AT_PARAMS, "error, unknown parameter\n");
     die_unless(value!=0, "bad pointer");
 
-    const char *t;
-    lo_arg **a = mapper_msg_get_param(msg, param, &t, 0);
-    if (!a || !(*a))
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || !atom->values)
         return 1;
 
-    if (!t)
+    if (!atom->types)
         return 1;
 
-    if (t[0] != 'd')
+    if (atom->types[0] != 'd')
         return 1;
 
-    *value = (*a)->d;
+    *value = (*atom->values)->d;
     return 0;
 }
 
-int mapper_msg_add_or_update_extra_params(table t, mapper_message_t *params)
+int mapper_message_add_or_update_extra_params(table tab, mapper_message msg)
 {
-    int i=0, updated=0;
-    while (params->extra_args[i])
-    {
-        const char *key = &params->extra_args[i][0]->s + 1; // skip '@'
-        char type = params->extra_types[i];
-        int length = params->extra_lengths[i];
-        updated += mapper_table_add_or_update_msg_value(t, key, type,
-                                                        &params->extra_args[i][1],
-                                                        length);
-        i++;
+    int i, updated = 0;
+    for (i = 0; i < msg->num_atoms; i++) {
+        if (msg->atoms[i].index != AT_EXTRA)
+            continue;
+        updated += mapper_table_add_or_update_message_atom(tab, &msg->atoms[i]);
     }
     return updated;
 }
 
-/* helper for mapper_msg_varargs() */
-void mapper_msg_add_typed_value(lo_message m, char type, int length, void *value)
+int mapper_update_string_if_arg(char **pdest_str, mapper_message msg,
+                                mapper_message_param_t param)
+{
+    die_unless(pdest_str!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+
+    if (atom && atom->values && is_string_type(atom->types[0])
+        && (!(*pdest_str) || strcmp((*pdest_str), &(*atom->values)->s))) {
+        char *str = (char*) realloc((void*)(*pdest_str),
+                                    strlen(&(*atom->values)->s)+1);
+        strcpy(str, &(*atom->values)->s);
+        (*pdest_str) = str;
+        return 1;
+    }
+    return 0;
+}
+
+int mapper_update_char_if_arg(char *pdest_char, mapper_message msg,
+                              mapper_message_param_t param)
+{
+    die_unless(pdest_char!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+
+    if (!atom || !atom->values)
+        return 0;
+
+    if (is_string_type(atom->types[0])) {
+        if (*pdest_char != (&(*atom->values)->s)[0]) {
+            (*pdest_char) = (&(*atom->values)->s)[0];
+            return 1;
+        }
+    }
+    else if (atom->types[0]=='c') {
+        if (*pdest_char != (*atom->values)->c) {
+            (*pdest_char) = (*atom->values)->c;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int mapper_update_bool_if_arg(int *pdest_bool, mapper_message msg,
+                              mapper_message_param_t param)
+{
+    die_unless(pdest_bool!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || (atom->types[0] != 'T' && atom->types[0] != 'F'))
+        return 0;
+
+    if ((atom->types[0] != 'T') != !(*pdest_bool)) {
+        (*pdest_bool) = (atom->types[0]=='T');
+        return 1;
+    }
+    return 0;
+}
+
+int mapper_update_int_if_arg(int *pdest_int, mapper_message msg,
+                             mapper_message_param_t param)
+{
+    die_unless(pdest_int!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || atom->types[0] != 'i')
+        return 0;
+    if (*pdest_int != (&(*atom->values)->i)[0]) {
+        (*pdest_int) = (&(*atom->values)->i)[0];
+        return 1;
+    }
+    return 0;
+}
+
+int mapper_update_int64_if_arg(int64_t *pdest_int64, mapper_message msg,
+                               mapper_message_param_t param)
+{
+    die_unless(pdest_int64!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || atom->types[0] != 'h')
+        return 0;
+    if (*pdest_int64 != (&(*atom->values)->i64)[0]) {
+        (*pdest_int64) = (&(*atom->values)->i64)[0];
+        return 1;
+    }
+    return 0;
+}
+
+int mapper_update_float_if_arg(float *pdest_float, mapper_message msg,
+                               mapper_message_param_t param)
+{
+    die_unless(pdest_float!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || atom->types[0] != 'f')
+        return 0;
+    if (*pdest_float != (&(*atom->values)->f)[0]) {
+        (*pdest_float) = (&(*atom->values)->f)[0];
+        return 1;
+    }
+    return 0;
+}
+
+int mapper_update_double_if_arg(double *pdest_double, mapper_message msg,
+                                mapper_message_param_t param)
+{
+    die_unless(pdest_double!=0, "bad pointer");
+
+    mapper_message_atom atom = mapper_message_param(msg, param);
+    if (!atom || atom->types[0] != 'd')
+        return 0;
+    if (*pdest_double != (&(*atom->values)->d)[0]) {
+        (*pdest_double) = (&(*atom->values)->d)[0];
+        return 1;
+    }
+    return 0;
+}
+
+/* helper for mapper_message_varargs() */
+void mapper_message_add_typed_value(lo_message m, char type,
+                                    int length, void *value)
 {
     int i;
     if (length < 1)
@@ -426,320 +566,47 @@ void mapper_msg_add_typed_value(lo_message m, char type, int length, void *value
                 lo_message_add_char(m, vals[i]);
             break;
         }
-        default:
-            break;
-    }
-}
-
-void mapper_msg_prepare_varargs(lo_message m, va_list aq)
-{
-    char *s;
-    int i, j;
-    char t[] = " ";
-    table tab;
-    mapper_signal sig;
-    mapper_msg_param_t pa = (mapper_msg_param_t) va_arg(aq, int);
-    mapper_map_t *map;
-
-    while (pa != N_AT_PARAMS)
-    {
-        /* if parameter is -1, it means to skip this entry */
-        if ((int)pa == -1) {
-            pa = (mapper_msg_param_t) va_arg(aq, int);
-            pa = (mapper_msg_param_t) va_arg(aq, int);
-            continue;
-        }
-
-        /* Only "extra" is not a real property name */
-#ifdef DEBUG
-        if ((int)pa >= 0 && pa < N_AT_PARAMS)
-#endif
-            if (pa != AT_EXTRA)
-                lo_message_add_string(m, prop_msg_strings[pa]);
-
-        switch (pa) {
-        case AT_EXPRESSION:
-        case AT_HOST:
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
-            break;
-        case AT_DEST_LENGTH:
-        case AT_LENGTH:
-        case AT_NUM_INCOMING_MAPS:
-        case AT_NUM_OUTGOING_MAPS:
-        case AT_NUM_INPUTS:
-        case AT_NUM_OUTPUTS:
-        case AT_PORT:
-        case AT_REV:
-        case AT_SLOT:
-        case AT_SRC_LENGTH:
-            i = va_arg(aq, int);
-            lo_message_add_int32(m, i);
-            break;
-        case AT_ID: {
-            int64_t id = va_arg(aq, int64_t);
-            lo_message_add_int64(m, id);
-            break;
-        }
-        case AT_TYPE:
-        case AT_SRC_TYPE:
-        case AT_DEST_TYPE:
-            i = va_arg(aq, int);
-            t[0] = (char)i;
-            lo_message_add_string(m, t);
-            break;
-        case AT_UNITS:
-            sig = va_arg(aq, mapper_signal);
-            lo_message_add_string(m, sig->props.unit);
-            break;
-        case AT_MIN:
-            sig = va_arg(aq, mapper_signal);
-            mapper_msg_add_typed_value(m, sig->props.type, sig->props.length,
-                                       sig->props.minimum);
-            break;
-        case AT_MAX:
-            sig = va_arg(aq, mapper_signal);
-            mapper_msg_add_typed_value(m, sig->props.type, sig->props.length,
-                                       sig->props.maximum);
-            break;
-        case AT_RATE:
-            sig = va_arg(aq, mapper_signal);
-            lo_message_add_float(m, sig->props.rate);
-            break;
-        case AT_MODE:
-            i = va_arg(aq, int);
-            if (i >= 1 && i < N_MAPPER_MODE_TYPES)
-                lo_message_add_string(m, mapper_mode_type_strings[i]);
-            else
-                lo_message_add_string(m, "unknown");
-            break;
-        case AT_SRC_BOUND_MAX:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (!map->sources) {
-                    lo_message_add_string(m, "unknown");
-                    continue;
-                }
-                j = map->sources[i].bound_max;
-                if (j > BA_UNDEFINED && j < N_MAPPER_BOUNDARY_ACTIONS)
-                    lo_message_add_string(m, mapper_boundary_action_strings[j]);
-                else
-                    lo_message_add_string(m, "unknown");
-            }
-            break;
-        case AT_SRC_BOUND_MIN:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (!map->sources) {
-                    lo_message_add_string(m, "unknown");
-                    continue;
-                }
-                j = map->sources[i].bound_min;
-                if (j > BA_UNDEFINED && j < N_MAPPER_BOUNDARY_ACTIONS)
-                    lo_message_add_string(m, mapper_boundary_action_strings[j]);
-                else
-                    lo_message_add_string(m, "unknown");
-            }
-            break;
-        case AT_DEST_BOUND_MAX:
-        case AT_DEST_BOUND_MIN:
-            i = va_arg(aq, int);
-            if (i > BA_UNDEFINED && i < N_MAPPER_BOUNDARY_ACTIONS)
-                lo_message_add_string(m, mapper_boundary_action_strings[i]);
-            else
-                lo_message_add_string(m, "unknown");
-            break;
-        case AT_SRC_MIN:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (bitmatch(map->sources[i].flags, MAP_SLOT_MIN_KNOWN)
-                    && map->sources[i].minimum)
-                    mapper_msg_add_typed_value(m, map->sources[i].type,
-                                               map->sources[i].length,
-                                               map->sources[i].minimum);
-                else
-                    lo_message_add_nil(m);
-            }
-            break;
-        case AT_SRC_MAX:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (bitmatch(map->sources[i].flags, MAP_SLOT_MAX_KNOWN)
-                    && map->sources[i].maximum)
-                    mapper_msg_add_typed_value(m, map->sources[i].type,
-                                               map->sources[i].length,
-                                               map->sources[i].maximum);
-                else
-                    lo_message_add_nil(m);
-            }
-            break;
-        case AT_DEST_MIN:
-            map = va_arg(aq, mapper_map_t*);
-            mapper_msg_add_typed_value(m, map->destination.type,
-                                       map->destination.length,
-                                       map->destination.minimum);
-            break;
-        case AT_DEST_MAX:
-            map = va_arg(aq, mapper_map_t*);
-            mapper_msg_add_typed_value(m, map->destination.type,
-                                       map->destination.length,
-                                       map->destination.maximum);
-            break;
-        case AT_CALIBRATING:
-        case AT_MUTE:
-            i = va_arg(aq, int);
-            if (i)
-                lo_message_add_true(m);
-            else
-                lo_message_add_false(m);
-            break;
-        case AT_DIRECTION:
-            sig = va_arg(aq, mapper_signal);
-            if (sig->props.direction == DI_BOTH)
-                lo_message_add_string(m, "both");
-            else if (sig->props.direction == DI_OUTGOING)
-                lo_message_add_string(m, "output");
-            else
-                lo_message_add_string(m, "input");
-            break;
-        case AT_INSTANCES:
-            sig = va_arg(aq, mapper_signal);
-            lo_message_add_int32(m, sig->props.num_instances);
-            break;
-        case AT_LIB_VERSION:
-            s = va_arg(aq, char*);
-            lo_message_add_string(m, s);
-            break;
-        case AT_SCOPE:
-            map = va_arg(aq, mapper_map_t*);
-            mapper_msg_add_typed_value(m, 's', map->scope.size,
-                                       map->scope.names);
-            break;
-        case AT_SEND_AS_INSTANCE:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].send_as_instance)
+        case 'b': {
+            int *vals = (int*)value;
+            for (i = 0; i < length; i++) {
+                if (vals[i])
                     lo_message_add_true(m);
                 else
                     lo_message_add_false(m);
             }
             break;
-        case AT_CAUSE_UPDATE:
-            map = va_arg(aq, mapper_map_t*);
-            for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].cause_update)
-                    lo_message_add_true(m);
-                else
-                    lo_message_add_false(m);
-            }
-            break;
-        case AT_EXTRA:
-            tab = va_arg(aq, table);
-            i = 0;
-            {
-                mapper_prop_value_t *prop;
-                prop = table_value_at_index_p(tab, i++);
-                while(prop)
-                {
-                    const char *k = table_key_at_index(tab, i-1);
-                    char key[256] = "@";
-                    strncpy(&key[1], k, 254);
-                    lo_message_add_string(m, key);
-                    mapper_msg_add_typed_value(m, prop->type, prop->length,
-                                               prop->value);
-                    prop = table_value_at_index_p(tab, i++);
-                }
-            }
-            break;
-        default:
-            die_unless(0, "unknown parameter %d\n", pa);
         }
-        pa = (mapper_msg_param_t) va_arg(aq, int);
+        default:
+            break;
     }
 }
 
-/* helper for mapper_msg_prepare_params() */
-static void msg_add_lo_arg(lo_message m, char type, lo_arg *a)
-{
-    switch (type) {
-    case 'i':
-        lo_message_add_int32(m, a->i);
-        break;
-    case 'f':
-        lo_message_add_float(m, a->f);
-        break;
-    case 'd':
-        lo_message_add_double(m, a->d);
-        break;
-    case 's':
-        lo_message_add_string(m, &a->s);
-        break;
-    case 'c':
-        lo_message_add_char(m, a->c);
-        break;
-    default:
-        trace("unknown type in msg_add_lo_arg()\n");
-        break;
-    }
-}
-
-void mapper_msg_add_value_table(lo_message m, table t)
+void mapper_message_add_value_table(lo_message m, table t)
 {
     string_table_node_t *n = t->store;
-    int i;
+    int i, remove;
     for (i=0; i<t->len; i++) {
+        remove = (n->key[0]=='-');
         char keyname[256];
-        snprintf(keyname, 256, "@%s", n->key);
-        lo_message_add_string(m, keyname);
+        snprintf(keyname, 256, "-@%s", n->key + remove);
+        lo_message_add_string(m, keyname + 1 - remove);
         mapper_prop_value_t *v = n->value;
-        mapper_msg_add_typed_value(m, v->type, v->length, v->value);
+        mapper_message_add_typed_value(m, v->type, v->length, v->value);
         n++;
     }
 }
 
-void mapper_msg_prepare_params(lo_message m,
-                               mapper_message_t *msg)
+const char *mapper_param_string(mapper_message_param_t param)
 {
-    int i;
-    mapper_msg_param_t pa = (mapper_msg_param_t) 0;
+    die_unless(param < NUM_AT_PARAMS,
+               "called mapper_param_string() with bad parameter.\n");
 
-    for (pa = (mapper_msg_param_t) 0; pa < N_AT_PARAMS; pa = (mapper_msg_param_t) (pa + 1))
-    {
-        if (!msg->values[pa])
-            continue;
-
-        lo_arg **a = msg->values[pa];
-        if (!a)
-            continue;
-
-        lo_message_add_string(m, prop_msg_strings[pa]);
-
-        for (i = 0; i < msg->lengths[pa]; i++) {
-            msg_add_lo_arg(m, *msg->types[pa], a[i]);
-        }
-    }
-    pa = 0;
-    while (msg->extra_args[pa])
-    {
-        msg_add_lo_arg(m, 's', (lo_arg*) (&msg->extra_args[pa][0]->s));
-        for (i = 0; i < msg->extra_lengths[pa]; i++) {
-            msg_add_lo_arg(m, msg->extra_types[pa], *(msg->extra_args[pa]+i+1));
-        }
-        pa++;
-    }
+    return prop_message_strings[param];
 }
 
-const char *mapper_get_param_string(mapper_msg_param_t param)
+int mapper_message_signal_direction(mapper_message msg)
 {
-    die_unless(param < N_AT_PARAMS,
-               "called mapper_get_param_string() with bad parameter.\n");
-
-    return prop_msg_strings[param];
-}
-
-int mapper_msg_get_signal_direction(mapper_message_t *msg)
-{
-    const char *str = mapper_msg_get_param_if_string(msg, AT_DIRECTION);
+    const char *str = mapper_message_param_if_string(msg, AT_DIRECTION);
     if (!str)
         return 0;
     if (strcmp(str, "output")==0)
@@ -751,48 +618,48 @@ int mapper_msg_get_signal_direction(mapper_message_t *msg)
     return 0;
 }
 
-const char *mapper_get_boundary_action_string(mapper_boundary_action bound)
+const char *mapper_boundary_action_string(mapper_boundary_action bound)
 {
-    if (bound <= BA_UNDEFINED || bound > N_MAPPER_BOUNDARY_ACTIONS)
+    if (bound <= BA_UNDEFINED || bound > NUM_MAPPER_BOUNDARY_ACTIONS)
         return "unknown";
     return mapper_boundary_action_strings[bound];
 }
 
-mapper_boundary_action mapper_get_boundary_action_from_string(const char *str)
+mapper_boundary_action mapper_boundary_action_from_string(const char *str)
 {
     if (!str)
         return BA_UNDEFINED;
     int i;
-    for (i = BA_UNDEFINED+1; i < N_MAPPER_BOUNDARY_ACTIONS; i++) {
+    for (i = BA_UNDEFINED+1; i < NUM_MAPPER_BOUNDARY_ACTIONS; i++) {
         if (strcmp(str, mapper_boundary_action_strings[i])==0)
             return i;
     }
     return BA_UNDEFINED;
 }
 
-const char *mapper_get_mode_type_string(mapper_mode_type mode)
+const char *mapper_mode_type_string(mapper_mode_type mode)
 {
-    if (mode <= 0 || mode > N_MAPPER_MODE_TYPES)
+    if (mode <= 0 || mode > NUM_MAPPER_MODE_TYPES)
         return "unknown";
     return mapper_mode_type_strings[mode];
 }
 
-mapper_mode_type mapper_get_mode_type_from_string(const char *str)
+mapper_mode_type mapper_mode_type_from_string(const char *str)
 {
     if (!str)
         return MO_UNDEFINED;
     int i;
-    for (i = MO_UNDEFINED+1; i < N_MAPPER_MODE_TYPES; i++) {
+    for (i = MO_UNDEFINED+1; i < NUM_MAPPER_MODE_TYPES; i++) {
         if (strcmp(str, mapper_mode_type_strings[i])==0)
             return i;
     }
     return MO_UNDEFINED;
 }
 
-int mapper_msg_get_mute(mapper_message_t *msg)
+int mapper_message_mute(mapper_message msg)
 {
     int mute;
-    if (mapper_msg_get_param_if_int(msg, AT_MUTE, &mute))
+    if (mapper_message_param_if_int(msg, AT_MUTE, &mute))
         return -1;
     return mute;
 }
@@ -875,7 +742,7 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
     return 0;
 }
 
-double propval_get_double(void *value, const char type, int index)
+double propval_double(void *value, const char type, int index)
 {
     switch (type) {
         case 'f':
@@ -983,7 +850,7 @@ void mapper_prop_pp(char type, int length, const void *value)
         {
             mapper_timetag_t *pt = (mapper_timetag_t*)value;
             for (i = 0; i < length; i++)
-                printf("%f, ", mapper_timetag_get_double(pt[i]));
+                printf("%f, ", mapper_timetag_double(pt[i]));
             break;
         }
         case 'c':

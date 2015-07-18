@@ -29,6 +29,12 @@
  */
 
 typedef enum {
+    OP_UNION,
+    OP_INTERSECTION,
+    OP_DIFFERENCE,
+} combine_type_t;
+
+typedef enum {
     QUERY_STATIC,
     QUERY_DYNAMIC
 } query_type_t;
@@ -41,13 +47,6 @@ typedef struct {
     query_type_t query_type;
     int data[1]; // stub
 }  list_header_t;
-
-typedef struct {
-    int num_queries;
-    list_header_t *lh1;
-    list_header_t *lh2;
-    mapper_db_op op;
-} multi_query_t;
 
 inline static const char *skip_slash(const char *string)
 {
@@ -82,13 +81,13 @@ static list_header_t* list_alloc_item(size_t size)
 }
 
 /*! Get the list header for memory returned from list_add_new_item(). */
-static list_header_t* list_get_header_by_data(void *data)
+static list_header_t* list_header_by_data(void *data)
 {
     return (list_header_t*)(data - LIST_HEADER_SIZE);
 }
 
 /*! Get the list header for memory returned from list_add_new_item(). */
-static list_header_t* list_get_header_by_self(void *self)
+static list_header_t* list_header_by_self(void *self)
 {
     list_header_t *lh=0;
     return (list_header_t*)(self - ((void*)&lh->self - (void*)lh));
@@ -98,7 +97,7 @@ static void *list_from_data(void *data)
 {
     if (!data)
         return 0;
-    list_header_t* lh = list_get_header_by_data(data);
+    list_header_t* lh = list_header_by_data(data);
     die_unless(lh->self == &lh->data, "bad self pointer in list structure");
     return &lh->self;
 }
@@ -106,13 +105,13 @@ static void *list_from_data(void *data)
 /*! Set the next pointer in memory returned from list_add_new_item(). */
 static void list_set_next(void *mem, void *next)
 {
-    list_get_header_by_data(mem)->next = next;
+    list_header_by_data(mem)->next = next;
 }
 
 /*! Get the next pointer in memory returned from list_add_new_item(). */
-static void* list_get_next(void *mem)
+static void* list_next(void *mem)
 {
-    return list_get_header_by_data(mem)->next;
+    return list_header_by_data(mem)->next;
 }
 
 /*! Prepend an item to the beginning of a list. */
@@ -138,23 +137,23 @@ static void list_remove_item(void *item, void **head)
         if (node == item)
             break;
         prev_node = node;
-        node = list_get_next(node);
+        node = list_next(node);
     }
 
     if (!node)
         return;
 
     if (prev_node)
-        list_set_next(prev_node, list_get_next(node));
+        list_set_next(prev_node, list_next(node));
     else
-        *head = list_get_next(node);
+        *head = list_next(node);
 }
 
 /*! Free the memory used by a list item */
 static void list_free_item(void *item)
 {
     if (item)
-        free(list_get_header_by_data(item));
+        free(list_header_by_data(item));
 }
 
 /** Structures and functions for performing dynamic queries **/
@@ -181,18 +180,18 @@ static void list_done(void **data)
 {
     if (!data)
         return;
-    list_header_t *lh = list_get_header_by_data(*data);
+    list_header_t *lh = list_header_by_data(*data);
     if (lh->query_type == QUERY_DYNAMIC && lh->query_context->query_free)
         lh->query_context->query_free(lh);
 }
 
 static void **dynamic_query_continuation(list_header_t *lh)
 {
-    void *item = list_get_header_by_data(lh->self)->next;
+    void *item = list_header_by_data(lh->self)->next;
     while (item) {
         if (lh->query_context->query_compare(&lh->query_context->data, item))
             break;
-        item = list_get_next(item);
+        item = list_next(item);
     }
 
     if (item) {
@@ -395,7 +394,7 @@ static void **iterator_next(void** p)
         return 0;
     }
 
-    list_header_t *lh1 = list_get_header_by_self(p);
+    list_header_t *lh1 = list_header_by_self(p);
     if (!lh1->next)
         return 0;
 
@@ -405,7 +404,7 @@ static void **iterator_next(void** p)
     else if (lh1->query_type == QUERY_DYNAMIC) {
         /* Here we treat next as a pointer to a continuation function, so we can
          * return items from the database computed lazily.  The context is
-         * simply the string(s) to match.  In the future, it might point to the
+         * simply the data to match.  In the future, it might point to the
          * results of a SQL query for example. */
         void **(*f) (list_header_t*) = lh1->next;
         return f(lh1);
@@ -418,7 +417,7 @@ static int cmp_compound_query(void *context_data, void *dev)
 {
     list_header_t *lh1 = *(list_header_t**)context_data;
     list_header_t *lh2 = *(list_header_t**)(context_data + sizeof(void*));
-    mapper_db_op op = *(mapper_db_op*)(context_data + sizeof(void*) * 2);
+    mapper_db_query_op op = *(mapper_db_query_op*)(context_data + sizeof(void*) * 2);
 
     query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
 
@@ -444,8 +443,8 @@ static void **mapper_db_query_union(void **query1, void **query2)
     if (!query2)
         return query1;
 
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
+    list_header_t *lh1 = list_header_by_self(query1);
+    list_header_t *lh2 = list_header_by_self(query2);
     return (construct_query_context(lh1->start, cmp_compound_query,
                                     "vvi", &lh1, &lh2, OP_UNION));
 }
@@ -455,8 +454,8 @@ static void **mapper_db_query_intersection(void **query1, void **query2)
     if (!query1 || !query2)
         return 0;
 
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
+    list_header_t *lh1 = list_header_by_self(query1);
+    list_header_t *lh2 = list_header_by_self(query2);
     return (construct_query_context(lh1->start, cmp_compound_query, "vvi",
                                     &lh1, &lh2, OP_INTERSECTION));
 }
@@ -468,8 +467,8 @@ static void **mapper_db_query_difference(void **query1, void **query2)
     if (!query2)
         return query1;
 
-    list_header_t *lh1 = list_get_header_by_self(query1);
-    list_header_t *lh2 = list_get_header_by_self(query2);
+    list_header_t *lh1 = list_header_by_self(query1);
+    list_header_t *lh2 = list_header_by_self(query2);
     return (construct_query_context(lh1->start, cmp_compound_query, "vvi",
                                     &lh1, &lh2, OP_DIFFERENCE));
 }
@@ -504,85 +503,6 @@ void remove_callback(fptr_list *head, void *f, void *user)
     free(cb);
 }
 
-static int update_string_if_different(char **pdest_str,
-                                      const char *src_str)
-{
-    if (!(*pdest_str) || strcmp((*pdest_str), src_str)) {
-        char *str = (char*) realloc((void*)(*pdest_str), strlen(src_str)+1);
-        strcpy(str, src_str);
-        (*pdest_str) = str;
-        return 1;
-    }
-    return 0;
-}
-
-static int update_string_if_arg(char **pdest_str,
-                                mapper_message_t *params,
-                                mapper_msg_param_t field)
-{
-    const char *type = 0;
-    lo_arg **a = mapper_msg_get_param(params, field, &type, 0);
-
-    if (a && (*a) && (type[0]=='s' || type[0]=='S')
-        && (!(*pdest_str) || strcmp((*pdest_str), &(*a)->s))) {
-        char *str = (char*) realloc((void*)(*pdest_str), strlen(&(*a)->s)+1);
-        strcpy(str, &(*a)->s);
-        (*pdest_str) = str;
-        return 1;
-    }
-    return 0;
-}
-
-static int update_char_if_arg(char *pdest_char,
-                              mapper_message_t *params,
-                              mapper_msg_param_t field)
-{
-    const char *type = 0;
-    lo_arg **a = mapper_msg_get_param(params, field, &type, 0);
-
-    if (a && (*a) && (type[0]=='s' || type[0]=='S')) {
-        if (*pdest_char != (&(*a)->s)[0]) {
-            (*pdest_char) = (&(*a)->s)[0];
-            return 1;
-        }
-    }
-    else if (a && (*a) && type[0]=='c') {
-        if (*pdest_char != (*a)->c) {
-            (*pdest_char) = (*a)->c;
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static int update_int_if_arg(int *pdest_int,
-                             mapper_message_t *params,
-                             mapper_msg_param_t field)
-{
-    const char *type = 0;
-    lo_arg **a = mapper_msg_get_param(params, field, &type, 0);
-
-    if (a && (*a) && (type[0]=='i') && (*pdest_int != (&(*a)->i)[0])) {
-        (*pdest_int) = (&(*a)->i)[0];
-        return 1;
-    }
-    return 0;
-}
-
-static int update_int64_if_arg(int64_t *pdest_int64,
-                               mapper_message_t *params,
-                               mapper_msg_param_t field)
-{
-    const char *type = 0;
-    lo_arg **a = mapper_msg_get_param(params, field, &type, 0);
-
-    if (a && (*a) && (type[0]=='h') && (*pdest_int64 != (&(*a)->i64)[0])) {
-        (*pdest_int64) = (&(*a)->i64)[0];
-        return 1;
-    }
-    return 0;
-}
-
 /* Static data for property tables embedded in the db data structures.
  *
  * Signals and devices have properties that can be indexed by name, and can have
@@ -611,35 +531,10 @@ static int update_int64_if_arg(int64_t *pdest_int64,
  * guaranteed to be in a particular order.
  */
 
-typedef struct {
-    char type;
-    union {
-        int indirect;
-        int alt_type;
-    };
-    int length;     // lengths stored as negatives, lookup lengths as offsets
-    int offset;
-} property_table_value_t;
-
-
 #define SIG_OFFSET(x) offsetof(mapper_db_signal_t, x)
 #define DEV_OFFSET(x) offsetof(mapper_db_device_t, x)
-#define MAP_OFFSET(x) offsetof(mapper_map_t, x)
-#define SLOT_OFFSET(x) offsetof(mapper_map_slot_t, x)
-
 #define SIG_TYPE        (SIG_OFFSET(type))
 #define SIG_LENGTH      (SIG_OFFSET(length))
-
-#define SLOT_TYPE       (SLOT_OFFSET(type))
-#define SLOT_LENGTH     (SLOT_OFFSET(length))
-#define NUM_SCOPES      (MAP_OFFSET(scope.size))
-#define NUM_SOURCES     (MAP_OFFSET(num_sources))
-
-#define LOCAL_TYPE      (MAP_OFFSET(local_type))
-#define REMOTE_TYPE     (MAP_OFFSET(remote_type))
-#define LOCAL_LENGTH    (MAP_OFFSET(local_length))
-#define REMOTE_LENGTH   (MAP_OFFSET(remote_length))
-#define NUM_SCOPES      (MAP_OFFSET(scope.size))
 
 /* Here type 'o', which is not an OSC type, was reserved to mean "same type as
  * the signal's type".  The lookup and index functions will return the sig->type
@@ -673,9 +568,9 @@ static string_table_node_t sig_strings[] = {
     { "user_data",   &sig_values[10] },
 };
 
-const int N_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
+const int NUM_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
 static mapper_string_table_t sig_table =
-    { sig_strings, N_SIG_STRINGS, N_SIG_STRINGS };
+    { sig_strings, NUM_SIG_STRINGS, NUM_SIG_STRINGS };
 
 static property_table_value_t dev_values[] = {
     { 's', {1}, -1, DEV_OFFSET(description) },
@@ -710,75 +605,17 @@ static string_table_node_t dev_strings[] = {
     { "version",            &dev_values[12] },
 };
 
-const int N_DEV_STRINGS = sizeof(dev_strings)/sizeof(dev_strings[0]);
+const int NUM_DEV_STRINGS = sizeof(dev_strings)/sizeof(dev_strings[0]);
 static mapper_string_table_t dev_table =
-    { dev_strings, N_DEV_STRINGS, N_DEV_STRINGS };
-
-static property_table_value_t slot_values[] = {
-    { 'i', {0},         -1,          SLOT_OFFSET(bound_max) },
-    { 'i', {0},         -1,          SLOT_OFFSET(bound_min) },
-    { 'i', {0},         -1,          SLOT_OFFSET(calibrating) },
-    { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
-    { 'i', {0},         -1,          SLOT_OFFSET(direction) },
-    { 'i', {0},         -1,          SLOT_OFFSET(length) },
-    { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
-    { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
-    { 'i', {0},         -1,          SLOT_OFFSET(send_as_instance) },
-    { 'c', {0},         -1,          SLOT_OFFSET(type) },
-};
-
-/* This table must remain in alphabetical order. */
-static string_table_node_t slot_strings[] = {
-    { "bound_max",        &slot_values[0] },
-    { "bound_min",        &slot_values[1] },
-    { "calibrating",      &slot_values[2] },
-    { "cause_update",     &slot_values[3] },
-    { "direction",        &slot_values[4] },
-    { "length",           &slot_values[5] },
-    { "maximum",          &slot_values[6] },
-    { "minimum",          &slot_values[7] },
-    { "send_as_instance", &slot_values[8] },
-    { "type",             &slot_values[9] },
-};
-
-const int N_SLOT_STRINGS = sizeof(slot_strings)/sizeof(slot_strings[0]);
-static mapper_string_table_t slot_table =
-    { slot_strings, N_SLOT_STRINGS, N_SLOT_STRINGS };
-
-static property_table_value_t map_values[] = {
-    { 's', {1}, -1,         MAP_OFFSET(expression) },
-    { 'h', {0}, -1,         MAP_OFFSET(id)},
-    { 'i', {0}, -1,         MAP_OFFSET(mode) },
-    { 'i', {0}, -1,         MAP_OFFSET(muted) },
-    { 'i', {0}, -1,         MAP_OFFSET(scope.size) },
-    { 'i', {0}, -1,         MAP_OFFSET(num_sources) },
-    { 'i', {0}, -1,         MAP_OFFSET(process_location) },
-    { 's', {1}, NUM_SCOPES, MAP_OFFSET(scope.names) },
-};
-
-/* This table must remain in alphabetical order. */
-static string_table_node_t map_strings[] = {
-    { "expression",         &map_values[0] },
-    { "id",                 &map_values[1] },
-    { "mode",               &map_values[2] },
-    { "muted",              &map_values[3] },
-    { "num_scopes",         &map_values[4] },
-    { "num_sources",        &map_values[5] },
-    { "process_at",         &map_values[6] },
-    { "scope_names",        &map_values[7] },
-};
-
-const int N_MAP_STRINGS = sizeof(map_strings)/sizeof(map_strings[0]);
-static mapper_string_table_t map_table =
-    { map_strings, N_MAP_STRINGS, N_MAP_STRINGS };
+    { dev_strings, NUM_DEV_STRINGS, NUM_DEV_STRINGS };
 
 /* Generic index and lookup functions to which the above tables would be passed.
  * These are called for specific types below. */
 
-static int mapper_db_property_index(void *thestruct, table extra,
-                                    unsigned int index, const char **property,
-                                    char *type, const void **value,
-                                    int *length, table proptable)
+int mapper_db_property_index(void *thestruct, table extra,
+                             unsigned int index, const char **property,
+                             char *type, const void **value, int *length,
+                             table proptable)
 {
     die_unless(type!=0, "type parameter cannot be null.\n");
     die_unless(value!=0, "value parameter cannot be null.\n");
@@ -861,10 +698,9 @@ static int mapper_db_property_index(void *thestruct, table extra,
     return 1;
 }
 
-static int mapper_db_property_lookup(void *thestruct, table extra,
-                                     const char *property, char *type,
-                                     const void **value, int *length,
-                                     table proptable)
+int mapper_db_property(void *thestruct, table extra, const char *property,
+                       char *type, const void **value, int *length,
+                       table proptable)
 {
     die_unless(type!=0, "type parameter cannot be null.\n");
     die_unless(value!=0, "value parameter cannot be null.\n");
@@ -909,6 +745,17 @@ static int mapper_db_property_lookup(void *thestruct, table extra,
 
 /**** Device records ****/
 
+static int update_string_if_different(char **pdest_str, const char *src_str)
+{
+    if (!(*pdest_str) || strcmp((*pdest_str), src_str)) {
+        char *str = (char*) realloc((void*)(*pdest_str), strlen(src_str)+1);
+        strcpy(str, src_str);
+        (*pdest_str) = str;
+        return 1;
+    }
+    return 0;
+}
+
 /*! Update information about a device record based on message parameters. */
 static int update_device_record_params(mapper_db_device reg,
                                        const char *name,
@@ -928,25 +775,25 @@ static int update_device_record_params(mapper_db_device reg,
     if (!params)
         return updated;
 
-    updated += update_string_if_arg(&reg->host, params, AT_HOST);
+    updated += mapper_update_string_if_arg(&reg->host, params, AT_HOST);
 
-    updated += update_string_if_arg(&reg->lib_version, params, AT_LIB_VERSION);
+    updated += mapper_update_string_if_arg(&reg->lib_version, params, AT_LIB_VERSION);
 
-    updated += update_int_if_arg(&reg->port, params, AT_PORT);
+    updated += mapper_update_int_if_arg(&reg->port, params, AT_PORT);
 
-    updated += update_int_if_arg(&reg->num_inputs, params, AT_NUM_INPUTS);
+    updated += mapper_update_int_if_arg(&reg->num_inputs, params, AT_NUM_INPUTS);
 
-    updated += update_int_if_arg(&reg->num_outputs, params, AT_NUM_OUTPUTS);
+    updated += mapper_update_int_if_arg(&reg->num_outputs, params, AT_NUM_OUTPUTS);
 
-    updated += update_int_if_arg(&reg->num_incoming_maps, params,
-                                 AT_NUM_INCOMING_MAPS);
+    updated += mapper_update_int_if_arg(&reg->num_incoming_maps, params,
+                                        AT_NUM_INCOMING_MAPS);
 
-    updated += update_int_if_arg(&reg->num_outgoing_maps, params,
-                                 AT_NUM_OUTGOING_MAPS);
+    updated += mapper_update_int_if_arg(&reg->num_outgoing_maps, params,
+                                        AT_NUM_OUTGOING_MAPS);
 
-    updated += update_int_if_arg(&reg->version, params, AT_REV);
+    updated += mapper_update_int_if_arg(&reg->version, params, AT_REV);
 
-    updated += mapper_msg_add_or_update_extra_params(reg->extra, params);
+    updated += mapper_message_add_or_update_extra_params(reg->extra, params);
 
     return updated;
 }
@@ -956,7 +803,7 @@ mapper_db_device mapper_db_add_or_update_device_params(mapper_db db,
                                                        mapper_message_t *params,
                                                        mapper_timetag_t *time)
 {
-    mapper_db_device dev = mapper_db_get_device_by_name(db, name);
+    mapper_db_device dev = mapper_db_device_by_name(db, name);
     int rc = 0, updated = 0;
 
     if (!dev) {
@@ -990,11 +837,11 @@ int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
                                     value, length, &dev_table);
 }
 
-int mapper_db_device_property_lookup(mapper_db_device dev, const char *property,
-                                     char *type, const void **value, int *length)
+int mapper_db_device_property(mapper_db_device dev, const char *property,
+                              char *type, const void **value, int *length)
 {
-    return mapper_db_property_lookup(dev, dev->extra, property, type,
-                                     value, length, &dev_table);
+    return mapper_db_property(dev, dev->extra, property, type, value, length,
+                              &dev_table);
 }
 
 // Internal function called by /logout protocol handler
@@ -1003,9 +850,9 @@ void mapper_db_remove_device(mapper_db db, mapper_db_device dev, int quiet)
     if (!dev)
         return;
 
-    mapper_db_remove_maps_by_query(db, mapper_db_get_device_maps(db, dev));
+    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev));
 
-    mapper_db_remove_signals_by_query(db, mapper_db_get_device_signals(db, dev));
+    mapper_db_remove_signals_by_query(db, mapper_db_device_signals(db, dev));
 
     list_remove_item(dev, (void**)&db->devices);
 
@@ -1027,34 +874,34 @@ void mapper_db_remove_device(mapper_db db, mapper_db_device dev, int quiet)
     if (dev->lib_version)
         free(dev->lib_version);
     if (dev->extra)
-        table_free(dev->extra, 1);
+        table_free(dev->extra);
     list_free_item(dev);
 }
 
-mapper_db_device *mapper_db_get_devices(mapper_db db)
+mapper_db_device *mapper_db_devices(mapper_db db)
 {
     return list_from_data(db->devices);
 }
 
-mapper_db_device mapper_db_get_device_by_name(mapper_db db, const char *name)
+mapper_db_device mapper_db_device_by_name(mapper_db db, const char *name)
 {
     const char *no_slash = skip_slash(name);
     mapper_db_device reg = db->devices;
     while (reg) {
         if (strcmp(reg->name, no_slash)==0)
             return reg;
-        reg = list_get_next(reg);
+        reg = list_next(reg);
     }
     return 0;
 }
 
-mapper_db_device mapper_db_get_device_by_id(mapper_db db, uint64_t id)
+mapper_db_device mapper_db_device_by_id(mapper_db db, uint64_t id)
 {
     mapper_db_device reg = db->devices;
     while (reg) {
         if (id == reg->id)
             return reg;
-        reg = list_get_next(reg);
+        reg = list_next(reg);
     }
     return 0;
 }
@@ -1066,8 +913,8 @@ static int cmp_query_devices_by_name_match(void *context_data,
     return strstr(dev->name, pattern)!=0;
 }
 
-mapper_db_device *mapper_db_get_devices_by_name_match(mapper_db db,
-                                                      const char *pattern)
+mapper_db_device *mapper_db_devices_by_name_match(mapper_db db,
+                                                  const char *pattern)
 {
     return ((mapper_db_device *)
             construct_query_context(db->devices, cmp_query_devices_by_name_match,
@@ -1079,7 +926,7 @@ static inline int check_type(char type)
     return strchr("ifdsct", type) != 0;
 }
 
-static int compare_value(mapper_db_op op, int type, int length,
+static int compare_value(mapper_db_query_op op, int type, int length,
                          const void *val1, const void *val2)
 {
     int i, compare = 0, difference = 0;
@@ -1141,17 +988,17 @@ static int compare_value(mapper_db_op op, int type, int length,
             return 0;
     }
     switch (op) {
-        case OP_EQUAL:
+        case QUERY_EQUAL:
             return compare == 0 && !difference;
-        case OP_GREATER_THAN:
+        case QUERY_GREATER_THAN:
             return compare > 0;
-        case OP_GREATER_THAN_OR_EQUAL:
+        case QUERY_GREATER_THAN_OR_EQUAL:
             return compare >= 0;
-        case OP_LESS_THAN:
+        case QUERY_LESS_THAN:
             return compare < 0;
-        case OP_LESS_THAN_OR_EQUAL:
+        case QUERY_LESS_THAN_OR_EQUAL:
             return compare <= 0;
-        case OP_NOT_EQUAL:
+        case QUERY_NOT_EQUAL:
             return compare != 0 || difference;
         default:
             return 0;
@@ -1168,26 +1015,26 @@ static int cmp_query_devices_by_property(void *context_data, mapper_db_device de
     int _length;
     char _type;
     const void *_value;
-    if (mapper_db_device_property_lookup(dev, property, &_type, &_value, &_length))
-        return (op == OP_DOES_NOT_EXIST);
-    if (op == OP_EXISTS)
+    if (mapper_db_device_property(dev, property, &_type, &_value, &_length))
+        return (op == QUERY_DOES_NOT_EXIST);
+    if (op == QUERY_EXISTS)
         return 1;
-    if (op == OP_DOES_NOT_EXIST)
+    if (op == QUERY_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
     return compare_value(op, type, length, _value, value);
 }
 
-mapper_db_device *mapper_db_get_devices_by_property(mapper_db db,
-                                                    const char *property,
-                                                    char type, int length,
-                                                    const void *value,
-                                                    mapper_db_op op)
+mapper_db_device *mapper_db_devices_by_property(mapper_db db,
+                                                const char *property,
+                                                char type, int length,
+                                                const void *value,
+                                                mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_db_device *)
             construct_query_context(db->devices, cmp_query_devices_by_property,
@@ -1251,18 +1098,18 @@ void mapper_db_check_device_status(mapper_db db, uint32_t thresh_time_sec)
                 cb = cb->next;
             }
         }
-        reg = list_get_next(reg);
+        reg = list_next(reg);
     }
 }
 
-mapper_db_device mapper_db_get_expired_device(mapper_db db, uint32_t last_ping)
+mapper_db_device mapper_db_expired_device(mapper_db db, uint32_t last_ping)
 {
     mapper_db_device reg = db->devices;
     while (reg) {
         if (reg->synced.sec && (reg->synced.sec < last_ping)) {
             return reg;
         }
-        reg = list_get_next(reg);
+        reg = list_next(reg);
     }
     return 0;
 }
@@ -1271,74 +1118,64 @@ mapper_db_device mapper_db_get_expired_device(mapper_db db, uint32_t last_ping)
 
 /*! Update information about a signal record based on message parameters. */
 static int update_signal_record_params(mapper_db_signal sig,
-                                       mapper_message_t *params)
+                                       mapper_message_t *msg)
 {
-    lo_arg **args;
-    const char *types = 0;
-    int length, updated = 0, result;
+    mapper_message_atom atom;
+    int i, updated = 0, result;
 
-    if (!params)
+    if (!msg)
         return updated;
 
-    updated += update_int64_if_arg((int64_t*)&sig->id, params, AT_ID);
+    updated += mapper_update_int64_if_arg((int64_t*)&sig->id, msg, AT_ID);
 
-    updated += update_char_if_arg(&sig->type, params, AT_TYPE);
+    updated += mapper_update_char_if_arg(&sig->type, msg, AT_TYPE);
 
-    updated += update_int_if_arg(&sig->length, params, AT_LENGTH);
+    updated += mapper_update_int_if_arg(&sig->length, msg, AT_LENGTH);
 
-    updated += update_string_if_arg((char**)&sig->unit, params, AT_UNITS);
+    updated += mapper_update_string_if_arg((char**)&sig->unit, msg, AT_UNITS);
 
-    /* @max */
-    args = mapper_msg_get_param(params, AT_MAX, &types, &length);
-    if (args && types) {
-        if (length == sig->length) {
-            if (!sig->maximum)
-                sig->maximum = calloc(1, length * mapper_type_size(sig->type));
-            int i;
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(sig->maximum, sig->type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    free(sig->maximum);
-                    sig->maximum = 0;
-                    break;
-                }
-                else
-                    updated += result;
+    updated += mapper_update_int_if_arg(&sig->num_instances, msg, AT_INSTANCES);
+
+    updated += mapper_message_add_or_update_extra_params(sig->extra, msg);
+
+    if (!sig->type || !sig->length)
+        return updated;
+
+    /* maximum */
+    atom = mapper_message_param(msg, AT_MAX);
+    if (atom && is_number_type(atom->types[0])) {
+        if (!sig->maximum)
+            sig->maximum = calloc(1, sig->length * mapper_type_size(sig->type));
+        for (i = 0; i < atom->length && i < sig->length; i++) {
+            result = propval_set_from_lo_arg(sig->maximum, sig->type,
+                                             atom->values[i], atom->types[i], i);
+            if (result == -1) {
+                free(sig->maximum);
+                sig->maximum = 0;
+                break;
             }
+            else
+                updated += result;
         }
     }
 
-    /* @min */
-    args = mapper_msg_get_param(params, AT_MIN, &types, &length);
-    if (args && types) {
-        if (length == sig->length) {
-            if (!sig->minimum)
-                sig->minimum = calloc(1, length * mapper_type_size(sig->type));
-            int i;
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(sig->minimum, sig->type,
-                                                 args[i], types[i], i);
-                if (result == -1) {
-                    free(sig->minimum);
-                    sig->minimum = 0;
-                    break;
-                }
-                else
-                    updated += result;
+    /* minimum */
+    atom = mapper_message_param(msg, AT_MIN);
+    if (atom && is_number_type(atom->types[0])) {
+        if (!sig->minimum)
+            sig->minimum = calloc(1, sig->length * mapper_type_size(sig->type));
+        for (i = 0; i < atom->length && i < sig->length; i++) {
+            result = propval_set_from_lo_arg(sig->minimum, sig->type,
+                                             atom->values[i], atom->types[i], i);
+            if (result == -1) {
+                free(sig->minimum);
+                sig->minimum = 0;
+                break;
             }
+            else
+                updated += result;
         }
     }
-
-    int direction = mapper_msg_get_signal_direction(params);
-    if (direction && direction != sig->direction) {
-        sig->direction = direction;
-        updated++;
-    }
-
-    updated += update_int_if_arg(&sig->num_instances, params, AT_INSTANCES);
-
-    updated += mapper_msg_add_or_update_extra_params(sig->extra, params);
 
     return updated;
 }
@@ -1351,9 +1188,9 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
     mapper_db_signal sig = 0;
     int rc = 0, updated = 0;
 
-    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    mapper_db_device dev = mapper_db_device_by_name(db, device_name);
     if (dev)
-        sig = mapper_db_get_device_signal_by_name(db, dev, name);
+        sig = mapper_db_device_signal_by_name(db, dev, name);
     else
         dev = mapper_db_add_or_update_device_params(db, device_name, 0, 0);
 
@@ -1364,16 +1201,18 @@ mapper_db_signal mapper_db_add_or_update_signal_params(mapper_db db,
         // also add device record if necessary
         sig->device = dev;
 
+        // Defaults (int, length=1)
+        mapper_db_signal_init(sig, 'i', 1, name, 0);
+
         if (params) {
-            int direction = mapper_msg_get_signal_direction(params);
+            int direction = mapper_message_signal_direction(params);
             if (direction & DI_INCOMING)
                 sig->device->num_inputs++;
             if (direction & DI_OUTGOING)
                 sig->device->num_outputs++;
+            sig->direction = direction;
         }
 
-        // Defaults (int, length=1)
-        mapper_db_signal_init(sig, 'i', 1, name, 0);
         rc = 1;
     }
 
@@ -1422,11 +1261,11 @@ int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
                                     value, length, &sig_table);
 }
 
-int mapper_db_signal_property_lookup(mapper_db_signal sig, const char *property,
-                                     char *type, const void **value, int *length)
+int mapper_db_signal_property(mapper_db_signal sig, const char *property,
+                              char *type, const void **value, int *length)
 {
-    return mapper_db_property_lookup(sig, sig->extra, property, type,
-                                     value, length, &sig_table);
+    return mapper_db_property(sig, sig->extra, property, type, value, length,
+                              &sig_table);
 }
 
 void mapper_db_add_signal_callback(mapper_db db,
@@ -1447,26 +1286,26 @@ static int cmp_query_signals(void *context_data, mapper_db_signal sig)
     return !direction || (sig->direction & direction);
 }
 
-mapper_db_signal *mapper_db_get_signals(mapper_db db)
+mapper_db_signal *mapper_db_signals(mapper_db db)
 {
     return list_from_data(db->signals);
 }
 
-mapper_db_signal *mapper_db_get_inputs(mapper_db db)
+mapper_db_signal *mapper_db_inputs(mapper_db db)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals,
                                     "i", DI_INCOMING));
 }
 
-mapper_db_signal *mapper_db_get_outputs(mapper_db db)
+mapper_db_signal *mapper_db_outputs(mapper_db db)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals,
                                     "i", DI_OUTGOING));
 }
 
-mapper_db_signal mapper_db_get_signal_by_id(mapper_db db, uint64_t id)
+mapper_db_signal mapper_db_signal_by_id(mapper_db db, uint64_t id)
 {
     mapper_db_signal sig = db->signals;
     if (!sig)
@@ -1475,7 +1314,7 @@ mapper_db_signal mapper_db_get_signal_by_id(mapper_db db, uint64_t id)
     while (sig) {
         if (sig->id == id)
             return sig;
-        sig = list_get_next(sig);
+        sig = list_next(sig);
     }
     return 0;
 }
@@ -1488,21 +1327,21 @@ static int cmp_query_signals_by_name(void *context_data, mapper_db_signal sig)
             && (strcmp(sig->name, name)==0));
 }
 
-mapper_db_signal *mapper_db_get_signals_by_name(mapper_db db, const char *name)
+mapper_db_signal *mapper_db_signals_by_name(mapper_db db, const char *name)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals_by_name,
                                     "is", DI_ANY, name));
 }
 
-mapper_db_signal *mapper_db_get_inputs_by_name(mapper_db db, const char *name)
+mapper_db_signal *mapper_db_inputs_by_name(mapper_db db, const char *name)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals_by_name,
                                     "is", DI_INCOMING, name));
 }
 
-mapper_db_signal *mapper_db_get_outputs_by_name(mapper_db db, const char *name)
+mapper_db_signal *mapper_db_outputs_by_name(mapper_db db, const char *name)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals_by_name,
@@ -1518,24 +1357,24 @@ static int cmp_query_signals_by_name_match(void *context_data,
             && (strstr(sig->name, pattern)!=0));
 }
 
-mapper_db_signal *mapper_db_get_signals_by_name_match(mapper_db db,
-                                                      const char *pattern)
+mapper_db_signal *mapper_db_signals_by_name_match(mapper_db db,
+                                                  const char *pattern)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->devices, cmp_query_signals_by_name_match,
                                     "is", DI_ANY, pattern));
 }
 
-mapper_db_signal *mapper_db_get_inputs_by_name_match(mapper_db db,
-                                                     const char *pattern)
+mapper_db_signal *mapper_db_inputs_by_name_match(mapper_db db,
+                                                 const char *pattern)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->devices, cmp_query_signals_by_name_match,
                                     "is", DI_INCOMING, pattern));
 }
 
-mapper_db_signal *mapper_db_get_outputs_by_name_match(mapper_db db,
-                                                      const char *pattern)
+mapper_db_signal *mapper_db_outputs_by_name_match(mapper_db db,
+                                                  const char *pattern)
 {
     return ((mapper_db_signal *)
             construct_query_context(db->devices, cmp_query_signals_by_name_match,
@@ -1552,26 +1391,26 @@ static int cmp_query_signals_by_property(void *context_data, mapper_db_signal si
     int _length;
     char _type;
     const void *_value;
-    if (mapper_db_signal_property_lookup(sig, property, &_type, &_value, &_length))
-        return (op == OP_DOES_NOT_EXIST);
-    if (op == OP_EXISTS)
+    if (mapper_db_signal_property(sig, property, &_type, &_value, &_length))
+        return (op == QUERY_DOES_NOT_EXIST);
+    if (op == QUERY_EXISTS)
         return 1;
-    if (op == OP_DOES_NOT_EXIST)
+    if (op == QUERY_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
     return compare_value(op, type, length, _value, value);
 }
 
-mapper_db_signal *mapper_db_get_signals_by_property(mapper_db db,
-                                                    const char *property,
-                                                    char type, int length,
-                                                    const void *value,
-                                                    mapper_db_op op)
+mapper_db_signal *mapper_db_signals_by_property(mapper_db db,
+                                                const char *property,
+                                                char type, int length,
+                                                const void *value,
+                                                mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_db_signal *)
             construct_query_context(db->signals, cmp_query_signals_by_property,
@@ -1586,8 +1425,7 @@ static int cmp_query_device_signals(void *context_data, mapper_db_signal sig)
             && (dev_id == sig->device->id));
 }
 
-mapper_db_signal *mapper_db_get_device_signals(mapper_db db,
-                                               mapper_db_device dev)
+mapper_db_signal *mapper_db_device_signals(mapper_db db, mapper_db_device dev)
 {
     if (!dev)
         return 0;
@@ -1596,8 +1434,7 @@ mapper_db_signal *mapper_db_get_device_signals(mapper_db db,
                                     "hi", dev->id, DI_ANY));
 }
 
-mapper_db_signal *mapper_db_get_device_inputs(mapper_db db,
-                                              mapper_db_device dev)
+mapper_db_signal *mapper_db_device_inputs(mapper_db db, mapper_db_device dev)
 {
     if (!dev)
         return 0;
@@ -1606,9 +1443,9 @@ mapper_db_signal *mapper_db_get_device_inputs(mapper_db db,
                                     "hi", dev->id, DI_INCOMING));
 }
 
-mapper_db_signal *mapper_db_get_device_outputs(mapper_db db,
-                                               mapper_db_device dev)
+mapper_db_signal *mapper_db_device_outputs(mapper_db db, mapper_db_device dev)
 {
+    printf("mapper_db_device_outputs(%p, %p)\n", db, dev);
     if (!dev)
         return 0;
     return ((mapper_db_signal *)
@@ -1616,10 +1453,10 @@ mapper_db_signal *mapper_db_get_device_outputs(mapper_db db,
                                     "hi", dev->id, DI_OUTGOING));
 }
 
-static mapper_db_signal get_device_signal_by_name_internal(mapper_db db,
-                                                           mapper_db_device dev,
-                                                           const char *sig_name,
-                                                           int direction)
+static mapper_db_signal device_signal_by_name_internal(mapper_db db,
+                                                       mapper_db_device dev,
+                                                       const char *sig_name,
+                                                       int direction)
 {
     if (!dev)
         return 0;
@@ -1631,36 +1468,36 @@ static mapper_db_signal get_device_signal_by_name_internal(mapper_db db,
         if ((sig->device == dev) && (!direction || (sig->direction & direction))
             && strcmp(sig->name, skip_slash(sig_name))==0)
             return sig;
-        sig = list_get_next(sig);
+        sig = list_next(sig);
     }
     return 0;
 }
 
-mapper_db_signal mapper_db_get_device_signal_by_name(mapper_db db,
-                                                     mapper_db_device dev,
-                                                     const char *sig_name)
+mapper_db_signal mapper_db_device_signal_by_name(mapper_db db,
+                                                 mapper_db_device dev,
+                                                 const char *sig_name)
 {
-    return get_device_signal_by_name_internal(db, dev, sig_name, DI_ANY);
+    return device_signal_by_name_internal(db, dev, sig_name, DI_ANY);
 }
 
-mapper_db_signal mapper_db_get_device_input_by_name(mapper_db db,
-                                                    mapper_db_device dev,
-                                                    const char *sig_name)
+mapper_db_signal mapper_db_device_input_by_name(mapper_db db,
+                                                mapper_db_device dev,
+                                                const char *sig_name)
 {
-    return get_device_signal_by_name_internal(db, dev, sig_name, DI_INCOMING);
+    return device_signal_by_name_internal(db, dev, sig_name, DI_INCOMING);
 }
 
-mapper_db_signal mapper_db_get_device_output_by_name(mapper_db db,
-                                                     mapper_db_device dev,
-                                                     const char *sig_name)
+mapper_db_signal mapper_db_device_output_by_name(mapper_db db,
+                                                 mapper_db_device dev,
+                                                 const char *sig_name)
 {
-    return get_device_signal_by_name_internal(db, dev, sig_name, DI_OUTGOING);
+    return device_signal_by_name_internal(db, dev, sig_name, DI_OUTGOING);
 }
 
-static mapper_db_signal get_device_signal_by_index_internal(mapper_db db,
-                                                            mapper_db_device dev,
-                                                            int index,
-                                                            int direction)
+static mapper_db_signal device_signal_by_index_internal(mapper_db db,
+                                                        mapper_db_device dev,
+                                                        int index,
+                                                        int direction)
 {
     if (!dev || index < 0)
         return 0;
@@ -1674,30 +1511,30 @@ static mapper_db_signal get_device_signal_by_index_internal(mapper_db db,
             if (++count == index)
                 return sig;
         }
-        sig = list_get_next(sig);
+        sig = list_next(sig);
     }
     return 0;
 }
 
-mapper_db_signal mapper_db_get_device_signal_by_index(mapper_db db,
-                                                      mapper_db_device dev,
-                                                      int index)
+mapper_db_signal mapper_db_device_signal_by_index(mapper_db db,
+                                                  mapper_db_device dev,
+                                                  int index)
 {
-    return get_device_signal_by_index_internal(db, dev, index, DI_ANY);
+    return device_signal_by_index_internal(db, dev, index, DI_ANY);
 }
 
-mapper_db_signal mapper_db_get_device_input_by_index(mapper_db db,
-                                                     mapper_db_device dev,
-                                                     int index)
+mapper_db_signal mapper_db_device_input_by_index(mapper_db db,
+                                                 mapper_db_device dev,
+                                                 int index)
 {
-    return get_device_signal_by_index_internal(db, dev, index, DI_INCOMING);
+    return device_signal_by_index_internal(db, dev, index, DI_INCOMING);
 }
 
-mapper_db_signal mapper_db_get_device_output_by_index(mapper_db db,
-                                                      mapper_db_device dev,
-                                                      int index)
+mapper_db_signal mapper_db_device_output_by_index(mapper_db db,
+                                                  mapper_db_device dev,
+                                                  int index)
 {
-    return get_device_signal_by_index_internal(db, dev, index, DI_OUTGOING);
+    return device_signal_by_index_internal(db, dev, index, DI_OUTGOING);
 }
 
 static int cmp_query_device_signals_match_name(void *context_data,
@@ -1712,9 +1549,9 @@ static int cmp_query_device_signals_match_name(void *context_data,
             && strstr(sig->name, pattern));
 }
 
-mapper_db_signal *mapper_db_get_device_signals_by_name_match(mapper_db db,
-                                                             mapper_db_device dev,
-                                                             char const *pattern)
+mapper_db_signal *mapper_db_device_signals_by_name_match(mapper_db db,
+                                                         mapper_db_device dev,
+                                                         char const *pattern)
 {
     if (!dev)
         return 0;
@@ -1724,9 +1561,9 @@ mapper_db_signal *mapper_db_get_device_signals_by_name_match(mapper_db db,
                                     "his", dev->id, DI_ANY, pattern));
 }
 
-mapper_db_signal *mapper_db_get_device_inputs_by_name_match(mapper_db db,
-                                                            mapper_db_device dev,
-                                                            const char *pattern)
+mapper_db_signal *mapper_db_device_inputs_by_name_match(mapper_db db,
+                                                        mapper_db_device dev,
+                                                        const char *pattern)
 {
     if (!dev)
         return 0;
@@ -1736,9 +1573,9 @@ mapper_db_signal *mapper_db_get_device_inputs_by_name_match(mapper_db db,
                                     "his", dev->id, DI_INCOMING, pattern));
 }
 
-mapper_db_signal *mapper_db_get_device_outputs_by_name_match(mapper_db db,
-                                                             mapper_db_device dev,
-                                                             char const *pattern)
+mapper_db_signal *mapper_db_device_outputs_by_name_match(mapper_db db,
+                                                         mapper_db_device dev,
+                                                         char const *pattern)
 {
     if (!dev)
         return 0;
@@ -1782,7 +1619,7 @@ void mapper_db_signal_done(mapper_db_signal *sig)
 static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
 {
     // remove any stored maps using this signal
-    mapper_db_remove_maps_by_query(db, mapper_db_get_signal_maps(db, sig));
+    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig));
 
     list_remove_item(sig, (void**)&db->signals);
 
@@ -1809,7 +1646,7 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
     if (sig->maximum)
         free(sig->maximum);
     if (sig->extra)
-        table_free(sig->extra, 1);
+        table_free(sig->extra);
 
     list_free_item(sig);
 }
@@ -1818,11 +1655,10 @@ static void mapper_db_remove_signal(mapper_db db, mapper_db_signal sig)
 void mapper_db_remove_signal_by_name(mapper_db db, const char *device_name,
                                      const char *signal_name)
 {
-    mapper_db_device dev = mapper_db_get_device_by_name(db, device_name);
+    mapper_db_device dev = mapper_db_device_by_name(db, device_name);
     if (!dev)
         return;
-    mapper_db_signal sig = mapper_db_get_device_signal_by_name(db, dev,
-                                                               signal_name);
+    mapper_db_signal sig = mapper_db_device_signal_by_name(db, dev, signal_name);
     if (sig)
         mapper_db_remove_signal(db, sig);
 }
@@ -1838,407 +1674,14 @@ void mapper_db_remove_signals_by_query(mapper_db db, mapper_db_signal_t **s)
 
 /**** Map records ****/
 
-static int mapper_map_add_scope(mapper_map_scope scope, const char *name)
-{
-    int i;
-    if (!scope || !name)
-        return 1;
-
-    // Check if scope is already stored for this map
-    uint32_t hash;
-    if (strcmp(name, "all")==0)
-        hash = 0;
-    else
-        hash = crc32(0L, (const Bytef *)name, strlen(name));
-    for (i=0; i<scope->size; i++)
-        if (scope->hashes[i] == hash)
-            return 1;
-
-    // not found - add a new scope
-    i = ++scope->size;
-    scope->names = realloc(scope->names, i * sizeof(char *));
-    scope->names[i-1] = strdup(name);
-    scope->hashes = realloc(scope->hashes, i * sizeof(uint32_t));
-    scope->hashes[i-1] = hash;
-    return 0;
-}
-
-static int mapper_map_remove_scope(mapper_map_scope scope, int index)
-{
-    int i;
-
-    free(scope->names[index]);
-    for (i = index+1; i < scope->size; i++) {
-        scope->names[i-1] = scope->names[i];
-        scope->hashes[i-1] = scope->hashes[i];
-    }
-    scope->size--;
-    scope->names = realloc(scope->names, scope->size * sizeof(char *));
-    scope->hashes = realloc(scope->hashes, scope->size * sizeof(uint32_t));
-    return 0;
-}
-
-int mapper_map_update_scope(mapper_map_scope scope, lo_arg **scope_list, int num)
-{
-    int i, j, updated = 0;
-    if (scope_list && *scope_list) {
-        if (num == 1 && strcmp(&scope_list[0]->s, "none")==0)
-            num = 0;
-
-        // First remove old scopes that are missing
-        for (i = 0; i < scope->size; i++) {
-            int found = 0;
-            for (j = 0; j < num; j++) {
-                if (strcmp(scope->names[i], &scope_list[j]->s) == 0) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (!found) {
-                mapper_map_remove_scope(scope, i);
-                updated++;
-            }
-        }
-        // ...then add any new scopes
-        for (i=0; i<num; i++)
-            updated += (1 - mapper_map_add_scope(scope, &scope_list[i]->s));
-    }
-    return updated;
-}
-
 static int compare_slot_names(const void *l, const void *r)
 {
-    int result = strcmp(((mapper_map_slot)l)->signal->device->name,
-                        ((mapper_map_slot)r)->signal->device->name);
+    int result = strcmp(((mapper_slot)l)->signal->device->name,
+                        ((mapper_slot)r)->signal->device->name);
     if (result == 0)
-        return strcmp(((mapper_map_slot)l)->signal->name,
-                      ((mapper_map_slot)r)->signal->name);
+        return strcmp(((mapper_slot)l)->signal->name,
+                      ((mapper_slot)r)->signal->name);
     return result;
-}
-
-/*! Update information about a map record based on message parameters. */
-static int update_map_record_params(mapper_db db, mapper_map map,
-                                    const char *src_name,
-                                    mapper_message_t *params)
-{
-    lo_arg **args;
-    const char *types;
-    int i, slot = -1, updated = 0, length, result;
-    mapper_map_slot s;
-
-    if (!params)
-        return updated;
-
-    updated += update_int64_if_arg((int64_t*)&map->id, params, AT_ID);
-
-    if (map->num_sources == 1)
-        slot = 0;
-    else if (src_name) {
-        // retrieve slot
-        for (i = 0; i < map->num_sources; i++) {
-            if (strcmp(map->sources[i].signal->name, src_name) == 0) {
-                slot = i;
-                break;
-            }
-        }
-    }
-
-    /* @slot */
-    int slot_id;
-    if (!mapper_msg_get_param_if_int(params, AT_SLOT, &slot_id)) {
-        if (slot >= 0)
-            map->sources[slot].slot_id = slot_id;
-    }
-
-    /* @srcType */
-    args = mapper_msg_get_param(params, AT_SRC_TYPE, &types, &length);
-    if (args && types && (types[0] == 'c' || types[0] == 's' || types[0] == 'S')) {
-        char type;
-        if (slot >= 0) {
-            type = types[0] == 'c' ? (*args)->c : (&(*args)->s)[0];
-            if (map->sources[slot].type != type) {
-                map->sources[slot].type = type;
-                updated++;
-            }
-        }
-        else if (length == map->num_sources) {
-            for (i = 0; i < length; i++) {
-                type = types[0] == 'c' ? (args[i])->c : (&(args[i])->s)[0];
-                if (map->sources[i].type != type) {
-                    map->sources[i].type = type;
-                    updated++;
-                }
-            }
-        }
-    }
-
-    /* @destType */
-    updated += update_char_if_arg(&map->destination.type, params, AT_DEST_TYPE);
-
-    /* @srcLength */
-    args = mapper_msg_get_param(params, AT_SRC_LENGTH, &types, &length);
-    if (args && types && types[0] == 'i') {
-        if (slot >= 0) {
-            if (map->sources[slot].length != (*args)->i) {
-                map->sources[slot].length = (*args)->i;
-                updated++;
-            }
-        }
-        else if (length == map->num_sources) {
-            for (i = 0; i < length; i++) {
-                if (map->sources[i].length != args[i]->i) {
-                    map->sources[i].length = args[i]->i;
-                    updated++;
-                }
-            }
-        }
-    }
-
-    /* @destLength */
-    updated += update_int_if_arg(&map->destination.length, params, AT_DEST_LENGTH);
-
-    /* @srcMax */
-    args = mapper_msg_get_param(params, AT_SRC_MAX, &types, &length);
-    if (args && types) {
-        if (slot >= 0) {
-            s = &map->sources[slot];
-            if (length == s->length) {
-                if (!s->maximum)
-                    s->maximum = calloc(1, length * mapper_type_size(s->type));
-                for (i = 0; i < length; i++) {
-                    result = propval_set_from_lo_arg(s->maximum, s->type,
-                                                     args[i], types[i], i);
-                }
-            }
-        }
-        else if (map->num_sources == 1) {
-            s = &map->sources[0];
-            if (length == s->length) {
-                if (!s->maximum)
-                    s->maximum = calloc(1, length * mapper_type_size(s->type));
-                for (i = 0; i < length; i++) {
-                    result = propval_set_from_lo_arg(s->maximum, s->type,
-                                                     args[i], types[i], i);
-                }
-            }
-        }
-        else {
-            // TODO: passing multiple source ranges for convergent mappings
-        }
-    }
-
-    /* @srcMin */
-    args = mapper_msg_get_param(params, AT_SRC_MIN, &types, &length);
-    if (args && types) {
-        if (slot >= 0) {
-            s = &map->sources[slot];
-            if (length == s->length) {
-                if (!s->minimum)
-                    s->minimum = calloc(1, length * mapper_type_size(s->type));
-                for (i = 0; i < length; i++) {
-                    result = propval_set_from_lo_arg(s->minimum, s->type,
-                                                     args[i], types[i], i);
-                }
-            }
-        }
-        else if (map->num_sources == 1) {
-            s = &map->sources[0];
-            if (length == s->length) {
-                if (!s->minimum)
-                    s->minimum = calloc(1, length * mapper_type_size(s->type));
-                for (i = 0; i < length; i++) {
-                    result = propval_set_from_lo_arg(s->minimum, s->type,
-                                                     args[i], types[i], i);
-                }
-            }
-        }
-        else {
-            // TODO: passing multiple source ranges for convergent mappings
-        }
-    }
-
-    /* @destMax */
-    args = mapper_msg_get_param(params, AT_DEST_MAX, &types, &length);
-    if (args && types) {
-        s = &map->destination;
-        if (length == s->length) {
-            if (!s->maximum)
-                s->maximum = calloc(1, length * mapper_type_size(s->type));
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(s->maximum, s->type,
-                                                 args[i], types[i], i);
-                if (result == -1)
-                    break;
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* @destMin */
-    args = mapper_msg_get_param(params, AT_DEST_MIN, &types, &length);
-    if (args && types) {
-        s = &map->destination;
-        if (length == s->length) {
-            if (!s->minimum)
-                s->minimum = calloc(1, length * mapper_type_size(s->type));
-            for (i=0; i<length; i++) {
-                result = propval_set_from_lo_arg(s->minimum, s->type,
-                                                 args[i], types[i], i);
-                if (result == -1)
-                    break;
-                else
-                    updated += result;
-            }
-        }
-    }
-
-    /* Range boundary actions */
-    args = mapper_msg_get_param(params, AT_SRC_BOUND_MAX, &types, &length);
-    if (args && types) {
-        mapper_boundary_action bound_max;
-        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
-            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max != BA_UNDEFINED
-                && bound_max != map->sources[slot].bound_max) {
-                map->sources[slot].bound_max = bound_max;
-                updated++;
-            }
-        }
-        else if (length == map->num_sources) {
-            for (i = 0; i < map->num_sources; i++) {
-                if (types[i] != 's' && types[i] != 'S')
-                    continue;
-                bound_max = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_max != BA_UNDEFINED
-                    && bound_max != map->sources[i].bound_max) {
-                    map->sources[i].bound_max = bound_max;
-                    updated++;
-                }
-            }
-        }
-    }
-    args = mapper_msg_get_param(params, AT_SRC_BOUND_MIN, &types, &length);
-    if (args && types) {
-        mapper_boundary_action bound_min;
-        if (slot >= 0 && (types[0] == 's' || types[0] == 'S')) {
-            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min != BA_UNDEFINED
-                && bound_min != map->sources[slot].bound_min) {
-                map->sources[slot].bound_min = bound_min;
-                updated++;
-            }
-        }
-        else if (length == map->num_sources) {
-            for (i = 0; i < map->num_sources; i++) {
-                if (types[i] != 's' && types[i] != 'S')
-                    continue;
-                bound_min = mapper_get_boundary_action_from_string(&args[i]->s);
-                if (bound_min != BA_UNDEFINED
-                    && bound_min != map->sources[i].bound_min) {
-                    map->sources[i].bound_min = bound_min;
-                    updated++;
-                }
-            }
-        }
-    }
-    args = mapper_msg_get_param(params, AT_DEST_BOUND_MAX, &types, &length);
-    if (args && types) {
-        mapper_boundary_action bound_max;
-        if (types[0] == 's' || types[0] == 'S') {
-            bound_max = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_max != BA_UNDEFINED
-                && bound_max != map->destination.bound_max) {
-                map->destination.bound_max = bound_max;
-                updated++;
-            }
-        }
-    }
-    args = mapper_msg_get_param(params, AT_DEST_BOUND_MIN, &types, &length);
-    if (args && types) {
-        mapper_boundary_action bound_min;
-        if (types[0] == 's' || types[0] == 'S') {
-            bound_min = mapper_get_boundary_action_from_string(&args[0]->s);
-            if (bound_min != BA_UNDEFINED
-                && bound_min != map->destination.bound_min) {
-                map->destination.bound_min = bound_min;
-                updated++;
-            }
-        }
-    }
-
-    /* @causeUpdate */
-    args = mapper_msg_get_param(params, AT_CAUSE_UPDATE, &types, &length);
-    if (args && types && (length == map->num_sources)) {
-        int cause_update;
-        for (i = 0; i < map->num_sources; i++) {
-            cause_update = (types[i] == 'T');
-            if (map->sources[i].cause_update != cause_update) {
-                map->sources[i].cause_update = cause_update;
-                updated++;
-            }
-        }
-    }
-
-    /* @sendAsInstance */
-    args = mapper_msg_get_param(params, AT_SEND_AS_INSTANCE, &types, &length);
-    if (args && types && (length == map->num_sources)) {
-        int send_as_instance;
-        for (i = 0; i < map->num_sources; i++) {
-            send_as_instance = (types[i] == 'T');
-            if (map->sources[i].send_as_instance != send_as_instance) {
-                map->sources[i].send_as_instance = send_as_instance;
-                updated++;
-            }
-        }
-    }
-
-    /* Mode */
-    args = mapper_msg_get_param(params, AT_MODE, &types, &length);
-    if (args && types && (types[0] == 's' || types[0] == 'S')) {
-        mapper_mode_type mode = mapper_get_mode_type_from_string(&args[0]->s);
-        if (map->mode != mode) {
-            map->mode = mode;
-            updated++;
-        }
-    }
-
-    /* Expression */
-    args = mapper_msg_get_param(params, AT_EXPRESSION, &types, &length);
-    if (args && types && (types[0] == 's' || types[0] == 'S')) {
-        if (!map->expression || strcmp(map->expression, &args[0]->s)) {
-            map->expression = realloc(map->expression, strlen(&args[0]->s)+1);
-            strcpy(map->expression, &args[0]->s);
-            updated++;
-        }
-    }
-
-    /* Processing location */
-    args = mapper_msg_get_param(params, AT_PROCESS, &types, &length);
-    if (args && types && (types[0] == 's' || types[0] == 'S')) {
-        int at_source = (strcmp(&args[0]->s, "source")==0);
-        if (at_source && map->process_location != MAPPER_SOURCE) {
-            map->process_location = MAPPER_SOURCE;
-            updated++;
-        }
-        else if (!at_source && map->process_location != MAPPER_DESTINATION) {
-            map->process_location = MAPPER_DESTINATION;
-            updated++;
-        }
-    }
-
-    int mute = mapper_msg_get_mute(params);
-    if (mute != -1 && mute != map->muted) {
-        map->muted = mute;
-        updated++;
-    }
-
-    lo_arg **a_scopes = mapper_msg_get_param(params, AT_SCOPE, &types, &length);
-    if (types && (types[0] == 's' || types[0] == 'S'))
-        mapper_map_update_scope(&map->scope, a_scopes, length);
-
-    updated += mapper_msg_add_or_update_extra_params(map->extra, params);
-    return updated;
 }
 
 mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
@@ -2258,18 +1701,18 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
     int64_t id;
-    if (mapper_msg_get_param_if_int64(params, AT_ID, &id)) {
+    if (mapper_message_param_if_int64(params, AT_ID, &id)) {
         trace("error: no 'id' property for updating map.");
         return 0;
     }
-    map = mapper_db_get_map_by_id(db, id);
+    map = mapper_db_map_by_id(db, id);
 
     if (!map) {
         map = (mapper_map) list_add_new_item((void**)&db->maps,
                                              sizeof(mapper_map_t));
         map->num_sources = num_sources;
-        map->sources = ((mapper_map_slot)
-                        calloc(1, sizeof(struct _mapper_map_slot) * num_sources));
+        map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
+                                            * num_sources);
         for (i = 0; i < num_sources; i++) {
             devnamelen = mapper_parse_names(src_names[i], &devnamep, &signame);
             if (!devnamelen || devnamelen >= 256) {
@@ -2285,7 +1728,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
             // also add source signal if necessary
             map->sources[i].signal =
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-            map->sources[i].slot_id = i;
+            map->sources[i].id = i;
             map->sources[i].cause_update = 1;
             map->sources[i].minimum = map->sources[i].maximum = 0;
         }
@@ -2323,30 +1766,28 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                 if (strlen(map->sources[j].signal->device->name) == devnamelen
                     && strcmp(devname, map->sources[j].signal->device->name)==0
                     && strcmp(signame, map->sources[j].signal->name)==0) {
-                    map->sources[j].slot_id = i;
+                    map->sources[j].id = i;
                     break;
                 }
             }
             if (j == map->num_sources) {
                 map->num_sources++;
-                map->sources = realloc(map->sources,
-                                       sizeof(struct _mapper_map_slot)
+                map->sources = realloc(map->sources, sizeof(struct _mapper_slot)
                                        * map->num_sources);
                 map->sources[j].signal =
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-                map->sources[j].slot_id = i;
+                map->sources[j].id = i;
                 map->sources[j].cause_update = 1;
                 map->sources[j].minimum = map->sources[j].maximum = 0;
             }
         }
         // slots should be in alphabetical order
         qsort(map->sources, map->num_sources,
-              sizeof(mapper_map_slot_t), compare_slot_names);
+              sizeof(mapper_slot_t), compare_slot_names);
     }
 
     if (map) {
-        updated = update_map_record_params(db, map, num_sources > 1
-                                           ? 0 : src_names[0], params);
+        updated = mapper_map_set_from_message(map, params, 0);
 
         if (rc || updated) {
             fptr_list cb = db->map_callbacks;
@@ -2361,36 +1802,6 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
     return map;
 }
 
-int mapper_map_property_index(mapper_map map, unsigned int index,
-                              const char **property, char *type,
-                              const void **value, int *length)
-{
-    return mapper_db_property_index(map, map->extra, index, property, type,
-                                    value, length, &map_table);
-}
-
-int mapper_map_property_lookup(mapper_map map, const char *property,
-                               char *type, const void **value, int *length)
-{
-    return mapper_db_property_lookup(map, map->extra, property, type,
-                                     value, length, &map_table);
-}
-
-int mapper_map_slot_property_index(mapper_map_slot slot, unsigned int index,
-                                   const char **property, char *type,
-                                   const void **value, int *length)
-{
-    return mapper_db_property_index(slot, 0, index, property, type,
-                                    value, length, &slot_table);
-}
-
-int mapper_map_slot_property_lookup(mapper_map_slot slot, const char *property,
-                                    char *type, const void **value, int *length)
-{
-    return mapper_db_property_lookup(slot, 0, property, type,
-                                     value, length, &slot_table);
-}
-
 void mapper_db_add_map_callback(mapper_db db, mapper_map_handler *h, void *user)
 {
     add_callback(&db->map_callbacks, h, user);
@@ -2402,12 +1813,12 @@ void mapper_db_remove_map_callback(mapper_db db, mapper_map_handler *h,
     remove_callback(&db->map_callbacks, h, user);
 }
 
-mapper_map *mapper_db_get_maps(mapper_db db)
+mapper_map *mapper_db_maps(mapper_db db)
 {
     return list_from_data(db->maps);
 }
 
-mapper_map mapper_db_get_map_by_id(mapper_db db, uint64_t id)
+mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id)
 {
     mapper_map map = db->maps;
     if (!map)
@@ -2415,7 +1826,7 @@ mapper_map mapper_db_get_map_by_id(mapper_db db, uint64_t id)
     while (map) {
         if (map->id == id)
             return map;
-        map = list_get_next(map);
+        map = list_next(map);
     }
     return 0;
 }
@@ -2430,24 +1841,24 @@ static int cmp_query_maps_by_property(void *context_data, mapper_map map)
     int _length;
     char _type;
     const void *_value;
-    if (mapper_map_property_lookup(map, property, &_type, &_value, &_length))
-        return (op == OP_DOES_NOT_EXIST);
-    if (op == OP_EXISTS)
+    if (mapper_map_property(map, property, &_type, &_value, &_length))
+        return (op == QUERY_DOES_NOT_EXIST);
+    if (op == QUERY_EXISTS)
         return 1;
-    if (op == OP_DOES_NOT_EXIST)
+    if (op == QUERY_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
     return compare_value(op, type, length, _value, value);
 }
 
-mapper_map *mapper_db_get_maps_by_property(mapper_db db, const char *property,
-                                           char type, int length,
-                                           const void *value, mapper_db_op op)
+mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
+                                       char type, int length, const void *value,
+                                       mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_map *)
             construct_query_context(db->maps, cmp_query_maps_by_property,
@@ -2464,16 +1875,16 @@ static int cmp_query_maps_by_slot_property(void *context_data, mapper_map map)
     const char *property = (const char*)(context_data + sizeof(int) * 4
                                          + sizeof(void*));
     if (!direction || direction & DI_INCOMING) {
-        if (!mapper_map_slot_property_lookup(&map->destination, property,
-                                             &type2, &value2, &length2)
+        if (!mapper_slot_property(&map->destination, property, &type2, &value2,
+                                  &length2)
             && type1 == type2 && length1 == length2
             && compare_value(op, type1, length1, value2, value1))
             return 1;
     }
     if (!direction || direction & DI_OUTGOING) {
         for (i = 0; i < map->num_sources; i++) {
-            if (!mapper_map_slot_property_lookup(&map->sources[i], property,
-                                                 &type2, &value2, &length2)
+            if (!mapper_slot_property(&map->sources[i], property, &type2,
+                                      &value2, &length2)
                 && type1 == type2 && length1 == length2
                 && compare_value(op, type1, length1, value2, value1))
                 return 1;
@@ -2482,15 +1893,14 @@ static int cmp_query_maps_by_slot_property(void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_map *mapper_db_get_maps_by_slot_property(mapper_db db,
-                                                const char *property,
-                                                char type, int length,
-                                                const void *value,
-                                                mapper_db_op op)
+mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
+                                            char type, int length,
+                                            const void *value,
+                                            mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_map *)
             construct_query_context(db->maps, cmp_query_maps_by_slot_property,
@@ -2498,15 +1908,15 @@ mapper_map *mapper_db_get_maps_by_slot_property(mapper_db db,
                                     &value, property));
 }
 
-mapper_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
-                                                    const char *property,
-                                                    char type, int length,
-                                                    const void *value,
-                                                    mapper_db_op op)
+mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
+                                                const char *property,
+                                                char type, int length,
+                                                const void *value,
+                                                mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_map *)
             construct_query_context(db->maps, cmp_query_maps_by_slot_property,
@@ -2514,15 +1924,15 @@ mapper_map *mapper_db_get_maps_by_src_slot_property(mapper_db db,
                                     &value, property));
 }
 
-mapper_map *mapper_db_get_maps_by_dest_slot_property(mapper_db db,
-                                                        const char *property,
-                                                        char type, int length,
-                                                        const void *value,
-                                                        mapper_db_op op)
+mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
+                                                 const char *property,
+                                                 char type, int length,
+                                                 const void *value,
+                                                 mapper_db_query_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op == OP_UNDEFINED || op > OP_NOT_EQUAL)
+    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_DB_QUERY_OPS)
         return 0;
     return ((mapper_map *)
             construct_query_context(db->maps, cmp_query_maps_by_slot_property,
@@ -2548,7 +1958,7 @@ static int cmp_query_device_maps(void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev)
+mapper_map *mapper_db_device_maps(mapper_db db, mapper_db_device dev)
 {
     if (!dev)
         return 0;
@@ -2557,8 +1967,7 @@ mapper_map *mapper_db_get_device_maps(mapper_db db, mapper_db_device dev)
                                     "hi", dev->id, DI_ANY));
 }
 
-mapper_map *mapper_db_get_device_outgoing_maps(mapper_db db,
-                                               mapper_db_device dev)
+mapper_map *mapper_db_device_outgoing_maps(mapper_db db, mapper_db_device dev)
 {
     if (!dev)
         return 0;
@@ -2567,58 +1976,13 @@ mapper_map *mapper_db_get_device_outgoing_maps(mapper_db db,
                                     "hi", dev->id, DI_OUTGOING));
 }
 
-mapper_map *mapper_db_get_device_incoming_maps(mapper_db db,
-                                               mapper_db_device dev)
+mapper_map *mapper_db_device_incoming_maps(mapper_db db, mapper_db_device dev)
 {
     if (!dev)
         return 0;
     return ((mapper_map *)
             construct_query_context(db->maps, cmp_query_device_maps,
                                     "hi", dev->id, DI_INCOMING));
-}
-
-static int cmp_query_maps_by_all_src_devices(void *context_data, mapper_map map)
-{
-    int num_sources = *(int*)context_data;
-    if (map->num_sources != num_sources)
-        return 0;
-    int i, j, found;
-    uint64_t *ids = (uint64_t*)(context_data + sizeof(int));
-    for (i = 0; i < num_sources; i++) {
-        found = 0;
-        for (j = 0; j < num_sources; j++) {
-            if (map->sources[j].signal->device->id == ids[i]) {
-                found = 1;
-                break;
-            }
-        }
-        if (!found)
-            return 0;
-    }
-    return 1;
-}
-
-mapper_map *mapper_db_get_maps_by_src_devices(mapper_db db, int num_sources,
-                                              mapper_db_device *devices)
-{
-    if (!db->maps || !devices || num_sources > MAX_NUM_MAP_SOURCES)
-        return 0;
-    int i;
-    uint64_t ids[num_sources];
-    for (i = 0; i < num_sources; i++) {
-        if (!devices[i])
-            return 0;
-        ids[i] = devices[i]->id;
-    }
-
-    // TODO: expand to more sources if necessary
-    die_unless(num_sources<10, "can't currently handle more than 10 sources.\n");
-    char types[4];
-    snprintf(types, 4, "ih%d", num_sources);
-
-    return ((mapper_map *)
-            construct_query_context(db->maps, cmp_query_maps_by_all_src_devices,
-                                    types, num_sources, ids));
 }
 
 static int cmp_query_signal_maps(void *context_data, mapper_map map)
@@ -2639,7 +2003,7 @@ static int cmp_query_signal_maps(void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_map *mapper_db_get_signal_maps(mapper_db db, mapper_db_signal sig)
+mapper_map *mapper_db_signal_maps(mapper_db db, mapper_db_signal sig)
 {
     if (!sig)
         return 0;
@@ -2648,8 +2012,7 @@ mapper_map *mapper_db_get_signal_maps(mapper_db db, mapper_db_signal sig)
                                     "vi", &sig, DI_ANY));
 }
 
-mapper_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
-                                               mapper_db_signal sig)
+mapper_map *mapper_db_signal_outgoing_maps(mapper_db db, mapper_db_signal sig)
 {
     if (!sig)
         return 0;
@@ -2658,8 +2021,7 @@ mapper_map *mapper_db_get_signal_outgoing_maps(mapper_db db,
                                     "vi", &sig, DI_OUTGOING));
 }
 
-mapper_map *mapper_db_get_signal_incoming_maps(mapper_db db,
-                                               mapper_db_signal sig)
+mapper_map *mapper_db_signal_incoming_maps(mapper_db db, mapper_db_signal sig)
 {
     if (!sig)
         return 0;
@@ -2706,12 +2068,12 @@ void mapper_db_remove_maps_by_query(mapper_db db, mapper_map_t **maps)
     }
 }
 
-static void free_slot(mapper_map_slot s)
+static void free_slot(mapper_slot slot)
 {
-    if (s->minimum)
-        free(s->minimum);
-    if (s->maximum)
-        free(s->maximum);
+    if (slot->minimum)
+        free(slot->minimum);
+    if (slot->maximum)
+        free(slot->maximum);
 }
 
 void mapper_db_remove_map(mapper_db db, mapper_map map)
@@ -2745,7 +2107,7 @@ void mapper_db_remove_map(mapper_db db, mapper_map map)
     if (map->expression)
         free(map->expression);
     if (map->extra)
-        table_free(map->extra, 1);
+        table_free(map->extra);
     list_free_item(map);
 }
 
@@ -2767,16 +2129,16 @@ void mapper_db_remove_all_callbacks(mapper_db db)
 }
 
 #ifdef DEBUG
-static void print_map_slot(const char *label, int index, mapper_map_slot s)
+static void print_slot(const char *label, int index, mapper_slot s)
 {
     printf("%s", label);
     if (index > -1)
         printf(" %d", index);
     printf(": '%s':'%s'\n", s->signal->device->name, s->signal->name);
     printf("         bound_min=%s\n",
-           mapper_get_boundary_action_string(s->bound_min));
+           mapper_boundary_action_string(s->bound_min));
     printf("         bound_max=%s\n",
-           mapper_get_boundary_action_string(s->bound_max));
+           mapper_boundary_action_string(s->bound_max));
     if (s->minimum) {
         printf("         minimum=");
         mapper_prop_pp(s->type, s->length, s->minimum);
@@ -2801,7 +2163,7 @@ void mapper_db_dump(mapper_db db)
     while (dev) {
         printf("  name='%s', host='%s', port=%d, id=%llu\n",
                dev->name, dev->host, dev->port, dev->id);
-        dev = list_get_next(dev);
+        dev = list_next(dev);
     }
 
     mapper_db_signal sig = db->signals;
@@ -2823,7 +2185,7 @@ void mapper_db_dump(mapper_db db)
                 printf("(unknown)\n");
                 break;
         }
-        sig = list_get_next(sig);
+        sig = list_next(sig);
     }
 
     mapper_map map = db->maps;
@@ -2831,16 +2193,16 @@ void mapper_db_dump(mapper_db db)
     while (map) {
         printf("  id=%llu\n", map->id);
         if (map->num_sources == 1)
-            print_map_slot("    source slot", -1, &map->sources[0]);
+            print_slot("    source slot", -1, &map->sources[0]);
         else {
             for (i = 0; i < map->num_sources; i++)
-                print_map_slot("    source slot", i, &map->sources[i]);
+                print_slot("    source slot", i, &map->sources[i]);
         }
-        print_map_slot("    destination slot", -1, &map->destination);
-        printf("    mode='%s'\n", mapper_get_mode_type_string(map->mode));
+        print_slot("    destination slot", -1, &map->destination);
+        printf("    mode='%s'\n", mapper_mode_type_string(map->mode));
         printf("    expression='%s'\n", map->expression);
         printf("    muted='%s'\n", map->muted ? "yes" : "no");
-        map = list_get_next(map);
+        map = list_next(map);
     }
 #endif
 }

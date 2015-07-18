@@ -124,8 +124,9 @@ void loop()
 
         // wait until mapping has been established
         while (!done && mdev_num_outgoing_maps(devices[0]) < 2) {
-            mdev_poll(devices[0], 10);
-            mdev_poll(devices[1], 10);
+            mdev_poll(devices[0], 100);
+            mdev_poll(devices[1], 100);
+            printf("waiting (%d outgoing maps)\n", mdev_num_outgoing_maps(devices[0]));
         }
 
         mmon_free(mon);

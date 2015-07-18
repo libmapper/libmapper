@@ -102,9 +102,9 @@ int setup_maps()
 
     mapper_db_signal src = &sendsig->props;
     mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
-    map->mode = MO_EXPRESSION;
-    map->expression = "y=x*10";
-    map->flags = MAP_MODE | MAP_EXPRESSION;
+    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_expression(map, "y=x*10");
+
     mmon_update_map(mon, map);
 
     // wait until mapping has been established

@@ -59,8 +59,8 @@ int check_keys(mapper_db_signal sigprop)
     const void *val;
     char type;
     int i=0, seen=0, length;
-    while (!mapper_db_signal_property_index(sigprop, i++, &key,
-                                            &type, &val, &length))
+    while (!mapper_db_signal_property_index(sigprop, i++, &key, &type,
+                                            &val, &length))
     {
         seen |= seen_code(key);
     }
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
     char type;
     const void *val;
     int length;
-    if (mapper_db_signal_property_lookup(sigprop, "test", &type, &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -213,7 +213,7 @@ int main(int argc, char **argv)
 
     /* Test the type and value associated with "x". */
     eprintf("Test 7:  retrieving property 'x'...");
-    if (mapper_db_signal_property_lookup(sigprop, "x", &type, &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "x", &type, &val, &length)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -250,8 +250,7 @@ int main(int argc, char **argv)
     /* Check that there is no value associated with previously-removed
      * "test". */
     eprintf("Test 8:  retrieving removed property 'test': ");
-    if (!mapper_db_signal_property_lookup(sigprop, "test", &type,
-                                          &val, &length)) {
+    if (!mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -262,8 +261,7 @@ int main(int argc, char **argv)
     /* Check that there is an integer value associated with static,
      * required property "length". */
     eprintf("Test 9:  retrieving static, required property 'length'... ");
-    if (mapper_db_signal_property_lookup(sigprop, "length", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "length", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -301,8 +299,7 @@ int main(int argc, char **argv)
     /* Check that there is a string value associated with static,
      * required property "name". */
     eprintf("Test 10: retrieving static, required property 'name'... ");
-    if (mapper_db_signal_property_lookup(sigprop, "name", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "name", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -340,8 +337,7 @@ int main(int argc, char **argv)
     /* Check that there is a float value associated with static,
      * optional property "max". */
     eprintf("Test 11: retrieving static, optional property 'max'... ");
-    if (mapper_db_signal_property_lookup(sigprop, "max", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "max", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -390,8 +386,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 13: retrieving optional property 'max': ");
-    if (!mapper_db_signal_property_lookup(sigprop, "max", &type,
-                                          &val, &length)) {
+    if (!mapper_db_signal_property(sigprop, "max", &type, &val, &length)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -416,8 +411,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 15: retrieving vector property 'test': ");
-    if (mapper_db_signal_property_lookup(sigprop, "test", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -477,8 +471,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 17: retrieving property 'test'... ");
-    if (mapper_db_signal_property_lookup(sigprop, "test", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -538,8 +531,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 19: retrieving property 'test'... ");
-    if (mapper_db_signal_property_lookup(sigprop, "test", &type,
-                                         &val, &length)) {
+    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;

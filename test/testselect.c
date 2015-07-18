@@ -173,8 +173,8 @@ void select_on_both_devices(int block_ms)
 
     int mfd = -1;
 
-    nfds1 = mdev_get_fds(source, fds1, nfds1);
-    nfds2 = mdev_get_fds(destination, fds2, nfds2);
+    nfds1 = mdev_fds(source, fds1, nfds1);
+    nfds2 = mdev_fds(destination, fds2, nfds2);
 
     FD_ZERO(&fdr);
     for (i = 0; i < nfds1; i++) {
@@ -215,12 +215,12 @@ void select_on_both_devices(int block_ms)
         timersub(&then, &now, &timeout);
     }
 
-    if (!updated) {
+//    if (!updated) {
         /* If nothing happened in 100 ms, we should poll the devices
          * anyways in case action needs to be taken. */
         mdev_poll(source, 0);
         mdev_poll(destination, 0);
-    }
+//    }
 }
 
 void loop()

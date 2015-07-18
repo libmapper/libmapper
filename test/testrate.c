@@ -55,8 +55,7 @@ int setup_source()
     const float *a;
     char t;
     int l;
-    if (mapper_db_signal_property_lookup(props, "rate", &t,
-                                         (const void**)&a, &l))
+    if (mapper_db_signal_property(props, "rate", &t, (const void**)&a, &l))
     {
         eprintf("Couldn't find `rate' property.\n");
         mdev_free(source);

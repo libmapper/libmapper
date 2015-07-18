@@ -20,9 +20,9 @@ static void *msig_instance_value_internal(mapper_signal sig,
                                           int instance_index,
                                           mapper_timetag_t *timetag);
 
-static int msig_get_oldest_active_instance_internal(mapper_signal sig);
+static int msig_oldest_active_instance_internal(mapper_signal sig);
 
-static int msig_get_newest_active_instance_internal(mapper_signal sig);
+static int msig_newest_active_instance_internal(mapper_signal sig);
 
 static int compare_ids(const void *l, const void *r)
 {
@@ -120,7 +120,7 @@ void msig_free(mapper_signal sig)
     if (sig->has_complete_value)
         free(sig->has_complete_value);
     if (sig->props.extra)
-        table_free(sig->props.extra, 1);
+        table_free(sig->props.extra);
     free(sig);
 }
 
@@ -140,7 +140,7 @@ void msig_update(mapper_signal sig, void *value,
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0, ttp);
+        index = msig_instance_with_local_id(sig, 0, 0, ttp);
     msig_update_internal(sig, index, value, count, *ttp);
 }
 
@@ -171,7 +171,7 @@ void msig_update_int(mapper_signal sig, int value)
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0, tt);
+        index = msig_instance_with_local_id(sig, 0, 0, tt);
     msig_update_internal(sig, index, &value, 1, *tt);
 }
 
@@ -202,7 +202,7 @@ void msig_update_float(mapper_signal sig, float value)
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0, tt);
+        index = msig_instance_with_local_id(sig, 0, 0, tt);
     msig_update_internal(sig, index, &value, 1, *tt);
 }
 
@@ -233,7 +233,7 @@ void msig_update_double(mapper_signal sig, double value)
 
     int index = 0;
     if (!sig->id_maps[0].instance)
-        index = msig_get_instance_with_local_id(sig, 0, 0, tt);
+        index = msig_instance_with_local_id(sig, 0, 0, tt);
     msig_update_internal(sig, index, &value, 1, *tt);
 }
 
@@ -289,7 +289,7 @@ int msig_find_instance_with_global_id(mapper_signal sig, uint64_t global_id,
     return -1;
 }
 
-static mapper_signal_instance get_reserved_instance(mapper_signal sig)
+static mapper_signal_instance reserved_instance(mapper_signal sig)
 {
     int i;
     for (i = 0; i < sig->props.num_instances; i++) {
@@ -300,8 +300,8 @@ static mapper_signal_instance get_reserved_instance(mapper_signal sig)
     return 0;
 }
 
-int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
-                                    int flags, mapper_timetag_t *tt)
+int msig_instance_with_local_id(mapper_signal sig, int instance_id,
+                                int flags, mapper_timetag_t *tt)
 {
     if (!sig)
         return 0;
@@ -330,7 +330,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
             map = mdev_add_instance_id_map(sig->device, instance_id,
-                                           mdev_get_unique_id(sig->device));
+                                           mdev_unique_id(sig->device));
         }
         else {
             map->refcount_local++;
@@ -354,14 +354,14 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
-            i = msig_get_oldest_active_instance_internal(sig);
+            i = msig_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
                          0, 0, tt);
         }
         else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
-            i = msig_get_newest_active_instance_internal(sig);
+            i = msig_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
@@ -378,7 +378,7 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
         if (!map) {
             // Claim id map locally add id map to device and link from signal
             map = mdev_add_instance_id_map(sig->device, instance_id,
-                                           mdev_get_unique_id(sig->device));
+                                           mdev_unique_id(sig->device));
         }
         else {
             map->refcount_local++;
@@ -395,8 +395,8 @@ int msig_get_instance_with_local_id(mapper_signal sig, int instance_id,
     return -1;
 }
 
-int msig_get_instance_with_global_id(mapper_signal sig, uint64_t global_id,
-                                     int flags, mapper_timetag_t *tt)
+int msig_instance_with_global_id(mapper_signal sig, uint64_t global_id,
+                                 int flags, mapper_timetag_t *tt)
 {
     if (!sig)
         return 0;
@@ -427,7 +427,7 @@ int msig_get_instance_with_global_id(mapper_signal sig, uint64_t global_id,
          * object class A is not related to instance 1 of object B. */
         // TODO: add object groups for explictly sharing id maps
 
-        if ((si = get_reserved_instance(sig))) {
+        if ((si = reserved_instance(sig))) {
             map = mdev_add_instance_id_map(sig->device, si->id, global_id);
             map->refcount_global = 1;
 
@@ -475,14 +475,14 @@ int msig_get_instance_with_global_id(mapper_signal sig, uint64_t global_id,
     }
     else if (sig->handler) {
         if (sig->instance_allocation_type == IN_STEAL_OLDEST) {
-            i = msig_get_oldest_active_instance_internal(sig);
+            i = msig_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
                          0, 0, tt);
         }
         else if (sig->instance_allocation_type == IN_STEAL_NEWEST) {
-            i = msig_get_newest_active_instance_internal(sig);
+            i = msig_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             sig->handler(sig, &sig->props, sig->id_maps[i].map->local,
@@ -496,7 +496,7 @@ int msig_get_instance_with_global_id(mapper_signal sig, uint64_t global_id,
 
     // try again
     if (!map) {
-        if ((si = get_reserved_instance(sig))) {
+        if ((si = reserved_instance(sig))) {
             map = mdev_add_instance_id_map(sig->device, si->id, global_id);
             map->refcount_global = 1;
 
@@ -559,7 +559,7 @@ static int msig_reserve_instance_internal(mapper_signal sig, int *id,
     sig->instances[sig->props.num_instances] =
         (mapper_signal_instance) calloc(1, sizeof(struct _mapper_signal_instance));
     si = sig->instances[sig->props.num_instances];
-    si->value = calloc(1, msig_vector_bytes(sig));
+    si->value = calloc(1, msig_vector_bytes(&sig->props));
     si->has_value_flags = calloc(1, sig->props.length / 8 + 1);
     si->has_value = 0;
 
@@ -639,15 +639,15 @@ void msig_update_instance(mapper_signal sig, int instance_id,
         return;
     }
 
-    int index = msig_get_instance_with_local_id(sig, instance_id, 0, &timetag);
+    int index = msig_instance_with_local_id(sig, instance_id, 0, &timetag);
     if (index >= 0)
         msig_update_internal(sig, index, value, count, timetag);
 }
 
 
-int msig_get_oldest_active_instance(mapper_signal sig, int *id)
+int msig_oldest_active_instance(mapper_signal sig, int *id)
 {
-    int index = msig_get_oldest_active_instance_internal(sig);
+    int index = msig_oldest_active_instance_internal(sig);
     if (index < 0)
         return 1;
     else
@@ -655,7 +655,7 @@ int msig_get_oldest_active_instance(mapper_signal sig, int *id)
     return 0;
 }
 
-int msig_get_oldest_active_instance_internal(mapper_signal sig)
+int msig_oldest_active_instance_internal(mapper_signal sig)
 {
     int i;
     mapper_signal_instance si;
@@ -679,9 +679,9 @@ int msig_get_oldest_active_instance_internal(mapper_signal sig)
     return oldest;
 }
 
-int msig_get_newest_active_instance(mapper_signal sig, int *id)
+int msig_newest_active_instance(mapper_signal sig, int *id)
 {
-    int index = msig_get_newest_active_instance_internal(sig);
+    int index = msig_newest_active_instance_internal(sig);
     if (index < 0)
         return 1;
     else
@@ -689,7 +689,7 @@ int msig_get_newest_active_instance(mapper_signal sig, int *id)
     return 0;
 }
 
-int msig_get_newest_active_instance_internal(mapper_signal sig)
+int msig_newest_active_instance_internal(mapper_signal sig)
 {
     int i;
     mapper_signal_instance si;
@@ -726,7 +726,7 @@ static void msig_update_internal(mapper_signal sig,
 
     if (value) {
         if (count<=0) count=1;
-        size_t n = msig_vector_bytes(sig);
+        size_t n = msig_vector_bytes(&sig->props);
         memcpy(si->value, value + n*(count-1), n);
         si->has_value = 1;
     }
@@ -870,8 +870,7 @@ void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id)
     mdev_now(from->device, &tt);
 
     // Get "to" instance with same map
-    msig_get_instance_with_global_id(to, from->id_maps[index].map->global,
-                                     0, &tt);
+    msig_instance_with_global_id(to, from->id_maps[index].map->global, 0, &tt);
 }
 
 int msig_num_active_instances(mapper_signal sig)
@@ -917,7 +916,7 @@ void msig_set_instance_allocation_mode(mapper_signal sig,
         sig->instance_allocation_type = mode;
 }
 
-mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal sig)
+mapper_instance_allocation_type msig_instance_allocation_mode(mapper_signal sig)
 {
     if (sig)
         return sig->instance_allocation_type;
@@ -968,8 +967,7 @@ void msig_set_instance_data(mapper_signal sig,
         si->user_data = user_data;
 }
 
-void *msig_get_instance_data(mapper_signal sig,
-                             int instance_id)
+void *msig_instance_data(mapper_signal sig, int instance_id)
 {
     mapper_signal_instance si = find_instance_by_id(sig, instance_id);
     if (si)
@@ -1039,8 +1037,8 @@ void msig_set_minimum(mapper_signal sig, void *minimum)
 {
     if (minimum) {
         if (!sig->props.minimum)
-            sig->props.minimum = malloc(msig_vector_bytes(sig));
-        memcpy(sig->props.minimum, minimum, msig_vector_bytes(sig));
+            sig->props.minimum = malloc(msig_vector_bytes(&sig->props));
+        memcpy(sig->props.minimum, minimum, msig_vector_bytes(&sig->props));
     }
     else {
         if (sig->props.minimum)
@@ -1053,8 +1051,8 @@ void msig_set_maximum(mapper_signal sig, void *maximum)
 {
     if (maximum) {
         if (!sig->props.maximum)
-            sig->props.maximum = malloc(msig_vector_bytes(sig));
-        memcpy(sig->props.maximum, maximum, msig_vector_bytes(sig));
+            sig->props.maximum = malloc(msig_vector_bytes(&sig->props));
+        memcpy(sig->props.maximum, maximum, msig_vector_bytes(&sig->props));
     }
     else {
         if (sig->props.maximum)
@@ -1138,6 +1136,12 @@ void msig_set_property(mapper_signal sig, const char *property,
 
     mapper_table_add_or_update_typed_value(sig->props.extra, property,
                                            type, value, length);
+}
+
+int msig_property(mapper_signal sig, const char *property, char *type,
+                  const void **value, int *length)
+{
+    return mapper_db_signal_property(&sig->props, property, type, value, length);
 }
 
 void msig_remove_property(mapper_signal sig, const char *property)
@@ -1240,4 +1244,59 @@ void message_add_coerced_signal_instance_value(lo_message m,
     }
     for (i = min_length; i < length; i++)
         lo_message_add_nil(m);
+}
+
+void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
+{
+    /* unique id */
+    lo_message_add_string(msg, mapper_param_string(AT_ID));
+    lo_message_add_int64(msg, sig->props.id);
+
+    /* direction */
+    lo_message_add_string(msg, mapper_param_string(AT_DIRECTION));
+    if (sig->props.direction == DI_BOTH)
+        lo_message_add_string(msg, "both");
+    else if (sig->props.direction == DI_OUTGOING)
+        lo_message_add_string(msg, "output");
+    else
+        lo_message_add_string(msg, "input");
+
+    /* data type */
+    lo_message_add_string(msg, mapper_param_string(AT_TYPE));
+    lo_message_add_char(msg, sig->props.type);
+
+    /* vector length */
+    lo_message_add_string(msg, mapper_param_string(AT_LENGTH));
+    lo_message_add_int32(msg, sig->props.length);
+
+    /* unit */
+    if (sig->props.unit) {
+        lo_message_add_string(msg, mapper_param_string(AT_UNITS));
+        lo_message_add_string(msg, sig->props.unit);
+    }
+
+    /* minimum */
+    if (sig->props.minimum) {
+        lo_message_add_string(msg, mapper_param_string(AT_MIN));
+        mapper_message_add_typed_value(msg, sig->props.type, sig->props.length,
+                                       sig->props.minimum);
+    }
+
+    /* maximum */
+    if (sig->props.maximum) {
+        lo_message_add_string(msg, mapper_param_string(AT_MAX));
+        mapper_message_add_typed_value(msg, sig->props.type, sig->props.length,
+                                       sig->props.maximum);
+    }
+
+    /* number of instances */
+    lo_message_add_string(msg, mapper_param_string(AT_INSTANCES));
+    lo_message_add_int32(msg, sig->props.num_instances);
+
+    /* update rate */
+    lo_message_add_string(msg, mapper_param_string(AT_RATE));
+    lo_message_add_float(msg, sig->props.rate);
+
+    /* "extra" properties */
+    mapper_message_add_value_table(msg, sig->props.extra);
 }

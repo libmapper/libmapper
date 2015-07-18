@@ -33,12 +33,21 @@ struct _mapper_admin_allocated_t;
 struct _mapper_device;
 struct _mapper_id_map;
 
+typedef struct {
+    char type;
+    union {
+        int indirect;
+        int alt_type;
+    };
+    int length;     // lengths stored as negatives, lookup lengths as offsets
+    int offset;
+} property_table_value_t;
+
 /**** String tables ****/
 
-/*! A pair representing an arbitrary parameter value and its
- *  type. (Re-using liblo's OSC-oriented lo_arg data structure.) If
- *  type is a string, the allocated size may be longer than
- *  sizeof(mapper_osc_arg_t). */
+/*! A pair representing an arbitrary parameter value and its type. (Re-using
+ *  liblo's OSC-oriented lo_arg data structure.) If type is a string, the
+ *  allocated size may be longer than sizeof(mapper_prop_value_t). */
 typedef struct _mapper_prop_value {
     char type;
     int length;
@@ -81,8 +90,8 @@ typedef enum {
     ADM_UNSUBSCRIBE,
     ADM_SYNC,
     ADM_WHO,
-    N_ADM_STRINGS
-} admin_msg_t;
+    NUM_ADM_STRINGS
+} admin_message_t;
 
 /*! Function to call when an allocated resource is locked. */
 typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
@@ -218,24 +227,40 @@ typedef struct _mapper_link {
 #define MAPPER_READY        0x07
 #define MAPPER_ACTIVE       0x17
 
-#define MAPPER_SOURCE       0x01
-#define MAPPER_DESTINATION  0x02
-
 #define MAX_NUM_MAP_SOURCES 8    // arbitrary
 
 typedef struct _mapper_slot_internal {
     // each slot can point to local signal or a remote link structure
-    struct _mapper_map_internal *map;       //!< Parent mapping.
-    struct _mapper_router_signal *local;    //!< Parent signal if local
+    struct _mapper_router_signal *router_sig;    //!< Parent signal if local
     mapper_link link;                       //!< Remote device if not local
 
     mapper_history history;                 /*!< Array of value histories
                                              *   for each signal instance. */
-    mapper_map_slot props;
     int history_size;                       //!< History size.
     char status;
-    char calibrating;
 } mapper_slot_internal_t, *mapper_slot_internal;
+
+// TODO: remove type, length, flags
+typedef struct _mapper_slot {
+    mapper_slot_internal local;         //!< Pointer to local resources if any
+    struct _mapper_map *map;            //!< Pointer to parent map
+    mapper_db_signal signal;            //!< Pointer to parent signal
+
+    void *minimum;                      //!< Array of minima, or NULL for N/A
+    void *maximum;                      //!< Array of maxima, or NULL for N/A
+    int id;                             //!< Slot ID
+    int length;
+    int num_instances;
+    int flags;
+    int direction;                      //!< DI_INCOMING or DI_OUTGOING
+    int cause_update;                   //!< 1 to cause update, 0 otherwise.
+    int send_as_instance;               //!< 1 to send as instance, 0 otherwise.
+
+    mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
+    mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
+    int calibrating;                    //!< >1 if calibrating, 0 otherwise
+    char type;
+} mapper_slot_t, *mapper_slot;
 
 /*! The mapper_map_internal structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple inputs or outputs. This
@@ -245,10 +270,6 @@ typedef struct _mapper_map_internal {
     struct _mapper_router *router;
     int is_admin;
     int is_local;
-    mapper_map_t props;
-
-    mapper_slot_internal sources;
-    mapper_slot_internal_t destination;
 
     // TODO: move expr_vars into expr structure?
     mapper_expr expr;                       //!< The mapping expression.
@@ -258,12 +279,32 @@ typedef struct _mapper_map_internal {
 
     int status;
     int one_source;
-    char *expression;
+
     mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
-    
-    struct _mapper_map_internal *complement;/*!< Pointer to complement in case
-                                             *   of self-connection. */
+
 } mapper_map_internal_t, *mapper_map_internal;
+
+/*! A record that describes the properties of a mapping.
+ *  @ingroup mapdb */
+typedef struct _mapper_map {
+    mapper_map_internal local;
+    mapper_slot sources;
+    mapper_slot_t destination;
+    uint64_t id;                        //!< Unique id identifying this map
+
+    struct _mapper_map_scope scope;
+
+    /*! Extra properties associated with this map. */
+    struct _mapper_string_table *extra;
+    struct _mapper_string_table *updater;
+
+    char *expression;
+
+    mapper_mode_type mode;              //!< MO_LINEAR or MO_EXPRESSION
+    int muted;                          //!< 1 to mute mapping, 0 to unmute
+    int num_sources;
+    int process_location;               //!< 1 for source, 0 for destination
+} mapper_map_t, *mapper_map;
 
 /*! The router_signal is a linked list containing a signal and a list of
  *  mappings.  TODO: This should be replaced with a more efficient approach
@@ -272,7 +313,7 @@ typedef struct _mapper_router_signal {
     struct _mapper_router *link;        //!< The parent link.
     struct _mapper_signal *signal;      //!< The associated signal.
 
-    mapper_slot_internal *slots;
+    mapper_slot *slots;
     int num_slots;
     int id_counter;
 
@@ -362,53 +403,50 @@ typedef struct _mapper_monitor {
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    AT_CALIBRATING,
-    AT_CAUSE_UPDATE,
-    AT_DEST_BOUND_MAX,
-    AT_DEST_BOUND_MIN,
-    AT_DEST_LENGTH,
-    AT_DEST_MAX,
-    AT_DEST_MIN,
-    AT_DEST_TYPE,
-    AT_DIRECTION,
-    AT_EXPRESSION,
-    AT_HOST,
-    AT_ID,
-    AT_INSTANCES,
-    AT_LENGTH,
-    AT_LIB_VERSION,
-    AT_MAX,
-    AT_MIN,
-    AT_MODE,
-    AT_MUTE,
-    AT_NUM_INCOMING_MAPS,
-    AT_NUM_OUTGOING_MAPS,
-    AT_NUM_INPUTS,
-    AT_NUM_OUTPUTS,
-    AT_PORT,
-    AT_PROCESS,
-    AT_RATE,
-    AT_REV,
-    AT_SCOPE,
-    AT_SEND_AS_INSTANCE,
-    AT_SLOT,
-    AT_SRC_BOUND_MAX,
-    AT_SRC_BOUND_MIN,
-    AT_SRC_LENGTH,
-    AT_SRC_MAX,
-    AT_SRC_MIN,
-    AT_SRC_TYPE,
-    AT_TYPE,
-    AT_UNITS,
-    AT_EXTRA,
-    N_AT_PARAMS
-} mapper_msg_param_t;
+    AT_BOUND_MAX,           /* 0x00 */
+    AT_BOUND_MIN,           /* 0x01 */
+    AT_CALIBRATING,         /* 0x02 */
+    AT_CAUSE_UPDATE,        /* 0x03 */
+    AT_DIRECTION,           /* 0x04 */
+    AT_EXPRESSION,          /* 0x05 */
+    AT_HOST,                /* 0x06 */
+    AT_ID,                  /* 0x07 */
+    AT_INSTANCES,           /* 0x08 */
+    AT_LENGTH,              /* 0x09 */
+    AT_LIB_VERSION,         /* 0x0A */
+    AT_MAX,                 /* 0x0B */
+    AT_MIN,                 /* 0x0C */
+    AT_MODE,                /* 0x0D */
+    AT_MUTE,                /* 0x0E */
+    AT_NUM_INCOMING_MAPS,   /* 0x0F */
+    AT_NUM_OUTGOING_MAPS,   /* 0x10 */
+    AT_NUM_INPUTS,          /* 0x11 */
+    AT_NUM_OUTPUTS,         /* 0x12 */
+    AT_PORT,                /* 0x13 */
+    AT_PROCESS,             /* 0x14 */
+    AT_RATE,                /* 0x15 */
+    AT_REV,                 /* 0x16 */
+    AT_SCOPE,               /* 0x17 */
+    AT_SEND_AS_INSTANCE,    /* 0x18 */
+    AT_SLOT,                /* 0x19 */
+    AT_TYPE,                /* 0x1A */
+    AT_UNITS,               /* 0x1B */
+    AT_EXTRA,               /* 0x1C */
+    NUM_AT_PARAMS           /* 0x1D */
+} mapper_message_param_t;
+
+#define PARAM_ADD                   0x20
+#define PARAM_REMOVE                0x40
+#define DST_SLOT_PARAM              0x80
+// currently 8 bits are used for @param enum, add/remove, and dest slot
+#define SRC_SLOT_PARAM_BIT_OFFSET   8
+#define SRC_SLOT_PARAM(index)       ((index + 1) << SRC_SLOT_PARAM_BIT_OFFSET)
 
 /* Maximum number of "extra" signal parameters. */
-#define N_EXTRA_PARAMS 20
+#define NUM_EXTRA_PARAMS 20
 
-/*! Strings that correspond to mapper_msg_param_t. */
-extern const char* mapper_msg_param_strings[];
+/*! Strings that correspond to mapper_message_param_t. */
+extern const char* mapper_message_param_strings[];
 
 /*! Strings that correspond to mapper_boundary_action, defined in
  *  mapper_db.h. */
@@ -425,15 +463,19 @@ extern const char* mapper_mode_type_strings[];
  *  that may be specified for a signal and used for metadata, which
  *  will be added to a general-purpose string table associated with
  *  the signal. */
+typedef struct _mapper_message_atom
+{
+    const char *key;
+    lo_arg **values;
+    const char *types;
+    int length;
+    int index;
+} mapper_message_atom_t, *mapper_message_atom;
+
 typedef struct _mapper_message
 {
-    const char *path;               //!< OSC address.
-    lo_arg **values[N_AT_PARAMS];   //!< Array of parameter values.
-    const char *types[N_AT_PARAMS]; //!< Array of types for each value.
-    int lengths[N_AT_PARAMS];       //!< Array of lengths for each value.
-    lo_arg **extra_args[N_EXTRA_PARAMS]; //!< Pointers to extra parameters.
-    char extra_types[N_EXTRA_PARAMS];    //!< Types of extra parameters.
-    char extra_lengths[N_EXTRA_PARAMS];  //!< Lengths of extra parameters.
-} mapper_message_t;
+    mapper_message_atom_t *atoms;
+    int num_atoms;
+} mapper_message_t, *mapper_message;
 
 #endif // __MAPPER_TYPES_H__

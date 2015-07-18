@@ -26,7 +26,6 @@ const int polltime_ms = 100;
 const char *mode_strings[] =
 {
     "undefined",
-    "none",
     "raw",
     "linear",
     "expression"
@@ -66,8 +65,7 @@ void printdevice(mapper_db_device dev)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_device_property_index(dev, i++, &key, &type,
-                                           &val, &length))
+    while(!mapper_db_device_property_index(dev, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -116,8 +114,7 @@ void printsignal(mapper_db_signal sig)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_signal_property_index(sig, i++, &key, &type,
-                                           &val, &length))
+    while(!mapper_db_signal_property_index(sig, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -135,7 +132,7 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
-void printslot(mapper_map_slot slot)
+void printslot(mapper_slot slot)
 {
     printf("%s/%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
@@ -143,7 +140,7 @@ void printslot(mapper_map_slot slot)
     char type;
     const void *val;
     int length;
-    while(!mapper_map_slot_property_index(slot, i++, &key, &type, &val, &length))
+    while(!mapper_slot_property_index(slot, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -212,7 +209,7 @@ int setup_monitor()
         goto error;
     printf("Monitor created.\n");
 
-    db = mmon_get_db(mon);
+    db = mmon_db(mon);
 
     return 0;
 
@@ -249,7 +246,7 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered devices and signals:\n");
-        mapper_db_device *pdev = mapper_db_get_devices(db), tempdev;
+        mapper_db_device *pdev = mapper_db_devices(db), tempdev;
         mapper_db_signal *psig, tempsig;
         while (pdev) {
             tempdev = *pdev;
@@ -257,7 +254,7 @@ void loop()
             printdevice(tempdev);
 
             int numsigs = tempdev->num_outputs;
-            psig = mapper_db_get_device_outputs(db, tempdev);
+            psig = mapper_db_device_outputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
@@ -265,7 +262,7 @@ void loop()
                 printsignal(tempsig);
             }
             numsigs = tempdev->num_inputs;
-            psig = mapper_db_get_device_inputs(db, tempdev);
+            psig = mapper_db_device_inputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_db_signal_next(psig);
@@ -277,7 +274,7 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered maps:\n");
-        mapper_map *pmap = mapper_db_get_maps(db);
+        mapper_map *pmap = mapper_db_maps(db);
         while (pmap) {
             printmap(*pmap);
             pmap = mapper_db_map_query_next(pmap);

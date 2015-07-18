@@ -18,7 +18,7 @@
 #include <pthread.h>
 #endif
 
-extern const char* admin_msg_strings[N_ADM_STRINGS];
+extern const char* admin_message_strings[NUM_ADM_STRINGS];
 
 /*! Internal function to get the current time. */
 static double get_current_time()
@@ -132,8 +132,16 @@ void mdev_free(mapper_device md)
 
     if (md->registered) {
         // A registered device must tell the network it is leaving.
-        mapper_admin_set_bundle_dest_bus(md->admin);
-        mapper_admin_bundle_message(md->admin, ADM_LOGOUT, 0, "s", mdev_name(md));
+        lo_message msg = lo_message_new();
+        if (msg) {
+            lo_message_add_string(msg, mdev_name(md));
+            mapper_admin_set_bundle_dest_bus(md->admin);
+            lo_bundle_add_message(md->admin->bundle,
+                                  admin_message_strings[ADM_WHO], 0);
+        }
+        else {
+            trace("couldn't allocate lo_message for /logout\n");
+        }
     }
 
     // Links reference parent signals so release them first
@@ -162,7 +170,7 @@ void mdev_free(mapper_device md)
         free(md->router);
     }
     if (md->props.extra)
-        table_free(md->props.extra, 1);
+        table_free(md->props.extra);
     if (md->props.identifier)
         free(md->props.identifier);
     if (md->props.name)
@@ -263,11 +271,11 @@ static int handler_signal(const char *path, const char *types,
     mapper_signal sig = (mapper_signal) user_data;
     mapper_device md;
     int i = 0, j, k, count = 1, nulls = 0;
-    int is_instance_update = 0, id_map_index, slot = -1;
+    int is_instance_update = 0, id_map_index, slot_index = -1;
     uint64_t instance_id;
     mapper_id_map id_map;
-    mapper_map_internal map = 0;
-    mapper_slot_internal s = 0;
+    mapper_map map = 0;
+    mapper_slot slot = 0;
 
     if (!sig || !(md = sig->device)) {
 #ifdef DEBUG
@@ -318,7 +326,7 @@ static int handler_signal(const char *path, const char *types,
 #endif
                 return 0;
             }
-            slot = argv[argnum+1]->i32;
+            slot_index = argv[argnum+1]->i32;
             argnum += 2;
         }
         else {
@@ -330,31 +338,30 @@ static int handler_signal(const char *path, const char *types,
         }
     }
 
-    if (slot >= 0) {
-        // check if we have a combiner for this signal
+    if (slot_index >= 0) {
         // retrieve mapping associated with this slot
-        s = mapper_router_find_map_slot(md->router, sig, slot);
-        if (!s) {
+        slot = mapper_router_find_slot(md->router, sig, slot_index);
+        if (!slot) {
 #ifdef DEBUG
-            printf("error in handler_signal: slot %d not found.\n", slot);
+            printf("error in handler_signal: slot %d not found.\n", slot_index);
 #endif
             return 0;
         }
-        map = s->map;
-        if (map->status < MAPPER_READY) {
+        map = slot->map;
+        if (map->local->status < MAPPER_READY) {
 #ifdef DEBUG
             printf("error in handler_signal: mapping not yet ready.\n");
 #endif
             return 0;
         }
-        if (!map->expr) {
+        if (!map->local->expr) {
 #ifdef DEBUG
             printf("error in handler_signal: missing expression.\n");
 #endif
             return 0;
         }
-        if (map->props.process_location == MAPPER_DESTINATION) {
-            count = check_types(types, value_len, s->props->type, s->props->length);
+        if (map->process_location == LOC_DESTINATION) {
+            count = check_types(types, value_len, slot->type, slot->length);
         }
         else {
             // value has already been processed at source device
@@ -385,8 +392,7 @@ static int handler_signal(const char *path, const char *types,
                 return 0;
             }
             // otherwise try to init reserved/stolen instance with device map
-            id_map_index = msig_get_instance_with_global_id(sig, instance_id,
-                                                            0, &tt);
+            id_map_index = msig_instance_with_global_id(sig, instance_id, 0, &tt);
             if (id_map_index < 0) {
 #ifdef DEBUG
                 printf("no local instances available for global instance id"
@@ -422,22 +428,21 @@ static int handler_signal(const char *path, const char *types,
     else {
         id_map_index = 0;
         if (!sig->id_maps[0].instance)
-            id_map_index = msig_get_instance_with_local_id(sig, 0, 1, &tt);
+            id_map_index = msig_instance_with_local_id(sig, 0, 1, &tt);
         if (id_map_index < 0)
             return 0;
     }
     mapper_signal_instance si = sig->id_maps[id_map_index].instance;
     id_map = sig->id_maps[id_map_index].map;
 
-    int size = (s ? mapper_type_size(s->props->type)
-                : mapper_type_size(sig->props.type));
+    int size = (slot ? mapper_type_size(slot->type) : mapper_type_size(sig->props.type));
     void *out_buffer = alloca(count * value_len * size);
     int vals, out_count = 0, active = 1;
 
     if (map) {
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
-            for (j = 0; j < s->props->length; j++, k++) {
+            for (j = 0; j < slot->length; j++, k++) {
                 vals += (types[k] != 'N');
             }
             /* partial vector updates not allowed in convergent mappings
@@ -470,7 +475,7 @@ static int handler_signal(const char *path, const char *types,
                 }
                 continue;
             }
-            else if (vals != s->props->length) {
+            else if (vals != slot->length) {
 #ifdef DEBUG
                 printf("error in handler_signal: partial vector update applied "
                        "to convergent mapping slot.");
@@ -488,9 +493,8 @@ static int handler_signal(const char *path, const char *types,
                         return 0;
                     }
                     // otherwise try to init reserved/stolen instance with device map
-                    id_map_index = msig_get_instance_with_global_id(sig,
-                                                                    instance_id,
-                                                                    0, &tt);
+                    id_map_index = msig_instance_with_global_id(sig, instance_id,
+                                                                0, &tt);
                     if (id_map_index < 0) {
 #ifdef DEBUG
                         printf("no local instances available for global"
@@ -502,30 +506,31 @@ static int handler_signal(const char *path, const char *types,
                 si = sig->id_maps[id_map_index].instance;
                 id_map = sig->id_maps[id_map_index].map;
             }
-            s->history[si->index].position = ((s->history[si->index].position + 1)
-                                             % s->history[si->index].size);
-            memcpy(mapper_history_value_ptr(s->history[si->index]),
-                   argv[i*count], size * s->props->length);
-            memcpy(mapper_history_tt_ptr(s->history[si->index]),
+            slot->local->history[si->index].position = ((slot->local->history[si->index].position + 1)
+                                                        % slot->local->history[si->index].size);
+            memcpy(mapper_history_value_ptr(slot->local->history[si->index]),
+                   argv[i*count], size * slot->length);
+            memcpy(mapper_history_tt_ptr(slot->local->history[si->index]),
                    &tt, sizeof(mapper_timetag_t));
-            if (s->props->cause_update) {
-                char typestring[map->destination.props->length];
-                mapper_history sources[map->props.num_sources];
-                for (j = 0; j < map->props.num_sources; j++)
-                    sources[j] = &map->sources[j].history[si->index];
-                if (!mapper_expr_evaluate(map->expr, sources, &map->expr_vars[si->index],
-                                          &map->destination.history[si->index], &tt,
-                                          typestring)) {
+            if (slot->cause_update) {
+                char typestring[map->destination.length];
+                mapper_history sources[map->num_sources];
+                for (j = 0; j < map->num_sources; j++)
+                    sources[j] = &map->sources[j].local->history[si->index];
+                if (!mapper_expr_evaluate(map->local->expr, sources,
+                                          &map->local->expr_vars[si->index],
+                                          &map->destination.local->history[si->index],
+                                          &tt, typestring)) {
                     continue;
                 }
                 // TODO: check if expression has triggered instance-release
-                if (mapper_boundary_perform(&map->destination.history[si->index],
-                                            &map->props.destination, typestring)) {
+                if (mapper_boundary_perform(&map->destination.local->history[si->index],
+                                            &map->destination, typestring)) {
                     continue;
                 }
-                void *result = mapper_history_value_ptr(map->destination.history[si->index]);
+                void *result = mapper_history_value_ptr(map->destination.local->history[si->index]);
                 vals = 0;
-                for (j = 0; j < map->destination.props->length; j++) {
+                for (j = 0; j < map->destination.length; j++) {
                     if (typestring[j] == 'N')
                         continue;
                     memcpy(si->value + j * size, result + j * size, size);
@@ -758,7 +763,7 @@ static uint64_t get_unused_signal_id(mapper_device dev)
     uint64_t id;
     while (!done) {
         done = 1;
-        id = mdev_get_unique_id(dev);
+        id = mdev_unique_id(dev);
         // check if input signal exists with this id
         for (i = 0; i < dev->props.num_inputs; i++) {
             if (dev->inputs[i]->props.id == id) {
@@ -787,7 +792,7 @@ mapper_signal mdev_add_input(mapper_device md, const char *name, int length,
                              void *user_data)
 {
     mapper_signal sig;
-    if ((sig = mdev_get_signal_by_name(md, name, 0)))
+    if ((sig = mdev_signal_by_name(md, name, 0)))
         return sig;
     char *signal_get = 0;
     sig = msig_new(name, length, type, DI_INCOMING, unit, minimum, maximum,
@@ -834,7 +839,7 @@ mapper_signal mdev_add_output(mapper_device md, const char *name, int length,
                               void *minimum, void *maximum)
 {
     mapper_signal sig;
-    if ((sig = mdev_get_signal_by_name(md, name, 0)))
+    if ((sig = mdev_signal_by_name(md, name, 0)))
         return sig;
     sig = msig_new(name, length, type, DI_OUTGOING, unit, minimum, maximum, 0, 0);
     if (!sig)
@@ -931,9 +936,9 @@ void mdev_remove_instance_release_request_callback(mapper_device md, mapper_sign
     md->n_output_callbacks --;
 }
 
-static void send_unmap(mapper_admin admin, mapper_map_internal map)
+static void send_unmap(mapper_admin admin, mapper_map map)
 {
-    if (!map->status)
+    if (!map->local->status)
         return;
 
     // TODO: send appropriate messages using mesh
@@ -946,10 +951,10 @@ static void send_unmap(mapper_admin admin, mapper_map_internal map)
 
     char dest_name[1024], source_names[1024];
     int i, len = 0, result;
-    for (i = 0; i < map->props.num_sources; i++) {
+    for (i = 0; i < map->num_sources; i++) {
         result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          map->sources[i].props->signal->device->name,
-                          map->sources[i].props->signal->path);
+                          map->sources[i].signal->device->name,
+                          map->sources[i].signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for /unmap msg");
             lo_message_free(m);
@@ -959,10 +964,10 @@ static void send_unmap(mapper_admin admin, mapper_map_internal map)
         len += result + 1;
     }
     lo_message_add_string(m, "->");
-    snprintf(dest_name, 1024, "%s%s", map->destination.props->signal->device->name,
-             map->destination.props->signal->path);
+    snprintf(dest_name, 1024, "%s%s", map->destination.signal->device->name,
+             map->destination.signal->path);
     lo_message_add_string(m, dest_name);
-    lo_bundle_add_message(admin->bundle, admin_msg_strings[ADM_UNMAP], m);
+    lo_bundle_add_message(admin->bundle, admin_message_strings[ADM_UNMAP], m);
     mapper_admin_send_bundle(admin);
 }
 
@@ -1001,7 +1006,7 @@ void mdev_remove_input(mapper_device md, mapper_signal sig)
         // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_map_internal map = rs->slots[i]->map;
+                mapper_map map = rs->slots[i]->map;
                 send_unmap(md->admin, map);
                 mapper_router_remove_map(md->router, map);
             }
@@ -1051,7 +1056,7 @@ void mdev_remove_output(mapper_device md, mapper_signal sig)
         // need to unmap
         for (i = 0; i < rs->num_slots; i++) {
             if (rs->slots[i]) {
-                mapper_map_internal map = rs->slots[i]->map;
+                mapper_map map = rs->slots[i]->map;
                 send_unmap(md->admin, map);
                 mapper_router_remove_map(md->router, map);
             }
@@ -1103,28 +1108,26 @@ int mdev_num_outgoing_maps(mapper_device md)
     return count;
 }
 
-mapper_signal *mdev_get_inputs(mapper_device md)
+mapper_signal *mdev_inputs(mapper_device md)
 {
     return md->inputs;
 }
 
-mapper_signal *mdev_get_outputs(mapper_device md)
+mapper_signal *mdev_outputs(mapper_device md)
 {
     return md->outputs;
 }
 
-mapper_signal mdev_get_signal_by_name(mapper_device md, const char *name,
-                                      int *index)
+mapper_signal mdev_signal_by_name(mapper_device md, const char *name, int *index)
 {
-    mapper_signal sig = mdev_get_input_by_name(md, name, index);
+    mapper_signal sig = mdev_input_by_name(md, name, index);
     if (sig)
         return sig;
-    sig = mdev_get_output_by_name(md, name, index);
+    sig = mdev_output_by_name(md, name, index);
     return sig;
 }
 
-mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
-                                     int *index)
+mapper_signal mdev_input_by_name(mapper_device md, const char *name, int *index)
 {
     int i, slash;
     if (!name)
@@ -1141,8 +1144,7 @@ mapper_signal mdev_get_input_by_name(mapper_device md, const char *name,
     return 0;
 }
 
-mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
-                                      int *index)
+mapper_signal mdev_output_by_name(mapper_device md, const char *name, int *index)
 {
     int i, slash;
     if (!name)
@@ -1159,14 +1161,14 @@ mapper_signal mdev_get_output_by_name(mapper_device md, const char *name,
     return 0;
 }
 
-mapper_signal mdev_get_input_by_index(mapper_device md, int index)
+mapper_signal mdev_input_by_index(mapper_device md, int index)
 {
     if (index >= 0 && index < md->props.num_inputs)
         return md->inputs[index];
     return 0;
 }
 
-mapper_signal mdev_get_output_by_index(mapper_device md, int index)
+mapper_signal mdev_output_by_index(mapper_device md, int index)
 {
     if (index >= 0 && index < md->props.num_outputs)
         return md->outputs[index];
@@ -1222,7 +1224,7 @@ int mdev_num_fds(mapper_device md)
     return 3;
 }
 
-int mdev_get_fds(mapper_device md, int *fds, int num)
+int mdev_fds(mapper_device md, int *fds, int num)
 {
     if (num > 0)
         fds[0] = lo_server_get_socket_fd(md->admin->bus_server);
@@ -1520,11 +1522,10 @@ void mdev_set_property(mapper_device dev, const char *property,
                                                type, value, length);
 }
 
-int mdev_property_lookup(mapper_device dev, const char *property,
-                         char *type, const void **value, int *length)
+int mdev_property(mapper_device dev, const char *property, char *type,
+                  const void **value, int *length)
 {
-    return mapper_db_device_property_lookup(&dev->props, property,
-                                            type, value, length);
+    return mapper_db_device_property(&dev->props, property, type, value, length);
 }
 
 void mdev_remove_property(mapper_device dev, const char *property)
@@ -1532,7 +1533,7 @@ void mdev_remove_property(mapper_device dev, const char *property)
     table_remove_key(dev->props.extra, property, 1);
 }
 
-lo_server mdev_get_lo_server(mapper_device md)
+lo_server mdev_lo_server(mapper_device md)
 {
     return md->server;
 }
@@ -1549,6 +1550,47 @@ void mdev_set_map_callback(mapper_device dev, mapper_device_map_handler *h,
     dev->map_cb_userdata = user;
 }
 
-uint64_t mdev_get_unique_id(mapper_device dev) {
+uint64_t mdev_unique_id(mapper_device dev) {
     return ++dev->resource_counter | dev->props.id;
+}
+
+void mapper_device_prepare_message(mapper_device dev, lo_message msg)
+{
+    /* device name */
+    lo_message_add_string(msg, mdev_name(dev));
+
+    /* unique id */
+    lo_message_add_string(msg, mapper_param_string(AT_ID));
+    lo_message_add_int64(msg, dev->props.id);
+
+    /* library version */
+    lo_message_add_string(msg, mapper_param_string(AT_LIB_VERSION));
+    lo_message_add_string(msg, PACKAGE_VERSION);
+
+    /* port */
+    lo_message_add_string(msg, mapper_param_string(AT_PORT));
+    lo_message_add_int32(msg, dev->props.port);
+
+    /* number of input signals */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_INPUTS));
+    lo_message_add_int32(msg, mdev_num_inputs(dev));
+
+    /* number of output signals */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_OUTPUTS));
+    lo_message_add_int32(msg, mdev_num_outputs(dev));
+
+    /* number of incoming maps */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_INCOMING_MAPS));
+    lo_message_add_int32(msg, mdev_num_incoming_maps(dev));
+
+    /* number of outgoing maps */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_OUTGOING_MAPS));
+    lo_message_add_int32(msg, mdev_num_outgoing_maps(dev));
+
+    /* device revision */
+    lo_message_add_string(msg, mapper_param_string(AT_REV));
+    lo_message_add_int32(msg, dev->props.version);
+
+    /* "extra" properties */
+    mapper_message_add_value_table(msg, dev->props.extra);
 }

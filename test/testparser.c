@@ -38,7 +38,7 @@ char src_types[3];
 int src_lengths[3], num_sources;
 
 /*! Internal function to get the current time. */
-static double get_current_time()
+static double current_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -206,13 +206,13 @@ int parse_and_eval(int expectation)
     }
     eprintf("OK\n");
 
-    then = get_current_time();
+    then = current_time();
     eprintf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
         mapper_expr_evaluate(e, inh_p, &user_vars_p, &outh, &tt_in, typestring);
     }
-    now = get_current_time();
+    now = current_time();
     eprintf("%g seconds.\n", now-then);
     total_elapsed_time += now-then;
 

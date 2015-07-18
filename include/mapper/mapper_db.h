@@ -50,48 +50,19 @@ typedef struct _mapper_db_device {
     int subscribed;
 } mapper_db_device_t, *mapper_db_device;
 
-/* Bit flags to identify which fields in a mapper_map structure or
- * a mapper_map_slot are valid.  This is only used when specifying
- * map properties via the mmon_map() or mmon_modify_map() functions. */
-
-#define MAP_EXPRESSION              0x0001
-#define MAP_MODE                    0x0002
-#define MAP_MUTED                   0x0004
-#define MAP_NUM_SCOPES              0x0008
-#define MAP_SCOPE_NAMES             0x0018 // need to know num_scopes also
-#define MAP_SCOPE_HASHES            0x0028 // need to know num_scopes also
-
-#define MAP_SLOT_BOUND_MAX          0x0040
-#define MAP_SLOT_BOUND_MIN          0x0080
-#define MAP_SLOT_CALIBRATING        0x0100
-#define MAP_SLOT_CAUSE_UPDATE       0x0200
-#define MAP_SLOT_LENGTH             0x0400
-#define MAP_SLOT_MAX                0x0800
-#define MAP_SLOT_MIN                0x1000
-#define MAP_SLOT_TYPE               0x2000
-#define MAP_SLOT_SEND_AS_INSTANCE   0x4000
-
-// For range info to be known we also need to know data types and lengths
-#define MAP_SLOT_MIN_KNOWN      (MAP_SLOT_MIN | MAP_SLOT_TYPE | MAP_SLOT_LENGTH)
-#define MAP_SLOT_MAX_KNOWN      (MAP_SLOT_MAX | MAP_SLOT_TYPE | MAP_SLOT_LENGTH)
-#define MAP_SLOT_RANGE_KNOWN    (MAP_SLOT_MIN_KNOWN | MAP_SLOT_MAX_KNOWN)
-
 /*! Possible operations for composing db queries. */
-typedef enum _mapper_db_op {
-    OP_UNDEFINED = -1,
-    OP_DOES_NOT_EXIST,
-    OP_EQUAL,
-    OP_EXISTS,
-    OP_GREATER_THAN,
-    OP_GREATER_THAN_OR_EQUAL,
-    OP_LESS_THAN,
-    OP_LESS_THAN_OR_EQUAL,
-    OP_NOT_EQUAL,
-    OP_UNION,
-    OP_INTERSECTION,
-    OP_DIFFERENCE,
-    N_MAPPER_DB_OPS
-} mapper_db_op;
+typedef enum _mapper_db_query_op {
+    QUERY_UNDEFINED = -1,
+    QUERY_DOES_NOT_EXIST,
+    QUERY_EQUAL,
+    QUERY_EXISTS,
+    QUERY_GREATER_THAN,
+    QUERY_GREATER_THAN_OR_EQUAL,
+    QUERY_LESS_THAN,
+    QUERY_LESS_THAN_OR_EQUAL,
+    QUERY_NOT_EQUAL,
+    NUM_MAPPER_DB_QUERY_OPS
+} mapper_db_query_op;
 
 /*! Describes what happens when the range boundaries are exceeded.
  *  @ingroup mapdb */
@@ -102,7 +73,7 @@ typedef enum _mapper_boundary_action {
     BA_CLAMP,   //!< Value is limited to the boundary.
     BA_FOLD,    //!< Value continues in opposite direction.
     BA_WRAP,    //!< Value appears as modulus offset at the opposite boundary.
-    N_MAPPER_BOUNDARY_ACTIONS
+    NUM_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
 /*! Describes the map modes.
@@ -112,8 +83,13 @@ typedef enum _mapper_mode_type {
     MO_RAW,             //!< No type coercion
     MO_LINEAR,          //!< Linear scaling
     MO_EXPRESSION,      //!< Expression
-    N_MAPPER_MODE_TYPES
+    NUM_MAPPER_MODE_TYPES
 } mapper_mode_type;
+
+typedef enum _mapper_location {
+    LOC_SOURCE,
+    LOC_DESTINATION
+} mapper_location;
 
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
@@ -121,7 +97,7 @@ typedef enum _mapper_instance_allocation_type {
     IN_UNDEFINED,       //!< Not yet defined
     IN_STEAL_OLDEST,    //!< Steal the oldest instance
     IN_STEAL_NEWEST,    //!< Steal the newest instance
-    N_MAPPER_INSTANCE_ALLOCATION_TYPES
+    NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
 typedef struct _mapper_map_scope {
@@ -155,45 +131,6 @@ typedef struct _mapper_db_signal {
     char type;              /*! The type of this signal, specified as an OSC type
                              *  character. */
 } mapper_db_signal_t, *mapper_db_signal;
-
-typedef struct _mapper_map_slot {
-    mapper_db_signal signal;
-    void *minimum;                      //!< Array of minima, or NULL for N/A.
-    void *maximum;                      //!< Array of maxima, or NULL for N/A.
-    int slot_id;                        //!< Slot ID
-    int length;
-    int num_instances;
-    int flags;
-    int direction;                      //!< DI_INCOMING or DI_OUTGOING
-    int cause_update;                   //!< 1 to cause update, 0 otherwise.
-    int send_as_instance;               //!< 1 to send as instance, 0 otherwise.
-
-    mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
-    mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
-    int calibrating;                    //!< 1 if calibrating, 0 otherwise
-    char type;
-} mapper_map_slot_t, *mapper_map_slot;
-
-/*! A record that describes the properties of a mapping.
- *  @ingroup mapdb */
-typedef struct _mapper_map {
-    mapper_map_slot sources;
-    mapper_map_slot_t destination;
-    uint64_t id;                        //!< Unique id identifying this map
-
-    struct _mapper_map_scope scope;
-
-    /*! Extra properties associated with this map. */
-    struct _mapper_string_table *extra;
-
-    char *expression;
-
-    mapper_mode_type mode;              //!< MO_LINEAR or MO_EXPRESSION
-    int muted;                          //!< 1 to mute mapping, 0 to unmute
-    int num_sources;
-    int process_location;               //!< 1 for source, 0 for destination
-    int flags;
-} mapper_map_t, *mapper_map;
 
 #ifdef __cplusplus
 }

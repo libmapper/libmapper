@@ -118,12 +118,16 @@ int setup_maps()
     mapper_db_signal all_sources[2] = {msig_properties(sendsig[0][0]), msig_properties(sendsig[1][1])};
 
     mapper_map map = mmon_add_map(mon, 2, all_sources, msig_properties(recvsig));
-    map->mode = MO_EXPRESSION;
-    map->expression = "y=x0+x1";
-    map->flags = MAP_MODE | MAP_EXPRESSION;
-    map->sources[0].cause_update = 1;
-    map->sources[1].cause_update = 0;
-    map->sources[0].flags = map->sources[1].flags = MAP_SLOT_CAUSE_UPDATE;
+    mapper_map_set_mode(map, MO_EXPRESSION);
+
+    // build expression string
+    mapper_slot slot1 = mapper_map_slot_by_signal(map, msig_properties(sendsig[0][0]));
+    mapper_slot slot2 = mapper_map_slot_by_signal(map, msig_properties(sendsig[1][1]));
+    char expr[64];
+    snprintf(expr, 64, "y=x%d-x%d", mapper_slot_index(slot1), mapper_slot_index(slot2));
+    mapper_map_set_expression(map, expr);
+
+    mapper_slot_set_cause_update(slot1, 0);
 
     mmon_update_map(mon, map);
     mmon_free(mon);

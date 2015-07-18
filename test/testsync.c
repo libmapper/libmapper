@@ -67,12 +67,12 @@ void loop()
                 // calculate standard deviation
                 double mean = 0;
                 for (i=0; i<5; i++) {
-                    mean += mapper_timetag_get_double(device_times[i]);
+                    mean += mapper_timetag_double(device_times[i]);
                 }
                 mean /= 5;
                 double difference_aggregate = 0;
                 for (i=0; i<5; i++) {
-                    difference_aggregate += powf(mapper_timetag_get_double(device_times[i]) - mean, 2);
+                    difference_aggregate += powf(mapper_timetag_double(device_times[i]) - mean, 2);
                 }
                 // print current system time and device diffs
                 printf("%f", (double)system_time.sec +

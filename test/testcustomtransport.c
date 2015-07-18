@@ -47,7 +47,7 @@ int listen_socket = -1;
 int tcp_port = 12000;
 
 void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
-                 mapper_map_slot slot, mapper_device_local_action_t action,
+                 mapper_slot slot, mapper_device_local_action_t action,
                  void *user)
 {
     eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
@@ -81,15 +81,14 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_map_property_lookup(map, "transport", &t,
-                                   (const void **)&a_transport, &length)
+    if (mapper_map_property(map, "transport", &t,
+                            (const void **)&a_transport, &length)
         || t != 's' || length != 1)
     {
         eprintf("Couldn't find `transport' property.\n");
         return;
     }
 
-    
     if (strncmp(a_transport, "tcp", 3) != 0) {
         eprintf("Unknown transport property `%s', "
                 "was expecting `tcp'.\n", a_transport);
@@ -98,8 +97,7 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_map_property_lookup(map, "tcpPort", &t,
-                                   (const void **)&a_port, &length)
+    if (mapper_map_property(map, "tcpPort", &t, (const void **)&a_port, &length)
         || t != 'i' || length != 1)
     {
         eprintf("Couldn't make TCP connection, "

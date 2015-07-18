@@ -48,8 +48,8 @@ int test_recv()
     eprintf("Mapper device created.\n");
 
     float mn=0, mx=1;
-    mapper_signal sig = 
-        mdev_add_input(md, "/mapped1", 1, 'f', 0, &mn, &mx, handler, 0);
+    mapper_signal sig = mdev_add_input(md, "/mapped1", 1, 'f', 0,
+                                       &mn, &mx, handler, 0);
 
     eprintf("Input signal /mapped1 registered.\n");
 

@@ -197,7 +197,7 @@ int main(int argc, char ** argv)
     // try combining queries
     mapper::Db::Device::Iterator r = mon.db().devices_by_name_match("my");
     r += mon.db().devices_by_property(mapper::Property("num_inputs", 4),
-                                      OP_GREATER_THAN_OR_EQUAL);
+                                      QUERY_GREATER_THAN_OR_EQUAL);
 //    mapper::Db::Device::Iterator r = q1 + q2;
     for (; r != r.end(); r++) {
         std::cout << "  r device: " << (const char*)(*r) << std::endl;

@@ -10,11 +10,11 @@
 
 #define AUTOSUBSCRIBE_INTERVAL 60
 
-extern const char* prop_msg_strings[N_AT_PARAMS];
-extern const char* admin_msg_strings[N_ADM_STRINGS];
+extern const char* prop_message_strings[NUM_AT_PARAMS];
+extern const char* admin_message_strings[NUM_ADM_STRINGS];
 
 /*! Internal function to get the current time. */
-static double get_current_time()
+static double current_time()
 {
 #ifdef HAVE_GETTIMEOFDAY
     struct timeval tv;
@@ -112,8 +112,8 @@ int mmon_poll(mapper_monitor mon, int block_ms)
     }
 
     if (block_ms) {
-        double then = get_current_time();
-        while ((get_current_time() - then)*1000 < block_ms) {
+        double then = current_time();
+        while ((current_time() - then)*1000 < block_ms) {
             admin_count += mapper_admin_poll(mon->admin);
 #ifdef WIN32
             Sleep(block_ms);
@@ -132,7 +132,7 @@ int mmon_poll(mapper_monitor mon, int block_ms)
     return admin_count;
 }
 
-mapper_db mmon_get_db(mapper_monitor mon)
+mapper_db mmon_db(mapper_monitor mon)
 {
     return &mon->db;
 }
@@ -186,8 +186,7 @@ static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
     }
 }
 
-static mapper_subscription get_subscription(mapper_monitor mon,
-                                            mapper_db_device dev)
+static mapper_subscription subscription(mapper_monitor mon, mapper_db_device dev)
 {
     mapper_subscription s = mon->subscriptions;
     while (s) {
@@ -235,7 +234,7 @@ void mmon_subscribe(mapper_monitor mon, mapper_db_device dev,
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_subscription s = get_subscription(mon, dev);
+        mapper_subscription s = subscription(mon, dev);
 
         if (!s) {
             // store subscription record
@@ -294,42 +293,66 @@ void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev)
 
 void mmon_request_devices(mapper_monitor mon)
 {
+    lo_message msg = lo_message_new();
+    if (!msg) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    mapper_admin_bundle_message(mon->admin, ADM_WHO, 0, "");
+    lo_bundle_add_message(mon->admin->bundle, admin_message_strings[ADM_WHO], 0);
 }
 
-#define prep_varargs(...)    \
-    _real_prep_varargs(__VA_ARGS__, N_AT_PARAMS);
-
-// simple wrapper function for building osc messages
-static void _real_prep_varargs(lo_message m, ...)
+static int alphabetise_signals(int num, mapper_db_signal *sigs, int *order)
 {
-    va_list aq;
-    va_start(aq, m);
-    mapper_msg_prepare_varargs(m, aq);
-    va_end(aq);
+    int i, j, result = 1;
+    for (i = 0; i < num; i++)
+        order[i] = i;
+    for (i = 1; i < num; i++) {
+        j = i-1;
+        while (j >= 0
+               && (((result = strcmp(sigs[order[j]]->device->name,
+                                           sigs[order[j+1]]->device->name)) > 0)
+               || ((result = strcmp(sigs[order[j]]->name,
+                                    sigs[order[j+1]]->name)) > 0))) {
+            int temp = order[j];
+            order[j] = order[j+1];
+            order[j+1] = temp;
+            j--;
+        }
+        if (result == 0)
+            return 1;
+    }
+    return 0;
 }
 
 mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
                         mapper_db_signal *sources,
                         mapper_db_signal destination)
 {
+    int i;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES
         || !sources || !destination)
         return 0;
 
+    // TODO: do not allow "unregistered" signals to be mapped
+
     // check if record of map already exists
-    int i;
     mapper_map *maps, *temp;
-    maps = mapper_db_get_signal_incoming_maps(&mon->db, destination);
+    maps = mapper_db_signal_incoming_maps(&mon->db, destination);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_get_signal_outgoing_maps(&mon->db, sources[i]);
+        temp = mapper_db_signal_outgoing_maps(&mon->db, sources[i]);
         maps = mapper_db_map_query_intersection(maps, temp);
     }
     while (maps) {
         if ((*maps)->num_sources == num_sources)
             return *maps;
         maps = mapper_db_map_query_next(maps);
+    }
+
+    int order[num_sources];
+    if (alphabetise_signals(num_sources, sources, order)) {
+        trace("error in mmon_add_map(): multiple use of source signal.\n");
+        return 0;
     }
 
     // place in map staging area
@@ -340,13 +363,18 @@ mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
         free(mon->staged_map);
     }
     mon->staged_map = (mapper_map) calloc(1, sizeof(struct _mapper_map));
-    mon->staged_map->sources = ((mapper_map_slot)
-                                calloc(1, sizeof(struct _mapper_map_slot)
+    mon->staged_map->sources = ((mapper_slot)
+                                calloc(1, sizeof(struct _mapper_slot)
                                        * num_sources));
     mon->staged_map->num_sources = num_sources;
-    for (i = 0; i < num_sources; i++)
-        mon->staged_map->sources[i].signal = sources[i];
+    for (i = 0; i < num_sources; i++) {
+        mon->staged_map->sources[i].signal = sources[order[i]];
+        mon->staged_map->sources[i].map = mon->staged_map;
+    }
     mon->staged_map->destination.signal = destination;
+    mon->staged_map->destination.map = mon->staged_map;
+    mon->staged_map->extra = table_new();
+    mon->staged_map->updater = table_new();
     return mon->staged_map;
 }
 
@@ -354,6 +382,7 @@ void mmon_update_map(mapper_monitor mon, mapper_map map)
 {
     if (!mon || !map)
         return;
+
     lo_message m = lo_message_new();
     if (!m)
         return;
@@ -373,41 +402,30 @@ void mmon_update_map(mapper_monitor mon, mapper_map map)
              map->destination.signal->path);
     lo_message_add_string(m, dest_name);
 
-    int src_flags = 0;
-    for (i = 0; i < map->num_sources; i++)
-        src_flags |= map->sources[i].flags;
-    mapper_map_slot d = &map->destination;
-
-    if (map->flags || src_flags || d->flags) {
-        prep_varargs(m, map->id ? AT_ID : -1, map,
-            (src_flags & MAP_SLOT_BOUND_MIN) ? AT_SRC_BOUND_MIN : -1, map,
-            (src_flags & MAP_SLOT_BOUND_MAX) ? AT_SRC_BOUND_MAX : -1, map,
-            (d->flags & MAP_SLOT_BOUND_MIN) ? AT_DEST_BOUND_MIN : -1, d->bound_min,
-            (d->flags & MAP_SLOT_BOUND_MAX) ? AT_DEST_BOUND_MAX : -1, d->bound_max,
-            bitmatch(src_flags, MAP_SLOT_MIN_KNOWN) ? AT_SRC_MIN : -1, map,
-            bitmatch(src_flags, MAP_SLOT_MAX_KNOWN) ? AT_SRC_MAX : -1, map,
-            bitmatch(d->flags, MAP_SLOT_MIN_KNOWN) ? AT_DEST_MIN : -1, map,
-            bitmatch(d->flags, MAP_SLOT_MAX_KNOWN) ? AT_DEST_MAX : -1, map,
-            (map->flags & MAP_EXPRESSION) ? AT_EXPRESSION : -1, map->expression,
-            (map->flags & MAP_MODE) ? AT_MODE : -1, map->mode,
-            (map->flags & MAP_MUTED) ? AT_MUTE : -1, map->muted,
-            (src_flags & MAP_SLOT_SEND_AS_INSTANCE) ? AT_SEND_AS_INSTANCE : -1, map,
-            (bitmatch(map->flags, MAP_SCOPE_NAMES)
-             && map->scope.size) ? AT_SCOPE : -1, map->scope.names,
-            (src_flags & MAP_SLOT_CAUSE_UPDATE) ? AT_CAUSE_UPDATE : -1, map);
-    }
+    mapper_message_add_value_table(m, map->updater);
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
     lo_bundle_add_message(mon->admin->bundle,
-                          admin_msg_strings[map->id ? ADM_MODIFY_MAP : ADM_MAP], m);
+                          admin_message_strings[map->id ? ADM_MODIFY_MAP : ADM_MAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_admin_send_bundle(mon->admin);
 
-    for (i = 0; i < map->num_sources; i++)
+    for (i = 0; i < map->num_sources; i++) {
         free((char *)src_names[i]);
+    }
+    table_clear(map->updater);
+
+    if (map == mon->staged_map) {
+        if (map->sources)
+            free(map->sources);
+        table_free(map->updater);
+        table_free(map->extra);
+        free(map);
+        mon->staged_map = 0;
+    }
 }
 
 void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
@@ -436,7 +454,7 @@ void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
 
     // TODO: lookup device ip/ports, send directly?
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle, admin_msg_strings[ADM_UNMAP], m);
+    lo_bundle_add_message(mon->admin->bundle, admin_message_strings[ADM_UNMAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
@@ -458,7 +476,7 @@ void mmon_set_timeout(mapper_monitor mon, int timeout_sec)
     mon->timeout_sec = timeout_sec;
 }
 
-int mmon_get_timeout(mapper_monitor mon)
+int mmon_timeout(mapper_monitor mon)
 {
     return mon->timeout_sec;
 }
@@ -470,7 +488,7 @@ void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
     // flush expired device records
     mapper_db_device dev;
     uint32_t last_ping = mon->admin->clock.now.sec - timeout_sec;
-    while ((dev = mapper_db_get_expired_device(&mon->db, last_ping))) {
+    while ((dev = mapper_db_expired_device(&mon->db, last_ping))) {
         // also need to remove subscriptions
         mapper_subscription *s = &mon->subscriptions;
         while (*s) {

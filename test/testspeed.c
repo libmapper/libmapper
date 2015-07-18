@@ -42,11 +42,11 @@ void switch_modes();
 void print_results();
 
 /*! Internal function to get the current time. */
-static double get_current_time()
+static double current_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0; 
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 /*! Creation of a local source. */
@@ -147,9 +147,8 @@ void map_signals()
 
     mapper_db_signal src = &sendsig->props;
     mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
-    map->expression = "y=y{-1}+1";
-    map->mode = MO_EXPRESSION;
-    map->flags = MAP_MODE | MAP_EXPRESSION;
+    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_expression(map, "y=y{-1}+1");
     mmon_update_map(mon, map);
 
     // wait until mapping has been established
@@ -172,7 +171,7 @@ void switch_modes()
     // possible modes: bypass/expression/calibrate, boundary actions, instances, instance-stealing
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
-    times[mode*numTrials+trial] = get_current_time() - times[mode*numTrials+trial];
+    times[mode*numTrials+trial] = current_time() - times[mode*numTrials+trial];
     if (++trial >= numTrials) {
         eprintf("SWITCHING MODES...\n");
         trial = 0;
@@ -196,7 +195,7 @@ void switch_modes()
             break;
     }
 
-    times[mode*numTrials+trial] = get_current_time();
+    times[mode*numTrials+trial] = current_time();
 }
 
 void print_results()
@@ -265,7 +264,7 @@ int main(int argc, char **argv)
 
     // start things off
     eprintf("STARTING TEST...\n");
-    times[0] = get_current_time();
+    times[0] = current_time();
     msig_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
     while (!done) {
         mdev_poll(destination, 0);
