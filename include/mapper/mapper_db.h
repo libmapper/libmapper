@@ -100,12 +100,6 @@ typedef enum _mapper_instance_allocation_type {
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
-typedef struct _mapper_map_scope {
-    uint32_t *hashes;   //!< Array of map scope hashes.
-    char **names;       //!< Array of map scope names.
-    int size;           //!< The number of map scopes.
-} mapper_map_scope_t, *mapper_map_scope;
-
 /*! A record that describes properties of a signal.
  *  @ingroup signaldb */
 typedef struct _mapper_db_signal {

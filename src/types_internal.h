@@ -284,6 +284,12 @@ typedef struct _mapper_map_internal {
 
 } mapper_map_internal_t, *mapper_map_internal;
 
+typedef struct _mapper_map_scope {
+    uint32_t *hashes;   //!< Array of map scope hashes.
+    char **names;       //!< Array of map scope names.
+    int size;           //!< The number of map scopes.
+} mapper_map_scope_t, *mapper_map_scope;
+
 /*! A record that describes the properties of a mapping.
  *  @ingroup mapdb */
 typedef struct _mapper_map {
